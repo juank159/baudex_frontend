@@ -563,15 +563,14 @@ class AppPages {
       middlewares: [AuthMiddleware()],
     ),
 
-    GetPage(
-      name: AppRoutes.productsStats,
-      page: () => const ProductStatsScreen(),
-      binding: ProductBinding(),
-      transition: Transition.fade,
-      transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
-    ),
-
+    // GetPage(
+    //   name: AppRoutes.productsStats,
+    //   page: () => const ProductStatsScreen(),
+    //   binding: ProductBinding(),
+    //   transition: Transition.fade,
+    //   transitionDuration: const Duration(milliseconds: 300),
+    //   middlewares: [AuthMiddleware()],
+    // ),
     GetPage(
       name: '/products/category/:categoryId',
       page: () => const ProductsListScreen(),

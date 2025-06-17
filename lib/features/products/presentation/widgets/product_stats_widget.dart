@@ -8,10 +8,10 @@ class ProductStatsWidget extends StatelessWidget {
   final bool isCompact;
 
   const ProductStatsWidget({
-    Key? key,
+    super.key,
     required this.stats,
     this.isCompact = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +107,66 @@ class ProductStatsWidget extends StatelessWidget {
     );
   }
 
+  // Widget _buildStatsGrid(BuildContext context) {
+  //   final statsData = [
+  //     _StatData(
+  //       'Total de Productos',
+  //       stats.total.toString(),
+  //       Icons.inventory_2,
+  //       Colors.blue,
+  //     ),
+  //     _StatData(
+  //       'Productos Activos',
+  //       stats.active.toString(),
+  //       Icons.check_circle,
+  //       Colors.green,
+  //     ),
+  //     _StatData(
+  //       'Productos Inactivos',
+  //       stats.inactive.toString(),
+  //       Icons.cancel,
+  //       Colors.grey,
+  //     ),
+  //     _StatData(
+  //       'En Stock',
+  //       stats.inStock.toString(),
+  //       Icons.check,
+  //       Colors.green,
+  //     ),
+  //     _StatData(
+  //       'Stock Bajo',
+  //       stats.lowStock.toString(),
+  //       Icons.warning,
+  //       Colors.orange,
+  //     ),
+  //     _StatData(
+  //       'Sin Stock',
+  //       stats.outOfStock.toString(),
+  //       Icons.error,
+  //       Colors.red,
+  //     ),
+  //   ];
+
+  //   return GridView.builder(
+  //     shrinkWrap: true,
+  //     physics: const NeverScrollableScrollPhysics(),
+  //     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+  //       crossAxisCount: context.isMobile ? 2 : 3,
+  //       childAspectRatio: context.isMobile ? 1.2 : 1.5,
+  //       crossAxisSpacing: 12,
+  //       mainAxisSpacing: 12,
+  //     ),
+  //     itemCount: statsData.length,
+  //     itemBuilder: (context, index) {
+  //       final stat = statsData[index];
+  //       return _buildStatCard(context, stat);
+  //     },
+  //   );
+  // }
+
   Widget _buildStatsGrid(BuildContext context) {
+    final inStock = stats.total - stats.lowStock - stats.outOfStock;
+
     final statsData = [
       _StatData(
         'Total de Productos',
@@ -129,7 +188,7 @@ class ProductStatsWidget extends StatelessWidget {
       ),
       _StatData(
         'En Stock',
-        stats.inStock.toString(),
+        inStock.toString(), // ✅ CORREGIDO: Usar cálculo correcto
         Icons.check,
         Colors.green,
       ),
@@ -137,13 +196,17 @@ class ProductStatsWidget extends StatelessWidget {
         'Stock Bajo',
         stats.lowStock.toString(),
         Icons.warning,
-        Colors.orange,
+        stats.lowStock > 0
+            ? Colors.orange
+            : Colors.grey.shade400, // ✅ Color dinámico
       ),
       _StatData(
         'Sin Stock',
         stats.outOfStock.toString(),
         Icons.error,
-        Colors.red,
+        stats.outOfStock > 0
+            ? Colors.red
+            : Colors.grey.shade400, // ✅ Color dinámico
       ),
     ];
 
@@ -208,13 +271,133 @@ class ProductStatsWidget extends StatelessWidget {
     );
   }
 
+  // Widget _buildStockChart(BuildContext context) {
+  //   final total = stats.inStock + stats.lowStock + stats.outOfStock;
+  //   if (total == 0) return const SizedBox.shrink();
+
+  //   final inStockPercentage = (stats.inStock / total * 100);
+  //   final lowStockPercentage = (stats.lowStock / total * 100);
+  //   final outOfStockPercentage = (stats.outOfStock / total * 100);
+
+  //   return Card(
+  //     elevation: 2,
+  //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  //     child: Padding(
+  //       padding: const EdgeInsets.all(16),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Text(
+  //             'Distribución del Stock',
+  //             style: TextStyle(
+  //               fontSize: 16,
+  //               fontWeight: FontWeight.bold,
+  //               color: Colors.grey.shade800,
+  //             ),
+  //           ),
+  //           const SizedBox(height: 16),
+
+  //           // Barra de progreso visual
+  //           Container(
+  //             height: 20,
+  //             decoration: BoxDecoration(
+  //               borderRadius: BorderRadius.circular(10),
+  //               color: Colors.grey.shade200,
+  //             ),
+  //             child: Row(
+  //               children: [
+  //                 if (inStockPercentage > 0)
+  //                   Expanded(
+  //                     flex: stats.inStock,
+  //                     child: Container(
+  //                       decoration: BoxDecoration(
+  //                         color: Colors.green,
+  //                         borderRadius: BorderRadius.horizontal(
+  //                           left: const Radius.circular(10),
+  //                           right:
+  //                               lowStockPercentage == 0 &&
+  //                                       outOfStockPercentage == 0
+  //                                   ? const Radius.circular(10)
+  //                                   : Radius.zero,
+  //                         ),
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 if (lowStockPercentage > 0)
+  //                   Expanded(
+  //                     flex: stats.lowStock,
+  //                     child: Container(
+  //                       decoration: BoxDecoration(
+  //                         color: Colors.orange,
+  //                         borderRadius: BorderRadius.horizontal(
+  //                           right:
+  //                               outOfStockPercentage == 0
+  //                                   ? const Radius.circular(10)
+  //                                   : Radius.zero,
+  //                         ),
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 if (outOfStockPercentage > 0)
+  //                   Expanded(
+  //                     flex: stats.outOfStock,
+  //                     child: Container(
+  //                       decoration: const BoxDecoration(
+  //                         color: Colors.red,
+  //                         borderRadius: BorderRadius.horizontal(
+  //                           right: Radius.circular(10),
+  //                         ),
+  //                       ),
+  //                     ),
+  //                   ),
+  //               ],
+  //             ),
+  //           ),
+
+  //           const SizedBox(height: 12),
+
+  //           // Leyenda
+  //           Row(
+  //             mainAxisAlignment: MainAxisAlignment.spaceAround,
+  //             children: [
+  //               _buildLegendItem(
+  //                 'En Stock',
+  //                 Colors.green,
+  //                 '${inStockPercentage.toStringAsFixed(1)}%',
+  //               ),
+  //               _buildLegendItem(
+  //                 'Stock Bajo',
+  //                 Colors.orange,
+  //                 '${lowStockPercentage.toStringAsFixed(1)}%',
+  //               ),
+  //               _buildLegendItem(
+  //                 'Sin Stock',
+  //                 Colors.red,
+  //                 '${outOfStockPercentage.toStringAsFixed(1)}%',
+  //               ),
+  //             ],
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+
   Widget _buildStockChart(BuildContext context) {
-    final total = stats.inStock + stats.lowStock + stats.outOfStock;
+    // ✅ CORRECCIÓN: Calcular inStock correctamente
+    final inStock = stats.total - stats.lowStock - stats.outOfStock;
+    final total = stats.total;
+
     if (total == 0) return const SizedBox.shrink();
 
-    final inStockPercentage = (stats.inStock / total * 100);
+    final inStockPercentage = (inStock / total * 100);
     final lowStockPercentage = (stats.lowStock / total * 100);
     final outOfStockPercentage = (stats.outOfStock / total * 100);
+
+    // ✅ AÑADIDO: Debug para verificar cálculos
+    print(
+      '📊 StockChart - Total: $total, InStock: $inStock, LowStock: ${stats.lowStock}, OutOfStock: ${stats.outOfStock}',
+    );
 
     return Card(
       elevation: 2,
@@ -234,86 +417,112 @@ class ProductStatsWidget extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Barra de progreso visual
-            Container(
-              height: 20,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                color: Colors.grey.shade200,
+            // ✅ MEJORADO: Solo mostrar barra si hay productos
+            if (total > 0) ...[
+              // Barra de progreso visual
+              Container(
+                height: 20,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.grey.shade200,
+                ),
+                child: Row(
+                  children: [
+                    if (inStock > 0)
+                      Expanded(
+                        flex: inStock,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            borderRadius: BorderRadius.horizontal(
+                              left: const Radius.circular(10),
+                              right:
+                                  stats.lowStock == 0 && stats.outOfStock == 0
+                                      ? const Radius.circular(10)
+                                      : Radius.zero,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (stats.lowStock > 0)
+                      Expanded(
+                        flex: stats.lowStock,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.orange,
+                            borderRadius: BorderRadius.horizontal(
+                              right:
+                                  stats.outOfStock == 0
+                                      ? const Radius.circular(10)
+                                      : Radius.zero,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (stats.outOfStock > 0)
+                      Expanded(
+                        flex: stats.outOfStock,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.horizontal(
+                              right: Radius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-              child: Row(
+
+              const SizedBox(height: 12),
+
+              // Leyenda con valores absolutos y porcentajes
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  if (inStockPercentage > 0)
-                    Expanded(
-                      flex: stats.inStock,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.horizontal(
-                            left: const Radius.circular(10),
-                            right:
-                                lowStockPercentage == 0 &&
-                                        outOfStockPercentage == 0
-                                    ? const Radius.circular(10)
-                                    : Radius.zero,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (lowStockPercentage > 0)
-                    Expanded(
-                      flex: stats.lowStock,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius: BorderRadius.horizontal(
-                            right:
-                                outOfStockPercentage == 0
-                                    ? const Radius.circular(10)
-                                    : Radius.zero,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (outOfStockPercentage > 0)
-                    Expanded(
-                      flex: stats.outOfStock,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.horizontal(
-                            right: Radius.circular(10),
-                          ),
-                        ),
-                      ),
-                    ),
+                  _buildLegendItem(
+                    'En Stock ($inStock)',
+                    Colors.green,
+                    '${inStockPercentage.toStringAsFixed(1)}%',
+                  ),
+                  _buildLegendItem(
+                    'Stock Bajo (${stats.lowStock})',
+                    Colors.orange,
+                    '${lowStockPercentage.toStringAsFixed(1)}%',
+                  ),
+                  _buildLegendItem(
+                    'Sin Stock (${stats.outOfStock})',
+                    Colors.red,
+                    '${outOfStockPercentage.toStringAsFixed(1)}%',
+                  ),
                 ],
               ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // Leyenda
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildLegendItem(
-                  'En Stock',
-                  Colors.green,
-                  '${inStockPercentage.toStringAsFixed(1)}%',
+            ] else ...[
+              // ✅ AÑADIDO: Estado cuando no hay productos
+              Container(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.inventory_2_outlined,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No hay productos registrados',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                _buildLegendItem(
-                  'Stock Bajo',
-                  Colors.orange,
-                  '${lowStockPercentage.toStringAsFixed(1)}%',
-                ),
-                _buildLegendItem(
-                  'Sin Stock',
-                  Colors.red,
-                  '${outOfStockPercentage.toStringAsFixed(1)}%',
-                ),
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       ),
