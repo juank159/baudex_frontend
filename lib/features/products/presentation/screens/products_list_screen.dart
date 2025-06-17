@@ -1,4 +1,5 @@
 // lib/features/products/presentation/screens/products_list_screen.dart
+import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
@@ -12,7 +13,7 @@ import '../widgets/product_stats_widget.dart';
 import '../../domain/entities/product.dart';
 
 class ProductsListScreen extends GetView<ProductsController> {
-  const ProductsListScreen({Key? key}) : super(key: key);
+  const ProductsListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +32,13 @@ class ProductsListScreen extends GetView<ProductsController> {
     return AppBar(
       title: const Text('Gestión de Productos'),
       elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () {
+          // Navega directamente al dashboard y elimina el historial
+          Get.offAllNamed(AppRoutes.dashboard);
+        },
+      ),
       actions: [
         // Búsqueda rápida en móvil
         if (context.isMobile)

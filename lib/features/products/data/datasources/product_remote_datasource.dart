@@ -275,24 +275,104 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
     }
   }
 
+  // @override
+  // Future<ProductStatsModel> getProductStats() async {
+  //   try {
+  //     final response = await dioClient.get('/products/stats');
+
+  //     if (response.statusCode == 200) {
+  //       final responseData = response.data;
+  //       if (responseData['success'] == true && responseData['data'] != null) {
+  //         return ProductStatsModel.fromJson(responseData['data']);
+  //       } else {
+  //         throw ServerException('Respuesta inválida del servidor');
+  //       }
+  //     } else {
+  //       throw _handleErrorResponse(response);
+  //     }
+  //   } on DioException catch (e) {
+  //     throw _handleDioException(e);
+  //   } catch (e) {
+  //     throw ServerException('Error inesperado al obtener estadísticas: $e');
+  //   }
+  // }
+
+  // ===== SOLUCIÓN FRONTEND: product_remote_datasource.dart =====
+  // Corregir el manejo de la respuesta anidada
+
   @override
   Future<ProductStatsModel> getProductStats() async {
     try {
+      print('🌐 ProductRemoteDataSource: Solicitando estadísticas...');
+
       final response = await dioClient.get('/products/stats');
+
+      print('✅ Response status: ${response.statusCode}');
+      print('📋 Response data: ${response.data}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        if (responseData['success'] == true && responseData['data'] != null) {
-          return ProductStatsModel.fromJson(responseData['data']);
+
+        if (responseData != null && responseData is Map<String, dynamic>) {
+          if (responseData['success'] == true && responseData['data'] != null) {
+            print('🔍 Estructura de respuesta correcta, procesando data...');
+
+            var statsData = responseData['data'];
+
+            // ✅ CORRECCIÓN: Manejar el doble wrapping que puede venir del backend
+            if (statsData is Map<String, dynamic> &&
+                statsData.containsKey('success') &&
+                statsData.containsKey('data') &&
+                statsData['data'] is Map<String, dynamic>) {
+              print(
+                '🔧 Detectado doble wrapping, extrayendo datos anidados...',
+              );
+              statsData = statsData['data'] as Map<String, dynamic>;
+            }
+
+            print('📊 Stats data final: $statsData');
+
+            final model = ProductStatsModel.fromJson(statsData);
+            print('✅ ProductStatsModel creado: $model');
+
+            // Validar que el modelo tiene datos válidos
+            if (!model.isValid) {
+              print('⚠️ Modelo creado pero con datos inválidos');
+              throw ServerException(
+                'Datos de estadísticas inválidos recibidos del servidor',
+              );
+            }
+
+            return model;
+          } else {
+            print('❌ Estructura de respuesta inválida:');
+            print('   - success: ${responseData['success']}');
+            print('   - data: ${responseData['data']}');
+            throw ServerException(
+              'Respuesta inválida del servidor: estructura incorrecta',
+            );
+          }
         } else {
-          throw ServerException('Respuesta inválida del servidor');
+          print(
+            '❌ Response data es null o no es Map: ${responseData.runtimeType}',
+          );
+          throw ServerException(
+            'Respuesta inválida del servidor: data es null o formato incorrecto',
+          );
         }
       } else {
+        print('❌ Status code inesperado: ${response.statusCode}');
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
+      print('❌ DioException en getProductStats: $e');
+      print('   - Type: ${e.type}');
+      print('   - Message: ${e.message}');
+      print('   - Response: ${e.response?.data}');
       throw _handleDioException(e);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ Error inesperado en getProductStats: $e');
+      print('🔍 StackTrace: $stackTrace');
       throw ServerException('Error inesperado al obtener estadísticas: $e');
     }
   }
@@ -321,29 +401,96 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
     }
   }
 
-  // ==================== WRITE OPERATIONS ====================
-
   @override
   Future<ProductModel> createProduct(CreateProductRequestModel request) async {
     try {
+      print('🌐 Enviando petición CREATE PRODUCT...');
+      print('📋 Request data: ${request.toJson()}');
+
       final response = await dioClient.post(
         '/products',
         data: request.toJson(),
       );
 
+      print('✅ Response status: ${response.statusCode}');
+      print('📋 Response data keys: ${response.data?.keys?.toList()}');
+
       if (response.statusCode == 201 || response.statusCode == 200) {
         final responseData = response.data;
-        if (responseData['success'] == true && responseData['data'] != null) {
-          return ProductModel.fromJson(responseData['data']);
+
+        // ✅ CORRECCIÓN: Verificación más robusta de la respuesta
+        if (responseData != null && responseData is Map<String, dynamic>) {
+          if (responseData['success'] == true && responseData['data'] != null) {
+            print('🔍 Procesando data del producto...');
+            final productData = responseData['data'] as Map<String, dynamic>;
+
+            // ✅ CORRECCIÓN: Añadir logs para debug
+            print('📋 Product data keys: ${productData.keys.toList()}');
+
+            // ✅ CORRECCIÓN: Enriquecer datos si faltan campos requeridos
+            final enrichedProductData = Map<String, dynamic>.from(productData);
+
+            // Asegurar que los campos de fecha existan
+            if (!enrichedProductData.containsKey('createdAt') ||
+                enrichedProductData['createdAt'] == null) {
+              enrichedProductData['createdAt'] =
+                  DateTime.now().toIso8601String();
+            }
+            if (!enrichedProductData.containsKey('updatedAt') ||
+                enrichedProductData['updatedAt'] == null) {
+              enrichedProductData['updatedAt'] =
+                  DateTime.now().toIso8601String();
+            }
+
+            // Enriquecer precios con productId si no lo tienen
+            if (enrichedProductData['prices'] != null &&
+                enrichedProductData['prices'] is List) {
+              final prices = enrichedProductData['prices'] as List;
+              for (int i = 0; i < prices.length; i++) {
+                if (prices[i] is Map<String, dynamic>) {
+                  final priceMap = prices[i] as Map<String, dynamic>;
+                  if (!priceMap.containsKey('productId') ||
+                      priceMap['productId'] == null) {
+                    priceMap['productId'] = enrichedProductData['id'];
+                  }
+                  if (!priceMap.containsKey('createdAt') ||
+                      priceMap['createdAt'] == null) {
+                    priceMap['createdAt'] = DateTime.now().toIso8601String();
+                  }
+                  if (!priceMap.containsKey('updatedAt') ||
+                      priceMap['updatedAt'] == null) {
+                    priceMap['updatedAt'] = DateTime.now().toIso8601String();
+                  }
+                }
+              }
+            }
+
+            print('✅ Creando ProductModel...');
+            return ProductModel.fromJson(enrichedProductData);
+          } else {
+            print(
+              '❌ Respuesta inválida: success=${responseData['success']}, data=${responseData['data']}',
+            );
+            throw ServerException(
+              'Respuesta inválida del servidor: estructura incorrecta',
+            );
+          }
         } else {
-          throw ServerException('Respuesta inválida del servidor');
+          print('❌ Response data es null o no es Map');
+          throw ServerException(
+            'Respuesta inválida del servidor: data es null',
+          );
         }
       } else {
+        print('❌ Status code inesperado: ${response.statusCode}');
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
+      print('❌ DioException en createProduct: $e');
       throw _handleDioException(e);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ Error inesperado en createProduct: $e');
+      print('🔍 StackTrace: $stackTrace');
       throw ServerException('Error inesperado al crear producto: $e');
     }
   }

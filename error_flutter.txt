@@ -1,0 +1,453 @@
+I/ImeTracker(32018): com.example.baudex_desktop:71d2ef4d: onRequestShow at ORIGIN_CLIENT_SHOW_SOFT_INPUT reason SHOW_SOFT_INPUT
+I/HandWritingStubImpl(32018): refreshLastKeyboardType: 1
+I/HandWritingStubImpl(32018): getCurrentKeyboardType: 1
+D/InputMethodManager(32018): showSoftInput() view=io.flutter.embedding.android.FlutterView{3f0151f VFE...... .F....ID 0,0-1080,2330 #1 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+W/libc    (32018): Access denied finding property "ro.vendor.display.iris_x7.support"
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InsetsController(32018): show(ime(), fromIme=true)
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: null
+I/flutter (32018):    selectedCategoryName: null
+I/Choreographer(32018): Skipped 51 frames!  The application may be doing too much work on its main thread.
+I/ImeTracker(32018): com.example.baudex_desktop:71d2ef4d: onShown
+W/Looper  (32018): PerfMonitor doFrame : time=11ms vsyncFrame=5446853 latency=575ms procState=-1 historyMsgCount=2
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: null
+I/flutter (32018):    selectedCategoryName: null
+I/Choreographer(32018): Skipped 50 frames!  The application may be doing too much work on its main thread.
+W/Looper  (32018): PerfMonitor doFrame : time=2ms vsyncFrame=5446871 latency=559ms procState=-1 historyMsgCount=1
+I/HandWritingStubImpl(32018): getCurrentKeyboardType: 1
+I/ImeTracker(32018): com.example.baudex_desktop:481ac465: onRequestShow at ORIGIN_CLIENT_SHOW_SOFT_INPUT reason SHOW_SOFT_INPUT
+D/InputMethodManager(32018): showSoftInput() view=io.flutter.embedding.android.FlutterView{3f0151f VFE...... .F...... 0,0-1080,2330 #1 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring off
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InsetsController(32018): show(ime(), fromIme=true)
+I/ImeTracker(32018): com.example.baudex_desktop:481ac465: onCancelled at PHASE_CLIENT_APPLY_ANIMATION
+I/flutter (32018): 🎲 ProductFormController: SKU generado - PAS33308
+I/ScrollIdentify(32018): on fling
+[GETX] GOING TO ROUTE /BarcodeScannerScreen
+I/ImeTracker(32018): com.example.baudex_desktop:60042d35: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring off
+D/TransportRuntime.JobInfoScheduler(32018): Scheduling upload for context TransportContext(cct, VERY_LOW, MSRodHRwczovL2ZpcmViYXNlbG9nZ2luZy5nb29nbGVhcGlzLmNvbS92MGNjL2xvZy9iYXRjaD9mb3JtYXQ9anNvbl9wcm90bzNc) with jobId=1495869376 in 86400000ms(Backend next call timestamp 1750036396262). Attempt 1
+D/CompatibilityChangeReporter(32018): Compat change id reported: 194532703; UID 10340; state: ENABLED
+D/CompatibilityChangeReporter(32018): Compat change id reported: 253665015; UID 10340; state: ENABLED
+I/DynamiteModule(32018): Considering local module com.google.mlkit.dynamite.barcode:10000 and remote module com.google.mlkit.dynamite.barcode:0
+I/DynamiteModule(32018): Selected local version of com.google.mlkit.dynamite.barcode
+D/QuirkSettingsLoader(32018): QuirkSettings$MetadataHolderService is not found.
+D/CameraX (32018): QuirkSettings from app metadata: null
+D/CameraX (32018): QuirkSettings by default: QuirkSettings{enabledWhenDeviceHasQuirk=true, forceEnabledQuirks=[], forceDisabledQuirks=[]}
+I/Choreographer(32018): Skipped 40 frames!  The application may be doing too much work on its main thread.
+W/Looper  (32018): PerfMonitor doFrame : time=10ms vsyncFrame=5447206 latency=443ms procState=-1 historyMsgCount=2 (msgIndex=2 wall=362ms seq=351 late=88ms h=android.os.Handler c=io.flutter.embedding.engine.dart.DartMessenger$$ExternalSyntheticLambda0)
+I/CameraManagerGlobal(32018): Connecting to camera service
+D/CameraExtStub(32018): init android.hardware.camera2.impl.CameraExtImplXiaoMi
+D/CameraInjector(32018): waitForResult:
+D/CameraInjector(32018): updateCloudCameraControllerInfoAsync: E
+D/CameraInjector(32018): isMiviInfo4: use MiviInfo V3.0
+D/CameraInjector(32018): updateCloudCameraControllerInfoAsync: X
+W/libc    (32018): Access denied finding property "vendor.camera.aux.packagelist"
+W/libc    (32018): Access denied finding property "vendor.camera.aux.packagelistext"
+W/CameraExtImplXiaoMi(32018): ignore the status update of camera: 2
+W/CameraX-core_ca(32018): type=1400 audit(0.0:850297): avc:  denied  { read } for  name="u:object_r:vendor_persist_camera_prop:s0" dev="tmpfs" ino=712 scontext=u:r:untrusted_app:s0:c84,c257,c512,c768 tcontext=u:object_r:vendor_persist_camera_prop:s0 tclass=file permissive=0 app=com.example.baudex_desktop
+W/CameraX-core_ca(32018): type=1400 audit(0.0:850298): avc:  denied  { read } for  name="u:object_r:vendor_persist_camera_prop:s0" dev="tmpfs" ino=712 scontext=u:r:untrusted_app:s0:c84,c257,c512,c768 tcontext=u:object_r:vendor_persist_camera_prop:s0 tclass=file permissive=0 app=com.example.baudex_desktop
+D/CameraInjector(32018): updateCloudCameraControllerInfoAsync: has aleardy start update task.
+D/CameraInjector(32018): waitForResult:
+W/libc    (32018): Access denied finding property "vendor.camera.aux.packagelist"
+W/CameraX-core_ca(32018): type=1400 audit(0.0:850299): avc:  denied  { read } for  name="u:object_r:vendor_persist_camera_prop:s0" dev="tmpfs" ino=712 scontext=u:r:untrusted_app:s0:c84,c257,c512,c768 tcontext=u:object_r:vendor_persist_camera_prop:s0 tclass=file permissive=0 app=com.example.baudex_desktop
+W/CameraX-core_ca(32018): type=1400 audit(0.0:850300): avc:  denied  { read } for  name="u:object_r:vendor_persist_camera_prop:s0" dev="tmpfs" ino=712 scontext=u:r:untrusted_app:s0:c84,c257,c512,c768 tcontext=u:object_r:vendor_persist_camera_prop:s0 tclass=file permissive=0 app=com.example.baudex_desktop
+W/libc    (32018): Access denied finding property "vendor.camera.aux.packagelistext"
+D/CameraInjector(32018): updateCloudCameraControllerInfoAsync: has aleardy start update task.
+W/binder:32018_5(32018): type=1400 audit(0.0:850301): avc:  denied  { read } for  name="u:object_r:vendor_persist_camera_prop:s0" dev="tmpfs" ino=712 scontext=u:r:untrusted_app:s0:c84,c257,c512,c768 tcontext=u:object_r:vendor_persist_camera_prop:s0 tclass=file permissive=0 app=com.example.baudex_desktop
+D/CameraInjector(32018): waitForResult:
+W/libc    (32018): Access denied finding property "vendor.camera.aux.packagelist"
+W/binder:32018_5(32018): type=1400 audit(0.0:850302): avc:  denied  { read } for  name="u:object_r:vendor_persist_camera_prop:s0" dev="tmpfs" ino=712 scontext=u:r:untrusted_app:s0:c84,c257,c512,c768 tcontext=u:object_r:vendor_persist_camera_prop:s0 tclass=file permissive=0 app=com.example.baudex_desktop
+W/libc    (32018): Access denied finding property "vendor.camera.aux.packagelistext"
+W/CameraManagerGlobal(32018): ignore the torch status update of camera: 2
+D/TransportRuntime.SQLiteEventStore(32018): Storing event with priority=DEFAULT, name=FIREBASE_ML_SDK for destination cct
+D/TransportRuntime.JobInfoScheduler(32018): Scheduling upload for context TransportContext(cct, DEFAULT, MSRodHRwczovL2ZpcmViYXNlbG9nZ2luZy5nb29nbGVhcGlzLmNvbS92MGNjL2xvZy9iYXRjaD9mb3JtYXQ9anNvbl9wcm90bzNc) with jobId=1490888639 in 30000ms(Backend next call timestamp 1750087890324). Attempt 1
+D/TransportRuntime.SQLiteEventStore(32018): Storing event with priority=VERY_LOW, name=FIREBASE_ML_SDK for destination cct
+W/WindowOnBackDispatcher(32018): sendCancelIfRunning: isInProgress=falsecallback=ImeCallback=ImeOnBackInvokedCallback@185882936 Callback=android.window.IOnBackInvokedCallback$Stub$Proxy@9519988
+D/TransportRuntime.JobInfoScheduler(32018): Upload for context TransportContext(cct, VERY_LOW, MSRodHRwczovL2ZpcmViYXNlbG9nZ2luZy5nb29nbGVhcGlzLmNvbS92MGNjL2xvZy9iYXRjaD9mb3JtYXQ9anNvbl9wcm90bzNc) is already scheduled. Returning...
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/Camera2CameraInfo(32018): Device Level: INFO_SUPPORTED_HARDWARE_LEVEL_3
+I/Camera2CameraInfo(32018): Device Level: INFO_SUPPORTED_HARDWARE_LEVEL_FULL
+I/flutter (32018):    selectedCategoryId: null
+I/flutter (32018):    selectedCategoryName: null
+I/Choreographer(32018): Skipped 40 frames!  The application may be doing too much work on its main thread.
+I/ImeTracker(32018): com.example.baudex_desktop:f9e8f10: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT_BY_INSETS_API
+I/ImeTracker(32018): com.example.baudex_desktop:60042d35: onHidden
+W/Looper  (32018): PerfMonitor doFrame : time=14ms vsyncFrame=5447230 latency=455ms procState=-1 historyMsgCount=3
+D/CompatibilityChangeReporter(32018): Compat change id reported: 236825255; UID 10340; state: ENABLED
+D/BufferQueueConsumer(32018): [](id:7d1200000002,api:0,p:-1,c:32018) connect: controlledByApp=true
+D/BufferQueueConsumer(32018): [](id:7d1200000003,api:0,p:-1,c:32018) connect: controlledByApp=true
+W/EpFrameworkFactory(32018): activated: false jar exist: false
+W/EpFrameworkFactory(32018): activated: false jar exist: false
+D/CameraExtImplXiaoMi(32018): initCameraDevice: 0
+I/CameraManager(32018): Open camera top activityName is com.example.baudex_desktop.MainActivity
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+D/CameraInjector(32018): updateCloudCameraControllerInfoAsync: has aleardy start update task.
+D/CameraInjector(32018): waitForResult:
+W/libc    (32018): Access denied finding property "vendor.camera.aux.packagelist"
+W/libc    (32018): Access denied finding property "vendor.camera.aux.packagelistext"
+W/CameraManagerGlobal(32018): ignore the torch status update of camera: 2
+I/flutter (32018):    selectedCategoryId: null
+I/flutter (32018):    selectedCategoryName: null
+I/Choreographer(32018): Skipped 57 frames!  The application may be doing too much work on its main thread.
+W/Looper  (32018): PerfMonitor doFrame : time=1ms vsyncFrame=5447232 latency=638ms procState=-1 historyMsgCount=7 (msgIndex=7 wall=161ms seq=369 late=406ms h=android.app.ActivityThread$H c=dev.steenbakker.mobile_scanner.MobileScanner$$ExternalSyntheticLambda9)
+D/BufferQueueConsumer(32018): [](id:7d1200000004,api:0,p:-1,c:32018) connect: controlledByApp=true
+D/CameraDevice-JV-0(32018): waitUntilIdle: E. id = 0
+D/CameraDevice-JV-0(32018): waitUntilIdle: X
+I/DMABUFHEAPS(32018): Using DMA-BUF heap named: mtk_mm
+I/DMABUFHEAPS(32018): Using DMA-BUF heap named: mtk_mm-uncached
+I/DMABUFHEAPS(32018): Using DMA-BUF heap named: mtk_svp_region
+I/DMABUFHEAPS(32018): Using DMA-BUF heap named: mtk_prot_region
+I/DMABUFHEAPS(32018): Using DMA-BUF heap named: mtk_2d_fr_region
+I/DMABUFHEAPS(32018): Using DMA-BUF heap named: mtk_wfd_region
+D/nativeloader(32018): Load /data/app/~~CBSUvgXIcpZRlcqznHTutQ==/com.example.baudex_desktop-oiefEjZqDCrkq2s_QY28XA==/lib/arm64/libbarhopper_v3.so using ns clns-4 from class loader (caller=/data/app/~~CBSUvgXIcpZRlcqznHTutQ==/com.example.baudex_desktop-oiefEjZqDCrkq2s_QY28XA==/base.apk): ok
+D/TransportRuntime.SQLiteEventStore(32018): Storing event with priority=VERY_LOW, name=FIREBASE_ML_SDK for destination cct
+D/TransportRuntime.JobInfoScheduler(32018): Upload for context TransportContext(cct, VERY_LOW, MSRodHRwczovL2ZpcmViYXNlbG9nZ2luZy5nb29nbGVhcGlzLmNvbS92MGNjL2xvZy9iYXRjaD9mb3JtYXQ9anNvbl9wcm90bzNc) is already scheduled. Returning...
+I/tflite  (32018): Initialized TensorFlow Lite runtime.
+W/libc    (32018): Access denied finding property "ro.hardware.chipname"
+I/tflite  (32018): Created TensorFlow Lite XNNPACK delegate for CPU.
+I/tflite  (32018): Replacing 43 out of 43 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 1 partitions for the whole graph.
+I/tflite  (32018): Replacing 35 out of 47 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 23 partitions for the whole graph.
+I/native  (32018): I0000 00:00:1750090047.514596    3053 oned_decoder_client.cc:696] barhopper::deep_learning::OnedDecoderClient is created successfully.
+I/.baudex_desktop(32018): NativeAlloc concurrent mark compact GC freed 7847KB AllocSpace bytes, 72(3588KB) LOS objects, 75% free, 6895KB/26MB, paused 721us,8.741ms total 125.816ms
+W/.baudex_desktop(32018): ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~jCPVrqd_QnCskBZ0tXgPDw==/com.google.android.marvin.talkback-ukEXedbdwYlmec9vf8Vf1w==/base.apk' with 1 weak references
+W/.baudex_desktop(32018): ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~jCPVrqd_QnCskBZ0tXgPDw==/com.google.android.marvin.talkback-ukEXedbdwYlmec9vf8Vf1w==/split_config.arm64_v8a.apk' with 1 weak references
+W/.baudex_desktop(32018): ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~bO5zaset5mjEolTfqN91gg==/com.callapp.contacts-WGMjfIJ0qFQq_eOo4vQGUQ==/base.apk' with 1 weak references
+W/.baudex_desktop(32018): ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~bO5zaset5mjEolTfqN91gg==/com.callapp.contacts-WGMjfIJ0qFQq_eOo4vQGUQ==/split_config.arm64_v8a.apk' with 1 weak references
+W/.baudex_desktop(32018): ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~bO5zaset5mjEolTfqN91gg==/com.callapp.contacts-WGMjfIJ0qFQq_eOo4vQGUQ==/split_config.xxhdpi.apk' with 1 weak references
+D/TransportRuntime.SQLiteEventStore(32018): Storing event with priority=VERY_LOW, name=FIREBASE_ML_SDK for destination cct
+D/TransportRuntime.JobInfoScheduler(32018): Upload for context TransportContext(cct, VERY_LOW, MSRodHRwczovL2ZpcmViYXNlbG9nZ2luZy5nb29nbGVhcGlzLmNvbS92MGNjL2xvZy9iYXRjaD9mb3JtYXQ9anNvbl9wcm90bzNc) is already scheduled. Returning...
+D/TransportRuntime.SQLiteEventStore(32018): Storing event with priority=VERY_LOW, name=FIREBASE_ML_SDK for destination cct
+D/TransportRuntime.JobInfoScheduler(32018): Upload for context TransportContext(cct, VERY_LOW, MSRodHRwczovL2ZpcmViYXNlbG9nZ2luZy5nb29nbGVhcGlzLmNvbS92MGNjL2xvZy9iYXRjaD9mb3JtYXQ9anNvbl9wcm90bzNc) is already scheduled. Returning...
+[GETX] CLOSE TO ROUTE /BarcodeScannerScreen
+I/HandWritingStubImpl(32018): getCurrentKeyboardType: 1
+I/ImeTracker(32018): com.example.baudex_desktop:fcf1e9c9: onRequestShow at ORIGIN_CLIENT_SHOW_SOFT_INPUT reason SHOW_SOFT_INPUT
+D/InputMethodManager(32018): showSoftInput() view=io.flutter.embedding.android.FlutterView{3f0151f VFE...... .F...... 0,0-1080,2330 #1 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/BufferQueueConsumer(32018): [ImageReader-1600x1200f22m5-32018-2](id:7d1200000004,api:4,p:1143,c:32018) disconnect
+D/CameraExtImplXiaoMi(32018): releaseCameraDevice: 0
+D/CameraDevice-JV-0(32018): close: E. id = 0
+D/TransportRuntime.SQLiteEventStore(32018): Storing event with priority=VERY_LOW, name=FIREBASE_ML_SDK for destination cct
+E/BufferQueueProducer(32018): [ImageReader-1600x1200f22m5-32018-2](id:7d1200000004,api:4,p:1143,c:32018) queueBuffer: BufferQueue has been abandoned
+D/TransportRuntime.JobInfoScheduler(32018): Upload for context TransportContext(cct, VERY_LOW, MSRodHRwczovL2ZpcmViYXNlbG9nZ2luZy5nb29nbGVhcGlzLmNvbS92MGNjL2xvZy9iYXRjaD9mb3JtYXQ9anNvbl9wcm90bzNc) is already scheduled. Returning...
+E/BufferQueueProducer(32018): [ImageReader-1600x1200f22m5-32018-2](id:7d1200000004,api:4,p:1143,c:32018) cancelBuffer: BufferQueue has been abandoned
+E/BufferQueueProducer(32018): [ImageReader-1600x1200f22m5-32018-2](id:7d1200000004,api:4,p:1143,c:32018) cancelBuffer: BufferQueue has been abandoned
+E/BufferQueueProducer(32018): [ImageReader-1600x1200f22m5-32018-2](id:7d1200000004,api:4,p:1143,c:32018) cancelBuffer: BufferQueue has been abandoned
+E/BufferQueueProducer(32018): [ImageReader-1600x1200f22m5-32018-2](id:7d1200000004,api:4,p:1143,c:32018) cancelBuffer: BufferQueue has been abandoned
+E/BufferQueueProducer(32018): [ImageReader-1600x1200f22m5-32018-2](id:7d1200000004,api:4,p:1143,c:32018) queueBuffer: BufferQueue has been abandoned
+D/InsetsController(32018): show(ime(), fromIme=true)
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+D/CameraInjector(32018): updateCloudCameraControllerInfoAsync: has aleardy start update task.
+D/CameraInjector(32018): waitForResult:
+W/libc    (32018): Access denied finding property "vendor.camera.aux.packagelist"
+W/libc    (32018): Access denied finding property "vendor.camera.aux.packagelistext"
+W/CameraManagerGlobal(32018): ignore the torch status update of camera: 2
+W/BpBinder(32018): Slow Binder: BpBinder transact took 300 ms, interface=android.hardware.camera2.ICameraDeviceUser, code=1 oneway=false
+D/CameraDevice-JV-0(32018): close: X
+W/.baudex_desktop(32018): PerfMonitor async binderTransact :  time=297ms interface=android.hardware.camera2.ICameraDeviceCallbacks code=3
+W/CameraDevice-JV-0(32018): Device error received, code 3, frame number 27, request ID 0, subseq ID 0
+W/CameraDevice-JV-0(32018): Device error received, code 3, frame number 28, request ID 0, subseq ID 0
+W/CameraDevice-JV-0(32018): Device error received, code 3, frame number 29, request ID 0, subseq ID 0
+W/CameraDevice-JV-0(32018): Device error received, code 3, frame number 30, request ID 0, subseq ID 0
+W/CameraDevice-JV-0(32018): Device error received, code 4, frame number 26, request ID 0, subseq ID 0
+I/flutter (32018):    selectedCategoryId: null
+I/flutter (32018):    selectedCategoryName: null
+I/Choreographer(32018): Skipped 47 frames!  The application may be doing too much work on its main thread.
+I/ImeTracker(32018): com.example.baudex_desktop:fcf1e9c9: onShown
+W/Looper  (32018): PerfMonitor doFrame : time=5ms vsyncFrame=5447291 latency=532ms procState=-1 historyMsgCount=2
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: null
+I/flutter (32018):    selectedCategoryName: null
+D/BufferQueueConsumer(32018): [ImageReader-1920x1440f23m4-32018-0](id:7d1200000002,api:0,p:-1,c:32018) disconnect
+D/BufferQueueConsumer(32018): [ImageReader-1920x1440f23m4-32018-1](id:7d1200000003,api:0,p:-1,c:32018) disconnect
+I/flutter (32018): 🔍 CategorySelectorDialog: Cargando categorías...
+I/flutter (32018): 🔧 Query parameters being sent: {page: 1, limit: 100, status: active, onlyParents: true, sortBy: name, sortOrder: ASC}
+I/flutter (32018): 🌐 Usando Server IP: 192.168.0.14
+I/flutter (32018): 🔍 GET Request: http://192.168.0.14:3000/api/categories
+I/ImeTracker(32018): com.example.baudex_desktop:69debebd: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring off
+W/WindowOnBackDispatcher(32018): sendCancelIfRunning: isInProgress=falsecallback=ImeCallback=ImeOnBackInvokedCallback@185882936 Callback=android.window.IOnBackInvokedCallback$Stub$Proxy@6364d06
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: null
+I/flutter (32018):    selectedCategoryName: null
+I/Choreographer(32018): Skipped 41 frames!  The application may be doing too much work on its main thread.
+I/ImeTracker(32018): com.example.baudex_desktop:f9ae5db4: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT_BY_INSETS_API
+I/ImeTracker(32018): com.example.baudex_desktop:69debebd: onHidden
+W/Looper  (32018): PerfMonitor doFrame : time=19ms vsyncFrame=5447366 latency=462ms procState=-1 historyMsgCount=2
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: null
+I/flutter (32018):    selectedCategoryName: null
+I/Choreographer(32018): Skipped 41 frames!  The application may be doing too much work on its main thread.
+W/Looper  (32018): PerfMonitor doFrame : time=1ms vsyncFrame=5447375 latency=460ms procState=-1 historyMsgCount=3
+I/flutter (32018): DIO: *** Request ***
+I/flutter (32018): DIO: uri: http://192.168.0.14:3000/api/categories?page=1&limit=100&status=active&onlyParents=true&sortBy=name&sortOrder=ASC
+I/flutter (32018): DIO: method: GET
+I/flutter (32018): DIO: responseType: ResponseType.json
+I/flutter (32018): DIO: followRedirects: true
+I/flutter (32018): DIO: persistentConnection: true
+I/flutter (32018): DIO: connectTimeout: 0:00:30.000000
+I/flutter (32018): DIO: sendTimeout: 0:00:30.000000
+I/flutter (32018): DIO: receiveTimeout: 0:00:30.000000
+I/flutter (32018): DIO: receiveDataWhenStatusError: true
+I/flutter (32018): DIO: extra: {}
+I/flutter (32018): DIO: headers:
+I/flutter (32018): DIO:  Content-Type: application/json
+I/flutter (32018): DIO:  Accept: application/json
+I/flutter (32018): DIO:  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFlZTA0YWE4LTc0MGItNDZhYy04NDI4LTMzOTUzNDZmZmQzYiIsImlhdCI6MTc1MDA4MDc0OSwiZXhwIjoxNzUwNjg1NTQ5fQ.C3m56Zq93dblPH4-yzc0uBtbHwG9l3silyNkC-uGDrE
+I/flutter (32018): DIO:  X-Requested-With: XMLHttpRequest
+I/flutter (32018): DIO: data:
+I/flutter (32018): DIO: null
+I/flutter (32018): DIO:
+I/flutter (32018): DIO: *** Response ***
+I/flutter (32018): DIO: uri: http://192.168.0.14:3000/api/categories?page=1&limit=100&status=active&onlyParents=true&sortBy=name&sortOrder=ASC
+I/flutter (32018): DIO: Response Text:
+I/flutter (32018): DIO: {"success":true,"data":[{"id":"81cb65ee-78a4-452b-932f-9ea0dba294a5","name":"Electrónica","description":null,"slug":"electronica","image":null,"status":"active","sortOrder":2,"parentId":null,"parent":null,"createdAt":"2025-06-14T10:25:16.220Z","updatedAt":"2025-06-14T10:25:16.220Z","isActive":true,"level":0},{"id":"8b6c3f4e-682b-4d45-9586-60ed2b8cd163","name":"Embutidos","description":null,"slug":"embutidos","image":null,"status":"active","sortOrder":3,"parentId":null,"parent":null,"createdAt":"2025-06-14T10:48:25.352Z","updatedAt":"2025-06-14T10:48:25.352Z","isActive":true,"level":0},{"id":"5b3bd7a5-25ad-449b-b7b5-abf5d5982c76","name":"Lacteos","description":null,"slug":"lacteos","image":null,"status":"active","sortOrder":1,"parentId":null,"parent":null,"createdAt":"2025-06-14T10:20:19.964Z","updatedAt":"2025-06-14T10:20:19.964Z","isActive":true,"level":0}],"meta":{"page":1,"limit":100,"totalItems":3,"totalPages":1,"hasNextPage":false,"hasPreviousPage":false},"timestamp":"2025-06-16T16:07:32.109Z"}
+I/flutter (32018): DIO:
+I/flutter (32018): ✅ GET Success: 200
+I/flutter (32018): 🏗️ CategoryModel.fromJson processing: Electrónica
+I/flutter (32018):    Available fields: [id, name, description, slug, image, status, sortOrder, parentId, parent, createdAt, updatedAt, isActive, level]
+I/flutter (32018): 🏗️ CategoryModel.fromJson processing: Embutidos
+I/flutter (32018):    Available fields: [id, name, description, slug, image, status, sortOrder, parentId, parent, createdAt, updatedAt, isActive, level]
+I/flutter (32018): 🏗️ CategoryModel.fromJson processing: Lacteos
+I/flutter (32018):    Available fields: [id, name, description, slug, image, status, sortOrder, parentId, parent, createdAt, updatedAt, isActive, level]
+I/flutter (32018): ✅ CategorySelectorDialog: 3 categorías cargadas
+I/flutter (32018):   Categoría 0: Electrónica (81cb65ee-78a4-452b-932f-9ea0dba294a5)
+I/flutter (32018):   Categoría 1: Embutidos (8b6c3f4e-682b-4d45-9586-60ed2b8cd163)
+I/flutter (32018):   Categoría 2: Lacteos (5b3bd7a5-25ad-449b-b7b5-abf5d5982c76)
+I/flutter (32018): 🎯 CategorySelectorDialog: Categoría seleccionada: Lacteos
+I/flutter (32018): ✅ CategorySelectorDialog: Confirmando selección: Lacteos
+I/flutter (32018): 🎯 Categoría seleccionada: Lacteos (5b3bd7a5-25ad-449b-b7b5-abf5d5982c76)
+I/flutter (32018): 📂 ProductFormController: Categoría seleccionada - Lacteos (5b3bd7a5-25ad-449b-b7b5-abf5d5982c76)
+I/HandWritingStubImpl(32018): getCurrentKeyboardType: 1
+I/ImeTracker(32018): com.example.baudex_desktop:79b7e925: onRequestShow at ORIGIN_CLIENT_SHOW_SOFT_INPUT reason SHOW_SOFT_INPUT
+D/InputMethodManager(32018): showSoftInput() view=io.flutter.embedding.android.FlutterView{3f0151f VFE...... .F...... 0,0-1080,2330 #1 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InsetsController(32018): show(ime(), fromIme=true)
+W/RenderInspector(32018): QueueBuffer time out on com.example.baudex_desktop/com.example.baudex_desktop.MainActivity, count=1, avg=11 ms, max=11 ms.
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76
+I/flutter (32018):    selectedCategoryName: Lacteos
+I/Choreographer(32018): Skipped 45 frames!  The application may be doing too much work on its main thread.
+I/ImeTracker(32018): com.example.baudex_desktop:79b7e925: onShown
+W/Looper  (32018): PerfMonitor doFrame : time=7ms vsyncFrame=5447486 latency=507ms procState=-1 historyMsgCount=2
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76
+I/flutter (32018):    selectedCategoryName: Lacteos
+I/ScrollIdentify(32018): on fling
+I/HandWritingStubImpl(32018): getCurrentKeyboardType: 1
+I/ImeTracker(32018): com.example.baudex_desktop:83de6271: onRequestShow at ORIGIN_CLIENT_SHOW_SOFT_INPUT reason SHOW_SOFT_INPUT
+D/InputMethodManager(32018): showSoftInput() view=io.flutter.embedding.android.FlutterView{3f0151f VFE...... .F...... 0,0-1080,2330 #1 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring off
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InsetsController(32018): show(ime(), fromIme=true)
+I/ImeTracker(32018): com.example.baudex_desktop:83de6271: onCancelled at PHASE_CLIENT_APPLY_ANIMATION
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76
+I/flutter (32018):    selectedCategoryName: Lacteos
+I/HandWritingStubImpl(32018): getCurrentKeyboardType: 1
+I/ImeTracker(32018): com.example.baudex_desktop:180383ee: onRequestShow at ORIGIN_CLIENT_SHOW_SOFT_INPUT reason SHOW_SOFT_INPUT
+D/InputMethodManager(32018): showSoftInput() view=io.flutter.embedding.android.FlutterView{3f0151f VFE...... .F...... 0,0-1080,2330 #1 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring off
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InsetsController(32018): show(ime(), fromIme=true)
+I/ImeTracker(32018): com.example.baudex_desktop:180383ee: onCancelled at PHASE_CLIENT_APPLY_ANIMATION
+I/ScrollIdentify(32018): on fling
+I/ScrollIdentify(32018): on fling
+[GETX] OPEN DIALOG 1041387207
+I/ImeTracker(32018): com.example.baudex_desktop:436cb941: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring off
+W/WindowOnBackDispatcher(32018): sendCancelIfRunning: isInProgress=falsecallback=ImeCallback=ImeOnBackInvokedCallback@185882936 Callback=android.window.IOnBackInvokedCallback$Stub$Proxy@c097789
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76
+I/flutter (32018):    selectedCategoryName: Lacteos
+I/ImeTracker(32018): com.example.baudex_desktop:97d78452: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT_BY_INSETS_API
+I/ImeTracker(32018): com.example.baudex_desktop:436cb941: onHidden
+W/Looper  (32018): PerfMonitor doFrame : time=11ms vsyncFrame=5447753 latency=310ms procState=-1 historyMsgCount=2
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76
+I/flutter (32018):    selectedCategoryName: Lacteos
+I/HandWritingStubImpl(32018): getCurrentKeyboardType: 1
+I/ImeTracker(32018): com.example.baudex_desktop:14039161: onRequestShow at ORIGIN_CLIENT_SHOW_SOFT_INPUT reason SHOW_SOFT_INPUT
+D/InputMethodManager(32018): showSoftInput() view=io.flutter.embedding.android.FlutterView{3f0151f VFE...... .F...... 0,0-1080,2330 #1 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+I/AssistStructure(32018): Flattened final assist data: 396 bytes, containing 1 windows, 3 views
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InsetsController(32018): show(ime(), fromIme=true)
+W/RenderInspector(32018): DequeueBuffer time out on com.example.baudex_desktop/com.example.baudex_desktop.MainActivity, count=1, avg=15 ms, max=15 ms.
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76
+I/flutter (32018):    selectedCategoryName: Lacteos
+I/Choreographer(32018): Skipped 32 frames!  The application may be doing too much work on its main thread.
+I/ImeTracker(32018): com.example.baudex_desktop:14039161: onShown
+W/Looper  (32018): PerfMonitor doFrame : time=10ms vsyncFrame=5447796 latency=356ms procState=-1 historyMsgCount=1
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76
+I/flutter (32018):    selectedCategoryName: Lacteos
+I/Choreographer(32018): Skipped 30 frames!  The application may be doing too much work on its main thread.
+W/Looper  (32018): PerfMonitor doFrame : time=2ms vsyncFrame=5447816 latency=343ms procState=-1 historyMsgCount=2
+[GETX] CLOSE DIALOG 1041387207
+I/HandWritingStubImpl(32018): getCurrentKeyboardType: 1
+I/ImeTracker(32018): com.example.baudex_desktop:3c807a69: onRequestShow at ORIGIN_CLIENT_SHOW_SOFT_INPUT reason SHOW_SOFT_INPUT
+D/InputMethodManager(32018): showSoftInput() view=io.flutter.embedding.android.FlutterView{3f0151f VFE...... .F...... 0,0-1080,2330 #1 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring off
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring on
+D/InsetsController(32018): show(ime(), fromIme=true)
+I/ImeTracker(32018): com.example.baudex_desktop:3c807a69: onCancelled at PHASE_CLIENT_APPLY_ANIMATION
+D/MIUIInput(32018): [KeyEvent] ViewRootImpl windowName 'com.example.baudex_desktop/com.example.baudex_desktop.MainActivity', KeyEvent { action=ACTION_DOWN, keyCode=KEYCODE_BACK, scanCode=0, metaState=0, flags=0x48, repeatCount=0, eventTime=233860009000000, downTime=233860009000000, deviceId=-1, source=0x101, displayId=0 }, phoneEventTime=11:07:57.156
+D/MIUIInput(32018): [KeyEvent] ViewRootImpl windowName 'com.example.baudex_desktop/com.example.baudex_desktop.MainActivity', KeyEvent { action=ACTION_UP, keyCode=KEYCODE_BACK, scanCode=0, metaState=0, flags=0x48, repeatCount=0, eventTime=233860058000000, downTime=233860009000000, deviceId=-1, source=0x101, displayId=0 }, phoneEventTime=11:07:57.206
+D/InputConnectionAdaptor(32018): The input method toggled cursor monitoring off
+W/WindowOnBackDispatcher(32018): sendCancelIfRunning: isInProgress=falsecallback=ImeCallback=ImeOnBackInvokedCallback@185882936 Callback=android.window.IOnBackInvokedCallback$Stub$Proxy@98061bb
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76
+I/flutter (32018):    selectedCategoryName: Lacteos
+I/Choreographer(32018): Skipped 32 frames!  The application may be doing too much work on its main thread.
+I/ImeTracker(32018): com.example.baudex_desktop:a47b9afa: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT_BY_INSETS_API
+I/ImeTracker(32018): com.example.baudex_desktop:305ce34e: onHidden
+W/Looper  (32018): PerfMonitor doFrame : time=21ms vsyncFrame=5447894 latency=359ms procState=-1 historyMsgCount=1
+I/flutter (32018): 🖼️ ProductFormScreen: Construyendo pantalla...
+I/flutter (32018): DEBUG: context.isMobile es: true
+I/flutter (32018): 🔄 ProductFormScreen: Reconstruyendo body - isLoading: false
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018): 🔧 ProductFormScreen: Construyendo selector de categorías
+I/flutter (32018):    selectedCategoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76
+I/flutter (32018):    selectedCategoryName: Lacteos
+I/flutter (32018): 💾 ProductFormController: Iniciando guardado de producto...
+I/flutter (32018): ✅ ProductFormController: Validación exitosa
+I/flutter (32018): 🆕 ProductFormController: Creando nuevo producto...
+I/flutter (32018): 🌐 Usando Server IP: 192.168.0.14
+I/flutter (32018): 📤 POST Request: http://192.168.0.14:3000/api/products
+I/flutter (32018): 📋 POST Data: {name: pasta, sku: PAS33308, categoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76, barcode: 7702113037791, type: product, status: active, stock: 12.0, minStock: 3.0, unit: pcs, prices: [{type: price1, amount: 3900.0, name: Precio al público, currency: COP}, {type: price2, amount: 3600.0, name: Precio mayorista, currency: COP}, {type: price3, amount: 3450.0, name: Precio distribuidor, currency: COP}, {type: cost, amount: 3000.0, name: Precio de costo, currency: COP}]}
+I/flutter (32018): DIO: *** Request ***
+I/flutter (32018): DIO: uri: http://192.168.0.14:3000/api/products
+I/flutter (32018): DIO: method: POST
+I/flutter (32018): DIO: responseType: ResponseType.json
+I/flutter (32018): DIO: followRedirects: true
+I/flutter (32018): DIO: persistentConnection: true
+I/flutter (32018): DIO: connectTimeout: 0:00:30.000000
+I/flutter (32018): DIO: sendTimeout: 0:00:30.000000
+I/flutter (32018): DIO: receiveTimeout: 0:00:30.000000
+I/flutter (32018): DIO: receiveDataWhenStatusError: true
+I/flutter (32018): DIO: extra: {}
+I/flutter (32018): DIO: headers:
+I/flutter (32018): DIO:  Content-Type: application/json
+I/flutter (32018): DIO:  Accept: application/json
+I/flutter (32018): DIO:  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFlZTA0YWE4LTc0MGItNDZhYy04NDI4LTMzOTUzNDZmZmQzYiIsImlhdCI6MTc1MDA4MDc0OSwiZXhwIjoxNzUwNjg1NTQ5fQ.C3m56Zq93dblPH4-yzc0uBtbHwG9l3silyNkC-uGDrE
+I/flutter (32018): DIO:  X-Requested-With: XMLHttpRequest
+I/flutter (32018): DIO: data:
+I/flutter (32018): DIO: {name: pasta, sku: PAS33308, categoryId: 5b3bd7a5-25ad-449b-b7b5-abf5d5982c76, barcode: 7702113037791, type: product, status: active, stock: 12.0, minStock: 3.0, unit: pcs, prices: [{type: price1, amount: 3900.0, name: Precio al público, currency: COP}, {type: price2, amount: 3600.0, name: Precio mayorista, currency: COP}, {type: price3, amount: 3450.0, name: Precio distribuidor, currency: COP}, {type: cost, amount: 3000.0, name: Precio de costo, currency: COP}]}
+I/flutter (32018): DIO:
+I/flutter (32018): DIO: *** DioException ***:
+I/flutter (32018): DIO: uri: http://192.168.0.14:3000/api/products
+I/flutter (32018): DIO: DioException [bad response]: This exception was thrown because the response has a status code of 400 and RequestOptions.validateStatus was configured to throw for this status code.
+I/flutter (32018): The status code of 400 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled"
+I/flutter (32018): Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+I/flutter (32018): In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.
+I/flutter (32018): DIO: uri: http://192.168.0.14:3000/api/products
+I/flutter (32018): DIO: Response Text:
+I/flutter (32018): DIO: {"statusCode":400,"timestamp":"2025-06-16T16:08:00.540Z","path":"/api/products","method":"POST","message":"Falló la creación del producto","error":"Bad Request"}
+I/flutter (32018): DIO: 
+I/flutter (32018): DIO:
+I/flutter (32018): ❌ POST Error: DioExceptionType.badResponse - This exception was thrown because the response has a status code of 400 and RequestOptions.validateStatus was configured to throw for this status code.
+I/flutter (32018): The status code of 400 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled"
+I/flutter (32018): Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+I/flutter (32018): In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.
+I/flutter (32018): 🚨 DioError Details:
+I/flutter (32018):    Type: DioExceptionType.badResponse
+I/flutter (32018):    Message: This exception was thrown because the response has a status code of 400 and RequestOptions.validateStatus was configured to throw for this status code.
+I/flutter (32018): The status code of 400 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled"
+I/flutter (32018): Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+I/flutter (32018): In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.
+I/flutter (32018):    Response: {statusCode: 400, timestamp: 2025-06-16T16:08:00.540Z, path: /api/products, method: POST, message: Falló la creación del producto, error: Bad Request}
+I/flutter (32018):    Status Code: 400
+I/flutter (32018): ❌ ProductFormController: Error al crear producto - Error inesperado al crear producto: Exception: Solicitud incorrecta: Falló la creación del producto
+I/flutter (32018): 🏁 ProductFormController: Guardado finalizado
+D/TransportRuntime.CctTransportBackend(32018): Making request to: https://firebaselogging.googleapis.com/v0cc/log/batch?format=json_proto3
+I/TransportRuntime.CctTransportBackend(32018): Status Code: 200
+I/TransportRuntime.CctTransportBackend(32018): Content-Type: application/json; charset=UTF-8
+I/TransportRuntime.CctTransportBackend(32018): Content-Encoding: gzip

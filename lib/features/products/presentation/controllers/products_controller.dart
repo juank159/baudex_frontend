@@ -269,22 +269,118 @@ class ProductsController extends GetxController {
   }
 
   /// Cargar estadísticas
+  // Future<void> loadStats() async {
+  //   try {
+  //     final result = await _getProductStatsUseCase(const NoParams());
+
+  //     result.fold(
+  //       (failure) {
+  //         print('Error al cargar estadísticas: ${failure.message}');
+  //       },
+  //       (stats) {
+  //         _stats.value = stats;
+  //       },
+  //     );
+  //   } catch (e) {
+  //     print('Error inesperado al cargar estadísticas: $e');
+  //   }
+  // }
+
   Future<void> loadStats() async {
+    print('📊 ProductsController: Iniciando carga de estadísticas...');
+
     try {
       final result = await _getProductStatsUseCase(const NoParams());
 
       result.fold(
         (failure) {
-          print('Error al cargar estadísticas: ${failure.message}');
+          print(
+            '❌ ProductsController: Error al cargar estadísticas - ${failure.message}',
+          );
+
+          // ✅ MEJORADO: Mostrar error al usuario en lugar de solo imprimir
+          _showError(
+            'Error al cargar estadísticas',
+            failure.message,
+            duration: const Duration(seconds: 2), // Menos intrusivo
+          );
+
+          // ✅ MEJORADO: Mantener estadísticas vacías pero válidas
+          _stats.value = const ProductStats(
+            total: 0,
+            active: 0,
+            inactive: 0,
+            outOfStock: 0,
+            lowStock: 0,
+            activePercentage: 0.0,
+            totalValue: 0.0,
+            averagePrice: 0.0,
+          );
         },
         (stats) {
-          _stats.value = stats;
+          print('✅ ProductsController: Estadísticas cargadas exitosamente');
+          print(
+            '📊 Stats: total=${stats.total}, active=${stats.active}, lowStock=${stats.lowStock}',
+          );
+
+          // ✅ MEJORADO: Validar estadísticas antes de asignar
+          if (stats.total >= 0 && stats.active >= 0) {
+            _stats.value = stats;
+            print('✅ Estadísticas asignadas al observable');
+          } else {
+            print(
+              '⚠️ Estadísticas recibidas con valores negativos, usando valores por defecto',
+            );
+            _stats.value = const ProductStats(
+              total: 0,
+              active: 0,
+              inactive: 0,
+              outOfStock: 0,
+              lowStock: 0,
+              activePercentage: 0.0,
+              totalValue: 0.0,
+              averagePrice: 0.0,
+            );
+          }
         },
       );
-    } catch (e) {
-      print('Error inesperado al cargar estadísticas: $e');
+    } catch (e, stackTrace) {
+      print(
+        '💥 ProductsController: Error inesperado al cargar estadísticas - $e',
+      );
+      print('🔍 StackTrace: $stackTrace');
+
+      // ✅ MEJORADO: Mostrar error detallado en desarrollo
+      _showError(
+        'Error inesperado',
+        'No se pudieron cargar las estadísticas: ${e.toString()}',
+      );
+
+      // Asegurar que stats tenga un valor válido
+      _stats.value = const ProductStats(
+        total: 0,
+        active: 0,
+        inactive: 0,
+        outOfStock: 0,
+        lowStock: 0,
+        activePercentage: 0.0,
+        totalValue: 0.0,
+        averagePrice: 0.0,
+      );
     }
+
+    print('🏁 ProductsController: Carga de estadísticas finalizada');
   }
+
+  Future<void> refreshStats() async {
+    print('🔄 ProductsController: Refrescando estadísticas...');
+    await loadStats();
+  }
+
+  /// ✅ AÑADIDO: Método para verificar si las estadísticas están cargadas
+  bool get hasValidStats => _stats.value != null && _stats.value!.total >= 0;
+
+  /// ✅ MEJORADO: Mostrar mensaje de error con duración personalizable
 
   /// Cargar productos con stock bajo
   Future<void> loadLowStockProducts() async {
@@ -495,7 +591,19 @@ class ProductsController extends GetxController {
   }
 
   /// Mostrar mensaje de error
-  void _showError(String title, String message) {
+  // void _showError(String title, String message) {
+  //   Get.snackbar(
+  //     title,
+  //     message,
+  //     snackPosition: SnackPosition.TOP,
+  //     backgroundColor: Colors.red.shade100,
+  //     colorText: Colors.red.shade800,
+  //     icon: const Icon(Icons.error, color: Colors.red),
+  //     duration: const Duration(seconds: 4),
+  //   );
+  // }
+
+  void _showError(String title, String message, {Duration? duration}) {
     Get.snackbar(
       title,
       message,
@@ -503,7 +611,9 @@ class ProductsController extends GetxController {
       backgroundColor: Colors.red.shade100,
       colorText: Colors.red.shade800,
       icon: const Icon(Icons.error, color: Colors.red),
-      duration: const Duration(seconds: 4),
+      duration: duration ?? const Duration(seconds: 4),
+      margin: const EdgeInsets.all(16),
+      borderRadius: 8,
     );
   }
 

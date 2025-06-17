@@ -63,7 +63,7 @@ class CustomTextField extends StatelessWidget {
             suffixIcon:
                 suffixIcon != null
                     ? IconButton(
-                      icon: Icon(suffixIcon),
+                      icon: Icon(suffixIcon, color: Colors.blueAccent),
                       onPressed: onSuffixIconPressed,
                     )
                     : null,
