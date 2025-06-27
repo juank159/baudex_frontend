@@ -380,6 +380,50 @@ class ApiConstants {
   static String reduceStockForSale(String id) =>
       '$productsBase/$id/reduce-stock';
 
+  // ==================== CUSTOMERS ENDPOINTS ====================
+
+  static const String customersBase = '/customers';
+
+  // Public endpoints
+  static const String customers = customersBase;
+  static const String customersSearch = '$customersBase/search';
+  static const String customersStats = '$customersBase/stats';
+  static const String customersWithOverdue = '$customersBase/with-overdue';
+  static const String customersTopCustomers = '$customersBase/top-customers';
+  static const String customersStatsWithInvoices =
+      '$customersBase/stats-with-invoices';
+
+  // Individual customer endpoints
+  static String customerById(String id) => '$customersBase/$id';
+  static String customerByEmail(String email) => '$customersBase/email/$email';
+  static String customerByDocument(
+    String documentType,
+    String documentNumber,
+  ) => '$customersBase/document/$documentType/$documentNumber';
+  static String customerWithInvoices(String id) =>
+      '$customersBase/$id/with-invoices';
+  static String customerInvoices(String id) => '$customersBase/$id/invoices';
+  static String customerFinancialSummary(String id) =>
+      '$customersBase/$id/financial-summary';
+
+  // Customer management endpoints
+  static String updateCustomerStatus(String id) => '$customersBase/$id/status';
+  static String deleteCustomer(String id) => '$customersBase/$id';
+  static String restoreCustomer(String id) => '$customersBase/$id/restore';
+  static String updateCustomerStats(String id) =>
+      '$customersBase/$id/update-stats';
+
+  // Business logic endpoints
+  static String canMakePurchase(String id) => '$customersBase/$id/can-purchase';
+
+  // Validation endpoints
+  static const String checkCustomerEmail = '$customersBase/check-email';
+  static const String checkCustomerDocument = '$customersBase/check-document';
+
+  // Cache Keys para customers
+  static const String customersCacheKey = 'customers_cache';
+  static const String customerStatsCacheKey = 'customer_stats_cache';
+
   // ==================== MÉTODOS DE UTILIDAD ====================
 
   /// Validar que todas las URLs estén correctamente configuradas

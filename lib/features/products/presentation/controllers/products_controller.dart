@@ -113,12 +113,20 @@ class ProductsController extends GetxController {
 
   // ==================== LIFECYCLE ====================
 
+  // @override
+  // void onInit() {
+  //   super.onInit();
+  //   _setupScrollListener();
+  //   loadProducts();
+  //   loadStats();
+  // }
+
   @override
   void onInit() {
     super.onInit();
     _setupScrollListener();
-    loadProducts();
-    loadStats();
+    // ✅ OPTIMIZACIÓN: Una sola llamada que carga todo
+    loadInitialData();
   }
 
   @override
@@ -130,10 +138,28 @@ class ProductsController extends GetxController {
 
   // ==================== PUBLIC METHODS ====================
 
-  /// Cargar productos
-  Future<void> loadProducts({bool showLoading = true}) async {
-    if (showLoading) _isLoading.value = true;
+  Future<void> loadInitialData() async {
+    print('🚀 ProductsController: Iniciando carga inicial unificada...');
 
+    _isLoading.value = true;
+
+    try {
+      // ✅ OPTIMIZACIÓN: Ejecutar ambas operaciones en paralelo
+      final results = await Future.wait([
+        _loadProductsInternal(),
+        _loadStatsInternal(),
+      ]);
+
+      print('✅ Carga inicial completada exitosamente');
+    } catch (e) {
+      print('❌ Error en carga inicial: $e');
+      _showError('Error de carga', 'No se pudo cargar la información inicial');
+    } finally {
+      _isLoading.value = false;
+    }
+  }
+
+  Future<void> _loadProductsInternal() async {
     try {
       final result = await _getProductsUseCase(
         GetProductsParams(
@@ -155,16 +181,135 @@ class ProductsController extends GetxController {
 
       result.fold(
         (failure) {
-          _showError('Error al cargar productos', failure.message);
+          print('❌ Error al cargar productos: ${failure.message}');
           _products.clear();
         },
         (paginatedResult) {
           _products.value = paginatedResult.data;
           _updatePaginationInfo(paginatedResult.meta);
+          print('✅ Productos cargados: ${paginatedResult.data.length}');
         },
       );
+    } catch (e) {
+      print('❌ Error inesperado cargando productos: $e');
+      _products.clear();
+    }
+  }
+
+  Future<void> _loadStatsInternal() async {
+    try {
+      print('📊 Cargando estadísticas...');
+
+      final result = await _getProductStatsUseCase(const NoParams());
+
+      result.fold(
+        (failure) {
+          print('❌ Error al cargar estadísticas: ${failure.message}');
+
+          // Solo mostrar error crítico si no hay estadísticas previas
+          if (_stats.value == null) {
+            _stats.value = const ProductStats(
+              total: 0,
+              active: 0,
+              inactive: 0,
+              outOfStock: 0,
+              lowStock: 0,
+              activePercentage: 0.0,
+              totalValue: 0.0,
+              averagePrice: 0.0,
+            );
+          }
+        },
+        (stats) {
+          print('✅ Estadísticas cargadas: $stats');
+
+          if (stats.total >= 0 && stats.active >= 0) {
+            _stats.value = stats;
+
+            // ✅ OPTIMIZACIÓN: Solo verificar consistencia si hay productos con stock bajo
+            if (stats.lowStock > 0) {
+              print('🔍 Detectados ${stats.lowStock} productos con stock bajo');
+              // NO hacer verificación adicional aquí para evitar consultas extra
+            }
+          } else {
+            print('⚠️ Estadísticas con valores inválidos');
+            if (_stats.value == null) {
+              _stats.value = const ProductStats(
+                total: 0,
+                active: 0,
+                inactive: 0,
+                outOfStock: 0,
+                lowStock: 0,
+                activePercentage: 0.0,
+                totalValue: 0.0,
+                averagePrice: 0.0,
+              );
+            }
+          }
+        },
+      );
+    } catch (e) {
+      print('❌ Error inesperado cargando estadísticas: $e');
+      if (_stats.value == null) {
+        _stats.value = const ProductStats(
+          total: 0,
+          active: 0,
+          inactive: 0,
+          outOfStock: 0,
+          lowStock: 0,
+          activePercentage: 0.0,
+          totalValue: 0.0,
+          averagePrice: 0.0,
+        );
+      }
+    }
+  }
+
+  /// Cargar productos
+  // Future<void> loadProducts({bool showLoading = true}) async {
+  //   if (showLoading) _isLoading.value = true;
+
+  //   try {
+  //     final result = await _getProductsUseCase(
+  //       GetProductsParams(
+  //         page: 1,
+  //         limit: _pageSize,
+  //         search: _searchTerm.value.isEmpty ? null : _searchTerm.value,
+  //         status: _currentStatus.value,
+  //         type: _currentType.value,
+  //         categoryId: _selectedCategoryId.value,
+  //         inStock: _inStock.value,
+  //         lowStock: _lowStock.value,
+  //         minPrice: _minPrice.value,
+  //         maxPrice: _maxPrice.value,
+  //         priceType: _priceType.value,
+  //         sortBy: _sortBy.value,
+  //         sortOrder: _sortOrder.value,
+  //       ),
+  //     );
+
+  //     result.fold(
+  //       (failure) {
+  //         _showError('Error al cargar productos', failure.message);
+  //         _products.clear();
+  //       },
+  //       (paginatedResult) {
+  //         _products.value = paginatedResult.data;
+  //         _updatePaginationInfo(paginatedResult.meta);
+  //       },
+  //     );
+  //   } finally {
+  //     _isLoading.value = false;
+  //   }
+  // }
+
+  Future<void> loadProducts({bool showLoading = true}) async {
+    if (showLoading) _isLoading.value = true;
+
+    try {
+      await _loadProductsInternal();
     } finally {
-      _isLoading.value = false;
+      if (showLoading) _isLoading.value = false;
     }
   }
 
@@ -208,10 +353,21 @@ class ProductsController extends GetxController {
   }
 
   /// Refrescar productos
+  // Future<void> refreshProducts() async {
+  //   _currentPage.value = 1;
+  //   await loadProducts(showLoading: false);
+  //   await loadStats();
+  // }
+
   Future<void> refreshProducts() async {
+    print('🔄 ProductsController: Refrescando datos...');
+
     _currentPage.value = 1;
-    await loadProducts(showLoading: false);
-    await loadStats();
+
+    // ✅ OPTIMIZACIÓN: Recargar productos y estadísticas en paralelo
+    await Future.wait([_loadProductsInternal(), _loadStatsInternal()]);
+
+    print('✅ Datos refrescados exitosamente');
   }
 
   /// Buscar productos
@@ -280,39 +436,19 @@ class ProductsController extends GetxController {
   //           '❌ ProductsController: Error al cargar estadísticas - ${failure.message}',
   //         );
 
-  //         // ✅ MEJORADO: Mostrar error al usuario en lugar de solo imprimir
-  //         _showError(
-  //           'Error al cargar estadísticas',
-  //           failure.message,
-  //           duration: const Duration(seconds: 2), // Menos intrusivo
-  //         );
-
-  //         // ✅ MEJORADO: Mantener estadísticas vacías pero válidas
-  //         _stats.value = const ProductStats(
-  //           total: 0,
-  //           active: 0,
-  //           inactive: 0,
-  //           outOfStock: 0,
-  //           lowStock: 0,
-  //           activePercentage: 0.0,
-  //           totalValue: 0.0,
-  //           averagePrice: 0.0,
-  //         );
-  //       },
-  //       (stats) {
-  //         print('✅ ProductsController: Estadísticas cargadas exitosamente');
-  //         print(
-  //           '📊 Stats: total=${stats.total}, active=${stats.active}, lowStock=${stats.lowStock}',
-  //         );
-
-  //         // ✅ MEJORADO: Validar estadísticas antes de asignar
-  //         if (stats.total >= 0 && stats.active >= 0) {
-  //           _stats.value = stats;
-  //           print('✅ Estadísticas asignadas al observable');
-  //         } else {
-  //           print(
-  //             '⚠️ Estadísticas recibidas con valores negativos, usando valores por defecto',
+  //         // ✅ MEJORADO: Solo mostrar error si no hay estadísticas previas
+  //         if (_stats.value == null) {
+  //           _showError(
+  //             'Error al cargar estadísticas',
+  //             failure.message,
+  //             duration: const Duration(seconds: 3),
   //           );
+  //         } else {
+  //           print('⚠️ Manteniendo estadísticas anteriores debido al error');
+  //         }
+
+  //         // ✅ MEJORADO: Solo resetear si no hay estadísticas previas
+  //         if (_stats.value == null) {
   //           _stats.value = const ProductStats(
   //             total: 0,
   //             active: 0,
@@ -325,6 +461,46 @@ class ProductsController extends GetxController {
   //           );
   //         }
   //       },
+  //       (stats) {
+  //         print('✅ ProductsController: Estadísticas cargadas exitosamente');
+  //         print(
+  //           '📊 Stats: total=${stats.total}, active=${stats.active}, lowStock=${stats.lowStock}',
+  //         );
+
+  //         // ✅ MEJORADO: Validación y logs más detallados
+  //         if (stats.total >= 0 && stats.active >= 0) {
+  //           _stats.value = stats;
+  //           print('✅ Estadísticas asignadas al observable');
+
+  //           // ✅ AÑADIDO: Debug adicional para stock bajo
+  //           if (stats.lowStock > 0) {
+  //             print('🔍 Detectados ${stats.lowStock} productos con stock bajo');
+
+  //             // ✅ OPCIONAL: Cargar productos con stock bajo para verificar
+  //             _verifyLowStockProducts();
+  //           } else {
+  //             print('✅ No hay productos con stock bajo');
+  //           }
+  //         } else {
+  //           print(
+  //             '⚠️ Estadísticas recibidas con valores negativos: total=${stats.total}, active=${stats.active}',
+  //           );
+
+  //           // ✅ MANTENER estadísticas anteriores si las nuevas son inválidas
+  //           if (_stats.value == null) {
+  //             _stats.value = const ProductStats(
+  //               total: 0,
+  //               active: 0,
+  //               inactive: 0,
+  //               outOfStock: 0,
+  //               lowStock: 0,
+  //               activePercentage: 0.0,
+  //               totalValue: 0.0,
+  //               averagePrice: 0.0,
+  //             );
+  //           }
+  //         }
+  //       },
   //     );
   //   } catch (e, stackTrace) {
   //     print(
@@ -332,133 +508,31 @@ class ProductsController extends GetxController {
   //     );
   //     print('🔍 StackTrace: $stackTrace');
 
-  //     // ✅ MEJORADO: Mostrar error detallado en desarrollo
-  //     _showError(
-  //       'Error inesperado',
-  //       'No se pudieron cargar las estadísticas: ${e.toString()}',
-  //     );
+  //     // ✅ MEJORADO: Solo mostrar error si es crítico
+  //     if (_stats.value == null) {
+  //       _showError(
+  //         'Error inesperado',
+  //         'No se pudieron cargar las estadísticas: ${e.toString()}',
+  //       );
 
-  //     // Asegurar que stats tenga un valor válido
-  //     _stats.value = const ProductStats(
-  //       total: 0,
-  //       active: 0,
-  //       inactive: 0,
-  //       outOfStock: 0,
-  //       lowStock: 0,
-  //       activePercentage: 0.0,
-  //       totalValue: 0.0,
-  //       averagePrice: 0.0,
-  //     );
+  //       _stats.value = const ProductStats(
+  //         total: 0,
+  //         active: 0,
+  //         inactive: 0,
+  //         outOfStock: 0,
+  //         lowStock: 0,
+  //         activePercentage: 0.0,
+  //         totalValue: 0.0,
+  //         averagePrice: 0.0,
+  //       );
+  //     }
   //   }
 
   //   print('🏁 ProductsController: Carga de estadísticas finalizada');
   // }
 
   Future<void> loadStats() async {
-    print('📊 ProductsController: Iniciando carga de estadísticas...');
-
-    try {
-      final result = await _getProductStatsUseCase(const NoParams());
-
-      result.fold(
-        (failure) {
-          print(
-            '❌ ProductsController: Error al cargar estadísticas - ${failure.message}',
-          );
-
-          // ✅ MEJORADO: Solo mostrar error si no hay estadísticas previas
-          if (_stats.value == null) {
-            _showError(
-              'Error al cargar estadísticas',
-              failure.message,
-              duration: const Duration(seconds: 3),
-            );
-          } else {
-            print('⚠️ Manteniendo estadísticas anteriores debido al error');
-          }
-
-          // ✅ MEJORADO: Solo resetear si no hay estadísticas previas
-          if (_stats.value == null) {
-            _stats.value = const ProductStats(
-              total: 0,
-              active: 0,
-              inactive: 0,
-              outOfStock: 0,
-              lowStock: 0,
-              activePercentage: 0.0,
-              totalValue: 0.0,
-              averagePrice: 0.0,
-            );
-          }
-        },
-        (stats) {
-          print('✅ ProductsController: Estadísticas cargadas exitosamente');
-          print(
-            '📊 Stats: total=${stats.total}, active=${stats.active}, lowStock=${stats.lowStock}',
-          );
-
-          // ✅ MEJORADO: Validación y logs más detallados
-          if (stats.total >= 0 && stats.active >= 0) {
-            _stats.value = stats;
-            print('✅ Estadísticas asignadas al observable');
-
-            // ✅ AÑADIDO: Debug adicional para stock bajo
-            if (stats.lowStock > 0) {
-              print('🔍 Detectados ${stats.lowStock} productos con stock bajo');
-
-              // ✅ OPCIONAL: Cargar productos con stock bajo para verificar
-              _verifyLowStockProducts();
-            } else {
-              print('✅ No hay productos con stock bajo');
-            }
-          } else {
-            print(
-              '⚠️ Estadísticas recibidas con valores negativos: total=${stats.total}, active=${stats.active}',
-            );
-
-            // ✅ MANTENER estadísticas anteriores si las nuevas son inválidas
-            if (_stats.value == null) {
-              _stats.value = const ProductStats(
-                total: 0,
-                active: 0,
-                inactive: 0,
-                outOfStock: 0,
-                lowStock: 0,
-                activePercentage: 0.0,
-                totalValue: 0.0,
-                averagePrice: 0.0,
-              );
-            }
-          }
-        },
-      );
-    } catch (e, stackTrace) {
-      print(
-        '💥 ProductsController: Error inesperado al cargar estadísticas - $e',
-      );
-      print('🔍 StackTrace: $stackTrace');
-
-      // ✅ MEJORADO: Solo mostrar error si es crítico
-      if (_stats.value == null) {
-        _showError(
-          'Error inesperado',
-          'No se pudieron cargar las estadísticas: ${e.toString()}',
-        );
-
-        _stats.value = const ProductStats(
-          total: 0,
-          active: 0,
-          inactive: 0,
-          outOfStock: 0,
-          lowStock: 0,
-          activePercentage: 0.0,
-          totalValue: 0.0,
-          averagePrice: 0.0,
-        );
-      }
-    }
-
-    print('🏁 ProductsController: Carga de estadísticas finalizada');
+    await _loadStatsInternal();
   }
 
   Future<void> _verifyLowStockProducts() async {
@@ -502,18 +576,62 @@ class ProductsController extends GetxController {
     }
   }
 
+  Future<void> verifyLowStockConsistency() async {
+    if (_stats.value == null || _stats.value!.lowStock == 0) {
+      print('ℹ️ No hay productos con stock bajo según estadísticas');
+      return;
+    }
+
+    try {
+      print('🔍 Verificando consistencia de productos con stock bajo...');
+
+      final result = await _getLowStockProductsUseCase(const NoParams());
+
+      result.fold(
+        (failure) {
+          print(
+            '❌ Error al verificar productos con stock bajo: ${failure.message}',
+          );
+        },
+        (products) {
+          print('📋 Productos con stock bajo verificados: ${products.length}');
+
+          final statsLowStock = _stats.value?.lowStock ?? 0;
+          if (products.length != statsLowStock) {
+            print(
+              '⚠️ INCONSISTENCIA: Stats=${statsLowStock}, Productos encontrados=${products.length}',
+            );
+
+            // Actualizar estadísticas con el valor correcto
+            if (_stats.value != null) {
+              _stats.value = _stats.value!.copyWith(lowStock: products.length);
+              print('🔄 Estadísticas corregidas: lowStock=${products.length}');
+            }
+          } else {
+            print('✅ Consistencia verificada correctamente');
+          }
+        },
+      );
+    } catch (e) {
+      print('❌ Error inesperado al verificar consistencia: $e');
+    }
+  }
+
+  // Future<void> refreshStats() async {
+  //   print('🔄 ProductsController: Refrescando estadísticas...');
+  //   await loadStats();
+  // }
+
   Future<void> refreshStats() async {
-    print('🔄 ProductsController: Refrescando estadísticas...');
-    await loadStats();
+    print('🔄 ProductsController: Refrescando solo estadísticas...');
+    await _loadStatsInternal();
   }
 
   /// ✅ AÑADIDO: Método para verificar si las estadísticas están cargadas
   bool get hasValidStats => _stats.value != null && _stats.value!.total >= 0;
 
-  /// ✅ MEJORADO: Mostrar mensaje de error con duración personalizable
-
-  /// Cargar productos con stock bajo
   // Future<void> loadLowStockProducts() async {
+  //   print('📋 ProductsController: Cargando productos con stock bajo...');
   //   _isLoading.value = true;
 
   //   try {
@@ -521,19 +639,41 @@ class ProductsController extends GetxController {
 
   //     result.fold(
   //       (failure) {
+  //         print(
+  //           '❌ Error al cargar productos con stock bajo: ${failure.message}',
+  //         );
   //         _showError(
   //           'Error al cargar productos con stock bajo',
   //           failure.message,
   //         );
   //       },
   //       (products) {
+  //         print('✅ Productos con stock bajo cargados: ${products.length}');
+
   //         _products.value = products;
+
   //         // Actualizar meta para mostrar resultados
   //         _currentPage.value = 1;
   //         _totalItems.value = products.length;
   //         _totalPages.value = 1;
   //         _hasNextPage.value = false;
   //         _hasPreviousPage.value = false;
+
+  //         // ✅ AÑADIDO: Mensaje informativo
+  //         if (products.isNotEmpty) {
+  //           _showSuccess(
+  //             'Se encontraron ${products.length} productos con stock bajo',
+  //           );
+  //         } else {
+  //           _showSuccess('¡Excelente! No hay productos con stock bajo');
+  //         }
+
+  //         // ✅ AÑADIDO: Debug de productos encontrados
+  //         for (final product in products) {
+  //           print(
+  //             '   - ${product.name}: stock=${product.stock}, minStock=${product.minStock}',
+  //           );
+  //         }
   //       },
   //     );
   //   } finally {
@@ -570,20 +710,13 @@ class ProductsController extends GetxController {
           _hasNextPage.value = false;
           _hasPreviousPage.value = false;
 
-          // ✅ AÑADIDO: Mensaje informativo
+          // ✅ MENSAJE MÁS INFORMATIVO
           if (products.isNotEmpty) {
             _showSuccess(
               'Se encontraron ${products.length} productos con stock bajo',
             );
           } else {
             _showSuccess('¡Excelente! No hay productos con stock bajo');
-          }
-
-          // ✅ AÑADIDO: Debug de productos encontrados
-          for (final product in products) {
-            print(
-              '   - ${product.name}: stock=${product.stock}, minStock=${product.minStock}',
-            );
           }
         },
       );

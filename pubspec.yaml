@@ -47,6 +47,12 @@ dependencies:
   flutter_dotenv: ^5.1.0 # Para leer archivos .env
   package_info_plus: ^8.0.3
   mobile_scanner: ^7.0.1 # Para escanear códigos QR y de barras
+  printing: ^5.14.2 # Para imprimir documentos y generar PDFs
+  pdf: ^3.11.3 # Para crear PDFs
+  share_plus: ^11.0.0 # Para compartir contenido
+  path_provider: ^2.1.5 # Para acceder a rutas de almacenamiento
+  google_fonts: ^6.2.1 # Para usar fuentes de Google Fonts
+  fl_chart: ^0.68.0 # Para gráficos y visualizaciones
 
 dev_dependencies:
   flutter_test:

@@ -28,6 +28,139 @@ class ProductsListScreen extends GetView<ProductsController> {
     );
   }
 
+  // PreferredSizeWidget _buildAppBar(BuildContext context) {
+  //   return AppBar(
+  //     title: const Text('Gestión de Productos'),
+  //     elevation: 0,
+  //     leading: IconButton(
+  //       icon: const Icon(Icons.arrow_back),
+  //       onPressed: () {
+  //         // Navega directamente al dashboard y elimina el historial
+  //         Get.offAllNamed(AppRoutes.dashboard);
+  //       },
+  //     ),
+  //     actions: [
+  //       // Búsqueda rápida en móvil
+  //       if (context.isMobile)
+  //         IconButton(
+  //           icon: const Icon(Icons.search),
+  //           onPressed: () => _showMobileSearch(context),
+  //         ),
+
+  //       // Filtros
+  //       IconButton(
+  //         icon: const Icon(Icons.filter_list),
+  //         onPressed: () => _showFilters(context),
+  //       ),
+
+  //       // Stock bajo
+  //       IconButton(
+  //         icon: Stack(
+  //           children: [
+  //             const Icon(Icons.warning_outlined),
+  //             Positioned(
+  //               right: 0,
+  //               top: 0,
+  //               child: Obx(() {
+  //                 final lowStockCount = controller.stats?.lowStock ?? 0;
+  //                 if (lowStockCount > 0) {
+  //                   return Container(
+  //                     padding: const EdgeInsets.all(2),
+  //                     decoration: BoxDecoration(
+  //                       color: Colors.red,
+  //                       borderRadius: BorderRadius.circular(6),
+  //                     ),
+  //                     constraints: const BoxConstraints(
+  //                       minWidth: 12,
+  //                       minHeight: 12,
+  //                     ),
+  //                     child: Text(
+  //                       '$lowStockCount',
+  //                       style: const TextStyle(
+  //                         color: Colors.white,
+  //                         fontSize: 8,
+  //                       ),
+  //                       textAlign: TextAlign.center,
+  //                     ),
+  //                   );
+  //                 }
+  //                 return const SizedBox.shrink();
+  //               }),
+  //             ),
+  //           ],
+  //         ),
+  //         onPressed: controller.loadLowStockProducts,
+  //         tooltip: 'Productos con stock bajo',
+  //       ),
+
+  //       // Refrescar
+  //       IconButton(
+  //         icon: const Icon(Icons.refresh),
+  //         onPressed: controller.refreshProducts,
+  //       ),
+
+  //       // Menú de opciones
+  //       PopupMenuButton<String>(
+  //         onSelected: (value) => _handleMenuAction(value, context),
+  //         itemBuilder:
+  //             (context) => [
+  //               const PopupMenuItem(
+  //                 value: 'stats',
+  //                 child: Row(
+  //                   children: [
+  //                     Icon(Icons.analytics),
+  //                     SizedBox(width: 8),
+  //                     Text('Estadísticas'),
+  //                   ],
+  //                 ),
+  //               ),
+  //               const PopupMenuItem(
+  //                 value: 'low_stock',
+  //                 child: Row(
+  //                   children: [
+  //                     Icon(Icons.warning, color: Colors.orange),
+  //                     SizedBox(width: 8),
+  //                     Text('Stock Bajo'),
+  //                   ],
+  //                 ),
+  //               ),
+  //               const PopupMenuItem(
+  //                 value: 'out_of_stock',
+  //                 child: Row(
+  //                   children: [
+  //                     Icon(Icons.error, color: Colors.red),
+  //                     SizedBox(width: 8),
+  //                     Text('Sin Stock'),
+  //                   ],
+  //                 ),
+  //               ),
+  //               const PopupMenuDivider(),
+  //               const PopupMenuItem(
+  //                 value: 'export',
+  //                 child: Row(
+  //                   children: [
+  //                     Icon(Icons.download),
+  //                     SizedBox(width: 8),
+  //                     Text('Exportar'),
+  //                   ],
+  //                 ),
+  //               ),
+  //               const PopupMenuItem(
+  //                 value: 'import',
+  //                 child: Row(
+  //                   children: [
+  //                     Icon(Icons.upload),
+  //                     SizedBox(width: 8),
+  //                     Text('Importar'),
+  //                   ],
+  //                 ),
+  //               ),
+  //             ],
+  //       ),
+  //     ],
+  //   );
+  // }
+
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       title: const Text('Gestión de Productos'),
@@ -35,7 +168,6 @@ class ProductsListScreen extends GetView<ProductsController> {
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () {
-          // Navega directamente al dashboard y elimina el historial
           Get.offAllNamed(AppRoutes.dashboard);
         },
       ),
@@ -53,45 +185,66 @@ class ProductsListScreen extends GetView<ProductsController> {
           onPressed: () => _showFilters(context),
         ),
 
-        // Stock bajo
-        IconButton(
-          icon: Stack(
-            children: [
-              const Icon(Icons.warning_outlined),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Obx(() {
-                  final lowStockCount = controller.stats?.lowStock ?? 0;
-                  if (lowStockCount > 0) {
-                    return Container(
+        // ✅ OPTIMIZADO: Stock bajo con mejor indicador
+        Obx(() {
+          final lowStockCount = controller.stats?.lowStock ?? 0;
+
+          return IconButton(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  Icons.warning_outlined,
+                  color: lowStockCount > 0 ? Colors.orange : null,
+                ),
+                if (lowStockCount > 0)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       constraints: const BoxConstraints(
-                        minWidth: 12,
-                        minHeight: 12,
+                        minWidth: 16,
+                        minHeight: 16,
                       ),
                       child: Text(
                         '$lowStockCount',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 8,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
                         textAlign: TextAlign.center,
                       ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                }),
-              ),
-            ],
-          ),
-          onPressed: controller.loadLowStockProducts,
-          tooltip: 'Productos con stock bajo',
-        ),
+                    ),
+                  ),
+              ],
+            ),
+            onPressed: () {
+              if (lowStockCount > 0) {
+                controller.loadLowStockProducts();
+              } else {
+                Get.snackbar(
+                  'Sin alertas',
+                  'No hay productos con stock bajo',
+                  snackPosition: SnackPosition.TOP,
+                  backgroundColor: Colors.green.shade100,
+                  colorText: Colors.green.shade800,
+                  icon: const Icon(Icons.check_circle, color: Colors.green),
+                  duration: const Duration(seconds: 2),
+                );
+              }
+            },
+            tooltip:
+                lowStockCount > 0
+                    ? 'Ver $lowStockCount productos con stock bajo'
+                    : 'No hay productos con stock bajo',
+          );
+        }),
 
         // Refrescar
         IconButton(
@@ -99,38 +252,122 @@ class ProductsListScreen extends GetView<ProductsController> {
           onPressed: controller.refreshProducts,
         ),
 
-        // Menú de opciones
+        // ✅ OPTIMIZADO: Menú con información de estado
         PopupMenuButton<String>(
           onSelected: (value) => _handleMenuAction(value, context),
           itemBuilder:
               (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'stats',
                   child: Row(
                     children: [
-                      Icon(Icons.analytics),
-                      SizedBox(width: 8),
-                      Text('Estadísticas'),
+                      const Icon(Icons.analytics),
+                      const SizedBox(width: 8),
+                      const Text('Estadísticas'),
+                      const Spacer(),
+                      Obx(() {
+                        final total = controller.stats?.total ?? 0;
+                        return Text(
+                          '($total)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'low_stock',
                   child: Row(
                     children: [
-                      Icon(Icons.warning, color: Colors.orange),
-                      SizedBox(width: 8),
-                      Text('Stock Bajo'),
+                      const Icon(Icons.warning, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      const Text('Stock Bajo'),
+                      const Spacer(),
+                      Obx(() {
+                        final lowStock = controller.stats?.lowStock ?? 0;
+                        return Text(
+                          '($lowStock)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color:
+                                lowStock > 0
+                                    ? Colors.orange
+                                    : Colors.grey.shade600,
+                            fontWeight:
+                                lowStock > 0
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
-                  value: 'out_of_stock',
+
+                // PopupMenuItem(
+                //   value: 'out_of_stock',
+                //   child: Row(
+                //     children: [
+                //       const Icon(Icons.error, color: Colors.red),
+                //       const SizedBox(width: 8),
+                //       const Text('Sin Stock'),
+                //       const Spacer(),
+                //       Obx(() {
+                //         final outOfStock = controller.stats?.outOfStock ?? 0;
+                //         return Text(
+                //           '($outOfStock)',
+                //           style: TextStyle(
+                //             fontSize: 12,
+                //             color:
+                //                 outOfStock > 0
+                //                     ? Colors.red
+                //                     : Colors.grey.shade600,
+                //             fontWeight:
+                //                 outOfStock > 0
+                //                     ? FontWeight.bold
+                //                     : FontWeight.normal,
+                //           ),
+                //         );
+                //       }),
+                //     ],
+                //   ),
+                // ),
+                PopupMenuItem(
+                  value:
+                      'out_of_stock', // ✅ CAMBIO: usar 'out_of_stock' en lugar de 'low_stock'
                   child: Row(
                     children: [
-                      Icon(Icons.error, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Sin Stock'),
+                      const Icon(
+                        Icons.error,
+                        color: Colors.red,
+                      ), // ✅ CAMBIO: ícono rojo para sin stock
+                      const SizedBox(width: 8),
+                      const Text('Sin Stock'), // ✅ CAMBIO: texto correcto
+                      const Spacer(),
+                      Obx(() {
+                        final outOfStock =
+                            controller.stats?.outOfStock ??
+                            0; // ✅ CAMBIO: usar outOfStock
+                        return Text(
+                          '($outOfStock)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color:
+                                outOfStock > 0
+                                    ? Colors.red
+                                    : Colors
+                                        .grey
+                                        .shade600, // ✅ CAMBIO: color rojo
+                            fontWeight:
+                                outOfStock > 0
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -339,6 +576,65 @@ class ProductsListScreen extends GetView<ProductsController> {
     });
   }
 
+  // Widget _buildDesktopToolbar(BuildContext context) {
+  //   return Container(
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         // Información de resultados
+  //         Expanded(
+  //           child: Obx(() {
+  //             final total = controller.totalItems;
+  //             final current = controller.products.length;
+
+  //             return Column(
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 Text(
+  //                   'Mostrando $current de $total productos',
+  //                   style: TextStyle(
+  //                     color: Colors.grey.shade600,
+  //                     fontSize: 14,
+  //                     fontWeight: FontWeight.w500,
+  //                   ),
+  //                 ),
+  //                 if (controller.isSearchMode)
+  //                   Text(
+  //                     'Búsqueda: "${controller.searchTerm}"',
+  //                     style: TextStyle(
+  //                       color: Theme.of(context).primaryColor,
+  //                       fontSize: 12,
+  //                     ),
+  //                   ),
+  //               ],
+  //             );
+  //           }),
+  //         ),
+
+  //         // Acciones rápidas
+  //         CustomButton(
+  //           text: 'Nuevo Producto',
+  //           icon: Icons.add,
+  //           onPressed: controller.goToCreateProduct,
+  //         ),
+
+  //         const SizedBox(width: 12),
+
+  //         CustomButton(
+  //           text: 'Stock Bajo',
+  //           icon: Icons.warning,
+  //           type: ButtonType.outline,
+  //           onPressed: controller.loadLowStockProducts,
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
   Widget _buildDesktopToolbar(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -348,11 +644,12 @@ class ProductsListScreen extends GetView<ProductsController> {
       ),
       child: Row(
         children: [
-          // Información de resultados
+          // ✅ MEJORADO: Información de resultados más detallada
           Expanded(
             child: Obx(() {
               final total = controller.totalItems;
               final current = controller.products.length;
+              final stats = controller.stats;
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -373,6 +670,35 @@ class ProductsListScreen extends GetView<ProductsController> {
                         fontSize: 12,
                       ),
                     ),
+                  // ✅ AÑADIDO: Resumen de estado del inventario
+                  if (stats != null && !controller.isSearchMode)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          _buildQuickStat(
+                            'Activos',
+                            stats.active,
+                            Colors.green,
+                          ),
+                          const SizedBox(width: 12),
+                          if (stats.lowStock > 0)
+                            _buildQuickStat(
+                              'Stock Bajo',
+                              stats.lowStock,
+                              Colors.orange,
+                            ),
+                          if (stats.outOfStock > 0) ...[
+                            const SizedBox(width: 12),
+                            _buildQuickStat(
+                              'Sin Stock',
+                              stats.outOfStock,
+                              Colors.red,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                 ],
               );
             }),
@@ -387,11 +713,65 @@ class ProductsListScreen extends GetView<ProductsController> {
 
           const SizedBox(width: 12),
 
-          CustomButton(
-            text: 'Stock Bajo',
-            icon: Icons.warning,
-            type: ButtonType.outline,
-            onPressed: controller.loadLowStockProducts,
+          // ✅ MEJORADO: Botón de stock bajo con estado dinámico
+          Obx(() {
+            final lowStockCount = controller.stats?.lowStock ?? 0;
+
+            return CustomButton(
+              text:
+                  lowStockCount > 0
+                      ? 'Stock Bajo ($lowStockCount)'
+                      : 'Stock Bajo',
+              icon: Icons.warning,
+              type: lowStockCount > 0 ? ButtonType.primary : ButtonType.outline,
+              onPressed:
+                  lowStockCount > 0
+                      ? controller.loadLowStockProducts
+                      : () {
+                        Get.snackbar(
+                          'Sin alertas',
+                          'No hay productos con stock bajo',
+                          snackPosition: SnackPosition.TOP,
+                          backgroundColor: Colors.green.shade100,
+                          colorText: Colors.green.shade800,
+                          icon: const Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                          ),
+                          duration: const Duration(seconds: 2),
+                        );
+                      },
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickStat(String label, int value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$label: $value',
+            style: TextStyle(
+              fontSize: 11,
+              color: color.withOpacity(0.8),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -618,19 +998,27 @@ class ProductsListScreen extends GetView<ProductsController> {
   void _showStatsDialog(BuildContext context) {
     Get.dialog(
       AlertDialog(
-        title: const Text('Estadísticas de Productos'),
-        content: Obx(() {
-          if (controller.stats == null) {
-            return const SizedBox(
-              height: 100,
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          return ProductStatsWidget(stats: controller.stats!, isCompact: false);
-        }),
+        title: const Text('Estadistica de Productos'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [Text('Funcionalidad pendiente de implementar')],
+        ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Cerrar')),
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              Get.snackbar(
+                'Estadisticas',
+                'Funcionalidad pendiente de implementar',
+                snackPosition: SnackPosition.TOP,
+              );
+            },
+            child: const Text('Ver Estadísticas'),
+          ),
         ],
       ),
     );

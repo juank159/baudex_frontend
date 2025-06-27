@@ -300,26 +300,103 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
   // ===== SOLUCIÓN FRONTEND: product_remote_datasource.dart =====
   // Corregir el manejo de la respuesta anidada
 
+  // =============================================
+
+  // @override
+  // Future<ProductStatsModel> getProductStats() async {
+  //   try {
+  //     print('🌐 ProductRemoteDataSource: Solicitando estadísticas...');
+
+  //     final response = await dioClient.get('/products/stats');
+
+  //     print('✅ Response status: ${response.statusCode}');
+  //     print('📋 Response data: ${response.data}');
+
+  //     if (response.statusCode == 200) {
+  //       final responseData = response.data;
+
+  //       if (responseData != null && responseData is Map<String, dynamic>) {
+  //         if (responseData['success'] == true && responseData['data'] != null) {
+  //           print('🔍 Estructura de respuesta correcta, procesando data...');
+
+  //           var statsData = responseData['data'];
+
+  //           // ✅ CORRECCIÓN: Manejar el doble wrapping que puede venir del backend
+  //           if (statsData is Map<String, dynamic> &&
+  //               statsData.containsKey('success') &&
+  //               statsData.containsKey('data') &&
+  //               statsData['data'] is Map<String, dynamic>) {
+  //             print(
+  //               '🔧 Detectado doble wrapping, extrayendo datos anidados...',
+  //             );
+  //             statsData = statsData['data'] as Map<String, dynamic>;
+  //           }
+
+  //           print('📊 Stats data final: $statsData');
+
+  //           final model = ProductStatsModel.fromJson(statsData);
+  //           print('✅ ProductStatsModel creado: $model');
+
+  //           // Validar que el modelo tiene datos válidos
+  //           if (!model.isValid) {
+  //             print('⚠️ Modelo creado pero con datos inválidos');
+  //             throw ServerException(
+  //               'Datos de estadísticas inválidos recibidos del servidor',
+  //             );
+  //           }
+
+  //           return model;
+  //         } else {
+  //           print('❌ Estructura de respuesta inválida:');
+  //           print('   - success: ${responseData['success']}');
+  //           print('   - data: ${responseData['data']}');
+  //           throw ServerException(
+  //             'Respuesta inválida del servidor: estructura incorrecta',
+  //           );
+  //         }
+  //       } else {
+  //         print(
+  //           '❌ Response data es null o no es Map: ${responseData.runtimeType}',
+  //         );
+  //         throw ServerException(
+  //           'Respuesta inválida del servidor: data es null o formato incorrecto',
+  //         );
+  //       }
+  //     } else {
+  //       print('❌ Status code inesperado: ${response.statusCode}');
+  //       throw _handleErrorResponse(response);
+  //     }
+  //   } on DioException catch (e) {
+  //     print('❌ DioException en getProductStats: $e');
+  //     print('   - Type: ${e.type}');
+  //     print('   - Message: ${e.message}');
+  //     print('   - Response: ${e.response?.data}');
+  //     throw _handleDioException(e);
+  //   } catch (e, stackTrace) {
+  //     print('❌ Error inesperado en getProductStats: $e');
+  //     print('🔍 StackTrace: $stackTrace');
+  //     throw ServerException('Error inesperado al obtener estadísticas: $e');
+  //   }
+  // }
+
+  // En product_remote_datasource.dart - Solo actualizar esta parte:
+
   @override
   Future<ProductStatsModel> getProductStats() async {
     try {
       print('🌐 ProductRemoteDataSource: Solicitando estadísticas...');
 
       final response = await dioClient.get('/products/stats');
-
       print('✅ Response status: ${response.statusCode}');
-      print('📋 Response data: ${response.data}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
 
         if (responseData != null && responseData is Map<String, dynamic>) {
           if (responseData['success'] == true && responseData['data'] != null) {
-            print('🔍 Estructura de respuesta correcta, procesando data...');
-
             var statsData = responseData['data'];
 
-            // ✅ CORRECCIÓN: Manejar el doble wrapping que puede venir del backend
+            // ✅ MANEJO DEL DOBLE WRAPPING (como ya tienes)
             if (statsData is Map<String, dynamic> &&
                 statsData.containsKey('success') &&
                 statsData.containsKey('data') &&
@@ -333,47 +410,23 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
             print('📊 Stats data final: $statsData');
 
             final model = ProductStatsModel.fromJson(statsData);
-            print('✅ ProductStatsModel creado: $model');
 
-            // Validar que el modelo tiene datos válidos
+            // ✅ VALIDACIÓN ADICIONAL
             if (!model.isValid) {
-              print('⚠️ Modelo creado pero con datos inválidos');
-              throw ServerException(
-                'Datos de estadísticas inválidos recibidos del servidor',
-              );
+              throw ServerException('Datos de estadísticas inválidos');
             }
 
             return model;
-          } else {
-            print('❌ Estructura de respuesta inválida:');
-            print('   - success: ${responseData['success']}');
-            print('   - data: ${responseData['data']}');
-            throw ServerException(
-              'Respuesta inválida del servidor: estructura incorrecta',
-            );
           }
-        } else {
-          print(
-            '❌ Response data es null o no es Map: ${responseData.runtimeType}',
-          );
-          throw ServerException(
-            'Respuesta inválida del servidor: data es null o formato incorrecto',
-          );
         }
+
+        throw ServerException('Respuesta inválida del servidor');
       } else {
-        print('❌ Status code inesperado: ${response.statusCode}');
         throw _handleErrorResponse(response);
       }
-    } on DioException catch (e) {
-      print('❌ DioException en getProductStats: $e');
-      print('   - Type: ${e.type}');
-      print('   - Message: ${e.message}');
-      print('   - Response: ${e.response?.data}');
-      throw _handleDioException(e);
-    } catch (e, stackTrace) {
-      print('❌ Error inesperado en getProductStats: $e');
-      print('🔍 StackTrace: $stackTrace');
-      throw ServerException('Error inesperado al obtener estadísticas: $e');
+    } catch (e) {
+      print('❌ Error en getProductStats: $e');
+      rethrow;
     }
   }
 

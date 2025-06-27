@@ -80,6 +80,34 @@ abstract class AppRoutes {
   static String productsByCategory(String categoryId) =>
       '/products/category/$categoryId';
 
+  // ==================== CUSTOMERS ROUTES ====================
+  static const String customers = '/customers';
+  static const String customersCreate = '/customers/create';
+  static const String customersEdit = '/customers/edit';
+  static const String customersDetail = '/customers/detail';
+  static const String customersStats = '/customers/stats';
+
+  // Customers with parameters
+  static String customerEdit(String id) => '/customers/edit/$id';
+  static String customerDetail(String id) => '/customers/detail/$id';
+
+  // ==================== INVOICES ROUTES ====================
+  static const String invoices = '/invoices';
+  static const String invoicesCreate = '/invoices/create';
+  static const String invoicesEdit = '/invoices/edit';
+  static const String invoicesDetail = '/invoices/detail';
+  static const String invoicesStats = '/invoices/stats';
+  static const String invoicesPrint = '/invoices/print';
+  static const String invoicesOverdue = '/invoices/overdue';
+
+  // Invoices with parameters
+  static String invoiceEdit(String id) => '/invoices/edit/$id';
+  static String invoiceDetail(String id) => '/invoices/detail/$id';
+  static String invoicePrint(String id) => '/invoices/print/$id';
+  static String invoicesByCustomer(String customerId) =>
+      '/invoices/customer/$customerId';
+  static String invoicesByStatus(String status) => '/invoices/status/$status';
+
   // Error Routes
   static const String notFound = '/404';
   static const String noInternet = '/no-internet';

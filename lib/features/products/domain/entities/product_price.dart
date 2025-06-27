@@ -1,6 +1,8 @@
 // lib/features/products/domain/entities/product_price.dart
 import 'package:equatable/equatable.dart';
 
+// enum PriceType { price1, price2, price3, special, cost }
+
 enum PriceType { price1, price2, price3, special, cost }
 
 enum PriceStatus { active, inactive }
@@ -135,5 +137,37 @@ class ProductPrice extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
+  }
+}
+
+extension PriceTypeExtension on PriceType {
+  String get name {
+    switch (this) {
+      case PriceType.price1:
+        return 'price1';
+      case PriceType.price2:
+        return 'price2';
+      case PriceType.price3:
+        return 'price3';
+      case PriceType.special:
+        return 'special';
+      case PriceType.cost:
+        return 'cost';
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case PriceType.price1:
+        return 'Precio al Público';
+      case PriceType.price2:
+        return 'Precio Mayorista';
+      case PriceType.price3:
+        return 'Precio Distribuidor';
+      case PriceType.special:
+        return 'Precio Especial';
+      case PriceType.cost:
+        return 'Precio de Costo';
+    }
   }
 }

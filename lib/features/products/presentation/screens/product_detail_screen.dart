@@ -1,4 +1,5 @@
 // lib/features/products/presentation/screens/product_detail_screen.dart
+import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
@@ -40,6 +41,13 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
         () => Text(controller.hasProduct ? controller.productName : 'Producto'),
       ),
       elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () {
+          // Navega directamente al dashboard y elimina el historial
+          Get.offAllNamed(AppRoutes.products);
+        },
+      ),
       actions: [
         // Compartir
         IconButton(
@@ -621,6 +629,31 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
     });
   }
 
+  // Widget _buildPricesSection(BuildContext context) {
+  //   return Obx(() {
+  //     final product = controller.product!;
+
+  //     return Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Text(
+  //           'Precios del Producto',
+  //           style: TextStyle(
+  //             fontSize: Responsive.getFontSize(context, mobile: 18, tablet: 20),
+  //             fontWeight: FontWeight.bold,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 16),
+
+  //         if (product.prices == null || product.prices!.isEmpty)
+  //           _buildEmptyPricesState(context)
+  //         else
+  //           ...product.prices!.map((price) => _buildPriceCard(context, price)),
+  //       ],
+  //     );
+  //   });
+  // }
+
   Widget _buildPricesSection(BuildContext context) {
     return Obx(() {
       final product = controller.product!;
@@ -646,6 +679,84 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
     });
   }
 
+  // Widget _buildPriceCard(BuildContext context, productPrice) {
+  //   return Container(
+  //     margin: const EdgeInsets.only(bottom: 12),
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(12),
+  //       border: Border.all(color: Colors.grey.shade300),
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Row(
+  //           children: [
+  //             Text(
+  //               _getPriceTypeName(productPrice.type.name),
+  //               style: const TextStyle(
+  //                 fontSize: 16,
+  //                 fontWeight: FontWeight.bold,
+  //               ),
+  //             ),
+  //             const Spacer(),
+  //             Text(
+  //               '\$${productPrice.finalAmount.toStringAsFixed(2)}',
+  //               style: TextStyle(
+  //                 fontSize: 20,
+  //                 fontWeight: FontWeight.bold,
+  //                 color: Colors.green.shade700,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //         if (productPrice.hasDiscount) ...[
+  //           const SizedBox(height: 4),
+  //           Row(
+  //             children: [
+  //               Text(
+  //                 'Precio original: \$${productPrice.amount.toStringAsFixed(2)}',
+  //                 style: TextStyle(
+  //                   fontSize: 14,
+  //                   decoration: TextDecoration.lineThrough,
+  //                   color: Colors.grey.shade600,
+  //                 ),
+  //               ),
+  //               const SizedBox(width: 8),
+  //               Container(
+  //                 padding: const EdgeInsets.symmetric(
+  //                   horizontal: 6,
+  //                   vertical: 2,
+  //                 ),
+  //                 decoration: BoxDecoration(
+  //                   color: Colors.red.shade100,
+  //                   borderRadius: BorderRadius.circular(8),
+  //                 ),
+  //                 child: Text(
+  //                   '-${productPrice.discountPercentage.toStringAsFixed(0)}%',
+  //                   style: TextStyle(
+  //                     fontSize: 12,
+  //                     fontWeight: FontWeight.bold,
+  //                     color: Colors.red.shade700,
+  //                   ),
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ],
+  //         if (productPrice.minQuantity > 1) ...[
+  //           const SizedBox(height: 4),
+  //           Text(
+  //             'Cantidad mínima: ${productPrice.minQuantity.toStringAsFixed(0)}',
+  //             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+  //           ),
+  //         ],
+  //       ],
+  //     ),
+  //   );
+  // }
+
   Widget _buildPriceCard(BuildContext context, productPrice) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -661,15 +772,17 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
           Row(
             children: [
               Text(
-                _getPriceTypeName(productPrice.type.name),
+                // ✅ SOLUCIÓN: Usar método helper seguro en lugar de .name
+                _getPriceTypeDisplayName(productPrice.type),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
               const Spacer(),
               Text(
-                '\$${productPrice.finalAmount.toStringAsFixed(2)}',
+                '\$${_formatPrice(productPrice.finalAmount)}',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -678,12 +791,14 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
               ),
             ],
           ),
-          if (productPrice.hasDiscount) ...[
+
+          // ✅ AÑADIDO: Validación segura para descuentos
+          if (_hasDiscount(productPrice)) ...[
             const SizedBox(height: 4),
             Row(
               children: [
                 Text(
-                  'Precio original: \$${productPrice.amount.toStringAsFixed(2)}',
+                  'Precio original: \$${_formatPrice(productPrice.amount)}',
                   style: TextStyle(
                     fontSize: 14,
                     decoration: TextDecoration.lineThrough,
@@ -701,7 +816,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '-${productPrice.discountPercentage.toStringAsFixed(0)}%',
+                    '-${_formatPrice(productPrice.discountPercentage)}%',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -712,10 +827,12 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
               ],
             ),
           ],
-          if (productPrice.minQuantity > 1) ...[
+
+          // ✅ AÑADIDO: Validación segura para cantidad mínima
+          if (_hasMinQuantity(productPrice)) ...[
             const SizedBox(height: 4),
             Text(
-              'Cantidad mínima: ${productPrice.minQuantity.toStringAsFixed(0)}',
+              'Cantidad mínima: ${_formatQuantity(productPrice.minQuantity)}',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
@@ -723,6 +840,169 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
       ),
     );
   }
+
+  String _getPriceTypeDisplayName(dynamic priceType) {
+    try {
+      // Si es un enum con extensión
+      if (priceType != null && priceType.displayName != null) {
+        return priceType.displayName;
+      }
+
+      // Si es un string directamente
+      if (priceType is String) {
+        return _mapStringToPriceTypeName(priceType);
+      }
+
+      // Si es un enum sin extensión, usar toString()
+      final typeString = priceType.toString().split('.').last;
+      return _mapStringToPriceTypeName(typeString);
+    } catch (e) {
+      print('❌ Error al obtener nombre de tipo de precio: $e');
+      return 'Precio';
+    }
+  }
+
+  String _mapStringToPriceTypeName(String type) {
+    switch (type.toLowerCase()) {
+      case 'price1':
+        return 'Precio al Público';
+      case 'price2':
+        return 'Precio Mayorista';
+      case 'price3':
+        return 'Precio Distribuidor';
+      case 'special':
+        return 'Precio Especial';
+      case 'cost':
+        return 'Precio de Costo';
+      default:
+        return type.toUpperCase();
+    }
+  }
+
+  String _formatPrice(dynamic value) {
+    try {
+      if (value == null) return '0.00';
+
+      double price;
+      if (value is double) {
+        price = value;
+      } else if (value is int) {
+        price = value.toDouble();
+      } else if (value is String) {
+        price = double.tryParse(value) ?? 0.0;
+      } else {
+        price = 0.0;
+      }
+
+      return price.toStringAsFixed(2);
+    } catch (e) {
+      print('❌ Error al formatear precio: $e');
+      return '0.00';
+    }
+  }
+
+  String _formatQuantity(dynamic value) {
+    try {
+      if (value == null) return '1';
+
+      if (value is double) {
+        return value.toStringAsFixed(0);
+      } else if (value is int) {
+        return value.toString();
+      } else if (value is String) {
+        final quantity = double.tryParse(value) ?? 1.0;
+        return quantity.toStringAsFixed(0);
+      }
+
+      return '1';
+    } catch (e) {
+      print('❌ Error al formatear cantidad: $e');
+      return '1';
+    }
+  }
+
+  bool _hasDiscount(dynamic productPrice) {
+    try {
+      if (productPrice == null) return false;
+
+      // Verificar descuento por porcentaje
+      final discountPercentage = productPrice.discountPercentage;
+      if (discountPercentage != null && discountPercentage > 0) {
+        return true;
+      }
+
+      // Verificar descuento por cantidad
+      final discountAmount = productPrice.discountAmount;
+      if (discountAmount != null && discountAmount > 0) {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      print('❌ Error al verificar descuento: $e');
+      return false;
+    }
+  }
+
+  bool _hasMinQuantity(dynamic productPrice) {
+    try {
+      if (productPrice == null) return false;
+
+      final minQuantity = productPrice.minQuantity;
+      if (minQuantity != null && minQuantity > 1) {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      print('❌ Error al verificar cantidad mínima: $e');
+      return false;
+    }
+  }
+
+  // Widget _buildMovementsSection(BuildContext context) {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Text(
+  //         'Movimientos de Stock',
+  //         style: TextStyle(
+  //           fontSize: Responsive.getFontSize(context, mobile: 18, tablet: 20),
+  //           fontWeight: FontWeight.bold,
+  //         ),
+  //       ),
+  //       const SizedBox(height: 16),
+  //       Container(
+  //         padding: const EdgeInsets.all(24),
+  //         decoration: BoxDecoration(
+  //           color: Colors.grey.shade50,
+  //           borderRadius: BorderRadius.circular(12),
+  //           border: Border.all(color: Colors.grey.shade300),
+  //         ),
+  //         child: Column(
+  //           children: [
+  //             Icon(Icons.history, size: 48, color: Colors.grey.shade400),
+  //             const SizedBox(height: 16),
+  //             Text(
+  //               'Historial de Movimientos',
+  //               style: TextStyle(
+  //                 fontSize: 16,
+  //                 fontWeight: FontWeight.w600,
+  //                 color: Colors.grey.shade600,
+  //               ),
+  //             ),
+  //             const SizedBox(height: 8),
+  //             Text(
+  //               'Funcionalidad pendiente de implementar',
+  //               style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+  //               textAlign: TextAlign.center,
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _buildMovementsSection(BuildContext context) {
     return Column(
