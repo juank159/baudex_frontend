@@ -18,6 +18,7 @@ class CreateInvoiceUseCase implements UseCase<Invoice, CreateInvoiceParams> {
       date: params.date,
       dueDate: params.dueDate,
       paymentMethod: params.paymentMethod,
+      status: params.status,
       taxPercentage: params.taxPercentage,
       discountPercentage: params.discountPercentage,
       discountAmount: params.discountAmount,
@@ -35,6 +36,7 @@ class CreateInvoiceParams {
   final DateTime? date;
   final DateTime? dueDate;
   final PaymentMethod paymentMethod;
+  final InvoiceStatus? status;
   final double taxPercentage;
   final double discountPercentage;
   final double discountAmount;
@@ -49,6 +51,7 @@ class CreateInvoiceParams {
     this.date,
     this.dueDate,
     this.paymentMethod = PaymentMethod.cash,
+    this.status,
     this.taxPercentage = 19,
     this.discountPercentage = 0,
     this.discountAmount = 0,

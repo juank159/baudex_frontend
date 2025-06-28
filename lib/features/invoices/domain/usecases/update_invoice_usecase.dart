@@ -17,6 +17,7 @@ class UpdateInvoiceUseCase implements UseCase<Invoice, UpdateInvoiceParams> {
       date: params.date,
       dueDate: params.dueDate,
       paymentMethod: params.paymentMethod,
+      status: params.status,
       taxPercentage: params.taxPercentage,
       discountPercentage: params.discountPercentage,
       discountAmount: params.discountAmount,
@@ -35,6 +36,7 @@ class UpdateInvoiceParams {
   final DateTime? date;
   final DateTime? dueDate;
   final PaymentMethod? paymentMethod;
+  final InvoiceStatus? status;
   final double? taxPercentage;
   final double? discountPercentage;
   final double? discountAmount;
@@ -50,6 +52,7 @@ class UpdateInvoiceParams {
     this.date,
     this.dueDate,
     this.paymentMethod,
+    this.status,
     this.taxPercentage,
     this.discountPercentage,
     this.discountAmount,

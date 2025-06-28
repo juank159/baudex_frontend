@@ -8,6 +8,7 @@ class UpdateInvoiceRequestModel {
   final String? date;
   final String? dueDate;
   final String? paymentMethod;
+  final String? status;
   final double? taxPercentage;
   final double? discountPercentage;
   final double? discountAmount;
@@ -22,6 +23,7 @@ class UpdateInvoiceRequestModel {
     this.date,
     this.dueDate,
     this.paymentMethod,
+    this.status,
     this.taxPercentage,
     this.discountPercentage,
     this.discountAmount,
@@ -40,6 +42,7 @@ class UpdateInvoiceRequestModel {
     if (date != null) json['date'] = date;
     if (dueDate != null) json['dueDate'] = dueDate;
     if (paymentMethod != null) json['paymentMethod'] = paymentMethod;
+    if (status != null) json['status'] = status;
     if (taxPercentage != null) json['taxPercentage'] = taxPercentage;
     if (discountPercentage != null)
       json['discountPercentage'] = discountPercentage;
@@ -59,6 +62,7 @@ class UpdateInvoiceRequestModel {
     DateTime? date,
     DateTime? dueDate,
     String? paymentMethod,
+    String? status,
     double? taxPercentage,
     double? discountPercentage,
     double? discountAmount,
@@ -73,6 +77,7 @@ class UpdateInvoiceRequestModel {
       date: date?.toIso8601String(),
       dueDate: dueDate?.toIso8601String(),
       paymentMethod: paymentMethod,
+      status: status,
       taxPercentage: taxPercentage,
       discountPercentage: discountPercentage,
       discountAmount: discountAmount,
@@ -93,6 +98,7 @@ class UpdateInvoiceRequestModel {
         date != null ||
         dueDate != null ||
         paymentMethod != null ||
+        status != null ||
         taxPercentage != null ||
         discountPercentage != null ||
         discountAmount != null ||
@@ -119,6 +125,7 @@ class UpdateInvoiceRequestModel {
     String? date,
     String? dueDate,
     String? paymentMethod,
+    String? status,
     double? taxPercentage,
     double? discountPercentage,
     double? discountAmount,
@@ -133,6 +140,7 @@ class UpdateInvoiceRequestModel {
       date: date ?? this.date,
       dueDate: dueDate ?? this.dueDate,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      status: status ?? this.status,
       taxPercentage: taxPercentage ?? this.taxPercentage,
       discountPercentage: discountPercentage ?? this.discountPercentage,
       discountAmount: discountAmount ?? this.discountAmount,

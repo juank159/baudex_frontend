@@ -10,6 +10,7 @@ class CreateInvoiceRequestModel {
   final String? date;
   final String? dueDate;
   final String paymentMethod;
+  final String? status;
   final double taxPercentage;
   final double discountPercentage;
   final double discountAmount;
@@ -24,6 +25,7 @@ class CreateInvoiceRequestModel {
     this.date,
     this.dueDate,
     this.paymentMethod = 'cash',
+    this.status,
     this.taxPercentage = 19,
     this.discountPercentage = 0,
     this.discountAmount = 0,
@@ -43,6 +45,7 @@ class CreateInvoiceRequestModel {
     };
 
     // Solo incluir campos opcionales si no son null
+    if (status != null) json['status'] = status;
     if (number != null) json['number'] = number;
     if (date != null) json['date'] = date;
     if (dueDate != null) json['dueDate'] = dueDate;
@@ -60,6 +63,7 @@ class CreateInvoiceRequestModel {
     DateTime? date,
     DateTime? dueDate,
     String paymentMethod = 'cash',
+    String? status,
     double taxPercentage = 19,
     double discountPercentage = 0,
     double discountAmount = 0,
@@ -77,6 +81,7 @@ class CreateInvoiceRequestModel {
       date: date?.toIso8601String(),
       dueDate: dueDate?.toIso8601String(),
       paymentMethod: paymentMethod,
+      status: status,
       taxPercentage: taxPercentage,
       discountPercentage: discountPercentage,
       discountAmount: discountAmount,
