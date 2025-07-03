@@ -1833,6 +1833,124 @@ class InvoiceDetailScreen extends StatelessWidget {
     );
   }
 
+  // Widget _buildActionsContent(
+  //   BuildContext context,
+  //   InvoiceDetailController controller,
+  // ) {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Text(
+  //         'Acciones',
+  //         style: TextStyle(
+  //           fontWeight: FontWeight.bold,
+  //           color: Colors.grey.shade800,
+  //         ),
+  //       ),
+  //       const SizedBox(height: 16),
+
+  //       // Agregar pago
+  //       if (controller.canAddPayment) ...[
+  //         CustomButton(
+  //           text: 'Agregar Pago',
+  //           icon: Icons.payment,
+  //           onPressed: controller.togglePaymentForm,
+  //           width: double.infinity,
+  //         ),
+  //         const SizedBox(height: 12),
+  //       ],
+
+  //       // Confirmar
+  //       if (controller.canConfirm) ...[
+  //         CustomButton(
+  //           text: 'Confirmar Factura',
+  //           icon: Icons.check_circle,
+  //           onPressed: controller.confirmInvoice,
+  //           width: double.infinity,
+  //         ),
+  //         const SizedBox(height: 12),
+  //       ],
+
+  //       // Editar
+  //       if (controller.canEdit) ...[
+  //         CustomButton(
+  //           text: 'Editar',
+  //           icon: Icons.edit,
+  //           type: ButtonType.outline,
+  //           onPressed: controller.goToEditInvoice,
+  //           width: double.infinity,
+  //         ),
+  //         const SizedBox(height: 12),
+  //       ],
+
+  //       // Imprimir
+  //       if (controller.canPrint) ...[
+  //         CustomButton(
+  //           text: 'Imprimir',
+  //           icon: Icons.print,
+  //           type: ButtonType.outline,
+  //           onPressed: controller.goToPrintInvoice,
+  //           width: double.infinity,
+  //         ),
+  //         const SizedBox(height: 12),
+  //       ],
+
+  //       // Compartir
+  //       CustomButton(
+  //         text: 'Compartir',
+  //         icon: Icons.share,
+  //         type: ButtonType.outline,
+  //         onPressed: controller.shareInvoice,
+  //         width: double.infinity,
+  //       ),
+  //       const SizedBox(height: 12),
+
+  //       // Duplicar
+  //       CustomButton(
+  //         text: 'Duplicar',
+  //         icon: Icons.copy,
+  //         type: ButtonType.outline,
+  //         onPressed: controller.duplicateInvoice,
+  //         width: double.infinity,
+  //       ),
+
+  //       if (controller.canCancel || controller.canDelete) ...[
+  //         const SizedBox(height: 16),
+  //         const Divider(),
+  //         const SizedBox(height: 16),
+
+  //         // Cancelar
+  //         if (controller.canCancel) ...[
+  //           CustomButton(
+  //             text: 'Cancelar Factura',
+  //             icon: Icons.cancel,
+  //             type: ButtonType.outline,
+  //             onPressed: controller.cancelInvoice,
+  //             width: double.infinity,
+  //             textColor: Colors.orange,
+  //           ),
+  //           const SizedBox(height: 12),
+  //         ],
+
+  //         // Eliminar
+  //         if (controller.canDelete) ...[
+  //           CustomButton(
+  //             text: 'Eliminar',
+  //             icon: Icons.delete,
+  //             type: ButtonType.outline,
+  //             onPressed: controller.deleteInvoice,
+  //             width: double.infinity,
+  //             textColor: Colors.red,
+  //           ),
+  //         ],
+  //       ],
+  //     ],
+  //   );
+  // }
+
+  // ==================== PANEL DE ACCIONES MEJORADO ====================
+  // Reemplazar el método _buildActionsContent en invoice_detail_screen.dart
+
   Widget _buildActionsContent(
     BuildContext context,
     InvoiceDetailController controller,
@@ -1849,69 +1967,186 @@ class InvoiceDetailScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // Agregar pago
+        // ✅ ACCIONES PARA FACTURAS CON PAGOS PENDIENTES (PENDING O PARTIALLY_PAID)
         if (controller.canAddPayment) ...[
-          CustomButton(
-            text: 'Agregar Pago',
-            icon: Icons.payment,
-            onPressed: controller.togglePaymentForm,
-            width: double.infinity,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.blue.shade600, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        controller.invoice?.status ==
+                                InvoiceStatus.partiallyPaid
+                            ? 'Continuar Pago'
+                            : 'Procesar Pago',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Saldo pendiente: \$${controller.remainingBalance.toStringAsFixed(2)}',
+                  style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
+
+          // Botones específicos según método de pago
+          if (controller.invoice!.paymentMethod == PaymentMethod.credit) ...[
+            SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                text:
+                    controller.invoice?.status == InvoiceStatus.partiallyPaid
+                        ? 'Continuar Pago a Crédito'
+                        : 'Agregar Pago a Crédito',
+                icon: Icons.account_balance_wallet,
+                onPressed: controller.showCreditPaymentDialog,
+                backgroundColor: Colors.blue.shade600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Permite pagos parciales o totales',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ] else if (controller.invoice!.paymentMethod == PaymentMethod.check &&
+              controller.invoice?.status == InvoiceStatus.pending) ...[
+            SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                text: 'Confirmar Cheque',
+                icon: Icons.receipt,
+                onPressed: controller.confirmCheckPayment,
+                backgroundColor: Colors.orange.shade600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Marca la factura como pagada',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ] else if (controller.invoice?.status == InvoiceStatus.pending) ...[
+            SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                text: 'Confirmar Pago Completo',
+                icon: Icons.check_circle,
+                onPressed: controller.confirmFullPayment,
+                backgroundColor: Colors.green.shade600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Confirma el pago y marca como pagada',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ] else ...[
+            SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                text: 'Agregar Pago',
+                icon: Icons.payment,
+                onPressed: controller.togglePaymentForm,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 16),
         ],
 
         // Confirmar
         if (controller.canConfirm) ...[
-          CustomButton(
-            text: 'Confirmar Factura',
-            icon: Icons.check_circle,
-            onPressed: controller.confirmInvoice,
+          SizedBox(
             width: double.infinity,
+            child: CustomButton(
+              text: 'Confirmar Factura',
+              icon: Icons.check_circle,
+              onPressed: controller.confirmInvoice,
+            ),
           ),
           const SizedBox(height: 12),
         ],
 
         // Editar
         if (controller.canEdit) ...[
-          CustomButton(
-            text: 'Editar',
-            icon: Icons.edit,
-            type: ButtonType.outline,
-            onPressed: controller.goToEditInvoice,
+          SizedBox(
             width: double.infinity,
+            child: CustomButton(
+              text: 'Editar',
+              icon: Icons.edit,
+              type: ButtonType.outline,
+              onPressed: controller.goToEditInvoice,
+            ),
           ),
           const SizedBox(height: 12),
         ],
 
         // Imprimir
         if (controller.canPrint) ...[
-          CustomButton(
-            text: 'Imprimir',
-            icon: Icons.print,
-            type: ButtonType.outline,
-            onPressed: controller.goToPrintInvoice,
+          SizedBox(
             width: double.infinity,
+            child: CustomButton(
+              text: 'Imprimir',
+              icon: Icons.print,
+              type: ButtonType.outline,
+              onPressed: controller.goToPrintInvoice,
+            ),
           ),
           const SizedBox(height: 12),
         ],
 
         // Compartir
-        CustomButton(
-          text: 'Compartir',
-          icon: Icons.share,
-          type: ButtonType.outline,
-          onPressed: controller.shareInvoice,
+        SizedBox(
           width: double.infinity,
+          child: CustomButton(
+            text: 'Compartir',
+            icon: Icons.share,
+            type: ButtonType.outline,
+            onPressed: controller.shareInvoice,
+          ),
         ),
         const SizedBox(height: 12),
 
         // Duplicar
-        CustomButton(
-          text: 'Duplicar',
-          icon: Icons.copy,
-          type: ButtonType.outline,
-          onPressed: controller.duplicateInvoice,
+        SizedBox(
           width: double.infinity,
+          child: CustomButton(
+            text: 'Duplicar',
+            icon: Icons.copy,
+            type: ButtonType.outline,
+            onPressed: controller.duplicateInvoice,
+          ),
         ),
 
         if (controller.canCancel || controller.canDelete) ...[
@@ -1921,26 +2156,30 @@ class InvoiceDetailScreen extends StatelessWidget {
 
           // Cancelar
           if (controller.canCancel) ...[
-            CustomButton(
-              text: 'Cancelar Factura',
-              icon: Icons.cancel,
-              type: ButtonType.outline,
-              onPressed: controller.cancelInvoice,
+            SizedBox(
               width: double.infinity,
-              textColor: Colors.orange,
+              child: CustomButton(
+                text: 'Cancelar Factura',
+                icon: Icons.cancel,
+                type: ButtonType.outline,
+                onPressed: controller.cancelInvoice,
+                textColor: Colors.orange,
+              ),
             ),
             const SizedBox(height: 12),
           ],
 
           // Eliminar
           if (controller.canDelete) ...[
-            CustomButton(
-              text: 'Eliminar',
-              icon: Icons.delete,
-              type: ButtonType.outline,
-              onPressed: controller.deleteInvoice,
+            SizedBox(
               width: double.infinity,
-              textColor: Colors.red,
+              child: CustomButton(
+                text: 'Eliminar',
+                icon: Icons.delete,
+                type: ButtonType.outline,
+                onPressed: controller.deleteInvoice,
+                textColor: Colors.red,
+              ),
             ),
           ],
         ],
@@ -2046,6 +2285,119 @@ class InvoiceDetailScreen extends StatelessWidget {
 
   // ==================== ACTION BUTTONS ====================
 
+  // Widget? _buildFloatingActionButton(
+  //   BuildContext context,
+  //   InvoiceDetailController controller,
+  // ) {
+  //   if (!context.isMobile) return null;
+
+  //   return GetBuilder<InvoiceDetailController>(
+  //     builder: (controller) {
+  //       if (controller.showPaymentForm) {
+  //         return FloatingActionButton(
+  //           onPressed: controller.hidePaymentForm,
+  //           backgroundColor: Colors.grey,
+  //           child: const Icon(Icons.close),
+  //         );
+  //       }
+
+  //       if (controller.canAddPayment) {
+  //         return FloatingActionButton.extended(
+  //           onPressed: controller.togglePaymentForm,
+  //           icon: const Icon(Icons.payment),
+  //           label: const Text('Agregar Pago'),
+  //         );
+  //       }
+
+  //       if (controller.canPrint) {
+  //         return FloatingActionButton(
+  //           onPressed: controller.goToPrintInvoice,
+  //           child: const Icon(Icons.print),
+  //         );
+  //       }
+
+  //       return const SizedBox.shrink();
+  //     },
+  //   );
+  // }
+
+  // ==================== FLOATING ACTION BUTTON MEJORADO ====================
+  // Reemplazar el método _buildFloatingActionButton en invoice_detail_screen.dart
+
+  // Widget? _buildFloatingActionButton(
+  //   BuildContext context,
+  //   InvoiceDetailController controller,
+  // ) {
+  //   if (!context.isMobile) return null;
+
+  //   return GetBuilder<InvoiceDetailController>(
+  //     builder: (controller) {
+  //       if (controller.showPaymentForm) {
+  //         return FloatingActionButton(
+  //           onPressed: controller.hidePaymentForm,
+  //           backgroundColor: Colors.grey,
+  //           child: const Icon(Icons.close),
+  //         );
+  //       }
+
+  //       // ✅ LÓGICA ESPECÍFICA PARA FACTURAS PENDIENTES
+  //       if (controller.invoice?.status == InvoiceStatus.pending &&
+  //           controller.canAddPayment) {
+  //         switch (controller.invoice!.paymentMethod) {
+  //           case PaymentMethod.credit:
+  //             // Para crédito: permitir pagos parciales y totales
+  //             return FloatingActionButton.extended(
+  //               onPressed: controller.showCreditPaymentDialog,
+  //               icon: const Icon(Icons.account_balance_wallet),
+  //               label: const Text('Agregar Pago'),
+  //               backgroundColor: Colors.blue.shade600,
+  //             );
+
+  //           case PaymentMethod.check:
+  //             // Para cheque: confirmar directamente
+  //             return FloatingActionButton.extended(
+  //               onPressed: controller.confirmCheckPayment,
+  //               icon: const Icon(Icons.receipt),
+  //               label: const Text('Confirmar Cheque'),
+  //               backgroundColor: Colors.orange.shade600,
+  //             );
+
+  //           case PaymentMethod.cash:
+  //           case PaymentMethod.creditCard:
+  //           case PaymentMethod.debitCard:
+  //           case PaymentMethod.bankTransfer:
+  //           default:
+  //             // Para otros métodos: confirmar pago completo
+  //             return FloatingActionButton.extended(
+  //               onPressed: controller.confirmFullPayment,
+  //               icon: const Icon(Icons.check_circle),
+  //               label: const Text('Confirmar Pago'),
+  //               backgroundColor: Colors.green.shade600,
+  //             );
+  //         }
+  //       }
+
+  //       // ✅ LÓGICA PARA OTROS ESTADOS
+  //       if (controller.canAddPayment) {
+  //         return FloatingActionButton.extended(
+  //           onPressed: controller.togglePaymentForm,
+  //           icon: const Icon(Icons.payment),
+  //           label: const Text('Agregar Pago'),
+  //         );
+  //       }
+
+  //       if (controller.canPrint) {
+  //         return FloatingActionButton(
+  //           onPressed: controller.goToPrintInvoice,
+  //           child: const Icon(Icons.print),
+  //         );
+  //       }
+
+  //       return const SizedBox.shrink();
+  //     },
+  //   );
+  // }
+
   Widget? _buildFloatingActionButton(
     BuildContext context,
     InvoiceDetailController controller,
@@ -2062,7 +2414,49 @@ class InvoiceDetailScreen extends StatelessWidget {
           );
         }
 
+        // ✅ LÓGICA CORREGIDA - INCLUIR PARTIALLY_PAID
         if (controller.canAddPayment) {
+          // Para facturas PENDING o PARTIALLY_PAID con método CREDIT
+          if ((controller.invoice?.status == InvoiceStatus.pending ||
+                  controller.invoice?.status == InvoiceStatus.partiallyPaid) &&
+              controller.invoice?.paymentMethod == PaymentMethod.credit) {
+            return FloatingActionButton.extended(
+              onPressed: controller.showCreditPaymentDialog,
+              icon: const Icon(Icons.account_balance_wallet),
+              label: const Text('Agregar Pago'),
+              backgroundColor: Colors.blue.shade600,
+            );
+          }
+
+          // Para facturas PENDING con método CHECK
+          if (controller.invoice?.status == InvoiceStatus.pending &&
+              controller.invoice?.paymentMethod == PaymentMethod.check) {
+            return FloatingActionButton.extended(
+              onPressed: controller.confirmCheckPayment,
+              icon: const Icon(Icons.receipt),
+              label: const Text('Confirmar Cheque'),
+              backgroundColor: Colors.orange.shade600,
+            );
+          }
+
+          // Para facturas PENDING con otros métodos
+          if (controller.invoice?.status == InvoiceStatus.pending &&
+              (controller.invoice?.paymentMethod == PaymentMethod.cash ||
+                  controller.invoice?.paymentMethod ==
+                      PaymentMethod.creditCard ||
+                  controller.invoice?.paymentMethod ==
+                      PaymentMethod.debitCard ||
+                  controller.invoice?.paymentMethod ==
+                      PaymentMethod.bankTransfer)) {
+            return FloatingActionButton.extended(
+              onPressed: controller.confirmFullPayment,
+              icon: const Icon(Icons.check_circle),
+              label: const Text('Confirmar Pago'),
+              backgroundColor: Colors.green.shade600,
+            );
+          }
+
+          // Para cualquier otra factura que puede recibir pagos
           return FloatingActionButton.extended(
             onPressed: controller.togglePaymentForm,
             icon: const Icon(Icons.payment),

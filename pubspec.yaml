@@ -27,9 +27,15 @@ dependencies:
   package_info_plus: ^8.0.3
   mobile_scanner: ^7.0.1 # Para escanear códigos QR y de barras
   printing: ^5.14.2 # Para imprimir documentos y generar PDFs
-  # esc_pos_printer: ^4.1.0 # Para imprimir en impresoras térmicas
-  # esc_pos_utils: ^1.1.0
+  #esc_pos_printer: ^4.1.0 # Para imprimir en impresoras térmicas
+  #esc_pos_utils: ^1.1.0
+  esc_pos_printer_plus: ^0.1.1
+  esc_pos_utils_plus: ^2.0.4
   pdf: ^3.10.4 # Para crear PDFs
+  intl: ^0.20.2 # Para internacionalización y formateo de fechas
+  # isar: ^3.1.0+1
+  # isar_flutter_libs: ^3.1.0+1
+
   share_plus: ^11.0.0 # Para compartir contenido
   path_provider: ^2.1.5 # Para acceder a rutas de almacenamiento
   google_fonts: ^6.2.1 # Para usar fuentes de Google Fonts
@@ -39,7 +45,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   build_runner: ^2.4.15
+  #isar_generator: ^3.1.0+1
   json_serializable: ^6.9.5
+  flutter_launcher_icons: ^0.14.4
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -63,7 +71,8 @@ flutter:
     - .env
     - .env.development
     - .env.production
-  #   - images/a_dot_burr.jpeg
+    - assets/images/LOGO_GRANADA.png
+    - assets/images/baudex_logo.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -91,3 +100,7 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+flutter_launcher_icons:
+  android: true # Indica que genere íconos para Android
+  ios: true # Indica que genere íconos para iOS
+  image_path: "assets/images/baudex_logo.png"

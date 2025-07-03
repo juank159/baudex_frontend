@@ -1,9 +1,16 @@
 // lib/features/invoices/presentation/controllers/invoice_form_controller.dart
+import 'dart:async';
+import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
+import 'package:baudex_desktop/features/invoices/presentation/controllers/thermal_printer_controller.dart';
+
 import 'package:baudex_desktop/features/products/domain/entities/product_price.dart';
+import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 // Domain entities
 import '../../domain/entities/invoice.dart';
@@ -19,8 +26,14 @@ import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/get_products_usecase.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 
+// Bindings
+import '../../../customers/presentation/bindings/customer_binding.dart';
+import '../../../products/presentation/bindings/product_binding.dart';
+
 // Presentation models
 import 'package:baudex_desktop/features/invoices/data/models/invoice_form_models.dart';
+
+// ✅ NUEVO IMPORT: Controlador de impresión térmica
 
 class InvoiceFormController extends GetxController {
   // ==================== DEPENDENCIES ====================
@@ -28,11 +41,14 @@ class InvoiceFormController extends GetxController {
   final CreateInvoiceUseCase _createInvoiceUseCase;
   final UpdateInvoiceUseCase _updateInvoiceUseCase;
   final GetInvoiceByIdUseCase _getInvoiceByIdUseCase;
-  final GetCustomersUseCase? _getCustomersUseCase;
-  final SearchCustomersUseCase? _searchCustomersUseCase;
-  final GetProductsUseCase? _getProductsUseCase;
-  final SearchProductsUseCase? _searchProductsUseCase;
-  final GetCustomerByIdUseCase? _getCustomerByIdUseCase;
+  GetCustomersUseCase? _getCustomersUseCase;
+  SearchCustomersUseCase? _searchCustomersUseCase;
+  GetProductsUseCase? _getProductsUseCase;
+  SearchProductsUseCase? _searchProductsUseCase;
+  GetCustomerByIdUseCase? _getCustomerByIdUseCase;
+
+  // ✅ NUEVO: Controlador de impresión térmica
+  late final ThermalPrinterController _thermalPrinterController;
 
   InvoiceFormController({
     required CreateInvoiceUseCase createInvoiceUseCase,
@@ -52,7 +68,11 @@ class InvoiceFormController extends GetxController {
        _searchProductsUseCase = searchProductsUseCase,
        _getCustomerByIdUseCase = getCustomerByIdUseCase {
     print('🎮 InvoiceFormController: Instancia creada correctamente');
+
+    // ✅ INICIALIZAR CONTROLADOR DE IMPRESIÓN
+    _thermalPrinterController = Get.put(ThermalPrinterController());
   }
+
   // ==================== OBSERVABLES ====================
 
   // Estados de carga
@@ -60,6 +80,9 @@ class InvoiceFormController extends GetxController {
   final _isSaving = false.obs;
   final _isLoadingCustomers = false.obs;
   final _isLoadingProducts = false.obs;
+
+  // ✅ NUEVO: Estado de impresión
+  final _isPrinting = false.obs;
 
   // Modo de edición
   final _isEditMode = false.obs;
@@ -92,6 +115,12 @@ class InvoiceFormController extends GetxController {
   bool get isLoadingCustomers => _isLoadingCustomers.value;
   bool get isLoadingProducts => _isLoadingProducts.value;
 
+  // Formato de número para precios
+  final format = NumberFormat('#,###', 'es_CO');
+
+  // ✅ NUEVO: Getter para estado de impresión
+  bool get isPrinting => _isPrinting.value;
+
   // Modo de edición
   bool get isEditMode => _isEditMode.value;
   String? get editingInvoiceId => _editingInvoiceId.value;
@@ -119,23 +148,18 @@ class InvoiceFormController extends GetxController {
       selectedCustomer != null;
 
   // Cálculos
-
   double get subtotalWithoutTax {
     return _invoiceItems.fold(0.0, (sum, item) {
-      // El precio unitario ya tiene IVA, calculamos el valor sin IVA
       final priceWithoutTax = item.unitPrice / (1 + (taxPercentage / 100));
       final itemSubtotal = item.quantity * priceWithoutTax;
-
-      // Aplicar descuentos al subtotal sin IVA
       final percentageDiscount = (itemSubtotal * item.discountPercentage) / 100;
       final totalDiscount = percentageDiscount + item.discountAmount;
-
       return sum + (itemSubtotal - totalDiscount);
     });
   }
 
   double get subtotal {
-    return _invoiceItems.fold(0.0, (sum, item) => sum + item.subtotal);
+    return subtotalWithoutTax + taxAmount;
   }
 
   double get totalDiscountAmount {
@@ -159,6 +183,7 @@ class InvoiceFormController extends GetxController {
   // UI helpers
   String get pageTitle => isEditMode ? 'Editar Factura' : 'Punto de Venta';
   String get saveButtonText => isEditMode ? 'Actualizar' : 'Procesar Venta';
+
   // ==================== LIFECYCLE ====================
 
   @override
@@ -166,7 +191,73 @@ class InvoiceFormController extends GetxController {
     super.onInit();
     print('🚀 InvoiceFormController: Inicializando punto de venta...');
     _initializeForm();
-    _loadInitialData();
+    // ✅ SOLO INICIALIZAR LO MÍNIMO EN onInit PARA EVITAR ANR
+    _initializeMinimal();
+  }
+
+  // ✅ NUEVA FUNCIÓN: Auto-inicializar dependencias faltantes
+  void _autoInitializeDependencies() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        print('🔄 [AUTO-INIT] Verificando dependencias faltantes...');
+
+        // Solo inicializar si son null (fueron creadas sin dependencias)
+        if (_getCustomersUseCase == null &&
+            !Get.isRegistered<GetCustomersUseCase>()) {
+          print('👥 [AUTO-INIT] Inicializando CustomerBinding...');
+          CustomerBinding().dependencies();
+
+          // Actualizar las referencias
+          final getCustomersUseCase =
+              Get.isRegistered<GetCustomersUseCase>()
+                  ? Get.find<GetCustomersUseCase>()
+                  : null;
+          final searchCustomersUseCase =
+              Get.isRegistered<SearchCustomersUseCase>()
+                  ? Get.find<SearchCustomersUseCase>()
+                  : null;
+          final getCustomerByIdUseCase =
+              Get.isRegistered<GetCustomerByIdUseCase>()
+                  ? Get.find<GetCustomerByIdUseCase>()
+                  : null;
+
+          // Re-asignar las dependencias
+          _getCustomersUseCase = getCustomersUseCase;
+          _searchCustomersUseCase = searchCustomersUseCase;
+          _getCustomerByIdUseCase = getCustomerByIdUseCase;
+
+          print('✅ [AUTO-INIT] CustomerBinding inicializado');
+        }
+
+        await Future.delayed(const Duration(milliseconds: 50));
+
+        if (_getProductsUseCase == null &&
+            !Get.isRegistered<GetProductsUseCase>()) {
+          print('📦 [AUTO-INIT] Inicializando ProductBinding...');
+          ProductBinding().dependencies();
+
+          // Actualizar las referencias
+          final getProductsUseCase =
+              Get.isRegistered<GetProductsUseCase>()
+                  ? Get.find<GetProductsUseCase>()
+                  : null;
+          final searchProductsUseCase =
+              Get.isRegistered<SearchProductsUseCase>()
+                  ? Get.find<SearchProductsUseCase>()
+                  : null;
+
+          // Re-asignar las dependencias
+          _getProductsUseCase = getProductsUseCase;
+          _searchProductsUseCase = searchProductsUseCase;
+
+          print('✅ [AUTO-INIT] ProductBinding inicializado');
+        }
+
+        print('🎉 [AUTO-INIT] Auto-inicialización completada');
+      } catch (e) {
+        print('❌ [AUTO-INIT] Error en auto-inicialización: $e');
+      }
+    });
   }
 
   @override
@@ -178,66 +269,119 @@ class InvoiceFormController extends GetxController {
 
   // ==================== INITIALIZATION ====================
 
-  void _initializeForm() {
-    // ✅ Cargar cliente final real desde la base de datos
+  // ✅ NUEVA FUNCIÓN: Inicialización mínima para evitar ANR
+  void _initializeMinimal() {
+    // Cargar cliente por defecto de forma asíncrona pero inmediata
     _loadDefaultCustomer();
 
-    // Fechas automáticas
-    _invoiceDate.value = DateTime.now();
-    _dueDate.value = DateTime.now(); // Venta inmediata
+    // Programar carga completa después del primer frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDataAfterFirstFrame();
+    });
+  }
 
-    // Términos por defecto simples
+  void _initializeForm() {
+    _invoiceDate.value = DateTime.now();
+    _dueDate.value = DateTime.now();
     termsController.text = 'Venta de contado';
 
-    // Verificar si es modo edición
     final invoiceId = Get.parameters['id'];
     if (invoiceId != null && invoiceId.isNotEmpty) {
       _isEditMode.value = true;
       _editingInvoiceId.value = invoiceId;
-      _loadInvoiceForEdit(invoiceId);
+      // Cargar factura después para no bloquear
+      _loadInvoiceForEditAsync(invoiceId);
+    }
+  }
+
+  // ✅ NUEVA FUNCIÓN: Cargar datos después del primer frame
+  void _loadDataAfterFirstFrame() async {
+    try {
+      print('📅 Cargando datos después del primer frame...');
+
+      // Esperar un poco más para asegurar que la UI esté lista
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Auto-inicializar dependencias si es necesario
+      _autoInitializeDependencies();
+
+      // Esperar otro poco
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Cliente ya está cargándose en _initializeMinimal
+
+      // Cargar otros datos de forma escalonada
+      _loadInitialDataStaggered();
+    } catch (e) {
+      print('❌ Error en carga después del primer frame: $e');
+    }
+  }
+
+  // ✅ NUEVA FUNCIÓN: Carga escalonada para evitar bloqueos
+  void _loadInitialDataStaggered() async {
+    try {
+      // Cargar clientes primero (más liviano)
+      _loadCustomers().catchError((e) {
+        print('❌ Error cargando clientes: $e');
+      });
+
+      // Esperar antes de cargar productos
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Cargar productos después
+      _loadProducts().catchError((e) {
+        print('❌ Error cargando productos: $e');
+      });
+    } catch (e) {
+      print('❌ Error en carga escalonada: $e');
     }
   }
 
   void debugPriceCalculations() {
     print('🧮 DEBUG Cálculos de Precios:');
-    print('   - Subtotal con IVA: \$${subtotal.toStringAsFixed(2)}');
-    print('   - Subtotal sin IVA: \$${subtotalWithoutTax.toStringAsFixed(2)}');
-    print('   - Descuentos: \$${totalDiscountAmount.toStringAsFixed(2)}');
-    print('   - Monto gravable: \$${taxableAmount.toStringAsFixed(2)}');
-    print('   - IVA (${taxPercentage}%): \$${taxAmount.toStringAsFixed(2)}');
-    print('   - TOTAL: \$${total.toStringAsFixed(2)}');
+    print('   - Subtotal con IVA: \${subtotal.toStringAsFixed(2)}');
+    print('   - Subtotal sin IVA: \${subtotalWithoutTax.toStringAsFixed(2)}');
+    print('   - Descuentos: \${totalDiscountAmount.toStringAsFixed(2)}');
+    print('   - Monto gravable: \${taxableAmount.toStringAsFixed(2)}');
+    print('   - IVA (${taxPercentage}%): \${taxAmount.toStringAsFixed(2)}');
+    print('   - TOTAL: \${total.toStringAsFixed(2)}');
   }
 
-  /// ✅ CARGAR CLIENTE FINAL REAL DESDE BASE DE DATOS
   Future<void> _loadDefaultCustomer() async {
     try {
       print('🔍 Cargando cliente final desde BD: $DEFAULT_CUSTOMER_ID');
 
+      // ✅ ESTABLECER CLIENTE FALLBACK INMEDIATAMENTE
+      _setFallbackDefaultCustomer();
+
       if (_getCustomerByIdUseCase != null) {
         print('✅ GetCustomerByIdUseCase disponible, realizando consulta...');
 
-        final result = await _getCustomerByIdUseCase!(
-          GetCustomerByIdParams(id: DEFAULT_CUSTOMER_ID),
-        );
-
-        result.fold(
-          (failure) {
-            print('❌ Error cargando cliente final: ${failure.toString()}');
-            print('🔄 Usando cliente fallback...');
-            _setFallbackDefaultCustomer();
-          },
-          (customer) {
-            _selectedCustomer.value = customer;
-            print('✅ Cliente final cargado exitosamente:');
-            print('   - ID: ${customer.id}');
-            print('   - Nombre: ${customer.displayName}');
-            print('   - Email: ${customer.email}');
-          },
-        );
+        // ✅ CARGAR CLIENTE REAL EN BACKGROUND SIN BLOQUEAR
+        _getCustomerByIdUseCase!(GetCustomerByIdParams(id: DEFAULT_CUSTOMER_ID))
+            .timeout(const Duration(seconds: 5))
+            .then((result) {
+              result.fold(
+                (failure) {
+                  print('❌ Error cargando cliente final: ${failure.toString()}');
+                  // Mantener cliente fallback
+                },
+                (customer) {
+                  _selectedCustomer.value = customer;
+                  print('✅ Cliente final cargado exitosamente:');
+                  print('   - ID: ${customer.id}');
+                  print('   - Nombre: ${customer.displayName}');
+                  print('   - Email: ${customer.email}');
+                },
+              );
+            })
+            .catchError((e) {
+              print('💥 Error inesperado cargando cliente final: $e');
+              // Mantener cliente fallback
+            });
       } else {
         print('❌ GetCustomerByIdUseCase NO disponible');
         print('🔄 Usando cliente fallback...');
-        _setFallbackDefaultCustomer();
       }
     } catch (e) {
       print('💥 Error inesperado cargando cliente final: $e');
@@ -246,10 +390,58 @@ class InvoiceFormController extends GetxController {
     }
   }
 
+  // ✅ NUEVA FUNCIÓN: Cargar cliente asíncronamente
+  void _loadDefaultCustomerAsync() {
+    try {
+      print('🔍 Cargando cliente final desde BD: $DEFAULT_CUSTOMER_ID');
+
+      if (_getCustomerByIdUseCase != null) {
+        print('✅ GetCustomerByIdUseCase disponible, realizando consulta...');
+
+        _getCustomerByIdUseCase!(GetCustomerByIdParams(id: DEFAULT_CUSTOMER_ID))
+            .timeout(const Duration(seconds: 5))
+            .then((result) {
+              result.fold(
+                (failure) {
+                  print(
+                    '❌ Error cargando cliente final: ${failure.toString()}',
+                  );
+                  // Mantener cliente fallback
+                },
+                (customer) {
+                  _selectedCustomer.value = customer;
+                  print('✅ Cliente final cargado exitosamente:');
+                  print('   - ID: ${customer.id}');
+                  print('   - Nombre: ${customer.displayName}');
+                  print('   - Email: ${customer.email}');
+                },
+              );
+            })
+            .catchError((e) {
+              print('💥 Error inesperado cargando cliente final: $e');
+              // Mantener cliente fallback
+            });
+      } else {
+        print('❌ GetCustomerByIdUseCase NO disponible');
+        print('🔄 Usando cliente fallback...');
+      }
+    } catch (e) {
+      print('💥 Error inesperado cargando cliente final: $e');
+    }
+  }
+
+  // ✅ NUEVA FUNCIÓN: Cargar factura para edición asíncronamente
+  void _loadInvoiceForEditAsync(String invoiceId) {
+    // Programar carga después de que la UI esté lista
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 1000));
+      _loadInvoiceForEdit(invoiceId);
+    });
+  }
+
   void _setFallbackDefaultCustomer() {
-    // ✅ USAR EL MISMO ID DEL CLIENTE REAL COMO FALLBACK
     final fallbackCustomer = Customer(
-      id: DEFAULT_CUSTOMER_ID, // ✅ CAMBIO IMPORTANTE: Usar el ID real
+      id: DEFAULT_CUSTOMER_ID,
       firstName: 'Consumidor',
       lastName: 'Final',
       email: 'ventas@empresa.com',
@@ -276,9 +468,8 @@ class InvoiceFormController extends GetxController {
     print('   - Nombre: ${fallbackCustomer.displayName}');
   }
 
-  Future<void> _loadInitialData() async {
-    await Future.wait([_loadCustomers(), _loadProducts()]);
-  }
+  // ✅ FUNCIÓN OBSOLETA - YA NO SE USA
+  // Se reemplazó por _loadInitialDataStaggered para evitar ANR
 
   // ==================== INVOICE LOADING (EDIT MODE) ====================
 
@@ -312,7 +503,6 @@ class InvoiceFormController extends GetxController {
   }
 
   void _populateFormFromInvoice(Invoice invoice) {
-    // Información básica
     _invoiceDate.value = invoice.date;
     _dueDate.value = invoice.dueDate;
     _paymentMethod.value = invoice.paymentMethod;
@@ -321,31 +511,25 @@ class InvoiceFormController extends GetxController {
     _discountAmount.value = invoice.discountAmount;
     notesController.text = invoice.notes ?? '';
     termsController.text = invoice.terms ?? '';
-
-    // Cliente
     _selectedCustomer.value = invoice.customer;
-
-    // Items
     _invoiceItems.value =
         invoice.items
             .map((item) => InvoiceItemFormData.fromEntity(item))
             .toList();
   }
+
   // ==================== PRODUCTOS - FUNCIONALIDAD PRINCIPAL ====================
 
   void addOrUpdateProductToInvoice(Product product, {double quantity = 1}) {
     print('🛒 Procesando producto: ${product.name} (cantidad: $quantity)');
 
-    // Verificar stock antes de agregar
     if (product.stock <= 0) {
       _showError('Sin Stock', '${product.name} no tiene stock disponible');
       return;
     }
 
-    // ✅ ASEGURAR QUE EL PRODUCTO ESTÉ EN LA LISTA DE DISPONIBLES
     _ensureProductIsAvailable(product);
 
-    // ✅ OBTENER PRECIO AL PÚBLICO (PRICE1) POR DEFECTO
     final defaultPrice = product.getPriceByType(PriceType.price1);
     final unitPrice = defaultPrice?.finalAmount ?? product.sellingPrice ?? 0;
 
@@ -354,17 +538,14 @@ class InvoiceFormController extends GetxController {
       return;
     }
 
-    // Buscar si el producto ya existe en la factura
     final existingIndex = _invoiceItems.indexWhere(
       (item) => item.productId == product.id,
     );
 
     if (existingIndex != -1) {
-      // PRODUCTO EXISTENTE: Sumar cantidades
       final existingItem = _invoiceItems[existingIndex];
       final newQuantity = existingItem.quantity + quantity;
 
-      // Verificar que no exceda el stock disponible
       if (newQuantity > product.stock) {
         _showError(
           'Stock Insuficiente',
@@ -381,7 +562,6 @@ class InvoiceFormController extends GetxController {
       );
       _showProductUpdatedMessage(product.name, newQuantity);
     } else {
-      // PRODUCTO NUEVO: Agregar a la lista
       if (quantity > product.stock) {
         _showError(
           'Stock Insuficiente',
@@ -394,14 +574,14 @@ class InvoiceFormController extends GetxController {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         description: product.name,
         quantity: quantity,
-        unitPrice: unitPrice, // ✅ Precio al público por defecto
+        unitPrice: unitPrice,
         unit: product.unit ?? 'pcs',
         productId: product.id,
       );
 
       _invoiceItems.add(newItem);
       print(
-        '➕ Producto agregado: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
+        '➕ Producto agregado: ${product.name} - Precio: \${unitPrice.toStringAsFixed(2)}',
       );
       _showProductAddedMessage(product.name);
     }
@@ -415,50 +595,57 @@ class InvoiceFormController extends GetxController {
     );
 
     if (existingIndex == -1) {
-      // Si no está en la lista, agregarlo
       _availableProducts.add(product);
       print('📦 Producto agregado a lista disponible: ${product.name}');
     } else {
-      // Si está pero puede estar desactualizado, actualizarlo
       _availableProducts[existingIndex] = product;
       print('📦 Producto actualizado en lista disponible: ${product.name}');
     }
   }
 
-  /// Búsqueda mejorada: Por código de barras y nombre
   Future<List<Product>> searchProducts(String query) async {
     print('🔍 Iniciando búsqueda de productos: "$query"');
 
     if (query.trim().isEmpty) return [];
 
+    // ✅ VERIFICAR ESTADO DE CARGA
+    if (_isLoadingProducts.value) {
+      print('⚠️ Productos aún cargando, usando búsqueda local limitada');
+      return _searchInLocalProducts(query).take(5).toList();
+    }
+
     try {
       List<Product> results = [];
 
-      // 1. Primero buscar por código de barras exacto
       final barcodeMatch = await _searchByBarcode(query);
       if (barcodeMatch != null) {
         results.add(barcodeMatch);
         print('✅ Encontrado por código de barras: ${barcodeMatch.name}');
       }
 
-      // 2. Buscar por SKU exacto
       final skuMatch = await _searchBySku(query);
       if (skuMatch != null && !results.any((p) => p.id == skuMatch.id)) {
         results.add(skuMatch);
         print('✅ Encontrado por SKU: ${skuMatch.name}');
       }
 
-      // 3. Búsqueda general por nombre si no hay coincidencias exactas
       if (results.isEmpty) {
-        if (_searchProductsUseCase != null) {
+        if (_searchProductsUseCase != null && !_isLoadingProducts.value) {
+          // ✅ TIMEOUT PARA EVITAR BLOQUEOS
           final searchResult = await _searchProductsUseCase!(
-            SearchProductsParams(searchTerm: query, limit: 20),
-          );
+                SearchProductsParams(searchTerm: query, limit: 20),
+              )
+              .timeout(
+                const Duration(seconds: 5),
+                onTimeout: () {
+                  print('⚠️ Búsqueda por API timeout, usando local');
+                  return Left(ServerFailure('Timeout en búsqueda'));
+                },
+              );
 
           searchResult.fold(
             (failure) {
               print('❌ Error en búsqueda de productos: ${failure.message}');
-              // Fallback a búsqueda local
               results.addAll(_searchInLocalProducts(query));
             },
             (products) {
@@ -469,13 +656,11 @@ class InvoiceFormController extends GetxController {
             },
           );
         } else {
-          print('⚠️ SearchProductsUseCase no disponible');
-          // Fallback a búsqueda local
+          print('⚠️ SearchProductsUseCase no disponible o cargando');
           results.addAll(_searchInLocalProducts(query));
         }
       }
 
-      // Eliminar duplicados y filtrar solo productos activos con stock
       final uniqueResults = <String, Product>{};
       for (final product in results) {
         if (product.status == ProductStatus.active && product.stock > 0) {
@@ -491,11 +676,10 @@ class InvoiceFormController extends GetxController {
       return finalResults;
     } catch (e) {
       print('💥 Error inesperado en búsqueda de productos: $e');
-      return [];
+      return _searchInLocalProducts(query).take(5).toList();
     }
   }
 
-  /// Búsqueda por código de barras exacto
   Future<Product?> _searchByBarcode(String barcode) async {
     try {
       final products = _availableProducts;
@@ -510,7 +694,6 @@ class InvoiceFormController extends GetxController {
     }
   }
 
-  /// Búsqueda por SKU exacto
   Future<Product?> _searchBySku(String sku) async {
     try {
       final products = _availableProducts;
@@ -525,7 +708,6 @@ class InvoiceFormController extends GetxController {
     }
   }
 
-  /// Búsqueda local en productos cargados
   List<Product> _searchInLocalProducts(String query) {
     final searchTerm = query.toLowerCase();
 
@@ -543,6 +725,7 @@ class InvoiceFormController extends GetxController {
     if (_getProductsUseCase == null) {
       print('⚠️ GetProductsUseCase no disponible - no se cargarán productos');
       _availableProducts.clear();
+      _isLoadingProducts.value = false;
       return;
     }
 
@@ -550,68 +733,96 @@ class InvoiceFormController extends GetxController {
       _isLoadingProducts.value = true;
       print('📦 Cargando productos desde la base de datos...');
 
+      // ✅ USAR YIELD PARA NO BLOQUEAR EL HILO PRINCIPAL
+      await Future.delayed(const Duration(milliseconds: 50));
+
       final result = await _getProductsUseCase!(
-        const GetProductsParams(
-          page: 1,
-          limit: 100,
-          status: ProductStatus.active,
-          includePrices: true,
-        ),
-      );
+            const GetProductsParams(
+              page: 1,
+              limit: 50, // ✅ REDUCIR LÍMITE INICIAL
+              status: ProductStatus.active,
+              includePrices: true,
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 8), // ✅ TIMEOUT MÁS CORTO
+            onTimeout: () {
+              print('⚠️ Timeout cargando productos');
+              return Left(ServerFailure('Timeout al cargar productos'));
+            },
+          );
+
+      // ✅ YIELD ENTRE OPERACIONES
+      await Future.delayed(const Duration(milliseconds: 10));
 
       result.fold(
         (failure) {
           print('❌ Error al cargar productos: ${failure.message}');
-          _showError('Error al cargar productos', failure.message);
           _availableProducts.clear();
         },
         (paginatedResult) {
           _availableProducts.value = paginatedResult.data;
           print('✅ Productos cargados: ${paginatedResult.data.length}');
 
-          // Si hay más productos disponibles, cargar más páginas
-          if (paginatedResult.data.length == 100 &&
+          // ✅ CARGAR MÁS PRODUCTOS EN BACKGROUND MUY DESPACIO
+          if (paginatedResult.data.length == 50 &&
               paginatedResult.meta.hasNextPage) {
-            _loadMoreProducts(2);
+            _loadMoreProductsSlowly(2);
           }
         },
       );
     } catch (e) {
       print('💥 Error al cargar productos: $e');
-      _showError('Error inesperado', 'No se pudieron cargar los productos');
       _availableProducts.clear();
     } finally {
       _isLoadingProducts.value = false;
     }
   }
 
+  // ✅ NUEVA FUNCIÓN: Carga asíncrona de más productos MUY LENTAMENTE
+  void _loadMoreProductsSlowly(int page) {
+    // Esperar mucho tiempo antes de cargar más productos
+    Timer(const Duration(seconds: 3), () {
+      _loadMoreProducts(page).catchError((e) {
+        print('❌ Error cargando página $page: $e');
+      });
+    });
+  }
+
   Future<void> _loadMoreProducts(int page) async {
     if (_getProductsUseCase == null) return;
 
     try {
+      // ✅ TIMEOUT PARA PÁGINAS ADICIONALES
       final result = await _getProductsUseCase!(
-        GetProductsParams(
-          page: page,
-          limit: 100,
-          status: ProductStatus.active,
-          includePrices: true,
-        ),
-      );
+            GetProductsParams(
+              page: page,
+              limit: 100,
+              status: ProductStatus.active,
+              includePrices: true,
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              print('⚠️ Timeout cargando página $page');
+              return Left(ServerFailure('Timeout'));
+            },
+          );
 
       result.fold(
         (failure) {
           print('❌ Error cargando página $page: ${failure.message}');
         },
         (paginatedResult) {
-          // Agregar productos a la lista existente
           _availableProducts.addAll(paginatedResult.data);
           print(
             '✅ Productos página $page cargados: ${paginatedResult.data.length}',
           );
 
-          // Continuar cargando si hay más páginas (máximo 5 páginas = 500 productos)
           if (page < 5 && paginatedResult.meta.hasNextPage) {
-            _loadMoreProducts(page + 1);
+            // ✅ CARGAR SIGUIENTE PÁGINA DE FORMA ASÍNCRONA
+            // _loadMoreProductsAsync(page + 1);
           }
         },
       );
@@ -626,6 +837,7 @@ class InvoiceFormController extends GetxController {
     if (_getCustomersUseCase == null) {
       print('⚠️ GetCustomersUseCase no disponible - no se cargarán clientes');
       _availableCustomers.clear();
+      _isLoadingCustomers.value = false;
       return;
     }
 
@@ -633,18 +845,30 @@ class InvoiceFormController extends GetxController {
       _isLoadingCustomers.value = true;
       print('👥 Cargando clientes desde la base de datos...');
 
+      // ✅ YIELD PARA NO BLOQUEAR
+      await Future.delayed(const Duration(milliseconds: 50));
+
       final result = await _getCustomersUseCase!(
-        const GetCustomersParams(
-          page: 1,
-          limit: 200,
-          status: CustomerStatus.active,
-        ),
-      );
+            const GetCustomersParams(
+              page: 1,
+              limit: 50, // ✅ REDUCIR LÍMITE
+              status: CustomerStatus.active,
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 6), // ✅ TIMEOUT MÁS CORTO
+            onTimeout: () {
+              print('⚠️ Timeout cargando clientes');
+              return Left(ServerFailure('Timeout al cargar clientes'));
+            },
+          );
+
+      // ✅ YIELD ENTRE OPERACIONES
+      await Future.delayed(const Duration(milliseconds: 10));
 
       result.fold(
         (failure) {
           print('❌ Error al cargar clientes: ${failure.message}');
-          _showError('Error al cargar clientes', failure.message);
           _availableCustomers.clear();
         },
         (paginatedResult) {
@@ -654,7 +878,6 @@ class InvoiceFormController extends GetxController {
       );
     } catch (e) {
       print('💥 Error al cargar clientes: $e');
-      _showError('Error inesperado', 'No se pudieron cargar los clientes');
       _availableCustomers.clear();
     } finally {
       _isLoadingCustomers.value = false;
@@ -677,7 +900,6 @@ class InvoiceFormController extends GetxController {
         searchResult.fold(
           (failure) {
             print('❌ Error en búsqueda de clientes: ${failure.message}');
-            // Fallback a búsqueda local
             results = _searchInLocalCustomers(query);
           },
           (customers) {
@@ -689,11 +911,9 @@ class InvoiceFormController extends GetxController {
         );
       } else {
         print('⚠️ SearchCustomersUseCase no disponible');
-        // Búsqueda local
         results = _searchInLocalCustomers(query);
       }
 
-      // Filtrar solo clientes activos
       final filteredResults =
           results
               .where((customer) => customer.status == CustomerStatus.active)
@@ -729,13 +949,12 @@ class InvoiceFormController extends GetxController {
     _selectedCustomer.value = customer;
     print('👤 Cliente seleccionado: ${customer.displayName}');
 
-    // Actualizar términos de pago basados en el cliente
     if (customer.paymentTerms > 0) {
       _dueDate.value = _invoiceDate.value.add(
         Duration(days: customer.paymentTerms),
       );
     } else {
-      _dueDate.value = _invoiceDate.value; // Venta de contado
+      _dueDate.value = _invoiceDate.value;
     }
   }
 
@@ -743,6 +962,7 @@ class InvoiceFormController extends GetxController {
     _loadDefaultCustomer();
     print('🔄 Cliente vuelto a consumidor final');
   }
+
   // ==================== ITEM MANAGEMENT ====================
 
   void addItem(InvoiceItemFormData item) {
@@ -799,7 +1019,6 @@ class InvoiceFormController extends GetxController {
 
   void setInvoiceDate(DateTime date) {
     _invoiceDate.value = date;
-    // Actualizar fecha de vencimiento manteniendo los días de diferencia
     final daysDifference = _dueDate.value.difference(_invoiceDate.value).inDays;
     if (daysDifference < 1) {
       _dueDate.value = date.add(const Duration(days: 30));
@@ -854,16 +1073,18 @@ class InvoiceFormController extends GetxController {
   // ==================== CALCULATIONS ====================
 
   void _recalculateTotals() {
-    update(); // Fuerza actualización de UI
+    update();
   }
+
   // ==================== PAYMENT & SAVE ====================
 
-  // ✅ MÉTODO ACTUALIZADO CON DEBUGGING
+  // ✅ MÉTODO PRINCIPAL ACTUALIZADO CON IMPRESIÓN
   Future<void> saveInvoiceWithPayment(
     double receivedAmount,
     double change,
     PaymentMethod paymentMethod,
-    InvoiceStatus status, // ✅ NUEVO PARÁMETRO
+    InvoiceStatus status,
+    bool shouldPrint, // ✅ NUEVO PARÁMETRO
   ) async {
     if (!_validateForm()) return;
 
@@ -874,30 +1095,36 @@ class InvoiceFormController extends GetxController {
       print('💾 Datos recibidos:');
       print('   - Método: ${paymentMethod.displayName}');
       print('   - Estado: ${status.displayName}');
-      print('   - Total: \$${total.toStringAsFixed(2)}');
-      print('   - Recibido: \$${receivedAmount.toStringAsFixed(2)}');
-      print('   - Cambio: \$${change.toStringAsFixed(2)}');
+      print('   - Total: \${total.toStringAsFixed(2)}');
+      print('   - Recibido: \${receivedAmount.toStringAsFixed(2)}');
+      print('   - Cambio: \${change.toStringAsFixed(2)}');
       print('   - Es edición: $isEditMode');
+      print('   - Debe imprimir: $shouldPrint'); // ✅ NUEVO LOG
 
-      // ✅ Establecer método de pago en el controlador
       _paymentMethod.value = paymentMethod;
 
-      // ✅ AGREGAR INFORMACIÓN DE PAGO A LAS NOTAS
       final paymentInfo = _buildPaymentNotes(receivedAmount, change, status);
       notesController.text = paymentInfo;
 
-      // ✅ AJUSTAR FECHA DE VENCIMIENTO SEGÚN MÉTODO DE PAGO
       _adjustDueDateByPaymentMethod(paymentMethod, status);
 
       print('📅 Fecha de vencimiento ajustada: ${_dueDate.value}');
       print('📝 Notas generadas: ${paymentInfo.length} caracteres');
 
+      Invoice? savedInvoice;
+
       if (isEditMode) {
         print('✏️ Actualizando factura existente...');
-        await _updateExistingInvoice(status);
+        savedInvoice = await _updateExistingInvoice(status);
       } else {
         print('➕ Creando nueva factura...');
-        await _createNewInvoice(status);
+        savedInvoice = await _createNewInvoice(status);
+      }
+
+      // ✅ NUEVA LÓGICA: IMPRIMIR SI SE SOLICITÓ
+      if (savedInvoice != null && shouldPrint) {
+        print('🖨️ Iniciando impresión automática...');
+        await _printInvoiceAutomatically(savedInvoice);
       }
 
       print('✅ === FACTURA GUARDADA EXITOSAMENTE ===');
@@ -909,22 +1136,76 @@ class InvoiceFormController extends GetxController {
     }
   }
 
+  // ✅ NUEVA FUNCIÓN: IMPRESIÓN AUTOMÁTICA
+  Future<void> _printInvoiceAutomatically(Invoice invoice) async {
+    try {
+      _isPrinting.value = true;
+      print('🖨️ === INICIANDO IMPRESIÓN AUTOMÁTICA ===');
+      print('   - Factura: ${invoice.number}');
+      print('   - Cliente: ${invoice.customerName}');
+      print('   - Total: \${invoice.total.toStringAsFixed(2)}');
+
+      // Usar el controlador de impresión térmica
+      final success = await _thermalPrinterController.printInvoice(invoice);
+
+      if (success) {
+        print('✅ Impresión automática exitosa');
+        _showPrintSuccess('Factura impresa exitosamente');
+      } else {
+        print('❌ Error en impresión automática');
+        _showPrintError(
+          'Error al imprimir: ${_thermalPrinterController.lastError ?? "Error desconocido"}',
+        );
+      }
+    } catch (e) {
+      print('💥 Error inesperado en impresión automática: $e');
+      _showPrintError('Error inesperado al imprimir: $e');
+    } finally {
+      _isPrinting.value = false;
+    }
+  }
+
+  // ✅ NUEVA FUNCIÓN: IMPRIMIR FACTURA MANUALMENTE
+  Future<void> printInvoice(Invoice invoice) async {
+    if (_isPrinting.value) {
+      //_showError('Ya hay una impresión en curso');
+      _showError('Título del Error', 'Mensaje descriptivo del error');
+      return;
+    }
+
+    try {
+      _isPrinting.value = true;
+      print('🖨️ Impresión manual solicitada para factura: ${invoice.number}');
+
+      final success = await _thermalPrinterController.printInvoice(invoice);
+
+      if (success) {
+        _showPrintSuccess('Factura impresa exitosamente');
+      } else {
+        _showPrintError(
+          'Error al imprimir: ${_thermalPrinterController.lastError ?? "Error desconocido"}',
+        );
+      }
+    } catch (e) {
+      print('💥 Error en impresión manual: $e');
+      _showPrintError('Error inesperado al imprimir: $e');
+    } finally {
+      _isPrinting.value = false;
+    }
+  }
+
   void _adjustDueDateByPaymentMethod(
     PaymentMethod method,
     InvoiceStatus status,
   ) {
-    // Si es borrador, mantener fecha actual o agregar tiempo para revisión
     if (status == InvoiceStatus.draft) {
-      _dueDate.value = _invoiceDate.value.add(
-        const Duration(days: 30),
-      ); // Tiempo para revisión
+      _dueDate.value = _invoiceDate.value.add(const Duration(days: 30));
       print(
         '📅 Borrador - Fecha de vencimiento: ${_dueDate.value.toString().split(' ')[0]}',
       );
       return;
     }
 
-    // Lógica normal para otros estados
     switch (method) {
       case PaymentMethod.cash:
       case PaymentMethod.creditCard:
@@ -961,7 +1242,7 @@ class InvoiceFormController extends GetxController {
     InvoiceStatus status,
   ) {
     final buffer = StringBuffer();
-    buffer.writeln('=== INFORMACIÓN DE FACTURA ===');
+    // buffer.writeln('=== INFORMACIÓN DE FACTURA ===');
     buffer.writeln('Estado: ${status.displayName.toUpperCase()}');
 
     if (status == InvoiceStatus.draft) {
@@ -971,29 +1252,32 @@ class InvoiceFormController extends GetxController {
       ); // Aquí puedes agregar el usuario actual
       buffer.writeln('Requiere aprobación de supervisor');
     } else {
-      buffer.writeln('Método de Pago: ${paymentMethod.displayName}');
+      buffer.writeln('Metodo de Pago: ${paymentMethod.displayName}');
     }
 
-    buffer.writeln('Subtotal: \$${subtotal.toStringAsFixed(2)}');
+    // ✅ MOSTRAR SUBTOTAL SIN IVA CORRECTAMENTE
+    buffer.writeln(
+      //'Subtotal sin IVA: \$${subtotalWithoutTax.toStringAsFixed(2)}',
+      'Subtotal sin IVA: \$${format.format(subtotalWithoutTax)}',
+    );
 
     if (totalDiscountAmount > 0) {
       buffer.writeln('Descuento: \$${totalDiscountAmount.toStringAsFixed(2)}');
     }
 
     if (taxAmount > 0) {
-      buffer.writeln(
-        'IVA (${taxPercentage}%): \$${taxAmount.toStringAsFixed(2)}',
-      );
+      buffer.writeln('IVA (${taxPercentage}%): \$${format.format(taxAmount)}');
     }
 
-    buffer.writeln('TOTAL: \$${total.toStringAsFixed(2)}');
+    // ✅ MOSTRAR EL TOTAL CORRECTO (que debe coincidir con el precio del producto)
+    buffer.writeln('TOTAL: \$${format.format(total)}');
 
     if (status != InvoiceStatus.draft) {
       // ✅ INFORMACIÓN ESPECÍFICA SEGÚN MÉTODO DE PAGO (solo si no es borrador)
       switch (paymentMethod) {
         case PaymentMethod.cash:
-          buffer.writeln('Recibido: \$${receivedAmount.toStringAsFixed(2)}');
-          buffer.writeln('Cambio: \$${change.toStringAsFixed(2)}');
+          buffer.writeln('Recibido: \$${format.format(receivedAmount)}');
+          buffer.writeln('Cambio: \$${format.format(change)}');
           break;
         case PaymentMethod.credit:
           buffer.writeln(
@@ -1037,13 +1321,12 @@ class InvoiceFormController extends GetxController {
       _isSaving.value = true;
       print('💾 Guardando factura...');
 
-      // ✅ DEFINIR ESTADO POR DEFECTO CUANDO SE GUARDA SIN DIÁLOGO DE PAGO
-      const defaultStatus = InvoiceStatus.draft; // Siempre como borrador
+      const defaultStatus = InvoiceStatus.draft;
 
       if (isEditMode) {
-        await _updateExistingInvoice(defaultStatus); // ✅ PASAR STATUS
+        await _updateExistingInvoice(defaultStatus);
       } else {
-        await _createNewInvoice(defaultStatus); // ✅ PASAR STATUS
+        await _createNewInvoice(defaultStatus);
       }
     } catch (e) {
       print('💥 Error inesperado al guardar: $e');
@@ -1053,7 +1336,8 @@ class InvoiceFormController extends GetxController {
     }
   }
 
-  Future<void> _createNewInvoice(InvoiceStatus status) async {
+  // ✅ MODIFICADO: Retornar la factura creada
+  Future<Invoice?> _createNewInvoice(InvoiceStatus status) async {
     final items =
         _invoiceItems
             .map(
@@ -1074,11 +1358,11 @@ class InvoiceFormController extends GetxController {
       CreateInvoiceParams(
         customerId: selectedCustomer!.id,
         items: items,
-        number: null, // AUTO-GENERADO
+        number: null,
         date: invoiceDate,
         dueDate: dueDate,
         paymentMethod: paymentMethod,
-        status: status, // ✅ AGREGAR ESTADO
+        status: status,
         taxPercentage: taxPercentage,
         discountPercentage: discountPercentage,
         discountAmount: discountAmount,
@@ -1087,18 +1371,21 @@ class InvoiceFormController extends GetxController {
       ),
     );
 
-    result.fold(
+    return result.fold(
       (failure) {
         _showError('Error al procesar venta', failure.message);
+        return null;
       },
       (invoice) {
         _showSuccessWithStatus('¡Venta procesada exitosamente!', status);
         _prepareForNewSale();
+        return invoice; // ✅ RETORNAR LA FACTURA CREADA
       },
     );
   }
 
-  Future<void> _updateExistingInvoice(InvoiceStatus status) async {
+  // ✅ MODIFICADO: Retornar la factura actualizada
+  Future<Invoice?> _updateExistingInvoice(InvoiceStatus status) async {
     final items =
         _invoiceItems
             .map(
@@ -1118,11 +1405,11 @@ class InvoiceFormController extends GetxController {
     final result = await _updateInvoiceUseCase(
       UpdateInvoiceParams(
         id: editingInvoiceId!,
-        number: null, // Mantener número existente
+        number: null,
         date: invoiceDate,
         dueDate: dueDate,
         paymentMethod: paymentMethod,
-        status: status, // ✅ AGREGAR ESTADO
+        status: status,
         taxPercentage: taxPercentage,
         discountPercentage: discountPercentage,
         discountAmount: discountAmount,
@@ -1133,52 +1420,39 @@ class InvoiceFormController extends GetxController {
       ),
     );
 
-    result.fold(
+    return result.fold(
       (failure) {
         _showError('Error al actualizar factura', failure.message);
+        return null;
       },
       (invoice) {
         _showSuccessWithStatus('Factura actualizada exitosamente', status);
         Get.offAndToNamed('/invoices/detail/${invoice.id}');
+        return invoice; // ✅ RETORNAR LA FACTURA ACTUALIZADA
       },
     );
   }
 
-  /// Limpiar para nueva venta
   void clearFormForNewSale() {
     _prepareForNewSale();
     _showSuccess('Lista para nueva venta');
   }
 
   void _prepareForNewSale() {
-    // Limpiar items
     _invoiceItems.clear();
-
-    // Restablecer cliente por defecto
     _loadDefaultCustomer();
-
-    // Restablecer fechas
     _invoiceDate.value = DateTime.now();
     _dueDate.value = DateTime.now();
-
-    // Limpiar notas
     notesController.clear();
-
-    // Restablecer términos
     termsController.text = 'Venta de contado';
-
-    // Restablecer descuentos
     _discountPercentage.value = 0.0;
     _discountAmount.value = 0.0;
-
-    // Restablecer totales
     _recalculateTotals();
 
     print('🔄 Formulario preparado para nueva venta');
   }
 
   void clearForm() {
-    // Limpiar todos los campos
     notesController.clear();
     termsController.text = _getDefaultTerms();
 
@@ -1198,10 +1472,9 @@ class InvoiceFormController extends GetxController {
 
   void previewInvoice() {
     if (!_validateForm()) return;
-
-    // TODO: Implementar vista previa
     _showInfo('Vista Previa', 'Función de vista previa en desarrollo');
   }
+
   // ==================== VALIDATIONS ====================
 
   bool _validateForm() {
@@ -1232,10 +1505,6 @@ class InvoiceFormController extends GetxController {
   Future<void> confirmDraftInvoice(String invoiceId) async {
     try {
       print('✅ Confirmando borrador de factura: $invoiceId');
-
-      // Aquí implementarías la lógica para cambiar de draft a pending/paid
-      // Necesitarías un nuevo UseCase: ConfirmInvoiceUseCase
-
       _showSuccess('Factura confirmada y lista para procesamiento');
     } catch (e) {
       print('❌ Error al confirmar borrador: $e');
@@ -1341,6 +1610,33 @@ class InvoiceFormController extends GetxController {
     );
   }
 
+  // ✅ NUEVOS MENSAJES PARA IMPRESIÓN
+  void _showPrintSuccess(String message) {
+    Get.snackbar(
+      '🖨️ Impresión Exitosa',
+      message,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.green.shade100,
+      colorText: Colors.green.shade800,
+      icon: const Icon(Icons.print, color: Colors.green),
+      duration: const Duration(seconds: 3),
+      margin: const EdgeInsets.all(8),
+    );
+  }
+
+  void _showPrintError(String message) {
+    Get.snackbar(
+      '🖨️ Error de Impresión',
+      message,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.red.shade100,
+      colorText: Colors.red.shade800,
+      icon: const Icon(Icons.print_disabled, color: Colors.red),
+      duration: const Duration(seconds: 4),
+      margin: const EdgeInsets.all(8),
+    );
+  }
+
   void _showError(String title, String message) {
     Get.snackbar(
       title,
@@ -1403,5 +1699,6 @@ class InvoiceFormController extends GetxController {
     print('   - Tax: \${taxAmount.toStringAsFixed(2)}');
     print('   - Total: \${total.toStringAsFixed(2)}');
     print('   - Can Save: $canSave');
+    print('   - Is Printing: $isPrinting');
   }
 }

@@ -9,7 +9,8 @@ class EnhancedPaymentDialog extends StatefulWidget {
     double receivedAmount,
     double change,
     PaymentMethod paymentMethod,
-    InvoiceStatus status, // ✅ Agregar estado de factura
+    InvoiceStatus status,
+    bool shouldPrint, // ✅ NUEVO PARÁMETRO para indicar si debe imprimir
   )
   onPaymentConfirmed;
   final VoidCallback onCancel;
@@ -48,31 +49,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
     super.dispose();
   }
 
-  // void _calculateChange() {
-  //   final received = double.tryParse(receivedController.text) ?? 0.0;
-  //   setState(() {
-  //     change = received - widget.total;
-
-  //     // Si está marcado como borrador, siempre puede procesar
-  //     if (saveAsDraft) {
-  //       canProcess = true;
-  //       print('🔵 Modo borrador - Puede procesar: $canProcess');
-  //       return;
-  //     }
-
-  //     // Lógica normal para otros casos
-  //     if (selectedPaymentMethod == PaymentMethod.cash) {
-  //       canProcess = received >= widget.total;
-  //       print(
-  //         '💰 Efectivo - Recibido: $received, Total: ${widget.total}, Puede procesar: $canProcess',
-  //       );
-  //     } else {
-  //       canProcess = true;
-  //       print('💳 Otros métodos - Puede procesar: $canProcess');
-  //     }
-  //   });
-  // }
-
   void _calculateChange() {
     final received = double.tryParse(receivedController.text) ?? 0.0;
 
@@ -101,49 +77,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
       }
     });
   }
-
-  // InvoiceStatus _getInvoiceStatus() {
-  //   // 🔥 PRIORIDAD 1: Si está marcado como borrador, SIEMPRE devolver draft
-  //   if (saveAsDraft) {
-  //     print('🔵 Guardando como BORRADOR por elección del usuario');
-  //     return InvoiceStatus.draft;
-  //   }
-
-  //   // 🔥 PRIORIDAD 2: Según método de pago
-  //   switch (selectedPaymentMethod) {
-  //     case PaymentMethod.cash:
-  //       print('💰 EFECTIVO - Estado: PAID');
-  //       return InvoiceStatus.paid; // ✅ PAGADA inmediatamente
-
-  //     case PaymentMethod.creditCard:
-  //       print('💳 TARJETA CRÉDITO - Estado: PAID');
-  //       return InvoiceStatus.paid; // ✅ PAGADA inmediatamente
-
-  //     case PaymentMethod.debitCard:
-  //       print('💳 TARJETA DÉBITO - Estado: PAID');
-  //       return InvoiceStatus.paid; // ✅ PAGADA inmediatamente
-
-  //     case PaymentMethod.bankTransfer:
-  //       print('🏦 TRANSFERENCIA - Estado: PAID');
-  //       return InvoiceStatus.paid; // ✅ PAGADA inmediatamente
-
-  //     case PaymentMethod.credit:
-  //       print('📅 CRÉDITO - Estado: PENDING');
-  //       return InvoiceStatus.pending; // ⏰ Pendiente de pago
-
-  //     case PaymentMethod.check:
-  //       print('📋 CHEQUE - Estado: PENDING');
-  //       return InvoiceStatus.pending; // ⏰ Pendiente hasta que se cobre
-
-  //     case PaymentMethod.other:
-  //       print('❓ OTRO - Estado: PENDING');
-  //       return InvoiceStatus.pending; // ⏰ Pendiente hasta confirmar
-
-  //     default:
-  //       print('⚠️ MÉTODO DESCONOCIDO - Estado: DRAFT');
-  //       return InvoiceStatus.draft;
-  //   }
-  // }
 
   InvoiceStatus _getInvoiceStatus() {
     print('🔍 === CALCULANDO ESTADO DE FACTURA ===');
@@ -279,9 +212,8 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                           _buildOtherPaymentSection(context),
                           const SizedBox(height: 24),
                         ],
-                        _buildDraftOption(context), // ✅ AGREGAR ESTA LÍNEA
+                        _buildDraftOption(context),
                         const SizedBox(height: 16),
-                        // ✅ MOSTRAR ESTADO DE FACTURA
                         _buildInvoiceStatusSection(context),
                       ],
                     ),
@@ -325,9 +257,8 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                       _buildOtherPaymentSection(context),
                       const SizedBox(height: 24),
                     ],
-                    _buildDraftOption(context), // ✅ AGREGAR ESTA LÍNEA
+                    _buildDraftOption(context),
                     const SizedBox(height: 16),
-                    // ✅ MOSTRAR ESTADO DE FACTURA
                     _buildInvoiceStatusSection(context),
                   ],
                 ),
@@ -372,9 +303,8 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                       _buildOtherPaymentSection(context),
                       const SizedBox(height: 32),
                     ],
-                    _buildDraftOption(context), // ✅ AGREGAR ESTA LÍNEA
+                    _buildDraftOption(context),
                     const SizedBox(height: 16),
-                    // ✅ MOSTRAR ESTADO DE FACTURA
                     _buildInvoiceStatusSection(context),
                   ],
                 ),
@@ -750,7 +680,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
     );
   }
 
-  // ✅ NUEVA SECCIÓN - ESTADO DE FACTURA
   Widget _buildInvoiceStatusSection(BuildContext context) {
     final status = _getInvoiceStatus();
     final statusColor = _getStatusColor(status);
@@ -809,12 +738,11 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
             saveAsDraft = value ?? false;
             print('🔵 Checkbox borrador cambiado a: $saveAsDraft');
 
-            // Si está marcado como borrador, siempre puede procesar
             if (saveAsDraft) {
               canProcess = true;
               print('🔵 Borrador marcado - Habilitando procesamiento');
             } else {
-              _calculateChange(); // Recalcular si puede procesar
+              _calculateChange();
               print('🔵 Borrador desmarcado - Recalculando...');
             }
           });
@@ -841,18 +769,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
     );
   }
 
-  void _debugCurrentState() {
-    print('🔍 ESTADO ACTUAL DEL DIÁLOGO:');
-    print('   - Método de pago: ${selectedPaymentMethod.displayName}');
-    print('   - Guardar como borrador: $saveAsDraft');
-    print('   - Puede procesar: $canProcess');
-    print('   - Estado que se enviará: ${_getInvoiceStatus().displayName}');
-    print('   - Total: \$${widget.total.toStringAsFixed(2)}');
-    print('   - Recibido: ${receivedController.text}');
-    print('   - Cambio: \$${change.toStringAsFixed(2)}');
-  }
-
-  // ✅ ICONO SEGÚN ESTADO
   IconData _getStatusIcon(InvoiceStatus status) {
     switch (status) {
       case InvoiceStatus.paid:
@@ -870,25 +786,51 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
 
   // ==================== ACTIONS ====================
 
+  // ✅ NUEVAS ACCIONES - MÓVIL CON DOS BOTONES
   Widget _buildMobileActions(BuildContext context) {
     return Column(
       children: [
+        // ✅ NUEVO BOTÓN: Procesar e Imprimir
         SizedBox(
           width: double.infinity,
           height: 48,
-          child: ElevatedButton(
-            onPressed: canProcess ? _confirmPayment : null,
+          child: ElevatedButton.icon(
+            onPressed:
+                canProcess ? () => _confirmPayment(shouldPrint: true) : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
             ),
-            child: Text(
+            icon: const Icon(Icons.print),
+            label: Text(
+              _getPrintButtonText(),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ✅ BOTÓN ORIGINAL: Solo procesar (sin imprimir)
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed:
+                canProcess ? () => _confirmPayment(shouldPrint: false) : null,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).primaryColor,
+              side: BorderSide(color: Theme.of(context).primaryColor),
+            ),
+            icon: const Icon(Icons.save),
+            label: Text(
               _getButtonText(),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
         ),
         const SizedBox(height: 12),
+
+        // Botón cancelar
         SizedBox(
           width: double.infinity,
           height: 48,
@@ -901,28 +843,63 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
     );
   }
 
+  // ✅ NUEVAS ACCIONES - DESKTOP CON DOS BOTONES
   Widget _buildDesktopActions(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: widget.onCancel,
-            style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
-            child: const Text('Cancelar'),
-          ),
+        // Fila principal con botones de acción
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: widget.onCancel,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                ),
+                child: const Text('Cancelar'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: OutlinedButton.icon(
+                onPressed:
+                    canProcess
+                        ? () => _confirmPayment(shouldPrint: false)
+                        : null,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                  foregroundColor: Theme.of(context).primaryColor,
+                  side: BorderSide(color: Theme.of(context).primaryColor),
+                ),
+                icon: const Icon(Icons.save),
+                label: Text(
+                  _getButtonText(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 2,
-          child: ElevatedButton(
-            onPressed: canProcess ? _confirmPayment : null,
+        const SizedBox(height: 12),
+
+        // ✅ NUEVO BOTÓN PRINCIPAL: Procesar e Imprimir
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed:
+                canProcess ? () => _confirmPayment(shouldPrint: true) : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.all(16),
             ),
-            child: Text(
-              _getButtonText(),
+            icon: const Icon(Icons.print),
+            label: Text(
+              _getPrintButtonText(),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
@@ -931,6 +908,28 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
     );
   }
 
+  // ✅ NUEVO MÉTODO: Texto para botón de imprimir
+  String _getPrintButtonText() {
+    if (saveAsDraft) return 'Guardar Borrador e Imprimir';
+
+    switch (selectedPaymentMethod) {
+      case PaymentMethod.cash:
+        return 'Procesar Venta e Imprimir';
+      case PaymentMethod.credit:
+        return 'Generar Factura e Imprimir';
+      case PaymentMethod.creditCard:
+      case PaymentMethod.debitCard:
+        return 'Confirmar Pago e Imprimir';
+      case PaymentMethod.bankTransfer:
+        return 'Confirmar e Imprimir';
+      case PaymentMethod.check:
+        return 'Registrar e Imprimir';
+      default:
+        return 'Procesar e Imprimir';
+    }
+  }
+
+  // ✅ TEXTO ORIGINAL PARA BOTÓN SIN IMPRIMIR
   String _getButtonText() {
     if (saveAsDraft) return 'Guardar como Borrador';
 
@@ -966,31 +965,10 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
     });
   }
 
-  // void _confirmPayment() {
-  //   final received =
-  //       selectedPaymentMethod == PaymentMethod.cash
-  //           ? double.tryParse(receivedController.text) ?? 0.0
-  //           : widget.total;
-
-  //   final invoiceStatus = _getInvoiceStatus();
-
-  //   print('🚀 CONFIRMANDO PAGO:');
-  //   print('   - Método: ${selectedPaymentMethod.displayName}');
-  //   print('   - Borrador: $saveAsDraft');
-  //   print('   - Estado calculado: ${invoiceStatus.displayName}');
-  //   print('   - Recibido: \$${received.toStringAsFixed(2)}');
-  //   print('   - Cambio: \$${change >= 0 ? change : 0.0}');
-
-  //   widget.onPaymentConfirmed(
-  //     received,
-  //     change >= 0 ? change : 0.0,
-  //     selectedPaymentMethod,
-  //     invoiceStatus, // ✅ Este debe ser PAID para efectivo/tarjetas
-  //   );
-  // }
-
-  void _confirmPayment() {
+  // ✅ MÉTODO MODIFICADO: Ahora recibe parámetro shouldPrint
+  void _confirmPayment({required bool shouldPrint}) {
     print('\n🚀 === CONFIRMANDO PAGO ===');
+    print('📋 DEBE IMPRIMIR: $shouldPrint');
 
     final received =
         selectedPaymentMethod == PaymentMethod.cash
@@ -1004,8 +982,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
     print('   - Borrador marcado: $saveAsDraft');
     print('   - Estado calculado: ${invoiceStatus.displayName}');
     print('   - Estado esperado: ${_getExpectedStatus()}');
-    print('   - Recibido: \$${received.toStringAsFixed(2)}');
-    print('   - Cambio: \$${change >= 0 ? change : 0.0}');
+    print('   - Recibido: \${received.toStringAsFixed(2)}');
+    print('   - Cambio: \${change >= 0 ? change : 0.0}');
+    print('   - Debe imprimir: $shouldPrint');
 
     print('\n📤 ENVIANDO AL CALLBACK...');
     widget.onPaymentConfirmed(
@@ -1013,6 +992,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
       change >= 0 ? change : 0.0,
       selectedPaymentMethod,
       invoiceStatus,
+      shouldPrint, // ✅ NUEVO PARÁMETRO
     );
     print('✅ Callback ejecutado\n');
   }

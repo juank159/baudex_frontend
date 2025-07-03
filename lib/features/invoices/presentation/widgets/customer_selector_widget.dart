@@ -79,8 +79,14 @@
 //         ),
 //         const SizedBox(height: 12),
 
-//         // Cliente actual o selector
-//         _buildCurrentCustomerDisplay(context),
+//         // ✅ SOLUCIÓN: Cliente actual reactivo usando GetBuilder
+//         GetBuilder<InvoiceFormController>(
+//           builder: (controller) {
+//             // Usar el cliente del controlador, no del widget
+//             final customer = controller.selectedCustomer;
+//             return _buildCurrentCustomerDisplay(context, customer);
+//           },
+//         ),
 
 //         // Campo de búsqueda (solo visible cuando se busca)
 //         if (_showResults) ...[
@@ -106,19 +112,18 @@
 //     );
 //   }
 
-//   Widget _buildCurrentCustomerDisplay(BuildContext context) {
-//     final customer = widget.selectedCustomer;
-
+//   // ✅ ACTUALIZADO: Método que recibe el customer como parámetro
+//   Widget _buildCurrentCustomerDisplay(
+//     BuildContext context,
+//     Customer? customer,
+//   ) {
 //     return Container(
 //       padding: const EdgeInsets.all(16),
 //       decoration: BoxDecoration(
 //         color: Colors.white,
 //         borderRadius: BorderRadius.circular(12),
 //         border: Border.all(
-//           color:
-//               customer?.id == 'consumidor_final'
-//                   ? Colors.orange.shade300
-//                   : Theme.of(context).primaryColor.withOpacity(0.3),
+//           color: _getCustomerBorderColor(customer, context),
 //           width: 1,
 //         ),
 //         boxShadow: [
@@ -140,20 +145,12 @@
 //                 width: 50,
 //                 height: 50,
 //                 decoration: BoxDecoration(
-//                   color:
-//                       customer?.id == 'consumidor_final'
-//                           ? Colors.orange.shade100
-//                           : Theme.of(context).primaryColor.withOpacity(0.1),
+//                   color: _getCustomerBackgroundColor(customer, context),
 //                   borderRadius: BorderRadius.circular(25),
 //                 ),
 //                 child: Icon(
-//                   customer?.id == 'consumidor_final'
-//                       ? Icons.storefront
-//                       : Icons.person,
-//                   color:
-//                       customer?.id == 'consumidor_final'
-//                           ? Colors.orange.shade600
-//                           : Theme.of(context).primaryColor,
+//                   _getCustomerIcon(customer),
+//                   color: _getCustomerIconColor(customer, context),
 //                   size: 24,
 //                 ),
 //               ),
@@ -165,11 +162,14 @@
 //                   crossAxisAlignment: CrossAxisAlignment.start,
 //                   children: [
 //                     Text(
-//                       customer?.displayName ?? 'Sin cliente seleccionado',
+//                       customer?.displayName ?? 'Cargando cliente...',
 //                       style: TextStyle(
 //                         fontSize: 16,
 //                         fontWeight: FontWeight.bold,
-//                         color: Colors.grey.shade600,
+//                         color:
+//                             customer != null
+//                                 ? Colors.black87
+//                                 : Colors.grey.shade600,
 //                       ),
 //                     ),
 //                     const SizedBox(height: 4),
@@ -191,87 +191,162 @@
 //                           ),
 //                         ),
 //                       ],
+//                     ] else ...[
+//                       // ✅ ESTADO DE CARGA
+//                       Container(
+//                         height: 12,
+//                         width: 120,
+//                         decoration: BoxDecoration(
+//                           color: Colors.grey.shade300,
+//                           borderRadius: BorderRadius.circular(6),
+//                         ),
+//                       ),
 //                     ],
 //                   ],
 //                 ),
 //               ),
 
 //               // Botones de acción
-//               Row(
-//                 mainAxisSize: MainAxisSize.min,
-//                 children: [
-//                   // Botón buscar/cambiar cliente
-//                   Material(
-//                     color: Theme.of(context).primaryColor,
-//                     borderRadius: BorderRadius.circular(8),
-//                     child: InkWell(
-//                       borderRadius: BorderRadius.circular(8),
-//                       onTap: _toggleSearch,
-//                       child: Container(
-//                         padding: const EdgeInsets.all(8),
-//                         child: Icon(
-//                           _showResults ? Icons.close : Icons.search,
-//                           color: Colors.white,
-//                           size: 20,
-//                         ),
-//                       ),
-//                     ),
-//                   ),
-
-//                   // Botón limpiar (solo si no es consumidor final)
-//                   if (customer?.id != 'consumidor_final' &&
-//                       widget.onClearCustomer != null) ...[
-//                     const SizedBox(width: 8),
-//                     Material(
-//                       color: Colors.orange.shade500,
-//                       borderRadius: BorderRadius.circular(8),
-//                       child: InkWell(
-//                         borderRadius: BorderRadius.circular(8),
-//                         onTap: () {
-//                           widget.onClearCustomer!();
-//                           setState(() {
-//                             _showResults = false;
-//                             _searchController.clear();
-//                           });
-//                         },
-//                         child: Container(
-//                           padding: const EdgeInsets.all(8),
-//                           child: const Icon(
-//                             Icons.refresh,
-//                             color: Colors.white,
-//                             size: 20,
-//                           ),
-//                         ),
-//                       ),
-//                     ),
-//                   ],
-//                 ],
-//               ),
+//               _buildActionButtons(customer),
 //             ],
 //           ),
 
-//           // Etiqueta de consumidor final
-//           if (customer?.id == 'consumidor_final') ...[
-//             const SizedBox(height: 8),
-//             Container(
-//               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-//               decoration: BoxDecoration(
-//                 color: Colors.orange.shade100,
-//                 borderRadius: BorderRadius.circular(12),
-//               ),
-//               child: Text(
-//                 'Venta mostrador - Cliente por defecto',
-//                 style: TextStyle(
-//                   fontSize: 11,
-//                   color: Colors.orange.shade800,
-//                   fontWeight: FontWeight.w500,
-//                 ),
-//               ),
-//             ),
-//           ],
+//           // Etiqueta de cliente
+//           if (customer != null) _buildCustomerLabel(customer),
 //         ],
 //       ),
 //     );
+//   }
+
+//   // ✅ NUEVO: Botones de acción separados
+//   Widget _buildActionButtons(Customer? customer) {
+//     return Row(
+//       mainAxisSize: MainAxisSize.min,
+//       children: [
+//         // Botón buscar/cambiar cliente
+//         Material(
+//           color: Theme.of(context).primaryColor,
+//           borderRadius: BorderRadius.circular(8),
+//           child: InkWell(
+//             borderRadius: BorderRadius.circular(8),
+//             onTap:
+//                 customer != null
+//                     ? _toggleSearch
+//                     : null, // Deshabilitado si está cargando
+//             child: Container(
+//               padding: const EdgeInsets.all(8),
+//               child: Icon(
+//                 _showResults ? Icons.close : Icons.search,
+//                 color: Colors.white,
+//                 size: 20,
+//               ),
+//             ),
+//           ),
+//         ),
+
+//         // Botón limpiar (solo si no es consumidor final)
+//         if (customer != null &&
+//             !_isDefaultCustomer(customer) &&
+//             widget.onClearCustomer != null) ...[
+//           const SizedBox(width: 8),
+//           Material(
+//             color: Colors.orange.shade500,
+//             borderRadius: BorderRadius.circular(8),
+//             child: InkWell(
+//               borderRadius: BorderRadius.circular(8),
+//               onTap: () {
+//                 widget.onClearCustomer!();
+//                 setState(() {
+//                   _showResults = false;
+//                   _searchController.clear();
+//                 });
+//               },
+//               child: Container(
+//                 padding: const EdgeInsets.all(8),
+//                 child: const Icon(Icons.refresh, color: Colors.white, size: 20),
+//               ),
+//             ),
+//           ),
+//         ],
+//       ],
+//     );
+//   }
+
+//   // ✅ NUEVO: Etiqueta del cliente
+//   Widget _buildCustomerLabel(Customer customer) {
+//     if (_isDefaultCustomer(customer)) {
+//       return Column(
+//         children: [
+//           const SizedBox(height: 8),
+//           Container(
+//             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+//             decoration: BoxDecoration(
+//               color: Colors.orange.shade100,
+//               borderRadius: BorderRadius.circular(12),
+//             ),
+//             child: Text(
+//               'Venta mostrador - Cliente por defecto',
+//               style: TextStyle(
+//                 fontSize: 11,
+//                 color: Colors.orange.shade800,
+//                 fontWeight: FontWeight.w500,
+//               ),
+//             ),
+//           ),
+//         ],
+//       );
+//     }
+
+//     return Column(
+//       children: [
+//         const SizedBox(height: 8),
+//         Container(
+//           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+//           decoration: BoxDecoration(
+//             color: Colors.green.shade100,
+//             borderRadius: BorderRadius.circular(12),
+//           ),
+//           child: Text(
+//             'Cliente seleccionado',
+//             style: TextStyle(
+//               fontSize: 11,
+//               color: Colors.green.shade800,
+//               fontWeight: FontWeight.w500,
+//             ),
+//           ),
+//         ),
+//       ],
+//     );
+//   }
+
+//   // ✅ NUEVOS: Métodos helper para colores e iconos
+//   Color _getCustomerBorderColor(Customer? customer, BuildContext context) {
+//     if (customer == null) return Colors.grey.shade300;
+//     if (_isDefaultCustomer(customer)) return Colors.orange.shade300;
+//     return Theme.of(context).primaryColor.withOpacity(0.3);
+//   }
+
+//   Color _getCustomerBackgroundColor(Customer? customer, BuildContext context) {
+//     if (customer == null) return Colors.grey.shade100;
+//     if (_isDefaultCustomer(customer)) return Colors.orange.shade100;
+//     return Theme.of(context).primaryColor.withOpacity(0.1);
+//   }
+
+//   IconData _getCustomerIcon(Customer? customer) {
+//     if (customer == null) return Icons.person_outline;
+//     if (_isDefaultCustomer(customer)) return Icons.storefront;
+//     return Icons.person;
+//   }
+
+//   Color _getCustomerIconColor(Customer? customer, BuildContext context) {
+//     if (customer == null) return Colors.grey.shade400;
+//     if (_isDefaultCustomer(customer)) return Colors.orange.shade600;
+//     return Theme.of(context).primaryColor;
+//   }
+
+//   bool _isDefaultCustomer(Customer customer) {
+//     return customer.id == 'consumidor_final' ||
+//         customer.id == '3c605381-362b-454a-8c0f-b3c055aa568d';
 //   }
 
 //   Widget _buildSearchField(BuildContext context) {
@@ -337,95 +412,100 @@
 //   }
 
 //   Widget _buildCustomerTile(BuildContext context, Customer customer) {
-//     final isSelected = widget.selectedCustomer?.id == customer.id;
+//     // ✅ CORRECCIÓN: Usar el cliente del controlador para comparación
+//     return GetBuilder<InvoiceFormController>(
+//       builder: (controller) {
+//         final isSelected = controller.selectedCustomer?.id == customer.id;
 
-//     return Container(
-//       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-//       child: Material(
-//         color:
-//             isSelected
-//                 ? Theme.of(context).primaryColor.withOpacity(0.1)
-//                 : Colors.white,
-//         borderRadius: BorderRadius.circular(8),
-//         child: InkWell(
-//           borderRadius: BorderRadius.circular(8),
-//           onTap: () => _selectCustomer(customer),
-//           child: Padding(
-//             padding: const EdgeInsets.all(12),
-//             child: Row(
-//               children: [
-//                 // Avatar
-//                 Container(
-//                   width: 40,
-//                   height: 40,
-//                   decoration: BoxDecoration(
-//                     color: Theme.of(context).primaryColor.withOpacity(0.1),
-//                     borderRadius: BorderRadius.circular(20),
-//                   ),
-//                   child: Icon(
-//                     customer.companyName != null
-//                         ? Icons.business
-//                         : Icons.person,
-//                     color: Theme.of(context).primaryColor,
-//                     size: 20,
-//                   ),
-//                 ),
-//                 const SizedBox(width: 12),
+//         return Container(
+//           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+//           child: Material(
+//             color:
+//                 isSelected
+//                     ? Theme.of(context).primaryColor.withOpacity(0.1)
+//                     : Colors.white,
+//             borderRadius: BorderRadius.circular(8),
+//             child: InkWell(
+//               borderRadius: BorderRadius.circular(8),
+//               onTap: () => _selectCustomer(customer),
+//               child: Padding(
+//                 padding: const EdgeInsets.all(12),
+//                 child: Row(
+//                   children: [
+//                     // Avatar
+//                     Container(
+//                       width: 40,
+//                       height: 40,
+//                       decoration: BoxDecoration(
+//                         color: Theme.of(context).primaryColor.withOpacity(0.1),
+//                         borderRadius: BorderRadius.circular(20),
+//                       ),
+//                       child: Icon(
+//                         customer.companyName != null
+//                             ? Icons.business
+//                             : Icons.person,
+//                         color: Theme.of(context).primaryColor,
+//                         size: 20,
+//                       ),
+//                     ),
+//                     const SizedBox(width: 12),
 
-//                 // Información del cliente
-//                 Expanded(
-//                   child: Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       Text(
-//                         customer.displayName,
-//                         style: TextStyle(
-//                           fontWeight: FontWeight.w600,
-//                           fontSize: 15,
-//                           color:
-//                               isSelected
-//                                   ? Theme.of(context).primaryColor
-//                                   : Colors.black,
-//                         ),
-//                         maxLines: 1,
-//                         overflow: TextOverflow.ellipsis,
-//                       ),
-//                       const SizedBox(height: 2),
-//                       Text(
-//                         customer.email,
-//                         style: TextStyle(
-//                           fontSize: 13,
-//                           color: Colors.grey.shade600,
-//                         ),
-//                         maxLines: 1,
-//                         overflow: TextOverflow.ellipsis,
-//                       ),
-//                       if (customer.phone != null) ...[
-//                         const SizedBox(height: 1),
-//                         Text(
-//                           customer.phone!,
-//                           style: TextStyle(
-//                             fontSize: 12,
-//                             color: Colors.grey.shade500,
+//                     // Información del cliente
+//                     Expanded(
+//                       child: Column(
+//                         crossAxisAlignment: CrossAxisAlignment.start,
+//                         children: [
+//                           Text(
+//                             customer.displayName,
+//                             style: TextStyle(
+//                               fontWeight: FontWeight.w600,
+//                               fontSize: 15,
+//                               color:
+//                                   isSelected
+//                                       ? Theme.of(context).primaryColor
+//                                       : Colors.black,
+//                             ),
+//                             maxLines: 1,
+//                             overflow: TextOverflow.ellipsis,
 //                           ),
-//                         ),
-//                       ],
-//                     ],
-//                   ),
-//                 ),
+//                           const SizedBox(height: 2),
+//                           Text(
+//                             customer.email,
+//                             style: TextStyle(
+//                               fontSize: 13,
+//                               color: Colors.grey.shade600,
+//                             ),
+//                             maxLines: 1,
+//                             overflow: TextOverflow.ellipsis,
+//                           ),
+//                           if (customer.phone != null) ...[
+//                             const SizedBox(height: 1),
+//                             Text(
+//                               customer.phone!,
+//                               style: TextStyle(
+//                                 fontSize: 12,
+//                                 color: Colors.grey.shade500,
+//                               ),
+//                             ),
+//                           ],
+//                         ],
+//                       ),
+//                     ),
 
-//                 // Indicador de selección
-//                 if (isSelected)
-//                   Icon(
-//                     Icons.check_circle,
-//                     color: Theme.of(context).primaryColor,
-//                     size: 24,
-//                   ),
-//               ],
+//                     // Indicador de selección
+//                     if (isSelected)
+//                       Icon(
+//                         Icons.check_circle,
+//                         color: Theme.of(context).primaryColor,
+//                         size: 24,
+//                       ),
+//                   ],
+//                 ),
+//               ),
 //             ),
 //           ),
-//         ),
-//       ),
+//         );
+//       },
 //     );
 //   }
 
@@ -616,7 +696,7 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   final FocusNode _focusNode = FocusNode();
   final List<Customer> _searchResults = [];
   bool _isSearching = false;
-  bool _showResults = false;
+  bool _showSearchField = false;
   String _lastSearchTerm = '';
 
   InvoiceFormController? get _invoiceController {
@@ -646,53 +726,28 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
-        Row(
-          children: [
-            Icon(Icons.person, color: Theme.of(context).primaryColor, size: 24),
-            const SizedBox(width: 8),
-            Text(
-              'Cliente',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-            const Spacer(),
-            if (_isSearching)
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // ✅ SOLUCIÓN: Cliente actual reactivo usando GetBuilder
+        // ✅ VERSIÓN SIMPLIFICADA: Solo nombre del cliente con botón de búsqueda
         GetBuilder<InvoiceFormController>(
           builder: (controller) {
-            // Usar el cliente del controlador, no del widget
             final customer = controller.selectedCustomer;
-            return _buildCurrentCustomerDisplay(context, customer);
+            return _buildSimpleCustomerDisplay(context, customer);
           },
         ),
 
-        // Campo de búsqueda (solo visible cuando se busca)
-        if (_showResults) ...[
-          const SizedBox(height: 8),
+        // Campo de búsqueda (solo visible cuando se activa)
+        if (_showSearchField) ...[
+          const SizedBox(height: 12),
           _buildSearchField(context),
         ],
 
         // Resultados de búsqueda
-        if (_showResults && _searchResults.isNotEmpty) ...[
+        if (_showSearchField && _searchResults.isNotEmpty) ...[
           const SizedBox(height: 8),
           _buildSearchResults(context),
         ],
 
         // Mensaje cuando no hay resultados
-        if (_showResults &&
+        if (_showSearchField &&
             _searchResults.isEmpty &&
             !_isSearching &&
             _searchController.text.isNotEmpty) ...[
@@ -703,241 +758,133 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     );
   }
 
-  // ✅ ACTUALIZADO: Método que recibe el customer como parámetro
-  Widget _buildCurrentCustomerDisplay(
-    BuildContext context,
-    Customer? customer,
-  ) {
+  // ✅ NUEVO: Display simplificado del cliente
+  Widget _buildSimpleCustomerDisplay(BuildContext context, Customer? customer) {
+    final customerName = customer?.displayName ?? 'Consumidor Final';
+    final isDefaultCustomer = customer != null && _isDefaultCustomer(customer);
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: _getCustomerBorderColor(customer, context),
+          color:
+              isDefaultCustomer ? Colors.orange.shade300 : Colors.grey.shade300,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
+            blurRadius: 4,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // Información del cliente
-          Row(
-            children: [
-              // Avatar/Icono
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: _getCustomerBackgroundColor(customer, context),
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                child: Icon(
-                  _getCustomerIcon(customer),
-                  color: _getCustomerIconColor(customer, context),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Información del cliente
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      customer?.displayName ?? 'Cargando cliente...',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color:
-                            customer != null
-                                ? Colors.black87
-                                : Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    if (customer != null) ...[
-                      Text(
-                        customer.email,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      if (customer.phone != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          customer.phone!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                      ],
-                    ] else ...[
-                      // ✅ ESTADO DE CARGA
-                      Container(
-                        height: 12,
-                        width: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              // Botones de acción
-              _buildActionButtons(customer),
-            ],
+          // Icono del cliente
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color:
+                  isDefaultCustomer
+                      ? Colors.orange.shade100
+                      : Theme.of(context).primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              isDefaultCustomer ? Icons.storefront : Icons.person,
+              color:
+                  isDefaultCustomer
+                      ? Colors.orange.shade600
+                      : Theme.of(context).primaryColor,
+              size: 16,
+            ),
           ),
 
-          // Etiqueta de cliente
-          if (customer != null) _buildCustomerLabel(customer),
+          const SizedBox(width: 12),
+
+          // Nombre del cliente
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  customerName,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                if (isDefaultCustomer) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Venta mostrador',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // Botón de búsqueda
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: _toggleSearch,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _showSearchField ? Icons.close : Icons.search,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+
+          // Botón de limpiar (solo si no es consumidor final)
+          if (customer != null &&
+              !isDefaultCustomer &&
+              widget.onClearCustomer != null) ...[
+            const SizedBox(width: 8),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                  widget.onClearCustomer!();
+                  _closeSearch();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade500,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.refresh,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
-  }
-
-  // ✅ NUEVO: Botones de acción separados
-  Widget _buildActionButtons(Customer? customer) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Botón buscar/cambiar cliente
-        Material(
-          color: Theme.of(context).primaryColor,
-          borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap:
-                customer != null
-                    ? _toggleSearch
-                    : null, // Deshabilitado si está cargando
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              child: Icon(
-                _showResults ? Icons.close : Icons.search,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ),
-        ),
-
-        // Botón limpiar (solo si no es consumidor final)
-        if (customer != null &&
-            !_isDefaultCustomer(customer) &&
-            widget.onClearCustomer != null) ...[
-          const SizedBox(width: 8),
-          Material(
-            color: Colors.orange.shade500,
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () {
-                widget.onClearCustomer!();
-                setState(() {
-                  _showResults = false;
-                  _searchController.clear();
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                child: const Icon(Icons.refresh, color: Colors.white, size: 20),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  // ✅ NUEVO: Etiqueta del cliente
-  Widget _buildCustomerLabel(Customer customer) {
-    if (_isDefaultCustomer(customer)) {
-      return Column(
-        children: [
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade100,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              'Venta mostrador - Cliente por defecto',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.orange.shade800,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.green.shade100,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            'Cliente seleccionado',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.green.shade800,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ✅ NUEVOS: Métodos helper para colores e iconos
-  Color _getCustomerBorderColor(Customer? customer, BuildContext context) {
-    if (customer == null) return Colors.grey.shade300;
-    if (_isDefaultCustomer(customer)) return Colors.orange.shade300;
-    return Theme.of(context).primaryColor.withOpacity(0.3);
-  }
-
-  Color _getCustomerBackgroundColor(Customer? customer, BuildContext context) {
-    if (customer == null) return Colors.grey.shade100;
-    if (_isDefaultCustomer(customer)) return Colors.orange.shade100;
-    return Theme.of(context).primaryColor.withOpacity(0.1);
-  }
-
-  IconData _getCustomerIcon(Customer? customer) {
-    if (customer == null) return Icons.person_outline;
-    if (_isDefaultCustomer(customer)) return Icons.storefront;
-    return Icons.person;
-  }
-
-  Color _getCustomerIconColor(Customer? customer, BuildContext context) {
-    if (customer == null) return Colors.grey.shade400;
-    if (_isDefaultCustomer(customer)) return Colors.orange.shade600;
-    return Theme.of(context).primaryColor;
-  }
-
-  bool _isDefaultCustomer(Customer customer) {
-    return customer.id == 'consumidor_final' ||
-        customer.id == '3c605381-362b-454a-8c0f-b3c055aa568d';
   }
 
   Widget _buildSearchField(BuildContext context) {
@@ -946,15 +893,32 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: TextField(
         controller: _searchController,
         focusNode: _focusNode,
         style: const TextStyle(fontSize: 16),
         decoration: InputDecoration(
-          hintText: 'Buscar cliente por nombre, email o teléfono...',
+          hintText: 'Buscar cliente...',
           hintStyle: TextStyle(color: Colors.grey.shade500),
-          prefixIcon: Icon(Icons.search, color: Theme.of(context).primaryColor),
+          prefixIcon:
+              _isSearching
+                  ? Container(
+                    padding: const EdgeInsets.all(12),
+                    child: const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                  : Icon(Icons.search, color: Colors.grey.shade500),
           suffixIcon:
               _searchController.text.isNotEmpty
                   ? IconButton(
@@ -978,7 +942,7 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
 
   Widget _buildSearchResults(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxHeight: 250),
+      constraints: const BoxConstraints(maxHeight: 300),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -1003,95 +967,85 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   }
 
   Widget _buildCustomerTile(BuildContext context, Customer customer) {
-    // ✅ CORRECCIÓN: Usar el cliente del controlador para comparación
     return GetBuilder<InvoiceFormController>(
       builder: (controller) {
         final isSelected = controller.selectedCustomer?.id == customer.id;
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Material(
-            color:
-                isSelected
-                    ? Theme.of(context).primaryColor.withOpacity(0.1)
-                    : Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => _selectCustomer(customer),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    // Avatar
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        customer.companyName != null
-                            ? Icons.business
-                            : Icons.person,
-                        color: Theme.of(context).primaryColor,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // Información del cliente
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            customer.displayName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                              color:
-                                  isSelected
-                                      ? Theme.of(context).primaryColor
-                                      : Colors.black,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            customer.email,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (customer.phone != null) ...[
-                            const SizedBox(height: 1),
-                            Text(
-                              customer.phone!,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    // Indicador de selección
-                    if (isSelected)
-                      Icon(
-                        Icons.check_circle,
-                        color: Theme.of(context).primaryColor,
-                        size: 24,
-                      ),
-                  ],
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _selectCustomer(customer),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color:
+                    isSelected
+                        ? Theme.of(context).primaryColor.withOpacity(0.1)
+                        : Colors.transparent,
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
                 ),
+              ),
+              child: Row(
+                children: [
+                  // Avatar
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Icon(
+                      customer.companyName != null
+                          ? Icons.business
+                          : Icons.person,
+                      color: Theme.of(context).primaryColor,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Información del cliente
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          customer.displayName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color:
+                                isSelected
+                                    ? Theme.of(context).primaryColor
+                                    : Colors.black87,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          customer.email,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Indicador de selección
+                  if (isSelected)
+                    Icon(
+                      Icons.check_circle,
+                      color: Theme.of(context).primaryColor,
+                      size: 20,
+                    ),
+                ],
               ),
             ),
           ),
@@ -1110,25 +1064,12 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
       ),
       child: Row(
         children: [
-          Icon(Icons.person_search, color: Colors.orange.shade600, size: 20),
+          Icon(Icons.search_off, color: Colors.orange.shade600, size: 20),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'No se encontraron clientes',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.orange.shade800,
-                  ),
-                ),
-                Text(
-                  'Intenta con otro término de búsqueda',
-                  style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
-                ),
-              ],
+            child: Text(
+              'No se encontraron clientes con ese criterio',
+              style: TextStyle(fontSize: 14, color: Colors.orange.shade800),
             ),
           ),
         ],
@@ -1140,15 +1081,25 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
 
   void _toggleSearch() {
     setState(() {
-      _showResults = !_showResults;
-      if (_showResults) {
+      _showSearchField = !_showSearchField;
+      if (_showSearchField) {
+        // Abrir búsqueda
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _focusNode.requestFocus();
         });
       } else {
-        _searchController.clear();
-        _searchResults.clear();
+        // Cerrar búsqueda
+        _closeSearch();
       }
+    });
+  }
+
+  void _closeSearch() {
+    setState(() {
+      _showSearchField = false;
+      _searchController.clear();
+      _searchResults.clear();
+      _isSearching = false;
     });
   }
 
@@ -1190,21 +1141,21 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
         results = _searchInAvailableCustomers(query);
       }
 
-      setState(() {
-        _searchResults.clear();
-        _searchResults.addAll(results.take(10)); // Limitar a 10 resultados
-        _isSearching = false;
-      });
-
-      print(
-        '✅ Búsqueda de clientes completada: ${_searchResults.length} encontrados',
-      );
+      if (mounted) {
+        setState(() {
+          _searchResults.clear();
+          _searchResults.addAll(results.take(8)); // Limitar resultados
+          _isSearching = false;
+        });
+      }
     } catch (e) {
       print('❌ Error en búsqueda de clientes: $e');
-      setState(() {
-        _searchResults.clear();
-        _isSearching = false;
-      });
+      if (mounted) {
+        setState(() {
+          _searchResults.clear();
+          _isSearching = false;
+        });
+      }
     }
   }
 
@@ -1237,12 +1188,8 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     // Notificar selección
     widget.onCustomerSelected(customer);
 
-    // Ocultar resultados
-    setState(() {
-      _showResults = false;
-      _searchController.clear();
-      _searchResults.clear();
-    });
+    // Cerrar búsqueda
+    _closeSearch();
 
     print('👤 Cliente seleccionado: ${customer.displayName}');
 
@@ -1257,5 +1204,10 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
       duration: const Duration(seconds: 2),
       margin: const EdgeInsets.all(8),
     );
+  }
+
+  bool _isDefaultCustomer(Customer customer) {
+    return customer.id == 'consumidor_final' ||
+        customer.id == '3c605381-362b-454a-8c0f-b3c055aa568d';
   }
 }

@@ -21,6 +21,7 @@ import 'package:baudex_desktop/features/customers/presentation/screens/customers
 import 'package:baudex_desktop/features/invoices/presentation/bindings/invoice_binding.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_detail_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_screen.dart';
+import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_screen_wrapper.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_list_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_print_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_stats_screen.dart';
@@ -503,35 +504,8 @@ class AppPages {
     // 📝 CREAR FACTURA
     GetPage(
       name: AppRoutes.invoicesCreate,
-      page: () => const InvoiceFormScreen(),
-      binding: BindingsBuilder(() {
-        print('🔧 [CREAR FACTURA] Inicializando bindings...');
-
-        // 1. Verificar y registrar dependencias base
-        if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print('📄 [CREAR FACTURA] Registrando InvoiceBinding base...');
-          InvoiceBinding().dependencies();
-          print('✅ [CREAR FACTURA] InvoiceBinding base registrado');
-        }
-
-        // 2. Registrar dependencias de customers (para el selector de clientes)
-        if (!Get.isRegistered<CustomersController>()) {
-          print('👤 [CREAR FACTURA] Registrando CustomerBinding...');
-          CustomerBinding().dependencies();
-          print('✅ [CREAR FACTURA] CustomerBinding registrado');
-        }
-
-        // 3. Registrar dependencias de products (para agregar productos)
-        if (!Get.isRegistered<ProductsController>()) {
-          print('📦 [CREAR FACTURA] Registrando ProductBinding...');
-          ProductBinding().dependencies();
-          print('✅ [CREAR FACTURA] ProductBinding registrado');
-        }
-
-        // 4. Registrar controlador específico de formulario
-        InvoiceBinding.registerFormController();
-        print('✅ [CREAR FACTURA] InvoiceFormController registrado');
-      }),
+      page: () => const InvoiceFormScreenWrapper(),
+      // ✅ SOLUCIÓN RADICAL: NO BINDING - Todo lazy
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
       middlewares: [AuthMiddleware()],
@@ -540,35 +514,8 @@ class AppPages {
     // ✏️ EDITAR FACTURA
     GetPage(
       name: '${AppRoutes.invoicesEdit}/:id',
-      page: () => const InvoiceFormScreen(),
-      binding: BindingsBuilder(() {
-        print('🔧 [EDITAR FACTURA] Inicializando bindings...');
-
-        // 1. Verificar y registrar dependencias base
-        if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print('📄 [EDITAR FACTURA] Registrando InvoiceBinding base...');
-          InvoiceBinding().dependencies();
-          print('✅ [EDITAR FACTURA] InvoiceBinding base registrado');
-        }
-
-        // 2. Registrar dependencias de customers (para el selector de clientes)
-        if (!Get.isRegistered<CustomersController>()) {
-          print('👤 [EDITAR FACTURA] Registrando CustomerBinding...');
-          CustomerBinding().dependencies();
-          print('✅ [EDITAR FACTURA] CustomerBinding registrado');
-        }
-
-        // 3. Registrar dependencias de products (para agregar productos)
-        if (!Get.isRegistered<ProductsController>()) {
-          print('📦 [EDITAR FACTURA] Registrando ProductBinding...');
-          ProductBinding().dependencies();
-          print('✅ [EDITAR FACTURA] ProductBinding registrado');
-        }
-
-        // 4. Registrar controlador específico de formulario
-        InvoiceBinding.registerFormController();
-        print('✅ [EDITAR FACTURA] InvoiceFormController registrado');
-      }),
+      page: () => const InvoiceFormScreenWrapper(),
+      // ✅ SOLUCIÓN RADICAL: NO BINDING - Todo lazy
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
       middlewares: [AuthMiddleware()],

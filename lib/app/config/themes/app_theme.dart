@@ -112,7 +112,8 @@ class AppTheme {
       ),
 
       // Configuración de cards
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
+        // <-- CAMBIO AQUÍ: Usar CardThemeData
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         color: AppColors.surface,
@@ -267,10 +268,11 @@ class AppTheme {
         hintStyle: const TextStyle(color: AppColors.darkTextSecondary),
       ),
 
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
+        // <-- CAMBIO AQUÍ: Usar CardThemeData
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: AppColors.darkSurface,
+        color: AppColors.surface,
         shadowColor: Colors.black54,
       ),
 

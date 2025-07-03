@@ -1,4 +1,5 @@
-// lib/features/invoices/presentation/widgets/enhanced_invoice_item_widget.dart
+// lib/features/invoices/presentation/widgets/compact_invoice_item_widget.dart
+import 'package:baudex_desktop/app/core/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../data/models/invoice_form_models.dart';
@@ -11,7 +12,7 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
   final int index;
   final Function(InvoiceItemFormData) onUpdate;
   final VoidCallback onRemove;
-  final Product? product; // ✅ Agregar producto para acceder a precios
+  final Product? product;
   final bool showPriceSelector;
 
   const EnhancedInvoiceItemWidget({
@@ -28,130 +29,135 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header con producto y acciones
-          Row(
-            children: [
-              // Información del producto
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.description,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '${item.unit}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.blue.shade700,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        if (product != null) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color:
-                                  product!.isLowStock
-                                      ? Colors.red.shade50
-                                      : Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Stock: ${product!.stock.toInt()}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color:
-                                    product!.isLowStock
-                                        ? Colors.red.shade700
-                                        : Colors.green.shade700,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+      child: ResponsiveLayout(
+        mobile: _buildMobileLayout(context),
+        tablet: _buildDesktopLayout(context),
+        desktop: _buildDesktopLayout(context),
+      ),
+    );
+  }
 
-              // Botón eliminar
-              IconButton(
-                onPressed: onRemove,
-                icon: const Icon(Icons.remove_circle),
-                color: Colors.red.shade600,
-                tooltip: 'Eliminar producto',
-              ),
-            ],
+  Widget _buildMobileLayout(BuildContext context) {
+    return Column(
+      children: [
+        // Primera fila: Nombre del producto y eliminar
+        Row(
+          children: [
+            Expanded(child: _buildProductName(context)),
+            _buildRemoveButton(context),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Segunda fila: Controles
+        Row(
+          children: [
+            Expanded(flex: 2, child: _buildQuantityControl(context)),
+            const SizedBox(width: 8),
+            Expanded(flex: 3, child: _buildPriceControl(context)),
+            const SizedBox(width: 8),
+            Expanded(flex: 2, child: _buildSubtotalDisplay(context)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopLayout(BuildContext context) {
+    return Row(
+      children: [
+        // Nombre del producto
+        Expanded(flex: 4, child: _buildProductName(context)),
+        const SizedBox(width: 12),
+
+        // Cantidad
+        SizedBox(width: 120, child: _buildQuantityControl(context)),
+        const SizedBox(width: 12),
+
+        // Precio unitario
+        SizedBox(width: 140, child: _buildPriceControl(context)),
+        const SizedBox(width: 12),
+
+        // Subtotal
+        SizedBox(width: 120, child: _buildSubtotalDisplay(context)),
+        const SizedBox(width: 8),
+
+        // Eliminar
+        _buildRemoveButton(context),
+      ],
+    );
+  }
+
+  Widget _buildProductName(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          item.description,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Colors.black87,
           ),
+          maxLines: context.isMobile ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
 
-          const SizedBox(height: 12),
+  Widget _buildUnitBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        item.unit ?? 'pcs', // ✅ Valor por defecto si es null
+        style: TextStyle(
+          fontSize: 10,
+          color: Colors.blue.shade700,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
 
-          // Controles de cantidad y precio
-          Row(
-            children: [
-              // Cantidad
-              Expanded(flex: 2, child: _buildQuantityControl(context)),
-
-              const SizedBox(width: 12),
-
-              // Precio unitario
-              Expanded(flex: 3, child: _buildPriceControl(context)),
-
-              const SizedBox(width: 12),
-
-              // Subtotal
-              Expanded(flex: 2, child: _buildSubtotalDisplay(context)),
-            ],
-          ),
-        ],
+  Widget _buildStockBadge() {
+    final isLowStock = product?.isLowStock ?? false;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: isLowStock ? Colors.red.shade50 : Colors.green.shade50,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        'Stock: ${product!.stock.toInt()}',
+        style: TextStyle(
+          fontSize: 10,
+          color: isLowStock ? Colors.red.shade700 : Colors.green.shade700,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
 
   Widget _buildQuantityControl(BuildContext context) {
     return Container(
+      height: 36,
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(6),
@@ -159,45 +165,22 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
       child: Row(
         children: [
           // Botón menos
-          InkWell(
+          _buildQuantityButton(
+            icon: Icons.remove,
             onTap:
                 item.quantity > 1
                     ? () => _updateQuantity(item.quantity - 1)
                     : null,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(6),
-              bottomLeft: Radius.circular(6),
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color:
-                    item.quantity > 1
-                        ? Colors.grey.shade100
-                        : Colors.grey.shade50,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(6),
-                  bottomLeft: Radius.circular(6),
-                ),
-              ),
-              child: Icon(
-                Icons.remove,
-                size: 16,
-                color:
-                    item.quantity > 1
-                        ? Colors.grey.shade700
-                        : Colors.grey.shade400,
-              ),
-            ),
+            enabled: item.quantity > 1,
+            isLeft: true,
           ),
 
           // Cantidad
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              alignment: Alignment.center,
               child: Text(
                 '${item.quantity.toInt()}',
-                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
@@ -208,25 +191,48 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
           ),
 
           // Botón más
-          InkWell(
+          _buildQuantityButton(
+            icon: Icons.add,
             onTap: () => _updateQuantity(item.quantity + 1),
-            borderRadius: const BorderRadius.only(
-              topRight: Radius.circular(6),
-              bottomRight: Radius.circular(6),
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(6),
-                  bottomRight: Radius.circular(6),
-                ),
-              ),
-              child: Icon(Icons.add, size: 16, color: Colors.grey.shade700),
-            ),
+            enabled: true,
+            isLeft: false,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuantityButton({
+    required IconData icon,
+    required VoidCallback? onTap,
+    required bool enabled,
+    required bool isLeft,
+  }) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.only(
+        topLeft: isLeft ? const Radius.circular(6) : Radius.zero,
+        bottomLeft: isLeft ? const Radius.circular(6) : Radius.zero,
+        topRight: !isLeft ? const Radius.circular(6) : Radius.zero,
+        bottomRight: !isLeft ? const Radius.circular(6) : Radius.zero,
+      ),
+      child: Container(
+        width: 32,
+        height: 36,
+        decoration: BoxDecoration(
+          color: enabled ? Colors.grey.shade100 : Colors.grey.shade50,
+          borderRadius: BorderRadius.only(
+            topLeft: isLeft ? const Radius.circular(6) : Radius.zero,
+            bottomLeft: isLeft ? const Radius.circular(6) : Radius.zero,
+            topRight: !isLeft ? const Radius.circular(6) : Radius.zero,
+            bottomRight: !isLeft ? const Radius.circular(6) : Radius.zero,
+          ),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: enabled ? Colors.grey.shade700 : Colors.grey.shade400,
+        ),
       ),
     );
   }
@@ -239,7 +245,8 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
               : null,
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade300),
           borderRadius: BorderRadius.circular(6),
@@ -248,50 +255,37 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
                   ? Colors.blue.shade50
                   : Colors.grey.shade50,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Text(
-                  'Precio Unit.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '\$${item.unitPrice.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color:
+                          showPriceSelector && product != null
+                              ? Colors.blue.shade700
+                              : Colors.black87,
+                    ),
                   ),
-                ),
-                if (showPriceSelector && product != null) ...[
-                  const SizedBox(width: 4),
-                  Icon(Icons.edit, size: 12, color: Colors.blue.shade600),
+                  if (product?.prices?.isNotEmpty == true && !context.isMobile)
+                    Text(
+                      _getCurrentPriceType(),
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
                 ],
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '\$${item.unitPrice.toStringAsFixed(0)}',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color:
-                    showPriceSelector && product != null
-                        ? Colors.blue.shade700
-                        : Colors.black,
               ),
             ),
-
-            // Mostrar tipo de precio si está disponible
-            if (product?.prices?.isNotEmpty == true) ...[
-              const SizedBox(height: 2),
-              Text(
-                _getCurrentPriceType(),
-                style: TextStyle(
-                  fontSize: 9,
-                  color: Colors.grey.shade500,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+            if (showPriceSelector && product != null)
+              Icon(Icons.edit, size: 14, color: Colors.blue.shade600),
           ],
         ),
       ),
@@ -300,7 +294,8 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
 
   Widget _buildSubtotalDisplay(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: Theme.of(context).primaryColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(6),
@@ -309,21 +304,22 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
         ),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Subtotal',
-            style: TextStyle(
-              fontSize: 11,
-              color: Theme.of(context).primaryColor,
-              fontWeight: FontWeight.w500,
+          if (!context.isMobile)
+            Text(
+              'Subtotal',
+              style: TextStyle(
+                fontSize: 9,
+                color: Theme.of(context).primaryColor,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
           Text(
             '\$${item.subtotal.toStringAsFixed(0)}',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: context.isMobile ? 14 : 13,
               fontWeight: FontWeight.bold,
               color: Theme.of(context).primaryColor,
             ),
@@ -333,10 +329,21 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
     );
   }
 
+  Widget _buildRemoveButton(BuildContext context) {
+    return IconButton(
+      onPressed: onRemove,
+      icon: const Icon(Icons.delete_outline),
+      color: Colors.red.shade600,
+      tooltip: 'Eliminar',
+      iconSize: context.isMobile ? 20 : 18,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      padding: EdgeInsets.zero,
+    );
+  }
+
   String _getCurrentPriceType() {
     if (product?.prices?.isEmpty == true) return 'Sin precios';
 
-    // Buscar el precio que coincide con el precio actual
     final matchingPrice = product?.prices?.firstWhereOrNull(
       (price) => price.finalAmount == item.unitPrice,
     );
@@ -345,11 +352,10 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
       return matchingPrice.type.displayName;
     }
 
-    return 'Precio personalizado';
+    return 'Personalizado';
   }
 
   void _updateQuantity(double newQuantity) {
-    // Verificar stock máximo si tenemos el producto
     if (product != null && newQuantity > product!.stock) {
       Get.snackbar(
         'Stock Insuficiente',
@@ -380,10 +386,9 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
               final updatedItem = item.copyWith(unitPrice: newPrice);
               onUpdate(updatedItem);
 
-              // Mostrar confirmación
               Get.snackbar(
                 'Precio Actualizado',
-                '${item.description}: \$${newPrice.toStringAsFixed(2)}',
+                '${item.description}: \$${newPrice.toStringAsFixed(0)}',
                 snackPosition: SnackPosition.TOP,
                 backgroundColor: Colors.green.shade100,
                 colorText: Colors.green.shade800,
