@@ -363,7 +363,9 @@ class InvoiceFormController extends GetxController {
             .then((result) {
               result.fold(
                 (failure) {
-                  print('❌ Error cargando cliente final: ${failure.toString()}');
+                  print(
+                    '❌ Error cargando cliente final: ${failure.toString()}',
+                  );
                   // Mantener cliente fallback
                 },
                 (customer) {
@@ -520,12 +522,95 @@ class InvoiceFormController extends GetxController {
 
   // ==================== PRODUCTOS - FUNCIONALIDAD PRINCIPAL ====================
 
+  // void addOrUpdateProductToInvoice(Product product, {double quantity = 1}) {
+  //   print('🛒 Procesando producto: ${product.name} (cantidad: $quantity)');
+
+  //   if (product.stock <= 0) {
+  //     _showError('Sin Stock', '${product.name} no tiene stock disponible');
+  //     return;
+  //   }
+
+  //   _ensureProductIsAvailable(product);
+
+  //   final defaultPrice = product.getPriceByType(PriceType.price1);
+  //   final unitPrice = defaultPrice?.finalAmount ?? product.sellingPrice ?? 0;
+
+  //   if (unitPrice <= 0) {
+  //     _showError('Sin Precio', '${product.name} no tiene precio configurado');
+  //     return;
+  //   }
+
+  //   final existingIndex = _invoiceItems.indexWhere(
+  //     (item) => item.productId == product.id,
+  //   );
+
+  //   if (existingIndex != -1) {
+  //     final existingItem = _invoiceItems[existingIndex];
+  //     final newQuantity = existingItem.quantity + quantity;
+
+  //     if (newQuantity > product.stock) {
+  //       _showError(
+  //         'Stock Insuficiente',
+  //         'Solo hay ${product.stock} unidades disponibles de ${product.name}',
+  //       );
+  //       return;
+  //     }
+
+  //     final updatedItem = existingItem.copyWith(quantity: newQuantity);
+  //     _invoiceItems[existingIndex] = updatedItem;
+
+  //     print(
+  //       '✅ Cantidad actualizada: ${existingItem.description} -> $newQuantity',
+  //     );
+  //     _showProductUpdatedMessage(product.name, newQuantity);
+  //   } else {
+  //     if (quantity > product.stock) {
+  //       _showError(
+  //         'Stock Insuficiente',
+  //         'Solo hay ${product.stock} unidades disponibles de ${product.name}',
+  //       );
+  //       return;
+  //     }
+
+  //     final newItem = InvoiceItemFormData(
+  //       id: DateTime.now().millisecondsSinceEpoch.toString(),
+  //       description: product.name,
+  //       quantity: quantity,
+  //       unitPrice: unitPrice,
+  //       unit: product.unit ?? 'pcs',
+  //       productId: product.id,
+  //     );
+
+  //     _invoiceItems.add(newItem);
+  //     print(
+  //       '➕ Producto agregado: ${product.name} - Precio: \${unitPrice.toStringAsFixed(2)}',
+  //     );
+  //     _showProductAddedMessage(product.name);
+  //   }
+
+  //   _recalculateTotals();
+  // }
+
+  // ✅ MÉTODO CORREGIDO EN invoice_form_controller.dart
   void addOrUpdateProductToInvoice(Product product, {double quantity = 1}) {
     print('🛒 Procesando producto: ${product.name} (cantidad: $quantity)');
 
-    if (product.stock <= 0) {
-      _showError('Sin Stock', '${product.name} no tiene stock disponible');
-      return;
+    // ✅ DETECCIÓN DE PRODUCTO TEMPORAL
+    final isTemporary =
+        product.id.startsWith('temp_') ||
+        product.id.startsWith('unregistered_') ||
+        (product.metadata?['isTemporary'] == true);
+
+    if (isTemporary) {
+      print('🎭 Producto TEMPORAL detectado: ${product.name}');
+    } else {
+      print('📦 Producto REGISTRADO: ${product.name}');
+
+      // Solo validar stock para productos registrados
+      if (product.stock <= 0) {
+        _showError('Sin Stock', '${product.name} no tiene stock disponible');
+        return;
+      }
     }
 
     _ensureProductIsAvailable(product);
@@ -546,7 +631,8 @@ class InvoiceFormController extends GetxController {
       final existingItem = _invoiceItems[existingIndex];
       final newQuantity = existingItem.quantity + quantity;
 
-      if (newQuantity > product.stock) {
+      // Solo validar stock para productos registrados
+      if (!isTemporary && newQuantity > product.stock) {
         _showError(
           'Stock Insuficiente',
           'Solo hay ${product.stock} unidades disponibles de ${product.name}',
@@ -562,7 +648,8 @@ class InvoiceFormController extends GetxController {
       );
       _showProductUpdatedMessage(product.name, newQuantity);
     } else {
-      if (quantity > product.stock) {
+      // Solo validar stock para productos registrados
+      if (!isTemporary && quantity > product.stock) {
         _showError(
           'Stock Insuficiente',
           'Solo hay ${product.stock} unidades disponibles de ${product.name}',
@@ -576,13 +663,23 @@ class InvoiceFormController extends GetxController {
         quantity: quantity,
         unitPrice: unitPrice,
         unit: product.unit ?? 'pcs',
-        productId: product.id,
+        productId:
+            product
+                .id, // ✅ El ID temporal se maneja en el CreateInvoiceItemRequestModel
       );
 
       _invoiceItems.add(newItem);
-      print(
-        '➕ Producto agregado: ${product.name} - Precio: \${unitPrice.toStringAsFixed(2)}',
-      );
+
+      if (isTemporary) {
+        print(
+          '➕ Producto TEMPORAL agregado: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
+        );
+      } else {
+        print(
+          '➕ Producto REGISTRADO agregado: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
+        );
+      }
+
       _showProductAddedMessage(product.name);
     }
 

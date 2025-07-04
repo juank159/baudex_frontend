@@ -735,7 +735,7 @@ class ThermalPrinterController extends GetxController {
     try {
       // ✅ ENCABEZADO DE TABLA PROFESIONAL
       printer.text(
-        'ITEM      CANT.       V.UNIT            IVA              TOTAL',
+        'ITEM      CANT.       V.UNIT                              TOTAL',
         styles: PosStyles(
           align: PosAlign.left, // Alineación centrada
           bold: true,
@@ -780,14 +780,14 @@ class ThermalPrinterController extends GetxController {
           ),
           PosColumn(
             text: '\$${format.format(item.unitPrice)}',
-            width: 3, // ✅ CAMBIADO de 4 a 3
+            width: 4, // ✅ CAMBIADO de 4 a 3
             styles: const PosStyles(align: PosAlign.left),
           ),
-          PosColumn(
-            text: '19',
-            width: 1, // IVA
-            styles: const PosStyles(align: PosAlign.right),
-          ),
+          // PosColumn(
+          //   text: '19',
+          //   width: 1, // IVA
+          //   styles: const PosStyles(align: PosAlign.right),
+          // ),
           PosColumn(
             text: '\$${itemTotal}',
             width: 4, // ✅ CAMBIADO de 4 a 3

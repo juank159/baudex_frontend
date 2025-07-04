@@ -7,7 +7,7 @@ import '../bindings/invoice_binding.dart';
 import '../../../customers/presentation/bindings/customer_binding.dart';
 import '../../../products/presentation/bindings/product_binding.dart';
 
-// Use cases 
+// Use cases
 import '../../domain/usecases/create_invoice_usecase.dart';
 import '../../domain/usecases/update_invoice_usecase.dart';
 import '../../domain/usecases/get_invoice_by_id_usecase.dart';
@@ -27,7 +27,8 @@ class InvoiceFormScreenWrapper extends StatefulWidget {
   const InvoiceFormScreenWrapper({super.key});
 
   @override
-  State<InvoiceFormScreenWrapper> createState() => _InvoiceFormScreenWrapperState();
+  State<InvoiceFormScreenWrapper> createState() =>
+      _InvoiceFormScreenWrapperState();
 }
 
 class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
@@ -44,7 +45,7 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
   Future<void> _initializeWithRealDependencies() async {
     try {
       print('🚀 [WRAPPER] Inicializando con dependencias reales...');
-      
+
       // Verificar si ya existe el controlador
       if (Get.isRegistered<InvoiceFormController>()) {
         print('ℹ️ [WRAPPER] InvoiceFormController ya existe');
@@ -54,13 +55,13 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
         });
         return;
       }
-      
+
       // 1. Inicializar bindings en orden correcto para evitar problemas de dependencias
       await _initializeBindings();
-      
+
       // 2. Esperar un frame para asegurar que las dependencias estén listas
       await Future.delayed(const Duration(milliseconds: 100));
-      
+
       // 3. Crear controlador con dependencias reales
       await _createControllerWithRealDependencies();
 
@@ -70,7 +71,6 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
       });
 
       print('✅ [WRAPPER] Inicialización completada exitosamente');
-      
     } catch (e) {
       print('❌ [WRAPPER] Error en inicialización: $e');
       setState(() {
@@ -79,59 +79,67 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
       });
     }
   }
-  
+
   Future<void> _initializeBindings() async {
     print('🔧 [WRAPPER] Inicializando bindings...');
-    
+
     // Inicializar CustomerBinding si no está inicializado
     if (!Get.isRegistered<GetCustomersUseCase>()) {
       print('👥 [WRAPPER] Inicializando CustomerBinding...');
       CustomerBinding().dependencies();
       await Future.delayed(const Duration(milliseconds: 50));
     }
-    
+
     // Inicializar ProductBinding si no está inicializado
     if (!Get.isRegistered<GetProductsUseCase>()) {
       print('📦 [WRAPPER] Inicializando ProductBinding...');
       ProductBinding().dependencies();
       await Future.delayed(const Duration(milliseconds: 50));
     }
-    
+
     // Inicializar InvoiceBinding si no está inicializado
     if (!Get.isRegistered<CreateInvoiceUseCase>()) {
       print('📄 [WRAPPER] Inicializando InvoiceBinding...');
       InvoiceBinding().dependencies();
       await Future.delayed(const Duration(milliseconds: 50));
     }
-    
+
     print('✅ [WRAPPER] Bindings inicializados');
   }
-  
+
   Future<void> _createControllerWithRealDependencies() async {
     print('⚡ [WRAPPER] Creando controlador con dependencias reales...');
-    
+
     // Obtener use cases de forma segura
     final getCustomersUseCase = _getUseCaseSafely<GetCustomersUseCase>();
     final searchCustomersUseCase = _getUseCaseSafely<SearchCustomersUseCase>();
     final getCustomerByIdUseCase = _getUseCaseSafely<GetCustomerByIdUseCase>();
     final getProductsUseCase = _getUseCaseSafely<GetProductsUseCase>();
     final searchProductsUseCase = _getUseCaseSafely<SearchProductsUseCase>();
-    
+
     // Use cases requeridos (estos deben existir)
     final createInvoiceUseCase = Get.find<CreateInvoiceUseCase>();
     final updateInvoiceUseCase = Get.find<UpdateInvoiceUseCase>();
     final getInvoiceByIdUseCase = Get.find<GetInvoiceByIdUseCase>();
-    
+
     print('🔍 [WRAPPER] Estado de dependencias:');
     print('   - CreateInvoiceUseCase: ✅');
     print('   - UpdateInvoiceUseCase: ✅');
     print('   - GetInvoiceByIdUseCase: ✅');
-    print('   - GetCustomersUseCase: ${getCustomersUseCase != null ? "✅" : "❌"}');
-    print('   - SearchCustomersUseCase: ${searchCustomersUseCase != null ? "✅" : "❌"}');
-    print('   - GetCustomerByIdUseCase: ${getCustomerByIdUseCase != null ? "✅" : "❌"}');
+    print(
+      '   - GetCustomersUseCase: ${getCustomersUseCase != null ? "✅" : "❌"}',
+    );
+    print(
+      '   - SearchCustomersUseCase: ${searchCustomersUseCase != null ? "✅" : "❌"}',
+    );
+    print(
+      '   - GetCustomerByIdUseCase: ${getCustomerByIdUseCase != null ? "✅" : "❌"}',
+    );
     print('   - GetProductsUseCase: ${getProductsUseCase != null ? "✅" : "❌"}');
-    print('   - SearchProductsUseCase: ${searchProductsUseCase != null ? "✅" : "❌"}');
-    
+    print(
+      '   - SearchProductsUseCase: ${searchProductsUseCase != null ? "✅" : "❌"}',
+    );
+
     // Crear controlador con todas las dependencias disponibles
     Get.put(
       InvoiceFormController(
@@ -147,10 +155,10 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
         searchProductsUseCase: searchProductsUseCase,
       ),
     );
-    
+
     print('✅ [WRAPPER] InvoiceFormController creado con dependencias reales');
   }
-  
+
   T? _getUseCaseSafely<T>() {
     try {
       if (Get.isRegistered<T>()) {
@@ -255,7 +263,7 @@ class _InvoiceFormScreenWrapperState extends State<InvoiceFormScreenWrapper> {
 
     return const SizedBox.shrink();
   }
-  
+
   @override
   void dispose() {
     // Limpiar el controlador cuando se destruya el wrapper
