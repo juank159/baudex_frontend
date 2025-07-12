@@ -321,12 +321,17 @@ class InvoiceListScreen extends StatelessWidget {
             color: Colors.grey.shade50,
             border: Border(right: BorderSide(color: Colors.grey.shade300)),
           ),
-          child: Column(
-            children: [
-              _buildSidebarStats(context, controller),
-              _buildQuickFilters(context, controller),
-              _buildQuickActions(context, controller),
-            ],
+          child: SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSidebarStats(context, controller),
+                  _buildQuickFilters(context, controller),
+                  _buildQuickActions(context, controller),
+                ],
+              ),
+            ),
           ),
         ),
 
@@ -536,7 +541,15 @@ class InvoiceListScreen extends StatelessWidget {
         suffixIcon: controller.searchQuery.isNotEmpty ? Icons.clear : null,
         onSuffixIconPressed:
             controller.searchQuery.isNotEmpty
-                ? () => controller.searchController.clear()
+                ? () {
+                    try {
+                      controller.searchController.clear();
+                    } catch (e) {
+                      print('⚠️ Error al limpiar searchController: $e');
+                      // Fallback: limpiar solo el valor observable
+                      controller.searchInvoices('');
+                    }
+                  }
                 : null,
       ),
     );
@@ -715,6 +728,7 @@ class InvoiceListScreen extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'Filtros Rápidos',
@@ -727,17 +741,22 @@ class InvoiceListScreen extends StatelessWidget {
 
           // Filtros por estado
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children:
                 InvoiceStatus.values.map((status) {
                   final isSelected = controller.selectedStatus == status;
                   return FilterChip(
-                    label: Text(status.displayName),
+                    label: Text(
+                      status.displayName,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     selected: isSelected,
                     onSelected: (selected) {
                       controller.filterByStatus(selected ? status : null);
                     },
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
                   );
                 }).toList(),
           ),
@@ -754,6 +773,7 @@ class InvoiceListScreen extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'Acciones Rápidas',

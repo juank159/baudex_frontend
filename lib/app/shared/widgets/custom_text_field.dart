@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../core/utils/responsive.dart';
 
 class CustomTextField extends StatelessWidget {
-  final TextEditingController controller;
+  final TextEditingController? controller;
   final String label;
   final String? hint;
   final IconData? prefixIcon;
@@ -23,7 +23,7 @@ class CustomTextField extends StatelessWidget {
 
   const CustomTextField({
     super.key,
-    required this.controller,
+    this.controller,
     required this.label,
     this.hint,
     this.prefixIcon,
@@ -47,7 +47,7 @@ class CustomTextField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
-          controller: controller,
+          controller: _isControllerSafe() ? controller : null,
           obscureText: obscureText,
           keyboardType: keyboardType,
           validator: validator,
@@ -106,5 +106,20 @@ class CustomTextField extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// ✅ CRÍTICO: Verificar que el controller esté disponible y no disposed
+  bool _isControllerSafe() {
+    if (controller == null) return false;
+    
+    try {
+      // Intentar acceder a una propiedad del controller para verificar si está disposed
+      controller!.text;
+      return true;
+    } catch (e) {
+      // Si hay una excepción, el controller fue disposed
+      print('⚠️ CustomTextField: Controller disposed detectado - $e');
+      return false;
+    }
   }
 }

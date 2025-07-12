@@ -1,4 +1,5 @@
 // lib/features/invoices/presentation/controllers/invoice_list_controller.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/models/pagination_meta.dart';
@@ -63,6 +64,9 @@ class InvoiceListController extends GetxController {
   // Controllers
   final searchController = TextEditingController();
   final scrollController = ScrollController();
+  
+  // ✅ NUEVO: Timer para debounce de búsqueda
+  Timer? _searchDebounceTimer;
 
   // ==================== GETTERS ====================
 
@@ -119,8 +123,36 @@ class InvoiceListController extends GetxController {
   @override
   void onClose() {
     print('🔚 InvoiceListController: Liberando recursos...');
-    searchController.dispose();
-    scrollController.dispose();
+    
+    try {
+      // ✅ CRÍTICO: Cancelar timer de debounce antes de liberar recursos
+      _searchDebounceTimer?.cancel();
+      _searchDebounceTimer = null;
+      
+      // ✅ CRÍTICO: Remover listeners antes de dispose para evitar errores
+      // Solo remover si el controlador aún está activo
+      if (_isControllerSafe()) {
+        searchController.removeListener(_onSearchChanged);
+      }
+      
+      // Liberar controladores de forma segura
+      try {
+        searchController.dispose();
+      } catch (e) {
+        print('⚠️ Error al liberar searchController: $e');
+      }
+      
+      try {
+        scrollController.dispose();
+      } catch (e) {
+        print('⚠️ Error al liberar scrollController: $e');
+      }
+      
+      print('✅ InvoiceListController: Recursos liberados exitosamente');
+    } catch (e) {
+      print('❌ Error durante onClose: $e');
+    }
+    
     super.onClose();
   }
 
@@ -359,17 +391,35 @@ class InvoiceListController extends GetxController {
 
   /// Limpiar todos los filtros
   void clearFilters() {
-    _selectedStatus.value = null;
-    _selectedPaymentMethod.value = null;
-    _startDate.value = null;
-    _endDate.value = null;
-    _minAmount.value = null;
-    _maxAmount.value = null;
-    _searchQuery.value = '';
-    searchController.clear();
+    try {
+      _selectedStatus.value = null;
+      _selectedPaymentMethod.value = null;
+      _startDate.value = null;
+      _endDate.value = null;
+      _minAmount.value = null;
+      _maxAmount.value = null;
+      _searchQuery.value = '';
+      
+      // ✅ CRÍTICO: Verificar que el controlador esté activo antes de limpiar
+      if (_isControllerSafe()) {
+        searchController.clear();
+      } else {
+        print('⚠️ InvoiceListController: No se puede limpiar searchController (disposed)');
+      }
 
-    print('🧹 InvoiceListController: Filtros limpiados');
-    loadInvoices();
+      print('🧹 InvoiceListController: Filtros limpiados');
+      loadInvoices();
+    } catch (e) {
+      print('⚠️ Error al limpiar filtros: $e');
+      // Al menos limpiar los filtros observables
+      _selectedStatus.value = null;
+      _selectedPaymentMethod.value = null;
+      _startDate.value = null;
+      _endDate.value = null;
+      _minAmount.value = null;
+      _maxAmount.value = null;
+      _searchQuery.value = '';
+    }
   }
 
   // ==================== INVOICE ACTIONS ====================
@@ -516,19 +566,38 @@ class InvoiceListController extends GetxController {
     });
   }
 
-  /// Configurar listener de búsqueda con debounce
-  void _setupSearchListener() {
-    searchController.addListener(() {
+  /// ✅ NUEVO: Método seguro para manejar cambios de búsqueda
+  void _onSearchChanged() {
+    // Verificar que el controlador no haya sido disposed
+    if (!_isControllerSafe()) {
+      print('⚠️ InvoiceListController: SearchController disposed, cancelando búsqueda');
+      return;
+    }
+    
+    try {
       final query = searchController.text;
       if (query != _searchQuery.value) {
-        // Debounce de 500ms
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (searchController.text == query) {
+        // Cancelar timer anterior si existe
+        _searchDebounceTimer?.cancel();
+        
+        // Crear nuevo timer con debounce de 500ms
+        _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+          // Verificar de nuevo que el controlador siga activo
+          if (_isControllerSafe() && searchController.text == query) {
             searchInvoices(query);
           }
         });
       }
-    });
+    } catch (e) {
+      print('⚠️ Error en _onSearchChanged: $e');
+      // Si hay error, cancelar timer para evitar futuros problemas
+      _searchDebounceTimer?.cancel();
+    }
+  }
+
+  /// Configurar listener de búsqueda con debounce seguro
+  void _setupSearchListener() {
+    searchController.addListener(_onSearchChanged);
   }
 
   // //Aplicar filtros locales a la lista de facturas
@@ -625,5 +694,19 @@ class InvoiceListController extends GetxController {
   Future<void> refreshAllData() async {
     await refreshInvoices();
     _loadInvoiceStatsIfAvailable();
+  }
+  
+  /// ✅ CRÍTICO: Verificar que el controller esté disponible y no disposed
+  bool _isControllerSafe() {
+    try {
+      // Intentar acceder a una propiedad del controller para verificar si está disposed
+      searchController.text;
+      // También verificar que el listener no haya sido removido
+      return true;
+    } catch (e) {
+      // Si hay una excepción, el controller fue disposed
+      print('⚠️ InvoiceListController: SearchController disposed detectado - $e');
+      return false;
+    }
   }
 }

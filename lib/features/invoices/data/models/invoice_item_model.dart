@@ -103,7 +103,7 @@ class InvoiceItemModel extends InvoiceItem {
         product:
             json['product'] != null
                 ? ProductModel.fromJson(json['product'] as Map<String, dynamic>)
-                    as Product
+                    .toEntity()
                 : null,
 
         // Timestamps
@@ -130,7 +130,7 @@ class InvoiceItemModel extends InvoiceItem {
       if (notes != null) 'notes': notes,
       'invoiceId': invoiceId,
       if (productId != null) 'productId': productId,
-      if (product != null) 'product': (product as ProductModel).toJson(),
+      if (product != null) 'product': ProductModel.fromEntity(product!).toJson(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };

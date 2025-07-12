@@ -65,11 +65,19 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
-    _searchController.dispose();
-    _focusNode.dispose();
-    _keyboardFocusNode.dispose(); // ✅ NUEVO: Limpiar keyboard focus node
-    _resultsScrollController.dispose(); // ✅ NUEVO: Limpiar scroll controller
+    try {
+      _debounceTimer?.cancel();
+      
+      // Remover listener antes de dispose
+      _searchController.removeListener(_onSearchChanged);
+      
+      _searchController.dispose();
+      _focusNode.dispose();
+      _keyboardFocusNode.dispose(); // ✅ NUEVO: Limpiar keyboard focus node
+      _resultsScrollController.dispose(); // ✅ NUEVO: Limpiar scroll controller
+    } catch (e) {
+      print('⚠️ Error en dispose de ProductSearchWidget: $e');
+    }
     super.dispose();
   }
 
@@ -614,20 +622,27 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
   // ==================== LÓGICA DE BÚSQUEDA ====================
 
   void _onSearchChanged() {
-    // ✅ NUEVO: Asegurar que el focus permanezca en el TextField mientras se escribe
-    if (_focusNode.canRequestFocus && !_focusNode.hasFocus) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _focusNode.requestFocus();
-          print('🔍 Focus restaurado durante escritura');
-        }
-      });
+    // Verificar que el widget esté montado y el controlador disponible
+    if (!mounted) {
+      print('⚠️ ProductSearchWidget: Widget no montado, cancelando búsqueda');
+      return;
     }
     
-    // Cancelar timer anterior si existe
-    _debounceTimer?.cancel();
+    try {
+      // ✅ NUEVO: Asegurar que el focus permanezca en el TextField mientras se escribe
+      if (_focusNode.canRequestFocus && !_focusNode.hasFocus) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _focusNode.requestFocus();
+            print('🔍 Focus restaurado durante escritura');
+          }
+        });
+      }
+      
+      // Cancelar timer anterior si existe
+      _debounceTimer?.cancel();
 
-    final query = _searchController.text.trim();
+      final query = _searchController.text.trim();
 
     if (query.isEmpty) {
       setState(() {
@@ -648,10 +663,15 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
       print('⌨️ Usuario escribiendo, selección reseteada');
     }
 
-    // Crear nuevo timer con debounce
-    _debounceTimer = Timer(_debounceDuration, () {
-      _performSearch(query);
-    });
+      // Crear nuevo timer con debounce
+      _debounceTimer = Timer(_debounceDuration, () {
+        _performSearch(query);
+      });
+    } catch (e) {
+      print('⚠️ Error en _onSearchChanged (ProductSearchWidget): $e');
+      // Cancelar timer si hay error
+      _debounceTimer?.cancel();
+    }
   }
 
   Future<void> _performSearch(String query) async {

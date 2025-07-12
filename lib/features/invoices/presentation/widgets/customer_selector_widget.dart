@@ -54,8 +54,15 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
 
   @override
   void dispose() {
-    _searchController.dispose();
-    _focusNode.dispose();
+    try {
+      // Remover listener antes de dispose
+      _searchController.removeListener(_onSearchChanged);
+      
+      _searchController.dispose();
+      _focusNode.dispose();
+    } catch (e) {
+      print('⚠️ Error en dispose de CustomerSelectorWidget: $e');
+    }
     super.dispose();
   }
 
@@ -483,15 +490,22 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   }
 
   void _onSearchChanged() async {
-    final query = _searchController.text.trim();
-
-    if (query.isEmpty) {
-      setState(() {
-        _searchResults.clear();
-        _isSearching = false;
-      });
+    // Verificar que el widget esté montado
+    if (!mounted) {
+      print('⚠️ CustomerSelectorWidget: Widget no montado, cancelando búsqueda');
       return;
     }
+    
+    try {
+      final query = _searchController.text.trim();
+
+      if (query.isEmpty) {
+        setState(() {
+          _searchResults.clear();
+          _isSearching = false;
+        });
+        return;
+      }
 
     // Evitar búsquedas repetidas
     if (query == _lastSearchTerm) return;
@@ -535,6 +549,9 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
           _isSearching = false;
         });
       }
+    }
+    } catch (e) {
+      print('⚠️ Error en _onSearchChanged (CustomerSelectorWidget): $e');
     }
   }
 
