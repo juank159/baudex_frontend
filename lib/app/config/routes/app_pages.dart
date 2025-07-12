@@ -10,6 +10,7 @@ import 'package:baudex_desktop/features/categories/presentation/screens/categori
 import 'package:baudex_desktop/features/categories/presentation/screens/category_detail_screen.dart';
 import 'package:baudex_desktop/features/categories/presentation/screens/category_form_screen.dart';
 import 'package:baudex_desktop/features/categories/presentation/screens/category_tree_screen.dart';
+import 'package:baudex_desktop/features/customers/domain/usecases/get_customers_usecase.dart';
 import 'package:baudex_desktop/features/customers/presentation/bindings/customer_binding.dart';
 import 'package:baudex_desktop/features/customers/presentation/controllers/customer_detail_controller.dart';
 import 'package:baudex_desktop/features/customers/presentation/controllers/customer_form_controller.dart';
@@ -22,9 +23,13 @@ import 'package:baudex_desktop/features/invoices/presentation/bindings/invoice_b
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_detail_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_screen_wrapper.dart';
+import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_tabs_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_list_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_print_screen.dart';
+import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_settings_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_stats_screen.dart';
+import 'package:baudex_desktop/features/invoices/presentation/screens/printer_settings_screen.dart';
+import 'package:baudex_desktop/features/products/domain/usecases/get_products_usecase.dart';
 import 'package:baudex_desktop/features/products/presentation/bindings/product_binding.dart';
 import 'package:baudex_desktop/features/products/presentation/controllers/products_controller.dart';
 import 'package:baudex_desktop/features/products/presentation/controllers/product_detail_controller.dart';
@@ -42,6 +47,38 @@ import '../../../features/auth/presentation/screens/register_screen.dart';
 import '../../../features/auth/presentation/screens/profile_screen.dart';
 import '../../shared/screens/not_found_screen.dart';
 import 'app_routes.dart';
+
+// Helper para registrar dependencias optimizadas para pestañas
+void _registerInvoiceTabsDependencies() {
+  print('🔧 [PESTAÑAS] Registrando SOLO dependencias esenciales...');
+
+  // Registrar dependencias básicas de Invoice (SIN estadísticas automáticas)
+  if (!InvoiceBinding.areBaseDependenciesRegistered()) {
+    print('📄 [PESTAÑAS] Registrando InvoiceBinding base sin estadísticas...');
+    InvoiceBinding().dependenciesWithoutStats();
+    print('✅ [PESTAÑAS] InvoiceBinding base registrado (sin estadísticas)');
+  }
+
+  // Customer dependencies
+  try {
+    Get.find<GetCustomersUseCase>();
+    print('✅ [PESTAÑAS] CustomerBinding ya registrado');
+  } catch (e) {
+    print('📄 [PESTAÑAS] Registrando CustomerBinding...');
+    CustomerBinding().dependencies();
+    print('✅ [PESTAÑAS] CustomerBinding registrado');
+  }
+
+  // Product dependencies
+  try {
+    Get.find<GetProductsUseCase>();
+    print('✅ [PESTAÑAS] ProductBinding ya registrado');
+  } catch (e) {
+    print('📄 [PESTAÑAS] Registrando ProductBinding...');
+    ProductBinding().dependencies();
+    print('✅ [PESTAÑAS] ProductBinding registrado');
+  }
+}
 
 class AppPages {
   static final pages = [
@@ -664,6 +701,52 @@ class AppPages {
 
         InvoiceBinding.registerListController();
         print('✅ [FACTURAS POR ESTADO] InvoiceListController registrado');
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== SETTINGS PAGES ====================
+    GetPage(
+      name: AppRoutes.settingsPrinter,
+      page: () => const PrinterSettingsScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [CONFIGURACIÓN IMPRESORA] Inicializando bindings...');
+
+        if (!InvoiceBinding.areBaseDependenciesRegistered()) {
+          print(
+            '📄 [CONFIGURACIÓN IMPRESORA] Registrando InvoiceBinding base...',
+          );
+          InvoiceBinding().dependencies();
+          print('✅ [CONFIGURACIÓN IMPRESORA] InvoiceBinding base registrado');
+        }
+
+        print(
+          '✅ [CONFIGURACIÓN IMPRESORA] ThermalPrinterController disponible',
+        );
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    // ⚙️ CONFIGURACIÓN DE FACTURAS
+    GetPage(
+      name: AppRoutes.settingsInvoices,
+      page: () => const InvoiceSettingsScreen(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    // 📝 FACTURAS CON PESTAÑAS
+    GetPage(
+      name: AppRoutes.invoicesWithTabs,
+      page: () => const InvoiceFormTabsScreen(),
+      binding: BindingsBuilder(() {
+        // Usar helper optimizado que NO carga estadísticas automáticamente
+        _registerInvoiceTabsDependencies();
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),

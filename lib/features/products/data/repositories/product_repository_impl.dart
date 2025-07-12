@@ -476,10 +476,43 @@ class ProductRepositoryImpl implements ProductRepository {
     List<String>? images,
     Map<String, dynamic>? metadata,
     String? categoryId,
+    List<CreateProductPriceParams>? prices,
   }) async {
     if (await networkInfo.isConnected) {
       try {
-        // Crear request model
+        // Preparar precios para actualización si existen
+        List<UpdateProductPriceRequestModel>? updatePrices;
+        if (prices != null && prices.isNotEmpty) {
+          updatePrices = prices.map((price) {
+            // Extraer ID de las notas si existe (formato: "ID:uuid")
+            String? priceId;
+            String? cleanNotes = price.notes;
+            
+            if (price.notes != null && price.notes!.startsWith('ID:')) {
+              priceId = price.notes!.substring(3); // Remover "ID:"
+              cleanNotes = null; // Limpiar las notas
+            }
+            
+            return UpdateProductPriceRequestModel(
+              id: priceId, // ID extraído o null para crear nuevo
+              type: price.type.name,
+              name: price.name,
+              amount: price.amount,
+              currency: price.currency,
+              discountPercentage: price.discountPercentage,
+              discountAmount: price.discountAmount,
+              minQuantity: price.minQuantity,
+              notes: cleanNotes,
+            );
+          }).toList();
+          
+          print('🏷️ ProductRepository: Construidos ${updatePrices.length} precios para actualización');
+          for (final price in updatePrices) {
+            print('   - Tipo: ${price.type}, ID: ${price.id ?? "NUEVO"}, Cantidad: ${price.amount}');
+          }
+        }
+
+        // Crear request model con precios procesados
         final request = UpdateProductRequestModel.fromParams(
           name: name,
           description: description,
@@ -497,6 +530,7 @@ class ProductRepositoryImpl implements ProductRepository {
           images: images,
           metadata: metadata,
           categoryId: categoryId,
+          prices: updatePrices, // Incluir precios procesados
         );
 
         // Validar que hay cambios para actualizar

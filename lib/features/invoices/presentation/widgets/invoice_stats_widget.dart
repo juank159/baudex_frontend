@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/invoice_stats_controller.dart';
@@ -232,7 +233,7 @@ class InvoiceStatsWidget extends StatelessWidget {
         ),
         _buildStatCard(
           'Total Ventas',
-          '\$${_formatCurrency(controller.totalSales)}',
+          AppFormatters.formatCurrency(controller.totalSales),
           Icons.attach_money,
           Colors.purple,
           context,
@@ -436,19 +437,19 @@ class InvoiceStatsWidget extends StatelessWidget {
             const SizedBox(height: 16),
             _buildDetailRow(
               'Monto Total en Ventas',
-              '\$${_formatCurrency(controller.totalSales)}',
+              AppFormatters.formatCurrency(controller.totalSales),
               Icons.trending_up,
               Colors.green,
             ),
             _buildDetailRow(
               'Monto Pendiente',
-              '\$${_formatCurrency(controller.pendingAmount)}',
+              AppFormatters.formatCurrency(controller.pendingAmount),
               Icons.schedule,
               Colors.orange,
             ),
             _buildDetailRow(
               'Monto Vencido',
-              '\$${_formatCurrency(controller.overdueAmount)}',
+              AppFormatters.formatCurrency(controller.overdueAmount),
               Icons.warning,
               Colors.red,
             ),
@@ -461,7 +462,7 @@ class InvoiceStatsWidget extends StatelessWidget {
             ),
             _buildDetailRow(
               'Monto Activo',
-              '\$${_formatCurrency(controller.activeAmount)}',
+              AppFormatters.formatCurrency(controller.activeAmount),
               Icons.account_balance,
               Colors.blue,
             ),
@@ -564,7 +565,7 @@ class InvoiceStatsWidget extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${controller.overdueInvoices.length} facturas vencidas por un total de \$${_formatCurrency(controller.overdueAmount)}',
+                            '${controller.overdueInvoices.length} facturas vencidas por un total de ${AppFormatters.formatCurrency(controller.overdueAmount)}',
                             style: TextStyle(
                               color: Colors.red.shade800,
                               fontWeight: FontWeight.w500,
@@ -634,7 +635,7 @@ class InvoiceStatsWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '\$${invoice.total.toStringAsFixed(2)}',
+                  AppFormatters.formatCurrency(invoice.total),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
@@ -686,15 +687,6 @@ class InvoiceStatsWidget extends StatelessWidget {
     );
   }
 
-  String _formatCurrency(double amount) {
-    if (amount >= 1000000) {
-      return '${(amount / 1000000).toStringAsFixed(1)}M';
-    } else if (amount >= 1000) {
-      return '${(amount / 1000).toStringAsFixed(1)}K';
-    } else {
-      return amount.toStringAsFixed(2);
-    }
-  }
 }
 
 // // lib/features/invoices/presentation/widgets/invoice_stats_widget.dart
@@ -1524,7 +1516,7 @@ class InvoiceStatsWidget extends StatelessWidget {
 //                         const SizedBox(width: 8),
 //                         Expanded(
 //                           child: Text(
-//                             '${controller.overdueInvoices.length} facturas vencidas por un total de \$${_formatCurrency(controller.overdueAmount)}',
+//                             '${controller.overdueInvoices.length} facturas vencidas por un total de ${AppFormatters.formatCurrency(controller.overdueAmount)}',
 //                             style: TextStyle(
 //                               color: Colors.red.shade800,
 //                               fontWeight: FontWeight.w500,

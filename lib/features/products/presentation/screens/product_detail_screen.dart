@@ -1,5 +1,6 @@
 // lib/features/products/presentation/screens/product_detail_screen.dart
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
+import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
@@ -8,6 +9,7 @@ import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/product_detail_controller.dart';
 import '../../domain/entities/product.dart';
+import '../../domain/entities/product_price.dart';
 
 class ProductDetailScreen extends GetView<ProductDetailController> {
   const ProductDetailScreen({super.key});
@@ -316,7 +318,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                       const SizedBox(width: 8),
                       if (product.defaultPrice != null)
                         Text(
-                          '\$${product.defaultPrice!.finalAmount.toStringAsFixed(2)}',
+                          AppFormatters.formatPrice(product.defaultPrice!.finalAmount),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -505,7 +507,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '\$${product.defaultPrice!.finalAmount.toStringAsFixed(2)}',
+                      AppFormatters.formatPrice(product.defaultPrice!.finalAmount),
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -514,7 +516,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                     ),
                     if (product.defaultPrice!.hasDiscount)
                       Text(
-                        '\$${product.defaultPrice!.amount.toStringAsFixed(2)}',
+                        AppFormatters.formatPrice(product.defaultPrice!.amount),
                         style: TextStyle(
                           fontSize: 16,
                           decoration: TextDecoration.lineThrough,
@@ -572,11 +574,11 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
           _buildDetailCard('Gestión de Stock', [
             _buildDetailRow(
               'Stock Actual',
-              '${product.stock.toStringAsFixed(2)} ${product.unit ?? "pcs"}',
+              '${AppFormatters.formatStock(product.stock)} ${product.unit ?? "pcs"}',
             ),
             _buildDetailRow(
               'Stock Mínimo',
-              '${product.minStock.toStringAsFixed(2)} ${product.unit ?? "pcs"}',
+              '${AppFormatters.formatStock(product.minStock)} ${product.unit ?? "pcs"}',
             ),
             _buildDetailRow('Estado Stock', controller.getStockStatusText()),
             if (product.isLowStock)
@@ -598,22 +600,22 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
               if (product.weight != null)
                 _buildDetailRow(
                   'Peso',
-                  '${product.weight!.toStringAsFixed(2)} kg',
+                  '${AppFormatters.formatNumber(product.weight!)} kg',
                 ),
               if (product.length != null)
                 _buildDetailRow(
                   'Largo',
-                  '${product.length!.toStringAsFixed(2)} cm',
+                  '${AppFormatters.formatNumber(product.length!)} cm',
                 ),
               if (product.width != null)
                 _buildDetailRow(
                   'Ancho',
-                  '${product.width!.toStringAsFixed(2)} cm',
+                  '${AppFormatters.formatNumber(product.width!)} cm',
                 ),
               if (product.height != null)
                 _buildDetailRow(
                   'Alto',
-                  '${product.height!.toStringAsFixed(2)} cm',
+                  '${AppFormatters.formatNumber(product.height!)} cm',
                 ),
             ]),
 
@@ -782,7 +784,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
               ),
               const Spacer(),
               Text(
-                '\$${_formatPrice(productPrice.finalAmount)}',
+                AppFormatters.formatPrice(productPrice.finalAmount),
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -798,7 +800,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
             Row(
               children: [
                 Text(
-                  'Precio original: \$${_formatPrice(productPrice.amount)}',
+                  'Precio original: ${AppFormatters.formatPrice(productPrice.amount)}',
                   style: TextStyle(
                     fontSize: 14,
                     decoration: TextDecoration.lineThrough,
@@ -816,7 +818,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '-${_formatPrice(productPrice.discountPercentage)}%',
+                    '-${AppFormatters.formatNumber(productPrice.discountPercentage)}%',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -832,7 +834,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
           if (_hasMinQuantity(productPrice)) ...[
             const SizedBox(height: 4),
             Text(
-              'Cantidad mínima: ${_formatQuantity(productPrice.minQuantity)}',
+              'Cantidad mínima: ${AppFormatters.formatNumber(productPrice.minQuantity)}',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
@@ -844,7 +846,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
   String _getPriceTypeDisplayName(dynamic priceType) {
     try {
       // Si es un enum con extensión
-      if (priceType != null && priceType.displayName != null) {
+      if (priceType is PriceType) {
         return priceType.displayName;
       }
 
@@ -879,47 +881,6 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
     }
   }
 
-  String _formatPrice(dynamic value) {
-    try {
-      if (value == null) return '0.00';
-
-      double price;
-      if (value is double) {
-        price = value;
-      } else if (value is int) {
-        price = value.toDouble();
-      } else if (value is String) {
-        price = double.tryParse(value) ?? 0.0;
-      } else {
-        price = 0.0;
-      }
-
-      return price.toStringAsFixed(2);
-    } catch (e) {
-      print('❌ Error al formatear precio: $e');
-      return '0.00';
-    }
-  }
-
-  String _formatQuantity(dynamic value) {
-    try {
-      if (value == null) return '1';
-
-      if (value is double) {
-        return value.toStringAsFixed(0);
-      } else if (value is int) {
-        return value.toString();
-      } else if (value is String) {
-        final quantity = double.tryParse(value) ?? 1.0;
-        return quantity.toStringAsFixed(0);
-      }
-
-      return '1';
-    } catch (e) {
-      print('❌ Error al formatear cantidad: $e');
-      return '1';
-    }
-  }
 
   bool _hasDiscount(dynamic productPrice) {
     try {
@@ -1265,7 +1226,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Stock: ${product.stock.toStringAsFixed(2)}',
+                  'Stock: ${AppFormatters.formatStock(product.stock)}',
                   style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 4),

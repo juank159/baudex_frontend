@@ -1,6 +1,5 @@
-// ================================= DASHBOARD SCREEN ====================
-
-//lib/app/shared/screens/dashboard_screen.dart
+// ✨ BAUDEX DASHBOARD - Versión Moderna y Depurada
+// lib/app/shared/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../config/routes/app_routes.dart';
@@ -16,6 +15,7 @@ class DashboardScreen extends GetView<AuthController> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _buildAppBar(context),
+      drawer: _buildDrawer(context),
       body: ResponsiveLayout(
         mobile: _buildMobileLayout(context),
         tablet: _buildTabletLayout(context),
@@ -24,7 +24,7 @@ class DashboardScreen extends GetView<AuthController> {
     );
   }
 
-  // ==================== LAYOUTS PRINCIPALES ====================
+  // ==================== LAYOUTS RESPONSIVOS ====================
 
   Widget _buildMobileLayout(BuildContext context) {
     return SingleChildScrollView(
@@ -32,17 +32,9 @@ class DashboardScreen extends GetView<AuthController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildWelcomeSection(context),
+          _buildWelcomeCard(context),
           SizedBox(height: context.verticalSpacing),
           _buildStatsGrid(context, crossAxisCount: 2),
-          SizedBox(height: context.verticalSpacing),
-          _buildInvoicesOverview(context),
-          SizedBox(height: context.verticalSpacing),
-          _buildCategoriesOverview(context),
-          SizedBox(height: context.verticalSpacing),
-          _buildProductsOverview(context),
-          SizedBox(height: context.verticalSpacing),
-          _buildCustomersOverview(context),
           SizedBox(height: context.verticalSpacing),
           _buildQuickActions(context),
           SizedBox(height: context.verticalSpacing),
@@ -58,17 +50,9 @@ class DashboardScreen extends GetView<AuthController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildWelcomeSection(context),
+          _buildWelcomeCard(context),
           SizedBox(height: context.verticalSpacing),
           _buildStatsGrid(context, crossAxisCount: 4),
-          SizedBox(height: context.verticalSpacing),
-          _buildInvoicesOverview(context), // ✅ AGREGADO
-          SizedBox(height: context.verticalSpacing),
-          _buildCategoriesOverview(context),
-          SizedBox(height: context.verticalSpacing),
-          _buildProductsOverview(context),
-          SizedBox(height: context.verticalSpacing),
-          _buildCustomersOverview(context),
           SizedBox(height: context.verticalSpacing),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,7 +73,7 @@ class DashboardScreen extends GetView<AuthController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildWelcomeSection(context),
+          _buildWelcomeCard(context),
           SizedBox(height: context.verticalSpacing),
           _buildStatsGrid(context, crossAxisCount: 4),
           SizedBox(height: context.verticalSpacing),
@@ -98,32 +82,12 @@ class DashboardScreen extends GetView<AuthController> {
             children: [
               Expanded(
                 flex: 3,
-                child: Column(
-                  children: [
-                    _buildInvoicesOverview(context), // ✅ AGREGADO
-                    SizedBox(height: context.verticalSpacing),
-                    _buildCategoriesOverview(context),
-                    SizedBox(height: context.verticalSpacing),
-                    _buildProductsOverview(context),
-                    SizedBox(height: context.verticalSpacing),
-                    _buildCustomersOverview(context),
-                    SizedBox(height: context.verticalSpacing),
-                    _buildRecentActivity(context),
-                    SizedBox(height: context.verticalSpacing),
-                    _buildChartsSection(context),
-                  ],
-                ),
+                child: _buildRecentActivity(context),
               ),
               SizedBox(width: context.horizontalSpacing),
               Expanded(
                 flex: 1,
-                child: Column(
-                  children: [
-                    _buildQuickActions(context),
-                    SizedBox(height: context.verticalSpacing),
-                    _buildUpcomingTasks(context),
-                  ],
-                ),
+                child: _buildQuickActions(context),
               ),
             ],
           ),
@@ -132,7 +96,7 @@ class DashboardScreen extends GetView<AuthController> {
     );
   }
 
-  // ==================== APPBAR ====================
+  // ==================== APPBAR MODERNO ====================
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
@@ -140,275 +104,285 @@ class DashboardScreen extends GetView<AuthController> {
       backgroundColor: Colors.transparent,
       title: Row(
         children: [
-          Icon(
-            Icons.dashboard_rounded,
-            color: Theme.of(context).primaryColor,
-            size: 28,
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.dashboard_rounded,
+              color: Theme.of(context).primaryColor,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 12),
-          const Text(
+          Text(
             'Dashboard',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: Responsive.getFontSize(
+                context,
+                mobile: 20,
+                tablet: 22,
+                desktop: 24,
+              ),
+            ),
           ),
         ],
       ),
       actions: [
-        // Notificaciones
-        IconButton(
-          onPressed: () => _showNotifications(context),
-          icon: Stack(
-            children: [
-              const Icon(Icons.notifications_outlined, size: 26),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 12,
-                    minHeight: 12,
-                  ),
-                  child: const Text(
-                    '3',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildNotificationButton(context),
         const SizedBox(width: 8),
-
-        // Perfil y opciones
-        Obx(
-          () => PopupMenuButton<String>(
-            onSelected: _handleMenuAction,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: Theme.of(context).primaryColor,
-                    backgroundImage:
-                        controller.currentUser?.avatar != null
-                            ? NetworkImage(controller.currentUser!.avatar!)
-                            : null,
-                    child:
-                        controller.currentUser?.avatar == null
-                            ? Text(
-                              controller.currentUser?.firstName
-                                      .substring(0, 1)
-                                      .toUpperCase() ??
-                                  'U',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                            : null,
-                  ),
-                  if (!context.isMobile) ...[
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          controller.currentUser?.firstName ?? 'Usuario',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Text(
-                          _getRoleText(
-                            controller.currentUser?.role.value ?? 'user',
-                          ),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.keyboard_arrow_down, size: 18),
-                  ],
-                ],
-              ),
-            ),
-            itemBuilder:
-                (context) => [
-                  PopupMenuItem(
-                    value: 'profile',
-                    child: Row(
-                      children: [
-                        Icon(Icons.person_outline, color: Colors.grey.shade700),
-                        const SizedBox(width: 12),
-                        const Text('Mi Perfil'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'settings',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.settings_outlined,
-                          color: Colors.grey.shade700,
-                        ),
-                        const SizedBox(width: 12),
-                        const Text('Configuración'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'logout',
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout, color: Colors.red),
-                        SizedBox(width: 12),
-                        Text(
-                          'Cerrar Sesión',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-          ),
-        ),
+        _buildUserProfile(context),
         const SizedBox(width: 16),
       ],
     );
   }
 
-  // ==================== SECCIÓN DE BIENVENIDA ====================
-
-  Widget _buildWelcomeSection(BuildContext context) {
-    return Obx(
-      () => CustomCard(
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Bienvenido de vuelta,',
-                    style: TextStyle(
-                      fontSize: Responsive.getFontSize(
-                        context,
-                        mobile: 16,
-                        tablet: 18,
-                        desktop: 20,
-                      ),
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    controller.currentUser?.fullName ?? 'Usuario',
-                    style: TextStyle(
-                      fontSize: Responsive.getFontSize(
-                        context,
-                        mobile: 24,
-                        tablet: 28,
-                        desktop: 32,
-                      ),
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).textTheme.headlineLarge?.color,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Aquí tienes un resumen de tu actividad hoy',
-                    style: TextStyle(
-                      fontSize: Responsive.getFontSize(
-                        context,
-                        mobile: 14,
-                        tablet: 16,
-                        desktop: 18,
-                      ),
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
+  Widget _buildNotificationButton(BuildContext context) {
+    return IconButton(
+      onPressed: () => _showComingSoon('Notificaciones'),
+      icon: Stack(
+        children: [
+          Icon(
+            Icons.notifications_outlined,
+            size: context.isMobile ? 22 : 24,
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 10,
+                minHeight: 10,
+              ),
+              child: const Text(
+                '3',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
-            if (!context.isMobile) ...[
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserProfile(BuildContext context) {
+    return Obx(
+      () => PopupMenuButton<String>(
+        onSelected: _handleMenuAction,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Theme.of(context).primaryColor,
+                backgroundImage: controller.currentUser?.avatar != null
+                    ? NetworkImage(controller.currentUser!.avatar!)
+                    : null,
+                child: controller.currentUser?.avatar == null
+                    ? Text(
+                        controller.currentUser?.firstName
+                                .substring(0, 1)
+                                .toUpperCase() ??
+                            'U',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      )
+                    : null,
+              ),
+              if (!context.isMobile) ...[
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      controller.currentUser?.firstName ?? 'Usuario',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      _getRoleText(controller.currentUser?.role.value ?? 'user'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                child: Icon(
-                  Icons.dashboard_rounded,
-                  size: 60,
-                  color: Theme.of(context).primaryColor,
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: Colors.grey.shade600,
+                ),
+              ],
+            ],
+          ),
+        ),
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: 'profile',
+            child: Row(
+              children: [
+                Icon(Icons.person_outline, size: 20),
+                SizedBox(width: 12),
+                Text('Mi Perfil'),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'logout',
+            child: Row(
+              children: [
+                Icon(Icons.logout, color: Colors.red, size: 20),
+                SizedBox(width: 12),
+                Text(
+                  'Cerrar Sesión',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== TARJETA DE BIENVENIDA ====================
+
+  Widget _buildWelcomeCard(BuildContext context) {
+    return Obx(
+      () => CustomCard(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                Theme.of(context).primaryColor.withValues(alpha: 0.05),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '¡Hola, ${controller.currentUser?.firstName ?? 'Usuario'}!',
+                      style: TextStyle(
+                        fontSize: Responsive.getFontSize(
+                          context,
+                          mobile: 22,
+                          tablet: 26,
+                          desktop: 28,
+                        ),
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).textTheme.headlineLarge?.color,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Bienvenido a tu sistema de gestión',
+                      style: TextStyle(
+                        fontSize: Responsive.getFontSize(
+                          context,
+                          mobile: 14,
+                          tablet: 16,
+                          desktop: 16,
+                        ),
+                        color: Colors.grey.shade600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
+              if (!context.isMobile)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    Icons.waving_hand,
+                    size: 40,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  // ==================== GRID DE ESTADÍSTICAS ====================
+  // ==================== ESTADÍSTICAS PRINCIPALES ====================
 
   Widget _buildStatsGrid(BuildContext context, {required int crossAxisCount}) {
     final stats = [
-      _StatItem(
+      _StatCard(
         title: 'Ventas Hoy',
         value: '\$24,500',
-        change: '+12.5%',
-        isPositive: true,
         icon: Icons.trending_up,
         color: Colors.green,
+        route: AppRoutes.invoices,
       ),
-      _StatItem(
+      _StatCard(
         title: 'Facturas',
-        value: '156', // ✅ ACTUALIZADO: Era el último, ahora es segundo
-        change: '+8.3%', // ✅ CAMBIADO: Era negativo, ahora positivo
-        isPositive: true, // ✅ CAMBIADO
-        icon: Icons.receipt_long_outlined,
+        value: '156',
+        icon: Icons.receipt_long,
         color: Colors.orange,
+        route: AppRoutes.invoices,
       ),
-      _StatItem(
+      _StatCard(
         title: 'Productos',
         value: '1,245',
-        change: '+3.2%',
-        isPositive: true,
-        icon: Icons.inventory_2_outlined,
+        icon: Icons.inventory_2,
         color: Colors.blue,
+        route: AppRoutes.products,
       ),
-      _StatItem(
+      _StatCard(
         title: 'Clientes',
         value: '8,543',
-        change: '+5.1%',
-        isPositive: true,
-        icon: Icons.people_outline,
+        icon: Icons.people,
         color: Colors.purple,
+        route: AppRoutes.customers,
       ),
     ];
 
@@ -419,1642 +393,181 @@ class DashboardScreen extends GetView<AuthController> {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: context.isMobile ? 1.2 : 1.5,
+        childAspectRatio: context.isMobile ? 1.3 : 1.4,
       ),
       itemCount: stats.length,
       itemBuilder: (context, index) => _buildStatCard(context, stats[index]),
     );
   }
 
-  Widget _buildStatCard(BuildContext context, _StatItem stat) {
-    return CustomCard(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: stat.color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(stat.icon, color: stat.color, size: 24),
-                  ),
-                  Flexible(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            stat.isPositive
-                                ? Colors.green.shade100
-                                : Colors.red.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        stat.change,
-                        style: TextStyle(
-                          color:
-                              stat.isPositive
-                                  ? Colors.green.shade700
-                                  : Colors.red.shade700,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Flexible(
-                child: Text(
-                  stat.value,
-                  style: TextStyle(
-                    fontSize: Responsive.getFontSize(
-                      context,
-                      mobile: 20,
-                      tablet: 24,
-                      desktop: 28,
-                    ),
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.headlineLarge?.color,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Flexible(
-                child: Text(
-                  stat.title,
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  // ==================== SECCIÓN DE FACTURAS ====================
-
-  Widget _buildInvoicesOverview(BuildContext context) {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInvoicesHeader(context),
-          const SizedBox(height: 20),
-          _buildInvoicesStats(context),
-          const SizedBox(height: 16),
-          _buildInvoicesValueCard(context),
-          const SizedBox(height: 16),
-          _buildInvoicesQuickActions(context),
-          const SizedBox(height: 12),
-          _buildInvoicesAlerts(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInvoicesHeader(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.receipt_long,
-                  color: Colors.orange,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  'Gestión de Facturas',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.headlineLarge?.color,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-        TextButton.icon(
-          onPressed: () => Get.toNamed(AppRoutes.invoices),
-          icon: const Icon(Icons.arrow_forward, size: 16),
-          label: const Text('Ver todas'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInvoicesStats(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildInvoiceStatItem(
-                'Total',
-                '1,456',
-                Icons.receipt_long_outlined,
-                Colors.orange,
-                () => Get.toNamed(AppRoutes.invoices),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildInvoiceStatItem(
-                'Pagadas',
-                '1,298',
-                Icons.check_circle_outline,
-                Colors.green,
-                () => Get.toNamed('/invoices/status/paid'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildInvoiceStatItem(
-                'Pendientes',
-                '134',
-                Icons.schedule_outlined,
-                Colors.blue,
-                () => Get.toNamed('/invoices/status/pending'),
-              ),
-            ),
-            if (!context.isMobile) ...[
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildInvoiceStatItem(
-                  'Vencidas',
-                  '24',
-                  Icons.warning_outlined,
-                  Colors.red,
-                  () => Get.toNamed(AppRoutes.invoicesOverdue),
-                ),
-              ),
-            ],
-          ],
-        ),
-        if (context.isMobile) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildInvoiceStatItem(
-                  'Vencidas',
-                  '24',
-                  Icons.warning_outlined,
-                  Colors.red,
-                  () => Get.toNamed(AppRoutes.invoicesOverdue),
-                ),
-              ),
-              const Expanded(child: SizedBox()),
-              const Expanded(child: SizedBox()),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildInvoiceStatItem(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
+  Widget _buildStatCard(BuildContext context, _StatCard stat) {
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
+      onTap: () => Get.toNamed(stat.route),
+      borderRadius: BorderRadius.circular(12),
+      child: CustomCard(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
-            Flexible(
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInvoicesValueCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Icon(
-              Icons.monetization_on,
-              color: Colors.orange,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Total Facturado (Mes)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: stat.color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Text(
-                  '\$147,350',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () => Get.toNamed(AppRoutes.invoicesStats),
-            child: const Text('Ver detalles', style: TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInvoicesQuickActions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildInvoiceQuickAction(
-            'Nueva Factura',
-            Icons.add,
-            Colors.teal,
-            () => Get.toNamed(AppRoutes.invoicesCreate),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildInvoiceQuickAction(
-            'Estadísticas',
-            Icons.analytics,
-            Colors.deepPurple,
-            () => Get.toNamed(AppRoutes.invoicesStats),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildInvoiceQuickAction(
-            'Vencidas',
-            Icons.warning,
-            Colors.red,
-            () => Get.toNamed(AppRoutes.invoicesOverdue),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInvoiceQuickAction(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInvoicesAlerts(BuildContext context) {
-    const int overdueCount = 24;
-    const int draftCount = 8;
-    const int todayDueCount = 5;
-
-    final bool hasOverdue = overdueCount > 0;
-    final bool hasDrafts = draftCount > 0;
-    final bool hasTodayDue = todayDueCount > 0;
-    final bool hasAnyAlert = hasOverdue || hasDrafts || hasTodayDue;
-
-    if (!hasAnyAlert) {
-      return Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 16),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                'Facturas al día',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.green.shade700,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        // Alertas de facturas vencidas
-        if (hasOverdue)
-          Container(
-            margin: EdgeInsets.only(bottom: (hasDrafts || hasTodayDue) ? 8 : 0),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.red.withOpacity(0.3)),
-            ),
-            child: InkWell(
-              onTap: () => Get.toNamed(AppRoutes.invoicesOverdue),
-              child: Row(
-                children: [
-                  const Icon(Icons.error, color: Colors.red, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '$overdueCount facturas vencidas',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.red,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 12,
-                    color: Colors.red.withOpacity(0.6),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-        // Alertas de facturas que vencen hoy
-        if (hasTodayDue)
-          Container(
-            margin: EdgeInsets.only(bottom: hasDrafts ? 8 : 0),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
-            ),
-            child: InkWell(
-              onTap: () => Get.toNamed('/invoices/status/pending'),
-              child: Row(
-                children: [
-                  const Icon(Icons.today, color: Colors.orange, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '$todayDueCount facturas vencen hoy',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.orange,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 12,
-                    color: Colors.orange.withOpacity(0.6),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-        // Alertas de borradores pendientes
-        if (hasDrafts)
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
-            ),
-            child: InkWell(
-              onTap: () => Get.toNamed('/invoices/status/draft'),
-              child: Row(
-                children: [
-                  const Icon(Icons.edit, color: Colors.blue, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '$draftCount borradores sin enviar',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 12,
-                    color: Colors.blue.withOpacity(0.6),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  // ==================== SECCIÓN DE CATEGORÍAS ====================
-
-  Widget _buildCategoriesOverview(BuildContext context) {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.indigo.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.category,
-                        color: Colors.indigo,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        'Gestión de Categorías',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color:
-                              Theme.of(context).textTheme.headlineLarge?.color,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => Get.toNamed(AppRoutes.categories),
-                icon: const Icon(Icons.arrow_forward, size: 16),
-                label: const Text('Ver todas'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: _buildCategoryStatItem(
-                  'Total',
-                  '24',
-                  Icons.category_outlined,
-                  Colors.blue,
-                  () => Get.toNamed(AppRoutes.categories),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildCategoryStatItem(
-                  'Activas',
-                  '21',
-                  Icons.check_circle_outline,
-                  Colors.green,
-                  () => Get.toNamed(AppRoutes.categories),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildCategoryStatItem(
-                  'Principales',
-                  '8',
-                  Icons.account_tree_outlined,
-                  Colors.purple,
-                  () => Get.toNamed(AppRoutes.categoriesTree),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildCategoryQuickAction(
-                  'Nueva Categoría',
-                  Icons.add,
-                  Colors.teal,
-                  () => Get.toNamed(AppRoutes.categoriesCreate),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCategoryQuickAction(
-                  'Ver Árbol',
-                  Icons.account_tree,
-                  Colors.deepPurple,
-                  () => Get.toNamed(AppRoutes.categoriesTree),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryStatItem(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
-            Flexible(
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryQuickAction(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== SECCIÓN DE PRODUCTOS ====================
-
-  Widget _buildProductsOverview(BuildContext context) {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildProductsHeader(context),
-          const SizedBox(height: 20),
-          _buildProductsStats(context),
-          const SizedBox(height: 16),
-          _buildInventoryValueCard(context),
-          const SizedBox(height: 16),
-          _buildProductsQuickActions(context),
-          const SizedBox(height: 12),
-          _buildProductsAlerts(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductsHeader(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.inventory_2,
-                  color: Colors.blue,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  'Gestión de Productos',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.headlineLarge?.color,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-        TextButton.icon(
-          onPressed: () => Get.toNamed(AppRoutes.products),
-          icon: const Icon(Icons.arrow_forward, size: 16),
-          label: const Text('Ver todos'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProductsStats(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildProductStatItem(
-                'Total',
-                '1,245',
-                Icons.inventory_2_outlined,
-                Colors.blue,
-                () => Get.toNamed(AppRoutes.products),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildProductStatItem(
-                'En Stock',
-                '1,156',
-                Icons.check_circle_outline,
-                Colors.green,
-                () => Get.toNamed(AppRoutes.products),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildProductStatItem(
-                'Stock Bajo',
-                '23',
-                Icons.warning_outlined,
-                Colors.orange,
-                () => Get.toNamed(AppRoutes.productsLowStock),
-              ),
-            ),
-            if (!context.isMobile) ...[
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildProductStatItem(
-                  'Agotados',
-                  '12',
-                  Icons.error_outline,
-                  Colors.red,
-                  () => Get.toNamed(AppRoutes.products),
-                ),
-              ),
-            ],
-          ],
-        ),
-        if (context.isMobile) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildProductStatItem(
-                  'Agotados',
-                  '12',
-                  Icons.error_outline,
-                  Colors.red,
-                  () => Get.toNamed(AppRoutes.products),
-                ),
-              ),
-              const Expanded(child: SizedBox()),
-              const Expanded(child: SizedBox()),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildProductStatItem(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
-            Flexible(
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInventoryValueCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Icon(
-              Icons.attach_money,
-              color: Colors.green,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Valor Total del Inventario',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Text(
-                  '\$2,847,350',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () => Get.toNamed(AppRoutes.productsStats),
-            child: const Text('Ver detalles', style: TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductsQuickActions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildProductQuickAction(
-            'Nuevo Producto',
-            Icons.add,
-            Colors.teal,
-            () => Get.toNamed(AppRoutes.productsCreate),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildProductQuickAction(
-            'Estadísticas',
-            Icons.analytics,
-            Colors.deepPurple,
-            () => Get.toNamed(AppRoutes.productsStats),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildProductQuickAction(
-            'Stock Bajo',
-            Icons.warning,
-            Colors.orange,
-            () => Get.toNamed(AppRoutes.productsLowStock),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProductQuickAction(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProductsAlerts(BuildContext context) {
-    const int lowStockCount = 23;
-    const int outOfStockCount = 12;
-
-    final bool hasLowStock = lowStockCount > 0;
-    final bool hasOutOfStock = outOfStockCount > 0;
-    final bool hasAnyAlert = hasLowStock || hasOutOfStock;
-
-    if (!hasAnyAlert) {
-      return Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 16),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                'Inventario en buen estado',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.green.shade700,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        if (hasLowStock)
-          Container(
-            margin: EdgeInsets.only(bottom: hasOutOfStock ? 8 : 0),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
-            ),
-            child: InkWell(
-              onTap: () => Get.toNamed(AppRoutes.productsLowStock),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning, color: Colors.orange, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '$lowStockCount productos con stock bajo',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.orange,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 12,
-                    color: Colors.orange.withOpacity(0.6),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        if (hasOutOfStock)
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.red.withOpacity(0.3)),
-            ),
-            child: InkWell(
-              onTap: () => Get.toNamed(AppRoutes.products),
-              child: Row(
-                children: [
-                  const Icon(Icons.error, color: Colors.red, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '$outOfStockCount productos agotados',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.red,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 12,
-                    color: Colors.red.withOpacity(0.6),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  // ==================== SECCIÓN DE CLIENTES ====================
-
-  Widget _buildCustomersOverview(BuildContext context) {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCustomersHeader(context),
-          const SizedBox(height: 20),
-          _buildCustomersStats(context),
-          const SizedBox(height: 16),
-          _buildCustomersValueCard(context),
-          const SizedBox(height: 16),
-          _buildCustomersQuickActions(context),
-          const SizedBox(height: 12),
-          _buildCustomersIndicators(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCustomersHeader(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.people, color: Colors.purple, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  'Gestión de Clientes',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.headlineLarge?.color,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-        TextButton.icon(
-          onPressed: () => Get.toNamed(AppRoutes.customers),
-          icon: const Icon(Icons.arrow_forward, size: 16),
-          label: const Text('Ver todos'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCustomersStats(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildCustomerStatItem(
-                'Total',
-                '8,543',
-                Icons.people_outline,
-                Colors.purple,
-                () => Get.toNamed(AppRoutes.customers),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildCustomerStatItem(
-                'Activos',
-                '7,892',
-                Icons.person_outline,
-                Colors.green,
-                () => Get.toNamed(AppRoutes.customers),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildCustomerStatItem(
-                'Nuevos Hoy',
-                '15',
-                Icons.person_add_outlined,
-                Colors.blue,
-                () => Get.toNamed(AppRoutes.customers),
-              ),
-            ),
-            if (!context.isMobile) ...[
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildCustomerStatItem(
-                  'VIP',
-                  '124',
-                  Icons.star_outline,
-                  Colors.orange,
-                  () => Get.toNamed(AppRoutes.customers),
-                ),
-              ),
-            ],
-          ],
-        ),
-        if (context.isMobile) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildCustomerStatItem(
-                  'VIP',
-                  '124',
-                  Icons.star_outline,
-                  Colors.orange,
-                  () => Get.toNamed(AppRoutes.customers),
-                ),
-              ),
-              const Expanded(child: SizedBox()),
-              const Expanded(child: SizedBox()),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildCustomerStatItem(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
-            Flexible(
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCustomersValueCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.purple.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.purple.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.purple.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Icon(
-              Icons.trending_up,
-              color: Colors.purple,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Valor Promedio por Cliente',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Text(
-                  '\$1,842',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.purple,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () => Get.toNamed(AppRoutes.customersStats),
-            child: const Text('Ver detalles', style: TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCustomersQuickActions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildCustomerQuickAction(
-            'Nuevo Cliente',
-            Icons.person_add,
-            Colors.teal,
-            () => Get.toNamed(AppRoutes.customersCreate),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildCustomerQuickAction(
-            'Estadísticas',
-            Icons.analytics,
-            Colors.deepPurple,
-            () => Get.toNamed(AppRoutes.customersStats),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildCustomerQuickAction(
-            'Buscar',
-            Icons.search,
-            Colors.blue,
-            () => Get.toNamed(AppRoutes.customers),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCustomerQuickAction(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCustomersIndicators(BuildContext context) {
-    const int newRegistrations = 15;
-    const int birthdays = 3;
-
-    return Column(
-      children: [
-        Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.blue.withOpacity(0.3)),
-          ),
-          child: InkWell(
-            onTap: () => Get.toNamed(AppRoutes.customers),
-            child: Row(
-              children: [
-                const Icon(Icons.person_add, color: Colors.blue, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '$newRegistrations nuevos registros hoy',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  child: Icon(
+                    stat.icon,
+                    color: stat.color,
+                    size: context.isMobile ? 20 : 24,
                   ),
                 ),
                 Icon(
                   Icons.arrow_forward_ios,
-                  size: 12,
-                  color: Colors.blue.withOpacity(0.6),
+                  size: 14,
+                  color: Colors.grey.shade400,
                 ),
               ],
             ),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.orange.withOpacity(0.3)),
-          ),
-          child: InkWell(
-            onTap: () => Get.toNamed(AppRoutes.customers),
-            child: Row(
-              children: [
-                const Icon(Icons.cake, color: Colors.orange, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '$birthdays clientes cumplen años hoy',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.orange,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+            const Spacer(),
+            Text(
+              stat.value,
+              style: TextStyle(
+                fontSize: Responsive.getFontSize(
+                  context,
+                  mobile: 20,
+                  tablet: 24,
+                  desktop: 26,
                 ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 12,
-                  color: Colors.orange.withOpacity(0.6),
-                ),
-              ],
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.headlineLarge?.color,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
+            const SizedBox(height: 4),
+            Text(
+              stat.title,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   // ==================== ACCIONES RÁPIDAS ====================
 
   Widget _buildQuickActions(BuildContext context) {
+    final actions = [
+      _QuickAction(
+        title: 'Nueva Factura',
+        icon: Icons.receipt_long,
+        color: Colors.orange,
+        route: AppRoutes.invoicesCreate,
+      ),
+      _QuickAction(
+        title: 'Agregar Producto',
+        icon: Icons.add_box,
+        color: Colors.green,
+        route: AppRoutes.productsCreate,
+      ),
+      _QuickAction(
+        title: 'Gestionar Categorías',
+        icon: Icons.category,
+        color: Colors.indigo,
+        route: AppRoutes.categories,
+      ),
+      _QuickAction(
+        title: 'Nuevo Cliente',
+        icon: Icons.person_add,
+        color: Colors.purple,
+        route: AppRoutes.customersCreate,
+      ),
+      _QuickAction(
+        title: 'Facturas con Pestañas',
+        icon: Icons.tab,
+        color: Colors.teal,
+        route: AppRoutes.invoicesWithTabs,
+      ),
+      _QuickAction(
+        title: 'Ver Reportes',
+        icon: Icons.analytics,
+        color: Colors.blue,
+        onTap: () => _showComingSoon('Reportes'),
+      ),
+    ];
+
     return CustomCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Acciones Rápidas',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).textTheme.headlineLarge?.color,
-            ),
+          Row(
+            children: [
+              Icon(
+                Icons.flash_on,
+                color: Theme.of(context).primaryColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Acciones Rápidas',
+                style: TextStyle(
+                  fontSize: Responsive.getFontSize(
+                    context,
+                    mobile: 16,
+                    tablet: 18,
+                    desktop: 18,
+                  ),
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.headlineLarge?.color,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          _buildActionButton(
-            context,
-            'Nueva Factura', // ✅ PRIMER LUGAR: La acción más importante
-            Icons.receipt_long,
-            Colors.orange, // ✅ CAMBIADO: Era azul, ahora naranja para facturas
-            () => Get.toNamed(AppRoutes.invoicesCreate), // ✅ ACTUALIZADO
-          ),
-          const SizedBox(height: 12),
-          _buildActionButton(
-            context,
-            'Agregar Producto',
-            Icons.add_box_outlined,
-            Colors.green,
-            () => Get.toNamed(AppRoutes.productsCreate),
-          ),
-          const SizedBox(height: 12),
-          _buildActionButton(
-            context,
-            'Nuevo Cliente',
-            Icons.person_add_outlined,
-            Colors.purple,
-            () => Get.toNamed(AppRoutes.customersCreate),
-          ),
-          const SizedBox(height: 12),
-          _buildActionButton(
-            context,
-            'Ver Reportes',
-            Icons.analytics_outlined,
-            Colors.blue, // ✅ CAMBIADO: Era naranja, ahora azul
-            () => _navigateToFeature('reports'),
-          ),
+          ...actions.map((action) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildActionButton(context, action),
+              )),
         ],
       ),
     );
   }
 
-  Widget _buildActionButton(
-    BuildContext context,
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
+  Widget _buildActionButton(BuildContext context, _QuickAction action) {
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      onTap: action.onTap ?? () => Get.toNamed(action.route!),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: action.color.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(8),
+          color: action.color.withValues(alpha: 0.05),
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
+            Icon(action.icon, color: action.color, size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                title,
+                action.title,
                 style: const TextStyle(
                   fontWeight: FontWeight.w500,
-                  fontSize: 16,
+                  fontSize: 14,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             Icon(
               Icons.arrow_forward_ios,
-              size: 16,
+              size: 14,
               color: Colors.grey.shade400,
             ),
           ],
@@ -2066,6 +579,37 @@ class DashboardScreen extends GetView<AuthController> {
   // ==================== ACTIVIDAD RECIENTE ====================
 
   Widget _buildRecentActivity(BuildContext context) {
+    final activities = [
+      _Activity(
+        title: 'Nueva factura creada',
+        subtitle: 'Factura #1234 por \$1,500',
+        icon: Icons.receipt_long,
+        color: Colors.orange,
+        time: '2 min',
+      ),
+      _Activity(
+        title: 'Pago recibido',
+        subtitle: 'Factura #1230 pagada',
+        icon: Icons.payment,
+        color: Colors.green,
+        time: '8 min',
+      ),
+      _Activity(
+        title: 'Producto agregado',
+        subtitle: 'Laptop Dell XPS agregada',
+        icon: Icons.laptop,
+        color: Colors.blue,
+        time: '15 min',
+      ),
+      _Activity(
+        title: 'Cliente registrado',
+        subtitle: 'Juan Pérez se registró',
+        icon: Icons.person_add,
+        color: Colors.purple,
+        time: '1 hora',
+      ),
+    ];
+
     return CustomCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2073,76 +617,58 @@ class DashboardScreen extends GetView<AuthController> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  'Actividad Reciente',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.headlineLarge?.color,
+              Row(
+                children: [
+                  Icon(
+                    Icons.history,
+                    color: Theme.of(context).primaryColor,
+                    size: 20,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Actividad Reciente',
+                    style: TextStyle(
+                      fontSize: Responsive.getFontSize(
+                        context,
+                        mobile: 16,
+                        tablet: 18,
+                        desktop: 18,
+                      ),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).textTheme.headlineLarge?.color,
+                    ),
+                  ),
+                ],
               ),
               TextButton(
-                onPressed: () => _navigateToFeature('activity'),
+                onPressed: () => _showComingSoon('Historial completo'),
                 child: const Text('Ver todo'),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildActivityItem(
-            'Nueva factura creada', // ✅ MANTENIDO: Ya era sobre facturas
-            'Factura #1234 por \$1,500',
-            Icons.receipt_long,
-            Colors
-                .orange, // ✅ CAMBIADO: Era verde, ahora naranja para consistencia
-            '2 min',
-          ),
-          _buildActivityItem(
-            'Pago recibido', // ✅ AGREGADO: Nueva actividad de facturas
-            'Factura #1230 pagada por \$2,300',
-            Icons.payment,
-            Colors.green,
-            '8 min',
-          ),
-          _buildActivityItem(
-            'Producto agregado',
-            'Laptop Dell XPS 15 añadida al inventario',
-            Icons.laptop,
-            Colors.blue,
-            '15 min',
-          ),
-          _buildActivityItem(
-            'Cliente registrado',
-            'Juan Pérez se registró en el sistema',
-            Icons.person_add,
-            Colors.purple,
-            '1 hora',
-          ),
+          ...activities.map((activity) => _buildActivityItem(context, activity)),
         ],
       ),
     );
   }
 
-  Widget _buildActivityItem(
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    String time,
-  ) {
+  Widget _buildActivityItem(BuildContext context, _Activity activity) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: activity.color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: Icon(
+              activity.icon,
+              color: activity.color,
+              size: 16,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2150,130 +676,29 @@ class DashboardScreen extends GetView<AuthController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  activity.title,
                   style: const TextStyle(
                     fontWeight: FontWeight.w500,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
                 Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
-                ),
-              ],
-            ),
-          ),
-          Text(
-            time,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==================== SECCIONES ADICIONALES ====================
-
-  Widget _buildChartsSection(BuildContext context) {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Ventas del Mes',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).textTheme.headlineLarge?.color,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            height: 200,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.bar_chart, size: 48, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text(
-                    'Gráfico de ventas',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  Text(
-                    '(Próximamente)',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpcomingTasks(BuildContext context) {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Tareas Pendientes',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).textTheme.headlineLarge?.color,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildTaskItem('Revisar inventario', 'Hoy, 3:00 PM', false),
-          _buildTaskItem('Llamar a proveedor', 'Mañana, 10:00 AM', false),
-          _buildTaskItem('Actualizar precios', 'Completado', true),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTaskItem(String title, String time, bool isCompleted) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Icon(
-            isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: isCompleted ? Colors.green : Colors.grey,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
+                  activity.subtitle,
                   style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                    color: isCompleted ? Colors.grey : null,
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  time,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  overflow: TextOverflow.ellipsis,
-                ),
               ],
+            ),
+          ),
+          Text(
+            activity.time,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade500,
             ),
           ),
         ],
@@ -2288,34 +713,8 @@ class DashboardScreen extends GetView<AuthController> {
       case 'profile':
         Get.toNamed(AppRoutes.profile);
         break;
-      case 'settings':
-        _showComingSoon('Configuración');
-        break;
       case 'logout':
         _showLogoutDialog();
-        break;
-    }
-  }
-
-  void _showNotifications(BuildContext context) {
-    _showComingSoon('Notificaciones');
-  }
-
-  void _navigateToFeature(String feature) {
-    switch (feature) {
-      case 'products':
-        Get.toNamed(AppRoutes.products);
-        break;
-      case 'customers':
-        Get.toNamed(AppRoutes.customers);
-        break;
-      case 'invoices': // ✅ AGREGADO
-        Get.toNamed(AppRoutes.invoices);
-        break;
-      case 'reports':
-      case 'activity':
-      default:
-        _showComingSoon(feature);
         break;
     }
   }
@@ -2323,11 +722,12 @@ class DashboardScreen extends GetView<AuthController> {
   void _showComingSoon(String feature) {
     Get.snackbar(
       'Próximamente',
-      '$feature estará disponible en una próxima actualización',
+      '$feature estará disponible pronto',
       snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
       icon: const Icon(Icons.info, color: Colors.blue),
+      duration: const Duration(seconds: 2),
     );
   }
 
@@ -2356,6 +756,188 @@ class DashboardScreen extends GetView<AuthController> {
     );
   }
 
+  // ==================== DRAWER ====================
+
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      child: Column(
+        children: [
+          // Header del drawer
+          DrawerHeader(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context).primaryColor,
+                  Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                ],
+              ),
+            ),
+            child: Container(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                    child: const Icon(
+                      Icons.business,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Baudex Desktop',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Sistema de Gestión',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Menu items
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerItem(
+                  icon: Icons.dashboard,
+                  title: 'Dashboard',
+                  route: AppRoutes.dashboard,
+                  context: context,
+                ),
+                _buildDrawerItem(
+                  icon: Icons.receipt_long,
+                  title: 'Facturas',
+                  route: AppRoutes.invoices,
+                  context: context,
+                ),
+                _buildDrawerItem(
+                  icon: Icons.tab,
+                  title: 'Facturas con Pestañas',
+                  route: AppRoutes.invoicesWithTabs,
+                  context: context,
+                ),
+                _buildDrawerItem(
+                  icon: Icons.inventory,
+                  title: 'Productos',
+                  route: AppRoutes.products,
+                  context: context,
+                ),
+                _buildDrawerItem(
+                  icon: Icons.people,
+                  title: 'Clientes',
+                  route: AppRoutes.customers,
+                  context: context,
+                ),
+                _buildDrawerItem(
+                  icon: Icons.category,
+                  title: 'Categorías',
+                  route: AppRoutes.categories,
+                  context: context,
+                ),
+                const Divider(),
+                _buildDrawerItem(
+                  icon: Icons.settings,
+                  title: 'Configuración',
+                  route: AppRoutes.settings,
+                  context: context,
+                ),
+                _buildDrawerItem(
+                  icon: Icons.print,
+                  title: 'Config. Impresora',
+                  route: AppRoutes.settingsPrinter,
+                  context: context,
+                ),
+              ],
+            ),
+          ),
+          
+          // Footer
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Obx(() {
+              final user = controller.currentUser;
+              return Column(
+                children: [
+                  const Divider(),
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                      child: Icon(
+                        Icons.person,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                    title: Text(user?.fullName ?? 'Usuario'),
+                    subtitle: Text(_getRoleText(user?.role.value ?? 'user')),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.logout, color: Colors.red),
+                      onPressed: _showLogoutDialog,
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String title,
+    required String route,
+    required BuildContext context,
+  }) {
+    final isSelected = Get.currentRoute == route;
+    
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected 
+          ? Theme.of(context).primaryColor 
+          : Colors.grey.shade600,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isSelected 
+            ? Theme.of(context).primaryColor 
+            : Colors.grey.shade800,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      selected: isSelected,
+      selectedTileColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+      onTap: () {
+        Navigator.pop(context); // Cerrar drawer
+        if (!isSelected) {
+          Get.toNamed(route);
+        }
+      },
+    );
+  }
+
   String _getRoleText(String role) {
     switch (role.toLowerCase()) {
       case 'admin':
@@ -2369,22 +951,52 @@ class DashboardScreen extends GetView<AuthController> {
   }
 }
 
-// ==================== CLASE DE APOYO ====================
+// ==================== CLASES DE APOYO ====================
 
-class _StatItem {
+class _StatCard {
   final String title;
   final String value;
-  final String change;
-  final bool isPositive;
   final IconData icon;
   final Color color;
+  final String route;
 
-  _StatItem({
+  _StatCard({
     required this.title,
     required this.value,
-    required this.change,
-    required this.isPositive,
     required this.icon,
     required this.color,
+    required this.route,
+  });
+}
+
+class _QuickAction {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final String? route;
+  final VoidCallback? onTap;
+
+  _QuickAction({
+    required this.title,
+    required this.icon,
+    required this.color,
+    this.route,
+    this.onTap,
+  });
+}
+
+class _Activity {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final String time;
+
+  _Activity({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.time,
   });
 }

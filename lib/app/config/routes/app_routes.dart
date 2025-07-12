@@ -108,6 +108,12 @@ abstract class AppRoutes {
       '/invoices/customer/$customerId';
   static String invoicesByStatus(String status) => '/invoices/status/$status';
 
+  // ==================== SETTINGS ROUTES ====================
+  static const String settings = '/settings';
+  static const String settingsPrinter = '/settings/printer';
+  static const String settingsInvoices = '/settings/invoices';
+  static const String invoicesWithTabs = '/invoices/tabs';
+
   // Error Routes
   static const String notFound = '/404';
   static const String noInternet = '/no-internet';

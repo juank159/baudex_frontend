@@ -107,6 +107,7 @@ abstract class ProductRepository {
     List<String>? images,
     Map<String, dynamic>? metadata,
     String? categoryId,
+    List<CreateProductPriceParams>? prices, // <-- Añadido
   });
 
   /// Actualizar estado del producto

@@ -1,8 +1,11 @@
 // lib/features/products/presentation/widgets/product_card_widget.dart
 import 'package:flutter/material.dart';
+import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../domain/entities/product.dart';
+import '../../domain/entities/product_price.dart';
 
 class ProductCardWidget extends StatelessWidget {
   final Product product;
@@ -22,6 +25,23 @@ class ProductCardWidget extends StatelessWidget {
     this.showActions = true,
   }) : super(key: key);
 
+  // ✅ NUEVO: Método para obtener el precio correcto
+  ProductPrice? get _displayPrice {
+    if (product.prices != null && product.prices!.isNotEmpty) {
+      try {
+        // Intenta encontrar el "Precio al Público"
+        return product.prices!.firstWhere(
+          (p) => p.type.displayName.toLowerCase() == 'precio al público',
+        );
+      } catch (e) {
+        // Si no lo encuentra, devuelve el primer precio de la lista
+        return product.prices!.first;
+      }
+    }
+    // Si no hay lista de precios, usa el `defaultPrice`
+    return product.defaultPrice;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -38,9 +58,9 @@ class ProductCardWidget extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: context.responsivePadding,
+          padding: ResponsiveHelper.getPadding(context),
           child:
-              context.isMobile
+              ResponsiveHelper.isMobile(context)
                   ? _buildMobileLayout(context)
                   : _buildDesktopLayout(context),
         ),
@@ -49,6 +69,8 @@ class ProductCardWidget extends StatelessWidget {
   }
 
   Widget _buildMobileLayout(BuildContext context) {
+    final price = _displayPrice;
+
     return Column(
       children: [
         Row(
@@ -67,6 +89,7 @@ class ProductCardWidget extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      color: Colors.black,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -88,22 +111,22 @@ class ProductCardWidget extends StatelessWidget {
               ),
             ),
 
-            // Precio
+            // ✅ PRECIO CORREGIDO Y FORMATEADO
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                if (product.defaultPrice != null) ...[
+                if (price != null) ...[
                   Text(
-                    '\$${product.defaultPrice!.finalAmount.toStringAsFixed(2)}',
+                    AppFormatters.formatPrice(price.finalAmount),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.green.shade700,
                     ),
                   ),
-                  if (product.defaultPrice!.hasDiscount)
+                  if (price.hasDiscount)
                     Text(
-                      '\$${product.defaultPrice!.amount.toStringAsFixed(2)}',
+                      AppFormatters.formatPrice(price.amount),
                       style: TextStyle(
                         fontSize: 12,
                         decoration: TextDecoration.lineThrough,
@@ -126,7 +149,8 @@ class ProductCardWidget extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Stock: ${product.stock.toStringAsFixed(2)} ${product.unit ?? "pcs"}',
+                // ✅ CANTIDAD FORMATEADA
+                'Stock: ${AppFormatters.formatNumber(product.stock)} ${product.unit ?? "pcs"}',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ),
@@ -148,6 +172,8 @@ class ProductCardWidget extends StatelessWidget {
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
+    final price = _displayPrice;
+
     return Row(
       children: [
         // Imagen del producto
@@ -231,7 +257,8 @@ class ProductCardWidget extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                product.stock.toStringAsFixed(2),
+                // ✅ CANTIDAD FORMATEADA
+                AppFormatters.formatNumber(product.stock),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -252,7 +279,8 @@ class ProductCardWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                'Precio',
+                // ✅ USA EL NOMBRE DEL PRECIO ENCONTRADO
+                price?.type.displayName ?? 'Precio',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey.shade600,
@@ -260,18 +288,19 @@ class ProductCardWidget extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              if (product.defaultPrice != null) ...[
+              // ✅ PRECIO CORREGIDO Y FORMATEADO
+              if (price != null) ...[
                 Text(
-                  '\$${product.defaultPrice!.finalAmount.toStringAsFixed(2)}',
+                  AppFormatters.formatPrice(price.finalAmount),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.green.shade700,
                   ),
                 ),
-                if (product.defaultPrice!.hasDiscount)
+                if (price.hasDiscount)
                   Text(
-                    '\$${product.defaultPrice!.amount.toStringAsFixed(2)}',
+                    AppFormatters.formatPrice(price.amount),
                     style: TextStyle(
                       fontSize: 12,
                       decoration: TextDecoration.lineThrough,
@@ -361,7 +390,7 @@ class ProductCardWidget extends StatelessWidget {
   }
 
   Widget _buildActions(BuildContext context) {
-    if (context.isMobile) {
+    if (ResponsiveHelper.isMobile(context)) {
       return Row(
         children: [
           Expanded(
@@ -370,19 +399,39 @@ class ProductCardWidget extends StatelessWidget {
               icon: Icons.edit,
               type: ButtonType.outline,
               onPressed: onEdit,
-              fontSize: 12,
-              height: 36,
+              fontSize: ResponsiveHelper.getFontSize(
+                context,
+                mobile: 11,
+                tablet: 12,
+                desktop: 12,
+              ),
+              height: ResponsiveHelper.getHeight(
+                context,
+                mobile: 32,
+                tablet: 36,
+                desktop: 36,
+              ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
           Expanded(
             child: CustomButton(
               text: 'Eliminar',
               icon: Icons.delete,
               backgroundColor: Colors.red,
               onPressed: onDelete,
-              fontSize: 12,
-              height: 36,
+              fontSize: ResponsiveHelper.getFontSize(
+                context,
+                mobile: 11,
+                tablet: 12,
+                desktop: 12,
+              ),
+              height: ResponsiveHelper.getHeight(
+                context,
+                mobile: 32,
+                tablet: 36,
+                desktop: 36,
+              ),
             ),
           ),
         ],
@@ -397,11 +446,21 @@ class ProductCardWidget extends StatelessWidget {
               icon: Icons.edit,
               type: ButtonType.outline,
               onPressed: onEdit,
-              fontSize: 12,
-              height: 32,
+              fontSize: ResponsiveHelper.getFontSize(
+                context,
+                mobile: 11,
+                tablet: 12,
+                desktop: 12,
+              ),
+              height: ResponsiveHelper.getHeight(
+                context,
+                mobile: 28,
+                tablet: 32,
+                desktop: 32,
+              ),
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) / 2),
           SizedBox(
             width: double.infinity,
             child: CustomButton(
@@ -409,8 +468,18 @@ class ProductCardWidget extends StatelessWidget {
               icon: Icons.delete,
               backgroundColor: Colors.red,
               onPressed: onDelete,
-              fontSize: 12,
-              height: 32,
+              fontSize: ResponsiveHelper.getFontSize(
+                context,
+                mobile: 11,
+                tablet: 12,
+                desktop: 12,
+              ),
+              height: ResponsiveHelper.getHeight(
+                context,
+                mobile: 28,
+                tablet: 32,
+                desktop: 32,
+              ),
             ),
           ),
         ],

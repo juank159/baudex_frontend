@@ -2,10 +2,66 @@
 import 'dart:async';
 import 'package:baudex_desktop/app/shared/screens/barcode_scanner_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../products/domain/entities/product.dart';
 import '../controllers/invoice_form_controller.dart';
+
+/// Formatter personalizado para separadores de miles en búsqueda de productos
+class NumberWithThousandsSeparatorFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String newText = newValue.text;
+    
+    // Solo aplicar formato si es un número y tiene 8 dígitos o menos
+    if (_isNumericAndValidLength(newText)) {
+      // Remover todos los separadores existentes
+      String digits = newText.replaceAll('.', '').replaceAll(',', '');
+      
+      // Aplicar formato de miles
+      String formatted = _formatWithThousandsSeparator(digits);
+      
+      return TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+    
+    return newValue;
+  }
+  
+  bool _isNumericAndValidLength(String text) {
+    if (text.isEmpty) return false;
+    
+    // Remover separadores para contar solo dígitos
+    String digits = text.replaceAll('.', '').replaceAll(',', '');
+    
+    // Verificar que sea solo números y tenga 8 dígitos o menos
+    return RegExp(r'^\d{1,8}$').hasMatch(digits);
+  }
+  
+  String _formatWithThousandsSeparator(String digits) {
+    if (digits.length <= 3) return digits;
+    
+    // Aplicar formato de miles (punto como separador)
+    String reversed = digits.split('').reversed.join();
+    String formatted = '';
+    
+    for (int i = 0; i < reversed.length; i++) {
+      if (i > 0 && i % 3 == 0) {
+        formatted += '.';
+      }
+      formatted += reversed[i];
+    }
+    
+    return formatted.split('').reversed.join();
+  }
+}
 
 class ProductSearchWidget extends StatefulWidget {
   final Function(Product product, double quantity) onProductSelected;
@@ -160,6 +216,9 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
               controller: _searchController,
               focusNode: _focusNode,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              inputFormatters: [
+                NumberWithThousandsSeparatorFormatter(),
+              ],
               decoration: InputDecoration(
                 hintText: widget.hint ?? 'Escanea código o busca por nombre...',
                 hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 16),
@@ -584,8 +643,24 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
 
     // ✅ CREAR NUEVO TIMER CON DEBOUNCE
     _debounceTimer = Timer(_debounceDuration, () {
-      _performSearch(query);
+      // Limpiar separadores de miles antes de hacer la búsqueda
+      String cleanQuery = _cleanQueryForSearch(query);
+      _performSearch(cleanQuery);
     });
+  }
+
+  /// Limpia la query removiendo separadores de miles para la búsqueda
+  String _cleanQueryForSearch(String query) {
+    // Solo remover separadores si es un número con 8 dígitos o menos
+    String digitsOnly = query.replaceAll('.', '').replaceAll(',', '');
+    
+    if (RegExp(r'^\d{1,8}$').hasMatch(digitsOnly)) {
+      // Es un número válido, devolver sin separadores
+      return digitsOnly;
+    }
+    
+    // No es un número válido o tiene más de 8 dígitos, devolver original
+    return query;
   }
 
   // ✅ NUEVA FUNCIÓN: Realizar búsqueda con validaciones

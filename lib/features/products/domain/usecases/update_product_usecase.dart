@@ -31,6 +31,7 @@ class UpdateProductUseCase implements UseCase<Product, UpdateProductParams> {
       images: params.images,
       metadata: params.metadata,
       categoryId: params.categoryId,
+      prices: params.prices,
     );
   }
 }
@@ -53,6 +54,7 @@ class UpdateProductParams extends Equatable {
   final List<String>? images;
   final Map<String, dynamic>? metadata;
   final String? categoryId;
+  final List<CreateProductPriceParams>? prices;
 
   const UpdateProductParams({
     required this.id,
@@ -72,6 +74,7 @@ class UpdateProductParams extends Equatable {
     this.images,
     this.metadata,
     this.categoryId,
+    this.prices,
   });
 
   @override

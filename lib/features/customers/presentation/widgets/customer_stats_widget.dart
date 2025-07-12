@@ -1,6 +1,7 @@
 // lib/features/customers/presentation/widgets/customer_stats_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../../domain/entities/customer_stats.dart';
 
@@ -29,9 +30,9 @@ class CustomerStatsWidget extends StatelessWidget {
 
   Widget _buildCompactStats(BuildContext context) {
     return CustomCard(
-      padding: const EdgeInsets.all(12),
+      padding: ResponsiveHelper.getPadding(context, paddingContext: PaddingContext.compact),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Distribución uniforme
         children: [
           _buildCompactStatItem(
             context,
@@ -76,7 +77,7 @@ class CustomerStatsWidget extends StatelessWidget {
                 Theme.of(context).primaryColor,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
             Expanded(
               child: _buildStatCard(
                 context,
@@ -89,7 +90,7 @@ class CustomerStatsWidget extends StatelessWidget {
           ],
         ),
 
-        const SizedBox(height: 12),
+        SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
 
         // Fila 2: Inactivos y Suspendidos
         Row(
@@ -103,7 +104,7 @@ class CustomerStatsWidget extends StatelessWidget {
                 Colors.orange,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
             Expanded(
               child: _buildStatCard(
                 context,
@@ -116,7 +117,7 @@ class CustomerStatsWidget extends StatelessWidget {
           ],
         ),
 
-        const SizedBox(height: 12),
+        SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
 
         // Fila 3: Información financiera
         Row(
@@ -130,7 +131,7 @@ class CustomerStatsWidget extends StatelessWidget {
                 Colors.blue,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
             Expanded(
               child: _buildStatCard(
                 context,
@@ -144,7 +145,7 @@ class CustomerStatsWidget extends StatelessWidget {
         ),
 
         if (stats.customersWithOverdue > 0) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
           _buildStatCard(
             context,
             'Clientes con Facturas Vencidas',
@@ -385,51 +386,75 @@ class CustomerStatsWidget extends StatelessWidget {
     IconData icon,
     Color color,
   ) {
+    // 🎯 TAMAÑOS MUY OPTIMIZADOS PARA SIDEBAR ESTRECHO
+    final iconSize = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 14.0,
+      tablet: 16.0,
+      desktop: 16.0, // Más pequeño para sidebar
+    );
+
+    final valueSize = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 18.0,
+      tablet: 20.0,
+      desktop: 22.0, // Reducido significativamente
+    );
+
+    final titleSize = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 10.0,
+      tablet: 11.0,
+      desktop: 11.0, // Muy pequeño pero legible
+    );
+
+    final cardPadding = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 10.0,
+      tablet: 12.0,
+      desktop: 12.0, // Padding más compacto
+    );
+
     return CustomCard(
-      padding: EdgeInsets.all(context.isMobile ? 16 : 20),
+      padding: EdgeInsets.all(cardPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(iconSize * 0.3), // Padding más pequeño
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(iconSize * 0.3),
                 ),
                 child: Icon(
                   icon,
                   color: color,
-                  size: context.isMobile ? 20 : 24,
+                  size: iconSize,
                 ),
               ),
-              const Spacer(),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: Responsive.getFontSize(
-                    context,
-                    mobile: 24,
-                    tablet: 28,
-                    desktop: 32,
+              SizedBox(width: cardPadding * 0.5), // Espaciado reducido
+              Expanded( // 🔥 CRITICAL: Usar Expanded en lugar de Spacer
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: valueSize,
+                    fontWeight: FontWeight.bold,
+                    color: color,
                   ),
-                  fontWeight: FontWeight.bold,
-                  color: color,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
                 ),
               ),
             ],
           ),
-          SizedBox(height: context.isMobile ? 8 : 12),
+          SizedBox(height: cardPadding * 0.4), // Espaciado más compacto
           Text(
             title,
             style: TextStyle(
-              fontSize: Responsive.getFontSize(
-                context,
-                mobile: 12,
-                tablet: 14,
-                desktop: 16,
-              ),
+              fontSize: titleSize,
               color: Colors.grey.shade600,
               fontWeight: FontWeight.w500,
             ),
@@ -448,62 +473,92 @@ class CustomerStatsWidget extends StatelessWidget {
     IconData icon,
     Color color,
   ) {
+    // 🎯 TAMAÑOS OPTIMIZADOS PARA PORCENTAJES
+    final iconSize = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 14.0,
+      tablet: 16.0,
+      desktop: 16.0, // Más pequeño
+    );
+
+    final percentageSize = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 18.0,
+      tablet: 20.0,
+      desktop: 22.0, // Reducido
+    );
+
+    final titleSize = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 10.0,
+      tablet: 11.0,
+      desktop: 11.0, // Muy pequeño
+    );
+
+    final cardPadding = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 10.0,
+      tablet: 12.0,
+      desktop: 12.0, // Compacto
+    );
+
     return CustomCard(
-      padding: EdgeInsets.all(context.isMobile ? 16 : 20),
+      padding: EdgeInsets.all(cardPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(iconSize * 0.3),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(iconSize * 0.3),
                 ),
                 child: Icon(
                   icon,
                   color: color,
-                  size: context.isMobile ? 20 : 24,
+                  size: iconSize,
                 ),
               ),
-              const Spacer(),
-              Text(
-                '${percentage.toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontSize: Responsive.getFontSize(
-                    context,
-                    mobile: 24,
-                    tablet: 28,
-                    desktop: 32,
+              SizedBox(width: cardPadding * 0.5),
+              Expanded( // 🔥 CRITICAL: Usar Expanded
+                child: Text(
+                  '${percentage.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: percentageSize,
+                    fontWeight: FontWeight.bold,
+                    color: color,
                   ),
-                  fontWeight: FontWeight.bold,
-                  color: color,
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
           ),
-          SizedBox(height: context.isMobile ? 8 : 12),
+          SizedBox(height: cardPadding * 0.4),
           Text(
             title,
             style: TextStyle(
-              fontSize: Responsive.getFontSize(
-                context,
-                mobile: 12,
-                tablet: 14,
-                desktop: 16,
-              ),
+              fontSize: titleSize,
               color: Colors.grey.shade600,
               fontWeight: FontWeight.w500,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: cardPadding * 0.3),
           LinearProgressIndicator(
             value: percentage / 100,
             backgroundColor: Colors.grey.shade200,
             valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: ResponsiveHelper.responsiveValue(
+              context,
+              mobile: 2.0,
+              tablet: 3.0,
+              desktop: 3.0, // Más delgado
+            ),
           ),
         ],
       ),
@@ -517,44 +572,84 @@ class CustomerStatsWidget extends StatelessWidget {
     IconData icon,
     Color color,
   ) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(6),
+    // 🎯 TAMAÑOS ULTRA-COMPACTOS PARA EVITAR OVERFLOW
+    final iconSize = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 12.0,
+      tablet: 14.0,
+      desktop: 14.0, // Muy pequeño
+    );
+
+    final valueSize = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 14.0,
+      tablet: 16.0,
+      desktop: 16.0, // Muy controlado
+    );
+
+    final labelSize = ResponsiveHelper.responsiveValue(
+      context,
+      mobile: 8.0,
+      tablet: 9.0,
+      desktop: 9.0, // Mínimo legible
+    );
+
+    return Flexible( // 🔥 CRITICAL: Usar Flexible en lugar de Column
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.all(iconSize * 0.25), // Padding mínimo
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(iconSize * 0.25),
+            ),
+            child: Icon(icon, color: color, size: iconSize),
           ),
-          child: Icon(icon, color: color, size: 16),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
+          SizedBox(height: 3), // Espaciado fijo mínimo
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: valueSize,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
-        Text(
-          label,
-          style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-          textAlign: TextAlign.center,
-        ),
-      ],
+          SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: labelSize,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildVerticalDivider() {
-    return Container(height: 40, width: 1, color: Colors.grey.shade300);
+    return Container(
+      height: 40, // Fixed height instead of responsive to avoid layout conflicts
+      width: 1,
+      color: Colors.grey.shade300,
+    );
   }
 
   String _formatCurrency(double amount) {
-    if (amount >= 1000000) {
+    // Formateo compacto y optimizado
+    if (amount >= 1000000000) {
+      return '\$${(amount / 1000000000).toStringAsFixed(1)}B';
+    } else if (amount >= 1000000) {
       return '\$${(amount / 1000000).toStringAsFixed(1)}M';
     } else if (amount >= 1000) {
-      return '\$${(amount / 1000).toStringAsFixed(1)}K';
+      return '\$${(amount / 1000).toStringAsFixed(0)}K';
     } else {
       return '\$${amount.toStringAsFixed(0)}';
     }

@@ -1,6 +1,8 @@
 // lib/app/core/storage/secure_storage_service.dart
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import '../../config/constants/api_constants.dart';
 
 class SecureStorageService {
@@ -8,15 +10,73 @@ class SecureStorageService {
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
     wOptions: WindowsOptions(),
     lOptions: LinuxOptions(),
-    mOptions: MacOsOptions(),
+    mOptions: MacOsOptions(
+      groupId: 'com.example.baudex_desktop',
+      accountName: 'baudex_desktop',
+      synchronizable: false,
+    ),
   );
+
+  // Fallback para macOS cuando hay problemas con Keychain
+  static bool _useSharedPreferences = false;
+
+  /// Método para detectar si debemos usar SharedPreferences como fallback
+  static Future<bool> _shouldUseSharedPreferences() async {
+    if (_useSharedPreferences) return true;
+    
+    // Solo en macOS, hacer una prueba rápida
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      try {
+        await _storage.write(key: 'test_key', value: 'test_value');
+        await _storage.delete(key: 'test_key');
+        return false; // Keychain funciona
+      } catch (e) {
+        if (kDebugMode) {
+          print('⚠️ Keychain no disponible en macOS, usando SharedPreferences como fallback');
+        }
+        _useSharedPreferences = true;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Wrapper para escribir datos con fallback
+  static Future<void> _writeSecure(String key, String value) async {
+    if (await _shouldUseSharedPreferences()) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('secure_$key', value);
+    } else {
+      await _storage.write(key: key, value: value);
+    }
+  }
+
+  /// Wrapper para leer datos con fallback
+  static Future<String?> _readSecure(String key) async {
+    if (await _shouldUseSharedPreferences()) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('secure_$key');
+    } else {
+      return await _storage.read(key: key);
+    }
+  }
+
+  /// Wrapper para eliminar datos con fallback
+  static Future<void> _deleteSecure(String key) async {
+    if (await _shouldUseSharedPreferences()) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('secure_$key');
+    } else {
+      await _storage.delete(key: key);
+    }
+  }
 
   // ===================== TOKEN MANAGEMENT =====================
 
   /// Guardar token de acceso
   Future<void> saveToken(String token) async {
     try {
-      await _storage.write(key: ApiConstants.tokenKey, value: token);
+      await _writeSecure(ApiConstants.tokenKey, token);
     } catch (e) {
       throw Exception('Error al guardar token: $e');
     }
@@ -25,7 +85,7 @@ class SecureStorageService {
   /// Obtener token de acceso
   Future<String?> getToken() async {
     try {
-      return await _storage.read(key: ApiConstants.tokenKey);
+      return await _readSecure(ApiConstants.tokenKey);
     } catch (e) {
       throw Exception('Error al obtener token: $e');
     }
@@ -34,7 +94,7 @@ class SecureStorageService {
   /// Eliminar token de acceso
   Future<void> deleteToken() async {
     try {
-      await _storage.delete(key: ApiConstants.tokenKey);
+      await _deleteSecure(ApiConstants.tokenKey);
     } catch (e) {
       throw Exception('Error al eliminar token: $e');
     }
@@ -55,10 +115,7 @@ class SecureStorageService {
   /// Guardar refresh token
   Future<void> saveRefreshToken(String refreshToken) async {
     try {
-      await _storage.write(
-        key: ApiConstants.refreshTokenKey,
-        value: refreshToken,
-      );
+      await _writeSecure(ApiConstants.refreshTokenKey, refreshToken);
     } catch (e) {
       throw Exception('Error al guardar refresh token: $e');
     }
@@ -67,7 +124,7 @@ class SecureStorageService {
   /// Obtener refresh token
   Future<String?> getRefreshToken() async {
     try {
-      return await _storage.read(key: ApiConstants.refreshTokenKey);
+      return await _readSecure(ApiConstants.refreshTokenKey);
     } catch (e) {
       throw Exception('Error al obtener refresh token: $e');
     }
@@ -76,7 +133,7 @@ class SecureStorageService {
   /// Eliminar refresh token
   Future<void> deleteRefreshToken() async {
     try {
-      await _storage.delete(key: ApiConstants.refreshTokenKey);
+      await _deleteSecure(ApiConstants.refreshTokenKey);
     } catch (e) {
       throw Exception('Error al eliminar refresh token: $e');
     }
@@ -88,7 +145,7 @@ class SecureStorageService {
   Future<void> saveUserData(Map<String, dynamic> userData) async {
     try {
       final userJson = jsonEncode(userData);
-      await _storage.write(key: ApiConstants.userKey, value: userJson);
+      await _writeSecure(ApiConstants.userKey, userJson);
     } catch (e) {
       throw Exception('Error al guardar datos del usuario: $e');
     }
@@ -97,7 +154,7 @@ class SecureStorageService {
   /// Obtener datos del usuario
   Future<Map<String, dynamic>?> getUserData() async {
     try {
-      final userJson = await _storage.read(key: ApiConstants.userKey);
+      final userJson = await _readSecure(ApiConstants.userKey);
       if (userJson != null) {
         return jsonDecode(userJson) as Map<String, dynamic>;
       }
@@ -110,7 +167,7 @@ class SecureStorageService {
   /// Eliminar datos del usuario
   Future<void> deleteUserData() async {
     try {
-      await _storage.delete(key: ApiConstants.userKey);
+      await _deleteSecure(ApiConstants.userKey);
     } catch (e) {
       throw Exception('Error al eliminar datos del usuario: $e');
     }

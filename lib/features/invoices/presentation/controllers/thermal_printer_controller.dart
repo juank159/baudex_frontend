@@ -1,3 +1,4 @@
+// File: lib/features/invoices/presentation/controllers/thermal_printer_controller.dart
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
@@ -11,6 +12,7 @@ import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:esc_pos_printer_plus/esc_pos_printer_plus.dart';
 import 'package:intl/intl.dart';
 import '../../domain/entities/invoice.dart';
+import '../../../../app/core/utils/formatters.dart';
 
 // ==================== CONFIGURACIÓN ESPECÍFICA SAT Q22UE ====================
 
@@ -37,18 +39,26 @@ class SATQ22UEConfig {
 // ==================== MODELOS DE DATOS ====================
 
 class NetworkPrinterInfo {
+  final String name;
   final String ip;
   final int port;
   final bool isConnected;
 
   const NetworkPrinterInfo({
+    required this.name,
     required this.ip,
     required this.port,
     this.isConnected = false,
   });
 
-  NetworkPrinterInfo copyWith({String? ip, int? port, bool? isConnected}) {
+  NetworkPrinterInfo copyWith({
+    String? name,
+    String? ip,
+    int? port,
+    bool? isConnected,
+  }) {
     return NetworkPrinterInfo(
+      name: name ?? this.name,
       ip: ip ?? this.ip,
       port: port ?? this.port,
       isConnected: isConnected ?? this.isConnected,
@@ -85,6 +95,12 @@ class ThermalPrinterController extends GetxController {
   // Estado de red vs USB
   final _preferUSB = true.obs; // Desktop prefiere USB
   final _networkPrinters = <NetworkPrinterInfo>[].obs;
+  final _selectedPrinter = Rxn<NetworkPrinterInfo>();
+
+  // Configuraciones de impresión
+  final _paperWidth = 80.obs; // 58mm o 80mm
+  final _autoCut = true.obs;
+  final _openCashDrawer = false.obs;
 
   final format = NumberFormat(
     '#,###',
@@ -99,6 +115,13 @@ class ThermalPrinterController extends GetxController {
   List<PrintJob> get printHistory => _printHistory;
   bool get preferUSB => _preferUSB.value;
   List<NetworkPrinterInfo> get networkPrinters => _networkPrinters;
+  List<NetworkPrinterInfo> get discoveredPrinters => _networkPrinters;
+  NetworkPrinterInfo? get selectedPrinter => _selectedPrinter.value;
+
+  // Configuraciones de impresión
+  int get paperWidth => _paperWidth.value;
+  bool get autoCut => _autoCut.value;
+  bool get openCashDrawer => _openCashDrawer.value;
 
   // ==================== LIFECYCLE ====================
 
@@ -164,6 +187,7 @@ class ThermalPrinterController extends GetxController {
       if (isAvailable) {
         _networkPrinters.add(
           const NetworkPrinterInfo(
+            name: 'SAT Q22UE',
             ip: SATQ22UEConfig.defaultNetworkIP,
             port: SATQ22UEConfig.defaultNetworkPort,
             isConnected: false,
@@ -183,10 +207,10 @@ class ThermalPrinterController extends GetxController {
       final profile = await CapabilityProfile.load();
       printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
 
-      // Intentar conexión con timeout corto
+      // Intentar conexión con timeout más corto para evitar bloqueos
       final result = await printer
           .connect(ip, port: port)
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 2));
 
       if (result == PosPrintResult.success) {
         try {
@@ -198,21 +222,11 @@ class ThermalPrinterController extends GetxController {
         return true;
       }
 
-      try {
-        printer.disconnect(); // Sin await - void return
-      } catch (disconnectError) {
-        // Ignorar error de desconexión
-      }
+      // No intentar desconectar si la conexión falló
       return false;
     } catch (e) {
       print('⚠️ No hay impresora en $ip:$port - $e');
-      if (printer != null) {
-        try {
-          printer.disconnect(); // Intentar desconectar incluso si hay error
-        } catch (disconnectError) {
-          // Ignorar error de desconexión
-        }
-      }
+      // No intentar desconectar si hubo una excepción durante la conexión
       return false;
     }
   }
@@ -754,17 +768,9 @@ class ThermalPrinterController extends GetxController {
           styles: const PosStyles(bold: true, align: PosAlign.left),
         );
 
-        // ✅ LÍNEA DE DETALLES - CORREGIDA PARA SUMAR 12
+        // ✅ LÍNEA DE DETALLES CON FORMATEO PROFESIONAL
         final quantity = item.quantity.toInt().toString();
-        final unitPrice = item.unitPrice.toStringAsFixed(0);
-        final discount =
-            item.discountAmount > 0
-                ? item.discountAmount.toStringAsFixed(0)
-                : (item.discountPercentage > 0
-                    ? '${item.discountPercentage.toInt()}%'
-                    : '0');
         final total = item.quantity * item.unitPrice;
-        final itemTotal = total.toStringAsFixed(0);
 
         // ✅ FORMATEAR LÍNEA CON WIDTH CORRECTO (total = 12)
         printer.row([
@@ -779,18 +785,13 @@ class ThermalPrinterController extends GetxController {
             styles: const PosStyles(align: PosAlign.left),
           ),
           PosColumn(
-            text: '\$${format.format(item.unitPrice)}',
-            width: 4, // ✅ CAMBIADO de 4 a 3
+            text: AppFormatters.formatCurrency(item.unitPrice),
+            width: 4, // Precio unitario con formato profesional
             styles: const PosStyles(align: PosAlign.left),
           ),
-          // PosColumn(
-          //   text: '19',
-          //   width: 1, // IVA
-          //   styles: const PosStyles(align: PosAlign.right),
-          // ),
           PosColumn(
-            text: '\$${itemTotal}',
-            width: 4, // ✅ CAMBIADO de 4 a 3
+            text: AppFormatters.formatCurrency(total),
+            width: 4, // Total del item con formato profesional
             styles: const PosStyles(align: PosAlign.right, bold: true),
           ),
         ]);
@@ -836,34 +837,86 @@ class ThermalPrinterController extends GetxController {
   }
 
   Future<void> _printTotals(NetworkPrinter printer, Invoice invoice) async {
-    final invoiceTotal = invoice.total.toStringAsFixed(0);
     try {
-      // ✅ CÁLCULOS DETALLADOS
-      final subtotalSinIva =
-          invoice.subtotal / (1 + (invoice.taxPercentage / 100));
-      final ivaCalculado = invoice.subtotal - subtotalSinIva;
+      // ✅ SUBTOTAL CON FORMATO PROFESIONAL
+      // if (invoice.subtotal != invoice.total) {
+      //   printer.row([
+      //     PosColumn(
+      //       text: 'Subtotal:',
+      //       width: 8,
+      //       styles: const PosStyles(align: PosAlign.left),
+      //     ),
+      //     PosColumn(
+      //       text: AppFormatters.formatCurrency(invoice.subtotal),
+      //       width: 4,
+      //       styles: const PosStyles(align: PosAlign.right),
+      //     ),
+      //   ]);
+      // }
 
-      // ✅ TOTAL FINAL - WIDTH CORREGIDO
+      // // ✅ IVA SI APLICA
+      // if (invoice.taxAmount > 0) {
+      //   printer.row([
+      //     PosColumn(
+      //       text: 'IVA (${invoice.taxPercentage.toInt()}%):',
+      //       width: 8,
+      //       styles: const PosStyles(align: PosAlign.left),
+      //     ),
+      //     PosColumn(
+      //       text: AppFormatters.formatCurrency(invoice.taxAmount),
+      //       width: 4,
+      //       styles: const PosStyles(align: PosAlign.right),
+      //     ),
+      //   ]);
+      // }
+
+      // ✅ DESCUENTOS SI APLICAN
+      if (invoice.discountAmount > 0) {
+        printer.row([
+          PosColumn(
+            text: 'Descuento:',
+            width: 8,
+            styles: const PosStyles(align: PosAlign.left),
+          ),
+          PosColumn(
+            text: '-${AppFormatters.formatCurrency(invoice.discountAmount)}',
+            width: 4,
+            styles: const PosStyles(align: PosAlign.right, bold: true),
+          ),
+        ]);
+      }
+
+      printer.hr(ch: '=', len: 32);
+
+      // ✅ TOTAL FINAL CON FORMATO PROFESIONAL
       printer.row([
         PosColumn(
           text: 'TOTAL A PAGAR:',
-          width: 8,
+          width: 5,
           styles: const PosStyles(
             align: PosAlign.left,
             bold: true,
-            height: PosTextSize.size2,
+            width: PosTextSize.size1,
+            height: PosTextSize.size3,
           ),
         ),
         PosColumn(
-          text: ': \$${invoiceTotal}',
-          width: 4,
+          text: AppFormatters.formatCurrency(invoice.total),
+          width: 7,
           styles: const PosStyles(
             align: PosAlign.right,
             bold: true,
-            height: PosTextSize.size2,
+            width: PosTextSize.size1,
+            height: PosTextSize.size3,
           ),
         ),
       ]);
+
+      printer.hr(ch: '=', len: 32);
+
+      // ✅ INFORMACIÓN DE PAGO EN EFECTIVO
+      await _printCashPaymentDetails(printer, invoice);
+
       printer.feed(1);
     } catch (e) {
       print('❌ Error imprimiendo totales: $e');
@@ -871,16 +924,155 @@ class ThermalPrinterController extends GetxController {
     }
   }
 
+  // ==================== INFORMACIÓN DE PAGO EN EFECTIVO ====================
+
+  /// Verifica si la factura tiene información de pago en efectivo
+  bool _hasCashPaymentDetails(Invoice invoice) {
+    if (invoice.paymentMethod != PaymentMethod.cash) return false;
+    if (invoice.notes == null || invoice.notes!.isEmpty) return false;
+
+    return invoice.notes!.contains('Recibido:') &&
+        invoice.notes!.contains('Cambio:');
+  }
+
+  /// Extrae el monto recibido de las notas de la factura
+  double _getReceivedAmount(Invoice invoice) {
+    if (!_hasCashPaymentDetails(invoice)) return 0.0;
+
+    try {
+      final notes = invoice.notes!;
+      final recibidoMatch = RegExp(
+        r'Recibido:\s*\$?\s*([\d.,]+)',
+      ).firstMatch(notes);
+
+      if (recibidoMatch != null) {
+        String amountStr = recibidoMatch.group(1)!;
+        // Limpiar formato de miles colombiano (puntos) pero preservar decimales (comas)
+        amountStr = amountStr.replaceAll(
+          RegExp(r'\.(?=\d{3})'),
+          '',
+        ); // Remover puntos de miles
+        amountStr = amountStr.replaceAll(
+          ',',
+          '.',
+        ); // Convertir comas decimales a puntos
+        return double.tryParse(amountStr) ?? 0.0;
+      }
+    } catch (e) {
+      // Silencioso en producción
+    }
+
+    return 0.0;
+  }
+
+  /// Extrae el monto del cambio de las notas de la factura
+  double _getChangeAmount(Invoice invoice) {
+    if (!_hasCashPaymentDetails(invoice)) return 0.0;
+
+    try {
+      final notes = invoice.notes!;
+      final cambioMatch = RegExp(
+        r'Cambio:\s*\$?\s*([\d.,]+)',
+      ).firstMatch(notes);
+
+      if (cambioMatch != null) {
+        String amountStr = cambioMatch.group(1)!;
+        // Limpiar formato de miles colombiano (puntos) pero preservar decimales (comas)
+        amountStr = amountStr.replaceAll(
+          RegExp(r'\.(?=\d{3})'),
+          '',
+        ); // Remover puntos de miles
+        amountStr = amountStr.replaceAll(
+          ',',
+          '.',
+        ); // Convertir comas decimales a puntos
+        return double.tryParse(amountStr) ?? 0.0;
+      }
+    } catch (e) {
+      // Silencioso en producción
+    }
+
+    return 0.0;
+  }
+
+  /// Imprime información de pago en efectivo con formato profesional
+  Future<void> _printCashPaymentDetails(
+    NetworkPrinter printer,
+    Invoice invoice,
+  ) async {
+    if (!_hasCashPaymentDetails(invoice)) return;
+
+    try {
+      final receivedAmount = _getReceivedAmount(invoice);
+      final changeAmount = _getChangeAmount(invoice);
+
+      // Solo imprimir si tenemos información válida
+      if (receivedAmount > 0) {
+        printer.text(
+          'DETALLE DE PAGO EN EFECTIVO',
+          styles: const PosStyles(
+            align: PosAlign.center,
+            bold: true,
+            underline: true,
+          ),
+        );
+        printer.feed(1);
+
+        // Dinero recibido
+        printer.row([
+          PosColumn(
+            text: 'Dinero Recibido:',
+            width: 8,
+            styles: const PosStyles(align: PosAlign.left, bold: true),
+          ),
+          PosColumn(
+            text: AppFormatters.formatCurrency(receivedAmount),
+            width: 4,
+            styles: const PosStyles(align: PosAlign.right, bold: true),
+          ),
+        ]);
+
+        // Cambio (solo si es mayor a 0)
+        if (changeAmount > 0) {
+          printer.row([
+            PosColumn(
+              text: 'Cambio:',
+              width: 8,
+              styles: const PosStyles(align: PosAlign.left, bold: true),
+            ),
+            PosColumn(
+              text: AppFormatters.formatCurrency(changeAmount),
+              width: 4,
+              styles: const PosStyles(align: PosAlign.right, bold: true),
+            ),
+          ]);
+        } else if (changeAmount == 0) {
+          printer.text(
+            'Pago exacto - Sin cambio',
+            styles: const PosStyles(
+              align: PosAlign.center,
+              fontType: PosFontType.fontB,
+            ),
+          );
+        }
+
+        printer.feed(1);
+      }
+    } catch (e) {
+      print('❌ Error imprimiendo información de pago en efectivo: $e');
+    }
+  }
+
   Future<void> _printFooter(NetworkPrinter printer, Invoice invoice) async {
     try {
       // Información adicional si hay
-      if (invoice.notes?.isNotEmpty == true) {
-        printer.text(
-          invoice.notes!,
-          styles: const PosStyles(align: PosAlign.left, bold: true),
-        );
-        printer.feed(1);
-      }
+      // if (invoice.notes?.isNotEmpty == true) {
+      //   printer.text(
+      //     invoice.notes!,
+      //     styles: const PosStyles(align: PosAlign.left, bold: true),
+      //   );
+      //   printer.feed(1);
+      // }
 
       // Fecha y hora de impresión
       final now = DateTime.now();
@@ -909,7 +1101,7 @@ class ThermalPrinterController extends GetxController {
         styles: const PosStyles(align: PosAlign.center),
       );
       printer.text(
-        'Informacion: 3138888436',
+        'Informacion: 3138448436',
         styles: const PosStyles(align: PosAlign.center),
       );
     } catch (e) {
@@ -1281,6 +1473,267 @@ class ThermalPrinterController extends GetxController {
       return false;
     } finally {
       _isPrinting.value = false;
+    }
+  }
+
+  // ==================== MÉTODOS PARA SETTINGS SCREEN ====================
+
+  void setPaperWidth(int width) {
+    if (width == 58 || width == 80) {
+      _paperWidth.value = width;
+      print('📏 Ancho de papel configurado a: ${width}mm');
+      update(); // Notificar cambios a GetBuilder
+    }
+  }
+
+  void setAutoCut(bool enabled) {
+    _autoCut.value = enabled;
+    print('✂️ Corte automático: ${enabled ? 'activado' : 'desactivado'}');
+    update();
+  }
+
+  void setOpenCashDrawer(bool enabled) {
+    _openCashDrawer.value = enabled;
+    print(
+      '💰 Abrir caja registradora: ${enabled ? 'activado' : 'desactivado'}',
+    );
+    update();
+  }
+
+  void addManualPrinter(String name, String ip, int port) {
+    try {
+      final newPrinter = NetworkPrinterInfo(
+        name: name,
+        ip: ip,
+        port: port,
+        isConnected: false,
+      );
+
+      // Verificar si ya existe esta IP
+      final existingIndex = _networkPrinters.indexWhere(
+        (p) => p.ip == ip && p.port == port,
+      );
+
+      if (existingIndex != -1) {
+        // Actualizar impresora existente
+        _networkPrinters[existingIndex] = newPrinter;
+        print('🔄 Impresora actualizada: $name ($ip:$port)');
+      } else {
+        // Agregar nueva impresora
+        _networkPrinters.add(newPrinter);
+        print('➕ Impresora agregada manualmente: $name ($ip:$port)');
+      }
+
+      update();
+
+      // Probar conexión automáticamente
+      _testAndUpdatePrinterStatus(newPrinter);
+    } catch (e) {
+      print('❌ Error agregando impresora manual: $e');
+      _showError('Error', 'No se pudo agregar la impresora: $e');
+    }
+  }
+
+  void selectPrinter(NetworkPrinterInfo printer) {
+    _selectedPrinter.value = printer;
+    print(
+      '🖨️ Impresora seleccionada: ${printer.name} (${printer.ip}:${printer.port})',
+    );
+    update();
+
+    // Intentar conectar automáticamente
+    connectToPrinter(printer);
+  }
+
+  Future<void> connectToPrinter(NetworkPrinterInfo printerInfo) async {
+    try {
+      print('🔗 Intentando conectar a ${printerInfo.name}...');
+
+      final profile = await CapabilityProfile.load();
+      final printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
+
+      final result = await printer
+          .connect(printerInfo.ip, port: printerInfo.port)
+          .timeout(const Duration(seconds: 5));
+
+      if (result == PosPrintResult.success) {
+        _isConnected.value = true;
+
+        // Actualizar estado de la impresora
+        final updatedPrinter = printerInfo.copyWith(isConnected: true);
+        final index = _networkPrinters.indexWhere(
+          (p) => p.ip == printerInfo.ip && p.port == printerInfo.port,
+        );
+        if (index != -1) {
+          _networkPrinters[index] = updatedPrinter;
+        }
+
+        _selectedPrinter.value = updatedPrinter;
+
+        print('✅ Conectado exitosamente a ${printerInfo.name}');
+        _showSuccess('Conectado a ${printerInfo.name}');
+
+        // Desconectar inmediatamente (solo para prueba)
+        try {
+          printer.disconnect();
+        } catch (e) {
+          print('⚠️ Error al desconectar después de prueba: $e');
+        }
+      } else {
+        _isConnected.value = false;
+        print('❌ Error conectando: ${result.msg}');
+        _showError('Error de conexión', result.msg);
+      }
+    } catch (e) {
+      _isConnected.value = false;
+      print('❌ Error en conexión: $e');
+      _showError('Error', 'No se pudo conectar: $e');
+    }
+
+    update();
+  }
+
+  Future<void> printTestReceipt() async {
+    if (_selectedPrinter.value == null) {
+      _showError('Error', 'Selecciona una impresora primero');
+      return;
+    }
+
+    if (_isPrinting.value) {
+      _showError('Impresión en curso', 'Ya hay una impresión en curso');
+      return;
+    }
+
+    try {
+      _isPrinting.value = true;
+      print('🧪 Imprimiendo recibo de prueba...');
+
+      final profile = await CapabilityProfile.load();
+      final printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
+
+      final result = await printer.connect(
+        _selectedPrinter.value!.ip,
+        port: _selectedPrinter.value!.port,
+      );
+
+      if (result != PosPrintResult.success) {
+        throw Exception('Error de conexión: ${result.msg}');
+      }
+
+      // Inicializar
+      printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.initializeCommands));
+
+      // Imprimir recibo de prueba
+      printer.text(
+        'RECIBO DE PRUEBA',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          height: PosTextSize.size2,
+        ),
+      );
+
+      printer.hr();
+
+      printer.text(
+        'Impresora: ${_selectedPrinter.value!.name}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+
+      printer.text(
+        'IP: ${_selectedPrinter.value!.ip}:${_selectedPrinter.value!.port}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+
+      printer.text(
+        'Papel: ${_paperWidth.value}mm',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+
+      printer.text(
+        'Corte automático: ${_autoCut.value ? "SÍ" : "NO"}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+
+      printer.text(
+        'Caja registradora: ${_openCashDrawer.value ? "SÍ" : "NO"}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+
+      printer.hr();
+
+      final now = DateTime.now();
+      printer.text(
+        'Fecha: ${now.day}/${now.month}/${now.year}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+
+      printer.text(
+        'Hora: ${now.hour}:${now.minute.toString().padLeft(2, '0')}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+
+      printer.feed(2);
+
+      printer.text(
+        '*** PRUEBA EXITOSA ***',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
+
+      printer.feed(3);
+
+      // Cortar papel si está habilitado
+      if (_autoCut.value) {
+        printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.cutCommands));
+      }
+
+      // Abrir caja registradora si está habilitado
+      if (_openCashDrawer.value) {
+        printer.rawBytes(Uint8List.fromList(SATQ22UEConfig.openDrawerCommands));
+      }
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      try {
+        printer.disconnect();
+      } catch (e) {
+        print('⚠️ Error al desconectar después de prueba: $e');
+      }
+
+      _showSuccess('Recibo de prueba impreso exitosamente');
+      print('✅ Recibo de prueba completado');
+    } catch (e) {
+      print('❌ Error imprimiendo recibo de prueba: $e');
+      _showError('Error', 'No se pudo imprimir el recibo de prueba: $e');
+    } finally {
+      _isPrinting.value = false;
+      update();
+    }
+  }
+
+  // ==================== MÉTODOS HELPER PRIVADOS ====================
+
+  Future<void> _testAndUpdatePrinterStatus(
+    NetworkPrinterInfo printerInfo,
+  ) async {
+    try {
+      final isAvailable = await _testNetworkPrinter(
+        printerInfo.ip,
+        printerInfo.port,
+      );
+
+      final index = _networkPrinters.indexWhere(
+        (p) => p.ip == printerInfo.ip && p.port == printerInfo.port,
+      );
+
+      if (index != -1) {
+        _networkPrinters[index] = printerInfo.copyWith(
+          isConnected: isAvailable,
+        );
+        update();
+      }
+    } catch (e) {
+      print('⚠️ Error probando estado de impresora: $e');
     }
   }
 }

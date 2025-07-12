@@ -125,8 +125,16 @@ class ProductsController extends GetxController {
   void onInit() {
     super.onInit();
     _setupScrollListener();
-    // ✅ OPTIMIZACIÓN: Una sola llamada que carga todo
-    loadInitialData();
+    // ✅ OPTIMIZACIÓN: NO cargar productos automáticamente
+    // Los productos se cargarán solo cuando se necesiten (búsquedas, listado manual)
+    _initializeMinimal();
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    // ✅ EVITAR refresh duplicado en onReady porque ya se ejecuta en onInit
+    print('🔄 ProductsController: onReady - Controller listo');
   }
 
   @override
@@ -134,6 +142,32 @@ class ProductsController extends GetxController {
     searchController.dispose();
     scrollController.dispose();
     super.onClose();
+  }
+
+  // ==================== INITIALIZATION ====================
+
+  /// Inicialización mínima sin cargar datos
+  void _initializeMinimal() {
+    print('🚀 ProductsController: Inicialización optimizada...');
+    print('💡 ProductsController optimizado - datos se cargarán bajo demanda');
+    
+    // Solo inicializar las listas vacías
+    _products.clear();
+    _searchResults.clear();
+    
+    // Inicializar estadísticas básicas
+    _stats.value = const ProductStats(
+      total: 0,
+      active: 0,
+      inactive: 0,
+      outOfStock: 0,
+      lowStock: 0,
+      activePercentage: 0.0,
+      totalValue: 0.0,
+      averagePrice: 0.0,
+    );
+    
+    print('✅ ProductsController inicializado correctamente (modo lazy loading)');
   }
 
   // ==================== PUBLIC METHODS ====================

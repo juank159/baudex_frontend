@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/widgets/compact_invoice_item_widget.dart
 import 'package:baudex_desktop/app/core/utils/responsive.dart';
+import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../data/models/invoice_form_models.dart';
@@ -14,6 +15,8 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
   final VoidCallback onRemove;
   final Product? product;
   final bool showPriceSelector;
+  final bool isSelected;
+  final VoidCallback? onTap;
 
   const EnhancedInvoiceItemWidget({
     super.key,
@@ -23,29 +26,44 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
     required this.onRemove,
     this.product,
     this.showPriceSelector = true,
+    this.isSelected = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.shade50 : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Colors.blue.shade300 : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
           ),
-        ],
-      ),
-      child: ResponsiveLayout(
-        mobile: _buildMobileLayout(context),
-        tablet: _buildDesktopLayout(context),
-        desktop: _buildDesktopLayout(context),
+          boxShadow: [
+            BoxShadow(
+              color:
+                  isSelected
+                      ? Colors.blue.withOpacity(0.1)
+                      : Colors.black.withOpacity(0.03),
+              blurRadius: isSelected ? 4 : 2,
+              offset: Offset(0, isSelected ? 2 : 1),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            ResponsiveLayout(
+              mobile: _buildMobileLayout(context),
+              tablet: _buildDesktopLayout(context),
+              desktop: _buildDesktopLayout(context),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -159,8 +177,12 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
     return Container(
       height: 36,
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(
+          color: isSelected ? Colors.blue.shade300 : Colors.grey.shade300,
+          width: isSelected ? 2 : 1,
+        ),
         borderRadius: BorderRadius.circular(6),
+        color: isSelected ? Colors.blue.shade50.withOpacity(0.3) : null,
       ),
       child: Row(
         children: [
@@ -181,10 +203,10 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
               alignment: Alignment.center,
               child: Text(
                 '${item.quantity.toInt()}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
-                  color: Colors.black87,
+                  color: isSelected ? Colors.blue.shade800 : Colors.black87,
                 ),
               ),
             ),
@@ -248,10 +270,15 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
         height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(
+            color: isSelected ? Colors.blue.shade300 : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
           borderRadius: BorderRadius.circular(6),
           color:
-              showPriceSelector && product != null
+              isSelected
+                  ? Colors.blue.shade50.withOpacity(0.3)
+                  : showPriceSelector && product != null
                   ? Colors.blue.shade50
                   : Colors.grey.shade50,
         ),
@@ -263,12 +290,14 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '\$${item.unitPrice.toStringAsFixed(0)}',
+                    AppFormatters.formatCurrency(item.unitPrice),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color:
-                          showPriceSelector && product != null
+                          isSelected
+                              ? Colors.blue.shade800
+                              : showPriceSelector && product != null
                               ? Colors.blue.shade700
                               : Colors.black87,
                     ),
@@ -278,14 +307,21 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
                       _getCurrentPriceType(),
                       style: TextStyle(
                         fontSize: 9,
-                        color: Colors.grey.shade500,
+                        color:
+                            isSelected
+                                ? Colors.blue.shade600
+                                : Colors.grey.shade500,
                       ),
                     ),
                 ],
               ),
             ),
             if (showPriceSelector && product != null)
-              Icon(Icons.edit, size: 14, color: Colors.blue.shade600),
+              Icon(
+                isSelected ? Icons.keyboard : Icons.edit,
+                size: 14,
+                color: isSelected ? Colors.blue.shade700 : Colors.blue.shade600,
+              ),
           ],
         ),
       ),
@@ -317,7 +353,7 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
               ),
             ),
           Text(
-            '\$${item.subtotal.toStringAsFixed(0)}',
+            AppFormatters.formatCurrency(item.subtotal),
             style: TextStyle(
               fontSize: context.isMobile ? 14 : 13,
               fontWeight: FontWeight.bold,
@@ -388,7 +424,7 @@ class EnhancedInvoiceItemWidget extends StatelessWidget {
 
               Get.snackbar(
                 'Precio Actualizado',
-                '${item.description}: \$${newPrice.toStringAsFixed(0)}',
+                '${item.description}: ${AppFormatters.formatCurrency(newPrice)}',
                 snackPosition: SnackPosition.TOP,
                 backgroundColor: Colors.green.shade100,
                 colorText: Colors.green.shade800,

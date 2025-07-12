@@ -8,6 +8,7 @@ import '../../domain/usecases/search_invoices_usecase.dart';
 import '../../domain/usecases/delete_invoice_usecase.dart';
 import '../../domain/usecases/confirm_invoice_usecase.dart';
 import '../../domain/usecases/cancel_invoice_usecase.dart';
+import '../controllers/invoice_stats_controller.dart';
 
 class InvoiceListController extends GetxController {
   // Dependencies
@@ -112,6 +113,7 @@ class InvoiceListController extends GetxController {
     _setupScrollListener();
     _setupSearchListener();
     loadInvoices();
+    _loadInvoiceStatsIfAvailable();
   }
 
   @override
@@ -596,5 +598,32 @@ class InvoiceListController extends GetxController {
       icon: const Icon(Icons.check_circle, color: Colors.green),
       duration: const Duration(seconds: 3),
     );
+  }
+
+  /// Cargar estadísticas de invoices si el controlador está disponible
+  void _loadInvoiceStatsIfAvailable() {
+    try {
+      // Intentar encontrar el controlador de estadísticas
+      if (Get.isRegistered<InvoiceStatsController>()) {
+        final statsController = Get.find<InvoiceStatsController>();
+        print('📊 InvoiceListController: Cargando estadísticas automáticamente');
+        
+        // Cargar estadísticas en el siguiente frame para evitar conflictos
+        Future.microtask(() {
+          statsController.refreshAllData();
+        });
+      } else {
+        print('⚠️ InvoiceListController: Controlador de estadísticas no encontrado');
+      }
+    } catch (e) {
+      print('💥 Error al cargar estadísticas automáticamente: $e');
+      // No mostrar error al usuario ya que es una funcionalidad secundaria
+    }
+  }
+
+  /// Refrescar datos incluyendo estadísticas
+  Future<void> refreshAllData() async {
+    await refreshInvoices();
+    _loadInvoiceStatsIfAvailable();
   }
 }

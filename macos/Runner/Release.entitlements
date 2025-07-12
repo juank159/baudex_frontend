@@ -3,6 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>com.apple.security.app-sandbox</key>
+	<false/>
+	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- keychain-access-groups comentado temporalmente para evitar problemas de firmado -->
+	<!-- <key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)com.example.baudex-desktop</string>
+	</array> -->
 </dict>
 </plist>

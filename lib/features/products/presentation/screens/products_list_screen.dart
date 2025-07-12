@@ -3,6 +3,7 @@ import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
@@ -40,7 +41,7 @@ class ProductsListScreen extends GetView<ProductsController> {
       ),
       actions: [
         // Búsqueda rápida en móvil
-        if (context.isMobile)
+        if (ResponsiveHelper.isMobile(context))
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () => _showMobileSearch(context),
@@ -173,51 +174,19 @@ class ProductsListScreen extends GetView<ProductsController> {
                     ],
                   ),
                 ),
-
-                // PopupMenuItem(
-                //   value: 'out_of_stock',
-                //   child: Row(
-                //     children: [
-                //       const Icon(Icons.error, color: Colors.red),
-                //       const SizedBox(width: 8),
-                //       const Text('Sin Stock'),
-                //       const Spacer(),
-                //       Obx(() {
-                //         final outOfStock = controller.stats?.outOfStock ?? 0;
-                //         return Text(
-                //           '($outOfStock)',
-                //           style: TextStyle(
-                //             fontSize: 12,
-                //             color:
-                //                 outOfStock > 0
-                //                     ? Colors.red
-                //                     : Colors.grey.shade600,
-                //             fontWeight:
-                //                 outOfStock > 0
-                //                     ? FontWeight.bold
-                //                     : FontWeight.normal,
-                //           ),
-                //         );
-                //       }),
-                //     ],
-                //   ),
-                // ),
                 PopupMenuItem(
-                  value:
-                      'out_of_stock', // ✅ CAMBIO: usar 'out_of_stock' en lugar de 'low_stock'
+                  value: 'out_of_stock',
                   child: Row(
                     children: [
                       const Icon(
                         Icons.error,
                         color: Colors.red,
-                      ), // ✅ CAMBIO: ícono rojo para sin stock
+                      ),
                       const SizedBox(width: 8),
-                      const Text('Sin Stock'), // ✅ CAMBIO: texto correcto
+                      const Text('Sin Stock'),
                       const Spacer(),
                       Obx(() {
-                        final outOfStock =
-                            controller.stats?.outOfStock ??
-                            0; // ✅ CAMBIO: usar outOfStock
+                        final outOfStock = controller.stats?.outOfStock ?? 0;
                         return Text(
                           '($outOfStock)',
                           style: TextStyle(
@@ -225,9 +194,7 @@ class ProductsListScreen extends GetView<ProductsController> {
                             color:
                                 outOfStock > 0
                                     ? Colors.red
-                                    : Colors
-                                        .grey
-                                        .shade600, // ✅ CAMBIO: color rojo
+                                    : Colors.grey.shade600,
                             fontWeight:
                                 outOfStock > 0
                                     ? FontWeight.bold
@@ -276,7 +243,7 @@ class ProductsListScreen extends GetView<ProductsController> {
           // Estadísticas compactas
           if (controller.stats != null)
             Padding(
-              padding: context.responsivePadding,
+              padding: ResponsiveHelper.getPadding(context),
               child: ProductStatsWidget(
                 stats: controller.stats!,
                 isCompact: true,
@@ -284,7 +251,9 @@ class ProductsListScreen extends GetView<ProductsController> {
             ),
 
           // Lista de productos
-          Expanded(child: _buildProductsList(context)),
+          Expanded(
+            child: _buildProductsList(context),
+          ),
         ],
       );
     });
@@ -300,7 +269,12 @@ class ProductsListScreen extends GetView<ProductsController> {
         children: [
           // Panel lateral con filtros y estadísticas
           Container(
-            width: 320,
+            width: ResponsiveHelper.getWidth(
+              context,
+              mobile: 300,
+              tablet: 320,
+              desktop: 340,
+            ),
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
               border: Border(right: BorderSide(color: Colors.grey.shade300)),
@@ -341,166 +315,775 @@ class ProductsListScreen extends GetView<ProductsController> {
           ),
 
           // Lista principal
-          Expanded(child: _buildProductsList(context)),
+          Expanded(
+            child: _buildProductsList(context),
+          ),
         ],
       );
     });
   }
 
-  Widget _buildDesktopLayout(BuildContext context) {
-    return Obx(() {
-      if (controller.isLoading) {
-        return const LoadingWidget(message: 'Cargando productos...');
-      }
+  // ✅ CORREGIDO: El problema principal estaba aquí
+ Widget _buildDesktopLayout(BuildContext context) {
+  return Obx(() {
+    if (controller.isLoading) {
+      return const LoadingWidget(message: 'Cargando productos...');
+    }
 
-      return Row(
-        children: [
-          // Panel lateral izquierdo
-          Container(
-            width: 380,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              border: Border(right: BorderSide(color: Colors.grey.shade300)),
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    return Row(
+      children: [
+        // ✅ PANEL LATERAL OPTIMIZADO - Más compacto y proporcional
+        Container(
+          width: _getOptimalSidebarWidth(screenWidth),
+          constraints: const BoxConstraints(
+            minWidth: 280,
+            maxWidth: 380,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            border: Border(
+              right: BorderSide(
+                color: Colors.grey.shade300,
+                width: 1,
+              ),
             ),
-            child: Column(
-              children: [
-                // Header del panel
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
-                    border: Border(
-                      bottom: BorderSide(color: Colors.grey.shade300),
-                    ),
-                  ),
-                  child: Row(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(2, 0),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // ✅ HEADER COMPACTO
+              _buildCompactSidebarHeader(context),
+              
+              // ✅ BÚSQUEDA COMPACTA
+              _buildCompactSearchSection(context),
+              
+              // ✅ CONTENIDO SCROLLEABLE OPTIMIZADO
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Column(
                     children: [
-                      Icon(
-                        Icons.inventory_2,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Inventario y Filtros',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                      ),
+                      // ✅ ESTADÍSTICAS COMPACTAS
+                      _buildCompactStatsSection(context),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // ✅ FILTROS COMPACTOS
+                      _buildCompactFiltersSection(context),
+                      
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
-
-                // Búsqueda
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: _buildSearchField(context),
-                ),
-
-                // Contenido scrolleable
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        // Estadísticas
-                        if (controller.stats != null)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: ProductStatsWidget(
-                              stats: controller.stats!,
-                              isCompact: false,
-                            ),
-                          ),
-
-                        const SizedBox(height: 24),
-
-                        // Filtros
-                        const ProductFilterWidget(),
-
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
 
-          // Área principal
+        // ✅ ÁREA PRINCIPAL - Más espacio para contenido
+        Expanded(
+          child: Column(
+            children: [
+              // Toolbar superior mejorado
+              _buildEnhancedDesktopToolbar(context),
+
+              // Lista de productos
+              Expanded(
+                child: _buildProductsList(context),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  });
+}
+
+double _getOptimalSidebarWidth(double screenWidth) {
+  if (screenWidth < 1200) {
+    return 280; // Pantallas pequeñas
+  } else if (screenWidth < 1600) {
+    return 320; // Pantallas medianas
+  } else {
+    return 350; // Pantallas grandes
+  }
+}
+
+// ✅ HEADER COMPACTO DEL SIDEBAR
+Widget _buildCompactSidebarHeader(BuildContext context) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          Theme.of(context).primaryColor.withOpacity(0.1),
+          Theme.of(context).primaryColor.withOpacity(0.05),
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      border: Border(
+        bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
+      ),
+    ),
+    child: Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Icon(
+            Icons.filter_list,
+            color: Colors.white,
+            size: 16,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Filtros y Búsqueda',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor,
+                  fontSize: 14,
+                ),
+              ),
+              Obx(() {
+                final hasFilters = _hasActiveFilters();
+                return Text(
+                  hasFilters ? 'Filtros activos' : 'Sin filtros',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: hasFilters ? Colors.orange : Colors.grey.shade600,
+                    fontWeight: hasFilters ? FontWeight.w500 : FontWeight.normal,
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        // Botón para colapsar filtros (funcionalidad futura)
+        IconButton(
+          icon: Icon(
+            Icons.chevron_left,
+            size: 18,
+            color: Colors.grey.shade600,
+          ),
+          onPressed: () {
+            // TODO: Implementar colapso del sidebar
+            Get.snackbar(
+              'Función futura',
+              'Colapsar sidebar próximamente',
+              snackPosition: SnackPosition.TOP,
+              duration: const Duration(seconds: 2),
+            );
+          },
+          tooltip: 'Colapsar panel',
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildCompactSearchSection(BuildContext context) {
+  return Container(
+    padding: const EdgeInsets.all(12),
+    child: CustomTextField(
+      controller: controller.searchController,
+      label: 'Buscar',
+      hint: 'Nombre, SKU, código...',
+      prefixIcon: Icons.search,
+      suffixIcon: controller.isSearchMode ? Icons.clear : null,
+      onSuffixIconPressed: controller.isSearchMode ? controller.clearFilters : null,
+      onChanged: controller.updateSearch,
+    ),
+  );
+}
+
+Widget _buildCompactStatsSection(BuildContext context) {
+  return Obx(() {
+    final stats = controller.stats;
+    if (stats == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.analytics,
+                size: 16,
+                color: Theme.of(context).primaryColor,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Resumen',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Grid de estadísticas 2x2
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 1.8,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            children: [
+              _buildCompactStatItem(
+                'Total',
+                stats.total.toString(),
+                Icons.inventory_2,
+                Colors.blue,
+              ),
+              _buildCompactStatItem(
+                'Activos',
+                stats.active.toString(),
+                Icons.check_circle,
+                Colors.green,
+              ),
+              _buildCompactStatItem(
+                'Stock Bajo',
+                stats.lowStock.toString(),
+                Icons.warning,
+                stats.lowStock > 0 ? Colors.orange : Colors.grey,
+              ),
+              _buildCompactStatItem(
+                'Sin Stock',
+                stats.outOfStock.toString(),
+                Icons.error,
+                stats.outOfStock > 0 ? Colors.red : Colors.grey,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  });
+}
+
+
+Widget _buildCompactStatItem(
+  String label,
+  String value,
+  IconData icon,
+  Color color,
+) {
+  return Container(
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: color.withOpacity(0.2)),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    ),
+  );
+}
+
+
+Widget _buildCompactFiltersSection(BuildContext context) {
+  return Column(
+    children: [
+      // Filtros de estado
+      _buildCompactFilterCard(
+        'Estado del Producto',
+        Icons.toggle_on,
+        _buildStatusFilters(),
+      ),
+      
+      const SizedBox(height: 12),
+      
+      // Filtros de stock
+      _buildCompactFilterCard(
+        'Estado del Stock',
+        Icons.inventory,
+        _buildStockFilters(),
+      ),
+      
+      const SizedBox(height: 12),
+      
+      // Filtros de tipo
+      _buildCompactFilterCard(
+        'Tipo de Producto',
+        Icons.category,
+        _buildTypeFilters(),
+      ),
+      
+      const SizedBox(height: 12),
+      
+      // Acciones rápidas
+      _buildQuickActionsCard(),
+    ],
+  );
+}
+
+Widget _buildCompactFilterCard(
+  String title,
+  IconData icon,
+  Widget content,
+) {
+  return Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.grey.shade200),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: Colors.grey.shade700),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade800,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        content,
+      ],
+    ),
+  );
+}
+
+Widget _buildStatusFilters() {
+  return Obx(() {
+    return Column(
+      children: [
+        _buildCompactFilterOption(
+          'Todos',
+          controller.currentStatus == null,
+          () => controller.applyStatusFilter(null),
+          Colors.grey,
+        ),
+        const SizedBox(height: 6),
+        _buildCompactFilterOption(
+          'Activos',
+          controller.currentStatus == ProductStatus.active,
+          () => controller.applyStatusFilter(ProductStatus.active),
+          Colors.green,
+        ),
+        const SizedBox(height: 6),
+        _buildCompactFilterOption(
+          'Inactivos',
+          controller.currentStatus == ProductStatus.inactive,
+          () => controller.applyStatusFilter(ProductStatus.inactive),
+          Colors.orange,
+        ),
+      ],
+    );
+  });
+}
+
+Widget _buildStockFilters() {
+  return Obx(() {
+    return Column(
+      children: [
+        _buildCompactToggleOption(
+          'Solo en stock',
+          controller.inStock == true,
+          () => controller.applyStockFilter(
+            inStock: controller.inStock == true ? null : true,
+          ),
+          Colors.green,
+        ),
+        const SizedBox(height: 6),
+        _buildCompactToggleOption(
+          'Stock bajo',
+          controller.lowStock == true,
+          () => controller.applyStockFilter(
+            lowStock: controller.lowStock == true ? null : true,
+          ),
+          Colors.orange,
+        ),
+      ],
+    );
+  });
+}
+
+Widget _buildTypeFilters() {
+  return Obx(() {
+    return Column(
+      children: [
+        _buildCompactFilterOption(
+          'Todos',
+          controller.currentType == null,
+          () => controller.applyTypeFilter(null),
+          Colors.grey,
+        ),
+        const SizedBox(height: 6),
+        _buildCompactFilterOption(
+          'Productos',
+          controller.currentType == ProductType.product,
+          () => controller.applyTypeFilter(ProductType.product),
+          Colors.blue,
+        ),
+        const SizedBox(height: 6),
+        _buildCompactFilterOption(
+          'Servicios',
+          controller.currentType == ProductType.service,
+          () => controller.applyTypeFilter(ProductType.service),
+          Colors.purple,
+        ),
+      ],
+    );
+  });
+}
+
+Widget _buildCompactFilterOption(
+  String label,
+  bool isSelected,
+  VoidCallback onTap,
+  Color color,
+) {
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(6),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isSelected ? color : Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: isSelected ? color : Colors.transparent,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? color : Colors.grey.shade400,
+                width: 1.5,
+              ),
+            ),
+            child: isSelected
+                ? Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: 8,
+                  )
+                : null,
+          ),
+          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              children: [
-                // Toolbar superior
-                _buildDesktopToolbar(context),
-
-                // Lista de productos
-                Expanded(child: _buildProductsList(context)),
-              ],
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? color : Colors.grey.shade700,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
-      );
-    });
-  }
+      ),
+    ),
+  );
+}
 
-  // Widget _buildDesktopToolbar(BuildContext context) {
-  //   return Container(
-  //     padding: const EdgeInsets.all(16),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-  //     ),
-  //     child: Row(
-  //       children: [
-  //         // Información de resultados
-  //         Expanded(
-  //           child: Obx(() {
-  //             final total = controller.totalItems;
-  //             final current = controller.products.length;
+Widget _buildCompactToggleOption(
+  String label,
+  bool isSelected,
+  VoidCallback onTap,
+  Color color,
+) {
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(6),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isSelected ? color : Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: isSelected ? color : Colors.transparent,
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(
+                color: isSelected ? color : Colors.grey.shade400,
+                width: 1.5,
+              ),
+            ),
+            child: isSelected
+                ? Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: 8,
+                  )
+                : null,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? color : Colors.grey.shade700,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
-  //             return Column(
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 Text(
-  //                   'Mostrando $current de $total productos',
-  //                   style: TextStyle(
-  //                     color: Colors.grey.shade600,
-  //                     fontSize: 14,
-  //                     fontWeight: FontWeight.w500,
-  //                   ),
-  //                 ),
-  //                 if (controller.isSearchMode)
-  //                   Text(
-  //                     'Búsqueda: "${controller.searchTerm}"',
-  //                     style: TextStyle(
-  //                       color: Theme.of(context).primaryColor,
-  //                       fontSize: 12,
-  //                     ),
-  //                   ),
-  //               ],
-  //             );
-  //           }),
-  //         ),
+Widget _buildQuickActionsCard() {
+  return Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.grey.shade200),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.flash_on,
+              size: 14,
+              color: Colors.amber.shade700,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Acciones Rápidas',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        
+        // Botón limpiar filtros
+        if (_hasActiveFilters())
+          SizedBox(
+            width: double.infinity,
+            child: CustomButton(
+              text: 'Limpiar Filtros',
+              icon: Icons.clear_all,
+              type: ButtonType.outline,
+              onPressed: controller.clearFilters,
+              fontSize: 11,
+              height: 32,
+            ),
+          ),
+        
+        if (_hasActiveFilters()) const SizedBox(height: 8),
+        
+        // Botón stock bajo
+        Obx(() {
+          final lowStockCount = controller.stats?.lowStock ?? 0;
+          return SizedBox(
+            width: double.infinity,
+            child: CustomButton(
+              text: lowStockCount > 0 ? 'Stock Bajo ($lowStockCount)' : 'Stock Bajo',
+              icon: Icons.warning,
+              type: lowStockCount > 0 ? ButtonType.primary : ButtonType.text,
+              onPressed: lowStockCount > 0 
+                  ? controller.loadLowStockProducts 
+                  : null,
+              fontSize: 11,
+              height: 32,
+            ),
+          );
+        }),
+      ],
+    ),
+  );
+}
 
-  //         // Acciones rápidas
-  //         CustomButton(
-  //           text: 'Nuevo Producto',
-  //           icon: Icons.add,
-  //           onPressed: controller.goToCreateProduct,
-  //         ),
+Widget _buildEnhancedDesktopToolbar(BuildContext context) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      border: Border(
+        bottom: BorderSide(color: Colors.grey.shade200),
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.02),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        // Información de resultados
+        Expanded(
+          child: Obx(() {
+            final total = controller.totalItems;
+            final current = controller.products.length;
+            final stats = controller.stats;
 
-  //         const SizedBox(width: 12),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Mostrando $current de $total productos',
+                  style: TextStyle(
+                    color: Colors.grey.shade800,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (controller.isSearchMode)
+                  Text(
+                    'Búsqueda: "${controller.searchTerm}"',
+                    style: TextStyle(
+                      color: Theme.of(context).primaryColor,
+                      fontSize: 12,
+                    ),
+                  ),
+                if (stats != null && !controller.isSearchMode)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        _buildQuickStat('Activos', stats.active, Colors.green),
+                        if (stats.lowStock > 0)
+                          _buildQuickStat('Stock Bajo', stats.lowStock, Colors.orange),
+                        if (stats.outOfStock > 0)
+                          _buildQuickStat('Sin Stock', stats.outOfStock, Colors.red),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          }),
+        ),
 
-  //         CustomButton(
-  //           text: 'Stock Bajo',
-  //           icon: Icons.warning,
-  //           type: ButtonType.outline,
-  //           onPressed: controller.loadLowStockProducts,
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
+        // Acciones principales
+        Row(
+          children: [
+            CustomButton(
+              text: 'Nuevo Producto',
+              icon: Icons.add,
+              onPressed: controller.goToCreateProduct,
+              height: 44,
+            ),
+            const SizedBox(width: 12),
+            Obx(() {
+              final lowStockCount = controller.stats?.lowStock ?? 0;
+              return CustomButton(
+                text: lowStockCount > 0 ? 'Ver Alertas ($lowStockCount)' : 'Sin Alertas',
+                icon: Icons.notifications,
+                type: lowStockCount > 0 ? ButtonType.outline : ButtonType.text,
+                onPressed: lowStockCount > 0 ? controller.loadLowStockProducts : null,
+                height: 44,
+              );
+            }),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+bool _hasActiveFilters() {
+  return controller.currentStatus != null ||
+      controller.currentType != null ||
+      controller.selectedCategoryId != null ||
+      controller.inStock != null ||
+      controller.lowStock != null ||
+      controller.searchTerm.isNotEmpty;
+}
+
 
   Widget _buildDesktopToolbar(BuildContext context) {
     return Container(
@@ -673,7 +1256,7 @@ class ProductsListScreen extends GetView<ProductsController> {
         onRefresh: controller.refreshProducts,
         child: ListView.builder(
           controller: controller.scrollController,
-          padding: context.responsivePadding,
+          padding: ResponsiveHelper.getPadding(context),
           itemCount: products.length + (controller.isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
             if (index >= products.length) {
@@ -711,7 +1294,7 @@ class ProductsListScreen extends GetView<ProductsController> {
             size: 100,
             color: Colors.grey.shade400,
           ),
-          SizedBox(height: context.verticalSpacing),
+          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
           Text(
             controller.isSearchMode
                 ? 'No se encontraron productos'
@@ -722,7 +1305,7 @@ class ProductsListScreen extends GetView<ProductsController> {
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: context.verticalSpacing / 2),
+          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) / 2),
           Text(
             controller.isSearchMode
                 ? 'Intenta con otros términos de búsqueda'
@@ -730,7 +1313,7 @@ class ProductsListScreen extends GetView<ProductsController> {
             style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: context.verticalSpacing * 2),
+          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) * 2),
           if (!controller.isSearchMode)
             CustomButton(
               text: 'Registrar Primer Producto',
@@ -750,7 +1333,7 @@ class ProductsListScreen extends GetView<ProductsController> {
   }
 
   Widget? _buildFloatingActionButton(BuildContext context) {
-    if (context.isMobile) {
+    if (ResponsiveHelper.isMobile(context)) {
       return FloatingActionButton(
         onPressed: controller.goToCreateProduct,
         child: const Icon(Icons.add),
@@ -770,7 +1353,6 @@ class ProductsListScreen extends GetView<ProductsController> {
         controller.loadLowStockProducts();
         break;
       case 'out_of_stock':
-        // TODO: Implementar carga de productos sin stock
         controller.applyStockFilter(inStock: false);
         break;
       case 'export':
@@ -829,7 +1411,7 @@ class ProductsListScreen extends GetView<ProductsController> {
             ),
 
             // Filters content
-            const Expanded(
+            Flexible(
               child: SingleChildScrollView(child: ProductFilterWidget()),
             ),
 
@@ -990,7 +1572,6 @@ class ProductSearchDelegate extends SearchDelegate<Product?> {
         child: Text('Ingresa al menos 2 caracteres para buscar'),
       );
     }
-
     controller.searchProducts(query);
 
     return Obx(() {

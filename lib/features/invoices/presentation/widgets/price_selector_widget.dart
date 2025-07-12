@@ -172,7 +172,7 @@
 //     return Container(
 //       padding: const EdgeInsets.all(24),
 //       decoration: BoxDecoration(
-//         color: Theme.of(context).primaryColor.withOpacity(0.1),
+//         color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
 //         borderRadius: const BorderRadius.only(
 //           topLeft: Radius.circular(12),
 //           topRight: Radius.circular(12),
@@ -326,7 +326,7 @@
 //                   setState(() {
 //                     _isCustomPrice = false;
 //                     _selectedPrice = value;
-//                     _customPriceController.text = value!.toStringAsFixed(2);
+//                     _customPriceController.text = _formatPriceForInput(value!);
 //                   });
 //                 },
 //               ),
@@ -577,8 +577,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/entities/product_price.dart';
+
+/// Formateador específico para campos de precio con separadores de miles
+class PriceInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String newText = newValue.text;
+    
+    // Remover separadores existentes
+    String digitsOnly = newText.replaceAll('.', '').replaceAll(',', '');
+    
+    // Verificar que sea solo números y punto decimal
+    if (!RegExp(r'^\d*$').hasMatch(digitsOnly)) {
+      return oldValue;
+    }
+    
+    // Limitar a 10 dígitos máximo
+    if (digitsOnly.length > 10) {
+      return oldValue;
+    }
+    
+    // Aplicar formato de miles si tiene más de 3 dígitos
+    String formatted = _formatWithThousandsSeparator(digitsOnly);
+    
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+  
+  String _formatWithThousandsSeparator(String digits) {
+    if (digits.isEmpty || digits.length <= 3) return digits;
+    
+    // Aplicar formato de miles (punto como separador)
+    String reversed = digits.split('').reversed.join();
+    String formatted = '';
+    
+    for (int i = 0; i < reversed.length; i++) {
+      if (i > 0 && i % 3 == 0) {
+        formatted += '.';
+      }
+      formatted += reversed[i];
+    }
+    
+    return formatted.split('').reversed.join();
+  }
+}
 
 class PriceSelectorWidget extends StatefulWidget {
   final Product product;
@@ -605,9 +655,10 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
   void initState() {
     super.initState();
     _selectedPrice = widget.currentPrice;
-    _customPriceController = TextEditingController(
-      text: widget.currentPrice.toStringAsFixed(2),
-    );
+    
+    // Inicializar el controlador con formato de miles
+    String formattedPrice = _formatPriceForInput(widget.currentPrice);
+    _customPriceController = TextEditingController(text: formattedPrice);
   }
 
   @override
@@ -710,7 +761,7 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(12),
           topRight: Radius.circular(12),
@@ -798,7 +849,6 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
           ...widget.product.prices!
               .where((price) => price.isActive && price.isValidNow)
               .map((price) => _buildPriceOption(price, isMobile: isMobile))
-              .toList()
         else
           Container(
             padding: const EdgeInsets.all(16),
@@ -840,7 +890,7 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
           setState(() {
             _isCustomPrice = false;
             _selectedPrice = priceValue;
-            _customPriceController.text = priceValue.toStringAsFixed(2);
+            _customPriceController.text = _formatPriceForInput(priceValue);
           });
         },
         borderRadius: BorderRadius.circular(8),
@@ -849,7 +899,7 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
           decoration: BoxDecoration(
             color:
                 isSelected
-                    ? Theme.of(context).primaryColor.withOpacity(0.1)
+                    ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
                     : null,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
@@ -870,7 +920,7 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
                   setState(() {
                     _isCustomPrice = false;
                     _selectedPrice = value;
-                    _customPriceController.text = value!.toStringAsFixed(2);
+                    _customPriceController.text = _formatPriceForInput(value!);
                   });
                 },
               ),
@@ -922,7 +972,7 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
                     Row(
                       children: [
                         Text(
-                          '\$${_formatPrice(price.finalAmount)}',
+                          AppFormatters.formatCurrency(price.finalAmount),
                           style: TextStyle(
                             fontSize: isMobile ? 16 : 18,
                             fontWeight: FontWeight.bold,
@@ -937,7 +987,7 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
                             _isPriceValid(price.amount)) ...[
                           const SizedBox(width: 8),
                           Text(
-                            '\$${_formatPrice(price.amount)}',
+                            AppFormatters.formatCurrency(price.amount),
                             style: TextStyle(
                               fontSize: isMobile ? 12 : 14,
                               decoration: TextDecoration.lineThrough,
@@ -1020,12 +1070,15 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
                 TextField(
                   controller: _customPriceController,
                   keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+                    decimal: false,
                   ),
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                    PriceInputFormatter(),
                   ],
-                  style: TextStyle(fontSize: isMobile ? 14 : 16),
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Precio personalizado',
                     prefixText: '\$ ',
@@ -1034,9 +1087,16 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
                       horizontal: 12,
                       vertical: isMobile ? 8 : 12,
                     ),
+                    helperText: 'Ej: 1.500 o 25.000',
+                    helperStyle: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                   onChanged: (value) {
-                    _selectedPrice = double.tryParse(value);
+                    // Remover separadores para obtener el valor numérico
+                    String cleanValue = value.replaceAll('.', '');
+                    _selectedPrice = double.tryParse(cleanValue);
                   },
                 ),
               ],
@@ -1060,7 +1120,6 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
                 _selectedPrice != null && _selectedPrice! > 0
                     ? () {
                       widget.onPriceChanged(_selectedPrice!);
-                      Navigator.of(context).pop();
                     }
                     : null,
             style: ElevatedButton.styleFrom(
@@ -1102,7 +1161,6 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
                 _selectedPrice != null && _selectedPrice! > 0
                     ? () {
                       widget.onPriceChanged(_selectedPrice!);
-                      Navigator.of(context).pop();
                     }
                     : null,
             style: ElevatedButton.styleFrom(
@@ -1118,21 +1176,6 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
 
   // ==================== HELPER METHODS ====================
 
-  /// Formatear precio de forma segura
-  String _formatPrice(dynamic price) {
-    if (price == null) return '0';
-
-    double priceValue;
-    if (price is String) {
-      priceValue = double.tryParse(price) ?? 0.0;
-    } else if (price is num) {
-      priceValue = price.toDouble();
-    } else {
-      priceValue = 0.0;
-    }
-
-    return priceValue.toStringAsFixed(0); // Sin decimales para simplificar
-  }
 
   /// Verificar si el precio es válido
   bool _isPriceValid(dynamic price) {
@@ -1159,5 +1202,31 @@ class _PriceSelectorWidgetState extends State<PriceSelectorWidget> {
     }
 
     return 0.0;
+  }
+  
+  /// Formatear precio para mostrar en el campo de entrada
+  String _formatPriceForInput(double price) {
+    if (price <= 0) return '';
+    
+    // Convertir a entero para mostrar sin decimales
+    int priceInt = price.round();
+    String priceStr = priceInt.toString();
+    
+    // Aplicar formato de miles si es necesario
+    if (priceStr.length > 3) {
+      String reversed = priceStr.split('').reversed.join();
+      String formatted = '';
+      
+      for (int i = 0; i < reversed.length; i++) {
+        if (i > 0 && i % 3 == 0) {
+          formatted += '.';
+        }
+        formatted += reversed[i];
+      }
+      
+      return formatted.split('').reversed.join();
+    }
+    
+    return priceStr;
   }
 }

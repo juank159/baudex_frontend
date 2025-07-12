@@ -1,5 +1,6 @@
 // File: lib/app/shared/widgets/custom_text_field.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/utils/responsive.dart';
 
 class CustomTextField extends StatelessWidget {
@@ -18,6 +19,7 @@ class CustomTextField extends StatelessWidget {
   final String? errorText;
   final VoidCallback? onTap;
   final Function(String)? onChanged;
+  final List<TextInputFormatter>? inputFormatters;
 
   const CustomTextField({
     super.key,
@@ -36,6 +38,7 @@ class CustomTextField extends StatelessWidget {
     this.errorText,
     this.onTap,
     this.onChanged,
+    this.inputFormatters,
   });
 
   @override
@@ -52,6 +55,7 @@ class CustomTextField extends StatelessWidget {
           maxLines: maxLines,
           onTap: onTap,
           onChanged: onChanged,
+          inputFormatters: inputFormatters,
           style: TextStyle(
             fontSize: Responsive.getFontSize(context),
             color: Colors.black,

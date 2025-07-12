@@ -26,11 +26,11 @@ enum InvoiceStatus {
 
 enum PaymentMethod {
   cash('cash', 'Efectivo'),
+  credit('credit', 'Crédito'),
   creditCard('credit_card', 'Tarjeta de Crédito'),
   debitCard('debit_card', 'Tarjeta de Débito'),
   bankTransfer('bank_transfer', 'Transferencia Bancaria'),
   check('check', 'Cheque'),
-  credit('credit', 'Crédito'),
   other('other', 'Otro');
 
   const PaymentMethod(this.value, this.displayName);

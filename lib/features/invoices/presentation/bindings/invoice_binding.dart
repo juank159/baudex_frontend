@@ -59,6 +59,30 @@ class InvoiceBinding extends Bindings {
     print('✅ InvoiceBinding: Dependencias configuradas exitosamente');
   }
 
+  /// Registrar dependencias SIN cargar InvoiceStatsController automáticamente
+  /// Útil para pantallas que no necesitan estadísticas (como creación de facturas)
+  void dependenciesWithoutStats() {
+    print('🔧 InvoiceBinding: Configurando dependencias SIN estadísticas...');
+
+    // ==================== VERIFICACIÓN DE DEPENDENCIAS CORE ====================
+    _verifyCoreDependencies();
+
+    // ==================== DATA SOURCES ====================
+    _registerDataSources();
+
+    // ==================== REPOSITORY ====================
+    _registerRepository();
+
+    // ==================== USE CASES ====================
+    _registerUseCases();
+
+    // ==================== NOTA: NO REGISTRAR STATS CONTROLLER ====================
+    print('⚠️ InvoiceStatsController NO cargado intencionalmente');
+    print('💡 Se cargará solo cuando sea necesario');
+
+    print('✅ InvoiceBinding: Dependencias básicas configuradas (sin estadísticas)');
+  }
+
   /// Verificar que las dependencias core estén disponibles
   void _verifyCoreDependencies() {
     if (!Get.isRegistered<DioClient>()) {

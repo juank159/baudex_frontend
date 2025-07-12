@@ -6,6 +6,7 @@ import '../../../categories/domain/usecases/get_categories_usecase.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../controllers/product_form_controller.dart';
 
 class CategorySelectorWidget extends StatelessWidget {
   final String? selectedCategoryId;
@@ -115,10 +116,6 @@ class CategorySelectorDialog extends StatefulWidget {
 }
 
 class _CategorySelectorDialogState extends State<CategorySelectorDialog> {
-  // ✅ SOLO GetCategoriesUseCase - SearchCategoriesUseCase removido
-  final GetCategoriesUseCase _getCategoriesUseCase =
-      Get.find<GetCategoriesUseCase>();
-
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -163,47 +160,42 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog> {
   }
 
   Future<void> _loadCategories() async {
-    print('🔍 CategorySelectorDialog: Cargando categorías...');
+    print('🔍 CategorySelectorDialog: Obteniendo categorías...');
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final result = await _getCategoriesUseCase(
-        const GetCategoriesParams(
-          page: 1,
-          limit: 100, // Cargar suficientes categorías
-          status: CategoryStatus.active, // Solo categorías activas
-          onlyParents: true, // Solo categorías padre para simplificar
-          sortBy: 'name',
-          sortOrder: 'ASC',
-        ),
-      );
+      // ✅ Usar el controller del ProductForm para obtener categorías desde cache
+      final productFormController = Get.find<ProductFormController>();
+      final categories = productFormController.availableCategories;
+      
+      if (categories.isNotEmpty) {
+        print('✅ CategorySelectorDialog: Usando ${categories.length} categorías desde cache');
+        setState(() {
+          _categories = categories;
+          _filteredCategories = _categories;
+        });
+      } else {
+        print('🔄 CategorySelectorDialog: Cache vacío, cargando desde API...');
+        // Si no hay categorías en cache, cargar usando el método del controller
+        await productFormController.loadAvailableCategoriesIfNeeded();
+        final updatedCategories = productFormController.availableCategories;
+        
+        setState(() {
+          _categories = updatedCategories;
+          _filteredCategories = _categories;
+        });
+        
+        print('✅ CategorySelectorDialog: ${updatedCategories.length} categorías cargadas desde API');
+      }
 
-      result.fold(
-        (failure) {
-          print(
-            '❌ CategorySelectorDialog: Error al cargar categorías: ${failure.message}',
-          );
-          _showError('Error al cargar categorías: ${failure.message}');
-        },
-        (paginatedResult) {
-          print(
-            '✅ CategorySelectorDialog: ${paginatedResult.data.length} categorías cargadas',
-          );
-          setState(() {
-            _categories = paginatedResult.data;
-            _filteredCategories = _categories;
-          });
-
-          // ✅ DEBUG: Imprimir categorías para verificar
-          for (int i = 0; i < _categories.length; i++) {
-            print(
-              '  Categoría $i: ${_categories[i].name} (${_categories[i].id})',
-            );
-          }
-        },
-      );
+      // ✅ DEBUG: Imprimir categorías para verificar
+      for (int i = 0; i < _categories.length; i++) {
+        print(
+          '  Categoría $i: ${_categories[i].name} (${_categories[i].id})',
+        );
+      }
     } catch (e) {
       print('💥 CategorySelectorDialog: Error inesperado: $e');
       _showError('Error inesperado: $e');

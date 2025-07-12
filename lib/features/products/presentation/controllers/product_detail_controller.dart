@@ -102,6 +102,17 @@ class ProductDetailController extends GetxController
   }
 
   @override
+  void onReady() {
+    super.onReady();
+    // ✅ AÑADIDO: Refrescar datos cuando el controller está listo
+    // Esto asegura que los datos se actualicen al navegar de vuelta a la pantalla
+    if (productId.isNotEmpty) {
+      print('🔄 ProductDetailController: onReady - Refrescando datos del producto');
+      refreshData();
+    }
+  }
+
+  @override
   void onClose() {
     print('🔚 ProductDetailController: Liberando recursos...');
 

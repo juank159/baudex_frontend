@@ -157,7 +157,7 @@ class Responsive {
   }
 }
 
-/// Extension para facilitar el uso de responsive en cualquier widget
+// ✅ EXTENSIÓN SIMPLE SIN CONFLICTOS - solo para compatibilidad
 extension ResponsiveExtension on BuildContext {
   DeviceType get deviceType => Responsive.getDeviceType(this);
   bool get isMobile => Responsive.isMobile(this);

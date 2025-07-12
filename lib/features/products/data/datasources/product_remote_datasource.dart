@@ -275,112 +275,6 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
     }
   }
 
-  // @override
-  // Future<ProductStatsModel> getProductStats() async {
-  //   try {
-  //     final response = await dioClient.get('/products/stats');
-
-  //     if (response.statusCode == 200) {
-  //       final responseData = response.data;
-  //       if (responseData['success'] == true && responseData['data'] != null) {
-  //         return ProductStatsModel.fromJson(responseData['data']);
-  //       } else {
-  //         throw ServerException('Respuesta inválida del servidor');
-  //       }
-  //     } else {
-  //       throw _handleErrorResponse(response);
-  //     }
-  //   } on DioException catch (e) {
-  //     throw _handleDioException(e);
-  //   } catch (e) {
-  //     throw ServerException('Error inesperado al obtener estadísticas: $e');
-  //   }
-  // }
-
-  // ===== SOLUCIÓN FRONTEND: product_remote_datasource.dart =====
-  // Corregir el manejo de la respuesta anidada
-
-  // =============================================
-
-  // @override
-  // Future<ProductStatsModel> getProductStats() async {
-  //   try {
-  //     print('🌐 ProductRemoteDataSource: Solicitando estadísticas...');
-
-  //     final response = await dioClient.get('/products/stats');
-
-  //     print('✅ Response status: ${response.statusCode}');
-  //     print('📋 Response data: ${response.data}');
-
-  //     if (response.statusCode == 200) {
-  //       final responseData = response.data;
-
-  //       if (responseData != null && responseData is Map<String, dynamic>) {
-  //         if (responseData['success'] == true && responseData['data'] != null) {
-  //           print('🔍 Estructura de respuesta correcta, procesando data...');
-
-  //           var statsData = responseData['data'];
-
-  //           // ✅ CORRECCIÓN: Manejar el doble wrapping que puede venir del backend
-  //           if (statsData is Map<String, dynamic> &&
-  //               statsData.containsKey('success') &&
-  //               statsData.containsKey('data') &&
-  //               statsData['data'] is Map<String, dynamic>) {
-  //             print(
-  //               '🔧 Detectado doble wrapping, extrayendo datos anidados...',
-  //             );
-  //             statsData = statsData['data'] as Map<String, dynamic>;
-  //           }
-
-  //           print('📊 Stats data final: $statsData');
-
-  //           final model = ProductStatsModel.fromJson(statsData);
-  //           print('✅ ProductStatsModel creado: $model');
-
-  //           // Validar que el modelo tiene datos válidos
-  //           if (!model.isValid) {
-  //             print('⚠️ Modelo creado pero con datos inválidos');
-  //             throw ServerException(
-  //               'Datos de estadísticas inválidos recibidos del servidor',
-  //             );
-  //           }
-
-  //           return model;
-  //         } else {
-  //           print('❌ Estructura de respuesta inválida:');
-  //           print('   - success: ${responseData['success']}');
-  //           print('   - data: ${responseData['data']}');
-  //           throw ServerException(
-  //             'Respuesta inválida del servidor: estructura incorrecta',
-  //           );
-  //         }
-  //       } else {
-  //         print(
-  //           '❌ Response data es null o no es Map: ${responseData.runtimeType}',
-  //         );
-  //         throw ServerException(
-  //           'Respuesta inválida del servidor: data es null o formato incorrecto',
-  //         );
-  //       }
-  //     } else {
-  //       print('❌ Status code inesperado: ${response.statusCode}');
-  //       throw _handleErrorResponse(response);
-  //     }
-  //   } on DioException catch (e) {
-  //     print('❌ DioException en getProductStats: $e');
-  //     print('   - Type: ${e.type}');
-  //     print('   - Message: ${e.message}');
-  //     print('   - Response: ${e.response?.data}');
-  //     throw _handleDioException(e);
-  //   } catch (e, stackTrace) {
-  //     print('❌ Error inesperado en getProductStats: $e');
-  //     print('🔍 StackTrace: $stackTrace');
-  //     throw ServerException('Error inesperado al obtener estadísticas: $e');
-  //   }
-  // }
-
-  // En product_remote_datasource.dart - Solo actualizar esta parte:
-
   @override
   Future<ProductStatsModel> getProductStats() async {
     try {
@@ -548,30 +442,116 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
     }
   }
 
+  // @override
+  // Future<ProductModel> updateProduct(
+  //   String id,
+  //   UpdateProductRequestModel request,
+  // ) async {
+  //   try {
+  //     print('🌐 Enviando petición UPDATE PRODUCT (PUT)...');
+  //     print('📋 Request data: ${request.toJson()}');
+
+  //     final response = await dioClient.put(
+  //       '/products/$id',
+  //       data: request.toJson(),
+  //     );
+
+  //     if (response.statusCode == 200) {
+  //       final responseData = response.data;
+  //       if (responseData['success'] == true && responseData['data'] != null) {
+  //         return ProductModel.fromJson(responseData['data']);
+  //       } else {
+  //         throw ServerException('Respuesta inválida del servidor');
+  //       }
+  //     } else {
+  //       throw _handleErrorResponse(response);
+  //     }
+  //   } on DioException catch (e) {
+  //     throw _handleDioException(e);
+  //   } catch (e) {
+  //     throw ServerException('Error inesperado al actualizar producto: $e');
+  //   }
+  // }
+
+  // ==================== CORRECCIÓN EN product_remote_datasource.dart ====================
+
+  // En tu product_remote_datasource.dart, reemplaza el método updateProduct:
+
   @override
   Future<ProductModel> updateProduct(
     String id,
     UpdateProductRequestModel request,
   ) async {
     try {
-      final response = await dioClient.patch(
-        '/products/$id',
-        data: request.toJson(),
-      );
+      print('🌐 Enviando petición UPDATE PRODUCT...');
+      print('📋 Request ID: $id');
+      print('📋 Request data: ${request.toJson()}');
+
+      // ✅ VERIFICAR QUE LOS PRECIOS SE INCLUYAN
+      final requestData = request.toJson();
+      if (requestData.containsKey('prices') && requestData['prices'] != null) {
+        print(
+          '🏷️ Precios incluidos en la petición: ${requestData['prices'].length}',
+        );
+        for (int i = 0; i < requestData['prices'].length; i++) {
+          final price = requestData['prices'][i];
+          print(
+            '   Precio $i: ${price['type']} - \$${price['amount']} ${price['currency']} - ID: ${price['id'] ?? "NUEVO"}',
+          );
+        }
+      } else {
+        print('⚠️ NO SE ENCONTRARON PRECIOS EN LA PETICIÓN');
+      }
+
+      // ✅ USAR PUT en lugar de PATCH para enviar datos completos
+      final response = await dioClient.put('/products/$id', data: requestData);
+
+      print('✅ Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        if (responseData['success'] == true && responseData['data'] != null) {
-          return ProductModel.fromJson(responseData['data']);
+
+        // ✅ VERIFICACIÓN MEJORADA DE LA RESPUESTA
+        if (responseData != null &&
+            responseData['success'] == true &&
+            responseData['data'] != null) {
+          final productData = responseData['data'];
+          print('📋 Response data keys: ${productData.keys?.toList()}');
+
+          // ✅ VERIFICAR QUE LA RESPUESTA INCLUYA PRECIOS ACTUALIZADOS
+          if (productData['prices'] != null && productData['prices'] is List) {
+            final prices = productData['prices'] as List;
+            print('✅ Respuesta incluye ${prices.length} precios:');
+            for (var price in prices) {
+              print(
+                '   - ${price['type']}: \$${price['amount']} ${price['currency']} (ID: ${price['id']})',
+              );
+            }
+          } else {
+            print('⚠️ Respuesta NO incluye precios o no es una lista');
+          }
+
+          return ProductModel.fromJson(productData);
         } else {
+          print('❌ Estructura de respuesta inválida');
+          print('   success: ${responseData?['success']}');
+          print(
+            '   data: ${responseData?['data'] != null ? 'presente' : 'null'}',
+          );
           throw ServerException('Respuesta inválida del servidor');
         }
       } else {
+        print('❌ Status code inesperado: ${response.statusCode}');
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
+      print('❌ DioException en updateProduct: $e');
+      print('   Response data: ${e.response?.data}');
+      print('   Status code: ${e.response?.statusCode}');
       throw _handleDioException(e);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ Error inesperado en updateProduct: $e');
+      print('🔍 StackTrace: $stackTrace');
       throw ServerException('Error inesperado al actualizar producto: $e');
     }
   }

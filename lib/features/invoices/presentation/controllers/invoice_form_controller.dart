@@ -69,8 +69,14 @@ class InvoiceFormController extends GetxController {
        _getCustomerByIdUseCase = getCustomerByIdUseCase {
     print('🎮 InvoiceFormController: Instancia creada correctamente');
 
-    // ✅ INICIALIZAR CONTROLADOR DE IMPRESIÓN
-    _thermalPrinterController = Get.put(ThermalPrinterController());
+    // ✅ INICIALIZAR CONTROLADOR DE IMPRESIÓN (REUTILIZAR SI YA EXISTE)
+    try {
+      _thermalPrinterController = Get.find<ThermalPrinterController>();
+      print('♻️ Reutilizando ThermalPrinterController existente');
+    } catch (e) {
+      _thermalPrinterController = Get.put(ThermalPrinterController());
+      print('🆕 Creando nuevo ThermalPrinterController');
+    }
   }
 
   // ==================== OBSERVABLES ====================
@@ -189,7 +195,11 @@ class InvoiceFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    print('🚀 InvoiceFormController: Inicializando punto de venta...');
+    final instanceId = hashCode;
+    print('🚀 InvoiceFormController: Inicializando punto de venta... (Instance: $instanceId)');
+    print('📊 DEBUG: Estado inicial:');
+    print('   - availableProducts: ${_availableProducts.length} items');
+    print('   - invoiceItems: ${_invoiceItems.length} items');
     _initializeForm();
     // ✅ SOLO INICIALIZAR LO MÍNIMO EN onInit PARA EVITAR ANR
     _initializeMinimal();
@@ -317,23 +327,22 @@ class InvoiceFormController extends GetxController {
     }
   }
 
-  // ✅ NUEVA FUNCIÓN: Carga escalonada para evitar bloqueos
+  // ✅ OPTIMIZACIÓN: NO cargar todos los datos inicialmente
   void _loadInitialDataStaggered() async {
     try {
-      // Cargar clientes primero (más liviano)
-      _loadCustomers().catchError((e) {
-        print('❌ Error cargando clientes: $e');
-      });
-
-      // Esperar antes de cargar productos
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      // Cargar productos después
-      _loadProducts().catchError((e) {
-        print('❌ Error cargando productos: $e');
-      });
+      print('⚡ Inicialización optimizada - No cargando todos los datos');
+      print('💡 Los clientes se cargarán cuando se busquen');
+      print('💡 Los productos se cargarán cuando se busquen');
+      
+      // Solo asegurar que las listas estén limpias
+      _availableCustomers.clear();
+      _availableProducts.clear();
+      
+      // Los datos se cargarán bajo demanda:
+      // - Clientes: cuando el usuario use CustomerSelectorWidget
+      // - Productos: cuando el usuario use ProductSearchWidget
     } catch (e) {
-      print('❌ Error en carga escalonada: $e');
+      print('❌ Error en inicialización optimizada: $e');
     }
   }
 
@@ -520,14 +529,26 @@ class InvoiceFormController extends GetxController {
             .toList();
   }
 
-  // ==================== PRODUCTOS - FUNCIONALIDAD PRINCIPAL ====================
-
+  // // ✅ MÉTODO CORREGIDO EN invoice_form_controller.dart
   // void addOrUpdateProductToInvoice(Product product, {double quantity = 1}) {
   //   print('🛒 Procesando producto: ${product.name} (cantidad: $quantity)');
 
-  //   if (product.stock <= 0) {
-  //     _showError('Sin Stock', '${product.name} no tiene stock disponible');
-  //     return;
+  //   // ✅ DETECCIÓN DE PRODUCTO TEMPORAL
+  //   final isTemporary =
+  //       product.id.startsWith('temp_') ||
+  //       product.id.startsWith('unregistered_') ||
+  //       (product.metadata?['isTemporary'] == true);
+
+  //   if (isTemporary) {
+  //     print('🎭 Producto TEMPORAL detectado: ${product.name}');
+  //   } else {
+  //     print('📦 Producto REGISTRADO: ${product.name}');
+
+  //     // Solo validar stock para productos registrados
+  //     if (product.stock <= 0) {
+  //       _showError('Sin Stock', '${product.name} no tiene stock disponible');
+  //       return;
+  //     }
   //   }
 
   //   _ensureProductIsAvailable(product);
@@ -548,7 +569,8 @@ class InvoiceFormController extends GetxController {
   //     final existingItem = _invoiceItems[existingIndex];
   //     final newQuantity = existingItem.quantity + quantity;
 
-  //     if (newQuantity > product.stock) {
+  //     // Solo validar stock para productos registrados
+  //     if (!isTemporary && newQuantity > product.stock) {
   //       _showError(
   //         'Stock Insuficiente',
   //         'Solo hay ${product.stock} unidades disponibles de ${product.name}',
@@ -564,7 +586,8 @@ class InvoiceFormController extends GetxController {
   //     );
   //     _showProductUpdatedMessage(product.name, newQuantity);
   //   } else {
-  //     if (quantity > product.stock) {
+  //     // Solo validar stock para productos registrados
+  //     if (!isTemporary && quantity > product.stock) {
   //       _showError(
   //         'Stock Insuficiente',
   //         'Solo hay ${product.stock} unidades disponibles de ${product.name}',
@@ -578,22 +601,35 @@ class InvoiceFormController extends GetxController {
   //       quantity: quantity,
   //       unitPrice: unitPrice,
   //       unit: product.unit ?? 'pcs',
-  //       productId: product.id,
+  //       productId:
+  //           product
+  //               .id, // ✅ El ID temporal se maneja en el CreateInvoiceItemRequestModel
   //     );
 
   //     _invoiceItems.add(newItem);
-  //     print(
-  //       '➕ Producto agregado: ${product.name} - Precio: \${unitPrice.toStringAsFixed(2)}',
-  //     );
+
+  //     if (isTemporary) {
+  //       print(
+  //         '➕ Producto TEMPORAL agregado: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
+  //       );
+  //     } else {
+  //       print(
+  //         '➕ Producto REGISTRADO agregado: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
+  //       );
+  //     }
+
   //     _showProductAddedMessage(product.name);
   //   }
 
   //   _recalculateTotals();
   // }
 
-  // ✅ MÉTODO CORREGIDO EN invoice_form_controller.dart
   void addOrUpdateProductToInvoice(Product product, {double quantity = 1}) {
-    print('🛒 Procesando producto: ${product.name} (cantidad: $quantity)');
+    final instanceId = hashCode;
+    print('🛒 Procesando producto: ${product.name} (cantidad: $quantity) (Instance: $instanceId)');
+    print('📊 Estado actual antes de agregar:');
+    print('   - Items en factura: ${_invoiceItems.length}');
+    print('   - Productos disponibles: ${_availableProducts.length}');
 
     // ✅ DETECCIÓN DE PRODUCTO TEMPORAL
     final isTemporary =
@@ -628,6 +664,7 @@ class InvoiceFormController extends GetxController {
     );
 
     if (existingIndex != -1) {
+      // ✅ MODIFICACIÓN: Actualizar producto existente SIN moverlo de posición
       final existingItem = _invoiceItems[existingIndex];
       final newQuantity = existingItem.quantity + quantity;
 
@@ -641,10 +678,12 @@ class InvoiceFormController extends GetxController {
       }
 
       final updatedItem = existingItem.copyWith(quantity: newQuantity);
+
+      // ✅ NUEVO: Actualizar en la misma posición, NO mover al inicio
       _invoiceItems[existingIndex] = updatedItem;
 
       print(
-        '✅ Cantidad actualizada: ${existingItem.description} -> $newQuantity',
+        '✅ Cantidad actualizada (mantiene posición): ${existingItem.description} -> $newQuantity (índice: $existingIndex)',
       );
       _showProductUpdatedMessage(product.name, newQuantity);
     } else {
@@ -663,20 +702,19 @@ class InvoiceFormController extends GetxController {
         quantity: quantity,
         unitPrice: unitPrice,
         unit: product.unit ?? 'pcs',
-        productId:
-            product
-                .id, // ✅ El ID temporal se maneja en el CreateInvoiceItemRequestModel
+        productId: product.id,
       );
 
-      _invoiceItems.add(newItem);
+      // ✅ MODIFICACIÓN: Agregar al inicio de la lista
+      _invoiceItems.insert(0, newItem);
 
       if (isTemporary) {
         print(
-          '➕ Producto TEMPORAL agregado: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
+          '➕ Producto TEMPORAL agregado al inicio: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
         );
       } else {
         print(
-          '➕ Producto REGISTRADO agregado: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
+          '➕ Producto REGISTRADO agregado al inicio: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
         );
       }
 
@@ -687,16 +725,18 @@ class InvoiceFormController extends GetxController {
   }
 
   void _ensureProductIsAvailable(Product product) {
+    final instanceId = hashCode;
     final existingIndex = _availableProducts.indexWhere(
       (p) => p.id == product.id,
     );
 
     if (existingIndex == -1) {
       _availableProducts.add(product);
-      print('📦 Producto agregado a lista disponible: ${product.name}');
+      print('📦 Producto agregado a lista disponible: ${product.name} (Instance: $instanceId)');
+      print('📊 Total productos en esta instancia: ${_availableProducts.length}');
     } else {
       _availableProducts[existingIndex] = product;
-      print('📦 Producto actualizado en lista disponible: ${product.name}');
+      print('📦 Producto actualizado en lista disponible: ${product.name} (Instance: $instanceId)');
     }
   }
 
@@ -1062,17 +1102,35 @@ class InvoiceFormController extends GetxController {
 
   // ==================== ITEM MANAGEMENT ====================
 
+  // void addItem(InvoiceItemFormData item) {
+  //   _invoiceItems.add(item);
+  //   _recalculateTotals();
+  //   print('➕ Item agregado: ${item.description}');
+  // }
+
   void addItem(InvoiceItemFormData item) {
-    _invoiceItems.add(item);
+    _invoiceItems.insert(0, item); // Agregar al inicio
     _recalculateTotals();
-    print('➕ Item agregado: ${item.description}');
+    print('➕ Item agregado al inicio: ${item.description}');
   }
+
+  // void updateItem(int index, InvoiceItemFormData updatedItem) {
+  //   if (index >= 0 && index < _invoiceItems.length) {
+  //     _invoiceItems[index] = updatedItem;
+  //     _recalculateTotals();
+  //     print('✏️ Item actualizado en posición $index');
+  //   }
+  // }
 
   void updateItem(int index, InvoiceItemFormData updatedItem) {
     if (index >= 0 && index < _invoiceItems.length) {
+      // ✅ CORREGIDO: Actualizar en la misma posición, NO mover al inicio
       _invoiceItems[index] = updatedItem;
+      print(
+        '✏️ Item actualizado (mantiene posición $index): ${updatedItem.description}',
+      );
+
       _recalculateTotals();
-      print('✏️ Item actualizado en posición $index');
     }
   }
 
@@ -1681,28 +1739,54 @@ class InvoiceFormController extends GetxController {
     );
   }
 
+  // void _showProductAddedMessage(String productName) {
+  //   Get.snackbar(
+  //     'Producto Agregado',
+  //     productName,
+  //     snackPosition: SnackPosition.TOP,
+  //     backgroundColor: Colors.green.shade100,
+  //     colorText: Colors.green.shade800,
+  //     icon: const Icon(Icons.check_circle, color: Colors.green),
+  //     duration: const Duration(seconds: 1),
+  //     margin: const EdgeInsets.all(8),
+  //   );
+  // }
+
   void _showProductAddedMessage(String productName) {
     Get.snackbar(
       'Producto Agregado',
-      productName,
+      '$productName - Agregado al inicio de la lista',
       snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.green.shade100,
       colorText: Colors.green.shade800,
       icon: const Icon(Icons.check_circle, color: Colors.green),
-      duration: const Duration(seconds: 1),
+      duration: const Duration(seconds: 2),
       margin: const EdgeInsets.all(8),
     );
   }
 
+  // void _showProductUpdatedMessage(String productName, double newQuantity) {
+  //   Get.snackbar(
+  //     'Cantidad Actualizada',
+  //     '$productName (${newQuantity.toInt()} unidades)',
+  //     snackPosition: SnackPosition.TOP,
+  //     backgroundColor: Colors.blue.shade100,
+  //     colorText: Colors.blue.shade800,
+  //     icon: const Icon(Icons.add_circle, color: Colors.blue),
+  //     duration: const Duration(seconds: 1),
+  //     margin: const EdgeInsets.all(8),
+  //   );
+  // }
+
   void _showProductUpdatedMessage(String productName, double newQuantity) {
     Get.snackbar(
       'Cantidad Actualizada',
-      '$productName (${newQuantity.toInt()} unidades)',
+      '$productName (${newQuantity.toInt()} unidades) - Movido al inicio',
       snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
       icon: const Icon(Icons.add_circle, color: Colors.blue),
-      duration: const Duration(seconds: 1),
+      duration: const Duration(seconds: 2),
       margin: const EdgeInsets.all(8),
     );
   }

@@ -473,66 +473,97 @@ SOLUCIÓN RECOMENDADA:
   }
 
   void _cleanupControllers() {
-    final controllers = [
-      ProductsController,
-      ProductDetailController,
-      ProductFormController,
-    ];
-
-    for (final controllerType in controllers) {
-      try {
-        if (Get.isRegistered(tag: controllerType.toString())) {
-          Get.delete(tag: controllerType.toString(), force: true);
-          print('  🗑️ ${controllerType.toString()} eliminado');
-        }
-      } catch (e) {
-        print('  ⚠️ Error eliminando ${controllerType.toString()}: $e');
+    try {
+      if (Get.isRegistered<ProductsController>()) {
+        Get.delete<ProductsController>(force: true);
+        print('  🗑️ ProductsController eliminado');
       }
+    } catch (e) {
+      print('  ⚠️ Error eliminando ProductsController: $e');
+    }
+
+    try {
+      if (Get.isRegistered<ProductDetailController>()) {
+        Get.delete<ProductDetailController>(force: true);
+        print('  🗑️ ProductDetailController eliminado');
+      }
+    } catch (e) {
+      print('  ⚠️ Error eliminando ProductDetailController: $e');
+    }
+
+    try {
+      if (Get.isRegistered<ProductFormController>()) {
+        Get.delete<ProductFormController>(force: true);
+        print('  🗑️ ProductFormController eliminado');
+      }
+    } catch (e) {
+      print('  ⚠️ Error eliminando ProductFormController: $e');
     }
   }
 
   void _cleanupUseCases() {
     final useCases = [
-      GetProductsUseCase,
-      GetProductByIdUseCase,
-      SearchProductsUseCase,
-      GetProductStatsUseCase,
-      GetLowStockProductsUseCase,
-      GetProductsByCategoryUseCase,
-      CreateProductUseCase,
-      UpdateProductUseCase,
-      UpdateProductStockUseCase,
-      DeleteProductUseCase,
+      () => Get.delete<GetProductsUseCase>(force: true),
+      () => Get.delete<GetProductByIdUseCase>(force: true),
+      () => Get.delete<SearchProductsUseCase>(force: true),
+      () => Get.delete<GetProductStatsUseCase>(force: true),
+      () => Get.delete<GetLowStockProductsUseCase>(force: true),
+      () => Get.delete<GetProductsByCategoryUseCase>(force: true),
+      () => Get.delete<CreateProductUseCase>(force: true),
+      () => Get.delete<UpdateProductUseCase>(force: true),
+      () => Get.delete<UpdateProductStockUseCase>(force: true),
+      () => Get.delete<DeleteProductUseCase>(force: true),
     ];
 
-    for (final useCaseType in useCases) {
+    final names = [
+      'GetProductsUseCase',
+      'GetProductByIdUseCase',
+      'SearchProductsUseCase',
+      'GetProductStatsUseCase',
+      'GetLowStockProductsUseCase',
+      'GetProductsByCategoryUseCase',
+      'CreateProductUseCase',
+      'UpdateProductUseCase',
+      'UpdateProductStockUseCase',
+      'DeleteProductUseCase',
+    ];
+
+    for (int i = 0; i < useCases.length; i++) {
       try {
-        if (Get.isRegistered(tag: useCaseType.toString())) {
-          Get.delete(tag: useCaseType.toString(), force: true);
-          print('  🗑️ ${useCaseType.toString()} eliminado');
-        }
+        useCases[i]();
+        print('  🗑️ ${names[i]} eliminado');
       } catch (e) {
-        print('  ⚠️ Error eliminando ${useCaseType.toString()}: $e');
+        print('  ⚠️ Error eliminando ${names[i]}: $e');
       }
     }
   }
 
   void _cleanupDataLayer() {
-    final dataTypes = [
-      ProductRepository,
-      ProductRemoteDataSource,
-      ProductLocalDataSource,
-    ];
-
-    for (final dataType in dataTypes) {
-      try {
-        if (Get.isRegistered(tag: dataType.toString())) {
-          Get.delete(tag: dataType.toString(), force: true);
-          print('  🗑️ ${dataType.toString()} eliminado');
-        }
-      } catch (e) {
-        print('  ⚠️ Error eliminando ${dataType.toString()}: $e');
+    try {
+      if (Get.isRegistered<ProductRepository>()) {
+        Get.delete<ProductRepository>(force: true);
+        print('  🗑️ ProductRepository eliminado');
       }
+    } catch (e) {
+      print('  ⚠️ Error eliminando ProductRepository: $e');
+    }
+
+    try {
+      if (Get.isRegistered<ProductRemoteDataSource>()) {
+        Get.delete<ProductRemoteDataSource>(force: true);
+        print('  🗑️ ProductRemoteDataSource eliminado');
+      }
+    } catch (e) {
+      print('  ⚠️ Error eliminando ProductRemoteDataSource: $e');
+    }
+
+    try {
+      if (Get.isRegistered<ProductLocalDataSource>()) {
+        Get.delete<ProductLocalDataSource>(force: true);
+        print('  🗑️ ProductLocalDataSource eliminado');
+      }
+    } catch (e) {
+      print('  ⚠️ Error eliminando ProductLocalDataSource: $e');
     }
   }
 
@@ -540,18 +571,12 @@ SOLUCIÓN RECOMENDADA:
 
   /// Verificar si todas las dependencias están registradas
   static bool get isFullyInitialized {
-    final requiredTypes = [
-      ProductRepository,
-      ProductsController,
-      ProductDetailController,
-      ProductFormController,
-      GetProductsUseCase,
-      CreateProductUseCase,
-    ];
-
-    return requiredTypes.every(
-      (type) => Get.isRegistered(tag: type.toString()),
-    );
+    return Get.isRegistered<ProductRepository>() &&
+        Get.isRegistered<ProductsController>() &&
+        Get.isRegistered<ProductDetailController>() &&
+        Get.isRegistered<ProductFormController>() &&
+        Get.isRegistered<GetProductsUseCase>() &&
+        Get.isRegistered<CreateProductUseCase>();
   }
 
   /// Verificar dependencias específicas

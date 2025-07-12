@@ -1,6 +1,7 @@
 // lib/features/invoices/presentation/widgets/invoice_card_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../widgets/invoice_status_widget.dart';
 import '../../domain/entities/invoice.dart';
@@ -110,7 +111,7 @@ class InvoiceCardWidget extends StatelessWidget {
               Row(
                 children: [
                   _buildInfoChip(
-                    '\$${invoice.total.toStringAsFixed(2)}',
+                    AppFormatters.formatCurrency(invoice.total),
                     Icons.attach_money,
                     Theme.of(context).primaryColor,
                   ),
@@ -122,6 +123,13 @@ class InvoiceCardWidget extends StatelessWidget {
                   ),
                 ],
               ),
+
+              // Información de pago en efectivo (dinero recibido y cambio)
+              if (invoice.paymentMethod == PaymentMethod.cash && 
+                  _hasPaymentDetails()) ...[
+                const SizedBox(height: 8),
+                _buildCashPaymentDetails(context),
+              ],
 
               // Información de vencimiento
               if (invoice.isOverdue || _isDueSoon()) ...[
@@ -292,7 +300,7 @@ class InvoiceCardWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '\$${invoice.total.toStringAsFixed(2)}',
+                      AppFormatters.formatCurrency(invoice.total),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -301,19 +309,26 @@ class InvoiceCardWidget extends StatelessWidget {
                     ),
                     if (invoice.isPartiallyPaid) ...[
                       Text(
-                        'Pagado: \$${invoice.paidAmount.toStringAsFixed(2)}',
+                        'Pagado: ${AppFormatters.formatCurrency(invoice.paidAmount)}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.green.shade600,
                         ),
                       ),
                       Text(
-                        'Pendiente: \$${invoice.balanceDue.toStringAsFixed(2)}',
+                        'Pendiente: ${AppFormatters.formatCurrency(invoice.balanceDue)}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.red.shade600,
                         ),
                       ),
+                    ],
+                    
+                    // Información de pago en efectivo
+                    if (invoice.paymentMethod == PaymentMethod.cash && 
+                        _hasPaymentDetails()) ...[
+                      const SizedBox(height: 4),
+                      _buildCashPaymentDetailsCompact(),
                     ],
                   ],
                 ),
@@ -426,16 +441,28 @@ class InvoiceCardWidget extends StatelessWidget {
                 ),
               ),
 
-              // Total
+              // Total y información de pago
               SizedBox(
-                width: 100,
-                child: Text(
-                  '\$${invoice.total.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                  textAlign: TextAlign.right,
+                width: 120,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      AppFormatters.formatCurrency(invoice.total),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                    
+                    // Información de pago en efectivo
+                    if (invoice.paymentMethod == PaymentMethod.cash && 
+                        _hasPaymentDetails()) ...[
+                      const SizedBox(height: 2),
+                      _buildCashPaymentDetailsCompact(),
+                    ],
+                  ],
                 ),
               ),
 
@@ -676,5 +703,169 @@ class InvoiceCardWidget extends StatelessWidget {
 
   int _daysUntilDue() {
     return invoice.dueDate.difference(DateTime.now()).inDays;
+  }
+
+  // ==================== MÉTODOS PARA INFORMACIÓN DE PAGO EN EFECTIVO ====================
+
+  /// Verifica si la factura tiene información de pago en efectivo (dinero recibido y cambio)
+  bool _hasPaymentDetails() {
+    if (invoice.paymentMethod != PaymentMethod.cash) return false;
+    if (invoice.notes == null || invoice.notes!.isEmpty) return false;
+    
+    return invoice.notes!.contains('Recibido:') && invoice.notes!.contains('Cambio:');
+  }
+
+  /// Extrae el monto recibido de las notas de la factura
+  double _getReceivedAmount() {
+    if (!_hasPaymentDetails()) return 0.0;
+    
+    try {
+      final notes = invoice.notes!;
+      // RegExp más robusto que maneja números con y sin formato de miles (punto como separador)
+      final recibidoMatch = RegExp(r'Recibido:\s*\$?\s*([\d.,]+)').firstMatch(notes);
+      
+      if (recibidoMatch != null) {
+        String amountStr = recibidoMatch.group(1)!;
+        // Limpiar formato de miles colombiano (puntos) pero preservar decimales (comas)
+        amountStr = amountStr.replaceAll(RegExp(r'\.(?=\d{3})'), ''); // Remover puntos de miles
+        amountStr = amountStr.replaceAll(',', '.'); // Convertir comas decimales a puntos
+        return double.tryParse(amountStr) ?? 0.0;
+      }
+    } catch (e) {
+      // Silencioso en producción, pero útil para debug
+      // print('Error extrayendo monto recibido: $e');
+    }
+    
+    return 0.0;
+  }
+
+  /// Extrae el monto del cambio de las notas de la factura
+  double _getChangeAmount() {
+    if (!_hasPaymentDetails()) return 0.0;
+    
+    try {
+      final notes = invoice.notes!;
+      // RegExp más robusto que maneja números con y sin formato de miles (punto como separador)
+      final cambioMatch = RegExp(r'Cambio:\s*\$?\s*([\d.,]+)').firstMatch(notes);
+      
+      if (cambioMatch != null) {
+        String amountStr = cambioMatch.group(1)!;
+        // Limpiar formato de miles colombiano (puntos) pero preservar decimales (comas)
+        amountStr = amountStr.replaceAll(RegExp(r'\.(?=\d{3})'), ''); // Remover puntos de miles
+        amountStr = amountStr.replaceAll(',', '.'); // Convertir comas decimales a puntos
+        return double.tryParse(amountStr) ?? 0.0;
+      }
+    } catch (e) {
+      // Silencioso en producción, pero útil para debug
+      // print('Error extrayendo cambio: $e');
+    }
+    
+    return 0.0;
+  }
+
+  /// Widget para mostrar información de pago en efectivo (versión móvil completa)
+  Widget _buildCashPaymentDetails(BuildContext context) {
+    final receivedAmount = _getReceivedAmount();
+    final changeAmount = _getChangeAmount();
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.money, size: 14, color: Colors.green.shade600),
+              const SizedBox(width: 4),
+              Text(
+                'Pago en Efectivo',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.green.shade800,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recibido:',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.green.shade700,
+                ),
+              ),
+              Text(
+                AppFormatters.formatCurrency(receivedAmount),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.green.shade800,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          if (changeAmount > 0) ...[
+            const SizedBox(height: 2),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Cambio:',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+                Text(
+                  AppFormatters.formatCurrency(changeAmount),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.green.shade800,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Widget compacto para mostrar información de pago en efectivo (versiones tablet/desktop)
+  Widget _buildCashPaymentDetailsCompact() {
+    final receivedAmount = _getReceivedAmount();
+    final changeAmount = _getChangeAmount();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          'Rec: ${AppFormatters.formatCurrency(receivedAmount)}',
+          style: TextStyle(
+            fontSize: 9,
+            color: Colors.green.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        if (changeAmount > 0)
+          Text(
+            'Cambio: ${AppFormatters.formatCurrency(changeAmount)}',
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.green.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+      ],
+    );
   }
 }

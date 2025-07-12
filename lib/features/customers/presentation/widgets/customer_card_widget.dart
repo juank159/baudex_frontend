@@ -1,6 +1,7 @@
 // lib/features/customers/presentation/widgets/customer_card_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../../domain/entities/customer.dart';
 
@@ -37,7 +38,7 @@ class CustomerCardWidget extends StatelessWidget {
 
   Widget _buildMobileLayout(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: ResponsiveHelper.getPadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -46,7 +47,7 @@ class CustomerCardWidget extends StatelessWidget {
             children: [
               // Avatar del cliente
               _buildCustomerAvatar(context),
-              const SizedBox(width: 12),
+              SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
 
               // Información principal
               Expanded(
@@ -56,18 +57,28 @@ class CustomerCardWidget extends StatelessWidget {
                     Text(
                       customer.displayName,
                       style: TextStyle(
-                        fontSize: Responsive.getFontSize(context, mobile: 16),
+                        fontSize: ResponsiveHelper.getFontSize(
+                          context,
+                          mobile: 16,
+                          tablet: 18,
+                          desktop: 20,
+                        ),
                         fontWeight: FontWeight.bold,
                         color: Colors.black,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) / 4),
                     Text(
                       customer.email,
                       style: TextStyle(
-                        fontSize: Responsive.getFontSize(context, mobile: 14),
+                        fontSize: ResponsiveHelper.getFontSize(
+                          context,
+                          mobile: 14,
+                          tablet: 15,
+                          desktop: 16,
+                        ),
                         color: Colors.grey.shade600,
                       ),
                       maxLines: 1,
@@ -82,12 +93,12 @@ class CustomerCardWidget extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
 
           // Información adicional
           if (!isCompact) ...[
             _buildCustomerInfo(context),
-            const SizedBox(height: 12),
+            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
           ],
 
           // Acciones
@@ -99,12 +110,12 @@ class CustomerCardWidget extends StatelessWidget {
 
   Widget _buildTabletLayout(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: ResponsiveHelper.getPadding(context),
       child: Row(
         children: [
           // Avatar
           _buildCustomerAvatar(context),
-          const SizedBox(width: 16),
+          SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
 
           // Información principal
           Expanded(
@@ -245,7 +256,12 @@ class CustomerCardWidget extends StatelessWidget {
   }
 
   Widget _buildCustomerAvatar(BuildContext context) {
-    final iconSize = context.isMobile ? 40.0 : (context.isTablet ? 48.0 : 56.0);
+    final iconSize = ResponsiveHelper.getHeight(
+      context,
+      mobile: 40.0,
+      tablet: 48.0,
+      desktop: 56.0,
+    );
 
     return Container(
       width: iconSize,
@@ -305,7 +321,12 @@ class CustomerCardWidget extends StatelessWidget {
         text,
         style: TextStyle(
           color: color,
-          fontSize: context.isMobile ? 10 : 12,
+          fontSize: ResponsiveHelper.getFontSize(
+            context,
+            mobile: 10,
+            tablet: 12,
+            desktop: 12,
+          ),
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -373,7 +394,12 @@ class CustomerCardWidget extends StatelessWidget {
           Text(
             '$label: ',
             style: TextStyle(
-              fontSize: context.isMobile ? 12 : 13,
+              fontSize: ResponsiveHelper.getFontSize(
+                context,
+                mobile: 12,
+                tablet: 13,
+                desktop: 13,
+              ),
               color: Colors.grey.shade600,
             ),
           ),
@@ -381,7 +407,12 @@ class CustomerCardWidget extends StatelessWidget {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: context.isMobile ? 12 : 13,
+                fontSize: ResponsiveHelper.getFontSize(
+                  context,
+                  mobile: 12,
+                  tablet: 13,
+                  desktop: 13,
+                ),
                 fontWeight: FontWeight.w600,
                 color: valueColor ?? Colors.grey.shade800,
               ),
@@ -395,7 +426,7 @@ class CustomerCardWidget extends StatelessWidget {
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    if (context.isMobile) {
+    if (ResponsiveHelper.isMobile(context)) {
       return Row(
         children: [
           if (onEdit != null)
@@ -409,7 +440,7 @@ class CustomerCardWidget extends StatelessWidget {
                 ),
               ),
             ),
-          if (onEdit != null && onDelete != null) const SizedBox(width: 8),
+          if (onEdit != null && onDelete != null) SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
           if (onDelete != null)
             Expanded(
               child: OutlinedButton.icon(
@@ -435,7 +466,12 @@ class CustomerCardWidget extends StatelessWidget {
             onPressed: onEdit,
             icon: const Icon(Icons.edit),
             tooltip: 'Editar cliente',
-            iconSize: context.isDesktop ? 24 : 20,
+            iconSize: ResponsiveHelper.getFontSize(
+              context,
+              mobile: 18,
+              tablet: 20,
+              desktop: 24,
+            ),
           ),
         if (onDelete != null)
           IconButton(
@@ -443,7 +479,12 @@ class CustomerCardWidget extends StatelessWidget {
             icon: const Icon(Icons.delete),
             tooltip: 'Eliminar cliente',
             color: Colors.red,
-            iconSize: context.isDesktop ? 24 : 20,
+            iconSize: ResponsiveHelper.getFontSize(
+              context,
+              mobile: 18,
+              tablet: 20,
+              desktop: 24,
+            ),
           ),
       ],
     );

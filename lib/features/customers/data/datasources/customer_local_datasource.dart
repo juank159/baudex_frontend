@@ -41,7 +41,8 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       await storageService.write(_customersKey, json.encode(customersJson));
       await _updateCacheTimestamp();
     } catch (e) {
-      throw CacheException('Error al guardar clientes en cache: $e');
+      // Fallar silenciosamente para mayor robustez
+      print('⚠️ Cache de clientes no disponible: $e');
     }
   }
 
@@ -72,7 +73,8 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       );
       await _updateCacheTimestamp();
     } catch (e) {
-      throw CacheException('Error al guardar estadísticas en cache: $e');
+      // Fallar silenciosamente para mayor robustez
+      print('⚠️ Cache de estadísticas no disponible: $e');
     }
   }
 
@@ -98,7 +100,9 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       await storageService.write(customerKey, json.encode(customer.toJson()));
       await _updateCacheTimestamp();
     } catch (e) {
-      throw CacheException('Error al guardar cliente en cache: $e');
+      // Fallar silenciosamente en lugar de lanzar excepción
+      // Esto permite que la app funcione aunque el cache no esté disponible
+      print('⚠️ Cache no disponible (continuando sin cache): $e');
     }
   }
 
