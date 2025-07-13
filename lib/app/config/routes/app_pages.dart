@@ -353,96 +353,6 @@ class AppPages {
     ),
 
     // ==================== CUSTOMERS PAGES ====================
-    // GetPage(
-    //   name: AppRoutes.customers,
-    //   page: () => const CustomersListScreen(),
-    //   binding: CustomerBinding(),
-    //   transition: Transition.fade,
-    //   transitionDuration: const Duration(milliseconds: 300),
-    //   middlewares: [AuthMiddleware()],
-    // ),
-
-    // GetPage(
-    //   name: AppRoutes.customersCreate,
-    //   page: () => const CustomerFormScreen(),
-    //   binding: BindingsBuilder(() {
-    //     print('🔧 [CREAR CLIENTE] Verificando CustomerFormController...');
-    //     if (!Get.isRegistered<CustomerFormController>()) {
-    //       print(
-    //         '👤 [CREAR CLIENTE] Registrando CustomerBinding para CustomerFormController',
-    //       );
-    //       CustomerBinding().dependencies();
-    //       print('✅ [CREAR CLIENTE] CustomerBinding registrado exitosamente');
-    //     } else {
-    //       print('✅ [CREAR CLIENTE] CustomerFormController ya registrado');
-    //     }
-    //   }),
-    //   transition: Transition.rightToLeft,
-    //   transitionDuration: const Duration(milliseconds: 300),
-    //   middlewares: [AuthMiddleware()],
-    // ),
-
-    // GetPage(
-    //   name: '${AppRoutes.customersEdit}/:id',
-    //   page: () => const CustomerFormScreen(),
-    //   binding: BindingsBuilder(() {
-    //     print('🔧 [EDITAR CLIENTE] Verificando CustomerFormController...');
-    //     if (!Get.isRegistered<CustomerFormController>()) {
-    //       print(
-    //         '👤 [EDITAR CLIENTE] Registrando CustomerBinding para CustomerFormController',
-    //       );
-    //       CustomerBinding().dependencies();
-    //       print('✅ [EDITAR CLIENTE] CustomerBinding registrado exitosamente');
-    //     } else {
-    //       print('✅ [EDITAR CLIENTE] CustomerFormController ya registrado');
-    //     }
-    //   }),
-    //   transition: Transition.rightToLeft,
-    //   transitionDuration: const Duration(milliseconds: 300),
-    //   middlewares: [AuthMiddleware()],
-    // ),
-
-    // GetPage(
-    //   name: '${AppRoutes.customersDetail}/:id',
-    //   page: () => const CustomerDetailScreen(),
-    //   binding: BindingsBuilder(() {
-    //     print('🔧 [DETALLE CLIENTE] Verificando CustomerDetailController...');
-    //     if (!Get.isRegistered<CustomerDetailController>()) {
-    //       print(
-    //         '👤 [DETALLE CLIENTE] Registrando CustomerBinding para CustomerDetailController',
-    //       );
-    //       CustomerBinding().dependencies();
-    //       print('✅ [DETALLE CLIENTE] CustomerBinding registrado exitosamente');
-    //     } else {
-    //       print('✅ [DETALLE CLIENTE] CustomerDetailController ya registrado');
-    //     }
-    //   }),
-    //   transition: Transition.rightToLeft,
-    //   transitionDuration: const Duration(milliseconds: 300),
-    //   middlewares: [AuthMiddleware()],
-    // ),
-
-    // GetPage(
-    //   name: AppRoutes.customersStats,
-    //   page: () => const CustomerStatsScreen(),
-    //   binding: BindingsBuilder(() {
-    //     print('🔧 [ESTADÍSTICAS CLIENTES] Verificando CustomersController...');
-    //     if (!Get.isRegistered<CustomersController>()) {
-    //       print(
-    //         '👤 [ESTADÍSTICAS CLIENTES] Registrando CustomerBinding para CustomersController',
-    //       );
-    //       CustomerBinding().dependencies();
-    //       print(
-    //         '✅ [ESTADÍSTICAS CLIENTES] CustomerBinding registrado exitosamente',
-    //       );
-    //     } else {
-    //       print('✅ [ESTADÍSTICAS CLIENTES] CustomersController ya registrado');
-    //     }
-    //   }),
-    //   transition: Transition.fade,
-    //   transitionDuration: const Duration(milliseconds: 300),
-    //   middlewares: [AuthMiddleware()],
-    // ),
     GetPage(
       name: AppRoutes.customers,
       page: () => const CustomersListScreen(),
@@ -584,33 +494,37 @@ class AppPages {
     // 📊 ESTADÍSTICAS DE FACTURAS
     GetPage(
       name: AppRoutes.invoicesStats,
-      page:
-          () => const InvoiceStatsScreen(), // ← Necesitarás crear esta pantalla
+      page: () => const InvoiceStatsScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [ESTADÍSTICAS FACTURAS] Inicializando bindings...');
+        try {
+          print('🔧 [ESTADÍSTICAS FACTURAS] Inicializando bindings...');
 
-        // 1. Verificar y registrar dependencias base
-        if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print(
-            '📄 [ESTADÍSTICAS FACTURAS] Registrando InvoiceBinding base...',
-          );
+          // Siempre registrar dependencias base si no están
+          if (!InvoiceBinding.areBaseDependenciesRegistered()) {
+            print(
+              '📄 [ESTADÍSTICAS FACTURAS] Registrando InvoiceBinding base...',
+            );
+            InvoiceBinding().dependencies();
+            print('✅ [ESTADÍSTICAS FACTURAS] InvoiceBinding base registrado');
+          }
+
+          // Verificar que el stats controller esté disponible
+          if (!InvoiceBinding.isStatsControllerRegistered()) {
+            print(
+              '⚠️ [ESTADÍSTICAS FACTURAS] Re-registrando stats controller...',
+            );
+            InvoiceBinding().dependencies();
+          }
+
+          print('✅ [ESTADÍSTICAS FACTURAS] Binding completado exitosamente');
+        } catch (e) {
+          print('❌ [ESTADÍSTICAS FACTURAS] Error en binding: $e');
+          // Fallback: registrar binding básico
           InvoiceBinding().dependencies();
-          print('✅ [ESTADÍSTICAS FACTURAS] InvoiceBinding base registrado');
         }
-
-        // 2. El InvoiceStatsController ya está registrado como singleton en InvoiceBinding
-        if (!InvoiceBinding.isStatsControllerRegistered()) {
-          print(
-            '⚠️ [ESTADÍSTICAS FACTURAS] InvoiceStatsController no encontrado, re-registrando...',
-          );
-          InvoiceBinding()
-              .dependencies(); // Esto registrará el stats controller
-        }
-
-        print('✅ [ESTADÍSTICAS FACTURAS] InvoiceStatsController disponible');
       }),
-      transition: Transition.fade,
-      transitionDuration: const Duration(milliseconds: 300),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 250),
       middlewares: [AuthMiddleware()],
     ),
 

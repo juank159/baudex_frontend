@@ -208,6 +208,7 @@ import 'package:get/get.dart' as getx;
 import '../../config/constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
 import 'api_interceptor.dart';
+import '../../../features/auth/presentation/controllers/auth_controller.dart';
 
 class DioClient {
   late Dio _dio;
@@ -434,8 +435,27 @@ class DioClient {
     _storageService.deleteToken();
     _storageService.deleteUserData();
 
-    // Redirigir al login
-    getx.Get.offAllNamed('/login');
+    // ✅ SOLUCIÓN: No hacer redirect automático desde interceptor HTTP
+    // El AuthController manejará el redirect cuando detecte que no hay token
+    print('⚠️ Sesión expirada - AuthController manejará el redirect');
+    
+    // Notificar al AuthController para que maneje el logout
+    try {
+      if (getx.Get.isRegistered<AuthController>()) {
+        final authController = getx.Get.find<AuthController>();
+        // Usar el método de logout que ya maneja la navegación correctamente
+        authController.logout();
+      }
+    } catch (e) {
+      print('⚠️ No se pudo notificar al AuthController: $e');
+      // Como fallback, solo mostrar mensaje al usuario sin redirect inmediato
+      getx.Get.snackbar(
+        'Sesión Expirada',
+        'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+        snackPosition: getx.SnackPosition.TOP,
+        duration: const Duration(seconds: 5),
+      );
+    }
   }
 
   // Getter para acceso directo a Dio si es necesario

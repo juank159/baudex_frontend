@@ -34,164 +34,235 @@ class InvoiceCardWidget extends StatelessWidget {
   }
 
   Widget _buildMobileCard(BuildContext context) {
-    return CustomCard(
-      margin: const EdgeInsets.only(bottom: 8),
-      backgroundColor:
-          isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
-      border:
-          isSelected ? Border.all(color: Theme.of(context).primaryColor) : null,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      decoration: BoxDecoration(
+        color:
+            isSelected
+                ? Theme.of(context).primaryColor.withOpacity(0.08)
+                : Colors.white,
         borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header con número y estado
-              Row(
-                children: [
-                  if (isMultiSelectMode) ...[
-                    Checkbox(
-                      value: isSelected,
-                      onChanged: (_) => onTap?.call(),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          invoice.number,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.black87,
+        border: Border.all(
+          color:
+              isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade200,
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header con número, estado y checkbox
+                Row(
+                  children: [
+                    if (isMultiSelectMode) ...[
+                      Transform.scale(
+                        scale: 1.1,
+                        child: Checkbox(
+                          value: isSelected,
+                          onChanged: (_) => onTap?.call(),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
-                        Text(
-                          _formatDate(invoice.date),
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  InvoiceStatusWidget(invoice: invoice, isCompact: true),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Cliente
-              Row(
-                children: [
-                  Icon(Icons.person, size: 16, color: Colors.grey.shade600),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      invoice.customerName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: Colors.grey.shade800,
                       ),
-                      overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            invoice.number,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              color: Colors.grey.shade900,
+                              letterSpacing: -0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            _formatDate(invoice.date),
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
+                    InvoiceStatusWidget(invoice: invoice, isCompact: true),
+                  ],
+                ),
+                const SizedBox(height: 3),
 
-              // Total y método de pago
-              Row(
-                children: [
-                  _buildInfoChip(
-                    AppFormatters.formatCurrency(invoice.total),
-                    Icons.attach_money,
-                    Theme.of(context).primaryColor,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildInfoChip(
-                    invoice.paymentMethodDisplayName,
-                    _getPaymentMethodIcon(invoice.paymentMethod),
-                    Colors.blue,
-                  ),
-                ],
-              ),
-
-              // Información de pago en efectivo (dinero recibido y cambio)
-              if (invoice.paymentMethod == PaymentMethod.cash && 
-                  _hasPaymentDetails()) ...[
-                const SizedBox(height: 8),
-                _buildCashPaymentDetails(context),
-              ],
-
-              // Información de vencimiento
-              if (invoice.isOverdue || _isDueSoon()) ...[
-                const SizedBox(height: 8),
+                // Cliente con icono elegante
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color:
-                        invoice.isOverdue
-                            ? Colors.red.shade50
-                            : Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color:
-                          invoice.isOverdue
-                              ? Colors.red.shade200
-                              : Colors.orange.shade200,
-                    ),
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        invoice.isOverdue ? Icons.error : Icons.warning,
-                        color:
-                            invoice.isOverdue
-                                ? Colors.red.shade600
-                                : Colors.orange.shade600,
-                        size: 16,
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(
+                          Icons.person_outline,
+                          size: 10,
+                          color: Colors.blue.shade600,
+                        ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          invoice.isOverdue
-                              ? 'Vencida hace ${invoice.daysOverdue} días'
-                              : 'Vence en ${_daysUntilDue()} días',
+                          invoice.customerName,
                           style: TextStyle(
-                            fontSize: 12,
-                            color:
-                                invoice.isOverdue
-                                    ? Colors.red.shade800
-                                    : Colors.orange.shade800,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
+                            color: Colors.grey.shade800,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
+                const SizedBox(height: 3),
 
-              // Progreso de pago para facturas parcialmente pagadas
-              if (invoice.isPartiallyPaid) ...[
-                const SizedBox(height: 8),
-                _buildPaymentProgress(context),
-              ],
+                // Total y método de pago con diseño mejorado
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildCompactInfoChip(
+                        AppFormatters.formatCurrency(invoice.total),
+                        Icons.attach_money,
+                        Theme.of(context).primaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: _buildCompactInfoChip(
+                        _getShortPaymentMethodName(invoice.paymentMethod),
+                        _getPaymentMethodIcon(invoice.paymentMethod),
+                        _getPaymentMethodColor(invoice.paymentMethod),
+                      ),
+                    ),
+                  ],
+                ),
 
-              // Acciones rápidas
-              if (!isMultiSelectMode) ...[
-                const SizedBox(height: 12),
-                _buildQuickActions(context),
+                // Información de vencimiento con diseño mejorado
+                if (invoice.isOverdue || _isDueSoon()) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors:
+                            invoice.isOverdue
+                                ? [Colors.red.shade50, Colors.red.shade100]
+                                : [
+                                  Colors.orange.shade50,
+                                  Colors.orange.shade100,
+                                ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color:
+                            invoice.isOverdue
+                                ? Colors.red.shade200
+                                : Colors.orange.shade200,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color:
+                                invoice.isOverdue
+                                    ? Colors.red.shade100
+                                    : Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            invoice.isOverdue
+                                ? Icons.error_outline
+                                : Icons.warning_amber,
+                            color:
+                                invoice.isOverdue
+                                    ? Colors.red.shade700
+                                    : Colors.orange.shade700,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            invoice.isOverdue
+                                ? 'Vencida hace ${invoice.daysOverdue} días'
+                                : 'Vence en ${_daysUntilDue()} días',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color:
+                                  invoice.isOverdue
+                                      ? Colors.red.shade800
+                                      : Colors.orange.shade800,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // Progreso de pago
+                if (invoice.isPartiallyPaid) ...[
+                  const SizedBox(height: 4),
+                  _buildPaymentProgress(context),
+                ],
+
+                // Acciones rápidas
+                if (!isMultiSelectMode) ...[
+                  const SizedBox(height: 3),
+                  _buildQuickActions(context),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -199,144 +270,327 @@ class InvoiceCardWidget extends StatelessWidget {
   }
 
   Widget _buildTabletCard(BuildContext context) {
-    return CustomCard(
-      margin: const EdgeInsets.only(bottom: 8),
-      backgroundColor:
-          isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
-      border:
-          isSelected ? Border.all(color: Theme.of(context).primaryColor) : null,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              if (isMultiSelectMode) ...[
-                Checkbox(value: isSelected, onChanged: (_) => onTap?.call()),
-                const SizedBox(width: 12),
-              ],
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color:
+            isSelected
+                ? Theme.of(context).primaryColor.withOpacity(0.06)
+                : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color:
+              isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade200,
+          width: isSelected ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                if (isMultiSelectMode) ...[
+                  Transform.scale(
+                    scale: 1.05,
+                    child: Checkbox(
+                      value: isSelected,
+                      onChanged: (_) => onTap?.call(),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
 
-              // Información principal
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          invoice.number,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.black87,
+                // Información principal
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              invoice.number,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                                color: Colors.grey.shade900,
+                                letterSpacing: -0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
+                          const SizedBox(width: 12),
+                          InvoiceStatusWidget(
+                            invoice: invoice,
+                            isCompact: true,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              Icons.person_outline,
+                              size: 14,
+                              color: Colors.blue.shade600,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              invoice.customerName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                color: Colors.grey.shade700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatDate(invoice.date),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(width: 8),
-                        InvoiceStatusWidget(invoice: invoice, isCompact: true),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      invoice.customerName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: Colors.grey.shade800,
                       ),
-                    ),
-                    Text(
-                      _formatDate(invoice.date),
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
-              // Fechas
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Vencimiento',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
+                // Fechas y vencimiento
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    Text(
-                      _formatDate(invoice.dueDate),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
+                    decoration: BoxDecoration(
+                      color:
+                          invoice.isOverdue
+                              ? Colors.red.shade50
+                              : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
                         color:
                             invoice.isOverdue
-                                ? Colors.red.shade600
-                                : Colors.grey.shade800,
+                                ? Colors.red.shade200
+                                : Colors.grey.shade200,
                       ),
                     ),
-                    if (invoice.isOverdue)
-                      Text(
-                        '${invoice.daysOverdue} días vencida',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.red.shade600,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Vencimiento',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                  ],
+                        const SizedBox(height: 2),
+                        Text(
+                          _formatDate(invoice.dueDate),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color:
+                                invoice.isOverdue
+                                    ? Colors.red.shade700
+                                    : Colors.grey.shade800,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (invoice.isOverdue)
+                          Text(
+                            '${invoice.daysOverdue} días vencida',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.red.shade600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
 
-              // Total
-              Expanded(
-                flex: 1,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      AppFormatters.formatCurrency(invoice.total),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                    if (invoice.isPartiallyPaid) ...[
-                      Text(
-                        'Pagado: ${AppFormatters.formatCurrency(invoice.paidAmount)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.green.shade600,
+                const SizedBox(width: 16),
+
+                // Total y método de pago
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Theme.of(context).primaryColor.withOpacity(0.1),
+                              Theme.of(context).primaryColor.withOpacity(0.05),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Theme.of(
+                              context,
+                            ).primaryColor.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Text(
+                          AppFormatters.formatCurrency(invoice.total),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        'Pendiente: ${AppFormatters.formatCurrency(invoice.balanceDue)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.red.shade600,
+
+                      if (invoice.isPartiallyPaid) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 12,
+                              color: Colors.green.shade600,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              AppFormatters.formatCurrency(invoice.paidAmount),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.green.shade600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Icon(
+                              Icons.schedule,
+                              size: 12,
+                              color: Colors.orange.shade600,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              AppFormatters.formatCurrency(invoice.balanceDue),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.orange.shade600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      const SizedBox(height: 3),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getPaymentMethodColor(
+                            invoice.paymentMethod,
+                          ).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: _getPaymentMethodColor(
+                              invoice.paymentMethod,
+                            ).withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getPaymentMethodIcon(invoice.paymentMethod),
+                              size: 12,
+                              color: _getPaymentMethodColor(
+                                invoice.paymentMethod,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _getShortPaymentMethodName(invoice.paymentMethod),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: _getPaymentMethodColor(
+                                  invoice.paymentMethod,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                    
-                    // Información de pago en efectivo
-                    if (invoice.paymentMethod == PaymentMethod.cash && 
-                        _hasPaymentDetails()) ...[
-                      const SizedBox(height: 4),
-                      _buildCashPaymentDetailsCompact(),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
 
-              // Acciones
-              if (!isMultiSelectMode) _buildActionMenu(context),
-            ],
+                // Acciones
+                if (!isMultiSelectMode) ...[
+                  const SizedBox(width: 12),
+                  _buildActionMenu(context),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -344,131 +598,328 @@ class InvoiceCardWidget extends StatelessWidget {
   }
 
   Widget _buildDesktopCard(BuildContext context) {
-    return CustomCard(
-      margin: const EdgeInsets.only(bottom: 4),
-      backgroundColor:
-          isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
-      border:
-          isSelected ? Border.all(color: Theme.of(context).primaryColor) : null,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 3),
+      decoration: BoxDecoration(
+        color:
+            isSelected
+                ? Theme.of(context).primaryColor.withOpacity(0.04)
+                : Colors.white,
         borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              if (isMultiSelectMode) ...[
-                Checkbox(value: isSelected, onChanged: (_) => onTap?.call()),
-                const SizedBox(width: 12),
-              ],
+        border: Border.all(
+          color:
+              isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade200,
+          width: isSelected ? 1.2 : 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                if (isMultiSelectMode) ...[
+                  Checkbox(
+                    value: isSelected,
+                    onChanged: (_) => onTap?.call(),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 12),
+                ],
 
-              // Número e indicador
-              SizedBox(
-                width: 120,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      invoice.number,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                // Número y estado
+                SizedBox(
+                  width: 120,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              invoice.number,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                                color: Colors.grey.shade900,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 1),
+                            InvoiceStatusWidget(
+                              invoice: invoice,
+                              isCompact: true,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    InvoiceStatusWidget(invoice: invoice, isCompact: true),
-                  ],
-                ),
-              ),
-
-              // Cliente
-              Expanded(
-                flex: 2,
-                child: Text(
-                  invoice.customerName,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-
-              // Fecha
-              SizedBox(
-                width: 100,
-                child: Text(
-                  _formatDate(invoice.date),
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
-              ),
-
-              // Vencimiento
-              SizedBox(
-                width: 100,
-                child: Text(
-                  _formatDate(invoice.dueDate),
-                  style: TextStyle(
-                    color:
-                        invoice.isOverdue
-                            ? Colors.red.shade600
-                            : Colors.grey.shade600,
-                    fontWeight:
-                        invoice.isOverdue ? FontWeight.w600 : FontWeight.normal,
+                    ],
                   ),
                 ),
-              ),
 
-              // Método de pago
-              SizedBox(
-                width: 100,
-                child: Row(
-                  children: [
-                    Icon(
-                      _getPaymentMethodIcon(invoice.paymentMethod),
-                      size: 14,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        invoice.paymentMethodDisplayName,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                // Cliente con icono y método de pago debajo
+                Expanded(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Icon(
+                                Icons.person_outline,
+                                size: 10,
+                                color: Colors.blue.shade600,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                invoice.customerName,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                  color: Colors.grey.shade700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 3),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getPaymentMethodColor(
+                              invoice.paymentMethod,
+                            ).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: _getPaymentMethodColor(
+                                invoice.paymentMethod,
+                              ).withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _getPaymentMethodIcon(invoice.paymentMethod),
+                                size: 8,
+                                color: _getPaymentMethodColor(
+                                  invoice.paymentMethod,
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                _getShortPaymentMethodName(
+                                  invoice.paymentMethod,
+                                ),
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  color: _getPaymentMethodColor(
+                                    invoice.paymentMethod,
+                                  ),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Fecha de emisión
+                SizedBox(
+                  width: 70,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Emisión',
+                        style: TextStyle(
+                          fontSize: 8,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        _formatDate(invoice.date),
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Total y información de pago
-              SizedBox(
-                width: 120,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      AppFormatters.formatCurrency(invoice.total),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                    
-                    // Información de pago en efectivo
-                    if (invoice.paymentMethod == PaymentMethod.cash && 
-                        _hasPaymentDetails()) ...[
-                      const SizedBox(height: 2),
-                      _buildCashPaymentDetailsCompact(),
                     ],
-                  ],
+                  ),
                 ),
-              ),
 
-              // Acciones
-              if (!isMultiSelectMode) _buildActionMenu(context),
-            ],
+                // Vencimiento con indicador visual
+                SizedBox(
+                  width: 70,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          invoice.isOverdue
+                              ? Colors.red.shade50
+                              : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color:
+                            invoice.isOverdue
+                                ? Colors.red.shade200
+                                : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Vence',
+                          style: TextStyle(
+                            fontSize: 8,
+                            color:
+                                invoice.isOverdue
+                                    ? Colors.red.shade600
+                                    : Colors.grey.shade500,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          _formatDate(invoice.dueDate),
+                          style: TextStyle(
+                            color:
+                                invoice.isOverdue
+                                    ? Colors.red.shade700
+                                    : Colors.grey.shade700,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 9,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (invoice.isOverdue)
+                          Text(
+                            '+${invoice.daysOverdue}d',
+                            style: TextStyle(
+                              fontSize: 7,
+                              color: Colors.red.shade600,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(width: 28),
+                // Total destacado
+                SizedBox(
+                  width: 100,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context).primaryColor.withOpacity(0.1),
+                          Theme.of(context).primaryColor.withOpacity(0.05),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: Theme.of(context).primaryColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          AppFormatters.formatCurrency(invoice.total),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (invoice.isPartiallyPaid) ...[
+                          const SizedBox(height: 1),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                size: 8,
+                                color: Colors.green.shade600,
+                              ),
+                              const SizedBox(width: 1),
+                              Text(
+                                AppFormatters.formatCurrency(
+                                  invoice.paidAmount,
+                                ),
+                                style: TextStyle(
+                                  fontSize: 7,
+                                  color: Colors.green.shade600,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Acciones
+                if (!isMultiSelectMode) ...[
+                  const SizedBox(width: 8),
+                  _buildActionMenu(context),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -705,61 +1156,151 @@ class InvoiceCardWidget extends StatelessWidget {
     return invoice.dueDate.difference(DateTime.now()).inDays;
   }
 
+  // ==================== MÉTODOS DE UI ELEGANTES ====================
+
+  /// Construye un chip de información elegante para las cards móviles
+  // Nueva función ultra-compacta
+  Widget _buildCompactInfoChip(String text, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 8, color: color),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 8,
+                color: color,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Nuevas funciones auxiliares
+  String _getShortPaymentMethodName(PaymentMethod method) {
+    switch (method) {
+      case PaymentMethod.cash:
+        return 'Efectivo';
+      case PaymentMethod.creditCard:
+        return 'T.Crédito';
+      case PaymentMethod.debitCard:
+        return 'T.Débito';
+      case PaymentMethod.bankTransfer:
+        return 'Transfer';
+      case PaymentMethod.check:
+        return 'Cheque';
+      case PaymentMethod.credit:
+        return 'Crédito';
+      case PaymentMethod.other:
+        return 'Otro';
+    }
+  }
+
+  Color _getPaymentMethodColor(PaymentMethod method) {
+    switch (method) {
+      case PaymentMethod.cash:
+        return Colors.green;
+      case PaymentMethod.creditCard:
+        return Colors.blue;
+      case PaymentMethod.debitCard:
+        return Colors.indigo;
+      case PaymentMethod.bankTransfer:
+        return Colors.purple;
+      case PaymentMethod.check:
+        return Colors.teal;
+      case PaymentMethod.credit:
+        return Colors.orange; // Naranja como pendiente
+      case PaymentMethod.other:
+        return Colors.grey;
+    }
+  }
+
   // ==================== MÉTODOS PARA INFORMACIÓN DE PAGO EN EFECTIVO ====================
 
   /// Verifica si la factura tiene información de pago en efectivo (dinero recibido y cambio)
   bool _hasPaymentDetails() {
     if (invoice.paymentMethod != PaymentMethod.cash) return false;
     if (invoice.notes == null || invoice.notes!.isEmpty) return false;
-    
-    return invoice.notes!.contains('Recibido:') && invoice.notes!.contains('Cambio:');
+
+    return invoice.notes!.contains('Recibido:') &&
+        invoice.notes!.contains('Cambio:');
   }
 
   /// Extrae el monto recibido de las notas de la factura
   double _getReceivedAmount() {
     if (!_hasPaymentDetails()) return 0.0;
-    
+
     try {
       final notes = invoice.notes!;
       // RegExp más robusto que maneja números con y sin formato de miles (punto como separador)
-      final recibidoMatch = RegExp(r'Recibido:\s*\$?\s*([\d.,]+)').firstMatch(notes);
-      
+      final recibidoMatch = RegExp(
+        r'Recibido:\s*\$?\s*([\d.,]+)',
+      ).firstMatch(notes);
+
       if (recibidoMatch != null) {
         String amountStr = recibidoMatch.group(1)!;
         // Limpiar formato de miles colombiano (puntos) pero preservar decimales (comas)
-        amountStr = amountStr.replaceAll(RegExp(r'\.(?=\d{3})'), ''); // Remover puntos de miles
-        amountStr = amountStr.replaceAll(',', '.'); // Convertir comas decimales a puntos
+        amountStr = amountStr.replaceAll(
+          RegExp(r'\.(?=\d{3})'),
+          '',
+        ); // Remover puntos de miles
+        amountStr = amountStr.replaceAll(
+          ',',
+          '.',
+        ); // Convertir comas decimales a puntos
         return double.tryParse(amountStr) ?? 0.0;
       }
     } catch (e) {
       // Silencioso en producción, pero útil para debug
       // print('Error extrayendo monto recibido: $e');
     }
-    
+
     return 0.0;
   }
 
   /// Extrae el monto del cambio de las notas de la factura
   double _getChangeAmount() {
     if (!_hasPaymentDetails()) return 0.0;
-    
+
     try {
       final notes = invoice.notes!;
       // RegExp más robusto que maneja números con y sin formato de miles (punto como separador)
-      final cambioMatch = RegExp(r'Cambio:\s*\$?\s*([\d.,]+)').firstMatch(notes);
-      
+      final cambioMatch = RegExp(
+        r'Cambio:\s*\$?\s*([\d.,]+)',
+      ).firstMatch(notes);
+
       if (cambioMatch != null) {
         String amountStr = cambioMatch.group(1)!;
         // Limpiar formato de miles colombiano (puntos) pero preservar decimales (comas)
-        amountStr = amountStr.replaceAll(RegExp(r'\.(?=\d{3})'), ''); // Remover puntos de miles
-        amountStr = amountStr.replaceAll(',', '.'); // Convertir comas decimales a puntos
+        amountStr = amountStr.replaceAll(
+          RegExp(r'\.(?=\d{3})'),
+          '',
+        ); // Remover puntos de miles
+        amountStr = amountStr.replaceAll(
+          ',',
+          '.',
+        ); // Convertir comas decimales a puntos
         return double.tryParse(amountStr) ?? 0.0;
       }
     } catch (e) {
       // Silencioso en producción, pero útil para debug
       // print('Error extrayendo cambio: $e');
     }
-    
+
     return 0.0;
   }
 
@@ -797,10 +1338,7 @@ class InvoiceCardWidget extends StatelessWidget {
             children: [
               Text(
                 'Recibido:',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.green.shade700,
-                ),
+                style: TextStyle(fontSize: 10, color: Colors.green.shade700),
               ),
               Text(
                 AppFormatters.formatCurrency(receivedAmount),
@@ -819,10 +1357,7 @@ class InvoiceCardWidget extends StatelessWidget {
               children: [
                 Text(
                   'Cambio:',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.green.shade700,
-                  ),
+                  style: TextStyle(fontSize: 10, color: Colors.green.shade700),
                 ),
                 Text(
                   AppFormatters.formatCurrency(changeAmount),

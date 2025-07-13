@@ -288,12 +288,12 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
         _buildSectionTitle('Filtros Rápidos'),
         const SizedBox(height: 12),
         GridView.count(
-          crossAxisCount: context.isMobile ? 2 : 3,
+          crossAxisCount: context.isMobile ? 3 : 3,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 3,
+          crossAxisSpacing: 4,
+          mainAxisSpacing: 4,
+          childAspectRatio: context.isMobile ? 2.5 : 3,
           children: [
             _buildQuickFilterCard(
               'Vencidas',
@@ -523,27 +523,29 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
   ) {
     return InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 4),
+            Icon(icon, color: color, size: 14),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 9,
                 color: color,
                 fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

@@ -222,6 +222,7 @@ class InvoiceBinding extends Bindings {
             confirmInvoiceUseCase: Get.find<ConfirmInvoiceUseCase>(),
             cancelInvoiceUseCase: Get.find<CancelInvoiceUseCase>(),
           ),
+          permanent: false, // ✅ No permanente para permitir disposal correcto
           // ✅ REMOVER TAG PARA QUE SEA ACCESIBLE SIN TAG
           // tag: 'invoice_list', ← COMENTADO
         );
@@ -350,6 +351,7 @@ class InvoiceBinding extends Bindings {
             cancelInvoiceUseCase: Get.find<CancelInvoiceUseCase>(),
             deleteInvoiceUseCase: Get.find<DeleteInvoiceUseCase>(),
           ),
+          permanent: false, // ✅ No permanente para permitir disposal correcto
           // ✅ REMOVER TAG PARA QUE SEA ACCESIBLE SIN TAG
           // tag: 'invoice_detail', ← COMENTADO
         );
@@ -380,11 +382,19 @@ class InvoiceBinding extends Bindings {
 
   // ==================== MÉTODOS PARA LIMPIAR CONTROLADORES ====================
 
-  /// ✅ SOLUCIÓN: Limpiar controlador de lista SIN TAG
+  /// ✅ SOLUCIÓN: Limpiar controlador de lista SIN TAG de forma segura
   static void clearListController() {
     if (Get.isRegistered<InvoiceListController>()) {
-      Get.delete<InvoiceListController>();
-      print('🧹 InvoiceListController limpiado');
+      try {
+        final controller = Get.find<InvoiceListController>();
+        // Permitir que el controlador complete su disposal
+        Get.delete<InvoiceListController>(force: false);
+        print('🧹 InvoiceListController limpiado de forma segura');
+      } catch (e) {
+        print('⚠️ Error al limpiar InvoiceListController: $e');
+        // Fallback: limpieza forzada
+        Get.delete<InvoiceListController>(force: true);
+      }
     }
   }
 
@@ -393,11 +403,19 @@ class InvoiceBinding extends Bindings {
     print('⚠️ clearFormController() está obsoleto - el wrapper maneja la limpieza automáticamente');
   }
 
-  /// ✅ SOLUCIÓN: Limpiar controlador de detalle SIN TAG
+  /// ✅ SOLUCIÓN: Limpiar controlador de detalle SIN TAG de forma segura
   static void clearDetailController() {
     if (Get.isRegistered<InvoiceDetailController>()) {
-      Get.delete<InvoiceDetailController>();
-      print('🧹 InvoiceDetailController limpiado');
+      try {
+        final controller = Get.find<InvoiceDetailController>();
+        // Permitir que el controlador complete su disposal
+        Get.delete<InvoiceDetailController>(force: false);
+        print('🧹 InvoiceDetailController limpiado de forma segura');
+      } catch (e) {
+        print('⚠️ Error al limpiar InvoiceDetailController: $e');
+        // Fallback: limpieza forzada
+        Get.delete<InvoiceDetailController>(force: true);
+      }
     }
   }
 

@@ -86,12 +86,16 @@ class InvoiceDetailController extends GetxController {
   void onInit() {
     super.onInit();
     print('🚀 InvoiceDetailController: Inicializando...');
+    print('🔍 ID de factura recibido: $invoiceId');
+    print('🔍 Ruta actual en onInit: ${Get.currentRoute}');
 
     if (invoiceId.isNotEmpty) {
       loadInvoice();
     } else {
       _showError('Error', 'ID de factura no válido');
-      Get.back();
+      print('❌ ID de factura no válido, EVITANDO Get.back() automático');
+      // ✅ SOLUCIÓN: No hacer Get.back() automático para evitar [GETX] Redirect to null
+      // Get.back();
     }
   }
 
@@ -134,7 +138,9 @@ class InvoiceDetailController extends GetxController {
         (failure) {
           print('❌ Error al cargar factura: ${failure.message}');
           _showError('Error al cargar factura', failure.message);
-          Get.back();
+          // ✅ SOLUCIÓN TEMPORAL: Comentar Get.back() para investigar redirect
+          // Get.back();
+          print('⚠️ Get.back() comentado temporalmente para debug');
         },
         (loadedInvoice) {
           print('🔍 DEBUG DETALLE: === FACTURA CARGADA ===');
@@ -148,6 +154,16 @@ class InvoiceDetailController extends GetxController {
           _invoice.value = loadedInvoice;
           update(); // ✅ AGREGAR ESTA LÍNEA PARA FORZAR ACTUALIZACIÓN DE UI
           print('✅ Factura cargada: ${loadedInvoice.number}');
+          print('🔍 RUTA ACTUAL AL FINALIZAR CARGA: ${Get.currentRoute}');
+          
+          // ✅ VERIFICACIÓN: Agregar delay para detectar redirects inesperados
+          Future.delayed(const Duration(milliseconds: 500), () {
+            print('🔍 RUTA DESPUÉS DE 500ms: ${Get.currentRoute}');
+          });
+          
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            print('🔍 RUTA DESPUÉS DE 1000ms: ${Get.currentRoute}');
+          });
         },
       );
     } finally {

@@ -18,7 +18,7 @@ class InvoiceStatusWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(isCompact ? 8.0 : 16.0),
+      padding: EdgeInsets.all(isCompact ? 4.0 : 12.0),
       decoration: BoxDecoration(
         color: _getStatusColor().withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
@@ -31,22 +31,62 @@ class InvoiceStatusWidget extends StatelessWidget {
     );
   }
 
+  // Widget _buildCompactContent(BuildContext context) {
+  //   return Row(
+  //     mainAxisSize: MainAxisSize.min,
+  //     children: [
+  //       Icon(_getStatusIcon(), color: _getStatusColor(), size: 16),
+  //       const SizedBox(width: 4),
+  //       Text(
+  //         invoice.statusDisplayName,
+  //         style: TextStyle(
+  //           color: _getStatusColor(),
+  //           fontWeight: FontWeight.w600,
+  //           fontSize: 12,
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
+
   Widget _buildCompactContent(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(_getStatusIcon(), color: _getStatusColor(), size: 16),
-        const SizedBox(width: 4),
-        Text(
-          invoice.statusDisplayName,
-          style: TextStyle(
-            color: _getStatusColor(),
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
+        Icon(_getStatusIcon(), color: _getStatusColor(), size: 12),
+        const SizedBox(width: 2),
+        Flexible(
+          // ✅ CAMBIO: Row -> Flexible para evitar overflow
+          child: Text(
+            _getCompactStatusText(), // ✅ CAMBIO: usar texto más corto
+            style: TextStyle(
+              color: _getStatusColor(),
+              fontWeight: FontWeight.w600,
+              fontSize: 9,
+            ),
+            maxLines: 1, // ✅ AÑADIDO: maxLines
+            overflow: TextOverflow.ellipsis, // ✅ AÑADIDO: overflow
           ),
         ),
       ],
     );
+  }
+
+  String _getCompactStatusText() {
+    switch (invoice.status) {
+      case InvoiceStatus.draft:
+        return 'BORRADOR';
+      case InvoiceStatus.pending:
+        return invoice.isOverdue ? 'VENCIDA' : 'PENDIENTE';
+      case InvoiceStatus.paid:
+        return 'PAGADA';
+      case InvoiceStatus.overdue:
+        return 'VENCIDA';
+      case InvoiceStatus.cancelled:
+        return 'CANCELADA';
+      case InvoiceStatus.partiallyPaid:
+        return 'PARCIAL'; // ✅ TEXTO MÁS CORTO para evitar overflow
+    }
   }
 
   Widget _buildFullContent(BuildContext context) {

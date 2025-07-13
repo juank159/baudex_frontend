@@ -888,7 +888,7 @@
 //             ),
 //           ),
 //           Text(
-//             '\$${amount.toStringAsFixed(2)}',
+//             AppFormatters.formatCurrency(amount),
 //             style: TextStyle(
 //               fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
 //               fontSize: isTotal ? 16 : 14,
@@ -1066,6 +1066,7 @@ import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
@@ -1087,7 +1088,8 @@ class InvoiceDetailScreen extends StatelessWidget {
     final controller = Get.find<InvoiceDetailController>();
 
     return Scaffold(
-      appBar: _buildAppBar(context, controller),
+      backgroundColor: Colors.grey.shade50,
+      appBar: _buildModernAppBar(context, controller),
       body: GetBuilder<InvoiceDetailController>(
         builder: (controller) {
           if (controller.isLoading) {
@@ -1106,7 +1108,6 @@ class InvoiceDetailScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: _buildFloatingActionButton(context, controller),
-      bottomNavigationBar: _buildBottomActions(context, controller),
     );
   }
 
@@ -1999,7 +2000,7 @@ class InvoiceDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Saldo pendiente: \$${controller.remainingBalance.toStringAsFixed(2)}',
+                  'Saldo pendiente: ${AppFormatters.formatCurrency(controller.remainingBalance)}',
                   style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
                 ),
               ],
@@ -2241,7 +2242,7 @@ class InvoiceDetailScreen extends StatelessWidget {
             ),
           ),
           Text(
-            '\$${amount.toStringAsFixed(2)}',
+            AppFormatters.formatCurrency(amount),
             style: TextStyle(
               fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
               fontSize: isTotal ? 16 : 14,
@@ -2561,5 +2562,144 @@ class InvoiceDetailScreen extends StatelessWidget {
         controller.deleteInvoice();
         break;
     }
+  }
+
+  // ==================== CLEAN APP BAR ====================
+
+  PreferredSizeWidget _buildModernAppBar(
+    BuildContext context,
+    InvoiceDetailController controller,
+  ) {
+    return AppBar(
+      backgroundColor: Theme.of(context).primaryColor,
+      foregroundColor: Colors.white,
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.2),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        onPressed: () => Get.offAllNamed(AppRoutes.invoices),
+        tooltip: 'Volver a facturas',
+      ),
+      title: GetBuilder<InvoiceDetailController>(
+        builder: (controller) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              controller.invoice?.number ?? 'Factura',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+            if (controller.hasInvoice)
+              Text(
+                controller.invoice!.customerName,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white70,
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        // Solo mostrar editar si está en borrador
+        GetBuilder<InvoiceDetailController>(
+          builder: (controller) => controller.canEdit
+              ? IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.white),
+                  onPressed: controller.goToEditInvoice,
+                  tooltip: 'Editar factura',
+                )
+              : const SizedBox.shrink(),
+        ),
+
+        // Refrescar
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          onPressed: () => controller.refreshInvoice(),
+          tooltip: 'Refrescar',
+        ),
+
+        // Menú de opciones
+        GetBuilder<InvoiceDetailController>(
+          builder: (controller) => PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onSelected: (value) => _handleMenuAction(value, context, controller),
+            itemBuilder: (context) => [
+              if (controller.canPrint)
+                const PopupMenuItem(
+                  value: 'print',
+                  child: Row(
+                    children: [
+                      Icon(Icons.print, color: Colors.green),
+                      SizedBox(width: 12),
+                      Text('Imprimir'),
+                    ],
+                  ),
+                ),
+              const PopupMenuItem(
+                value: 'share',
+                child: Row(
+                  children: [
+                    Icon(Icons.share, color: Colors.blue),
+                    SizedBox(width: 12),
+                    Text('Compartir'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'duplicate',
+                child: Row(
+                  children: [
+                    Icon(Icons.copy, color: Colors.orange),
+                    SizedBox(width: 12),
+                    Text('Duplicar'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              if (controller.canConfirm)
+                const PopupMenuItem(
+                  value: 'confirm',
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green),
+                      SizedBox(width: 12),
+                      Text('Confirmar'),
+                    ],
+                  ),
+                ),
+              if (controller.canCancel)
+                const PopupMenuItem(
+                  value: 'cancel',
+                  child: Row(
+                    children: [
+                      Icon(Icons.cancel, color: Colors.orange),
+                      SizedBox(width: 12),
+                      Text('Cancelar'),
+                    ],
+                  ),
+                ),
+              if (controller.canDelete) ...[
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text('Eliminar'),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

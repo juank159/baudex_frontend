@@ -556,14 +556,21 @@ class InvoiceListController extends GetxController {
 
   /// Configurar listener del scroll para paginación infinita
   void _setupScrollListener() {
-    scrollController.addListener(() {
-      if (scrollController.position.pixels >=
-          scrollController.position.maxScrollExtent - 200) {
-        if (hasNextPage && !_isLoadingMore.value) {
-          loadMoreInvoices();
-        }
+    if (_isControllerSafe()) {
+      try {
+        scrollController.addListener(() {
+          if (scrollController.position.pixels >=
+              scrollController.position.maxScrollExtent - 200) {
+            if (hasNextPage && !_isLoadingMore.value) {
+              loadMoreInvoices();
+            }
+          }
+        });
+        print('✅ InvoiceListController: Scroll listener agregado exitosamente');
+      } catch (e) {
+        print('❌ Error configurando scroll listener: $e');
       }
-    });
+    }
   }
 
   /// ✅ NUEVO: Método seguro para manejar cambios de búsqueda
@@ -597,7 +604,14 @@ class InvoiceListController extends GetxController {
 
   /// Configurar listener de búsqueda con debounce seguro
   void _setupSearchListener() {
-    searchController.addListener(_onSearchChanged);
+    if (_isControllerSafe()) {
+      try {
+        searchController.addListener(_onSearchChanged);
+        print('✅ InvoiceListController: Search listener agregado exitosamente');
+      } catch (e) {
+        print('❌ Error configurando search listener: $e');
+      }
+    }
   }
 
   // //Aplicar filtros locales a la lista de facturas

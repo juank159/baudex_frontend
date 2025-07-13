@@ -318,7 +318,9 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                       const SizedBox(width: 8),
                       if (product.defaultPrice != null)
                         Text(
-                          AppFormatters.formatPrice(product.defaultPrice!.finalAmount),
+                          AppFormatters.formatPrice(
+                            product.defaultPrice!.finalAmount,
+                          ),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -507,7 +509,9 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      AppFormatters.formatPrice(product.defaultPrice!.finalAmount),
+                      AppFormatters.formatPrice(
+                        product.defaultPrice!.finalAmount,
+                      ),
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -880,7 +884,6 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
         return type.toUpperCase();
     }
   }
-
 
   bool _hasDiscount(dynamic productPrice) {
     try {

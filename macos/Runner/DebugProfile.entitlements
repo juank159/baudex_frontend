@@ -8,7 +8,7 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
-	<!-- keychain-access-groups comentado temporalmente para evitar problemas de firmado -->
+	<!-- keychain-access-groups comentado para evitar problemas de firmado en desarrollo -->
 	<!-- <key>keychain-access-groups</key>
 	<array>
 		<string>$(AppIdentifierPrefix)com.example.baudex-desktop</string>
