@@ -18,7 +18,7 @@ import 'package:baudex_desktop/features/customers/presentation/controllers/custo
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_detail_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_form_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_stats_screen.dart';
-import 'package:baudex_desktop/features/customers/presentation/screens/customers_list_screen.dart';
+import 'package:baudex_desktop/features/customers/presentation/screens/modern_customers_list_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/bindings/invoice_binding.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_detail_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_screen.dart';
@@ -355,7 +355,7 @@ class AppPages {
     // ==================== CUSTOMERS PAGES ====================
     GetPage(
       name: AppRoutes.customers,
-      page: () => const CustomersListScreen(),
+      page: () => const ModernCustomersListScreen(),
       binding: CustomerBinding(), // ✅ OK - Solo necesita CustomersController
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),

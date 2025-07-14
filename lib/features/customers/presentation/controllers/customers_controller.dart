@@ -618,6 +618,13 @@ class CustomersController extends GetxController {
   void onInit() {
     super.onInit();
     _setupScrollListener();
+    print('🎯 CustomersController onInit() llamado');
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    print('🎯 CustomersController onReady() llamado - Cargando clientes...');
     _initializeData();
   }
 
@@ -640,16 +647,11 @@ class CustomersController extends GetxController {
     try {
       print('🚀 Inicializando CustomersController...');
 
-      // ✅ OPTIMIZACIÓN: NO cargar clientes automáticamente
-      // Los clientes se cargarán solo cuando se necesiten (búsquedas, listado manual)
-      print('💡 CustomersController optimizado - datos se cargarán bajo demanda');
-      
-      // Solo inicializar las listas vacías
-      _customers.clear();
-      _searchResults.clear();
+      // ✅ CARGAR CLIENTES AUTOMÁTICAMENTE al entrar a la pantalla
+      await loadCustomers();
 
       _isInitialized = true;
-      print('✅ CustomersController inicializado correctamente (modo lazy loading)');
+      print('✅ CustomersController inicializado correctamente con clientes cargados');
     } catch (e) {
       print('❌ Error al inicializar CustomersController: $e');
     }

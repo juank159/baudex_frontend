@@ -196,7 +196,9 @@ class InvoiceFormController extends GetxController {
   void onInit() {
     super.onInit();
     final instanceId = hashCode;
-    print('🚀 InvoiceFormController: Inicializando punto de venta... (Instance: $instanceId)');
+    print(
+      '🚀 InvoiceFormController: Inicializando punto de venta... (Instance: $instanceId)',
+    );
     print('📊 DEBUG: Estado inicial:');
     print('   - availableProducts: ${_availableProducts.length} items');
     print('   - invoiceItems: ${_invoiceItems.length} items');
@@ -333,11 +335,11 @@ class InvoiceFormController extends GetxController {
       print('⚡ Inicialización optimizada - No cargando todos los datos');
       print('💡 Los clientes se cargarán cuando se busquen');
       print('💡 Los productos se cargarán cuando se busquen');
-      
+
       // Solo asegurar que las listas estén limpias
       _availableCustomers.clear();
       _availableProducts.clear();
-      
+
       // Los datos se cargarán bajo demanda:
       // - Clientes: cuando el usuario use CustomerSelectorWidget
       // - Productos: cuando el usuario use ProductSearchWidget
@@ -626,7 +628,9 @@ class InvoiceFormController extends GetxController {
 
   void addOrUpdateProductToInvoice(Product product, {double quantity = 1}) {
     final instanceId = hashCode;
-    print('🛒 Procesando producto: ${product.name} (cantidad: $quantity) (Instance: $instanceId)');
+    print(
+      '🛒 Procesando producto: ${product.name} (cantidad: $quantity) (Instance: $instanceId)',
+    );
     print('📊 Estado actual antes de agregar:');
     print('   - Items en factura: ${_invoiceItems.length}');
     print('   - Productos disponibles: ${_availableProducts.length}');
@@ -717,8 +721,6 @@ class InvoiceFormController extends GetxController {
           '➕ Producto REGISTRADO agregado al inicio: ${product.name} - Precio: \$${unitPrice.toStringAsFixed(2)}',
         );
       }
-
-      _showProductAddedMessage(product.name);
     }
 
     _recalculateTotals();
@@ -732,11 +734,17 @@ class InvoiceFormController extends GetxController {
 
     if (existingIndex == -1) {
       _availableProducts.add(product);
-      print('📦 Producto agregado a lista disponible: ${product.name} (Instance: $instanceId)');
-      print('📊 Total productos en esta instancia: ${_availableProducts.length}');
+      print(
+        '📦 Producto agregado a lista disponible: ${product.name} (Instance: $instanceId)',
+      );
+      print(
+        '📊 Total productos en esta instancia: ${_availableProducts.length}',
+      );
     } else {
       _availableProducts[existingIndex] = product;
-      print('📦 Producto actualizado en lista disponible: ${product.name} (Instance: $instanceId)');
+      print(
+        '📦 Producto actualizado en lista disponible: ${product.name} (Instance: $instanceId)',
+      );
     }
   }
 
@@ -1738,45 +1746,6 @@ class InvoiceFormController extends GetxController {
       margin: const EdgeInsets.all(8),
     );
   }
-
-  // void _showProductAddedMessage(String productName) {
-  //   Get.snackbar(
-  //     'Producto Agregado',
-  //     productName,
-  //     snackPosition: SnackPosition.TOP,
-  //     backgroundColor: Colors.green.shade100,
-  //     colorText: Colors.green.shade800,
-  //     icon: const Icon(Icons.check_circle, color: Colors.green),
-  //     duration: const Duration(seconds: 1),
-  //     margin: const EdgeInsets.all(8),
-  //   );
-  // }
-
-  void _showProductAddedMessage(String productName) {
-    Get.snackbar(
-      'Producto Agregado',
-      '$productName - Agregado al inicio de la lista',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.green.shade100,
-      colorText: Colors.green.shade800,
-      icon: const Icon(Icons.check_circle, color: Colors.green),
-      duration: const Duration(seconds: 2),
-      margin: const EdgeInsets.all(8),
-    );
-  }
-
-  // void _showProductUpdatedMessage(String productName, double newQuantity) {
-  //   Get.snackbar(
-  //     'Cantidad Actualizada',
-  //     '$productName (${newQuantity.toInt()} unidades)',
-  //     snackPosition: SnackPosition.TOP,
-  //     backgroundColor: Colors.blue.shade100,
-  //     colorText: Colors.blue.shade800,
-  //     icon: const Icon(Icons.add_circle, color: Colors.blue),
-  //     duration: const Duration(seconds: 1),
-  //     margin: const EdgeInsets.all(8),
-  //   );
-  // }
 
   void _showProductUpdatedMessage(String productName, double newQuantity) {
     Get.snackbar(

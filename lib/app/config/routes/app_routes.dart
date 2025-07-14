@@ -93,6 +93,7 @@ abstract class AppRoutes {
 
   // ==================== INVOICES ROUTES ====================
   static const String invoices = '/invoices';
+  static const String invoicesWithTabs = '/invoices/tabs';
   static const String invoicesCreate = '/invoices/create';
   static const String invoicesEdit = '/invoices/edit';
   static const String invoicesDetail = '/invoices/detail';
@@ -112,7 +113,6 @@ abstract class AppRoutes {
   static const String settings = '/settings';
   static const String settingsPrinter = '/settings/printer';
   static const String settingsInvoices = '/settings/invoices';
-  static const String invoicesWithTabs = '/invoices/tabs';
 
   // Error Routes
   static const String notFound = '/404';

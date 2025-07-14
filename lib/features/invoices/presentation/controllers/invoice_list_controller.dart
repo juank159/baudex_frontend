@@ -64,7 +64,7 @@ class InvoiceListController extends GetxController {
   // Controllers
   final searchController = TextEditingController();
   final scrollController = ScrollController();
-  
+
   // ✅ NUEVO: Timer para debounce de búsqueda
   Timer? _searchDebounceTimer;
 
@@ -123,36 +123,36 @@ class InvoiceListController extends GetxController {
   @override
   void onClose() {
     print('🔚 InvoiceListController: Liberando recursos...');
-    
+
     try {
       // ✅ CRÍTICO: Cancelar timer de debounce antes de liberar recursos
       _searchDebounceTimer?.cancel();
       _searchDebounceTimer = null;
-      
+
       // ✅ CRÍTICO: Remover listeners antes de dispose para evitar errores
       // Solo remover si el controlador aún está activo
       if (_isControllerSafe()) {
         searchController.removeListener(_onSearchChanged);
       }
-      
+
       // Liberar controladores de forma segura
       try {
         searchController.dispose();
       } catch (e) {
         print('⚠️ Error al liberar searchController: $e');
       }
-      
+
       try {
         scrollController.dispose();
       } catch (e) {
         print('⚠️ Error al liberar scrollController: $e');
       }
-      
+
       print('✅ InvoiceListController: Recursos liberados exitosamente');
     } catch (e) {
       print('❌ Error durante onClose: $e');
     }
-    
+
     super.onClose();
   }
 
@@ -399,12 +399,14 @@ class InvoiceListController extends GetxController {
       _minAmount.value = null;
       _maxAmount.value = null;
       _searchQuery.value = '';
-      
+
       // ✅ CRÍTICO: Verificar que el controlador esté activo antes de limpiar
       if (_isControllerSafe()) {
         searchController.clear();
       } else {
-        print('⚠️ InvoiceListController: No se puede limpiar searchController (disposed)');
+        print(
+          '⚠️ InvoiceListController: No se puede limpiar searchController (disposed)',
+        );
       }
 
       print('🧹 InvoiceListController: Filtros limpiados');
@@ -534,7 +536,7 @@ class InvoiceListController extends GetxController {
 
   /// Navegar a crear factura
   void goToCreateInvoice() {
-    Get.toNamed('/invoices/create');
+    Get.toNamed('/invoices/tabs');
   }
 
   /// Navegar a editar factura
@@ -577,16 +579,18 @@ class InvoiceListController extends GetxController {
   void _onSearchChanged() {
     // Verificar que el controlador no haya sido disposed
     if (!_isControllerSafe()) {
-      print('⚠️ InvoiceListController: SearchController disposed, cancelando búsqueda');
+      print(
+        '⚠️ InvoiceListController: SearchController disposed, cancelando búsqueda',
+      );
       return;
     }
-    
+
     try {
       final query = searchController.text;
       if (query != _searchQuery.value) {
         // Cancelar timer anterior si existe
         _searchDebounceTimer?.cancel();
-        
+
         // Crear nuevo timer con debounce de 500ms
         _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
           // Verificar de nuevo que el controlador siga activo
@@ -689,14 +693,18 @@ class InvoiceListController extends GetxController {
       // Intentar encontrar el controlador de estadísticas
       if (Get.isRegistered<InvoiceStatsController>()) {
         final statsController = Get.find<InvoiceStatsController>();
-        print('📊 InvoiceListController: Cargando estadísticas automáticamente');
-        
+        print(
+          '📊 InvoiceListController: Cargando estadísticas automáticamente',
+        );
+
         // Cargar estadísticas en el siguiente frame para evitar conflictos
         Future.microtask(() {
           statsController.refreshAllData();
         });
       } else {
-        print('⚠️ InvoiceListController: Controlador de estadísticas no encontrado');
+        print(
+          '⚠️ InvoiceListController: Controlador de estadísticas no encontrado',
+        );
       }
     } catch (e) {
       print('💥 Error al cargar estadísticas automáticamente: $e');
@@ -709,7 +717,7 @@ class InvoiceListController extends GetxController {
     await refreshInvoices();
     _loadInvoiceStatsIfAvailable();
   }
-  
+
   /// ✅ CRÍTICO: Verificar que el controller esté disponible y no disposed
   bool _isControllerSafe() {
     try {
@@ -719,7 +727,9 @@ class InvoiceListController extends GetxController {
       return true;
     } catch (e) {
       // Si hay una excepción, el controller fue disposed
-      print('⚠️ InvoiceListController: SearchController disposed detectado - $e');
+      print(
+        '⚠️ InvoiceListController: SearchController disposed detectado - $e',
+      );
       return false;
     }
   }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
@@ -12,6 +13,9 @@ import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/product_form_controller.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
+import '../widgets/compact_text_field.dart';
+import '../widgets/unit_selector_widget.dart';
+import '../widgets/modern_selector_widget.dart';
 
 // Importa la pantalla del escáner de código de barras
 import 'package:baudex_desktop/app/shared/screens/barcode_scanner_screen.dart';
@@ -64,7 +68,8 @@ class ProductFormScreen extends GetView<ProductFormController> {
 
     return Scaffold(
       appBar: _buildAppBar(context),
-      resizeToAvoidBottomInset: false, // ✅ Evita que los botones se oculten con el teclado
+      resizeToAvoidBottomInset:
+          false, // ✅ Evita que los botones se oculten con el teclado
       body: GetBuilder<ProductFormController>(
         builder: (controller) {
           print(
@@ -91,74 +96,94 @@ class ProductFormScreen extends GetView<ProductFormController> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final isMobile = ResponsiveHelper.isMobile(context);
+
     return AppBar(
-      title: GetBuilder<ProductFormController>(
-        builder: (controller) => Text(controller.pageTitle),
-      ),
+      backgroundColor: Theme.of(context).primaryColor,
+      foregroundColor: Colors.white,
       elevation: 0,
+      centerTitle: false,
+      title: GetBuilder<ProductFormController>(
+        builder:
+            (controller) => Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    controller.isEditMode ? Icons.edit : Icons.add,
+                    size: isMobile ? 18 : 20,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    controller.pageTitle,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: isMobile ? 16 : 18,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+      ),
       actions: [
-        // Previsualizar - Solo en desktop/tablet
-        if (!context.isMobile)
+        // Previsualizar - Solo desktop/tablet
+        if (!isMobile)
           IconButton(
-            icon: const Icon(Icons.preview),
-            onPressed: () {
-              try {
-                controller.previewProduct();
-              } catch (e) {
-                print('❌ Error en previsualizar: $e');
-              }
-            },
-            tooltip: 'Previsualizar',
+            onPressed: () => controller.previewProduct(),
+            icon: const Icon(Icons.visibility, size: 20),
+            tooltip: 'Vista previa',
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.1),
+              foregroundColor: Colors.white,
+            ),
           ),
 
-        // Limpiar formulario - Solo mostrar si NO es modo edición
-        if (!context.isMobile)
-          GetBuilder<ProductFormController>(
-            builder: (controller) {
-              if (!controller.isEditMode) {
-                return IconButton(
-                  icon: const Icon(Icons.clear_all),
-                  onPressed: () => _showClearConfirmation(context),
-                  tooltip: 'Limpiar formulario',
-                );
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-
-
-        // Menú de opciones - Responsive
+        // Menú compacto
         PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, size: 20),
           onSelected: (value) => _handleMenuAction(value, context),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white.withOpacity(0.1),
+            foregroundColor: Colors.white,
+          ),
           itemBuilder:
               (context) => [
+                if (!controller.isEditMode)
+                  const PopupMenuItem(
+                    value: 'clear',
+                    child: Row(
+                      children: [
+                        Icon(Icons.refresh, size: 18),
+                        SizedBox(width: 12),
+                        Text('Limpiar'),
+                      ],
+                    ),
+                  ),
                 const PopupMenuItem(
-                  value: 'clear',
+                  value: 'generate_sku',
                   child: Row(
                     children: [
-                      Icon(Icons.clear_all),
-                      SizedBox(width: 8),
-                      Text('Limpiar Formulario'),
+                      Icon(Icons.auto_fix_high, size: 18),
+                      SizedBox(width: 12),
+                      Text('Generar SKU'),
                     ],
                   ),
                 ),
                 const PopupMenuItem(
-                  value: 'preview',
+                  value: 'scan_barcode',
                   child: Row(
                     children: [
-                      Icon(Icons.preview),
-                      SizedBox(width: 8),
-                      Text('Previsualizar'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'calculator',
-                  child: Row(
-                    children: [
-                      Icon(Icons.calculate),
-                      SizedBox(width: 8),
-                      Text('Calculadora'),
+                      Icon(Icons.qr_code_scanner, size: 18),
+                      SizedBox(width: 12),
+                      Text('Escanear código'),
                     ],
                   ),
                 ),
@@ -186,14 +211,14 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   _buildStockSection(context),
                   SizedBox(height: context.verticalSpacing),
 
-                  // Dimensiones en móvil
-                  _buildDimensionsSection(context),
-                  SizedBox(height: context.verticalSpacing),
-
                   // Precios
                   _buildPricesSection(context),
                   // Espaciado adicional para el teclado
                   SizedBox(height: context.verticalSpacing * 3),
+
+                  // Dimensiones en móvil
+                  _buildDimensionsSection(context),
+                  SizedBox(height: context.verticalSpacing),
                 ],
               ),
             ),
@@ -385,12 +410,12 @@ class ProductFormScreen extends GetView<ProductFormController> {
         ),
         SizedBox(height: context.verticalSpacing),
 
-        // Nombre del producto
-        CustomTextField(
+        // Nombre del producto - Compacto
+        CompactTextField(
           controller: controller.nameController,
-          label: 'Nombre del Producto *',
+          label: 'Nombre del Producto',
           hint: 'Ingresa el nombre del producto',
-          prefixIcon: Icons.inventory_2,
+          isRequired: true,
           validator: (value) {
             if (value?.trim().isEmpty ?? true) {
               return 'El nombre es requerido';
@@ -645,12 +670,14 @@ class ProductFormScreen extends GetView<ProductFormController> {
         ],
         SizedBox(height: context.verticalSpacing),
 
-        // Unidad de medida
-        CustomTextField(
-          controller: controller.unitController,
-          label: 'Unidad de Medida',
-          hint: 'pcs, kg, m, etc.',
-          prefixIcon: Icons.straighten,
+        // Unidad de medida - Selector moderno
+        GetBuilder<ProductFormController>(
+          builder:
+              (controller) => EnhancedUnitSelectorWidget(
+                value: controller.selectedUnit,
+                onChanged: (unit) => controller.setSelectedUnit(unit),
+                isRequired: false,
+              ),
         ),
       ],
     );
@@ -1320,22 +1347,25 @@ class ProductFormScreen extends GetView<ProductFormController> {
             Expanded(
               flex: 2,
               child: GetBuilder<ProductFormController>(
-                builder: (controller) => CustomButton(
-                  text: controller.isSaving
-                      ? 'Guardando...'
-                      : controller.saveButtonText,
-                  icon: controller.isEditMode ? Icons.update : Icons.save,
-                  onPressed: controller.isSaving
-                      ? null
-                      : () {
-                        try {
-                          controller.saveProduct();
-                        } catch (e) {
-                          print('❌ Error al guardar: $e');
-                        }
-                      },
-                  isLoading: controller.isSaving,
-                ),
+                builder:
+                    (controller) => CustomButton(
+                      text:
+                          controller.isSaving
+                              ? 'Guardando...'
+                              : controller.saveButtonText,
+                      icon: controller.isEditMode ? Icons.update : Icons.save,
+                      onPressed:
+                          controller.isSaving
+                              ? null
+                              : () {
+                                try {
+                                  controller.saveProduct();
+                                } catch (e) {
+                                  print('❌ Error al guardar: $e');
+                                }
+                              },
+                      isLoading: controller.isSaving,
+                    ),
               ),
             ),
           ],
@@ -1415,9 +1445,28 @@ class ProductFormScreen extends GetView<ProductFormController> {
         case 'calculator':
           controller.showPriceCalculator();
           break;
+        case 'generate_sku':
+          controller.generateSku();
+          break;
+        case 'scan_barcode':
+          _scanBarcode(context);
+          break;
       }
     } catch (e) {
       print('❌ Error en acción del menú: $e');
+    }
+  }
+
+  Future<void> _scanBarcode(BuildContext context) async {
+    try {
+      final scannedCode = await Get.to<String>(
+        () => const BarcodeScannerScreen(),
+      );
+      if (scannedCode != null) {
+        controller.barcodeController.text = scannedCode;
+      }
+    } catch (e) {
+      print('❌ Error al escanear código: $e');
     }
   }
 

@@ -560,7 +560,7 @@ Widget _buildCompactStatsSection(BuildContext context) {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
-            childAspectRatio: 1.8,
+            childAspectRatio: 1.3,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
             children: [
@@ -603,39 +603,104 @@ Widget _buildCompactStatItem(
   IconData icon,
   Color color,
 ) {
-  return Container(
-    padding: const EdgeInsets.all(8),
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: color.withOpacity(0.2)),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: color, size: 16),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      // 🎯 RESPONSIVE DESIGN PROFESIONAL PARA DESKTOP
+      final screenWidth = MediaQuery.of(context).size.width;
+      final cardWidth = constraints.maxWidth;
+      final cardHeight = constraints.maxHeight;
+      
+      // Escalado inteligente basado en tamaño de pantalla
+      final scale = (screenWidth / 1920).clamp(0.7, 1.5); // Base 1920px
+      
+      // Tamaños responsivos profesionales
+      final iconSize = (cardWidth * 0.14 * scale).clamp(16.0, 20.0);
+      final fontSize = (cardWidth * 0.22 * scale).clamp(14.0, 16.0);
+      final labelSize = (cardWidth * 0.12 * scale).clamp(10.0, 11.0);
+      final padding = (cardWidth * 0.12).clamp(8.0, 12.0);
+      final spacing = (cardHeight * 0.06).clamp(2.0, 4.0);
+      
+      return Container(
+        width: cardWidth,
+        height: cardHeight,
+        padding: EdgeInsets.all(padding),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.25), width: 1.0),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            // Icono con fondo elegante
+            Container(
+              padding: EdgeInsets.all(spacing * 0.8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                icon, 
+                color: color, 
+                size: iconSize,
+              ),
+            ),
+            
+            SizedBox(height: spacing),
+            
+            // Número prominente con auto-escalado
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                      letterSpacing: -0.5,
+                      height: 1.0,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
+              ),
+            ),
+            
+            SizedBox(height: spacing * 0.5),
+            
+            // Label elegante
+            Expanded(
+              flex: 1,
+              child: Center(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: labelSize,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
+      );
+    },
   );
 }
 

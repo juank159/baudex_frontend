@@ -166,7 +166,7 @@ class AuthController extends GetxController {
 
           print('🔧 AuthController: Navegando al dashboard...');
           // Navegar al dashboard
-          Get.offAllNamed(AppRoutes.dashboard);
+          Get.offAllNamed(AppRoutes.invoicesWithTabs);
         },
       );
     } catch (e) {

@@ -45,20 +45,24 @@ class ProductCardWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: isSelected ? 8 : 2,
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      elevation: isSelected ? 4 : 0.5,
+      margin: EdgeInsets.symmetric(
+        vertical: ResponsiveHelper.isMobile(context) ? 1 : 1.5,
+      ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         side:
             isSelected
-                ? BorderSide(color: Theme.of(context).primaryColor, width: 2)
+                ? BorderSide(color: Theme.of(context).primaryColor, width: 1.5)
                 : BorderSide.none,
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         child: Padding(
-          padding: ResponsiveHelper.getPadding(context),
+          padding: ResponsiveHelper.isMobile(context) 
+              ? const EdgeInsets.all(4)  // 75% reducción para móviles
+              : const EdgeInsets.all(7),  // 40% reducción para desktop
           child:
               ResponsiveHelper.isMobile(context)
                   ? _buildMobileLayout(context)
@@ -76,8 +80,8 @@ class ProductCardWidget extends StatelessWidget {
         Row(
           children: [
             // Imagen del producto
-            _buildProductImage(context, 60),
-            const SizedBox(width: 12),
+            _buildProductImage(context, ResponsiveHelper.isMobile(context) ? 25 : 45),
+            SizedBox(width: ResponsiveHelper.isMobile(context) ? 4 : 8),
 
             // Información principal
             Expanded(
@@ -86,20 +90,15 @@ class ProductCardWidget extends StatelessWidget {
                 children: [
                   Text(
                     product.name,
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: TextStyle(
+                      fontSize: ResponsiveHelper.isMobile(context) ? 12 : 13,  // Aumentado para móvil, mantenido desktop
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: Colors.black,  // Asegurar color negro en ambos
                     ),
-                    maxLines: 2,
+                    maxLines: ResponsiveHelper.isMobile(context) ? 2 : 1,  // Más líneas en móvil
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'SKU: ${product.sku}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: ResponsiveHelper.isMobile(context) ? 2 : 3),  // Más espacio
                   Row(
                     children: [
                       _buildStockChip(context),
@@ -119,7 +118,7 @@ class ProductCardWidget extends StatelessWidget {
                   Text(
                     AppFormatters.formatPrice(price.finalAmount),
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: ResponsiveHelper.isMobile(context) ? 8 : 13,  // 50% vs 20% reducción
                       fontWeight: FontWeight.bold,
                       color: Colors.green.shade700,
                     ),
@@ -128,7 +127,7 @@ class ProductCardWidget extends StatelessWidget {
                     Text(
                       AppFormatters.formatPrice(price.amount),
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: ResponsiveHelper.isMobile(context) ? 5 : 8,  // 50% vs 20% reducción
                         decoration: TextDecoration.lineThrough,
                         color: Colors.grey.shade500,
                       ),
@@ -136,7 +135,10 @@ class ProductCardWidget extends StatelessWidget {
                 ] else
                   Text(
                     'Sin precio',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    style: TextStyle(
+                      fontSize: ResponsiveHelper.isMobile(context) ? 5 : 8, 
+                      color: Colors.grey.shade500,
+                    ),
                   ),
               ],
             ),
@@ -144,27 +146,27 @@ class ProductCardWidget extends StatelessWidget {
         ),
 
         // Información adicional
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
         Row(
           children: [
             Expanded(
               child: Text(
                 // ✅ CANTIDAD FORMATEADA
                 'Stock: ${AppFormatters.formatNumber(product.stock)} ${product.unit ?? "pcs"}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               ),
             ),
             if (product.category != null)
               Text(
                 product.category!.name,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               ),
           ],
         ),
 
         // Acciones
         if (showActions) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _buildActions(context),
         ],
       ],
@@ -177,8 +179,8 @@ class ProductCardWidget extends StatelessWidget {
     return Row(
       children: [
         // Imagen del producto
-        _buildProductImage(context, 80),
-        const SizedBox(width: 16),
+        _buildProductImage(context, 48),  // 40% menos que 80
+        const SizedBox(width: 10),  // 40% menos que 16
 
         // Información principal
         Expanded(
@@ -189,34 +191,31 @@ class ProductCardWidget extends StatelessWidget {
               Text(
                 product.name,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 13,  // Aumentado para mejor visibilidad
                   fontWeight: FontWeight.bold,
+                  color: Colors.black,  // Asegurar color negro en desktop
                 ),
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
-              Text(
-                'SKU: ${product.sku}',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-              ),
+              const SizedBox(height: 3),  // Más espacio sin SKU
               if (product.description != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),  // 50% menos que 4
                 Text(
                   product.description!,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 7, color: Colors.grey.shade500),  // 40% menos que 12
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: 5),  // 40% menos que 8
               Row(
                 children: [
                   _buildStockChip(context),
                   const SizedBox(width: 8),
                   _buildStatusChip(context),
                   if (product.category != null) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 5),  // 40% menos que 8
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -229,7 +228,7 @@ class ProductCardWidget extends StatelessWidget {
                       child: Text(
                         product.category!.name,
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 6,  // 40% menos que 10
                           color: Colors.blue.shade700,
                           fontWeight: FontWeight.w500,
                         ),
@@ -250,7 +249,7 @@ class ProductCardWidget extends StatelessWidget {
               Text(
                 'Stock Actual',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 7,  // 40% menos que 12
                   color: Colors.grey.shade600,
                   fontWeight: FontWeight.w500,
                 ),
@@ -260,7 +259,7 @@ class ProductCardWidget extends StatelessWidget {
                 // ✅ CANTIDAD FORMATEADA
                 AppFormatters.formatNumber(product.stock),
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: _getStockColor(),
                 ),
@@ -282,7 +281,7 @@ class ProductCardWidget extends StatelessWidget {
                 // ✅ USA EL NOMBRE DEL PRECIO ENCONTRADO
                 price?.type.displayName ?? 'Precio',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 7,  // 40% menos que 12
                   color: Colors.grey.shade600,
                   fontWeight: FontWeight.w500,
                 ),
@@ -302,7 +301,7 @@ class ProductCardWidget extends StatelessWidget {
                   Text(
                     AppFormatters.formatPrice(price.amount),
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 10,
                       decoration: TextDecoration.lineThrough,
                       color: Colors.grey.shade500,
                     ),
@@ -353,15 +352,18 @@ class ProductCardWidget extends StatelessWidget {
     String stockText = _getStockText();
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveHelper.isMobile(context) ? 3 : 6, 
+        vertical: ResponsiveHelper.isMobile(context) ? 1 : 1.5,
+      ),
       decoration: BoxDecoration(
         color: stockColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(ResponsiveHelper.isMobile(context) ? 6 : 8),
       ),
       child: Text(
         stockText,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: ResponsiveHelper.isMobile(context) ? 5 : 8,  // 50% vs 20% reducción
           color: stockColor,
           fontWeight: FontWeight.bold,
         ),
@@ -371,16 +373,19 @@ class ProductCardWidget extends StatelessWidget {
 
   Widget _buildStatusChip(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveHelper.isMobile(context) ? 3 : 6, 
+        vertical: ResponsiveHelper.isMobile(context) ? 1 : 1.5,
+      ),
       decoration: BoxDecoration(
         color:
             product.isActive ? Colors.green.shade100 : Colors.orange.shade100,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(ResponsiveHelper.isMobile(context) ? 6 : 8),
       ),
       child: Text(
         product.isActive ? 'ACTIVO' : 'INACTIVO',
         style: TextStyle(
-          fontSize: 10,
+          fontSize: ResponsiveHelper.isMobile(context) ? 5 : 8,  // 50% vs 20% reducción
           color:
               product.isActive ? Colors.green.shade700 : Colors.orange.shade700,
           fontWeight: FontWeight.bold,
@@ -394,44 +399,30 @@ class ProductCardWidget extends StatelessWidget {
       return Row(
         children: [
           Expanded(
-            child: CustomButton(
-              text: 'Editar',
-              icon: Icons.edit,
-              type: ButtonType.outline,
+            child: IconButton(
+              icon: const Icon(Icons.edit, size: 16),
               onPressed: onEdit,
-              fontSize: ResponsiveHelper.getFontSize(
-                context,
-                mobile: 11,
-                tablet: 12,
-                desktop: 12,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.blue.shade50,
+                foregroundColor: Colors.blue.shade700,
+                minimumSize: Size(ResponsiveHelper.isMobile(context) ? 24 : 28, ResponsiveHelper.isMobile(context) ? 24 : 28),
+                padding: EdgeInsets.zero,
               ),
-              height: ResponsiveHelper.getHeight(
-                context,
-                mobile: 32,
-                tablet: 36,
-                desktop: 36,
-              ),
+              tooltip: 'Editar',
             ),
           ),
           SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
           Expanded(
-            child: CustomButton(
-              text: 'Eliminar',
-              icon: Icons.delete,
-              backgroundColor: Colors.red,
+            child: IconButton(
+              icon: const Icon(Icons.delete, size: 16),
               onPressed: onDelete,
-              fontSize: ResponsiveHelper.getFontSize(
-                context,
-                mobile: 11,
-                tablet: 12,
-                desktop: 12,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.red.shade50,
+                foregroundColor: Colors.red.shade700,
+                minimumSize: Size(ResponsiveHelper.isMobile(context) ? 24 : 28, ResponsiveHelper.isMobile(context) ? 24 : 28),
+                padding: EdgeInsets.zero,
               ),
-              height: ResponsiveHelper.getHeight(
-                context,
-                mobile: 32,
-                tablet: 36,
-                desktop: 36,
-              ),
+              tooltip: 'Eliminar',
             ),
           ),
         ],
@@ -441,45 +432,31 @@ class ProductCardWidget extends StatelessWidget {
         children: [
           SizedBox(
             width: double.infinity,
-            child: CustomButton(
-              text: 'Editar',
-              icon: Icons.edit,
-              type: ButtonType.outline,
+            child: IconButton(
+              icon: const Icon(Icons.edit, size: 20),
               onPressed: onEdit,
-              fontSize: ResponsiveHelper.getFontSize(
-                context,
-                mobile: 11,
-                tablet: 12,
-                desktop: 12,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.blue.shade50,
+                foregroundColor: Colors.blue.shade700,
+                minimumSize: const Size(32, 32),
+                padding: EdgeInsets.zero,
               ),
-              height: ResponsiveHelper.getHeight(
-                context,
-                mobile: 28,
-                tablet: 32,
-                desktop: 32,
-              ),
+              tooltip: 'Editar',
             ),
           ),
           SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) / 2),
           SizedBox(
             width: double.infinity,
-            child: CustomButton(
-              text: 'Eliminar',
-              icon: Icons.delete,
-              backgroundColor: Colors.red,
+            child: IconButton(
+              icon: const Icon(Icons.delete, size: 20),
               onPressed: onDelete,
-              fontSize: ResponsiveHelper.getFontSize(
-                context,
-                mobile: 11,
-                tablet: 12,
-                desktop: 12,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.red.shade50,
+                foregroundColor: Colors.red.shade700,
+                minimumSize: const Size(32, 32),
+                padding: EdgeInsets.zero,
               ),
-              height: ResponsiveHelper.getHeight(
-                context,
-                mobile: 28,
-                tablet: 32,
-                desktop: 32,
-              ),
+              tooltip: 'Eliminar',
             ),
           ),
         ],

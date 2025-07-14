@@ -80,15 +80,9 @@ class DashboardScreen extends GetView<AuthController> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                flex: 3,
-                child: _buildRecentActivity(context),
-              ),
+              Expanded(flex: 3, child: _buildRecentActivity(context)),
               SizedBox(width: context.horizontalSpacing),
-              Expanded(
-                flex: 1,
-                child: _buildQuickActions(context),
-              ),
+              Expanded(flex: 1, child: _buildQuickActions(context)),
             ],
           ),
         ],
@@ -145,10 +139,7 @@ class DashboardScreen extends GetView<AuthController> {
       onPressed: () => _showComingSoon('Notificaciones'),
       icon: Stack(
         children: [
-          Icon(
-            Icons.notifications_outlined,
-            size: context.isMobile ? 22 : 24,
-          ),
+          Icon(Icons.notifications_outlined, size: context.isMobile ? 22 : 24),
           Positioned(
             right: 0,
             top: 0,
@@ -158,10 +149,7 @@ class DashboardScreen extends GetView<AuthController> {
                 color: Colors.red,
                 shape: BoxShape.circle,
               ),
-              constraints: const BoxConstraints(
-                minWidth: 10,
-                minHeight: 10,
-              ),
+              constraints: const BoxConstraints(minWidth: 10, minHeight: 10),
               child: const Text(
                 '3',
                 style: TextStyle(
@@ -197,22 +185,24 @@ class DashboardScreen extends GetView<AuthController> {
               CircleAvatar(
                 radius: 16,
                 backgroundColor: Theme.of(context).primaryColor,
-                backgroundImage: controller.currentUser?.avatar != null
-                    ? NetworkImage(controller.currentUser!.avatar!)
-                    : null,
-                child: controller.currentUser?.avatar == null
-                    ? Text(
-                        controller.currentUser?.firstName
-                                .substring(0, 1)
-                                .toUpperCase() ??
-                            'U',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      )
-                    : null,
+                backgroundImage:
+                    controller.currentUser?.avatar != null
+                        ? NetworkImage(controller.currentUser!.avatar!)
+                        : null,
+                child:
+                    controller.currentUser?.avatar == null
+                        ? Text(
+                          controller.currentUser?.firstName
+                                  .substring(0, 1)
+                                  .toUpperCase() ??
+                              'U',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        )
+                        : null,
               ),
               if (!context.isMobile) ...[
                 const SizedBox(width: 8),
@@ -229,7 +219,9 @@ class DashboardScreen extends GetView<AuthController> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      _getRoleText(controller.currentUser?.role.value ?? 'user'),
+                      _getRoleText(
+                        controller.currentUser?.role.value ?? 'user',
+                      ),
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -248,32 +240,30 @@ class DashboardScreen extends GetView<AuthController> {
             ],
           ),
         ),
-        itemBuilder: (context) => [
-          const PopupMenuItem(
-            value: 'profile',
-            child: Row(
-              children: [
-                Icon(Icons.person_outline, size: 20),
-                SizedBox(width: 12),
-                Text('Mi Perfil'),
-              ],
-            ),
-          ),
-          const PopupMenuDivider(),
-          const PopupMenuItem(
-            value: 'logout',
-            child: Row(
-              children: [
-                Icon(Icons.logout, color: Colors.red, size: 20),
-                SizedBox(width: 12),
-                Text(
-                  'Cerrar Sesión',
-                  style: TextStyle(color: Colors.red),
+        itemBuilder:
+            (context) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 20),
+                    SizedBox(width: 12),
+                    Text('Mi Perfil'),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red, size: 20),
+                    SizedBox(width: 12),
+                    Text('Cerrar Sesión', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
       ),
     );
   }
@@ -336,7 +326,9 @@ class DashboardScreen extends GetView<AuthController> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    color: Theme.of(
+                      context,
+                    ).primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
@@ -469,7 +461,7 @@ class DashboardScreen extends GetView<AuthController> {
         title: 'Nueva Factura',
         icon: Icons.receipt_long,
         color: Colors.orange,
-        route: AppRoutes.invoicesCreate,
+        route: AppRoutes.invoicesWithTabs,
       ),
       _QuickAction(
         title: 'Agregar Producto',
@@ -489,12 +481,7 @@ class DashboardScreen extends GetView<AuthController> {
         color: Colors.purple,
         route: AppRoutes.customersCreate,
       ),
-      _QuickAction(
-        title: 'Facturas con Pestañas',
-        icon: Icons.tab,
-        color: Colors.teal,
-        route: AppRoutes.invoicesWithTabs,
-      ),
+
       _QuickAction(
         title: 'Ver Reportes',
         icon: Icons.analytics,
@@ -531,10 +518,12 @@ class DashboardScreen extends GetView<AuthController> {
             ],
           ),
           const SizedBox(height: 16),
-          ...actions.map((action) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _buildActionButton(context, action),
-              )),
+          ...actions.map(
+            (action) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _buildActionButton(context, action),
+            ),
+          ),
         ],
       ),
     );
@@ -647,7 +636,9 @@ class DashboardScreen extends GetView<AuthController> {
             ],
           ),
           const SizedBox(height: 16),
-          ...activities.map((activity) => _buildActivityItem(context, activity)),
+          ...activities.map(
+            (activity) => _buildActivityItem(context, activity),
+          ),
         ],
       ),
     );
@@ -664,11 +655,7 @@ class DashboardScreen extends GetView<AuthController> {
               color: activity.color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              activity.icon,
-              color: activity.color,
-              size: 16,
-            ),
+            child: Icon(activity.icon, color: activity.color, size: 16),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -685,10 +672,7 @@ class DashboardScreen extends GetView<AuthController> {
                 ),
                 Text(
                   activity.subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -696,10 +680,7 @@ class DashboardScreen extends GetView<AuthController> {
           ),
           Text(
             activity.time,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade500,
-            ),
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -787,7 +768,7 @@ class DashboardScreen extends GetView<AuthController> {
                       borderRadius: BorderRadius.circular(50),
                     ),
                     child: const Icon(
-                      Icons.business,
+                      Icons.shopping_cart,
                       color: Colors.white,
                       size: 32,
                     ),
@@ -812,7 +793,7 @@ class DashboardScreen extends GetView<AuthController> {
               ),
             ),
           ),
-          
+
           // Menu items
           Expanded(
             child: ListView(
@@ -832,7 +813,7 @@ class DashboardScreen extends GetView<AuthController> {
                 ),
                 _buildDrawerItem(
                   icon: Icons.tab,
-                  title: 'Facturas con Pestañas',
+                  title: 'Crear Facturas',
                   route: AppRoutes.invoicesWithTabs,
                   context: context,
                 ),
@@ -870,7 +851,7 @@ class DashboardScreen extends GetView<AuthController> {
               ],
             ),
           ),
-          
+
           // Footer
           Container(
             padding: const EdgeInsets.all(16),
@@ -881,7 +862,9 @@ class DashboardScreen extends GetView<AuthController> {
                   const Divider(),
                   ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                      backgroundColor: Theme.of(
+                        context,
+                      ).primaryColor.withValues(alpha: 0.1),
                       child: Icon(
                         Icons.person,
                         color: Theme.of(context).primaryColor,
@@ -910,20 +893,20 @@ class DashboardScreen extends GetView<AuthController> {
     required BuildContext context,
   }) {
     final isSelected = Get.currentRoute == route;
-    
+
     return ListTile(
       leading: Icon(
         icon,
-        color: isSelected 
-          ? Theme.of(context).primaryColor 
-          : Colors.grey.shade600,
+        color:
+            isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600,
       ),
       title: Text(
         title,
         style: TextStyle(
-          color: isSelected 
-            ? Theme.of(context).primaryColor 
-            : Colors.grey.shade800,
+          color:
+              isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade800,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),

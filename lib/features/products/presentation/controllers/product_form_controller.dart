@@ -17,6 +17,8 @@ import '../../../../app/core/utils/formatters.dart';
 // ✅ IMPORT PARA CONTROLLERS QUE NECESITAN REFRESH
 import 'products_controller.dart';
 import 'product_detail_controller.dart';
+// ✅ IMPORT PARA UNIDADES DE MEDIDA
+import '../widgets/unit_selector_widget.dart';
 
 class ProductFormController extends GetxController {
   // Dependencies
@@ -54,6 +56,7 @@ class ProductFormController extends GetxController {
       Rxn<String>(); // ✅ NUEVO: Para mostrar el nombre
   final _productType = ProductType.product.obs;
   final _productStatus = ProductStatus.active.obs;
+  final _selectedUnit = Rxn<MeasurementUnit>(); // ✅ NUEVO: Unidad de medida
 
   // ✅ NUEVO: Lista de categorías disponibles
   final _availableCategories = <Category>[].obs;
@@ -97,6 +100,7 @@ class ProductFormController extends GetxController {
   ProductType get productType => _productType.value;
   ProductStatus get productStatus => _productStatus.value;
   List<Category> get availableCategories => _availableCategories; // ✅ NUEVO
+  MeasurementUnit? get selectedUnit => _selectedUnit.value; // ✅ NUEVO
 
   String get productId => Get.parameters['id'] ?? '';
   bool get isEditMode => productId.isNotEmpty;
@@ -168,7 +172,8 @@ class ProductFormController extends GetxController {
 
     stockController.text = '0';
     minStockController.text = '0';
-    unitController.text = 'pcs';
+    // ✅ UNIDAD POR DEFECTO
+    _selectedUnit.value = MeasurementUnit.pieces;
 
     // Configurar valores por defecto para los observables
     _productType.value = ProductType.product;
@@ -640,10 +645,7 @@ class ProductFormController extends GetxController {
         status: _productStatus.value,
         stock: AppFormatters.parseNumber(stockController.text) ?? 0,
         minStock: AppFormatters.parseNumber(minStockController.text) ?? 0,
-        unit:
-            unitController.text.trim().isEmpty
-                ? null
-                : unitController.text.trim(),
+        unit: _selectedUnit.value?.shortName,
         weight: AppFormatters.parseNumber(weightController.text),
         length: AppFormatters.parseNumber(lengthController.text),
         width: AppFormatters.parseNumber(widthController.text),
@@ -798,10 +800,7 @@ class ProductFormController extends GetxController {
           status: _productStatus.value,
           stock: AppFormatters.parseNumber(stockController.text) ?? 0,
           minStock: AppFormatters.parseNumber(minStockController.text) ?? 0,
-          unit:
-              unitController.text.trim().isEmpty
-                  ? null
-                  : unitController.text.trim(),
+          unit: _selectedUnit.value?.shortName,
           weight: AppFormatters.parseNumber(weightController.text),
           length: AppFormatters.parseNumber(lengthController.text),
           width: AppFormatters.parseNumber(widthController.text),
@@ -892,7 +891,10 @@ class ProductFormController extends GetxController {
     barcodeController.text = product.barcode ?? '';
     stockController.text = AppFormatters.formatNumber(product.stock);
     minStockController.text = AppFormatters.formatNumber(product.minStock);
-    unitController.text = product.unit ?? '';
+    
+    // ✅ CARGAR UNIDAD DE MEDIDA
+    _loadUnitFromProduct(product);
+    
     weightController.text = product.weight?.toString() ?? '';
     lengthController.text = product.length?.toString() ?? '';
     widthController.text = product.width?.toString() ?? '';
@@ -1523,5 +1525,34 @@ class ProductFormController extends GetxController {
       icon: const Icon(Icons.info, color: Colors.blue),
       duration: const Duration(seconds: 3),
     );
+  }
+
+  // ==================== UNIDAD DE MEDIDA ====================
+
+  /// Establecer unidad de medida seleccionada
+  void setSelectedUnit(MeasurementUnit? unit) {
+    _selectedUnit.value = unit;
+    print('🎯 ProductFormController: Unidad seleccionada: ${unit?.displayName}');
+    update();
+  }
+
+  /// Obtener el texto de la unidad para mostrar en campos
+  String get unitDisplayText {
+    return _selectedUnit.value?.shortName ?? 'pcs';
+  }
+
+  /// Cargar unidad desde el producto existente
+  void _loadUnitFromProduct(Product product) {
+    if (product.unit != null) {
+      final unit = getMeasurementUnitFromShortName(product.unit!);
+      if (unit != null) {
+        _selectedUnit.value = unit;
+        print('🔧 ProductFormController: Unidad cargada desde producto: ${unit.displayName}');
+      } else {
+        // Si no se encuentra la unidad, mantener el texto original en el controller
+        unitController.text = product.unit!;
+        print('⚠️ ProductFormController: Unidad no reconocida: ${product.unit}');
+      }
+    }
   }
 }
