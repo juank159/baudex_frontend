@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/shared/widgets/app_scaffold.dart';
+import '../../../../app/config/routes/app_routes.dart';
 import '../controllers/invoice_tabs_controller.dart';
 import '../controllers/invoice_form_controller.dart';
 import 'invoice_form_screen.dart';
@@ -91,10 +93,10 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
   @override
   Widget build(BuildContext context) {
     return Obx(
-      () => Scaffold(
+      () => AppScaffold(
+        currentRoute: AppRoutes.invoicesWithTabs,
         appBar: _buildAppBar(),
         body: _buildTabContent(),
-        drawer: _buildGlobalDrawer(),
       ),
     );
   }
@@ -103,7 +105,14 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     return AppBar(
       title: const Text('Facturas'),
       elevation: 0,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: Theme.of(context).primaryColor,
+      foregroundColor: Colors.white,
+      iconTheme: const IconThemeData(color: Colors.white),
+      titleTextStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+      ),
       bottom: _buildTabBar(),
       actions: [
         // Botón para nueva pestaña
@@ -126,7 +135,11 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                   value: 'duplicate',
                   child: Row(
                     children: [
-                      Icon(Icons.content_copy, size: 16),
+                      Icon(
+                        Icons.content_copy,
+                        size: 16,
+                        color: Colors.lightBlue,
+                      ),
                       SizedBox(width: 8),
                       Text('Duplicar Pestaña'),
                     ],
@@ -136,7 +149,7 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                   value: 'close_others',
                   child: Row(
                     children: [
-                      Icon(Icons.close_fullscreen, size: 16),
+                      Icon(Icons.close_fullscreen, size: 16, color: Colors.red),
                       SizedBox(width: 8),
                       Text('Cerrar Otras'),
                     ],
@@ -147,13 +160,20 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                   value: 'shortcuts',
                   child: Row(
                     children: [
-                      Icon(Icons.keyboard, size: 16),
+                      Icon(Icons.keyboard, size: 16, color: Colors.green),
                       SizedBox(width: 8),
                       Text('Ver Atajos'),
                     ],
                   ),
                 ),
               ],
+        ),
+
+        // Botón de configuraciones (movido aquí desde el drawer izquierdo)
+        IconButton(
+          icon: const Icon(Icons.settings),
+          tooltip: 'Configuraciones',
+          onPressed: () => _showConfigurationsMenu(context),
         ),
       ],
     );
@@ -171,6 +191,10 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
           controller: tabsController.tabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
           tabs:
               tabsController.tabs.map((tab) {
                 return _buildTabWidget(tab);
@@ -221,11 +245,7 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                 child: Container(
                   margin: const EdgeInsets.only(left: 4),
                   padding: const EdgeInsets.all(2),
-                  child: Icon(
-                    Icons.close,
-                    size: 14,
-                    color: Colors.grey.shade600,
-                  ),
+                  child: Icon(Icons.close, size: 14, color: Colors.white70),
                 ),
               ),
           ],
@@ -253,79 +273,180 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     });
   }
 
-  Widget _buildGlobalDrawer() {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
+  void _showConfigurationsMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder:
+          (context) => DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.6,
+            maxChildSize: 0.9,
+            minChildSize: 0.3,
+            builder:
+                (context, scrollController) =>
+                    _buildConfigurationsSheet(context, scrollController),
+          ),
+    );
+  }
+
+  Widget _buildConfigurationsSheet(
+    BuildContext context,
+    ScrollController scrollController,
+  ) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
         children: [
-          DrawerHeader(
-            decoration: BoxDecoration(color: Theme.of(context).primaryColor),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Handle para arrastrar
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).primaryColor,
+                  Theme.of(context).primaryColor.withOpacity(0.8),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+            ),
+            child: Row(
               children: [
-                Icon(Icons.settings, color: Colors.white, size: 32),
-                SizedBox(height: 8),
-                Text(
-                  'Configuraciones',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                const Icon(Icons.settings, color: Colors.white, size: 24),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Configuraciones',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                Text(
-                  'Sistema de Punto de Venta',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, color: Colors.white),
                 ),
               ],
             ),
           ),
 
-          // Configuración de impresora
-          ListTile(
-            leading: const Icon(Icons.print),
-            title: const Text('Configuración de Impresora'),
-            subtitle: const Text('Configurar impresora térmica'),
-            onTap: () => _showPrinterSettings(),
-          ),
+          // Contenido
+          Expanded(
+            child: ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildConfigurationTile(
+                  icon: Icons.print,
+                  title: 'Configuración de Impresora',
+                  subtitle: 'Configurar impresora térmica',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showPrinterSettings();
+                  },
+                ),
 
-          // Configuración de facturas
-          ListTile(
-            leading: const Icon(Icons.receipt_long),
-            title: const Text('Configuración de Facturas'),
-            subtitle: const Text('Formato y numeración'),
-            onTap: () => _showInvoiceSettings(),
-          ),
+                _buildConfigurationTile(
+                  icon: Icons.receipt_long,
+                  title: 'Configuración de Facturas',
+                  subtitle: 'Formato y numeración',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showInvoiceSettings();
+                  },
+                ),
 
-          // Configuración de pestañas
-          Obx(
-            () => ListTile(
-              leading: const Icon(Icons.tab),
-              title: const Text('Gestión de Pestañas'),
-              subtitle: Text('${tabsController.tabs.length} pestañas abiertas'),
-              onTap: () => _showTabsManagement(),
+                Obx(
+                  () => _buildConfigurationTile(
+                    icon: Icons.tab,
+                    title: 'Gestión de Pestañas',
+                    subtitle: '${tabsController.tabs.length} pestañas abiertas',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showTabsManagement();
+                    },
+                  ),
+                ),
+
+                const Divider(height: 32),
+
+                _buildConfigurationTile(
+                  icon: Icons.info,
+                  title: 'Información del Sistema',
+                  subtitle: 'Estado y estadísticas',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showSystemInfo();
+                  },
+                ),
+
+                _buildConfigurationTile(
+                  icon: Icons.keyboard,
+                  title: 'Atajos de Teclado',
+                  subtitle: 'Ver lista completa',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showKeyboardShortcuts(fromDrawer: true);
+                  },
+                ),
+              ],
             ),
-          ),
-
-          const Divider(),
-
-          // Información del sistema
-          ListTile(
-            leading: const Icon(Icons.info),
-            title: const Text('Información del Sistema'),
-            onTap: () => _showSystemInfo(),
-          ),
-
-          // Atajos de teclado
-          ListTile(
-            leading: const Icon(Icons.keyboard),
-            title: const Text('Atajos de Teclado'),
-            onTap: () => _showKeyboardShortcuts(fromDrawer: true),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildConfigurationTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Theme.of(context).primaryColor),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  // ==================== DRAWER ELIMINADO ====================
+  // El drawer de configuraciones ahora es un BottomSheet accesible desde el AppBar
 
   void _handleMenuAction(String action) {
     switch (action) {
@@ -340,7 +461,6 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
         break;
     }
   }
-
 
   void _showPrinterSettings() {
     Navigator.pop(context); // Cerrar drawer
@@ -1267,10 +1387,7 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                 padding: EdgeInsets.all(context.isMobile ? 20 : 24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      Colors.indigo.shade600,
-                      Colors.indigo.shade500,
-                    ],
+                    colors: [Colors.indigo.shade600, Colors.indigo.shade500],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

@@ -155,12 +155,12 @@ class InvoiceDetailController extends GetxController {
           update(); // ✅ AGREGAR ESTA LÍNEA PARA FORZAR ACTUALIZACIÓN DE UI
           print('✅ Factura cargada: ${loadedInvoice.number}');
           print('🔍 RUTA ACTUAL AL FINALIZAR CARGA: ${Get.currentRoute}');
-          
+
           // ✅ VERIFICACIÓN: Agregar delay para detectar redirects inesperados
           Future.delayed(const Duration(milliseconds: 500), () {
             print('🔍 RUTA DESPUÉS DE 500ms: ${Get.currentRoute}');
           });
-          
+
           Future.delayed(const Duration(milliseconds: 1000), () {
             print('🔍 RUTA DESPUÉS DE 1000ms: ${Get.currentRoute}');
           });
@@ -1215,7 +1215,7 @@ class InvoiceDetailController extends GetxController {
   void duplicateInvoice() {
     if (invoice == null) return;
 
-    Get.toNamed('/invoices/create', parameters: {'duplicate_from': invoiceId});
+    Get.toNamed('/invoices/tabs', parameters: {'duplicate_from': invoiceId});
   }
 
   // ==================== VALIDATION METHODS ====================

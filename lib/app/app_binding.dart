@@ -105,6 +105,9 @@ import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_b
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customers_usecase.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/search_customers_usecase.dart';
 
+// ==================== SHARED UI IMPORTS ====================
+import 'package:baudex_desktop/app/shared/controllers/app_drawer_controller.dart';
+
 // ==================== PRODUCT IMPORTS ====================
 // TODO: Descomentar cuando tengas ProductBinding
 // import 'package:baudex_desktop/features/products/presentation/bindings/product_binding.dart';
@@ -120,6 +123,9 @@ class InitialBinding implements Bindings {
 
     // ==================== CORE DEPENDENCIES ====================
     _registerCoreDependencies();
+
+    // ==================== SHARED UI CONTROLLERS ====================
+    _registerSharedUIControllers();
 
     // ==================== AUTH MODULE ====================
     _registerAuthModule();
@@ -151,6 +157,25 @@ class InitialBinding implements Bindings {
     );
 
     print('✅ Dependencias core registradas');
+  }
+
+  /// Registrar controladores compartidos de UI
+  void _registerSharedUIControllers() {
+    print('🎨 Registrando controladores de UI compartidos...');
+
+    try {
+      // AppDrawer Controller (global para navegación)
+      Get.lazyPut<AppDrawerController>(
+        () => AppDrawerController(),
+        fenix: true,
+      );
+
+      print('✅ Controladores de UI compartidos registrados');
+      print('   - AppDrawerController: ✅');
+    } catch (e) {
+      print('❌ Error registrando controladores de UI: $e');
+      rethrow;
+    }
   }
 
   /// Registrar módulo de autenticación

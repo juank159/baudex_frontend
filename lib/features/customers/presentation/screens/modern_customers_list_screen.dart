@@ -5,6 +5,8 @@ import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/app_scaffold.dart';
+import '../../../../app/config/routes/app_routes.dart';
 import '../controllers/customers_controller.dart';
 import '../controllers/customer_stats_controller.dart';
 import '../widgets/modern_customer_card_widget.dart';
@@ -20,7 +22,8 @@ class ModernCustomersListScreen extends GetView<CustomersController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
+      currentRoute: AppRoutes.customers,
       appBar: _buildModernAppBar(context),
       body: ResponsiveHelper.isMobile(context)
           ? _buildMobileLayout(context)

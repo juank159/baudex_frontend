@@ -1,10 +1,10 @@
-// ✨ BAUDEX DASHBOARD - Versión Moderna y Depurada
 // lib/app/shared/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../config/routes/app_routes.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/widgets/custom_card.dart';
+import '../../shared/widgets/app_scaffold.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 
 class DashboardScreen extends GetView<AuthController> {
@@ -12,10 +12,9 @@ class DashboardScreen extends GetView<AuthController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+    return AppScaffold(
+      currentRoute: AppRoutes.dashboard,
       appBar: _buildAppBar(context),
-      drawer: _buildDrawer(context),
       body: ResponsiveLayout(
         mobile: _buildMobileLayout(context),
         tablet: _buildTabletLayout(context),
@@ -95,18 +94,20 @@ class DashboardScreen extends GetView<AuthController> {
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       elevation: 0,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).primaryColor,
+      foregroundColor: Colors.white,
+      iconTheme: const IconThemeData(color: Colors.white),
       title: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.dashboard_rounded,
-              color: Theme.of(context).primaryColor,
+              color: Colors.white,
               size: 24,
             ),
           ),
@@ -114,6 +115,7 @@ class DashboardScreen extends GetView<AuthController> {
           Text(
             'Dashboard',
             style: TextStyle(
+              color: Colors.white,
               fontWeight: FontWeight.bold,
               fontSize: Responsive.getFontSize(
                 context,
@@ -184,7 +186,7 @@ class DashboardScreen extends GetView<AuthController> {
             children: [
               CircleAvatar(
                 radius: 16,
-                backgroundColor: Theme.of(context).primaryColor,
+                backgroundColor: Theme.of(context).primaryColorDark,
                 backgroundImage:
                     controller.currentUser?.avatar != null
                         ? NetworkImage(controller.currentUser!.avatar!)
@@ -222,20 +224,13 @@ class DashboardScreen extends GetView<AuthController> {
                       _getRoleText(
                         controller.currentUser?.role.value ?? 'user',
                       ),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.white),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
                 const SizedBox(width: 4),
-                Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 18,
-                  color: Colors.grey.shade600,
-                ),
+                Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.white),
               ],
             ],
           ),
@@ -737,189 +732,8 @@ class DashboardScreen extends GetView<AuthController> {
     );
   }
 
-  // ==================== DRAWER ====================
-
-  Widget _buildDrawer(BuildContext context) {
-    return Drawer(
-      child: Column(
-        children: [
-          // Header del drawer
-          DrawerHeader(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Theme.of(context).primaryColor,
-                  Theme.of(context).primaryColor.withValues(alpha: 0.8),
-                ],
-              ),
-            ),
-            child: Container(
-              width: double.infinity,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(50),
-                    ),
-                    child: const Icon(
-                      Icons.shopping_cart,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Baudex Desktop',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Sistema de Gestión',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Menu items
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                _buildDrawerItem(
-                  icon: Icons.dashboard,
-                  title: 'Dashboard',
-                  route: AppRoutes.dashboard,
-                  context: context,
-                ),
-                _buildDrawerItem(
-                  icon: Icons.receipt_long,
-                  title: 'Facturas',
-                  route: AppRoutes.invoices,
-                  context: context,
-                ),
-                _buildDrawerItem(
-                  icon: Icons.tab,
-                  title: 'Crear Facturas',
-                  route: AppRoutes.invoicesWithTabs,
-                  context: context,
-                ),
-                _buildDrawerItem(
-                  icon: Icons.inventory,
-                  title: 'Productos',
-                  route: AppRoutes.products,
-                  context: context,
-                ),
-                _buildDrawerItem(
-                  icon: Icons.people,
-                  title: 'Clientes',
-                  route: AppRoutes.customers,
-                  context: context,
-                ),
-                _buildDrawerItem(
-                  icon: Icons.category,
-                  title: 'Categorías',
-                  route: AppRoutes.categories,
-                  context: context,
-                ),
-                const Divider(),
-                _buildDrawerItem(
-                  icon: Icons.settings,
-                  title: 'Configuración',
-                  route: AppRoutes.settings,
-                  context: context,
-                ),
-                _buildDrawerItem(
-                  icon: Icons.print,
-                  title: 'Config. Impresora',
-                  route: AppRoutes.settingsPrinter,
-                  context: context,
-                ),
-              ],
-            ),
-          ),
-
-          // Footer
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Obx(() {
-              final user = controller.currentUser;
-              return Column(
-                children: [
-                  const Divider(),
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).primaryColor.withValues(alpha: 0.1),
-                      child: Icon(
-                        Icons.person,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                    title: Text(user?.fullName ?? 'Usuario'),
-                    subtitle: Text(_getRoleText(user?.role.value ?? 'user')),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.logout, color: Colors.red),
-                      onPressed: _showLogoutDialog,
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem({
-    required IconData icon,
-    required String title,
-    required String route,
-    required BuildContext context,
-  }) {
-    final isSelected = Get.currentRoute == route;
-
-    return ListTile(
-      leading: Icon(
-        icon,
-        color:
-            isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color:
-              isSelected
-                  ? Theme.of(context).primaryColor
-                  : Colors.grey.shade800,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      selected: isSelected,
-      selectedTileColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-      onTap: () {
-        Navigator.pop(context); // Cerrar drawer
-        if (!isSelected) {
-          Get.toNamed(route);
-        }
-      },
-    );
-  }
+  // ==================== DRAWER ELIMINADO ====================
+  // El drawer ahora es manejado por AppScaffold y AppDrawer
 
   String _getRoleText(String role) {
     switch (role.toLowerCase()) {
