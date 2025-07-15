@@ -11,6 +11,7 @@ import '../../domain/entities/product.dart';
 import '../widgets/compact_text_field.dart';
 import '../widgets/unit_selector_widget.dart';
 import '../widgets/modern_category_selector.dart';
+import '../../../../app/shared/screens/barcode_scanner_screen.dart';
 
 class ModernProductFormScreen extends GetView<ProductFormController> {
   const ModernProductFormScreen({super.key});
@@ -277,11 +278,13 @@ class ModernProductFormScreen extends GetView<ProductFormController> {
               },
             ),
             const SizedBox(height: 16),
-            CompactTextField(
+            CompactActionField(
               controller: controller.barcodeController,
               label: 'Código de Barras',
               hint: 'Código de barras (opcional)',
               prefixIcon: Icons.barcode_reader,
+              actionIcon: Icons.qr_code_scanner,
+              onActionPressed: () => _scanBarcode(),
               keyboardType: TextInputType.number,
             ),
           ] else ...[
@@ -305,11 +308,13 @@ class ModernProductFormScreen extends GetView<ProductFormController> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: CompactTextField(
+                  child: CompactActionField(
                     controller: controller.barcodeController,
                     label: 'Código de Barras',
                     hint: 'Opcional',
                     prefixIcon: Icons.barcode_reader,
+                    actionIcon: Icons.qr_code_scanner,
+                    onActionPressed: () => _scanBarcode(),
                     keyboardType: TextInputType.number,
                   ),
                 ),
@@ -966,5 +971,25 @@ class ModernProductFormScreen extends GetView<ProductFormController> {
         ),
       ),
     );
+  }
+
+  Future<void> _scanBarcode() async {
+    try {
+      final scannedCode = await Get.to<String>(
+        () => const BarcodeScannerScreen(),
+      );
+      if (scannedCode != null && scannedCode.isNotEmpty) {
+        controller.barcodeController.text = scannedCode;
+      }
+    } catch (e) {
+      print('❌ Error al escanear código: $e');
+      Get.snackbar(
+        'Error',
+        'No se pudo escanear el código de barras',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
   }
 }

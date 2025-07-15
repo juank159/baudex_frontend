@@ -343,10 +343,13 @@ class CompactActionField extends StatelessWidget {
   final IconData? prefixIcon;
   final IconData actionIcon;
   final VoidCallback onActionPressed;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
   final String? Function(String?)? validator;
   final bool isRequired;
   final bool enabled;
   final FocusNode? focusNode;
+  final Function(String)? onChanged;
 
   const CompactActionField({
     super.key,
@@ -356,10 +359,13 @@ class CompactActionField extends StatelessWidget {
     required this.onActionPressed,
     this.hint,
     this.prefixIcon,
+    this.keyboardType,
+    this.inputFormatters,
     this.validator,
     this.isRequired = false,
     this.enabled = true,
     this.focusNode,
+    this.onChanged,
   });
 
   @override
@@ -371,10 +377,13 @@ class CompactActionField extends StatelessWidget {
       prefixIcon: prefixIcon,
       suffixIcon: actionIcon,
       onSuffixIconPressed: onActionPressed,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       validator: validator,
       isRequired: isRequired,
       enabled: enabled,
       focusNode: focusNode,
+      onChanged: onChanged,
     );
   }
 }
