@@ -43,7 +43,11 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
 
   @override
   void dispose() {
-    ServicesBinding.instance.keyboard.removeHandler(_handleGlobalKeyEvent);
+    try {
+      ServicesBinding.instance.keyboard.removeHandler(_handleGlobalKeyEvent);
+    } catch (e) {
+      print('Error removing keyboard handler: $e');
+    }
     super.dispose();
   }
 
@@ -92,13 +96,15 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () => AppScaffold(
+    return Obx(() {
+      if (!mounted) return const SizedBox.shrink();
+
+      return AppScaffold(
         currentRoute: AppRoutes.invoicesWithTabs,
         appBar: _buildAppBar(),
         body: _buildTabContent(),
-      ),
-    );
+      );
+    });
   }
 
   PreferredSizeWidget _buildAppBar() {
@@ -274,6 +280,8 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
   }
 
   void _showConfigurationsMenu(BuildContext context) {
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -463,226 +471,273 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
   }
 
   void _showPrinterSettings() {
-    Navigator.pop(context); // Cerrar drawer
-    Get.toNamed('/settings/printer');
+    if (!mounted) return;
+
+    showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Configuración de Impresora'),
+              content: const Text(
+                'Función en desarrollo. Pronto estará disponible.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cerrar'),
+                ),
+              ],
+            ),
+      );
   }
 
   void _showInvoiceSettings() {
-    Navigator.pop(context);
-    Get.toNamed('/settings/invoices');
+    if (!mounted) return;
+
+    showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Configuración de Facturas'),
+              content: const Text(
+                'Función en desarrollo. Pronto estará disponible.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cerrar'),
+                ),
+              ],
+            ),
+      );
   }
 
   void _showTabsManagement() {
-    Navigator.pop(context);
     _showTabsDialog();
   }
 
   void _showSystemInfo() {
-    Navigator.pop(context);
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: context.isMobile ? double.infinity : 500,
-            maxHeight:
-                context.isMobile
-                    ? MediaQuery.of(context).size.height * 0.7
-                    : 600,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header elegante con gradiente
-              Container(
-                padding: EdgeInsets.all(context.isMobile ? 20 : 24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.indigo.shade600, Colors.indigo.shade500],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
+    if (!mounted) return;
+
+    showDialog(
+        context: context,
+        builder:
+            (context) => Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: context.isMobile ? double.infinity : 500,
+                  maxHeight:
+                      context.isMobile
+                          ? MediaQuery.of(context).size.height * 0.7
+                          : 600,
                 ),
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Header elegante con gradiente
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: EdgeInsets.all(context.isMobile ? 20 : 24),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.indigo.shade600,
+                            Colors.indigo.shade500,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.info,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text(
-                            'Información del Sistema',
-                            style: TextStyle(
-                              fontSize: Responsive.getFontSize(
-                                context,
-                                mobile: 18,
-                                tablet: 20,
-                                desktop: 22,
-                              ),
-                              fontWeight: FontWeight.bold,
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.info,
                               color: Colors.white,
+                              size: 24,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Estado actual del punto de venta',
-                            style: TextStyle(
-                              fontSize: Responsive.getFontSize(
-                                context,
-                                mobile: 12,
-                                tablet: 13,
-                                desktop: 14,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Información del Sistema',
+                                  style: TextStyle(
+                                    fontSize: Responsive.getFontSize(
+                                      context,
+                                      mobile: 18,
+                                      tablet: 20,
+                                      desktop: 22,
+                                    ),
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Estado actual del punto de venta',
+                                  style: TextStyle(
+                                    fontSize: Responsive.getFontSize(
+                                      context,
+                                      mobile: 12,
+                                      tablet: 13,
+                                      desktop: 14,
+                                    ),
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.white.withOpacity(0.2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              color: Colors.white.withOpacity(0.9),
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Get.back(),
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Contenido
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(context.isMobile ? 16 : 24),
-                  child: Obx(
-                    () => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Card de pestañas
-                        _buildInfoCard(
-                          context,
-                          title: 'Gestión de Pestañas',
-                          icon: Icons.tab,
-                          color: Colors.blue,
-                          items: [
-                            _InfoItem(
-                              'Pestañas abiertas',
-                              '${tabsController.tabs.length}',
-                            ),
-                            _InfoItem(
-                              'Máximo permitido',
-                              '${InvoiceTabsController.maxTabs}',
-                            ),
-                            _InfoItem(
-                              'Pestañas disponibles',
-                              '${InvoiceTabsController.maxTabs - tabsController.tabs.length}',
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: context.verticalSpacing),
-                        // Card de aplicación
-                        _buildInfoCard(
-                          context,
-                          title: 'Información de la Aplicación',
-                          icon: Icons.apps,
-                          color: Colors.green,
-                          items: [
-                            _InfoItem('Versión', '1.0.0'),
-                            _InfoItem('Build', 'DEV'),
-                            _InfoItem('Plataforma', 'Flutter Desktop'),
-                            _InfoItem('Estado', 'Activo'),
-                          ],
-                        ),
-                        SizedBox(height: context.verticalSpacing),
-                        // Card de rendimiento
-                        _buildInfoCard(
-                          context,
-                          title: 'Rendimiento del Sistema',
-                          icon: Icons.speed,
-                          color: Colors.orange,
-                          items: [
-                            _InfoItem(
-                              'Memoria utilizada',
-                              '${(tabsController.tabs.length * 15).toStringAsFixed(1)} MB',
-                            ),
-                            _InfoItem(
-                              'Facturas en memoria',
-                              '${tabsController.tabs.where((tab) => tab.controller.invoiceItems.isNotEmpty).length}',
-                            ),
-                            _InfoItem('Estado de conexión', 'Conectado'),
-                          ],
-                        ),
-                        SizedBox(height: context.verticalSpacing),
-                        // Información adicional
-                        Container(
-                          padding: EdgeInsets.all(context.isMobile ? 12 : 16),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.cyan.shade50,
-                                Colors.cyan.shade100,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.cyan.shade200),
-                          ),
-                          child: Row(
+                    // Contenido
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(context.isMobile ? 16 : 24),
+                        child: Obx(
+                          () => Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.tips_and_updates,
-                                color: Colors.cyan.shade600,
-                                size: context.isMobile ? 20 : 24,
+                              // Card de pestañas
+                              _buildInfoCard(
+                                context,
+                                title: 'Gestión de Pestañas',
+                                icon: Icons.tab,
+                                color: Colors.blue,
+                                items: [
+                                  _InfoItem(
+                                    'Pestañas abiertas',
+                                    '${tabsController.tabs.length}',
+                                  ),
+                                  _InfoItem(
+                                    'Máximo permitido',
+                                    '${InvoiceTabsController.maxTabs}',
+                                  ),
+                                  _InfoItem(
+                                    'Pestañas disponibles',
+                                    '${InvoiceTabsController.maxTabs - tabsController.tabs.length}',
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              SizedBox(height: context.verticalSpacing),
+                              // Card de aplicación
+                              _buildInfoCard(
+                                context,
+                                title: 'Información de la Aplicación',
+                                icon: Icons.apps,
+                                color: Colors.green,
+                                items: [
+                                  _InfoItem('Versión', '1.0.0'),
+                                  _InfoItem('Build', 'DEV'),
+                                  _InfoItem('Plataforma', 'Flutter Desktop'),
+                                  _InfoItem('Estado', 'Activo'),
+                                ],
+                              ),
+                              SizedBox(height: context.verticalSpacing),
+                              // Card de rendimiento
+                              _buildInfoCard(
+                                context,
+                                title: 'Rendimiento del Sistema',
+                                icon: Icons.speed,
+                                color: Colors.orange,
+                                items: [
+                                  _InfoItem(
+                                    'Memoria utilizada',
+                                    '${(tabsController.tabs.length * 15).toStringAsFixed(1)} MB',
+                                  ),
+                                  _InfoItem(
+                                    'Facturas en memoria',
+                                    '${tabsController.tabs.where((tab) => tab.controller.invoiceItems.isNotEmpty).length}',
+                                  ),
+                                  _InfoItem('Estado de conexión', 'Conectado'),
+                                ],
+                              ),
+                              SizedBox(height: context.verticalSpacing),
+                              // Información adicional
+                              Container(
+                                padding: EdgeInsets.all(
+                                  context.isMobile ? 12 : 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.cyan.shade50,
+                                      Colors.cyan.shade100,
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.cyan.shade200,
+                                  ),
+                                ),
+                                child: Row(
                                   children: [
-                                    Text(
-                                      '💻 Información del Sistema',
-                                      style: TextStyle(
-                                        fontSize: Responsive.getFontSize(
-                                          context,
-                                          mobile: 13,
-                                          tablet: 14,
-                                          desktop: 15,
-                                        ),
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.cyan.shade800,
-                                      ),
+                                    Icon(
+                                      Icons.tips_and_updates,
+                                      color: Colors.cyan.shade600,
+                                      size: context.isMobile ? 20 : 24,
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'El sistema está funcionando correctamente. Para obtener el mejor rendimiento, mantén menos de 5 pestañas abiertas.',
-                                      style: TextStyle(
-                                        fontSize: Responsive.getFontSize(
-                                          context,
-                                          mobile: 11,
-                                          tablet: 12,
-                                          desktop: 13,
-                                        ),
-                                        color: Colors.cyan.shade700,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '💻 Información del Sistema',
+                                            style: TextStyle(
+                                              fontSize: Responsive.getFontSize(
+                                                context,
+                                                mobile: 13,
+                                                tablet: 14,
+                                                desktop: 15,
+                                              ),
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.cyan.shade800,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'El sistema está funcionando correctamente. Para obtener el mejor rendimiento, mantén menos de 5 pestañas abiertas.',
+                                            style: TextStyle(
+                                              fontSize: Responsive.getFontSize(
+                                                context,
+                                                mobile: 11,
+                                                tablet: 12,
+                                                desktop: 13,
+                                              ),
+                                              color: Colors.cyan.shade700,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
@@ -691,318 +746,331 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Footer
-              Container(
-                padding: EdgeInsets.all(context.isMobile ? 16 : 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.schedule, color: Colors.grey.shade600, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Última actualización: ${DateTime.now().toString().substring(0, 16)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontStyle: FontStyle.italic,
-                        ),
                       ),
                     ),
-                    ElevatedButton(
-                      onPressed: () => Get.back(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo.shade600,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.isMobile ? 16 : 20,
-                          vertical: context.isMobile ? 8 : 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    // Footer
+                    Container(
+                      padding: EdgeInsets.all(context.isMobile ? 16 : 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(16),
+                          bottomRight: Radius.circular(16),
                         ),
                       ),
-                      child: Text(
-                        'Cerrar',
-                        style: TextStyle(
-                          fontSize: Responsive.getFontSize(
-                            context,
-                            mobile: 13,
-                            tablet: 14,
-                            desktop: 15,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.schedule,
+                            color: Colors.grey.shade600,
+                            size: 16,
                           ),
-                          fontWeight: FontWeight.w600,
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Última actualización: ${DateTime.now().toString().substring(0, 16)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.indigo.shade600,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: context.isMobile ? 16 : 20,
+                                vertical: context.isMobile ? 8 : 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Text(
+                              'Cerrar',
+                              style: TextStyle(
+                                fontSize: Responsive.getFontSize(
+                                  context,
+                                  mobile: 13,
+                                  tablet: 14,
+                                  desktop: 15,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
+            ),
+      );
   }
 
   void _showKeyboardShortcuts({bool fromDrawer = false}) {
-    if (fromDrawer) {
-      Navigator.pop(context); // Solo cerrar drawer si viene del drawer
-    }
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: context.isMobile ? double.infinity : 600,
-            maxHeight:
-                context.isMobile
-                    ? MediaQuery.of(context).size.height * 0.8
-                    : 700,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header moderno con gradiente
-              Container(
-                padding: EdgeInsets.all(context.isMobile ? 20 : 24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(context).primaryColor,
-                      Theme.of(context).primaryColor.withOpacity(0.8),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.keyboard,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Atajos de Teclado',
-                            style: TextStyle(
-                              fontSize: Responsive.getFontSize(
-                                context,
-                                mobile: 18,
-                                tablet: 20,
-                                desktop: 22,
-                              ),
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Mejora tu productividad con estos atajos',
-                            style: TextStyle(
-                              fontSize: Responsive.getFontSize(
-                                context,
-                                mobile: 12,
-                                tablet: 13,
-                                desktop: 14,
-                              ),
-                              color: Colors.white.withOpacity(0.9),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Get.back(),
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+    if (!mounted) return;
+
+    void showDialogMethod() {
+      showDialog(
+        context: context,
+        builder:
+            (context) => Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              // Contenido con scroll
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(context.isMobile ? 16 : 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildShortcutSection(
-                        context,
-                        title: 'Gestión de Pestañas',
-                        icon: Icons.tab,
-                        color: Colors.blue,
-                        shortcuts: [
-                          _ShortcutItem(
-                            'Ctrl + T',
-                            'Nueva pestaña',
-                            Icons.add_box,
-                          ),
-                          _ShortcutItem(
-                            'Ctrl + W',
-                            'Cerrar pestaña actual',
-                            Icons.close,
-                          ),
-                          _ShortcutItem(
-                            'Ctrl + Tab',
-                            'Siguiente pestaña',
-                            Icons.keyboard_tab,
-                          ),
-                          _ShortcutItem(
-                            'Ctrl + 1-5',
-                            'Ir a pestaña específica',
-                            Icons.filter_1,
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: context.verticalSpacing),
-                      _buildShortcutSection(
-                        context,
-                        title: 'Gestión de Productos',
-                        icon: Icons.inventory_2,
-                        color: Colors.green,
-                        shortcuts: [
-                          _ShortcutItem(
-                            '↑ / ↓',
-                            'Navegar entre productos',
-                            Icons.keyboard_arrow_up,
-                          ),
-                          _ShortcutItem(
-                            'Shift + 1-9',
-                            'Incrementar cantidad',
-                            Icons.add_circle,
-                          ),
-                          _ShortcutItem(
-                            'Shift + +',
-                            'Incrementar cantidad en 1',
-                            Icons.plus_one,
-                          ),
-                          _ShortcutItem(
-                            'Shift + -',
-                            'Decrementar cantidad en 1',
-                            Icons.remove_circle,
-                          ),
-                          _ShortcutItem(
-                            'Shift + Delete',
-                            'Eliminar producto seleccionado',
-                            Icons.delete,
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: context.verticalSpacing),
-                      _buildShortcutSection(
-                        context,
-                        title: 'Procesamiento de Ventas',
-                        icon: Icons.point_of_sale,
-                        color: Colors.orange,
-                        shortcuts: [
-                          _ShortcutItem(
-                            'Shift + Enter',
-                            'Procesar venta',
-                            Icons.payment,
-                          ),
-                          _ShortcutItem(
-                            'Ctrl + D',
-                            'Duplicar producto',
-                            Icons.content_copy,
-                          ),
-                          _ShortcutItem(
-                            'Home',
-                            'Ir al primer producto',
-                            Icons.first_page,
-                          ),
-                          _ShortcutItem(
-                            'End',
-                            'Ir al último producto',
-                            Icons.last_page,
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: context.verticalSpacing),
-                      // Tip adicional
-                      Container(
-                        padding: EdgeInsets.all(context.isMobile ? 12 : 16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.purple.shade50,
-                              Colors.purple.shade100,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.purple.shade200),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: context.isMobile ? double.infinity : 600,
+                  maxHeight:
+                      context.isMobile
+                          ? MediaQuery.of(context).size.height * 0.8
+                          : 700,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header moderno con gradiente
+                    Container(
+                      padding: EdgeInsets.all(context.isMobile ? 20 : 24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Theme.of(context).primaryColor,
+                            Theme.of(context).primaryColor.withOpacity(0.8),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.lightbulb,
-                              color: Colors.purple.shade600,
-                              size: context.isMobile ? 20 : 24,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '💡 Consejo',
-                                    style: TextStyle(
-                                      fontSize: Responsive.getFontSize(
-                                        context,
-                                        mobile: 13,
-                                        tablet: 14,
-                                        desktop: 15,
-                                      ),
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.purple.shade800,
+                            child: const Icon(
+                              Icons.keyboard,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Atajos de Teclado',
+                                  style: TextStyle(
+                                    fontSize: Responsive.getFontSize(
+                                      context,
+                                      mobile: 18,
+                                      tablet: 20,
+                                      desktop: 22,
                                     ),
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Usa los atajos de teclado para trabajar más rápido y ser más productivo en tu punto de venta.',
-                                    style: TextStyle(
-                                      fontSize: Responsive.getFontSize(
-                                        context,
-                                        mobile: 11,
-                                        tablet: 12,
-                                        desktop: 13,
-                                      ),
-                                      color: Colors.purple.shade700,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Mejora tu productividad con estos atajos',
+                                  style: TextStyle(
+                                    fontSize: Responsive.getFontSize(
+                                      context,
+                                      mobile: 12,
+                                      tablet: 13,
+                                      desktop: 14,
+                                    ),
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.white.withOpacity(0.2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Contenido con scroll
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(context.isMobile ? 16 : 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildShortcutSection(
+                              context,
+                              title: 'Gestión de Pestañas',
+                              icon: Icons.tab,
+                              color: Colors.blue,
+                              shortcuts: [
+                                _ShortcutItem(
+                                  'Ctrl + T',
+                                  'Nueva pestaña',
+                                  Icons.add_box,
+                                ),
+                                _ShortcutItem(
+                                  'Ctrl + W',
+                                  'Cerrar pestaña actual',
+                                  Icons.close,
+                                ),
+                                _ShortcutItem(
+                                  'Ctrl + Tab',
+                                  'Siguiente pestaña',
+                                  Icons.keyboard_tab,
+                                ),
+                                _ShortcutItem(
+                                  'Ctrl + 1-5',
+                                  'Ir a pestaña específica',
+                                  Icons.filter_1,
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: context.verticalSpacing),
+                            _buildShortcutSection(
+                              context,
+                              title: 'Gestión de Productos',
+                              icon: Icons.inventory_2,
+                              color: Colors.green,
+                              shortcuts: [
+                                _ShortcutItem(
+                                  '↑ / ↓',
+                                  'Navegar entre productos',
+                                  Icons.keyboard_arrow_up,
+                                ),
+                                _ShortcutItem(
+                                  'Shift + 1-9',
+                                  'Incrementar cantidad',
+                                  Icons.add_circle,
+                                ),
+                                _ShortcutItem(
+                                  'Shift + +',
+                                  'Incrementar cantidad en 1',
+                                  Icons.plus_one,
+                                ),
+                                _ShortcutItem(
+                                  'Shift + -',
+                                  'Decrementar cantidad en 1',
+                                  Icons.remove_circle,
+                                ),
+                                _ShortcutItem(
+                                  'Shift + Delete',
+                                  'Eliminar producto seleccionado',
+                                  Icons.delete,
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: context.verticalSpacing),
+                            _buildShortcutSection(
+                              context,
+                              title: 'Procesamiento de Ventas',
+                              icon: Icons.point_of_sale,
+                              color: Colors.orange,
+                              shortcuts: [
+                                _ShortcutItem(
+                                  'Shift + Enter',
+                                  'Procesar venta',
+                                  Icons.payment,
+                                ),
+                                _ShortcutItem(
+                                  'Ctrl + D',
+                                  'Duplicar producto',
+                                  Icons.content_copy,
+                                ),
+                                _ShortcutItem(
+                                  'Home',
+                                  'Ir al primer producto',
+                                  Icons.first_page,
+                                ),
+                                _ShortcutItem(
+                                  'End',
+                                  'Ir al último producto',
+                                  Icons.last_page,
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: context.verticalSpacing),
+                            // Tip adicional
+                            Container(
+                              padding: EdgeInsets.all(
+                                context.isMobile ? 12 : 16,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.purple.shade50,
+                                    Colors.purple.shade100,
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.purple.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.lightbulb,
+                                    color: Colors.purple.shade600,
+                                    size: context.isMobile ? 20 : 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '💡 Consejo',
+                                          style: TextStyle(
+                                            fontSize: Responsive.getFontSize(
+                                              context,
+                                              mobile: 13,
+                                              tablet: 14,
+                                              desktop: 15,
+                                            ),
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.purple.shade800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Usa los atajos de teclado para trabajar más rápido y ser más productivo en tu punto de venta.',
+                                          style: TextStyle(
+                                            fontSize: Responsive.getFontSize(
+                                              context,
+                                              mobile: 11,
+                                              tablet: 12,
+                                              desktop: 13,
+                                            ),
+                                            color: Colors.purple.shade700,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -1011,72 +1079,72 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              // Footer con botón de acción
-              Container(
-                padding: EdgeInsets.all(context.isMobile ? 16 : 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Colors.grey.shade600,
-                      size: 16,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Presiona ESC en cualquier momento para cerrar',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontStyle: FontStyle.italic,
+                    // Footer con botón de acción
+                    Container(
+                      padding: EdgeInsets.all(context.isMobile ? 16 : 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(16),
+                          bottomRight: Radius.circular(16),
                         ),
                       ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Get.back(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.isMobile ? 16 : 20,
-                          vertical: context.isMobile ? 8 : 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'Entendido',
-                        style: TextStyle(
-                          fontSize: Responsive.getFontSize(
-                            context,
-                            mobile: 13,
-                            tablet: 14,
-                            desktop: 15,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.grey.shade600,
+                            size: 16,
                           ),
-                          fontWeight: FontWeight.w600,
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Presiona ESC en cualquier momento para cerrar',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Theme.of(context).primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: context.isMobile ? 16 : 20,
+                                vertical: context.isMobile ? 8 : 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Text(
+                              'Entendido',
+                              style: TextStyle(
+                                fontSize: Responsive.getFontSize(
+                                  context,
+                                  mobile: 13,
+                                  tablet: 14,
+                                  desktop: 15,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
+            ),
+      );
+    }
+
+    showDialogMethod();
   }
 
   Widget _buildInfoCard(
@@ -1368,103 +1436,113 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
   }
 
   void _showTabsDialog() {
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: context.isMobile ? double.infinity : 550,
-            maxHeight:
-                context.isMobile
-                    ? MediaQuery.of(context).size.height * 0.8
-                    : 650,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header elegante con gradiente
-              Container(
-                padding: EdgeInsets.all(context.isMobile ? 20 : 24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.indigo.shade600, Colors.indigo.shade500],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.tab,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Gestión de Pestañas',
-                            style: TextStyle(
-                              fontSize: Responsive.getFontSize(
-                                context,
-                                mobile: 18,
-                                tablet: 20,
-                                desktop: 22,
-                              ),
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Obx(
-                            () => Text(
-                              '${tabsController.tabs.length} pestañas abiertas de ${InvoiceTabsController.maxTabs} permitidas',
-                              style: TextStyle(
-                                fontSize: Responsive.getFontSize(
-                                  context,
-                                  mobile: 12,
-                                  tablet: 13,
-                                  desktop: 14,
-                                ),
-                                color: Colors.white.withOpacity(0.9),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Get.back(),
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: context.isMobile ? double.infinity : 550,
+                maxHeight:
+                    context.isMobile
+                        ? MediaQuery.of(context).size.height * 0.8
+                        : 650,
               ),
-              // Contenido - Lista de pestañas
-              Flexible(
-                child: Obx(
-                  () =>
-                      tabsController.tabs.isEmpty
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header elegante con gradiente
+                  Container(
+                    padding: EdgeInsets.all(context.isMobile ? 20 : 24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.indigo.shade600,
+                          Colors.indigo.shade500,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.tab,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Gestión de Pestañas',
+                                style: TextStyle(
+                                  fontSize: Responsive.getFontSize(
+                                    context,
+                                    mobile: 18,
+                                    tablet: 20,
+                                    desktop: 22,
+                                  ),
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Obx(() {
+                                if (!mounted) return const SizedBox.shrink();
+                                return Text(
+                                  '${tabsController.tabs.length} pestañas abiertas de ${InvoiceTabsController.maxTabs} permitidas',
+                                  style: TextStyle(
+                                    fontSize: Responsive.getFontSize(
+                                      context,
+                                      mobile: 12,
+                                      tablet: 13,
+                                      desktop: 14,
+                                    ),
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Contenido - Lista de pestañas
+                  Flexible(
+                    child: Obx(() {
+                      if (!mounted) return const SizedBox.shrink();
+                      return tabsController.tabs.isEmpty
                           ? _buildEmptyTabsState(context)
                           : SingleChildScrollView(
                             padding: EdgeInsets.all(context.isMobile ? 16 : 20),
@@ -1483,92 +1561,93 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                                 }).toList(),
                               ],
                             ),
-                          ),
-                ),
-              ),
-              // Footer con acciones
-              Container(
-                padding: EdgeInsets.all(context.isMobile ? 16 : 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
+                          );
+                    }),
                   ),
-                ),
-                child: Row(
-                  children: [
-                    // Botón para nueva pestaña
-                    Obx(
-                      () => ElevatedButton.icon(
-                        onPressed:
-                            tabsController.canAddMoreTabs
-                                ? () {
-                                  tabsController.addNewTab();
-                                  Get.back();
-                                }
-                                : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green.shade600,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: context.isMobile ? 12 : 16,
-                            vertical: context.isMobile ? 8 : 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: Text(
-                          'Nueva',
-                          style: TextStyle(
-                            fontSize: Responsive.getFontSize(
-                              context,
-                              mobile: 12,
-                              tablet: 13,
-                              desktop: 14,
+                  // Footer con acciones
+                  Container(
+                    padding: EdgeInsets.all(context.isMobile ? 16 : 20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(16),
+                        bottomRight: Radius.circular(16),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Botón para nueva pestaña
+                        Obx(() {
+                          if (!mounted) return const SizedBox.shrink();
+                          return ElevatedButton.icon(
+                            onPressed:
+                                tabsController.canAddMoreTabs
+                                    ? () {
+                                      tabsController.addNewTab();
+                                      Navigator.of(context).pop();
+                                    }
+                                    : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green.shade600,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: context.isMobile ? 12 : 16,
+                                vertical: context.isMobile ? 8 : 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                            fontWeight: FontWeight.w600,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: Text(
+                              'Nueva',
+                              style: TextStyle(
+                                fontSize: Responsive.getFontSize(
+                                  context,
+                                  mobile: 12,
+                                  tablet: 13,
+                                  desktop: 14,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        }),
+                        const Spacer(),
+                        // Botón cerrar
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.indigo.shade600,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.isMobile ? 16 : 20,
+                              vertical: context.isMobile ? 8 : 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'Cerrar',
+                            style: TextStyle(
+                              fontSize: Responsive.getFontSize(
+                                context,
+                                mobile: 13,
+                                tablet: 14,
+                                desktop: 15,
+                              ),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    const Spacer(),
-                    // Botón cerrar
-                    ElevatedButton(
-                      onPressed: () => Get.back(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo.shade600,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.isMobile ? 16 : 20,
-                          vertical: context.isMobile ? 8 : 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'Cerrar',
-                        style: TextStyle(
-                          fontSize: Responsive.getFontSize(
-                            context,
-                            mobile: 13,
-                            tablet: 14,
-                            desktop: 15,
-                          ),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -1655,10 +1734,21 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Obx(
-                  () => Text(
-                    'Pestañas con productos: ${tabsController.tabs.where((tab) => tab.controller.invoiceItems.isNotEmpty).length} | '
-                    'Facturas nuevas: ${tabsController.tabs.where((tab) => tab.isNewInvoice).length}',
+                Obx(() {
+                  if (!mounted) return const SizedBox.shrink();
+                  final withProducts =
+                      tabsController.tabs
+                          .where(
+                            (tab) => tab.controller.invoiceItems.isNotEmpty,
+                          )
+                          .length;
+                  final newInvoices =
+                      tabsController.tabs
+                          .where((tab) => tab.isNewInvoice)
+                          .length;
+
+                  return Text(
+                    'Con productos: $withProducts | Nuevas: $newInvoices',
                     style: TextStyle(
                       fontSize: Responsive.getFontSize(
                         context,
@@ -1668,8 +1758,8 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                       ),
                       color: Colors.blue.shade700,
                     ),
-                  ),
-                ),
+                  );
+                }),
               ],
             ),
           ),
@@ -1810,7 +1900,7 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                 : null,
         onTap: () {
           tabsController.switchToTab(index);
-          Get.back();
+          Navigator.of(context).pop();
         },
       ),
     );

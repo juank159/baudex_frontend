@@ -483,6 +483,12 @@ class DashboardScreen extends GetView<AuthController> {
         color: Colors.blue,
         onTap: () => _showComingSoon('Reportes'),
       ),
+      _QuickAction(
+        title: 'Configuraciones',
+        icon: Icons.settings,
+        color: Colors.grey.shade700,
+        onTap: () => _showConfigurationsDialog(context),
+      ),
     ];
 
     return CustomCard(
@@ -704,6 +710,211 @@ class DashboardScreen extends GetView<AuthController> {
       colorText: Colors.blue.shade800,
       icon: const Icon(Icons.info, color: Colors.blue),
       duration: const Duration(seconds: 2),
+    );
+  }
+
+  void _showConfigurationsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: context.isMobile ? double.infinity : 500,
+            maxHeight: context.isMobile 
+                ? MediaQuery.of(context).size.height * 0.7 
+                : 600,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.grey.shade700,
+                      Colors.grey.shade600,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.settings,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'Configuraciones del Sistema',
+                        style: TextStyle(
+                          fontSize: Responsive.getFontSize(
+                            context,
+                            mobile: 18,
+                            tablet: 20,
+                            desktop: 22,
+                          ),
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Content
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _buildConfigurationOption(
+                        context,
+                        title: 'Configuración de Facturas',
+                        subtitle: 'Numeración, impuestos, formatos y valores por defecto',
+                        icon: Icons.receipt_long,
+                        color: Colors.orange,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          Get.toNamed('/settings/invoice');
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _buildConfigurationOption(
+                        context,
+                        title: 'Configuración de Impresoras',
+                        subtitle: 'Impresoras USB/Red, formatos de papel y configuración térmica',
+                        icon: Icons.print,
+                        color: Colors.blue,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          Get.toNamed('/settings/printer');
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _buildConfigurationOption(
+                        context,
+                        title: 'Configuración de la Aplicación',
+                        subtitle: 'Tema, idioma, notificaciones y datos de la empresa',
+                        icon: Icons.apps,
+                        color: Colors.green,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          Get.toNamed('/settings/app');
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _buildConfigurationOption(
+                        context,
+                        title: 'Base de Datos',
+                        subtitle: 'Respaldo, importación y gestión de datos locales',
+                        icon: Icons.storage,
+                        color: Colors.purple,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          _showComingSoon('Gestión de Base de Datos');
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfigurationOption(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withOpacity(0.2)),
+          borderRadius: BorderRadius.circular(12),
+          color: color.withOpacity(0.05),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey.shade400,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

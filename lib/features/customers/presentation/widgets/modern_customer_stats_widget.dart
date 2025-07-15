@@ -378,6 +378,78 @@ class ModernCustomerStatsWidget extends StatelessWidget {
     );
   }
 
+  // Widget _buildDesktopStatCard(
+  //   String value,
+  //   String title,
+  //   String subtitle,
+  //   IconData icon,
+  //   Color color,
+  // ) {
+  //   return Container(
+  //     padding: const EdgeInsets.all(12), // Reducido aún más
+  //     decoration: BoxDecoration(
+  //       color: color.withOpacity(0.05),
+  //       borderRadius: BorderRadius.circular(10),
+  //       border: Border.all(color: color.withOpacity(0.2)),
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Row(
+  //           children: [
+  //             Container(
+  //               padding: const EdgeInsets.all(6), // Reducido
+  //               decoration: BoxDecoration(
+  //                 color: color.withOpacity(0.1),
+  //                 borderRadius: BorderRadius.circular(6),
+  //               ),
+  //               child: Icon(icon, size: 16, color: color), // Icono más pequeño
+  //             ),
+  //             const SizedBox(width: 6), // Espacio reducido
+  //             Expanded(
+  //               child: Text(
+  //                 value,
+  //                 style: TextStyle(
+  //                   fontSize: 14, // Reducido significativamente
+  //                   fontWeight: FontWeight.w700,
+  //                   color: color,
+  //                 ),
+  //                 textAlign: TextAlign.right,
+  //                 maxLines: 1,
+  //                 overflow: TextOverflow.ellipsis,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //         const SizedBox(height: 8), // Espacio reducido
+  //         Text(
+  //           title,
+  //           style: const TextStyle(
+  //             fontSize: 7, // Reducido más
+  //             fontWeight: FontWeight.w600,
+  //             color: Colors.black87,
+  //           ),
+  //           maxLines: 1,
+  //           overflow: TextOverflow.ellipsis,
+  //         ),
+  //         const SizedBox(height: 1),
+  //         Text(
+  //           subtitle,
+  //           style: TextStyle(
+  //             fontSize: 9, // Reducido más
+  //             color: Colors.grey.shade600,
+  //           ),
+  //           maxLines: 1,
+  //           overflow: TextOverflow.ellipsis,
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  /// Construye una tarjeta de estadística para la vista de escritorio.
+  ///
+  /// Todos los elementos se muestran en una única columna vertical.
   Widget _buildDesktopStatCard(
     String value,
     String title,
@@ -386,59 +458,61 @@ class ModernCustomerStatsWidget extends StatelessWidget {
     Color color,
   ) {
     return Container(
-      padding: const EdgeInsets.all(12), // Reducido aún más
+      // Estilo del contenedor principal de la tarjeta
+      padding: const EdgeInsets.all(5.0),
       decoration: BoxDecoration(
         color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10.0),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
+      // Columna principal que organiza todo verticalmente
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.center, // Alinea los hijos a la izquierda
+        mainAxisAlignment:
+            MainAxisAlignment.center, // Alinea los hijos en la parte superior
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6), // Reducido
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(icon, size: 16, color: color), // Icono más pequeño
-              ),
-              const SizedBox(width: 6), // Espacio reducido
-              Expanded(
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 14, // Reducido significativamente
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+          // 1. Ícono
+          Container(
+            padding: const EdgeInsets.all(6.0),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6.0),
+            ),
+            child: Icon(icon, size: 16, color: color),
           ),
-          const SizedBox(height: 8), // Espacio reducido
+
+          const SizedBox(height: 12.0), // Espacio vertical
+          // 2. Valor principal (ej: "1,200")
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 10, // Tamaño aumentado para más énfasis
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+
+          const SizedBox(height: 8.0), // Espacio vertical
+          // 3. Título (ej: "Ventas Totales")
           Text(
             title,
             style: const TextStyle(
-              fontSize: 7, // Reducido más
+              fontSize: 10, // Tamaño ligeramente ajustado
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 1),
+
+          const SizedBox(height: 2.0), // Pequeño espacio vertical
+          // 4. Subtítulo (ej: "Últimos 30 días")
           Text(
             subtitle,
-            style: TextStyle(
-              fontSize: 9, // Reducido más
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

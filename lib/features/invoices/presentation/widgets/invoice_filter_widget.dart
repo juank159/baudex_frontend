@@ -305,7 +305,7 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
               'Pendientes',
               Icons.schedule,
               Colors.orange,
-              () => _applyQuickFilter(InvoiceStatus.pending),
+              () => _applyQuickFilter(InvoiceStatus.pending), // Incluye parcialmente pagadas
             ),
             _buildQuickFilterCard(
               'Pagadas',

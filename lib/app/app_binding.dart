@@ -108,6 +108,9 @@ import 'package:baudex_desktop/features/customers/domain/usecases/search_custome
 // ==================== SHARED UI IMPORTS ====================
 import 'package:baudex_desktop/app/shared/controllers/app_drawer_controller.dart';
 
+// ==================== SETTINGS IMPORTS ====================
+import 'package:baudex_desktop/features/settings/presentation/bindings/settings_binding.dart';
+
 // ==================== PRODUCT IMPORTS ====================
 // TODO: Descomentar cuando tengas ProductBinding
 // import 'package:baudex_desktop/features/products/presentation/bindings/product_binding.dart';
@@ -135,6 +138,9 @@ class InitialBinding implements Bindings {
 
     // ==================== PRODUCT MODULE ====================
     _registerProductModule();
+
+    // ==================== SETTINGS MODULE ====================
+    _registerSettingsModule();
 
     // ==================== VALIDACIÓN FINAL ====================
     _validateDependencies();
@@ -298,6 +304,25 @@ class InitialBinding implements Bindings {
         '⚠️ ADVERTENCIA: InvoiceFormController usará datos mock para productos',
       );
       // En producción, podrías decidir si quieres fallar aquí o continuar
+    }
+  }
+
+  /// Registrar módulo de configuraciones
+  void _registerSettingsModule() {
+    print('⚙️ Registrando módulo de configuraciones...');
+
+    try {
+      // Inicializar SettingsBinding que incluye todas las dependencias de Settings
+      SettingsBinding().dependencies();
+
+      print('✅ Módulo de configuraciones registrado correctamente');
+      print('   - IsarService: ✅');
+      print('   - SettingsRepository: ✅');
+      print('   - SettingsController: ✅');
+    } catch (e) {
+      print('❌ Error registrando módulo de configuraciones: $e');
+      print('⚠️ ADVERTENCIA: Las configuraciones no estarán disponibles');
+      // No fallar en caso de error para no bloquear la app
     }
   }
 

@@ -94,7 +94,7 @@ class AppDrawerController extends GetxController {
         id: 'invoice_settings',
         title: 'Config. Facturas',
         icon: Icons.settings_applications,
-        route: AppRoutes.settingsInvoices,
+        route: AppRoutes.settingsInvoice,
         isInSettings: true,
       ),
       

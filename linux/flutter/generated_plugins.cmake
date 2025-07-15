@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   charset_converter
   flutter_secure_storage_linux
+  isar_flutter_libs
   printing
   url_launcher_linux
 )

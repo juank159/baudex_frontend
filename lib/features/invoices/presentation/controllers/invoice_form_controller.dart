@@ -1540,7 +1540,7 @@ class InvoiceFormController extends GetxController {
         return null;
       },
       (invoice) {
-        _showSuccessWithStatus('¡Venta procesada exitosamente!', status);
+        //_showSuccessWithStatus('¡Venta procesada exitosamente!', status);
         _prepareForNewSale();
         return invoice; // ✅ RETORNAR LA FACTURA CREADA
       },
@@ -1598,7 +1598,6 @@ class InvoiceFormController extends GetxController {
 
   void clearFormForNewSale() {
     _prepareForNewSale();
-    _showSuccess('Lista para nueva venta');
   }
 
   void _prepareForNewSale() {

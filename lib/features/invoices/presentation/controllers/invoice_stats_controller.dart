@@ -54,6 +54,9 @@ class InvoiceStatsController extends GetxController {
   int get totalInvoices => stats?.total ?? 0;
   int get draftInvoices => stats?.draft ?? 0;
   int get pendingInvoices => stats?.pending ?? 0;
+  
+  /// Facturas que requieren atención (pendientes + parcialmente pagadas)
+  int get pendingAndPartialInvoices => (stats?.pending ?? 0) + (stats?.partiallyPaid ?? 0);
   int get paidInvoices => stats?.paid ?? 0;
   int get overdueCount => stats?.overdue ?? 0;
   int get cancelledInvoices => stats?.cancelled ?? 0;
@@ -186,7 +189,7 @@ class InvoiceStatsController extends GetxController {
 
     return [
       ChartData('Borradores', draftInvoices.toDouble(), Colors.grey),
-      ChartData('Pendientes', pendingInvoices.toDouble(), Colors.orange),
+      ChartData('Pendientes', pendingAndPartialInvoices.toDouble(), Colors.orange),
       ChartData('Pagadas', paidInvoices.toDouble(), Colors.green),
       ChartData('Vencidas', overdueCount.toDouble(), Colors.red),
       ChartData('Pago Parcial', partiallyPaidInvoices.toDouble(), Colors.blue),

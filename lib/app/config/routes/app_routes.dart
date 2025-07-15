@@ -111,8 +111,10 @@ abstract class AppRoutes {
 
   // ==================== SETTINGS ROUTES ====================
   static const String settings = '/settings';
+  static const String settingsApp = '/settings/app';
+  static const String settingsInvoice = '/settings/invoice';
   static const String settingsPrinter = '/settings/printer';
-  static const String settingsInvoices = '/settings/invoices';
+  static const String settingsDatabase = '/settings/database';
 
   // Error Routes
   static const String notFound = '/404';

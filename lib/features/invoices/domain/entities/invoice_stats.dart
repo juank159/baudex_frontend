@@ -48,7 +48,7 @@ class InvoiceStats extends Equatable {
 
   double get pendingPercentage {
     if (total == 0) return 0;
-    return (pending / total) * 100;
+    return ((pending + partiallyPaid) / total) * 100;
   }
 
   double get overduePercentage {
@@ -59,6 +59,11 @@ class InvoiceStats extends Equatable {
   double get collectionRate {
     if (totalSales == 0) return 0;
     return ((totalSales - pendingAmount) / totalSales) * 100;
+  }
+
+  /// Monto total de facturas que requieren atención (pendientes + parcialmente pagadas)
+  double get pendingAndPartialAmount {
+    return pendingAmount + overdueAmount;
   }
 
   int get activeInvoices {

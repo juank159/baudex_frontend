@@ -349,7 +349,7 @@ class InvoiceListScreen extends StatelessWidget {
           final totalInvoices = controller.filteredInvoices.length;
           final pendingInvoices =
               controller.filteredInvoices
-                  .where((i) => i.status == InvoiceStatus.pending)
+                  .where((i) => i.status == InvoiceStatus.pending || i.status == InvoiceStatus.partiallyPaid)
                   .length;
           final overdueInvoices =
               controller.filteredInvoices.where((i) => i.isOverdue).length;
@@ -732,7 +732,7 @@ class InvoiceListScreen extends StatelessWidget {
         final totalInvoices = controller.filteredInvoices.length;
         final pendingInvoices =
             controller.filteredInvoices
-                .where((i) => i.status == InvoiceStatus.pending)
+                .where((i) => i.status == InvoiceStatus.pending || i.status == InvoiceStatus.partiallyPaid)
                 .length;
         final paidInvoices =
             controller.filteredInvoices

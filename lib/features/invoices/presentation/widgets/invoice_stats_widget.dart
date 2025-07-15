@@ -161,7 +161,7 @@ class InvoiceStatsWidget extends StatelessWidget {
         Expanded(
           child: _buildStatCard(
             'Pendientes',
-            controller.pendingInvoices.toString(),
+            controller.pendingAndPartialInvoices.toString(),
             Icons.schedule,
             Colors.orange,
             context,
@@ -210,7 +210,7 @@ class InvoiceStatsWidget extends StatelessWidget {
         ),
         _buildStatCard(
           'Pendientes',
-          controller.pendingInvoices.toString(),
+          controller.pendingAndPartialInvoices.toString(),
           Icons.schedule,
           Colors.orange,
           context,

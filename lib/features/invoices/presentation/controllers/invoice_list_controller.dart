@@ -170,7 +170,7 @@ class InvoiceListController extends GetxController {
           page: 1,
           limit: 20,
           search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
-          status: _selectedStatus.value,
+          status: _getServerFilterStatus(),
           paymentMethod: _selectedPaymentMethod.value,
           startDate: _startDate.value,
           endDate: _endDate.value,
@@ -266,7 +266,7 @@ class InvoiceListController extends GetxController {
           page: nextPage,
           limit: 20,
           search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
-          status: _selectedStatus.value,
+          status: _getServerFilterStatus(),
           paymentMethod: _selectedPaymentMethod.value,
           startDate: _startDate.value,
           endDate: _endDate.value,
@@ -351,10 +351,26 @@ class InvoiceListController extends GetxController {
 
   // ==================== FILTER METHODS ====================
 
+  /// Obtener el estado a enviar al servidor
+  /// Para "pending" no enviamos filtro al servidor, lo manejamos localmente
+  InvoiceStatus? _getServerFilterStatus() {
+    if (_selectedStatus.value == InvoiceStatus.pending) {
+      // No filtrar en el servidor para poder obtener tanto pending como partiallyPaid
+      return null;
+    }
+    return _selectedStatus.value;
+  }
+
   /// Aplicar filtro de estado
   void filterByStatus(InvoiceStatus? status) {
     _selectedStatus.value = status;
     print('🔧 Filtro estado: ${status?.displayName ?? "Todos"}');
+    
+    // Si se selecciona "pending", incluir también "partiallyPaid"
+    if (status == InvoiceStatus.pending) {
+      print('🔧 Filtro extendido: Incluyendo facturas parcialmente pagadas');
+    }
+    
     loadInvoices();
   }
 
@@ -633,7 +649,18 @@ class InvoiceListController extends GetxController {
 
     _filteredInvoices.value =
         _invoices.where((invoice) {
-          // Aquí puedes aplicar filtros adicionales que no se manejan en el servidor
+          // Filtro especial: Si se selecciona "pending", incluir también "partiallyPaid"
+          if (_selectedStatus.value == InvoiceStatus.pending) {
+            return invoice.status == InvoiceStatus.pending || 
+                   invoice.status == InvoiceStatus.partiallyPaid;
+          }
+          
+          // Para otros estados, aplicar filtro normal
+          if (_selectedStatus.value != null) {
+            return invoice.status == _selectedStatus.value;
+          }
+          
+          // Sin filtro de estado, mostrar todo
           return true;
         }).toList();
 

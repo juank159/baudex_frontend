@@ -28,7 +28,9 @@ import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_li
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_print_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_settings_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_stats_screen.dart';
-import 'package:baudex_desktop/features/invoices/presentation/screens/printer_settings_screen.dart';
+import 'package:baudex_desktop/features/settings/presentation/screens/printer_configuration_screen.dart';
+import 'package:baudex_desktop/features/settings/presentation/bindings/settings_binding.dart';
+import 'package:baudex_desktop/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:baudex_desktop/features/products/domain/usecases/get_products_usecase.dart';
 import 'package:baudex_desktop/features/products/presentation/bindings/product_binding.dart';
 import 'package:baudex_desktop/features/products/presentation/controllers/products_controller.dart';
@@ -624,21 +626,15 @@ class AppPages {
     // ==================== SETTINGS PAGES ====================
     GetPage(
       name: AppRoutes.settingsPrinter,
-      page: () => const PrinterSettingsScreen(),
+      page: () => const PrinterConfigurationScreen(),
       binding: BindingsBuilder(() {
-        print('🔧 [CONFIGURACIÓN IMPRESORA] Inicializando bindings...');
-
-        if (!InvoiceBinding.areBaseDependenciesRegistered()) {
-          print(
-            '📄 [CONFIGURACIÓN IMPRESORA] Registrando InvoiceBinding base...',
-          );
-          InvoiceBinding().dependencies();
-          print('✅ [CONFIGURACIÓN IMPRESORA] InvoiceBinding base registrado');
+        print('🔧 [CONFIGURACIÓN IMPRESORA] Inicializando SettingsBinding...');
+        
+        if (!Get.isRegistered<SettingsController>()) {
+          SettingsBinding().dependencies();
         }
-
-        print(
-          '✅ [CONFIGURACIÓN IMPRESORA] ThermalPrinterController disponible',
-        );
+        
+        print('✅ [CONFIGURACIÓN IMPRESORA] SettingsController disponible');
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
@@ -647,7 +643,7 @@ class AppPages {
 
     // ⚙️ CONFIGURACIÓN DE FACTURAS
     GetPage(
-      name: AppRoutes.settingsInvoices,
+      name: AppRoutes.settingsInvoice,
       page: () => const InvoiceSettingsScreen(),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
