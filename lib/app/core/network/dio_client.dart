@@ -208,7 +208,9 @@ import 'package:get/get.dart' as getx;
 import '../../config/constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
 import 'api_interceptor.dart';
+import '../../../core/network/tenant_interceptor.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
+import '../errors/exceptions.dart';
 
 class DioClient {
   late Dio _dio;
@@ -236,6 +238,9 @@ class DioClient {
 
     // Agregar interceptors
     _dio.interceptors.add(ApiInterceptor(_storageService));
+    
+    // Agregar interceptor de tenant para multitenant
+    _dio.interceptors.add(TenantInterceptor(_storageService));
 
     // Interceptor para logs en desarrollo
     if (kDebugMode) {
@@ -380,7 +385,7 @@ class DioClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return Exception(
+        return const ConnectionException(
           'Tiempo de conexión agotado. Verifica tu conexión a internet.',
         );
 
@@ -388,43 +393,47 @@ class DioClient {
         final statusCode = error.response?.statusCode;
         final message = error.response?.data?['message'] ?? 'Error desconocido';
 
+        // 🔒 CRITICAL FIX: Return ServerException with statusCode for subscription errors
+        if (statusCode == 403) {
+          print('🔒 Subscription error detected - returning ServerException with statusCode 403');
+          return ServerException(message, statusCode: 403);
+        }
+
         switch (statusCode) {
           case 400:
-            return Exception('Solicitud incorrecta: $message');
+            return ServerException('Solicitud incorrecta: $message', statusCode: 400);
           case 401:
             // Token expirado o inválido
             _handleUnauthorized();
-            return Exception('No autorizado: $message');
-          case 403:
-            return Exception('Acceso prohibido: $message');
+            return ServerException('No autorizado: $message', statusCode: 401);
           case 404:
-            return Exception('Recurso no encontrado: $message');
+            return ServerException('Recurso no encontrado: $message', statusCode: 404);
           case 409:
-            return Exception('Conflicto: $message');
+            return ServerException('Conflicto: $message', statusCode: 409);
           case 500:
-            return Exception('Error interno del servidor');
+            return const ServerException('Error interno del servidor', statusCode: 500);
           default:
-            return Exception('Error: $message');
+            return ServerException('Error: $message', statusCode: statusCode);
         }
 
       case DioExceptionType.cancel:
-        return Exception('Solicitud cancelada');
+        return const ServerException('Solicitud cancelada');
 
       case DioExceptionType.unknown:
         if (error.message?.contains('SocketException') == true) {
-          return Exception(
+          return ConnectionException(
             'Sin conexión a internet. Verifica que el servidor esté corriendo en ${ApiConstants.baseUrl}',
           );
         }
         if (error.message?.contains('No route to host') == true) {
-          return Exception(
+          return ConnectionException(
             'No se puede conectar al servidor. Verifica la URL: ${ApiConstants.baseUrl}',
           );
         }
-        return Exception('Error de conexión: ${error.message}');
+        return ConnectionException('Error de conexión: ${error.message}');
 
       default:
-        return Exception('Error desconocido: ${error.message}');
+        return ServerException('Error desconocido: ${error.message}');
     }
   }
 

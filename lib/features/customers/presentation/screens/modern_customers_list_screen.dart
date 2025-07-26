@@ -6,6 +6,7 @@ import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/app_scaffold.dart';
+import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../controllers/customers_controller.dart';
 import '../controllers/customer_stats_controller.dart';
@@ -65,10 +66,6 @@ class ModernCustomersListScreen extends GetView<CustomersController> {
             ),
           ),
         ],
-      ),
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Get.offAllNamed('/dashboard'),
       ),
       actions: [
         // Búsqueda rápida en móvil

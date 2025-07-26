@@ -4,6 +4,8 @@ import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
 import 'package:baudex_desktop/features/invoices/presentation/controllers/thermal_printer_controller.dart';
+import '../../../../app/shared/utils/subscription_error_handler.dart';
+import '../../../../app/shared/services/subscription_validation_service.dart';
 
 import 'package:baudex_desktop/features/products/domain/entities/product_price.dart';
 import 'package:dartz/dartz.dart';
@@ -1313,7 +1315,7 @@ class InvoiceFormController extends GetxController {
 
       if (success) {
         print('✅ Impresión automática exitosa');
-        _showPrintSuccess('Factura impresa exitosamente');
+        //_showPrintSuccess('Factura impresa exitosamente');
       } else {
         print('❌ Error en impresión automática');
         _showPrintError(
@@ -1343,7 +1345,7 @@ class InvoiceFormController extends GetxController {
       final success = await _thermalPrinterController.printInvoice(invoice);
 
       if (success) {
-        _showPrintSuccess('Factura impresa exitosamente');
+        //_showPrintSuccess('Factura impresa exitosamente');
       } else {
         _showPrintError(
           'Error al imprimir: ${_thermalPrinterController.lastError ?? "Error desconocido"}',
@@ -1501,6 +1503,14 @@ class InvoiceFormController extends GetxController {
 
   // ✅ MODIFICADO: Retornar la factura creada
   Future<Invoice?> _createNewInvoice(InvoiceStatus status) async {
+    // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
+    if (!SubscriptionValidationService.canCreateInvoice()) {
+      print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO creación de factura');
+      return null; // Bloquear operación
+    }
+    
+    print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con creación de factura');
+    
     final items =
         _invoiceItems
             .map(
@@ -1536,7 +1546,16 @@ class InvoiceFormController extends GetxController {
 
     return result.fold(
       (failure) {
-        _showError('Error al procesar venta', failure.message);
+        // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
+        final handled = SubscriptionErrorHandler.handleFailure(
+          failure,
+          context: 'crear factura',
+        );
+        
+        if (!handled) {
+          // Solo mostrar error genérico si no fue un error de suscripción
+          _showError('Error al procesar venta', failure.message);
+        }
         return null;
       },
       (invoice) {
@@ -1549,6 +1568,14 @@ class InvoiceFormController extends GetxController {
 
   // ✅ MODIFICADO: Retornar la factura actualizada
   Future<Invoice?> _updateExistingInvoice(InvoiceStatus status) async {
+    // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
+    if (!SubscriptionValidationService.canUpdateInvoice()) {
+      print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO actualización de factura');
+      return null; // Bloquear operación
+    }
+    
+    print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con actualización de factura');
+    
     final items =
         _invoiceItems
             .map(
@@ -1585,7 +1612,16 @@ class InvoiceFormController extends GetxController {
 
     return result.fold(
       (failure) {
-        _showError('Error al actualizar factura', failure.message);
+        // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
+        final handled = SubscriptionErrorHandler.handleFailure(
+          failure,
+          context: 'editar factura',
+        );
+        
+        if (!handled) {
+          // Solo mostrar error genérico si no fue un error de suscripción
+          _showError('Error al actualizar factura', failure.message);
+        }
         return null;
       },
       (invoice) {

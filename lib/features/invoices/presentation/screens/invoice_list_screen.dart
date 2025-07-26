@@ -10,6 +10,7 @@ import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/app_drawer.dart';
 import '../controllers/invoice_list_controller.dart';
 import '../bindings/invoice_binding.dart';
 import '../widgets/invoice_card_widget.dart';
@@ -115,6 +116,7 @@ class InvoiceListScreen extends StatelessWidget {
   ) {
     return Scaffold(
       appBar: _buildAppBar(context, controller),
+      drawer: const AppDrawer(currentRoute: '/invoices'),
       body: LayoutBuilder(
         builder: (context, constraints) {
           // ✅ RESPONSIVE PERFECTO: Basado en el ancho real de la pantalla
@@ -146,10 +148,6 @@ class InvoiceListScreen extends StatelessWidget {
       elevation: 0,
       backgroundColor: Theme.of(context).primaryColor,
       foregroundColor: Colors.white,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Get.offAllNamed(AppRoutes.dashboard),
-      ),
       actions: [
         // Buscar - Solo en móvil
         if (MediaQuery.of(context).size.width < 600)

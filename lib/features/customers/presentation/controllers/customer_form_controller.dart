@@ -8,6 +8,8 @@ import '../../domain/repositories/customer_repository.dart';
 import '../../domain/usecases/create_customer_usecase.dart';
 import '../../domain/usecases/update_customer_usecase.dart';
 import '../../domain/usecases/get_customer_by_id_usecase.dart';
+import '../../../../app/shared/utils/subscription_error_handler.dart';
+import '../../../../app/shared/services/subscription_validation_service.dart';
 
 class CustomerFormController extends GetxController {
   Timer? _emailValidationTimer;
@@ -233,8 +235,8 @@ class CustomerFormController extends GetxController {
   Future<bool> _validateFormAsync() async {
     print('🔍 Iniciando validación completa del formulario...');
 
-    // 1. Validar campos básicos del formulario
-    if (!formKey.currentState!.validate()) {
+    // 1. Validar campos manualmente sin depender del formKey
+    if (!_validateFieldsManually()) {
       _showError(
         'Formulario inválido',
         'Por favor corrige los errores en los campos',
@@ -242,7 +244,7 @@ class CustomerFormController extends GetxController {
       return false;
     }
 
-    // 2. Esperar a que terminen las validaciones en progreso (si las hay)
+    // 3. Esperar a que terminen las validaciones en progreso (si las hay)
     if (_isValidatingEmail.value || _isValidatingDocument.value) {
       print('⏳ Esperando validaciones en progreso...');
 
@@ -268,7 +270,7 @@ class CustomerFormController extends GetxController {
       print('✅ Validaciones completadas, continuando...');
     }
 
-    // 3. Forzar validación de email si es necesario
+    // 4. Forzar validación de email si es necesario
     final email = emailController.text.trim();
     if (email.isNotEmpty && GetUtils.isEmail(email)) {
       if (!_emailValidatedOnce.value ||
@@ -281,7 +283,7 @@ class CustomerFormController extends GetxController {
       }
     }
 
-    // 4. Forzar validación de documento si es necesario
+    // 5. Forzar validación de documento si es necesario
     final documentNumber = documentNumberController.text.trim();
     if (documentNumber.isNotEmpty) {
       if (!_documentValidatedOnce.value ||
@@ -297,7 +299,7 @@ class CustomerFormController extends GetxController {
       }
     }
 
-    // 5. Verificar resultados de validaciones asíncronas
+    // 6. Verificar resultados de validaciones asíncronas
     if (!_emailAvailable.value) {
       _showError('Email no disponible', 'El email ya está registrado');
       return false;
@@ -315,6 +317,13 @@ class CustomerFormController extends GetxController {
   // ==================== FORM ACTIONS ====================
 
   Future<void> _createCustomer() async {
+    // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
+    if (!SubscriptionValidationService.canCreateCustomer()) {
+      print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO creación de cliente');
+      return; // Bloquear operación
+    }
+    
+    print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con creación de cliente');
     print('🆕 Creando nuevo cliente...');
 
     final result = await _createCustomerUseCase(
@@ -342,10 +351,16 @@ class CustomerFormController extends GetxController {
 
     result.fold(
       (failure) {
-        print(
-          '❌ CustomerFormController: Error al crear cliente - ${failure.message}',
+        // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
+        final handled = SubscriptionErrorHandler.handleFailure(
+          failure,
+          context: 'crear cliente',
         );
-        _showError('Error al crear cliente', failure.message);
+        
+        if (!handled) {
+          // Solo mostrar error genérico si no fue un error de suscripción
+          _showError('Error al crear cliente', failure.message);
+        }
       },
       (customer) {
         print(
@@ -363,6 +378,13 @@ class CustomerFormController extends GetxController {
   }
 
   Future<void> _updateCustomer() async {
+    // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
+    if (!SubscriptionValidationService.canUpdateCustomer()) {
+      print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO actualización de cliente');
+      return; // Bloquear operación
+    }
+    
+    print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con actualización de cliente');
     print('📝 Actualizando cliente...');
 
     final result = await _updateCustomerUseCase(
@@ -391,10 +413,16 @@ class CustomerFormController extends GetxController {
 
     result.fold(
       (failure) {
-        print(
-          '❌ CustomerFormController: Error al actualizar cliente - ${failure.message}',
+        // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
+        final handled = SubscriptionErrorHandler.handleFailure(
+          failure,
+          context: 'editar cliente',
         );
-        _showError('Error al actualizar cliente', failure.message);
+        
+        if (!handled) {
+          // Solo mostrar error genérico si no fue un error de suscripción
+          _showError('Error al actualizar cliente', failure.message);
+        }
       },
       (customer) {
         print(
@@ -685,6 +713,56 @@ class CustomerFormController extends GetxController {
     } finally {
       _isValidatingDocument.value = false;
     }
+  }
+
+  // ==================== MANUAL VALIDATION ====================
+  bool _validateFieldsManually() {
+    print('🔍 Validando campos manualmente...');
+    
+    // Validar nombre
+    final firstNameError = validateFirstName(firstNameController.text);
+    if (firstNameError != null) {
+      print('❌ Error en nombre: $firstNameError');
+      return false;
+    }
+    
+    // Validar apellido
+    final lastNameError = validateLastName(lastNameController.text);
+    if (lastNameError != null) {
+      print('❌ Error en apellido: $lastNameError');
+      return false;
+    }
+    
+    // Validar email
+    final emailError = validateEmail(emailController.text);
+    if (emailError != null) {
+      print('❌ Error en email: $emailError');
+      return false;
+    }
+    
+    // Validar documento
+    final documentError = validateDocumentNumber(documentNumberController.text);
+    if (documentError != null) {
+      print('❌ Error en documento: $documentError');
+      return false;
+    }
+    
+    // Validar límite de crédito
+    final creditLimitError = validateCreditLimit(creditLimitController.text);
+    if (creditLimitError != null) {
+      print('❌ Error en límite de crédito: $creditLimitError');
+      return false;
+    }
+    
+    // Validar términos de pago
+    final paymentTermsError = validatePaymentTerms(paymentTermsController.text);
+    if (paymentTermsError != null) {
+      print('❌ Error en términos de pago: $paymentTermsError');
+      return false;
+    }
+    
+    print('✅ Todos los campos son válidos');
+    return true;
   }
 
   // ==================== HELPERS ====================

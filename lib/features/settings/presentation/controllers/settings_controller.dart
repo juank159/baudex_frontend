@@ -11,6 +11,7 @@ import '../../domain/usecases/get_invoice_settings_usecase.dart';
 import '../../domain/usecases/save_invoice_settings_usecase.dart';
 import '../../domain/usecases/get_printer_settings_usecase.dart';
 import '../../domain/usecases/save_printer_settings_usecase.dart';
+import '../../../invoices/presentation/controllers/thermal_printer_controller.dart';
 
 class SettingsController extends GetxController {
   // Dependencies
@@ -357,6 +358,19 @@ class SettingsController extends GetxController {
       _isTestingConnection.value = true;
       print('🔍 SettingsController: Probando conexión con impresora: ${settings.name}');
 
+      // DIAGNÓSTICO: Verificar configuración básica
+      if (settings.isNetworkPrinter) {
+        if (settings.ipAddress == null || settings.ipAddress!.isEmpty) {
+          _showError('Error de Configuración', 'La dirección IP no está configurada');
+          return false;
+        }
+        if (settings.port == null || settings.port! <= 0) {
+          _showError('Error de Configuración', 'El puerto no está configurado');
+          return false;
+        }
+        print('📡 Probando conexión TCP/IP: ${settings.ipAddress}:${settings.port}');
+      }
+
       final result = await _testPrinterConnectionUseCase(
         TestPrinterConnectionParams(settings: settings),
       );
@@ -380,6 +394,64 @@ class SettingsController extends GetxController {
       );
     } catch (e) {
       print('💥 Error inesperado al probar conexión: $e');
+      return false;
+    } finally {
+      _isTestingConnection.value = false;
+    }
+  }
+
+
+  // ✅ NUEVA FUNCIÓN: Imprimir página de prueba
+  Future<bool> printTestPage(PrinterSettings settings) async {
+    try {
+      _isTestingConnection.value = true;
+      print('🖨️ SettingsController: Imprimiendo página de prueba con impresora: ${settings.name}');
+      print('   - Tipo: ${settings.connectionType}');
+      print('   - IP: ${settings.ipAddress}');
+      print('   - Puerto: ${settings.port}');
+      print('   - USB: ${settings.usbPath}');
+      print('   - Papel: ${settings.paperSize}mm');
+
+      // DIAGNÓSTICO: Verificar que la configuración sea correcta
+      if (settings.isNetworkPrinter) {
+        if (settings.ipAddress == null || settings.ipAddress!.isEmpty) {
+          _showError('Error de Configuración', 'La dirección IP no está configurada');
+          return false;
+        }
+        if (settings.port == null || settings.port! <= 0) {
+          _showError('Error de Configuración', 'El puerto no está configurado');
+          return false;
+        }
+        print('📡 Configuración de red validada - IP: ${settings.ipAddress}:${settings.port}');
+      }
+
+      // Obtener el ThermalPrinterController
+      ThermalPrinterController thermalController;
+      try {
+        thermalController = Get.find<ThermalPrinterController>();
+      } catch (e) {
+        // Si no existe, crearlo
+        thermalController = Get.put(ThermalPrinterController());
+      }
+      
+      // Configurar temporalmente la impresora
+      await thermalController.setTempPrinterConfig(settings);
+      
+      // Imprimir página de prueba
+      final success = await thermalController.printTestPage();
+      
+      if (success) {
+        _showSuccess('Página de prueba enviada a la impresora');
+        print('✅ Página de prueba impresa exitosamente');
+      } else {
+        _showError('Error de Impresión', 'No se pudo imprimir la página de prueba');
+        print('❌ Error al imprimir página de prueba');
+      }
+      
+      return success;
+    } catch (e) {
+      print('💥 Error inesperado al imprimir página de prueba: $e');
+      _showError('Error de Impresión', 'Error inesperado: $e');
       return false;
     } finally {
       _isTestingConnection.value = false;

@@ -240,6 +240,79 @@ class SecureStorageService {
     }
   }
 
+  // ===================== TENANT MANAGEMENT =====================
+
+  /// Guardar slug del tenant actual
+  Future<void> saveTenantSlug(String tenantSlug) async {
+    try {
+      await _writeSecure('tenant_slug', tenantSlug);
+    } catch (e) {
+      throw Exception('Error al guardar tenant slug: $e');
+    }
+  }
+
+  /// Obtener slug del tenant actual
+  Future<String?> getTenantSlug() async {
+    try {
+      return await _readSecure('tenant_slug');
+    } catch (e) {
+      throw Exception('Error al obtener tenant slug: $e');
+    }
+  }
+
+  /// Eliminar slug del tenant
+  Future<void> deleteTenantSlug() async {
+    try {
+      await _deleteSecure('tenant_slug');
+    } catch (e) {
+      throw Exception('Error al eliminar tenant slug: $e');
+    }
+  }
+
+  /// Guardar datos de la organización actual
+  Future<void> saveCurrentOrganization(Map<String, dynamic> organization) async {
+    try {
+      final orgJson = jsonEncode(organization);
+      await _writeSecure('current_organization', orgJson);
+    } catch (e) {
+      throw Exception('Error al guardar organización actual: $e');
+    }
+  }
+
+  /// Obtener datos de la organización actual
+  Future<Map<String, dynamic>?> getCurrentOrganization() async {
+    try {
+      final orgJson = await _readSecure('current_organization');
+      if (orgJson != null) {
+        return jsonDecode(orgJson) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Error al obtener organización actual: $e');
+    }
+  }
+
+  /// Eliminar datos de la organización actual
+  Future<void> deleteCurrentOrganization() async {
+    try {
+      await _deleteSecure('current_organization');
+    } catch (e) {
+      throw Exception('Error al eliminar organización actual: $e');
+    }
+  }
+
+  /// Limpiar todos los datos de tenant
+  Future<void> clearTenantData() async {
+    try {
+      await Future.wait([
+        deleteTenantSlug(),
+        deleteCurrentOrganization(),
+      ]);
+    } catch (e) {
+      throw Exception('Error al limpiar datos de tenant: $e');
+    }
+  }
+
   // ===================== AUTH HELPER METHODS =====================
 
   /// Guardar datos completos de autenticación
@@ -247,6 +320,8 @@ class SecureStorageService {
     required String token,
     String? refreshToken,
     required Map<String, dynamic> userData,
+    String? tenantSlug,
+    Map<String, dynamic>? organization,
   }) async {
     try {
       await saveToken(token);
@@ -254,6 +329,14 @@ class SecureStorageService {
         await saveRefreshToken(refreshToken);
       }
       await saveUserData(userData);
+      
+      // Guardar datos de tenant si se proporcionan
+      if (tenantSlug != null) {
+        await saveTenantSlug(tenantSlug);
+      }
+      if (organization != null) {
+        await saveCurrentOrganization(organization);
+      }
     } catch (e) {
       throw Exception('Error al guardar datos de autenticación: $e');
     }
@@ -266,6 +349,7 @@ class SecureStorageService {
         deleteToken(),
         deleteRefreshToken(),
         deleteUserData(),
+        clearTenantData(), // También limpiar datos de tenant al cerrar sesión
       ]);
     } catch (e) {
       throw Exception('Error al limpiar datos de autenticación: $e');

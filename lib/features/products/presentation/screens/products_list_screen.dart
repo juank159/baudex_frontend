@@ -7,6 +7,7 @@ import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/app_drawer.dart';
 import '../controllers/products_controller.dart';
 import '../widgets/product_card_widget.dart';
 import '../widgets/product_filter_widget.dart';
@@ -20,6 +21,7 @@ class ProductsListScreen extends GetView<ProductsController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: _buildAppBar(context),
+      drawer: const AppDrawer(currentRoute: '/products'),
       body: ResponsiveLayout(
         mobile: _buildMobileLayout(context),
         tablet: _buildTabletLayout(context),
@@ -33,12 +35,6 @@ class ProductsListScreen extends GetView<ProductsController> {
     return AppBar(
       title: const Text('Gestión de Productos'),
       elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () {
-          Get.offAllNamed(AppRoutes.dashboard);
-        },
-      ),
       actions: [
         // Búsqueda rápida en móvil
         if (ResponsiveHelper.isMobile(context))

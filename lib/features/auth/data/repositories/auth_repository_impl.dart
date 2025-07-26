@@ -59,6 +59,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
     UserRole? role,
+    String? organizationName,
   }) async {
     if (await networkInfo.isConnected) {
       try {
@@ -68,6 +69,7 @@ class AuthRepositoryImpl implements AuthRepository {
           email: email,
           password: password,
           role: role,
+          organizationName: organizationName,
         );
 
         final response = await remoteDataSource.register(request);

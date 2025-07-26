@@ -413,7 +413,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             onClearCustomer: controller.clearCustomer,
             controller: controller,
           ),
-          SizedBox(height: context.verticalSpacing),
+          SizedBox(height: context.verticalSpacing * 0.4),
           ProductSearchWidget(
             controller: controller,
             autoFocus: true,
@@ -427,7 +427,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               });
             },
           ),
-          SizedBox(height: context.verticalSpacing),
+          SizedBox(height: context.verticalSpacing * 0.4),
           ModernInvoiceItemsTable(
             controller: controller,
             selectedIndex: _selectedIndex,
@@ -436,9 +436,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 _selectedIndex = index;
               });
             },
-            height: 300,
+            height: 250,
           ),
-          SizedBox(height: context.verticalSpacing),
+          SizedBox(height: context.verticalSpacing * 0.4),
           _buildTotalsSection(context, controller),
         ],
       ),
@@ -462,7 +462,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   onClearCustomer: controller.clearCustomer,
                   controller: controller,
                 ),
-                SizedBox(height: context.verticalSpacing),
+                SizedBox(height: context.verticalSpacing * 0.4),
                 ProductSearchWidget(
                   controller: controller,
                   autoFocus: true,
@@ -476,10 +476,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     });
                   },
                 ),
-                SizedBox(height: context.verticalSpacing),
+                SizedBox(height: context.verticalSpacing * 0.4),
                 // La tabla de productos con altura dinámica para desktop
                 SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.4,
+                  height: MediaQuery.of(context).size.height * 0.5,
                   child: ModernInvoiceItemsTable(
                     controller: controller,
                     selectedIndex: _selectedIndex,
@@ -499,9 +499,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         Container(
           padding: EdgeInsets.fromLTRB(
             context.responsivePadding.left,
-            8, // Reducir padding superior
+            4, // Reducir más el padding superior
             context.responsivePadding.right,
-            context.responsivePadding.bottom * 0.7, // Reducir padding inferior
+            context.responsivePadding.bottom * 0.4, // Reducir más el padding inferior
           ),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
@@ -692,7 +692,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   ) {
     return Obx(() {
       return Container(
-        padding: EdgeInsets.all(context.isMobile ? 12 : 16),
+        padding: EdgeInsets.all(context.isMobile ? 6 : 8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -714,29 +714,29 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 Icon(
                   Icons.receipt_long,
                   color: Theme.of(context).primaryColor,
-                  size: context.isMobile ? 18 : 20,
+                  size: context.isMobile ? 14 : 16,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Resumen de Venta',
+                  'Resumen',
                   style: TextStyle(
-                    fontSize: context.isMobile ? 16 : 18,
+                    fontSize: context.isMobile ? 12 : 14,
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).primaryColor,
                   ),
                 ),
                 const Spacer(),
                 Text(
-                  '${controller.invoiceItems.length} productos',
+                  '${controller.invoiceItems.length}',
                   style: TextStyle(
-                    fontSize: context.isMobile ? 11 : 12,
+                    fontSize: context.isMobile ? 8 : 9,
                     color: Colors.grey.shade600,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-            SizedBox(height: context.isMobile ? 8 : 12),
+            SizedBox(height: context.isMobile ? 3 : 4),
             _buildTotalRow(context, 'Subtotal', controller.subtotalWithoutTax),
             if (controller.totalDiscountAmount > 0)
               _buildTotalRow(
@@ -751,7 +751,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 'IVA (${controller.taxPercentage}%)',
                 controller.taxAmount,
               ),
-            Divider(height: context.isMobile ? 16 : 20, thickness: 1),
+            Divider(height: context.isMobile ? 6 : 8, thickness: 0.5),
             _buildTotalRow(context, 'TOTAL', controller.total, isTotal: true),
           ],
         ),
@@ -767,7 +767,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     bool isDiscount = false,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: context.isMobile ? 2 : 3),
+      padding: EdgeInsets.symmetric(vertical: context.isMobile ? 1 : 1.5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -778,8 +778,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               style: TextStyle(
                 fontSize:
                     isTotal
-                        ? (context.isMobile ? 15 : 17)
-                        : (context.isMobile ? 11 : 13),
+                        ? (context.isMobile ? 11 : 13)
+                        : (context.isMobile ? 8 : 10),
                 fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
                 color: isTotal ? Colors.black : Colors.grey.shade700,
               ),
@@ -795,8 +795,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               style: TextStyle(
                 fontSize:
                     isTotal
-                        ? (context.isMobile ? 17 : 19)
-                        : (context.isMobile ? 13 : 15),
+                        ? (context.isMobile ? 13 : 15)
+                        : (context.isMobile ? 9 : 11),
                 fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
                 color:
                     isTotal

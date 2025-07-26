@@ -10,6 +10,7 @@ import '../../domain/usecases/get_profile_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/change_password_usecase.dart';
 import '../../domain/usecases/is_authenticated_usecase.dart';
+import '../../../../core/storage/tenant_storage.dart';
 
 class AuthController extends GetxController {
   // Dependencies
@@ -19,6 +20,7 @@ class AuthController extends GetxController {
   final LogoutUseCase _logoutUseCase;
   final ChangePasswordUseCase _changePasswordUseCase;
   final IsAuthenticatedUseCase _isAuthenticatedUseCase;
+  final TenantStorage _tenantStorage;
 
   AuthController({
     required LoginUseCase loginUseCase,
@@ -27,12 +29,14 @@ class AuthController extends GetxController {
     required LogoutUseCase logoutUseCase,
     required ChangePasswordUseCase changePasswordUseCase,
     required IsAuthenticatedUseCase isAuthenticatedUseCase,
+    required TenantStorage tenantStorage,
   }) : _loginUseCase = loginUseCase,
        _registerUseCase = registerUseCase,
        _getProfileUseCase = getProfileUseCase,
        _logoutUseCase = logoutUseCase,
        _changePasswordUseCase = changePasswordUseCase,
-       _isAuthenticatedUseCase = isAuthenticatedUseCase;
+       _isAuthenticatedUseCase = isAuthenticatedUseCase,
+       _tenantStorage = tenantStorage;
 
   // ==================== OBSERVABLES ====================
 
@@ -94,7 +98,93 @@ class AuthController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _initializeTenant();
     _checkAuthenticationStatus();
+  }
+  
+  /// Inicializar el tenant basado en la sesión del usuario autenticado
+  Future<void> _initializeTenant() async {
+    try {
+      // Verificar si ya hay un tenant establecido
+      final existingTenant = await _tenantStorage.getTenantSlug();
+      
+      if (existingTenant != null && existingTenant.isNotEmpty) {
+        print('🏢 Tenant existente encontrado: $existingTenant');
+        return;
+      }
+      
+      // Si no hay tenant y hay un usuario autenticado, obtener su organización
+      final isAuthenticated = await _isAuthenticatedUseCase.call(NoParams());
+      
+      await isAuthenticated.fold(
+        (failure) async {
+          print('🏢 Usuario no autenticado, esperando login para establecer tenant');
+        },
+        (authenticated) async {
+          if (authenticated) {
+            // Usuario autenticado pero sin tenant, obtener organización
+            await _setTenantFromCurrentUser();
+          } else {
+            print('🏢 Usuario no autenticado, esperando login para establecer tenant');
+          }
+        },
+      );
+    } catch (e) {
+      print('❌ Error inicializando tenant: $e');
+    }
+  }
+  
+  /// Establecer el tenant basado en la organización del usuario actual
+  Future<void> _setTenantFromCurrentUser() async {
+    try {
+      final profileResult = await _getProfileUseCase.call(NoParams());
+      
+      await profileResult.fold(
+        (failure) async {
+          print('❌ No se pudo obtener perfil del usuario para establecer tenant');
+        },
+        (user) async {
+          // Usar directamente el organizationSlug del usuario
+          await _tenantStorage.setTenantSlug(user.organizationSlug);
+          print('🏢 Tenant establecido desde perfil de usuario: ${user.organizationSlug}');
+        },
+      );
+    } catch (e) {
+      print('❌ Error estableciendo tenant desde usuario: $e');
+    }
+  }
+  
+  /// Generar tenant slug temporal basado en el dominio del email
+  /// NOTA: Esto es temporal hasta que implementemos organizationSlug en el User
+  String _generateTenantSlugFromEmail(String emailDomain) {
+    // Limpiar dominio para crear un slug válido
+    return emailDomain
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '')
+        .substring(0, emailDomain.length > 20 ? 20 : emailDomain.length);
+  }
+  
+  /// Establecer el tenant correcto después de un login exitoso
+  Future<void> _setTenantAfterLogin(User user) async {
+    try {
+      // Usar directamente el organizationSlug del usuario
+      await _tenantStorage.setTenantSlug(user.organizationSlug);
+      print('🏢 Tenant establecido después del login: ${user.organizationSlug} para usuario ${user.email}');
+      
+      // Verificar que se estableció correctamente
+      final verifyTenant = await _tenantStorage.getTenantSlug();
+      print('🏢 Tenant verificado después del login: $verifyTenant');
+      
+    } catch (e) {
+      print('❌ Error estableciendo tenant después del login: $e');
+      // En caso crítico de error, usar organizationSlug del usuario
+      try {
+        await _tenantStorage.setTenantSlug(user.organizationSlug);
+        print('🏢 Tenant establecido usando organizationSlug del usuario: ${user.organizationSlug}');
+      } catch (fallbackError) {
+        print('💥 Error crítico estableciendo tenant: $fallbackError');
+      }
+    }
   }
 
   @override
@@ -144,7 +234,7 @@ class AuthController extends GetxController {
             icon: const Icon(Icons.error, color: Colors.red),
           );
         },
-        (authResult) {
+        (authResult) async {
           print('✅ AuthController: Login exitoso - ${authResult.user.email}');
           print(
             '🔧 AuthController: Token recibido - ${authResult.token.substring(0, 20)}...',
@@ -152,6 +242,9 @@ class AuthController extends GetxController {
 
           _isAuthenticated.value = true;
           _currentUser.value = authResult.user;
+
+          // CRÍTICO: Establecer tenant del usuario después del login exitoso
+          await _setTenantAfterLogin(authResult.user);
 
           _clearLoginForm();
 
@@ -200,6 +293,7 @@ class AuthController extends GetxController {
           email: registerEmailController.text.trim(),
           password: registerPasswordController.text,
           confirmPassword: registerConfirmPasswordController.text,
+          organizationName: null, // El RegisterRequestModel se encargará de generar el nombre
         ),
       );
 

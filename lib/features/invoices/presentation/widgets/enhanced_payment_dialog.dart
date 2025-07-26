@@ -89,11 +89,19 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
       });
     }
 
-    // ✅ NUEVO: Dar focus al diálogo para shortcuts después de un breve delay
+    // ✅ MEJORADO: Focus más confiable para Windows
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
+      // Dar focus inmediato al diálogo
+      if (mounted && dialogFocusNode.canRequestFocus) {
+        dialogFocusNode.requestFocus();
+        print('🔍 Focus inicial solicitado para dialog');
+      }
+      
+      // Backup focus después de delay para Windows
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted && !dialogFocusNode.hasFocus && dialogFocusNode.canRequestFocus) {
           dialogFocusNode.requestFocus();
+          print('🔍 Focus backup solicitado para Windows');
         }
       });
     });
@@ -229,66 +237,53 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return RawKeyboardListener(
+    return Focus(
       focusNode: dialogFocusNode,
-      autofocus:
-          true, // ✅ NUEVO: Auto-focus para capturar eventos inmediatamente
-      onKey: (RawKeyEvent event) {
-        // ✅ MEJORADO: Procesar tanto KeyDown como KeyUp para consumir completamente
-        if (event is RawKeyDownEvent) {
+      autofocus: true,
+      onKeyEvent: (FocusNode node, KeyEvent event) {
+        if (event is KeyDownEvent) {
           print(
-            '🎹 RAW DIALOG evento: ${event.logicalKey} - Shift: ${event.isShiftPressed}',
+            '🎹 MODERN DIALOG evento: ${event.logicalKey} - Shift: ${HardwareKeyboard.instance.isShiftPressed}',
           );
 
           // ESC - Cancelar
           if (event.logicalKey == LogicalKeyboardKey.escape) {
-            print('🔴 RAW DIALOG ESC - Cancelando...');
+            print('🔴 MODERN DIALOG ESC - Cancelando...');
             widget.onCancel();
-            return; // Consumir evento
+            return KeyEventResult.handled;
           }
 
           // Shift + Enter - Procesar sin imprimir
           if (event.logicalKey == LogicalKeyboardKey.enter &&
-              event.isShiftPressed) {
-            print('💾 RAW DIALOG Shift+Enter - Procesando sin imprimir...');
+              HardwareKeyboard.instance.isShiftPressed) {
+            print('💾 MODERN DIALOG Shift+Enter - Procesando sin imprimir...');
             if (canProcess) {
               _confirmPayment(shouldPrint: false);
             }
-            return; // Consumir evento
+            return KeyEventResult.handled;
           }
 
-          // Shift + P - Procesar e imprimir (MEJORADO)
+          // Shift + P - Procesar e imprimir (MEJORADO PARA WINDOWS)
           if (event.logicalKey == LogicalKeyboardKey.keyP &&
-              event.isShiftPressed) {
-            print('🖨️ RAW DIALOG Shift+P - Procesando e imprimiendo...');
+              HardwareKeyboard.instance.isShiftPressed) {
+            print('🖨️ MODERN DIALOG Shift+P - Procesando e imprimiendo...');
             if (canProcess) {
               _confirmPayment(shouldPrint: true);
             }
-            return; // Consumir evento
+            return KeyEventResult.handled;
           }
 
           // Enter solo - Procesar e imprimir
           if (event.logicalKey == LogicalKeyboardKey.enter &&
-              !event.isShiftPressed) {
-            print('🖨️ RAW DIALOG Enter - Procesando e imprimiendo...');
+              !HardwareKeyboard.instance.isShiftPressed) {
+            print('🖨️ MODERN DIALOG Enter - Procesando e imprimiendo...');
             if (canProcess) {
               _confirmPayment(shouldPrint: true);
             }
-            return; // Consumir evento
+            return KeyEventResult.handled;
           }
         }
-
-        // ✅ NUEVO: También consumir eventos KeyUp para evitar propagación
-        if (event is RawKeyUpEvent) {
-          // Consumir eventos KeyUp de nuestros shortcuts para evitar propagación
-          if (event.logicalKey == LogicalKeyboardKey.escape ||
-              event.logicalKey == LogicalKeyboardKey.enter ||
-              (event.logicalKey == LogicalKeyboardKey.keyP &&
-                  event.isShiftPressed)) {
-            print('🔒 RAW DIALOG KeyUp consumido: ${event.logicalKey}');
-            return; // Consumir evento KeyUp también
-          }
-        }
+        return KeyEventResult.ignored;
       },
       child: ResponsiveLayout(
         mobile: _buildMobileDialog(context),
@@ -314,7 +309,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         ),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(10), // Reducido 40%
             child: Column(
               children: [
                 Expanded(
@@ -323,20 +318,20 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildTotalCard(context),
-                        const SizedBox(height: 16), // Reducido de 24 a 16
+                        const SizedBox(height: 8), // Reducido 40%
                         // ✅ NUEVO ORDEN: Dinero recibido y cambio ANTES de métodos de pago
                         if (selectedPaymentMethod == PaymentMethod.cash) ...[
                           _buildCashPaymentSection(context, isMobile: true),
-                          const SizedBox(height: 16), // Reducido de 24 a 16
+                          const SizedBox(height: 8), // Reducido 40%
                         ],
                         _buildPaymentMethodSection(context, isMobile: true),
-                        const SizedBox(height: 16), // Reducido de 24 a 16
+                        const SizedBox(height: 8), // Reducido 40%
                         if (selectedPaymentMethod != PaymentMethod.cash) ...[
                           _buildOtherPaymentSection(context),
-                          const SizedBox(height: 16), // Reducido de 24 a 16
+                          const SizedBox(height: 8), // Reducido 40%
                         ],
                         _buildDraftOption(context),
-                        const SizedBox(height: 12), // Reducido de 16 a 12
+                        const SizedBox(height: 6), // Reducido 40%
                         _buildInvoiceStatusSection(context),
                       ],
                     ),
@@ -370,20 +365,20 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildTotalCard(context),
-                    const SizedBox(height: 20), // Reducido de 24 a 20
+                    const SizedBox(height: 12), // Reducido 40%
                     // ✅ NUEVO ORDEN: Dinero recibido y cambio ANTES de métodos de pago
                     if (selectedPaymentMethod == PaymentMethod.cash) ...[
                       _buildCashPaymentSection(context, isMobile: false),
-                      const SizedBox(height: 20), // Reducido de 24 a 20
+                      const SizedBox(height: 12), // Reducido 40%
                     ],
                     _buildPaymentMethodSection(context, isMobile: false),
-                    const SizedBox(height: 20), // Reducido de 24 a 20
+                    const SizedBox(height: 12), // Reducido 40%
                     if (selectedPaymentMethod != PaymentMethod.cash) ...[
                       _buildOtherPaymentSection(context),
-                      const SizedBox(height: 20), // Reducido de 24 a 20
+                      const SizedBox(height: 12), // Reducido 40%
                     ],
                     _buildDraftOption(context),
-                    const SizedBox(height: 14), // Reducido de 16 a 14
+                    const SizedBox(height: 8), // Reducido 40%
                     _buildInvoiceStatusSection(context),
                   ],
                 ),
@@ -418,20 +413,20 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildTotalCard(context),
-                    const SizedBox(height: 24), // Reducido de 32 a 24
+                    const SizedBox(height: 14), // Reducido 40%
                     // ✅ NUEVO ORDEN: Dinero recibido y cambio ANTES de métodos de pago
                     if (selectedPaymentMethod == PaymentMethod.cash) ...[
                       _buildCashPaymentSection(context, isMobile: false),
-                      const SizedBox(height: 24), // Reducido de 32 a 24
+                      const SizedBox(height: 14), // Reducido 40%
                     ],
                     _buildPaymentMethodSection(context, isMobile: false),
-                    const SizedBox(height: 24), // Reducido de 32 a 24
+                    const SizedBox(height: 14), // Reducido 40%
                     if (selectedPaymentMethod != PaymentMethod.cash) ...[
                       _buildOtherPaymentSection(context),
-                      const SizedBox(height: 24), // Reducido de 32 a 24
+                      const SizedBox(height: 14), // Reducido 40%
                     ],
                     _buildDraftOption(context),
-                    const SizedBox(height: 16), // Mantenido igual
+                    const SizedBox(height: 10), // Reducido 40% // Mantenido igual
                     _buildInvoiceStatusSection(context),
                   ],
                 ),
@@ -498,7 +493,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
   Widget _buildTotalCard(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(context.isMobile ? 16 : 18), // Reducido de 20
+      padding: EdgeInsets.all(context.isMobile ? 10 : 12), // Reducido 40%
       decoration: BoxDecoration(
         color: Theme.of(context).primaryColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
@@ -511,16 +506,16 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
           Text(
             'Total a Pagar',
             style: TextStyle(
-              fontSize: context.isMobile ? 14 : 16, // Reducido de 16:18
+              fontSize: context.isMobile ? 10 : 12, // Reducido 40%
               color: Theme.of(context).primaryColor,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 6), // Reducido de 8
+          const SizedBox(height: 4), // Reducido 40%
           Text(
             AppFormatters.formatCurrency(widget.total),
             style: TextStyle(
-              fontSize: context.isMobile ? 24 : 28, // Reducido de 28:32
+              fontSize: context.isMobile ? 16 : 20, // Reducido 40%
               fontWeight: FontWeight.bold,
               color: Theme.of(context).primaryColor,
             ),
@@ -540,12 +535,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         Text(
           'Método de Pago',
           style: TextStyle(
-            fontSize: context.isMobile ? 14 : 16, // Tamaño reducido
+            fontSize: context.isMobile ? 10 : 12, // Tamaño reducido 40%
             fontWeight: FontWeight.w600,
             color: Colors.grey.shade800,
           ),
         ),
-        const SizedBox(height: 10), // Reducido de 12 a 10
+        const SizedBox(height: 6), // Reducido 40%
 
         if (isMobile)
           _buildMobilePaymentMethods()
@@ -562,16 +557,16 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
             final isSelected = selectedPaymentMethod == method;
 
             return Container(
-              margin: const EdgeInsets.only(bottom: 8),
+              margin: const EdgeInsets.only(bottom: 2), // Reducido 65%
               child: Material(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                   onTap: () => _selectPaymentMethod(method),
                   child: Container(
                     padding: EdgeInsets.all(
-                      context.isMobile ? 12 : 14,
-                    ), // Padding reducido
+                      context.isMobile ? 4 : 5,
+                    ), // Padding reducido 65%
                     decoration: BoxDecoration(
                       border: Border.all(
                         color:
@@ -594,16 +589,17 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                               isSelected
                                   ? Theme.of(context).primaryColor
                                   : Colors.grey.shade600,
+                          size: 16, // Reducido 65%
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 4), // Reducido 65%
                         Expanded(
                           child: Text(
                             method.displayName,
                             style: TextStyle(
                               fontSize:
                                   context.isMobile
-                                      ? 14
-                                      : 16, // Tamaño responsive
+                                      ? 9
+                                      : 10, // Tamaño reducido 65%
                               fontWeight:
                                   isSelected
                                       ? FontWeight.w600
@@ -620,6 +616,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                           Icon(
                             Icons.check_circle,
                             color: Theme.of(context).primaryColor,
+                            size: 16, // Reducido 65%
                           ),
                       ],
                     ),
@@ -656,6 +653,8 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                   value: method,
                   groupValue: selectedPaymentMethod,
                   onChanged: (value) => _selectPaymentMethod(value!),
+                  dense: true, // Hace el ListTile más compacto
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Reducido 65%
                   title: Row(
                     children: [
                       Icon(
@@ -664,13 +663,14 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                             isSelected
                                 ? Theme.of(context).primaryColor
                                 : Colors.grey.shade600,
+                        size: 16, // Reducido 65%
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4), // Reducido 65%
                       Text(
                         method.displayName,
                         style: TextStyle(
                           fontSize:
-                              context.isMobile ? 14 : 16, // Tamaño responsive
+                              context.isMobile ? 10 : 11, // Tamaño reducido 65%
                           fontWeight:
                               isSelected
                                   ? FontWeight.w600
@@ -701,12 +701,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         Text(
           'Dinero Recibido',
           style: TextStyle(
-            fontSize: context.isMobile ? 14 : 16, // Tamaño reducido
+            fontSize: context.isMobile ? 10 : 12, // Tamaño reducido 40%
             fontWeight: FontWeight.w600,
             color: Colors.grey.shade800,
           ),
         ),
-        const SizedBox(height: 10), // Reducido de 12 a 10
+        const SizedBox(height: 6), // Reducido 40%
 
         TextField(
           controller: receivedController,
@@ -717,19 +717,19 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
             CurrencyInputFormatter(), // Aplicar formato de miles automáticamente
           ],
           style: TextStyle(
-            fontSize: context.isMobile ? 14 : 16, // Tamaño reducido
+            fontSize: context.isMobile ? 10 : 12, // Tamaño reducido 40%
             fontWeight: FontWeight.w600,
           ),
           decoration: InputDecoration(
             prefixText: '\$ ',
             prefixStyle: TextStyle(
-              fontSize: context.isMobile ? 14 : 16, // Tamaño reducido
+              fontSize: context.isMobile ? 10 : 12, // Tamaño reducido 40%
               fontWeight: FontWeight.w600,
             ),
             border: const OutlineInputBorder(),
             contentPadding: EdgeInsets.all(
-              context.isMobile ? 12 : 14,
-            ), // Padding reducido
+              context.isMobile ? 8 : 10,
+            ), // Padding reducido 40%
             hintText: '0.00',
             // ✅ NUEVO: Color dinámico según el estado del cambio
             enabledBorder: OutlineInputBorder(
@@ -758,12 +758,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
             );
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10), // Reducido 40%
 
         // Cambio
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(14), // Reducido de 16 a 14
+          padding: const EdgeInsets.all(10), // Reducido 40%
           decoration: BoxDecoration(
             color: change >= 0 ? Colors.green.shade50 : Colors.red.shade50,
             borderRadius: BorderRadius.circular(8),
@@ -777,7 +777,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
               Text(
                 'Cambio:',
                 style: TextStyle(
-                  fontSize: context.isMobile ? 13 : 15, // Tamaño reducido
+                  fontSize: context.isMobile ? 9 : 11, // Tamaño reducido 40%
                   fontWeight: FontWeight.w600,
                   color:
                       change >= 0 ? Colors.green.shade800 : Colors.red.shade800,
@@ -788,7 +788,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                     ? AppFormatters.formatCurrency(change)
                     : AppFormatters.formatCurrency(0),
                 style: TextStyle(
-                  fontSize: context.isMobile ? 16 : 18, // Tamaño reducido
+                  fontSize: context.isMobile ? 11 : 13, // Tamaño reducido 40%
                   fontWeight: FontWeight.bold,
                   color:
                       change >= 0 ? Colors.green.shade800 : Colors.red.shade800,
@@ -802,7 +802,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         if (change < 0)
           Container(
             margin: const EdgeInsets.only(top: 8),
-            padding: const EdgeInsets.all(10), // Reducido de 12 a 10
+            padding: const EdgeInsets.all(6), // Reducido 40%
             decoration: BoxDecoration(
               color: Colors.orange.shade50,
               borderRadius: BorderRadius.circular(8),
@@ -810,13 +810,13 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
             ),
             child: Row(
               children: [
-                Icon(Icons.info, color: Colors.orange.shade600, size: 16),
-                const SizedBox(width: 8),
+                Icon(Icons.info, color: Colors.orange.shade600, size: 12), // Reducido 40%
+                const SizedBox(width: 6), // Reducido 40%
                 Expanded(
                   child: Text(
                     'El monto recibido debe ser igual o mayor al total',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 8, // Reducido 40%
                       color: Colors.orange.shade800,
                     ),
                   ),
@@ -831,7 +831,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
   Widget _buildOtherPaymentSection(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(10), // Reducido 40%
       decoration: BoxDecoration(
         color: saveAsDraft ? Colors.blue.shade50 : Colors.blue.shade50,
         borderRadius: BorderRadius.circular(8),
@@ -870,10 +870,10 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(4), // Reducido 65%
       decoration: BoxDecoration(
         color: statusColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: statusColor.withOpacity(0.3)),
       ),
       child: Column(
@@ -881,22 +881,22 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         children: [
           Row(
             children: [
-              Icon(_getStatusIcon(status), color: statusColor, size: 20),
-              const SizedBox(width: 8),
+              Icon(_getStatusIcon(status), color: statusColor, size: 14), // Reducido 65%
+              const SizedBox(width: 4), // Reducido 65%
               Text(
                 'Estado de Factura',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 10, // Reducido 65%
                   fontWeight: FontWeight.w600,
                   color: statusColor,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 3), // Reducido 65%
           Text(
             _getStatusDescription(status),
-            style: TextStyle(fontSize: 12, color: statusColor.withOpacity(0.8)),
+            style: TextStyle(fontSize: 8, color: statusColor.withOpacity(0.8)), // Reducido 65%
           ),
         ],
       ),
@@ -905,11 +905,11 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
 
   Widget _buildDraftOption(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 4), // Reducido 65%
+      padding: const EdgeInsets.all(4), // Reducido 65%
       decoration: BoxDecoration(
         color: saveAsDraft ? Colors.blue.shade100 : Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: saveAsDraft ? Colors.blue.shade400 : Colors.blue.shade200,
           width: saveAsDraft ? 2 : 1,
@@ -917,6 +917,8 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
       ),
       child: CheckboxListTile(
         value: saveAsDraft,
+        dense: true, // Hace el CheckboxListTile más compacto
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0), // Reducido 65%
         onChanged: (value) {
           setState(() {
             saveAsDraft = value ?? false;
@@ -934,6 +936,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         title: Text(
           'Guardar como borrador',
           style: TextStyle(
+            fontSize: 10, // Reducido 65%
             fontWeight: FontWeight.w600,
             color: saveAsDraft ? Colors.blue.shade800 : Colors.blue.shade700,
           ),
@@ -943,7 +946,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
               ? 'La factura se guardará para revisión posterior'
               : 'La factura necesita revisión antes de procesar el pago',
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 7, // Reducido 65%
             color: saveAsDraft ? Colors.blue.shade700 : Colors.blue.shade600,
           ),
         ),
@@ -977,7 +980,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         // ✅ NUEVO BOTÓN: Procesar e Imprimir
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: 30, // Reducido 40%
           child: Tooltip(
             message: 'Procesar pago e imprimir factura (Shift + P)',
             child: ElevatedButton.icon(
@@ -990,7 +993,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
               icon: const Icon(Icons.print),
               label: const Text(
                 'Procesar Venta e Imprimir',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600), // Reducido 40%
               ),
             ),
           ),
@@ -1000,7 +1003,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         // ✅ BOTÓN ORIGINAL: Solo procesar (sin imprimir)
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: 30, // Reducido 40%
           child: Tooltip(
             message: 'Procesar pago sin imprimir (Shift+Enter)',
             child: OutlinedButton.icon(
@@ -1013,7 +1016,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
               icon: const Icon(Icons.save),
               label: const Text(
                 'Procesar Venta',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600), // Reducido 40%
               ),
             ),
           ),
@@ -1023,7 +1026,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         // Botón cancelar
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: 30, // Reducido 40%
           child: Tooltip(
             message: 'Cancelar y cerrar diálogo (ESC)',
             child: OutlinedButton(
@@ -1049,7 +1052,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                 child: OutlinedButton(
                   onPressed: widget.onCancel,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(10), // Reducido 40%
                   ),
                   child: const Text('Cancelar'),
                 ),
@@ -1066,14 +1069,14 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                           ? () => _confirmPayment(shouldPrint: false)
                           : null,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(10), // Reducido 40%
                     foregroundColor: Theme.of(context).primaryColor,
                     side: BorderSide(color: Theme.of(context).primaryColor),
                   ),
                   icon: const Icon(Icons.save),
                   label: const Text(
                     'Procesar Venta',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600), // Reducido 40%
                   ),
                 ),
               ),
@@ -1093,12 +1096,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(10), // Reducido 40%
               ),
               icon: const Icon(Icons.print),
               label: const Text(
                 'Procesar Venta e Imprimir',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600), // Reducido 40%
               ),
             ),
           ),

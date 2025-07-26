@@ -1,9 +1,13 @@
 // lib/features/settings/presentation/bindings/settings_binding.dart
 import 'package:get/get.dart';
 import '../../../../app/core/database/isar_service.dart';
+import '../../../../app/core/network/network_info.dart';
 import '../../data/datasources/settings_local_datasource.dart';
+import '../../data/datasources/organization_remote_datasource.dart';
 import '../../data/repositories/settings_repository_impl.dart';
+import '../../data/repositories/organization_repository_impl.dart';
 import '../../domain/repositories/settings_repository.dart';
+import '../../domain/repositories/organization_repository.dart';
 import '../../domain/usecases/get_app_settings_usecase.dart';
 import '../../domain/usecases/save_app_settings_usecase.dart';
 import '../../domain/usecases/get_invoice_settings_usecase.dart';
@@ -11,6 +15,7 @@ import '../../domain/usecases/save_invoice_settings_usecase.dart';
 import '../../domain/usecases/get_printer_settings_usecase.dart';
 import '../../domain/usecases/save_printer_settings_usecase.dart';
 import '../controllers/settings_controller.dart';
+import '../controllers/organization_controller.dart';
 
 class SettingsBinding extends Bindings {
   @override
@@ -53,6 +58,16 @@ class SettingsBinding extends Bindings {
       );
       print('✅ SettingsLocalDataSource registrado');
     }
+
+    // Organization Remote DataSource
+    if (!Get.isRegistered<OrganizationRemoteDataSource>()) {
+      Get.lazyPut<OrganizationRemoteDataSource>(
+        () => OrganizationRemoteDataSourceImpl(
+          dioClient: Get.find(),
+        ),
+      );
+      print('✅ OrganizationRemoteDataSource registrado');
+    }
   }
 
   void _registerRepositories() {
@@ -64,6 +79,17 @@ class SettingsBinding extends Bindings {
         ),
       );
       print('✅ SettingsRepository registrado');
+    }
+
+    // Organization Repository
+    if (!Get.isRegistered<OrganizationRepository>()) {
+      Get.lazyPut<OrganizationRepository>(
+        () => OrganizationRepositoryImpl(
+          remoteDataSource: Get.find<OrganizationRemoteDataSource>(),
+          networkInfo: Get.find<NetworkInfo>(),
+        ),
+      );
+      print('✅ OrganizationRepository registrado');
     }
   }
 
@@ -152,6 +178,16 @@ class SettingsBinding extends Bindings {
         ),
       );
       print('✅ SettingsController registrado');
+    }
+
+    // Organization Controller
+    if (!Get.isRegistered<OrganizationController>()) {
+      Get.lazyPut<OrganizationController>(
+        () => OrganizationController(
+          Get.find<OrganizationRepository>(),
+        ),
+      );
+      print('✅ OrganizationController registrado');
     }
   }
 

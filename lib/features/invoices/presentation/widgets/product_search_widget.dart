@@ -92,13 +92,13 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
               Icon(
                 Icons.qr_code_scanner,
                 color: Theme.of(context).primaryColor,
-                size: 24,
+                size: 12,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               Text(
-                'Buscar Productos',
+                'Productos',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 9,
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).primaryColor,
                 ),
@@ -106,32 +106,32 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
               const Spacer(),
               if (_isSearching)
                 const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  width: 10,
+                  height: 10,
+                  child: CircularProgressIndicator(strokeWidth: 1),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
 
           // Campo de búsqueda principal con escáner
           _buildSearchField(context),
 
           // Resultados de búsqueda
           if (_showResults && _searchResults.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             _buildSearchResults(context),
           ],
 
           // Opción de producto sin registrar o mensaje de no resultados
           if (_showResults && _searchResults.isEmpty && !_isSearching) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             _buildUnregisteredProductOption(context),
           ],
 
         // Tips de uso cuando no hay búsqueda
         if (!_showResults && _searchController.text.isEmpty) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           _buildUsageTips(context),
         ],
       ],
@@ -168,10 +168,10 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
               child: TextField(
                 controller: _searchController,
                 focusNode: _focusNode,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
-                  hintText: widget.hint ?? 'Escanea código o busca por nombre...',
-                  hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+                  hintText: widget.hint ?? 'Buscar...',
+                  hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 11),
                   prefixIcon: Container(
                     padding: const EdgeInsets.all(12),
                     child: Icon(

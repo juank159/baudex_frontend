@@ -121,13 +121,13 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
 
         // Campo de búsqueda (solo visible cuando se activa)
         if (_showSearchField) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
           _buildSearchField(context),
         ],
 
         // Resultados de búsqueda
         if (_showSearchField && _searchResults.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
           _buildSearchResults(context),
         ],
 
@@ -136,7 +136,7 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
             _searchResults.isEmpty &&
             !_isSearching &&
             _searchController.text.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
           _buildNoResultsMessage(),
         ],
       ],
@@ -149,7 +149,7 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     final isDefaultCustomer = customer != null && _isDefaultCustomer(customer);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -198,7 +198,7 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
                 Text(
                   customerName,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
                   ),

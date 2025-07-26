@@ -3,17 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../config/routes/app_routes.dart';
 import '../controllers/app_drawer_controller.dart';
+import '../models/drawer_menu_item.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 
 /// Drawer principal de la aplicación que se puede usar en cualquier pantalla
 /// Incluye navegación completa y gestión de estado
 class AppDrawer extends GetWidget<AppDrawerController> {
   final String? currentRoute;
-  
-  const AppDrawer({
-    super.key,
-    this.currentRoute,
-  });
+
+  const AppDrawer({super.key, this.currentRoute});
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +27,7 @@ class AppDrawer extends GetWidget<AppDrawerController> {
   }
 
   // ==================== HEADER ====================
-  
+
   Widget _buildHeader(BuildContext context) {
     return DrawerHeader(
       decoration: BoxDecoration(
@@ -42,7 +40,7 @@ class AppDrawer extends GetWidget<AppDrawerController> {
           ],
         ),
       ),
-      child: Container(
+      child: SizedBox(
         width: double.infinity,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,7 +60,7 @@ class AppDrawer extends GetWidget<AppDrawerController> {
               ),
             ),
             const SizedBox(height: 12),
-            
+
             // Nombre de la app
             const Text(
               'Baudex Desktop',
@@ -72,7 +70,7 @@ class AppDrawer extends GetWidget<AppDrawerController> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            
+
             // Subtítulo
             Text(
               'Sistema de Gestión',
@@ -92,39 +90,54 @@ class AppDrawer extends GetWidget<AppDrawerController> {
   Widget _buildMenuItems(BuildContext context) {
     return Obx(() {
       final menuItems = controller.menuItems;
-      
+
       return ListView(
         padding: EdgeInsets.zero,
         children: [
           // Items principales
-          ...menuItems.where((item) => !item.isInSettings).map((item) {
-            return _buildMenuItem(context, item);
-          }),
-          
+          ...menuItems
+              .where(
+                (item) => !item.isInSettings && !item.isInConfigurationGroup,
+              )
+              .map((item) {
+                return _buildMenuItem(context, item);
+              }),
+
           // Separador
           const Divider(height: 1),
-          
-          // Items de configuración
-          ...menuItems.where((item) => item.isInSettings).map((item) {
-            return _buildMenuItem(context, item);
-          }),
+
+          // Grupo de Configuración
+          _buildConfigurationGroup(context),
+
+          // Items de configuración que no están en el grupo
+          ...menuItems
+              .where(
+                (item) => item.isInSettings && !item.isInConfigurationGroup,
+              )
+              .map((item) {
+                return _buildMenuItem(context, item);
+              }),
         ],
       );
     });
   }
 
   Widget _buildMenuItem(BuildContext context, DrawerMenuItem item) {
-    final isSelected = currentRoute == item.route || Get.currentRoute == item.route;
-    
+    final isSelected =
+        currentRoute == item.route || Get.currentRoute == item.route;
+
     return ListTile(
       leading: Obx(() {
         final badgeCount = controller.getBadgeCount(item.id);
-        
+
         return Stack(
           children: [
             Icon(
               item.icon,
-              color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600,
+              color:
+                  isSelected
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey.shade600,
             ),
             if (badgeCount > 0)
               Positioned(
@@ -136,7 +149,10 @@ class AppDrawer extends GetWidget<AppDrawerController> {
                     color: Colors.red,
                     shape: BoxShape.circle,
                   ),
-                  constraints: const BoxConstraints(minWidth: 12, minHeight: 12),
+                  constraints: const BoxConstraints(
+                    minWidth: 12,
+                    minHeight: 12,
+                  ),
                   child: Text(
                     badgeCount > 99 ? '99+' : badgeCount.toString(),
                     style: const TextStyle(
@@ -154,17 +170,20 @@ class AppDrawer extends GetWidget<AppDrawerController> {
       title: Text(
         item.title,
         style: TextStyle(
-          color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade800,
+          color:
+              isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade800,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
-      subtitle: item.subtitle != null ? Text(
-        item.subtitle!,
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey.shade600,
-        ),
-      ) : null,
+      subtitle:
+          item.subtitle != null
+              ? Text(
+                item.subtitle!,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              )
+              : null,
       selected: isSelected,
       selectedTileColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
       onTap: () => _handleMenuTap(context, item),
@@ -174,46 +193,184 @@ class AppDrawer extends GetWidget<AppDrawerController> {
   void _handleMenuTap(BuildContext context, DrawerMenuItem item) {
     // Cerrar el drawer
     Navigator.pop(context);
-    
+
     // Ejecutar acción personalizada si existe
     if (item.onTap != null) {
       item.onTap!();
       return;
     }
-    
-    // Navegar si no es la ruta actual
-    if (item.route != null && Get.currentRoute != item.route) {
-      Get.toNamed(item.route!);
+
+    // Validar que la ruta existe antes de navegar
+    if (item.route != null && item.route!.isNotEmpty) {
+      final currentRoute = Get.currentRoute;
+      if (currentRoute != item.route) {
+        try {
+          Get.toNamed(item.route!);
+        } catch (e) {
+          print('❌ Error al navegar a ${item.route}: $e');
+          Get.snackbar(
+            'Error de Navegación',
+            'No se pudo acceder a ${item.title}. La pantalla aún no está disponible.',
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: Colors.orange.shade100,
+            colorText: Colors.orange.shade800,
+            icon: const Icon(Icons.warning, color: Colors.orange),
+          );
+        }
+      }
+    } else {
+      // Mostrar mensaje si la ruta no está disponible
+      Get.snackbar(
+        'Próximamente',
+        '${item.title} estará disponible pronto.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.blue.shade100,
+        colorText: Colors.blue.shade800,
+        icon: const Icon(Icons.info, color: Colors.blue),
+      );
     }
+  }
+
+  Widget _buildConfigurationGroup(BuildContext context) {
+    // Obtener items de configuración del grupo
+    final configItems =
+        controller.menuItems
+            .where((item) => item.isInConfigurationGroup)
+            .toList();
+
+    if (configItems.isEmpty) return const SizedBox.shrink();
+
+    return Obx(() {
+      // Usar método alternativo para evitar problemas del IDE con el getter
+      final drawerController = Get.find<AppDrawerController>();
+      final isExpanded = drawerController.getConfigurationExpandedState();
+
+      return Column(
+        children: [
+          // Header del grupo de configuración
+          ListTile(
+            leading: Icon(
+              Icons.settings,
+              color: Theme.of(context).primaryColor,
+            ),
+            title: Text(
+              'Configuración',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).primaryColor,
+              ),
+            ),
+            subtitle: Text(
+              '${configItems.length} configuraciones',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            trailing: Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
+              color: Theme.of(context).primaryColor,
+            ),
+            onTap: drawerController.toggleConfigurationExpanded,
+          ),
+
+          // Items de configuración (colapsables)
+          if (isExpanded) ...[
+            Container(
+              margin: const EdgeInsets.only(left: 16),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: Theme.of(
+                      context,
+                    ).primaryColor.withValues(alpha: 0.3),
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Column(
+                children:
+                    configItems.map((item) {
+                      return _buildConfigurationItem(context, item);
+                    }).toList(),
+              ),
+            ),
+          ],
+        ],
+      );
+    });
+  }
+
+  Widget _buildConfigurationItem(BuildContext context, DrawerMenuItem item) {
+    final isSelected =
+        currentRoute == item.route || Get.currentRoute == item.route;
+
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      child: ListTile(
+        leading: Icon(
+          item.icon,
+          size: 20,
+          color:
+              isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade600,
+        ),
+        title: Text(
+          item.title,
+          style: TextStyle(
+            fontSize: 14,
+            color:
+                isSelected
+                    ? Theme.of(context).primaryColor
+                    : Colors.grey.shade800,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        subtitle:
+            item.subtitle != null
+                ? Text(
+                  item.subtitle!,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                )
+                : null,
+        selected: isSelected,
+        selectedTileColor: Theme.of(
+          context,
+        ).primaryColor.withValues(alpha: 0.1),
+        onTap: () => _handleMenuTap(context, item),
+        contentPadding: const EdgeInsets.only(left: 16, right: 16),
+        dense: true,
+      ),
+    );
   }
 
   // ==================== FOOTER ====================
 
   Widget _buildFooter(BuildContext context) {
     final authController = Get.find<AuthController>();
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Obx(() {
         final user = authController.currentUser;
-        
+
         return Column(
           children: [
             const Divider(),
-            
+
             // Información del usuario
             ListTile(
               leading: CircleAvatar(
-                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                backgroundImage: user?.avatar != null 
-                  ? NetworkImage(user!.avatar!) 
-                  : null,
-                child: user?.avatar == null 
-                  ? Icon(
-                      Icons.person,
-                      color: Theme.of(context).primaryColor,
-                    )
-                  : null,
+                backgroundColor: Theme.of(
+                  context,
+                ).primaryColor.withValues(alpha: 0.1),
+                backgroundImage:
+                    user?.avatar != null ? NetworkImage(user!.avatar!) : null,
+                child:
+                    user?.avatar == null
+                        ? Icon(
+                          Icons.person,
+                          color: Theme.of(context).primaryColor,
+                        )
+                        : null,
               ),
               title: Text(
                 user?.fullName ?? 'Usuario',
@@ -222,43 +379,44 @@ class AppDrawer extends GetWidget<AppDrawerController> {
               subtitle: Text(_getRoleText(user?.role.value ?? 'user')),
               trailing: PopupMenuButton<String>(
                 onSelected: (value) => _handleUserAction(value, authController),
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'profile',
-                    child: Row(
-                      children: [
-                        Icon(Icons.person_outline, size: 20),
-                        SizedBox(width: 12),
-                        Text('Mi Perfil'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'settings',
-                    child: Row(
-                      children: [
-                        Icon(Icons.settings_outlined, size: 20),
-                        SizedBox(width: 12),
-                        Text('Configuración'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'logout',
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout, color: Colors.red, size: 20),
-                        SizedBox(width: 12),
-                        Text('Cerrar Sesión', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
-                child: Icon(
-                  Icons.more_vert,
-                  color: Colors.grey.shade600,
-                ),
+                itemBuilder:
+                    (context) => [
+                      const PopupMenuItem(
+                        value: 'profile',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_outline, size: 20),
+                            SizedBox(width: 12),
+                            Text('Mi Perfil'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'settings',
+                        child: Row(
+                          children: [
+                            Icon(Icons.settings_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Configuración'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'logout',
+                        child: Row(
+                          children: [
+                            Icon(Icons.logout, color: Colors.red, size: 20),
+                            SizedBox(width: 12),
+                            Text(
+                              'Cerrar Sesión',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                child: Icon(Icons.more_vert, color: Colors.grey.shade600),
               ),
             ),
           ],
@@ -323,51 +481,5 @@ class AppDrawer extends GetWidget<AppDrawerController> {
       default:
         return 'Usuario';
     }
-  }
-}
-
-// ==================== MODELO DE ITEM DEL MENU ====================
-
-class DrawerMenuItem {
-  final String id;
-  final String title;
-  final String? subtitle;
-  final IconData icon;
-  final String? route;
-  final VoidCallback? onTap;
-  final bool isInSettings;
-  final bool isEnabled;
-  
-  const DrawerMenuItem({
-    required this.id,
-    required this.title,
-    required this.icon,
-    this.subtitle,
-    this.route,
-    this.onTap,
-    this.isInSettings = false,
-    this.isEnabled = true,
-  });
-
-  DrawerMenuItem copyWith({
-    String? id,
-    String? title,
-    String? subtitle,
-    IconData? icon,
-    String? route,
-    VoidCallback? onTap,
-    bool? isInSettings,
-    bool? isEnabled,
-  }) {
-    return DrawerMenuItem(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      subtitle: subtitle ?? this.subtitle,
-      icon: icon ?? this.icon,
-      route: route ?? this.route,
-      onTap: onTap ?? this.onTap,
-      isInSettings: isInSettings ?? this.isInSettings,
-      isEnabled: isEnabled ?? this.isEnabled,
-    );
   }
 }

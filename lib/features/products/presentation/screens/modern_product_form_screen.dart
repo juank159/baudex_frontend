@@ -975,8 +975,13 @@ class ModernProductFormScreen extends GetView<ProductFormController> {
 
   Future<void> _scanBarcode() async {
     try {
-      final scannedCode = await Get.to<String>(
-        () => const BarcodeScannerScreen(),
+      final BuildContext? context = Get.context;
+      if (context == null) return;
+      
+      final scannedCode = await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          builder: (context) => const BarcodeScannerScreen(),
+        ),
       );
       if (scannedCode != null && scannedCode.isNotEmpty) {
         controller.barcodeController.text = scannedCode;

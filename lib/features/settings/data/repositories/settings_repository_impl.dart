@@ -150,30 +150,78 @@ class SettingsRepositoryImpl implements SettingsRepository {
 
   Future<Either<Failure, bool>> _testNetworkPrinter(PrinterSettings settings) async {
     try {
-      // Implementar prueba de conexión de red
-      // Por ahora retornamos éxito simulado
-      await Future.delayed(const Duration(seconds: 1));
-      
-      // Aquí puedes implementar un ping o conexión socket real
       print('🌐 SettingsRepository: Probando conexión de red a ${settings.connectionInfo}');
       
+      final ipAddress = settings.ipAddress;
+      final port = settings.port ?? 9100;
+      
+      if (ipAddress == null || ipAddress.isEmpty) {
+        return Left(ServerFailure('La dirección IP no puede estar vacía'));
+      }
+      
+      // Validar formato básico de IP
+      final ipPattern = RegExp(r'^(\d{1,3}\.){3}\d{1,3}$');
+      if (!ipPattern.hasMatch(ipAddress)) {
+        return Left(ServerFailure('Formato de dirección IP inválido'));
+      }
+      
+      // Simular prueba de conexión de red con delay realista
+      await Future.delayed(const Duration(milliseconds: 2000));
+      
+      // En una implementación real, aquí harías:
+      // 1. Socket.connect(ipAddress, port) con timeout
+      // 2. Enviar comando ESC/POS de prueba
+      // 3. Verificar respuesta o timeout
+      
+      print('✅ SettingsRepository: Conexión de red simulada exitosa');
       return const Right(true);
+      
     } catch (e) {
-      return Left(ServerFailure('No se pudo conectar a la impresora de red'));
+      return Left(ServerFailure('Error al probar conexión de red: $e'));
     }
   }
 
   Future<Either<Failure, bool>> _testUsbPrinter(PrinterSettings settings) async {
     try {
-      // Implementar prueba de conexión USB
-      // Por ahora retornamos éxito simulado
-      await Future.delayed(const Duration(milliseconds: 500));
-      
       print('🔌 SettingsRepository: Probando conexión USB: ${settings.connectionInfo}');
       
+      // Simular prueba de conexión USB con delay más realista
+      await Future.delayed(const Duration(milliseconds: 1500));
+      
+      // En una implementación real, aquí intentarías:
+      // 1. Verificar que el puerto USB existe
+      // 2. Intentar abrir el puerto
+      // 3. Enviar un comando de prueba (como ESC/POS test)
+      // 4. Verificar respuesta
+      
+      final usbPath = settings.usbPath?.toUpperCase() ?? '';
+      
+      // Validar formato básico de ruta USB
+      if (usbPath.isEmpty) {
+        return Left(ServerFailure('La ruta USB no puede estar vacía'));
+      }
+      
+      // Verificar patrones comunes de rutas USB en Windows
+      final validUsbPatterns = [
+        RegExp(r'^USB\d+$'),           // USB001, USB002, etc.
+        RegExp(r'^COM\d+$'),           // COM1, COM2, etc.
+        RegExp(r'^LPT\d+$'),           // LPT1, LPT2, etc.
+        RegExp(r'^\\\\\.\\\w+\d*$'),   // \\.\USB001, \\.\COM1, etc.
+        RegExp(r'^[\w\s\-]+$'),        // Nombres de impresora con espacios y guiones
+      ];
+      
+      final isValidFormat = validUsbPatterns.any((pattern) => pattern.hasMatch(usbPath));
+      
+      if (!isValidFormat) {
+        return Left(ServerFailure('Formato de ruta USB inválido. Use: USB001, COM1, LPT1, etc.'));
+      }
+      
+      // Por ahora simulamos éxito para rutas con formato válido
+      print('✅ SettingsRepository: Conexión USB simulada exitosa');
       return const Right(true);
+      
     } catch (e) {
-      return Left(ServerFailure('No se pudo conectar a la impresora USB'));
+      return Left(ServerFailure('Error al probar conexión USB: $e'));
     }
   }
 }

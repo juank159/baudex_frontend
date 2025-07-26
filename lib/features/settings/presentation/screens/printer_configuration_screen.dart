@@ -363,8 +363,8 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                 ],
                 Expanded(
                   child: CustomButton(
-                    text: _isEditMode ? 'Actualizar' : 'Probar Conexión',
-                    icon: _isEditMode ? Icons.save : Icons.wifi_find,
+                    text: 'Probar Conexión',
+                    icon: Icons.wifi_find,
                     onPressed: controller.isTestingConnection 
                         ? null 
                         : () => _testConnection(controller),
@@ -374,7 +374,18 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                 const SizedBox(width: 16),
                 Expanded(
                   child: CustomButton(
-                    text: _isEditMode ? 'Guardar' : 'Agregar',
+                    text: 'Página de Prueba',
+                    icon: Icons.print_outlined,
+                    onPressed: controller.isTestingConnection 
+                        ? null 
+                        : () => _printTestPage(controller),
+                    isLoading: controller.isTestingConnection,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: CustomButton(
+                    text: _isEditMode ? 'Actualizar' : 'Agregar',
                     icon: _isEditMode ? Icons.update : Icons.add,
                     onPressed: controller.isSaving 
                         ? null 
@@ -558,6 +569,16 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                     ),
                   ),
                   const PopupMenuItem(
+                    value: 'printTest',
+                    child: Row(
+                      children: [
+                        Icon(Icons.print_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('Imprimir página de prueba'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
@@ -682,6 +703,26 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     await controller.testPrinterConnection(testPrinter);
   }
 
+  Future<void> _printTestPage(SettingsController controller) async {
+    if (_nameController.text.isEmpty) {
+      Get.snackbar('Error', 'El nombre de la impresora es requerido');
+      return;
+    }
+
+    if (_connectionType == PrinterConnectionType.network && _ipController.text.isEmpty) {
+      Get.snackbar('Error', 'La dirección IP es requerida');
+      return;
+    }
+
+    if (_connectionType == PrinterConnectionType.usb && _usbPathController.text.isEmpty) {
+      Get.snackbar('Error', 'La ruta USB es requerida');
+      return;
+    }
+
+    final testPrinter = _createPrinterFromForm();
+    await controller.printTestPage(testPrinter);
+  }
+
   Future<void> _savePrinter(SettingsController controller) async {
     if (_nameController.text.isEmpty) {
       Get.snackbar('Error', 'El nombre de la impresora es requerido');
@@ -740,6 +781,9 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
         break;
       case 'test':
         controller.testPrinterConnection(printer);
+        break;
+      case 'printTest':
+        controller.printTestPage(printer);
         break;
       case 'edit':
         _editPrinter(printer);

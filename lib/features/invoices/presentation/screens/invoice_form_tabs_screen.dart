@@ -109,98 +109,76 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: const Text('Facturas'),
+      title: null, // Quitamos el título para fusionar
       elevation: 0,
       backgroundColor: Theme.of(context).primaryColor,
       foregroundColor: Colors.white,
-      iconTheme: const IconThemeData(color: Colors.white),
-      titleTextStyle: const TextStyle(
+      iconTheme: const IconThemeData(color: Colors.white, size: 16),
+      titleTextStyle: TextStyle(
         color: Colors.white,
-        fontSize: 20,
+        fontSize: context.isMobile ? 12 : 14,
         fontWeight: FontWeight.w600,
       ),
-      bottom: _buildTabBar(),
-      actions: [
-        // Botón para nueva pestaña
-        IconButton(
-          icon: const Icon(Icons.add),
-          tooltip: 'Nueva Factura (Ctrl+T)',
-          onPressed:
-              tabsController.canAddMoreTabs
-                  ? () => tabsController.addNewTab()
-                  : null,
-        ),
-
-        // Menú de opciones de pestañas
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
-          onSelected: _handleMenuAction,
-          itemBuilder:
-              (context) => [
-                const PopupMenuItem(
-                  value: 'duplicate',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.content_copy,
-                        size: 16,
-                        color: Colors.lightBlue,
-                      ),
-                      SizedBox(width: 8),
-                      Text('Duplicar Pestaña'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'close_others',
-                  child: Row(
-                    children: [
-                      Icon(Icons.close_fullscreen, size: 16, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Cerrar Otras'),
-                    ],
-                  ),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'shortcuts',
-                  child: Row(
-                    children: [
-                      Icon(Icons.keyboard, size: 16, color: Colors.green),
-                      SizedBox(width: 8),
-                      Text('Ver Atajos'),
-                    ],
-                  ),
-                ),
-              ],
-        ),
-
-        // Botón de configuraciones (movido aquí desde el drawer izquierdo)
-        IconButton(
-          icon: const Icon(Icons.settings),
-          tooltip: 'Configuraciones',
-          onPressed: () => _showConfigurationsMenu(context),
-        ),
-      ],
+      toolbarHeight:
+          context.isMobile ? 40 : 44, // Un poco más alto para fusionar
+      flexibleSpace: _buildFusedAppBarContent(), // Contenido fusionado
+      automaticallyImplyLeading: true, // Mantener el drawer
+      actions: [], // Movemos las acciones al flexibleSpace
     );
   }
 
-  PreferredSizeWidget? _buildTabBar() {
+  Widget _buildFusedAppBarContent() {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.isMobile ? 8 : 12,
+          vertical: context.isMobile ? 4 : 6,
+        ),
+        child: Row(
+          children: [
+            // Espaciado después del drawer icon (que se agrega automáticamente)
+            const SizedBox(width: 8),
+
+            // Pestañas en el centro
+            Expanded(child: _buildCenterTabs()),
+
+            // Acciones en la derecha
+            _buildAppBarActions(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterTabs() {
     if (!tabsController.hasTabs) {
-      return null;
+      return Center(
+        child: Text(
+          'Facturas',
+          style: TextStyle(
+            fontSize: context.isMobile ? 12 : 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      );
     }
 
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(48.0),
-      child: Obx(
-        () => TabBar(
+    return Obx(
+      () => Container(
+        height: context.isMobile ? 28 : 32,
+        child: TabBar(
           controller: tabsController.tabController,
           isScrollable: true,
-          tabAlignment: TabAlignment.start,
+          tabAlignment: TabAlignment.center, // Centrar las pestañas
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
-          indicatorWeight: 3,
+          indicatorWeight: 1.5,
+          labelPadding: EdgeInsets.symmetric(
+            horizontal: context.isMobile ? 6 : 8,
+          ),
+          dividerColor: Colors.transparent,
           tabs:
               tabsController.tabs.map((tab) {
                 return _buildTabWidget(tab);
@@ -210,22 +188,110 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     );
   }
 
+  Widget _buildAppBarActions() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Botón para nueva pestaña
+        IconButton(
+          icon: const Icon(Icons.add, size: 14, color: Colors.white),
+          tooltip: 'Nueva (Ctrl+T)',
+          padding: EdgeInsets.all(context.isMobile ? 3 : 4),
+          constraints: BoxConstraints(
+            minWidth: context.isMobile ? 20 : 24,
+            minHeight: context.isMobile ? 20 : 24,
+          ),
+          onPressed:
+              tabsController.canAddMoreTabs
+                  ? () => tabsController.addNewTab()
+                  : null,
+        ),
+
+        // Menú de opciones
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, size: 14),
+          padding: EdgeInsets.all(context.isMobile ? 3 : 4),
+          constraints: BoxConstraints(
+            minWidth: context.isMobile ? 20 : 24,
+            minHeight: context.isMobile ? 20 : 24,
+          ),
+          onSelected: _handleMenuAction,
+          itemBuilder:
+              (context) => [
+                const PopupMenuItem(
+                  value: 'duplicate',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.content_copy,
+                        size: 12,
+                        color: Colors.lightBlue,
+                      ),
+                      SizedBox(width: 4),
+                      Text('Duplicar', style: TextStyle(fontSize: 11)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'close_others',
+                  child: Row(
+                    children: [
+                      Icon(Icons.close_fullscreen, size: 12, color: Colors.red),
+                      SizedBox(width: 4),
+                      Text('Cerrar Otras', style: TextStyle(fontSize: 11)),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'shortcuts',
+                  child: Row(
+                    children: [
+                      Icon(Icons.keyboard, size: 12, color: Colors.green),
+                      SizedBox(width: 4),
+                      Text('Atajos', style: TextStyle(fontSize: 11)),
+                    ],
+                  ),
+                ),
+              ],
+        ),
+
+        // Botón de configuraciones
+        IconButton(
+          icon: const Icon(Icons.settings, size: 14),
+          tooltip: 'Config',
+          padding: EdgeInsets.all(context.isMobile ? 3 : 4),
+          constraints: BoxConstraints(
+            minWidth: context.isMobile ? 20 : 24,
+            minHeight: context.isMobile ? 20 : 24,
+          ),
+          onPressed: () => _showConfigurationsMenu(context),
+        ),
+      ],
+    );
+  }
+
+  PreferredSizeWidget? _buildTabBar() {
+    // Ya no necesitamos un TabBar separado, todo está fusionado
+    return null;
+  }
+
   Widget _buildTabWidget(InvoiceTab tab) {
     final isActive = tabsController.currentTab?.id == tab.id;
     final hasUnsavedChanges = tab.controller.invoiceItems.isNotEmpty;
 
     return Tab(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Indicador de cambios sin guardar
             if (hasUnsavedChanges)
               Container(
-                width: 6,
-                height: 6,
-                margin: const EdgeInsets.only(right: 4),
+                width: 4,
+                height: 4,
+                margin: const EdgeInsets.only(right: 3),
                 decoration: const BoxDecoration(
                   color: Colors.orange,
                   shape: BoxShape.circle,
@@ -238,7 +304,7 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                 tab.title,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
@@ -249,9 +315,9 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
               GestureDetector(
                 onTap: () => tabsController.closeTab(tab.id),
                 child: Container(
-                  margin: const EdgeInsets.only(left: 4),
-                  padding: const EdgeInsets.all(2),
-                  child: Icon(Icons.close, size: 14, color: Colors.white70),
+                  margin: const EdgeInsets.only(left: 2),
+                  padding: const EdgeInsets.all(1),
+                  child: Icon(Icons.close, size: 12, color: Colors.white70),
                 ),
               ),
           ],
@@ -474,42 +540,42 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     if (!mounted) return;
 
     showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Configuración de Impresora'),
-              content: const Text(
-                'Función en desarrollo. Pronto estará disponible.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cerrar'),
-                ),
-              ],
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Configuración de Impresora'),
+            content: const Text(
+              'Función en desarrollo. Pronto estará disponible.',
             ),
-      );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+    );
   }
 
   void _showInvoiceSettings() {
     if (!mounted) return;
 
     showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Configuración de Facturas'),
-              content: const Text(
-                'Función en desarrollo. Pronto estará disponible.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cerrar'),
-                ),
-              ],
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Configuración de Facturas'),
+            content: const Text(
+              'Función en desarrollo. Pronto estará disponible.',
             ),
-      );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+    );
   }
 
   void _showTabsManagement() {
@@ -520,296 +586,294 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     if (!mounted) return;
 
     showDialog(
-        context: context,
-        builder:
-            (context) => Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+      context: context,
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: context.isMobile ? double.infinity : 500,
+                maxHeight:
+                    context.isMobile
+                        ? MediaQuery.of(context).size.height * 0.7
+                        : 600,
               ),
-              child: Container(
-                constraints: BoxConstraints(
-                  maxWidth: context.isMobile ? double.infinity : 500,
-                  maxHeight:
-                      context.isMobile
-                          ? MediaQuery.of(context).size.height * 0.7
-                          : 600,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header elegante con gradiente
-                    Container(
-                      padding: EdgeInsets.all(context.isMobile ? 20 : 24),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.indigo.shade600,
-                            Colors.indigo.shade500,
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.info,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Información del Sistema',
-                                  style: TextStyle(
-                                    fontSize: Responsive.getFontSize(
-                                      context,
-                                      mobile: 18,
-                                      tablet: 20,
-                                      desktop: 22,
-                                    ),
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Estado actual del punto de venta',
-                                  style: TextStyle(
-                                    fontSize: Responsive.getFontSize(
-                                      context,
-                                      mobile: 12,
-                                      tablet: 13,
-                                      desktop: 14,
-                                    ),
-                                    color: Colors.white.withOpacity(0.9),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.close, color: Colors.white),
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.white.withOpacity(0.2),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header elegante con gradiente
+                  Container(
+                    padding: EdgeInsets.all(context.isMobile ? 20 : 24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.indigo.shade600,
+                          Colors.indigo.shade500,
                         ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
                       ),
                     ),
-                    // Contenido
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.all(context.isMobile ? 16 : 24),
-                        child: Obx(
-                          () => Column(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.info,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Card de pestañas
-                              _buildInfoCard(
-                                context,
-                                title: 'Gestión de Pestañas',
-                                icon: Icons.tab,
-                                color: Colors.blue,
-                                items: [
-                                  _InfoItem(
-                                    'Pestañas abiertas',
-                                    '${tabsController.tabs.length}',
+                              Text(
+                                'Información del Sistema',
+                                style: TextStyle(
+                                  fontSize: Responsive.getFontSize(
+                                    context,
+                                    mobile: 18,
+                                    tablet: 20,
+                                    desktop: 22,
                                   ),
-                                  _InfoItem(
-                                    'Máximo permitido',
-                                    '${InvoiceTabsController.maxTabs}',
-                                  ),
-                                  _InfoItem(
-                                    'Pestañas disponibles',
-                                    '${InvoiceTabsController.maxTabs - tabsController.tabs.length}',
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: context.verticalSpacing),
-                              // Card de aplicación
-                              _buildInfoCard(
-                                context,
-                                title: 'Información de la Aplicación',
-                                icon: Icons.apps,
-                                color: Colors.green,
-                                items: [
-                                  _InfoItem('Versión', '1.0.0'),
-                                  _InfoItem('Build', 'DEV'),
-                                  _InfoItem('Plataforma', 'Flutter Desktop'),
-                                  _InfoItem('Estado', 'Activo'),
-                                ],
-                              ),
-                              SizedBox(height: context.verticalSpacing),
-                              // Card de rendimiento
-                              _buildInfoCard(
-                                context,
-                                title: 'Rendimiento del Sistema',
-                                icon: Icons.speed,
-                                color: Colors.orange,
-                                items: [
-                                  _InfoItem(
-                                    'Memoria utilizada',
-                                    '${(tabsController.tabs.length * 15).toStringAsFixed(1)} MB',
-                                  ),
-                                  _InfoItem(
-                                    'Facturas en memoria',
-                                    '${tabsController.tabs.where((tab) => tab.controller.invoiceItems.isNotEmpty).length}',
-                                  ),
-                                  _InfoItem('Estado de conexión', 'Conectado'),
-                                ],
-                              ),
-                              SizedBox(height: context.verticalSpacing),
-                              // Información adicional
-                              Container(
-                                padding: EdgeInsets.all(
-                                  context.isMobile ? 12 : 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
                                 ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.cyan.shade50,
-                                      Colors.cyan.shade100,
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Estado actual del punto de venta',
+                                style: TextStyle(
+                                  fontSize: Responsive.getFontSize(
+                                    context,
+                                    mobile: 12,
+                                    tablet: 13,
+                                    desktop: 14,
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.cyan.shade200,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.tips_and_updates,
-                                      color: Colors.cyan.shade600,
-                                      size: context.isMobile ? 20 : 24,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '💻 Información del Sistema',
-                                            style: TextStyle(
-                                              fontSize: Responsive.getFontSize(
-                                                context,
-                                                mobile: 13,
-                                                tablet: 14,
-                                                desktop: 15,
-                                              ),
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.cyan.shade800,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'El sistema está funcionando correctamente. Para obtener el mejor rendimiento, mantén menos de 5 pestañas abiertas.',
-                                            style: TextStyle(
-                                              fontSize: Responsive.getFontSize(
-                                                context,
-                                                mobile: 11,
-                                                tablet: 12,
-                                                desktop: 13,
-                                              ),
-                                              color: Colors.cyan.shade700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    // Footer
-                    Container(
-                      padding: EdgeInsets.all(context.isMobile ? 16 : 20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(16),
-                          bottomRight: Radius.circular(16),
+                  ),
+                  // Contenido
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(context.isMobile ? 16 : 24),
+                      child: Obx(
+                        () => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Card de pestañas
+                            _buildInfoCard(
+                              context,
+                              title: 'Gestión de Pestañas',
+                              icon: Icons.tab,
+                              color: Colors.blue,
+                              items: [
+                                _InfoItem(
+                                  'Pestañas abiertas',
+                                  '${tabsController.tabs.length}',
+                                ),
+                                _InfoItem(
+                                  'Máximo permitido',
+                                  '${InvoiceTabsController.maxTabs}',
+                                ),
+                                _InfoItem(
+                                  'Pestañas disponibles',
+                                  '${InvoiceTabsController.maxTabs - tabsController.tabs.length}',
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: context.verticalSpacing),
+                            // Card de aplicación
+                            _buildInfoCard(
+                              context,
+                              title: 'Información de la Aplicación',
+                              icon: Icons.apps,
+                              color: Colors.green,
+                              items: [
+                                _InfoItem('Versión', '1.0.0'),
+                                _InfoItem('Build', 'DEV'),
+                                _InfoItem('Plataforma', 'Flutter Desktop'),
+                                _InfoItem('Estado', 'Activo'),
+                              ],
+                            ),
+                            SizedBox(height: context.verticalSpacing),
+                            // Card de rendimiento
+                            _buildInfoCard(
+                              context,
+                              title: 'Rendimiento del Sistema',
+                              icon: Icons.speed,
+                              color: Colors.orange,
+                              items: [
+                                _InfoItem(
+                                  'Memoria utilizada',
+                                  '${(tabsController.tabs.length * 15).toStringAsFixed(1)} MB',
+                                ),
+                                _InfoItem(
+                                  'Facturas en memoria',
+                                  '${tabsController.tabs.where((tab) => tab.controller.invoiceItems.isNotEmpty).length}',
+                                ),
+                                _InfoItem('Estado de conexión', 'Conectado'),
+                              ],
+                            ),
+                            SizedBox(height: context.verticalSpacing),
+                            // Información adicional
+                            Container(
+                              padding: EdgeInsets.all(
+                                context.isMobile ? 12 : 16,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.cyan.shade50,
+                                    Colors.cyan.shade100,
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.cyan.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.tips_and_updates,
+                                    color: Colors.cyan.shade600,
+                                    size: context.isMobile ? 20 : 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '💻 Información del Sistema',
+                                          style: TextStyle(
+                                            fontSize: Responsive.getFontSize(
+                                              context,
+                                              mobile: 13,
+                                              tablet: 14,
+                                              desktop: 15,
+                                            ),
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.cyan.shade800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'El sistema está funcionando correctamente. Para obtener el mejor rendimiento, mantén menos de 5 pestañas abiertas.',
+                                          style: TextStyle(
+                                            fontSize: Responsive.getFontSize(
+                                              context,
+                                              mobile: 11,
+                                              tablet: 12,
+                                              desktop: 13,
+                                            ),
+                                            color: Colors.cyan.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.schedule,
-                            color: Colors.grey.shade600,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Última actualización: ${DateTime.now().toString().substring(0, 16)}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ),
-                          ElevatedButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.indigo.shade600,
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: context.isMobile ? 16 : 20,
-                                vertical: context.isMobile ? 8 : 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Text(
-                              'Cerrar',
-                              style: TextStyle(
-                                fontSize: Responsive.getFontSize(
-                                  context,
-                                  mobile: 13,
-                                  tablet: 14,
-                                  desktop: 15,
-                                ),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
+                    ),
+                  ),
+                  // Footer
+                  Container(
+                    padding: EdgeInsets.all(context.isMobile ? 16 : 20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(16),
+                        bottomRight: Radius.circular(16),
                       ),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.schedule,
+                          color: Colors.grey.shade600,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Última actualización: ${DateTime.now().toString().substring(0, 16)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.indigo.shade600,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.isMobile ? 16 : 20,
+                              vertical: context.isMobile ? 8 : 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'Cerrar',
+                            style: TextStyle(
+                              fontSize: Responsive.getFontSize(
+                                context,
+                                mobile: 13,
+                                tablet: 14,
+                                desktop: 15,
+                              ),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-      );
+          ),
+    );
   }
 
   void _showKeyboardShortcuts({bool fromDrawer = false}) {

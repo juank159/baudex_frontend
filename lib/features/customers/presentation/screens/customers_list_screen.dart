@@ -6,6 +6,7 @@ import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/app_drawer.dart';
 import '../controllers/customers_controller.dart';
 import '../controllers/customer_stats_controller.dart';
 import '../widgets/customer_card_widget.dart';
@@ -24,6 +25,7 @@ class CustomersListScreen extends GetView<CustomersController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: _buildAppBar(context),
+      drawer: const AppDrawer(currentRoute: '/customers'),
       body: ResponsiveLayout(
         mobile: _buildMobileLayout(context),
         tablet: _buildTabletLayout(context),
@@ -37,10 +39,6 @@ class CustomersListScreen extends GetView<CustomersController> {
     return AppBar(
       title: const Text('Clientes'),
       elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Get.offAllNamed('/dashboard'),
-      ),
       actions: [
         // Búsqueda rápida en móvil
         if (ResponsiveHelper.isMobile(context))

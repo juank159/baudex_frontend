@@ -960,7 +960,7 @@ class InvoicePrintController extends GetxController {
       }
 
       _addToHistory('Impresión ${_selectedFormat.value.displayName}', true);
-      _showSuccess('Factura impresa exitosamente');
+      //_showSuccess('Factura impresa exitosamente');
     } catch (e) {
       debugPrint('❌ Error imprimiendo: $e');
       _addToHistory(

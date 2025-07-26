@@ -109,12 +109,32 @@ abstract class AppRoutes {
       '/invoices/customer/$customerId';
   static String invoicesByStatus(String status) => '/invoices/status/$status';
 
+  // ==================== EXPENSES ROUTES ====================
+  static const String expenses = '/expenses';
+  static const String expensesCreate = '/expenses/create';
+  static const String expensesEdit = '/expenses/edit';
+  static const String expensesDetail = '/expenses/detail';
+  static const String expensesStats = '/expenses/stats';
+  static const String expensesCategories = '/expenses/categories';
+
+  // Expenses with parameters
+  static String expenseEdit(String id) => '/expenses/edit/$id';
+  static String expenseDetail(String id) => '/expenses/detail/$id';
+  static String expensesByCategory(String categoryId) =>
+      '/expenses/category/$categoryId';
+  static String expensesByStatus(String status) => '/expenses/status/$status';
+
   // ==================== SETTINGS ROUTES ====================
   static const String settings = '/settings';
   static const String settingsApp = '/settings/app';
   static const String settingsInvoice = '/settings/invoice';
   static const String settingsPrinter = '/settings/printer';
   static const String settingsDatabase = '/settings/database';
+  static const String settingsOrganization = '/settings/organization';
+  static const String settingsUser = '/settings/user';
+  static const String settingsBackup = '/settings/backup';
+  static const String settingsSecurity = '/settings/security';
+  static const String settingsNotifications = '/settings/notifications';
 
   // Error Routes
   static const String notFound = '/404';

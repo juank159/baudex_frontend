@@ -14,6 +14,9 @@ import '../../../categories/domain/usecases/get_categories_usecase.dart';
 // ✅ IMPORT PARA CALCULADORA DE PRECIOS
 import '../widgets/price_calculator_dialog.dart';
 import '../../../../app/core/utils/formatters.dart';
+// ✅ IMPORT PARA MANEJO GLOBAL DE ERRORES DE SUSCRIPCIÓN
+import '../../../../app/shared/utils/subscription_error_handler.dart';
+import '../../../../app/shared/services/subscription_validation_service.dart';
 // ✅ IMPORT PARA CONTROLLERS QUE NECESITAN REFRESH
 import 'products_controller.dart';
 import 'product_detail_controller.dart';
@@ -475,6 +478,7 @@ class ProductFormController extends GetxController {
 
   // ==================== UI HELPERS ====================
 
+
   /// Mostrar selector de categoría (método actualizado)
   void showCategorySelector() {
     if (_availableCategories.isEmpty && !_isLoadingCategories.value) {
@@ -627,6 +631,14 @@ class ProductFormController extends GetxController {
   // }
 
   Future<void> _createProduct() async {
+    // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
+    if (!SubscriptionValidationService.canCreateProduct()) {
+      print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO creación de producto');
+      return; // Bloquear operación
+    }
+    
+    print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con creación de producto');
+    
     final prices = _buildPricesList();
 
     final result = await _createProductUseCase(
@@ -657,10 +669,16 @@ class ProductFormController extends GetxController {
 
     result.fold(
       (failure) {
-        print(
-          '❌ ProductFormController: Error al crear producto - ${failure.message}',
+        // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
+        final handled = SubscriptionErrorHandler.handleFailure(
+          failure,
+          context: 'crear producto',
         );
-        _showError('Error al crear producto', failure.message);
+        
+        if (!handled) {
+          // Solo mostrar error genérico si no fue un error de suscripción
+          _showError('Error al crear producto', failure.message);
+        }
       },
       (product) {
         print(
@@ -759,6 +777,13 @@ class ProductFormController extends GetxController {
 
   Future<void> _updateProduct() async {
     try {
+      // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
+      if (!SubscriptionValidationService.canUpdateProduct()) {
+        print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO actualización de producto');
+        return; // Bloquear operación
+      }
+      
+      print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con actualización de producto');
       print('🔄 ProductFormController: Actualizando producto existente...');
 
       // ✅ PASO 1: Construir precios para actualización con más debug
@@ -812,10 +837,16 @@ class ProductFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print(
-            '❌ ProductFormController: Error al actualizar producto - ${failure.message}',
+          // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
+          final handled = SubscriptionErrorHandler.handleFailure(
+            failure,
+            context: 'editar producto',
           );
-          _showError('Error al actualizar producto', failure.message);
+          
+          if (!handled) {
+            // Solo mostrar error genérico si no fue un error de suscripción
+            _showError('Error al actualizar producto', failure.message);
+          }
         },
         (product) {
           print(

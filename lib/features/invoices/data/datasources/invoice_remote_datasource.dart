@@ -334,6 +334,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {
+      // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
+      if (e is ServerException) {
+        throw e; // Re-throw with original statusCode
+      }
       throw ServerException('Error inesperado al crear factura: $e');
     }
   }
@@ -373,6 +377,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {
+      // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
+      if (e is ServerException) {
+        throw e; // Re-throw with original statusCode
+      }
       throw ServerException('Error inesperado al actualizar factura: $e');
     }
   }
@@ -456,6 +464,10 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {
+      // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
+      if (e is ServerException) {
+        throw e; // Re-throw with original statusCode
+      }
       throw ServerException('Error inesperado al agregar pago: $e');
     }
   }

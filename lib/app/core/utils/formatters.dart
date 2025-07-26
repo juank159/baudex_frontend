@@ -22,6 +22,9 @@ class AppFormatters {
   // Formateador de stock y cantidades
   static final stockFormat = NumberFormat('#,##0.##', 'es_CO');
 
+  // Formateador de fechas
+  static final dateFormat = DateFormat('dd/MM/yyyy', 'es_CO');
+
   /// Formatea un número (double o int) como un string con separadores de miles.
   ///
   /// Ejemplo: formatNumber(12345) => "12.345"
@@ -81,5 +84,13 @@ class AppFormatters {
     cleaned = cleaned.replaceAll('.', '').replaceAll(',', '.');
 
     return double.tryParse(cleaned);
+  }
+
+  /// Formatea una fecha como string.
+  ///
+  /// Ejemplo: formatDate(DateTime(2023, 12, 25)) => "25/12/2023"
+  static String formatDate(DateTime? date) {
+    if (date == null) return '';
+    return dateFormat.format(date);
   }
 }

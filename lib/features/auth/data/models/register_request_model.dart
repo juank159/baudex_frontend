@@ -61,6 +61,7 @@ class RegisterRequestModel {
   final String email;
   final String password;
   final String? role;
+  final String? organizationName;
 
   const RegisterRequestModel({
     required this.firstName,
@@ -68,6 +69,7 @@ class RegisterRequestModel {
     required this.email,
     required this.password,
     this.role,
+    this.organizationName,
   });
 
   factory RegisterRequestModel.fromJson(Map<String, dynamic> json) {
@@ -77,6 +79,7 @@ class RegisterRequestModel {
       email: json['email'] as String,
       password: json['password'] as String,
       role: json['role'] as String?,
+      organizationName: json['organizationName'] as String?,
     );
   }
 
@@ -93,6 +96,16 @@ class RegisterRequestModel {
       json['role'] = role;
     }
 
+    // MULTITENANT: Agregar organizationName si está disponible
+    if (organizationName != null && organizationName!.isNotEmpty) {
+      json['organizationName'] = organizationName;
+    } else {
+      // Generar nombre de organización basado en el email si no se proporciona
+      final emailDomain = email.split('@').last;
+      final domainWithoutExtension = emailDomain.split('.').first;
+      json['organizationName'] = '${domainWithoutExtension.toUpperCase()} Corp';
+    }
+
     return json;
   }
 
@@ -103,6 +116,7 @@ class RegisterRequestModel {
     required String email,
     required String password,
     UserRole? role,
+    String? organizationName,
   }) {
     return RegisterRequestModel(
       firstName: firstName,
@@ -110,10 +124,11 @@ class RegisterRequestModel {
       email: email,
       password: password,
       role: role?.value,
+      organizationName: organizationName,
     );
   }
 
   @override
   String toString() =>
-      'RegisterRequestModel(firstName: $firstName, lastName: $lastName, email: $email)';
+      'RegisterRequestModel(firstName: $firstName, lastName: $lastName, email: $email, organizationName: $organizationName)';
 }

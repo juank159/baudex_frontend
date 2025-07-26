@@ -27,6 +27,7 @@ class RegisterUseCase implements UseCase<AuthResult, RegisterParams> {
       email: params.email.trim().toLowerCase(),
       password: params.password,
       role: params.role,
+      organizationName: params.organizationName,
     );
   }
 
@@ -121,6 +122,7 @@ class RegisterParams extends Equatable {
   final String password;
   final String confirmPassword;
   final UserRole? role;
+  final String? organizationName;
 
   const RegisterParams({
     required this.firstName,
@@ -129,6 +131,7 @@ class RegisterParams extends Equatable {
     required this.password,
     required this.confirmPassword,
     this.role,
+    this.organizationName,
   });
 
   @override
@@ -139,9 +142,10 @@ class RegisterParams extends Equatable {
     password,
     confirmPassword,
     role,
+    organizationName,
   ];
 
   @override
   String toString() =>
-      'RegisterParams(firstName: $firstName, lastName: $lastName, email: $email)';
+      'RegisterParams(firstName: $firstName, lastName: $lastName, email: $email, organizationName: $organizationName)';
 }

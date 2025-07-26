@@ -1,5 +1,9 @@
 // lib/app/config/routes/app_pages.dart
-import 'package:baudex_desktop/app/shared/screens/dashboard_screen.dart';
+import 'package:baudex_desktop/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:baudex_desktop/features/dashboard/domain/usecases/get_dashboard_stats_usecase.dart';
+import 'package:baudex_desktop/features/dashboard/presentation/controllers/dashboard_controller.dart';
+import 'package:baudex_desktop/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:baudex_desktop/features/dashboard/presentation/bindings/dashboard_binding.dart';
 import 'package:baudex_desktop/app/shared/screens/splash_screen.dart';
 import 'package:baudex_desktop/features/categories/domain/usecases/get_categories_usecase.dart';
 import 'package:baudex_desktop/features/categories/presentation/bindings/category_binding.dart';
@@ -29,8 +33,10 @@ import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_pr
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_settings_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_stats_screen.dart';
 import 'package:baudex_desktop/features/settings/presentation/screens/printer_configuration_screen.dart';
+import 'package:baudex_desktop/features/settings/presentation/screens/organization_settings_screen.dart';
 import 'package:baudex_desktop/features/settings/presentation/bindings/settings_binding.dart';
 import 'package:baudex_desktop/features/settings/presentation/controllers/settings_controller.dart';
+import 'package:baudex_desktop/features/settings/presentation/controllers/organization_controller.dart';
 import 'package:baudex_desktop/features/products/domain/usecases/get_products_usecase.dart';
 import 'package:baudex_desktop/features/products/presentation/bindings/product_binding.dart';
 import 'package:baudex_desktop/features/products/presentation/controllers/products_controller.dart';
@@ -40,6 +46,15 @@ import 'package:baudex_desktop/features/products/presentation/screens/product_fo
 import 'package:baudex_desktop/features/products/presentation/screens/product_stats_screen.dart';
 import 'package:baudex_desktop/features/products/presentation/screens/products_list_screen.dart';
 import 'package:baudex_desktop/features/products/presentation/screens/product_detail_screen.dart';
+import 'package:baudex_desktop/features/expenses/presentation/bindings/expense_binding.dart';
+import 'package:baudex_desktop/features/expenses/presentation/controllers/expenses_controller.dart';
+import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_form_controller.dart';
+import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_detail_controller.dart';
+import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_categories_controller.dart';
+import 'package:baudex_desktop/features/expenses/presentation/screens/expenses_list_screen.dart';
+import 'package:baudex_desktop/features/expenses/presentation/screens/expense_form_screen.dart';
+import 'package:baudex_desktop/features/expenses/presentation/screens/expense_detail_screen.dart';
+import 'package:baudex_desktop/features/expenses/presentation/screens/expense_categories_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -121,9 +136,11 @@ class AppPages {
     GetPage(
       name: AppRoutes.dashboard,
       page: () => const DashboardScreen(),
+      // ✅ NO BINDING - Las dependencias son GLOBALES desde InitialBinding
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
       middlewares: [AuthMiddleware()],
+      preventDuplicates: true, // ✅ Prevenir duplicación de rutas
     ),
 
     // ==================== CATEGORIES PAGES ====================
@@ -623,17 +640,153 @@ class AppPages {
       middlewares: [AuthMiddleware()],
     ),
 
+    // ==================== EXPENSES PAGES ====================
+    GetPage(
+      name: AppRoutes.expenses,
+      page: () => const ExpensesListScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [LISTA GASTOS] Inicializando bindings...');
+        ExpenseBinding().dependencies();
+        print('✅ [LISTA GASTOS] ExpenseBinding registrado');
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: AppRoutes.expensesCreate,
+      page: () => const ExpenseFormScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [CREAR GASTO] Inicializando bindings...');
+        ExpenseBinding().dependencies();
+        if (!Get.isRegistered<ExpenseFormController>()) {
+          Get.lazyPut<ExpenseFormController>(
+            () => ExpenseFormController(
+              createExpenseUseCase: Get.find(),
+              updateExpenseUseCase: Get.find(),
+              getExpenseByIdUseCase: Get.find(),
+              getExpenseCategoriesUseCase: Get.find(),
+              createExpenseCategoryUseCase: Get.find(),
+              fileService: Get.find(),
+            ),
+          );
+        }
+        print('✅ [CREAR GASTO] ExpenseFormController registrado');
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: '${AppRoutes.expensesEdit}/:id',
+      page: () => const ExpenseFormScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [EDITAR GASTO] Inicializando bindings...');
+        ExpenseBinding().dependencies();
+        if (!Get.isRegistered<ExpenseFormController>()) {
+          Get.lazyPut<ExpenseFormController>(
+            () => ExpenseFormController(
+              createExpenseUseCase: Get.find(),
+              updateExpenseUseCase: Get.find(),
+              getExpenseByIdUseCase: Get.find(),
+              getExpenseCategoriesUseCase: Get.find(),
+              createExpenseCategoryUseCase: Get.find(),
+              fileService: Get.find(),
+            ),
+          );
+        }
+        print('✅ [EDITAR GASTO] ExpenseFormController registrado');
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: '${AppRoutes.expensesDetail}/:id',
+      page: () => const ExpenseDetailScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [DETALLE GASTO] Inicializando bindings...');
+        ExpenseBinding().dependencies();
+        if (!Get.isRegistered<ExpenseDetailController>()) {
+          Get.lazyPut<ExpenseDetailController>(
+            () => ExpenseDetailController(
+              getExpenseByIdUseCase: Get.find(),
+              deleteExpenseUseCase: Get.find(),
+              approveExpenseUseCase: Get.find(),
+              submitExpenseUseCase: Get.find(),
+            ),
+          );
+        }
+        print('✅ [DETALLE GASTO] ExpenseDetailController registrado');
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: '/expenses/category/:categoryId',
+      page: () => const ExpensesListScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [GASTOS POR CATEGORÍA] Verificando ExpensesController...');
+        ExpenseBinding().dependencies();
+        print('✅ [GASTOS POR CATEGORÍA] ExpensesController registrado');
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: '/expenses/status/:status',
+      page: () => const ExpensesListScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [GASTOS POR ESTADO] Verificando ExpensesController...');
+        ExpenseBinding().dependencies();
+        print('✅ [GASTOS POR ESTADO] ExpensesController registrado');
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: AppRoutes.expensesCategories,
+      page: () => const ExpenseCategoriesScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [CATEGORÍAS GASTOS] Inicializando bindings...');
+        ExpenseBinding().dependencies();
+        if (!Get.isRegistered<ExpenseCategoriesController>()) {
+          Get.lazyPut<ExpenseCategoriesController>(
+            () => ExpenseCategoriesController(
+              getExpenseCategoriesUseCase: Get.find(),
+              createExpenseCategoryUseCase: Get.find(),
+              updateExpenseCategoryUseCase: Get.find(),
+              deleteExpenseCategoryUseCase: Get.find(),
+            ),
+          );
+        }
+        print('✅ [CATEGORÍAS GASTOS] ExpenseCategoriesController registrado');
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
     // ==================== SETTINGS PAGES ====================
     GetPage(
       name: AppRoutes.settingsPrinter,
       page: () => const PrinterConfigurationScreen(),
       binding: BindingsBuilder(() {
         print('🔧 [CONFIGURACIÓN IMPRESORA] Inicializando SettingsBinding...');
-        
+
         if (!Get.isRegistered<SettingsController>()) {
           SettingsBinding().dependencies();
         }
-        
+
         print('✅ [CONFIGURACIÓN IMPRESORA] SettingsController disponible');
       }),
       transition: Transition.rightToLeft,
@@ -645,6 +798,27 @@ class AppPages {
     GetPage(
       name: AppRoutes.settingsInvoice,
       page: () => const InvoiceSettingsScreen(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    // 🏢 CONFIGURACIÓN DE ORGANIZACIÓN
+    GetPage(
+      name: AppRoutes.settingsOrganization,
+      page: () => const OrganizationSettingsScreen(),
+      binding: BindingsBuilder(() {
+        print(
+          '🔧 [CONFIGURACIÓN ORGANIZACIÓN] Inicializando SettingsBinding...',
+        );
+
+        if (!Get.isRegistered<SettingsController>() ||
+            !Get.isRegistered<OrganizationController>()) {
+          SettingsBinding().dependencies();
+        }
+
+        print('✅ [CONFIGURACIÓN ORGANIZACIÓN] Controllers disponibles');
+      }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
       middlewares: [AuthMiddleware()],

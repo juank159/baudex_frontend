@@ -424,6 +424,32 @@ class ApiConstants {
   static const String customersCacheKey = 'customers_cache';
   static const String customerStatsCacheKey = 'customer_stats_cache';
 
+  // ==================== EXPENSES ENDPOINTS ====================
+
+  static const String expensesBase = '/expenses';
+
+  // Public endpoints
+  static const String expenses = expensesBase;
+  static const String expensesSearch = '$expensesBase/search';
+  static const String expensesStats = '$expensesBase/stats';
+
+  // Individual expense endpoints
+  static String expenseById(String id) => '$expensesBase/$id';
+  static String submitExpense(String id) => '$expensesBase/$id/submit';
+  static String approveExpense(String id) => '$expensesBase/$id/approve';
+  static String rejectExpense(String id) => '$expensesBase/$id/reject';
+  static String markExpenseAsPaid(String id) => '$expensesBase/$id/mark-paid';
+
+  // Expense Categories endpoints
+  static const String expenseCategories = '/expense-categories';
+  static const String expenseCategoriesSearch = '$expenseCategories/search';
+  static String expenseCategoryById(String id) => '$expenseCategories/$id';
+
+  // Cache Keys para expenses
+  static const String expensesCacheKey = 'expenses_cache';
+  static const String expenseStatsCacheKey = 'expense_stats_cache';
+  static const String expenseCategoriesCacheKey = 'expense_categories_cache';
+
   // ==================== MÉTODOS DE UTILIDAD ====================
 
   /// Validar que todas las URLs estén correctamente configuradas

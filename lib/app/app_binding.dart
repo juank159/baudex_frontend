@@ -84,6 +84,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:baudex_desktop/app/core/network/dio_client.dart';
 import 'package:baudex_desktop/app/core/network/network_info.dart';
 import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
+import 'package:baudex_desktop/app/core/services/file_service.dart';
 
 // ==================== AUTH IMPORTS ====================
 import 'package:baudex_desktop/features/auth/data/datasources/auth_remote_datasource.dart';
@@ -98,6 +99,9 @@ import 'package:baudex_desktop/features/auth/domain/usecases/get_profile_usecase
 import 'package:baudex_desktop/features/auth/domain/usecases/change_password_usecase.dart';
 import 'package:baudex_desktop/features/auth/presentation/controllers/auth_controller.dart';
 
+// ==================== TENANT IMPORTS ====================
+import 'package:baudex_desktop/core/storage/tenant_storage.dart';
+
 // ==================== CUSTOMER IMPORTS ====================
 import 'package:baudex_desktop/features/customers/presentation/bindings/customer_binding.dart';
 import 'package:baudex_desktop/features/customers/domain/repositories/customer_repository.dart';
@@ -110,6 +114,12 @@ import 'package:baudex_desktop/app/shared/controllers/app_drawer_controller.dart
 
 // ==================== SETTINGS IMPORTS ====================
 import 'package:baudex_desktop/features/settings/presentation/bindings/settings_binding.dart';
+
+// ==================== DASHBOARD IMPORTS ====================
+import 'package:baudex_desktop/features/dashboard/presentation/bindings/dashboard_binding.dart';
+import 'package:baudex_desktop/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:baudex_desktop/features/dashboard/domain/usecases/get_dashboard_stats_usecase.dart';
+import 'package:baudex_desktop/features/dashboard/presentation/controllers/dashboard_controller.dart';
 
 // ==================== PRODUCT IMPORTS ====================
 // TODO: Descomentar cuando tengas ProductBinding
@@ -142,6 +152,11 @@ class InitialBinding implements Bindings {
     // ==================== SETTINGS MODULE ====================
     _registerSettingsModule();
 
+    // ==================== DASHBOARD MODULE ====================
+    print('🏠 [DEBUG] A PUNTO DE LLAMAR _registerDashboardModule()...');
+    _registerDashboardModule();
+    print('🏠 [DEBUG] _registerDashboardModule() COMPLETADO');
+
     // ==================== VALIDACIÓN FINAL ====================
     _validateDependencies();
 
@@ -159,6 +174,18 @@ class InitialBinding implements Bindings {
     Get.lazyPut<Connectivity>(() => Connectivity(), fenix: true);
     Get.lazyPut<NetworkInfo>(
       () => NetworkInfoImpl(Get.find<Connectivity>()),
+      fenix: true,
+    );
+    
+    // Tenant Storage para multitenant
+    Get.lazyPut<TenantStorage>(
+      () => TenantStorageImpl(Get.find<SecureStorageService>()),
+      fenix: true,
+    );
+    
+    // File Service para manejo de archivos
+    Get.lazyPut<FileService>(
+      () => FileServiceImpl(),
       fenix: true,
     );
 
@@ -224,6 +251,7 @@ class InitialBinding implements Bindings {
           registerUseCase: Get.find(),
           getProfileUseCase: Get.find(),
           changePasswordUseCase: Get.find(),
+          tenantStorage: Get.find<TenantStorage>(),
         ),
         permanent: true,
       );
@@ -326,6 +354,38 @@ class InitialBinding implements Bindings {
     }
   }
 
+  /// Registrar módulo de dashboard como GLOBAL PERMANENTE
+  void _registerDashboardModule() {
+    print('🏠 [DEBUG] INICIANDO _registerDashboardModule()...');
+    print('🏠 Registrando módulo de dashboard como GLOBAL...');
+
+    try {
+      // Inicializar DashboardBinding como dependencias GLOBALES permanentes
+      DashboardBinding().dependencies();
+
+      // Verificar que las dependencias críticas estén disponibles
+      final isDashboardRepoRegistered = Get.isRegistered<DashboardRepository>();
+      final isDashboardStatsRegistered = Get.isRegistered<GetDashboardStatsUseCase>();
+      final isDashboardControllerRegistered = Get.isRegistered<DashboardController>();
+
+      if (isDashboardRepoRegistered && isDashboardStatsRegistered && isDashboardControllerRegistered) {
+        print('✅ Módulo de dashboard registrado como GLOBAL correctamente');
+        print('   - DashboardRepository: ✅');
+        print('   - GetDashboardStatsUseCase: ✅');
+        print('   - DashboardController: ✅');
+        print('   🔥 IMPORTANTE: Dashboard persistirá entre navegaciones');
+      } else {
+        throw Exception(
+          'Dependencias críticas de Dashboard no se registraron correctamente',
+        );
+      }
+    } catch (e) {
+      print('❌ Error registrando módulo de dashboard: $e');
+      print('⚠️ ADVERTENCIA: Dashboard se comportará de forma estándar (sin persistencia)');
+      // No fallar en caso de error para no bloquear la app
+    }
+  }
+
   /// Validar que todas las dependencias críticas estén registradas
   void _validateDependencies() {
     print('🔍 Validando dependencias críticas...');
@@ -338,6 +398,9 @@ class InitialBinding implements Bindings {
       'AuthController': Get.isRegistered<AuthController>(),
       'CustomerRepository': Get.isRegistered<CustomerRepository>(),
       'GetCustomerByIdUseCase': Get.isRegistered<GetCustomerByIdUseCase>(),
+      'DashboardRepository': Get.isRegistered<DashboardRepository>(),
+      'GetDashboardStatsUseCase': Get.isRegistered<GetDashboardStatsUseCase>(),
+      'DashboardController': Get.isRegistered<DashboardController>(),
     };
 
     final failedDependencies =

@@ -170,6 +170,9 @@ class UserModel extends User {
     DateTime? lastLoginAt,
     required DateTime createdAt,
     required DateTime updatedAt,
+    required String organizationId,
+    required String organizationSlug,
+    String? organizationName,
   }) : super(
          id: id,
          firstName: firstName,
@@ -182,6 +185,9 @@ class UserModel extends User {
          lastLoginAt: lastLoginAt,
          createdAt: createdAt,
          updatedAt: updatedAt,
+         organizationId: organizationId,
+         organizationSlug: organizationSlug,
+         organizationName: organizationName,
        );
 
   /// Crear UserModel desde JSON
@@ -208,6 +214,10 @@ class UserModel extends User {
           json['updatedAt'] != null
               ? DateTime.parse(json['updatedAt'] as String)
               : DateTime.now(),
+      // MULTITENANT: Información de la organización
+      organizationId: json['organizationId'] as String? ?? '',
+      organizationSlug: json['organizationSlug'] as String? ?? '',
+      organizationName: json['organizationName'] as String?,
     );
   }
 
@@ -225,6 +235,9 @@ class UserModel extends User {
       'lastLoginAt': lastLoginAt?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'organizationId': organizationId,
+      'organizationSlug': organizationSlug,
+      'organizationName': organizationName,
     };
   }
 
@@ -242,6 +255,9 @@ class UserModel extends User {
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      organizationId: user.organizationId,
+      organizationSlug: user.organizationSlug,
+      organizationName: user.organizationName,
     );
   }
 
@@ -259,6 +275,9 @@ class UserModel extends User {
       lastLoginAt: lastLoginAt,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      organizationId: organizationId,
+      organizationSlug: organizationSlug,
+      organizationName: organizationName,
     );
   }
 
@@ -275,6 +294,9 @@ class UserModel extends User {
     DateTime? lastLoginAt,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? organizationId,
+    String? organizationSlug,
+    String? organizationName,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -288,6 +310,9 @@ class UserModel extends User {
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      organizationId: organizationId ?? this.organizationId,
+      organizationSlug: organizationSlug ?? this.organizationSlug,
+      organizationName: organizationName ?? this.organizationName,
     );
   }
 

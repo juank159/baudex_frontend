@@ -45,6 +45,11 @@ class User extends Equatable {
   final DateTime? lastLoginAt;
   final DateTime createdAt;
   final DateTime updatedAt;
+  
+  // MULTITENANT: Información de la organización del usuario
+  final String organizationId;
+  final String organizationSlug;
+  final String? organizationName;
 
   const User({
     required this.id,
@@ -58,6 +63,9 @@ class User extends Equatable {
     this.lastLoginAt,
     required this.createdAt,
     required this.updatedAt,
+    required this.organizationId,
+    required this.organizationSlug,
+    this.organizationName,
   });
 
   // Computed properties
@@ -84,6 +92,9 @@ class User extends Equatable {
     DateTime? lastLoginAt,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? organizationId,
+    String? organizationSlug,
+    String? organizationName,
   }) {
     return User(
       id: id ?? this.id,
@@ -97,6 +108,9 @@ class User extends Equatable {
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      organizationId: organizationId ?? this.organizationId,
+      organizationSlug: organizationSlug ?? this.organizationSlug,
+      organizationName: organizationName ?? this.organizationName,
     );
   }
 
@@ -113,6 +127,9 @@ class User extends Equatable {
     lastLoginAt,
     createdAt,
     updatedAt,
+    organizationId,
+    organizationSlug,
+    organizationName,
   ];
 
   @override

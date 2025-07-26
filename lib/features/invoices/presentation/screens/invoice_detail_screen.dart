@@ -1,5 +1,3 @@
-// =========== Invoice Detail Screen ============
-
 //lib/features/invoices/presentation/screens/invoice_detail_screen.dart
 import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:flutter/material.dart';
@@ -49,153 +47,6 @@ class InvoiceDetailScreen extends StatelessWidget {
       floatingActionButton: _buildFloatingActionButton(context, controller),
     );
   }
-
-  // ==================== APP BAR ====================
-
-  // PreferredSizeWidget _buildAppBar(
-  //   BuildContext context,
-  //   InvoiceDetailController controller,
-  // ) {
-  //   return AppBar(
-  //     title: GetBuilder<InvoiceDetailController>(
-  //       builder:
-  //           (controller) => Column(
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-  //             children: [
-  //               Text(
-  //                 controller.invoice?.number ?? 'Factura',
-  //                 style: const TextStyle(fontSize: 18),
-  //               ),
-  //               if (controller.hasInvoice)
-  //                 Text(
-  //                   controller.invoice!.customerName,
-  //                   style: const TextStyle(
-  //                     fontSize: 12,
-  //                     fontWeight: FontWeight.normal,
-  //                   ),
-  //                 ),
-  //             ],
-  //           ),
-  //     ),
-  //     elevation: 0,
-  //     leading: IconButton(
-  //       icon: const Icon(Icons.arrow_back),
-  //       onPressed: () {
-  //         // Navega directamente al dashboard y elimina el historial
-  //         Get.offAllNamed(AppRoutes.invoices);
-  //       },
-  //     ),
-  //     actions: [
-  //       // Refrescar
-  //       IconButton(
-  //         icon: const Icon(Icons.refresh),
-  //         onPressed: () => controller.refreshInvoice(),
-  //         tooltip: 'Refrescar',
-  //       ),
-
-  //       // Editar
-  //       GetBuilder<InvoiceDetailController>(
-  //         builder:
-  //             (controller) => IconButton(
-  //               icon: const Icon(Icons.edit),
-  //               onPressed:
-  //                   controller.canEdit ? controller.goToEditInvoice : null,
-  //               tooltip: 'Editar',
-  //             ),
-  //       ),
-
-  //       // Imprimir
-  //       GetBuilder<InvoiceDetailController>(
-  //         builder:
-  //             (controller) => IconButton(
-  //               icon: const Icon(Icons.print),
-  //               onPressed:
-  //                   controller.canPrint ? controller.goToPrintInvoice : null,
-  //               tooltip: 'Imprimir',
-  //             ),
-  //       ),
-
-  //       // Menú de opciones
-  //       GetBuilder<InvoiceDetailController>(
-  //         builder:
-  //             (controller) => PopupMenuButton<String>(
-  //               onSelected:
-  //                   (value) => _handleMenuAction(value, context, controller),
-  //               itemBuilder:
-  //                   (context) => [
-  //                     PopupMenuItem(
-  //                       value: 'print',
-  //                       enabled: controller.canPrint,
-  //                       child: const Row(
-  //                         children: [
-  //                           Icon(Icons.print),
-  //                           SizedBox(width: 8),
-  //                           Text('Imprimir'),
-  //                         ],
-  //                       ),
-  //                     ),
-  //                     PopupMenuItem(
-  //                       value: 'share',
-  //                       enabled: controller.hasInvoice,
-  //                       child: const Row(
-  //                         children: [
-  //                           Icon(Icons.share),
-  //                           SizedBox(width: 8),
-  //                           Text('Compartir'),
-  //                         ],
-  //                       ),
-  //                     ),
-  //                     PopupMenuItem(
-  //                       value: 'duplicate',
-  //                       enabled: controller.hasInvoice,
-  //                       child: const Row(
-  //                         children: [
-  //                           Icon(Icons.copy),
-  //                           SizedBox(width: 8),
-  //                           Text('Duplicar'),
-  //                         ],
-  //                       ),
-  //                     ),
-  //                     const PopupMenuDivider(),
-  //                     PopupMenuItem(
-  //                       value: 'confirm',
-  //                       enabled: controller.canConfirm,
-  //                       child: const Row(
-  //                         children: [
-  //                           Icon(Icons.check_circle, color: Colors.green),
-  //                           SizedBox(width: 8),
-  //                           Text('Confirmar'),
-  //                         ],
-  //                       ),
-  //                     ),
-  //                     PopupMenuItem(
-  //                       value: 'cancel',
-  //                       enabled: controller.canCancel,
-  //                       child: const Row(
-  //                         children: [
-  //                           Icon(Icons.cancel, color: Colors.orange),
-  //                           SizedBox(width: 8),
-  //                           Text('Cancelar'),
-  //                         ],
-  //                       ),
-  //                     ),
-  //                     PopupMenuItem(
-  //                       value: 'delete',
-  //                       enabled: controller.canDelete,
-  //                       child: const Row(
-  //                         children: [
-  //                           Icon(Icons.delete, color: Colors.red),
-  //                           SizedBox(width: 8),
-  //                           Text('Eliminar'),
-  //                         ],
-  //                       ),
-  //                     ),
-  //                   ],
-  //             ),
-  //       ),
-  //     ],
-  //   );
-  // }
 
   // ==================== LAYOUTS ====================
 
@@ -1119,10 +970,12 @@ class InvoiceDetailScreen extends StatelessWidget {
           if ((controller.invoice?.status == InvoiceStatus.pending ||
                   controller.invoice?.status == InvoiceStatus.partiallyPaid) &&
               controller.invoice?.paymentMethod == PaymentMethod.credit) {
-            return FloatingActionButton.extended(
+            return _buildAdaptivePaymentButton(
               onPressed: controller.showCreditPaymentDialog,
-              icon: const Icon(Icons.account_balance_wallet),
-              label: const Text('Agregar Pago'),
+              //icon: Icons.monetization_on,
+              icon: Icons.add_card_sharp,
+              label: '',
+              shortLabel: 'Pago',
               backgroundColor: Colors.blue.shade600,
             );
           }
@@ -1130,10 +983,11 @@ class InvoiceDetailScreen extends StatelessWidget {
           // Para facturas PENDING con método CHECK
           if (controller.invoice?.status == InvoiceStatus.pending &&
               controller.invoice?.paymentMethod == PaymentMethod.check) {
-            return FloatingActionButton.extended(
+            return _buildAdaptivePaymentButton(
               onPressed: controller.confirmCheckPayment,
-              icon: const Icon(Icons.receipt),
-              label: const Text('Confirmar Cheque'),
+              icon: Icons.receipt,
+              label: 'Confirmar Cheque',
+              shortLabel: 'Cheque',
               backgroundColor: Colors.orange.shade600,
             );
           }
@@ -1147,19 +1001,21 @@ class InvoiceDetailScreen extends StatelessWidget {
                       PaymentMethod.debitCard ||
                   controller.invoice?.paymentMethod ==
                       PaymentMethod.bankTransfer)) {
-            return FloatingActionButton.extended(
+            return _buildAdaptivePaymentButton(
               onPressed: controller.confirmFullPayment,
-              icon: const Icon(Icons.check_circle),
-              label: const Text('Confirmar Pago'),
+              icon: Icons.check_circle,
+              label: 'Confirmar Pago',
+              shortLabel: 'Confirmar',
               backgroundColor: Colors.green.shade600,
             );
           }
 
           // Para cualquier otra factura que puede recibir pagos
-          return FloatingActionButton.extended(
+          return _buildAdaptivePaymentButton(
             onPressed: controller.togglePaymentForm,
-            icon: const Icon(Icons.payment),
-            label: const Text('Agregar Pago'),
+            icon: Icons.payment,
+            label: 'Agregar Pago',
+            shortLabel: 'Pago',
           );
         }
 
@@ -1404,6 +1260,63 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
         ),
       ],
+    );
+  }
+
+  // ==================== ADAPTIVE PAYMENT BUTTON ====================
+
+  Widget _buildAdaptivePaymentButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+    required String shortLabel,
+    Color? backgroundColor,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Obtener el ancho disponible para el botón
+        final availableWidth =
+            MediaQuery.of(context).size.width - 32; // Padding de pantalla
+
+        // Calcular el ancho aproximado del texto
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: label,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+
+        // Ancho estimado del botón extended (ícono + padding + texto + padding)
+        final estimatedButtonWidth =
+            56 + 16 + textPainter.width + 16; // Aproximación
+
+        // Si el botón no cabe cómodamente, usar versión compacta
+        if (estimatedButtonWidth > availableWidth * 0.8) {
+          return FloatingActionButton.extended(
+            onPressed: onPressed,
+            icon: Icon(icon),
+            label: Text(
+              shortLabel,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: backgroundColor,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          );
+        }
+
+        // Si hay espacio suficiente, usar texto completo
+        return FloatingActionButton.extended(
+          onPressed: onPressed,
+          icon: Icon(icon),
+          label: Text(
+            label,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          backgroundColor: backgroundColor,
+        );
+      },
     );
   }
 }

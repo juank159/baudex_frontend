@@ -1,0 +1,9 @@
+PRUEBA MANUAL DE IMPRESION
+
+Esta es una prueba desde Windows
+para verificar que la impresora funciona.
+
+Fecha: 2025-01-15
+Hora: 10:30 AM
+
+Si esto se imprime, la impresora funciona.

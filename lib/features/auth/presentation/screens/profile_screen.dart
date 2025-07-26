@@ -215,6 +215,38 @@ class ProfileScreen extends GetView<AuthController> {
             ),
           ),
         ),
+        
+        SizedBox(height: context.verticalSpacing / 2),
+        
+        // Badge de organización
+        if (user.organizationName != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.blue, width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.business,
+                  size: 12,
+                  color: Colors.blue,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  user.organizationName!,
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -295,7 +327,7 @@ class ProfileScreen extends GetView<AuthController> {
         _buildInfoItem(
           context,
           'Miembro Desde',
-          _formatDateTime(user.createdAt),
+          _formatMemberSince(user.createdAt),
           Icons.calendar_today_outlined,
         ),
       ],
@@ -507,6 +539,53 @@ class ProfileScreen extends GetView<AuthController> {
       return 'Hace ${difference.inDays} días';
     } else {
       return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
+  }
+  
+  String _formatMemberSince(DateTime createdAt) {
+    final now = DateTime.now();
+    final difference = now.difference(createdAt);
+    
+    // Mostrar años y meses si es más de un año
+    if (difference.inDays >= 365) {
+      final years = (difference.inDays / 365).floor();
+      final remainingDays = difference.inDays % 365;
+      final months = (remainingDays / 30).floor();
+      
+      if (years == 1 && months == 0) {
+        return 'Hace 1 año';
+      } else if (years == 1) {
+        return 'Hace 1 año y $months meses';
+      } else if (months == 0) {
+        return 'Hace $years años';
+      } else {
+        return 'Hace $years años y $months meses';
+      }
+    }
+    
+    // Mostrar meses y días si es más de un mes
+    if (difference.inDays >= 30) {
+      final months = (difference.inDays / 30).floor();
+      final days = difference.inDays % 30;
+      
+      if (months == 1 && days == 0) {
+        return 'Hace 1 mes';
+      } else if (months == 1) {
+        return 'Hace 1 mes y $days días';
+      } else if (days == 0) {
+        return 'Hace $months meses';
+      } else {
+        return 'Hace $months meses y $days días';
+      }
+    }
+    
+    // Mostrar solo días si es menos de un mes
+    if (difference.inDays > 1) {
+      return 'Hace ${difference.inDays} días';
+    } else if (difference.inDays == 1) {
+      return 'Hace 1 día';
+    } else {
+      return 'Hoy';
     }
   }
 }

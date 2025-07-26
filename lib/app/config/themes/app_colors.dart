@@ -7,6 +7,7 @@ class AppColors {
   static const Color primary = Color(0xFF2196F3); // Azul principal
   static const Color primaryLight = Color(0xFF64B5F6);
   static const Color primaryDark = Color(0xFF1976D2);
+  static const Color onPrimary = Color(0xFFFFFFFF); // Texto sobre color primario
 
   static const Color secondary = Color(0xFF03DAC6); // Verde azulado
   static const Color secondaryLight = Color(0xFF66FFF9);
@@ -57,6 +58,7 @@ class AppColors {
 
   // ==================== COLORES DE BORDE ====================
 
+  static const Color border = Color(0xFFE0E0E0);
   static const Color borderColor = Color(0xFFE0E0E0);
   static const Color borderLight = Color(0xFFEEEEEE);
   static const Color borderDark = Color(0xFFBDBDBD);

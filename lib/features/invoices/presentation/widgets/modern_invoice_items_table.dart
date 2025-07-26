@@ -95,23 +95,23 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
         children: [
           Icon(
             Icons.shopping_cart_outlined,
-            size: context.isMobile ? 48 : 64,
+            size: context.isMobile ? 28 : 36,
             color: Colors.grey.shade400,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           Text(
-            'No hay productos agregados',
+            'Sin productos',
             style: TextStyle(
-              fontSize: context.isMobile ? 16 : 18,
+              fontSize: context.isMobile ? 11 : 13,
               color: Colors.grey.shade600,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
-            'Busca y agrega productos para comenzar',
+            'Busca y agrega productos',
             style: TextStyle(
-              fontSize: context.isMobile ? 14 : 16,
+              fontSize: context.isMobile ? 9 : 11,
               color: Colors.grey.shade500,
             ),
           ),
@@ -122,7 +122,7 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
 
   Widget _buildTableHeader(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(context.isMobile ? 12 : 16),
+      padding: EdgeInsets.all(context.isMobile ? 4 : 6),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: const BorderRadius.only(
@@ -255,7 +255,7 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
     return InkWell(
       onTap: () => widget.onSelectionChanged(index),
       child: Container(
-        padding: EdgeInsets.all(context.isMobile ? 2 : 4),
+        padding: EdgeInsets.all(context.isMobile ? 1 : 2),
         decoration: BoxDecoration(
           color: isSelected 
             ? Theme.of(context).primaryColor.withOpacity(0.05)

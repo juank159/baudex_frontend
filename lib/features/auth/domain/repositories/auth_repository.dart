@@ -126,6 +126,7 @@ abstract class AuthRepository {
     required String email,
     required String password,
     UserRole? role,
+    String? organizationName,
   });
 
   /// Obtener perfil del usuario actual
