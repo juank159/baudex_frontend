@@ -65,13 +65,13 @@ class InvoiceTabsController extends GetxController
   void onInit() {
     super.onInit();
     print('🔖 InvoiceTabsController: Inicializando...');
-    
+
     // ✅ LIMPIAR CONTROLADOR SIN TAG QUE PUEDA EXISTIR DEL WRAPPER
     _cleanupGlobalController();
-    
+
     _initializeWithFirstTab();
   }
-  
+
   /// Limpiar controlador global sin tag que pueda causar conflictos
   void _cleanupGlobalController() {
     try {
@@ -103,12 +103,14 @@ class InvoiceTabsController extends GetxController
 
   void _updateTabController() {
     print('🔖 DEBUG: _updateTabController() called with ${_tabs.length} tabs');
-    
+
     _tabController?.dispose();
     if (_tabs.isNotEmpty) {
       final initialIndex = _currentTabIndex.value.clamp(0, _tabs.length - 1);
-      print('🔖 DEBUG: Creating TabController with length: ${_tabs.length}, initialIndex: $initialIndex');
-      
+      print(
+        '🔖 DEBUG: Creating TabController with length: ${_tabs.length}, initialIndex: $initialIndex',
+      );
+
       _tabController = TabController(
         length: _tabs.length,
         vsync: this,
@@ -122,7 +124,7 @@ class InvoiceTabsController extends GetxController
           _updateTabActivity(_tabController!.index);
         }
       });
-      
+
       print('🔖 DEBUG: TabController created successfully');
     } else {
       print('🔖 DEBUG: No tabs available, TabController set to null');
@@ -149,7 +151,7 @@ class InvoiceTabsController extends GetxController
       // Crear la pestaña
       final tab = InvoiceTab(
         id: tabId,
-        title: isEdit ? 'Editando...' : 'Nueva Factura ${_tabs.length + 1}',
+        title: isEdit ? 'Editando...' : 'Fact ${_tabs.length + 1}',
         controller: controller,
         isNewInvoice: !isEdit,
         invoiceId: invoiceId,
@@ -157,10 +159,10 @@ class InvoiceTabsController extends GetxController
 
       _tabs.add(tab);
       _currentTabIndex.value = _tabs.length - 1;
-      
+
       // Forzar actualización del observable
       _tabs.refresh();
-      
+
       _updateTabController();
 
       print('✅ Pestaña agregada: ${tab.title} (ID: $tabId)');

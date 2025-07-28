@@ -2,6 +2,7 @@
 import 'package:baudex_desktop/app/core/utils/responsive.dart';
 import 'package:baudex_desktop/app/shared/widgets/custom_button.dart';
 import 'package:baudex_desktop/app/shared/widgets/custom_text_field.dart';
+import 'package:baudex_desktop/app/shared/widgets/safe_text_editing_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../domain/entities/invoice.dart';
@@ -48,10 +49,10 @@ class InvoiceDetailController extends GetxController {
   final _showPaymentForm = false.obs;
   final _selectedPaymentMethod = PaymentMethod.cash.obs;
 
-  // Controllers para agregar pago
-  final paymentAmountController = TextEditingController();
-  final paymentReferenceController = TextEditingController();
-  final paymentNotesController = TextEditingController();
+  // Controllers para agregar pago - USANDO SAFE CONTROLLERS
+  final paymentAmountController = SafeTextEditingController(debugLabel: 'PaymentAmount');
+  final paymentReferenceController = SafeTextEditingController(debugLabel: 'PaymentReference');
+  final paymentNotesController = SafeTextEditingController(debugLabel: 'PaymentNotes');
   final paymentFormKey = GlobalKey<FormState>();
 
   // ==================== GETTERS ====================
@@ -104,7 +105,14 @@ class InvoiceDetailController extends GetxController {
   @override
   void onClose() {
     print('🔚 InvoiceDetailController: Liberando recursos...');
-    _disposeControllers();
+    
+    try {
+      _disposeControllers();
+      print('✅ InvoiceDetailController: Controladores liberados exitosamente');
+    } catch (e) {
+      print('⚠️ Error liberando controladores: $e');
+    }
+    
     super.onClose();
   }
 
@@ -935,11 +943,28 @@ class InvoiceDetailController extends GetxController {
     paymentFormKey.currentState?.reset();
   }
 
-  /// Liberar controladores
+  /// Liberar controladores de forma ultra-segura
   void _disposeControllers() {
-    paymentAmountController.dispose();
-    paymentReferenceController.dispose();
-    paymentNotesController.dispose();
+    try {
+      paymentAmountController.dispose(); // SafeController maneja dispose de forma segura
+      print('✅ SafePaymentAmountController disposed');
+    } catch (e) {
+      print('⚠️ Error disposing paymentAmountController: $e');
+    }
+    
+    try {
+      paymentReferenceController.dispose(); // SafeController maneja dispose de forma segura
+      print('✅ SafePaymentReferenceController disposed');
+    } catch (e) {
+      print('⚠️ Error disposing paymentReferenceController: $e');
+    }
+    
+    try {
+      paymentNotesController.dispose();
+      print('✅ paymentNotesController disposed');
+    } catch (e) {
+      print('⚠️ Error disposing paymentNotesController: $e');
+    }
   }
 
   // ==================== DIALOG HELPERS ====================

@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/usecases/get_invoices_usecase.dart';
@@ -9,6 +10,9 @@ import '../../domain/usecases/search_invoices_usecase.dart';
 import '../../domain/usecases/delete_invoice_usecase.dart';
 import '../../domain/usecases/confirm_invoice_usecase.dart';
 import '../../domain/usecases/cancel_invoice_usecase.dart';
+import '../../domain/usecases/get_invoice_by_id_usecase.dart';
+import '../../../settings/presentation/controllers/settings_controller.dart';
+import '../controllers/thermal_printer_controller.dart';
 import '../controllers/invoice_stats_controller.dart';
 
 class InvoiceListController extends GetxController {
@@ -18,6 +22,7 @@ class InvoiceListController extends GetxController {
   final DeleteInvoiceUseCase _deleteInvoiceUseCase;
   final ConfirmInvoiceUseCase _confirmInvoiceUseCase;
   final CancelInvoiceUseCase _cancelInvoiceUseCase;
+  final GetInvoiceByIdUseCase _getInvoiceByIdUseCase;
 
   InvoiceListController({
     required GetInvoicesUseCase getInvoicesUseCase,
@@ -25,11 +30,13 @@ class InvoiceListController extends GetxController {
     required DeleteInvoiceUseCase deleteInvoiceUseCase,
     required ConfirmInvoiceUseCase confirmInvoiceUseCase,
     required CancelInvoiceUseCase cancelInvoiceUseCase,
+    required GetInvoiceByIdUseCase getInvoiceByIdUseCase,
   }) : _getInvoicesUseCase = getInvoicesUseCase,
        _searchInvoicesUseCase = searchInvoicesUseCase,
        _deleteInvoiceUseCase = deleteInvoiceUseCase,
        _confirmInvoiceUseCase = confirmInvoiceUseCase,
-       _cancelInvoiceUseCase = cancelInvoiceUseCase {
+       _cancelInvoiceUseCase = cancelInvoiceUseCase,
+       _getInvoiceByIdUseCase = getInvoiceByIdUseCase {
     print('🎮 InvoiceListController: Instancia creada correctamente');
   }
 
@@ -40,6 +47,7 @@ class InvoiceListController extends GetxController {
   final _isLoadingMore = false.obs;
   final _isSearching = false.obs;
   final _isRefreshing = false.obs;
+  final _isPrinting = false.obs;
 
   // Datos
   final _invoices = <Invoice>[].obs;
@@ -61,8 +69,10 @@ class InvoiceListController extends GetxController {
   final _selectedInvoices = <String>[].obs;
   final _isMultiSelectMode = false.obs;
 
-  // Controllers
-  final searchController = TextEditingController();
+  // Controllers - USANDO SAFE CONTROLLERS PARA PREVENIR ERRORES DISPOSED
+  final searchController = SafeTextEditingController(
+    debugLabel: 'InvoiceListSearch',
+  );
   final scrollController = ScrollController();
 
   // ✅ NUEVO: Timer para debounce de búsqueda
@@ -74,6 +84,7 @@ class InvoiceListController extends GetxController {
   bool get isLoadingMore => _isLoadingMore.value;
   bool get isSearching => _isSearching.value;
   bool get isRefreshing => _isRefreshing.value;
+  bool get isPrinting => _isPrinting.value;
 
   List<Invoice> get invoices => _invoices;
   List<Invoice> get filteredInvoices => _filteredInvoices;
@@ -121,6 +132,20 @@ class InvoiceListController extends GetxController {
   }
 
   @override
+  void onReady() {
+    super.onReady();
+    print(
+      '✅ InvoiceListController: Ready state - controlador completamente inicializado',
+    );
+
+    // Verificar si necesitamos refrescar datos después de navegar
+    if (_invoices.isEmpty) {
+      print('📋 Lista vacía en onReady, cargando facturas...');
+      loadInvoices();
+    }
+  }
+
+  @override
   void onClose() {
     print('🔚 InvoiceListController: Liberando recursos...');
 
@@ -129,26 +154,33 @@ class InvoiceListController extends GetxController {
       _searchDebounceTimer?.cancel();
       _searchDebounceTimer = null;
 
-      // ✅ CRÍTICO: Remover listeners antes de dispose para evitar errores
-      // Solo remover si el controlador aún está activo
-      if (_isControllerSafe()) {
-        searchController.removeListener(_onSearchChanged);
+      // ✅ CRÍTICO: Remover listeners de forma segura usando SafeController
+      if (searchController.canSafelyAccess()) {
+        try {
+          searchController.removeListener(_onSearchChanged);
+          print('✅ Search listener removido exitosamente');
+        } catch (e) {
+          print('⚠️ Error removiendo search listener: $e');
+        }
       }
 
-      // Liberar controladores de forma segura
+      // ✅ DISPOSE SEGURO de controllers
       try {
-        searchController.dispose();
+        searchController
+            .dispose(); // SafeController maneja dispose de forma segura
+        print('✅ SafeSearchController disposed exitosamente');
       } catch (e) {
         print('⚠️ Error al liberar searchController: $e');
       }
 
       try {
         scrollController.dispose();
+        print('✅ ScrollController disposed exitosamente');
       } catch (e) {
         print('⚠️ Error al liberar scrollController: $e');
       }
 
-      print('✅ InvoiceListController: Recursos liberados exitosamente');
+      print('✅ InvoiceListController: Recursos marcados para liberación');
     } catch (e) {
       print('❌ Error durante onClose: $e');
     }
@@ -208,38 +240,8 @@ class InvoiceListController extends GetxController {
           );
           print('🔍 DEBUG: === FIN DEBUG ===');
           print('✅ ${paginatedResult.data.length} facturas cargadas');
-        },
-      );
 
-      result.fold(
-        (failure) {
-          print('❌ Error al cargar facturas: ${failure.message}');
-          _showError('Error al cargar facturas', failure.message);
-        },
-        (paginatedResult) {
-          print('🔍 DEBUG: === RESULTADO DEL REPOSITORIO ===');
-          print('🔍 DEBUG: Facturas recibidas: ${paginatedResult.data.length}');
-          print('🔍 DEBUG: Meta: ${paginatedResult.meta}');
-          print(
-            '🔍 DEBUG: Primera factura (si existe): ${paginatedResult.data.isNotEmpty ? paginatedResult.data.first.number : 'N/A'}',
-          );
-
-          _invoices.value = paginatedResult.data;
-          _paginationMeta.value = paginatedResult.meta;
-
-          print(
-            '🔍 DEBUG: _invoices.length después de asignar: ${_invoices.length}',
-          );
-
-          _applyLocalFilters();
-
-          print(
-            '🔍 DEBUG: _filteredInvoices.length después de filtrar: ${_filteredInvoices.length}',
-          );
-          print('🔍 DEBUG: === FIN DEBUG ===');
-          print('✅ ${paginatedResult.data.length} facturas cargadas');
-
-          // ✅ AGREGAR ESTA LÍNEA PARA FORZAR ACTUALIZACIÓN DE UI
+          // ✅ FORZAR ACTUALIZACIÓN DE UI
           update();
         },
       );
@@ -365,12 +367,12 @@ class InvoiceListController extends GetxController {
   void filterByStatus(InvoiceStatus? status) {
     _selectedStatus.value = status;
     print('🔧 Filtro estado: ${status?.displayName ?? "Todos"}');
-    
+
     // Si se selecciona "pending", incluir también "partiallyPaid"
     if (status == InvoiceStatus.pending) {
       print('🔧 Filtro extendido: Incluyendo facturas parcialmente pagadas');
     }
-    
+
     loadInvoices();
   }
 
@@ -416,13 +418,14 @@ class InvoiceListController extends GetxController {
       _maxAmount.value = null;
       _searchQuery.value = '';
 
-      // ✅ CRÍTICO: Verificar que el controlador esté activo antes de limpiar
-      if (_isControllerSafe()) {
-        searchController.clear();
+      // ✅ CRÍTICO: Usar SafeController para limpiar de forma segura
+      if (searchController.canSafelyAccess()) {
+        searchController.safeClear();
       } else {
         print(
-          '⚠️ InvoiceListController: No se puede limpiar searchController (disposed)',
+          '⚠️ InvoiceListController: SearchController no seguro, recreando...',
         );
+        _recreateSafeSearchController();
       }
 
       print('🧹 InvoiceListController: Filtros limpiados');
@@ -562,7 +565,112 @@ class InvoiceListController extends GetxController {
 
   /// Navegar a detalles de factura
   void goToInvoiceDetail(String invoiceId) {
-    Get.toNamed('/invoices/detail/$invoiceId');
+    try {
+      print('🚀 Navegando a detalle de factura: $invoiceId');
+      print('🔍 Ruta actual antes de navegación: ${Get.currentRoute}');
+
+      // ✅ VERIFICACIÓN: Asegurarse de que la navegación es segura
+      if (invoiceId.isEmpty) {
+        _showError('Error', 'ID de factura no válido');
+        return;
+      }
+
+      // ✅ NAVEGACIÓN SEGURA: Usar Future para evitar conflictos
+      Future.microtask(() {
+        try {
+          Get.toNamed('/invoices/detail/$invoiceId');
+          print('✅ Navegación iniciada exitosamente');
+        } catch (navError) {
+          print('❌ Error en navegación microtask: $navError');
+          _showError('Error de navegación', 'No se pudo abrir el detalle');
+        }
+      });
+    } catch (e) {
+      print('❌ Error navegando a detalle: $e');
+      _showError(
+        'Error de navegación',
+        'No se pudo abrir el detalle de la factura',
+      );
+    }
+  }
+
+  /// Imprimir factura directamente usando la impresora predeterminada
+  Future<void> printInvoice(String invoiceId) async {
+    try {
+      _isPrinting.value = true;
+      print('🖨️ === INICIANDO IMPRESIÓN DESDE LISTADO ===');
+      print('   - Invoice ID: $invoiceId');
+
+      // Obtener la factura completa
+      final result = await _getInvoiceByIdUseCase(
+        GetInvoiceByIdParams(id: invoiceId),
+      );
+
+      result.fold(
+        (failure) {
+          print('❌ Error al obtener factura: ${failure.message}');
+          _showError('Error', 'No se pudo cargar la factura para imprimir');
+        },
+        (invoice) async {
+          print('✅ Factura obtenida: ${invoice.number}');
+          print('   - Cliente: ${invoice.customerName}');
+          print('   - Total: \$${invoice.total.toStringAsFixed(2)}');
+
+          // Obtener el SettingsController para acceder a la impresora predeterminada
+          try {
+            final settingsController = Get.find<SettingsController>();
+            final defaultPrinter = settingsController.defaultPrinter;
+            
+            if (defaultPrinter == null) {
+              print('❌ No hay impresora predeterminada configurada');
+              _showError(
+                'Error de configuración', 
+                'No hay impresora predeterminada configurada. Configura una en Configuración > Impresoras.'
+              );
+              return;
+            }
+            
+            print('🖨️ Usando impresora predeterminada: ${defaultPrinter.name}');
+            print('   - Tipo: ${defaultPrinter.connectionType}');
+            print('   - IP: ${defaultPrinter.ipAddress}');
+            print('   - Puerto: ${defaultPrinter.port}');
+            
+            // Obtener el ThermalPrinterController
+            final thermalController = Get.find<ThermalPrinterController>();
+            
+            // Configurar temporalmente la impresora predeterminada
+            await thermalController.setTempPrinterConfig(defaultPrinter);
+            
+            // Imprimir la factura
+            final success = await thermalController.printInvoice(invoice);
+
+            if (success) {
+              print('✅ Impresión exitosa desde listado');
+              _showSuccess('Factura ${invoice.number} impresa exitosamente');
+            } else {
+              print('❌ Error en impresión desde listado');
+              final error = thermalController.lastError ?? "Error desconocido";
+              _showError(
+                'Error de impresión',
+                'No se pudo imprimir la factura: $error',
+              );
+            }
+            
+          } catch (e) {
+            print('❌ Error accediendo a SettingsController: $e');
+            _showError(
+              'Error de configuración',
+              'No se pudo acceder a la configuración de impresoras. Verifica que el sistema esté correctamente configurado.'
+            );
+          }
+        },
+      );
+    } catch (e) {
+      print('💥 Error inesperado al imprimir: $e');
+      _showError('Error inesperado', 'No se pudo imprimir la factura');
+    } finally {
+      _isPrinting.value = false;
+    }
   }
 
   /// Navegar a imprimir factura
@@ -591,46 +699,67 @@ class InvoiceListController extends GetxController {
     }
   }
 
-  /// ✅ NUEVO: Método seguro para manejar cambios de búsqueda
+  /// ✅ MÉTODO ULTRA-SEGURO: Manejo de cambios de búsqueda con SafeController
   void _onSearchChanged() {
-    // Verificar que el controlador no haya sido disposed
-    if (!_isControllerSafe()) {
+    // Verificación: Estado del SafeController
+    if (!searchController.canSafelyAccess()) {
       print(
-        '⚠️ InvoiceListController: SearchController disposed, cancelando búsqueda',
+        '⚠️ InvoiceListController: SafeSearchController no accesible, cancelando búsqueda',
       );
+      _searchDebounceTimer?.cancel();
       return;
     }
 
-    try {
-      final query = searchController.text;
-      if (query != _searchQuery.value) {
-        // Cancelar timer anterior si existe
-        _searchDebounceTimer?.cancel();
+    // Verificación de estado del GetxController
+    if (!isClosed) {
+      try {
+        final query = searchController.safeText(); // Uso de método seguro
+        if (query != _searchQuery.value) {
+          // Cancelar timer anterior si existe
+          _searchDebounceTimer?.cancel();
 
-        // Crear nuevo timer con debounce de 500ms
-        _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
-          // Verificar de nuevo que el controlador siga activo
-          if (_isControllerSafe() && searchController.text == query) {
-            searchInvoices(query);
-          }
-        });
+          // Crear nuevo timer con debounce de 500ms
+          _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+            // Triple verificación antes de ejecutar búsqueda
+            if (!isClosed && searchController.canSafelyAccess()) {
+              final currentQuery = searchController.safeText();
+              if (currentQuery == query) {
+                searchInvoices(query);
+              }
+            } else {
+              print(
+                '⚠️ Controlador cerrado o unsafe durante timer de búsqueda',
+              );
+            }
+          });
+        }
+      } catch (e) {
+        print('⚠️ Error en _onSearchChanged: $e');
+        // Si hay error, cancelar timer para evitar futuros problemas
+        _searchDebounceTimer?.cancel();
+        _searchDebounceTimer = null;
       }
-    } catch (e) {
-      print('⚠️ Error en _onSearchChanged: $e');
-      // Si hay error, cancelar timer para evitar futuros problemas
+    } else {
+      print('⚠️ GetxController cerrado, ignorando cambio de búsqueda');
       _searchDebounceTimer?.cancel();
     }
   }
 
-  /// Configurar listener de búsqueda con debounce seguro
+  /// Configurar listener de búsqueda con SafeController
   void _setupSearchListener() {
-    if (_isControllerSafe()) {
+    if (searchController.canSafelyAccess()) {
       try {
         searchController.addListener(_onSearchChanged);
         print('✅ InvoiceListController: Search listener agregado exitosamente');
       } catch (e) {
         print('❌ Error configurando search listener: $e');
+        _recreateSafeSearchController();
       }
+    } else {
+      print(
+        '⚠️ SearchController no seguro en _setupSearchListener, recreando...',
+      );
+      _recreateSafeSearchController();
     }
   }
 
@@ -651,15 +780,15 @@ class InvoiceListController extends GetxController {
         _invoices.where((invoice) {
           // Filtro especial: Si se selecciona "pending", incluir también "partiallyPaid"
           if (_selectedStatus.value == InvoiceStatus.pending) {
-            return invoice.status == InvoiceStatus.pending || 
-                   invoice.status == InvoiceStatus.partiallyPaid;
+            return invoice.status == InvoiceStatus.pending ||
+                invoice.status == InvoiceStatus.partiallyPaid;
           }
-          
+
           // Para otros estados, aplicar filtro normal
           if (_selectedStatus.value != null) {
             return invoice.status == _selectedStatus.value;
           }
-          
+
           // Sin filtro de estado, mostrar todo
           return true;
         }).toList();
@@ -745,19 +874,32 @@ class InvoiceListController extends GetxController {
     _loadInvoiceStatsIfAvailable();
   }
 
-  /// ✅ CRÍTICO: Verificar que el controller esté disponible y no disposed
+  /// ✅ MÉTODO SIMPLIFICADO: Verificar estado usando SafeController
   bool _isControllerSafe() {
+    return searchController.canSafelyAccess();
+  }
+
+  /// ✅ NUEVO: Recrear SafeSearchController de forma segura
+  void _recreateSafeSearchController() {
     try {
-      // Intentar acceder a una propiedad del controller para verificar si está disposed
-      searchController.text;
-      // También verificar que el listener no haya sido removido
-      return true;
+      print('🔧 InvoiceListController: Recreando SafeSearchController...');
+
+      // Cancelar cualquier timer pendiente
+      _searchDebounceTimer?.cancel();
+      _searchDebounceTimer = null;
+
+      // Como searchController es final, necesitamos reinicializar internamente
+      // El SafeController ya maneja esto de forma segura
+      if (searchController.canSafelyAccess()) {
+        searchController.removeListener(_onSearchChanged);
+      }
+
+      // Volver a configurar el listener
+      _setupSearchListener();
+
+      print('✅ SafeSearchController recreado exitosamente');
     } catch (e) {
-      // Si hay una excepción, el controller fue disposed
-      print(
-        '⚠️ InvoiceListController: SearchController disposed detectado - $e',
-      );
-      return false;
+      print('❌ Error recreando SafeSearchController: $e');
     }
   }
 }

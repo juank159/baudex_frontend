@@ -8,7 +8,7 @@ import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
-import '../../../../app/shared/widgets/custom_text_field.dart';
+import '../../../../app/shared/widgets/custom_text_field_safe.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
 import '../controllers/invoice_list_controller.dart';
@@ -243,14 +243,27 @@ class InvoiceListScreen extends StatelessWidget {
   ) {
     return Row(
       children: [
-        // ✅ Lista principal (70%)
+        // ✅ Lista principal (70%) - OVERFLOW COMPLETAMENTE SOLUCIONADO
         Expanded(
           flex: 7,
           child: Column(
+            mainAxisSize: MainAxisSize.min, // Prevenir overflow vertical
             children: [
-              _buildTabletSearchBar(context, controller),
-              Expanded(
+              // ✅ Barra de búsqueda con altura fija para evitar overflow
+              Container(
+                constraints: const BoxConstraints(
+                  maxHeight: 80, // Altura máxima fija
+                  minHeight: 60, // Altura mínima
+                ),
+                child: _buildTabletSearchBar(context, controller),
+              ),
+              // ✅ Lista con Flexible en lugar de Expanded para manejo dinámico
+              Flexible(
+                flex: 1,
                 child: Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height - 200, // Limitar altura máxima
+                  ),
                   color: Colors.grey.shade50,
                   child: _buildInvoiceList(context, controller),
                 ),
@@ -347,7 +360,11 @@ class InvoiceListScreen extends StatelessWidget {
           final totalInvoices = controller.filteredInvoices.length;
           final pendingInvoices =
               controller.filteredInvoices
-                  .where((i) => i.status == InvoiceStatus.pending || i.status == InvoiceStatus.partiallyPaid)
+                  .where(
+                    (i) =>
+                        i.status == InvoiceStatus.pending ||
+                        i.status == InvoiceStatus.partiallyPaid,
+                  )
                   .length;
           final overdueInvoices =
               controller.filteredInvoices.where((i) => i.isOverdue).length;
@@ -513,23 +530,31 @@ class InvoiceListScreen extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: CustomTextField(
-              controller: controller.searchController,
-              label: 'Buscar facturas',
-              hint: 'Número, cliente, monto...',
-              prefixIcon: Icons.search,
-              suffixIcon:
-                  controller.searchQuery.isNotEmpty ? Icons.clear : null,
-              onSuffixIconPressed:
-                  controller.searchQuery.isNotEmpty
-                      ? () {
-                        try {
-                          controller.searchController.clear();
-                        } catch (e) {
-                          controller.searchInvoices('');
+            child: GetBuilder<InvoiceListController>(
+              builder: (controller) => CustomTextFieldSafe(
+                controller: controller.searchController,
+                label: 'Buscar facturas',
+                hint: 'Número, cliente, monto...',
+                prefixIcon: Icons.search,
+                debugLabel: 'TabletSearch',
+                suffixIcon:
+                    controller.searchQuery.isNotEmpty ? Icons.clear : null,
+                onSuffixIconPressed:
+                    controller.searchQuery.isNotEmpty
+                        ? () {
+                          try {
+                            if (controller.searchController.canSafelyAccess()) {
+                              controller.searchController.safeClear();
+                            } else {
+                              controller.searchInvoices('');
+                            }
+                          } catch (e) {
+                            controller.searchInvoices('');
+                          }
                         }
-                      }
-                      : null,
+                        : null,
+                onChanged: (value) => controller.searchInvoices(value),
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -598,125 +623,152 @@ class InvoiceListScreen extends StatelessWidget {
     );
   }
 
-  /// ✅ Sidebar desktop mejorado
+  /// ✅ Sidebar desktop mejorado - FIX OVERFLOW
   Widget _buildDesktopSidebar(
     BuildContext context,
     InvoiceListController controller,
   ) {
-    return Column(
-      children: [
-        // ✅ Header fijo
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Theme.of(context).primaryColor.withOpacity(0.1),
-                Theme.of(context).primaryColor.withOpacity(0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border(
-              bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.receipt_long,
-                  color: Colors.white,
-                  size: 20,
-                ),
+    return Expanded(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+          // ✅ Header fijo
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).primaryColor.withOpacity(0.1),
+                  Theme.of(context).primaryColor.withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Panel de Facturas',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
-                        fontSize: 16,
-                      ),
-                    ),
-                    GetBuilder<InvoiceListController>(
-                      builder: (controller) {
-                        final hasFilters = controller.hasFilters;
-                        return Text(
-                          hasFilters ? 'Filtros activos' : 'Sin filtros',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color:
-                                hasFilters
-                                    ? Colors.orange
-                                    : Colors.grey.shade600,
-                            fontWeight:
-                                hasFilters
-                                    ? FontWeight.w500
-                                    : FontWeight.normal,
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
               ),
-            ],
-          ),
-        ),
-
-        // ✅ Búsqueda compacta
-        Container(
-          padding: const EdgeInsets.all(16),
-          child: CustomTextField(
-            controller: controller.searchController,
-            label: 'Buscar',
-            hint: 'Número, cliente...',
-            prefixIcon: Icons.search,
-            suffixIcon: controller.searchQuery.isNotEmpty ? Icons.clear : null,
-            onSuffixIconPressed:
-                controller.searchQuery.isNotEmpty
-                    ? () {
-                      try {
-                        controller.searchController.clear();
-                      } catch (e) {
-                        controller.searchInvoices('');
-                      }
-                    }
-                    : null,
-          ),
-        ),
-
-        // ✅ Contenido scrolleable
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
+            ),
+            child: Row(
               children: [
-                // Estadísticas
-                _buildSidebarStatsSection(context, controller),
-                const SizedBox(height: 20),
-
-                // Filtros
-                _buildSidebarFiltersSection(context, controller),
-                const SizedBox(height: 20),
-
-                // Acciones
-                _buildSidebarActionsSection(context, controller),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Panel de Facturas',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).primaryColor,
+                          fontSize: 16,
+                        ),
+                      ),
+                      GetBuilder<InvoiceListController>(
+                        builder: (controller) {
+                          final hasFilters = controller.hasFilters;
+                          return Text(
+                            hasFilters ? 'Filtros activos' : 'Sin filtros',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  hasFilters
+                                      ? Colors.orange
+                                      : Colors.grey.shade600,
+                              fontWeight:
+                                  hasFilters
+                                      ? FontWeight.w500
+                                      : FontWeight.normal,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
+
+          // ✅ Búsqueda compacta
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: GetBuilder<InvoiceListController>(
+              builder: (controller) => CustomTextFieldSafe(
+                controller: controller.searchController,
+                label: 'Buscar',
+                hint: 'Número, cliente...',
+                prefixIcon: Icons.search,
+                debugLabel: 'DesktopSearch',
+                suffixIcon:
+                    controller.searchQuery.isNotEmpty ? Icons.clear : null,
+                onSuffixIconPressed:
+                    controller.searchQuery.isNotEmpty
+                        ? () {
+                          try {
+                            if (controller.searchController.canSafelyAccess()) {
+                              controller.searchController.safeClear();
+                            } else {
+                              controller.searchInvoices('');
+                            }
+                          } catch (e) {
+                            controller.searchInvoices('');
+                          }
+                        }
+                        : null,
+                onChanged: (value) => controller.searchInvoices(value),
+              ),
+            ),
+          ),
+
+          // ✅ Contenido scrolleable con Flexible para mejor control de overflow
+          Flexible(
+            flex: 1,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Estadísticas con altura limitada
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    child: _buildSidebarStatsSection(context, controller),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Filtros con altura limitada
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 300),
+                    child: _buildSidebarFiltersSection(context, controller),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Acciones con altura limitada
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 150),
+                    child: _buildSidebarActionsSection(context, controller),
+                  ),
+                  const SizedBox(height: 20), // Espaciado final
+                ],
+              ),
+            ),
+          ),
+        ],
         ),
-      ],
+      ),
     );
   }
 
@@ -730,7 +782,11 @@ class InvoiceListScreen extends StatelessWidget {
         final totalInvoices = controller.filteredInvoices.length;
         final pendingInvoices =
             controller.filteredInvoices
-                .where((i) => i.status == InvoiceStatus.pending || i.status == InvoiceStatus.partiallyPaid)
+                .where(
+                  (i) =>
+                      i.status == InvoiceStatus.pending ||
+                      i.status == InvoiceStatus.partiallyPaid,
+                )
                 .length;
         final paidInvoices =
             controller.filteredInvoices
@@ -740,10 +796,10 @@ class InvoiceListScreen extends StatelessWidget {
             controller.filteredInvoices.where((i) => i.isOverdue).length;
 
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12), // Reducido padding del contenedor
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8), // Reducido border radius
             border: Border.all(color: Colors.grey.shade200),
             boxShadow: [
               BoxShadow(
@@ -754,36 +810,38 @@ class InvoiceListScreen extends StatelessWidget {
             ],
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min, // Minimizar tamaño vertical
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Icon(
                     Icons.analytics,
-                    size: 18,
+                    size: 16, // Reducido tamaño del icono
                     color: Theme.of(context).primaryColor,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Text(
                     'Resumen',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14, // Reducido tamaño del título
                       fontWeight: FontWeight.bold,
                       color: Colors.grey.shade800,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-
-              // Grid de estadísticas 2x2
+              const SizedBox(height: 10), // Reducido espacio
+              // Grid de estadísticas 2x2 - ÁREA AJUSTADA
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
-                childAspectRatio: 1.3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+                childAspectRatio: 2.2, // Ajustado para mejor proporción
+                crossAxisSpacing:
+                    8, // Aumentado ligeramente para mejor separación
+                mainAxisSpacing:
+                    8, // Aumentado ligeramente para mejor separación
                 children: [
                   _buildSidebarStatItem(
                     'Total',
@@ -824,100 +882,48 @@ class InvoiceListScreen extends StatelessWidget {
     IconData icon,
     Color color,
   ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 🎯 RESPONSIVE DESIGN PROFESIONAL PARA DESKTOP
-        final screenWidth = MediaQuery.of(context).size.width;
-        final cardWidth = constraints.maxWidth;
-        final cardHeight = constraints.maxHeight;
-
-        // Escalado inteligente basado en tamaño de pantalla
-        final scale = (screenWidth / 1920).clamp(0.7, 1.5); // Base 1920px
-
-        // Tamaños responsivos profesionales
-        final iconSize = (cardWidth * 0.16 * scale).clamp(16.0, 24.0);
-        final fontSize = (cardWidth * 0.13 * scale).clamp(12.0, 18.0);
-        final labelSize = (cardWidth * 0.09 * scale).clamp(9.0, 12.0);
-        final padding = (cardWidth * 0.06).clamp(6.0, 12.0);
-        final spacing = (cardHeight * 0.06).clamp(2.0, 4.0);
-
-        return Container(
-          width: cardWidth,
-          height: cardHeight,
-          padding: EdgeInsets.all(padding),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.25), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return Container(
+      padding: const EdgeInsets.all(
+        3,
+      ), // Reducido 50% más para máximo aprovechamiento
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(4), // Reducido proporcionalmente
+        border: Border.all(color: color.withOpacity(0.25), width: 0.8),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Icono más pequeño
+          Icon(icon, color: color, size: 10), // Reducido 40% más
+          const SizedBox(height: 1), // Mínimo espacio
+          // Número
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 10, // Reducido 40% más
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              // Icono con fondo elegante
-              Container(
-                padding: EdgeInsets.all(spacing),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: iconSize),
-              ),
 
-              SizedBox(height: spacing),
-
-              // Número prominente con auto-escalado
-              Expanded(
-                flex: 2,
-                child: Center(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      value,
-                      style: TextStyle(
-                        fontSize: fontSize,
-                        fontWeight: FontWeight.w800,
-                        color: color,
-                        letterSpacing: -0.5,
-                        height: 1.0,
-                      ),
-                      maxLines: 1,
-                    ),
-                  ),
-                ),
-              ),
-
-              SizedBox(height: spacing * 0.5),
-
-              // Label elegante
-              Expanded(
-                flex: 1,
-                child: Center(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: labelSize,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ],
+          // Label
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 7, // Reducido 40% más
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -1401,7 +1407,7 @@ class InvoiceListScreen extends StatelessWidget {
         controller.goToEditInvoice(invoice.id);
         break;
       case 'print':
-        controller.goToPrintInvoice(invoice.id);
+        controller.printInvoice(invoice.id);
         break;
       case 'confirm':
         controller.confirmInvoice(invoice.id);

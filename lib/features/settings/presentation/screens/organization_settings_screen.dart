@@ -7,7 +7,6 @@ import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/shared/widgets/loading_overlay.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../controllers/organization_controller.dart';
-import '../widgets/create_organization_dialog.dart';
 import '../widgets/edit_organization_dialog.dart';
 
 class OrganizationSettingsScreen extends GetView<OrganizationController> {
@@ -48,8 +47,6 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCurrentOrganizationCard(),
-          const SizedBox(height: AppDimensions.spacingLarge),
-          _buildCreateOrganizationCard(),
         ],
       ),
     );
@@ -62,8 +59,6 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCurrentOrganizationCard(),
-          const SizedBox(height: AppDimensions.spacingLarge),
-          _buildCreateOrganizationCard(),
         ],
       ),
     );
@@ -72,13 +67,11 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
   Widget _buildDesktopLayout() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(flex: 1, child: _buildCurrentOrganizationCard()),
-          const SizedBox(width: AppDimensions.spacingLarge),
-          Expanded(flex: 1, child: _buildCreateOrganizationCard()),
-        ],
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: _buildCurrentOrganizationCard(),
+        ),
       ),
     );
   }
@@ -247,59 +240,7 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
     );
   }
 
-  Widget _buildCreateOrganizationCard() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.add_business, color: AppColors.success, size: 24),
-                const SizedBox(width: AppDimensions.spacingSmall),
-                Text(
-                  'Crear Nueva Organización',
-                  style: Theme.of(
-                    Get.context!,
-                  ).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.success,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppDimensions.spacingMedium),
-            Text(
-              'Crea una nueva organización para gestionar un negocio diferente.',
-              style: Theme.of(Get.context!).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: AppDimensions.spacingLarge),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showCreateOrganizationDialog,
-                icon: const Icon(Icons.add),
-                label: const Text('Crear Organización'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.success,
-                  foregroundColor: AppColors.onPrimary,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppDimensions.paddingMedium,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  void _showCreateOrganizationDialog() {
-    Get.dialog(const CreateOrganizationDialog());
-  }
 
   Widget _buildSubscriptionCard(organization) {
     return Container(

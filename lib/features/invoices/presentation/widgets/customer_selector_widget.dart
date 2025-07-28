@@ -8,7 +8,8 @@ class CustomerSelectorWidget extends StatefulWidget {
   final Customer? selectedCustomer;
   final Function(Customer) onCustomerSelected;
   final VoidCallback? onClearCustomer;
-  final InvoiceFormController? controller; // ✅ NUEVO: Recibir el controlador específico
+  final InvoiceFormController?
+  controller; // ✅ NUEVO: Recibir el controlador específico
 
   const CustomerSelectorWidget({
     super.key,
@@ -36,7 +37,7 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     if (widget.controller != null) {
       return widget.controller;
     }
-    
+
     // Fallback a búsqueda global como último recurso
     try {
       return Get.find<InvoiceFormController>();
@@ -57,7 +58,7 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     try {
       // Remover listener antes de dispose
       _searchController.removeListener(_onSearchChanged);
-      
+
       _searchController.dispose();
       _focusNode.dispose();
     } catch (e) {
@@ -69,7 +70,7 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   @override
   Widget build(BuildContext context) {
     final controller = _invoiceController;
-    
+
     // ✅ VALIDACIÓN: Si no hay controlador, mostrar error descriptivo
     if (controller == null) {
       return Container(
@@ -99,16 +100,13 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
             const SizedBox(height: 4),
             Text(
               'No se encontró el controlador para gestionar clientes',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.red.shade700,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.red.shade700),
             ),
           ],
         ),
       );
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -355,7 +353,7 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     return Obx(() {
       final controller = _invoiceController;
       if (controller == null) return const SizedBox.shrink();
-      
+
       final isSelected = controller.selectedCustomer?.id == customer.id;
 
       return Material(
@@ -492,10 +490,12 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   void _onSearchChanged() async {
     // Verificar que el widget esté montado
     if (!mounted) {
-      print('⚠️ CustomerSelectorWidget: Widget no montado, cancelando búsqueda');
+      print(
+        '⚠️ CustomerSelectorWidget: Widget no montado, cancelando búsqueda',
+      );
       return;
     }
-    
+
     try {
       final query = _searchController.text.trim();
 
@@ -507,49 +507,49 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
         return;
       }
 
-    // Evitar búsquedas repetidas
-    if (query == _lastSearchTerm) return;
-    _lastSearchTerm = query;
+      // Evitar búsquedas repetidas
+      if (query == _lastSearchTerm) return;
+      _lastSearchTerm = query;
 
-    // Búsqueda mínima de 2 caracteres
-    if (query.length < 2) {
+      // Búsqueda mínima de 2 caracteres
+      if (query.length < 2) {
+        setState(() {
+          _searchResults.clear();
+        });
+        return;
+      }
+
       setState(() {
-        _searchResults.clear();
+        _isSearching = true;
       });
-      return;
-    }
 
-    setState(() {
-      _isSearching = true;
-    });
+      try {
+        List<Customer> results = [];
 
-    try {
-      List<Customer> results = [];
+        // Búsqueda usando el controlador
+        if (_invoiceController != null) {
+          results = await _invoiceController!.searchCustomers(query);
+        } else {
+          // Fallback a búsqueda local
+          results = _searchInAvailableCustomers(query);
+        }
 
-      // Búsqueda usando el controlador
-      if (_invoiceController != null) {
-        results = await _invoiceController!.searchCustomers(query);
-      } else {
-        // Fallback a búsqueda local
-        results = _searchInAvailableCustomers(query);
+        if (mounted) {
+          setState(() {
+            _searchResults.clear();
+            _searchResults.addAll(results.take(8)); // Limitar resultados
+            _isSearching = false;
+          });
+        }
+      } catch (e) {
+        print('❌ Error en búsqueda de clientes: $e');
+        if (mounted) {
+          setState(() {
+            _searchResults.clear();
+            _isSearching = false;
+          });
+        }
       }
-
-      if (mounted) {
-        setState(() {
-          _searchResults.clear();
-          _searchResults.addAll(results.take(8)); // Limitar resultados
-          _isSearching = false;
-        });
-      }
-    } catch (e) {
-      print('❌ Error en búsqueda de clientes: $e');
-      if (mounted) {
-        setState(() {
-          _searchResults.clear();
-          _isSearching = false;
-        });
-      }
-    }
     } catch (e) {
       print('⚠️ Error en _onSearchChanged (CustomerSelectorWidget): $e');
     }
@@ -603,7 +603,9 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   }
 
   bool _isDefaultCustomer(Customer customer) {
-    return customer.id == 'consumidor_final' ||
-        customer.id == '3c605381-362b-454a-8c0f-b3c055aa568d';
+    // Buscar por nombre completo "Consumidor Final" en lugar de ID hardcodeado
+    final fullName = '${customer.firstName} ${customer.lastName}'.trim();
+    return fullName.toLowerCase() == 'consumidor final' ||
+        customer.firstName.toLowerCase() == 'consumidor' && customer.lastName.toLowerCase() == 'final';
   }
 }

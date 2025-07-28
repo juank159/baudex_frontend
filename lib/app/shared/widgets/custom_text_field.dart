@@ -125,11 +125,18 @@ class _CustomTextFieldState extends State<CustomTextField> {
   /// ✅ VERIFICACIÓN DEL CONTROLLER ACTIVO
   bool _isActiveControllerSafe() {
     try {
+      // Verificaciones más robustas para detectar disposal
+      if (_activeController == null) return false;
+      
+      // Test rápido de acceso a propiedades
       final _ = _activeController.text;
       final __ = _activeController.selection;
       final ___ = _activeController.value;
+      
+      // Si llegamos aquí, el controller está OK
       return true;
     } catch (e) {
+      // Controller probablemente disposed o en mal estado
       print('⚠️ CustomTextField: _activeController no seguro - $e');
       return false;
     }
@@ -151,100 +158,141 @@ class _CustomTextFieldState extends State<CustomTextField> {
     }
   }
 
+  /// ✅ WIDGET BÁSICO CUANDO NO ESTÁ MOUNTED
+  Widget _buildBasicTextField() {
+    return TextFormField(
+      controller: TextEditingController(), // Controller básico temporal
+      obscureText: widget.obscureText,
+      keyboardType: widget.keyboardType,
+      enabled: false, // Deshabilitar para evitar interacciones
+      decoration: InputDecoration(
+        labelText: widget.label,
+        hintText: widget.hint,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade100,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // ✅ VERIFICACIÓN PREVENTIVA ULTRA-AGRESIVA
-    try {
-      if (widget.controller != null && !_isExternalControllerSafe()) {
-        // Si el controller externo está disposed, re-inicializar INMEDIATAMENTE
-        _initializeController();
-      }
-
-      // ✅ VERIFICACIÓN FINAL: Asegurar que el _activeController esté seguro
-      if (!_isActiveControllerSafe()) {
-        print('❌ CustomTextField: _activeController no seguro, recreando...');
-        _createSafeInternalController();
-      }
-    } catch (e) {
-      print('❌ CustomTextField: Error en verificaciones, usando fallback - $e');
-      _createSafeInternalController();
+    // ✅ VERIFICACIÓN CRÍTICA: Solo verificar si el widget está mounted
+    if (!mounted) {
+      print('⚠️ CustomTextField: Widget no mounted, usando controller básico');
+      return _buildBasicTextField();
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          controller: _activeController,
-          obscureText: widget.obscureText,
-          keyboardType: widget.keyboardType,
-          validator: widget.validator,
-          enabled: widget.enabled,
-          maxLines: widget.maxLines,
-          onTap: widget.onTap,
-          onChanged: (value) {
-            // Manejar cambios de forma segura
-            try {
-              widget.onChanged?.call(value);
-              
-              // Si estamos usando controller interno pero hay uno externo, intentar sincronizar
-              if (_internalController != null && 
-                  widget.controller != null && 
-                  _isExternalControllerSafe()) {
-                widget.controller!.text = value;
-              }
-            } catch (e) {
-              print('⚠️ CustomTextField: Error en onChanged - $e');
-            }
-          },
-          inputFormatters: widget.inputFormatters,
-          style: TextStyle(
-            fontSize: Responsive.getFontSize(context),
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
-          decoration: InputDecoration(
-            labelText: widget.label,
-            hintText: widget.hint,
-            prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon) : null,
-            suffixIcon: widget.suffixIcon != null
-                ? IconButton(
-                    icon: Icon(widget.suffixIcon, color: Colors.blueAccent),
-                    onPressed: widget.onSuffixIconPressed,
-                  )
-                : null,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
-              borderSide: BorderSide(color: Colors.grey.shade300, width: 1.5),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
-              borderSide: BorderSide(
-                color: Theme.of(context).primaryColor,
-                width: 2.0,
+    // ✅ VERIFICACIÓN PREVENTIVA ULTRA-ROBUSTA MEJORADA
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // ✅ VERIFICACIÓN ADICIONAL: Evitar reconstrucción durante dispose
+        try {
+          // Verificar si estamos en proceso de dispose
+          if (!mounted) {
+            return _buildBasicTextField();
+          }
+
+          if (widget.controller != null && !_isExternalControllerSafe()) {
+            // Si el controller externo está disposed, re-inicializar INMEDIATAMENTE
+            _initializeController();
+          }
+
+          // ✅ VERIFICACIÓN FINAL: Asegurar que el _activeController esté seguro
+          if (!_isActiveControllerSafe()) {
+            print('❌ CustomTextField: _activeController no seguro, recreando...');
+            _createSafeInternalController();
+          }
+
+          // ✅ VERIFICACIÓN FINAL antes de usar el controller
+          if (!_isActiveControllerSafe()) {
+            print('⚠️ CustomTextField: Fallback completo, usando widget básico');
+            return _buildBasicTextField();
+          }
+        } catch (e) {
+          print('❌ CustomTextField: Error en verificaciones, usando fallback - $e');
+          return _buildBasicTextField();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextFormField(
+              controller: _isActiveControllerSafe() ? _activeController : null,
+              obscureText: widget.obscureText,
+              keyboardType: widget.keyboardType,
+              validator: widget.validator,
+              enabled: widget.enabled,
+              maxLines: widget.maxLines,
+              onTap: widget.onTap,
+              onChanged: (value) {
+                // Manejar cambios de forma segura
+                try {
+                  widget.onChanged?.call(value);
+                  
+                  // Si estamos usando controller interno pero hay uno externo, intentar sincronizar
+                  if (_internalController != null && 
+                      widget.controller != null && 
+                      _isExternalControllerSafe()) {
+                    widget.controller!.text = value;
+                  }
+                } catch (e) {
+                  print('⚠️ CustomTextField: Error en onChanged - $e');
+                }
+              },
+              inputFormatters: widget.inputFormatters,
+              style: TextStyle(
+                fontSize: Responsive.getFontSize(context),
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+              decoration: InputDecoration(
+                labelText: widget.label,
+                hintText: widget.hint,
+                prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon) : null,
+                suffixIcon: widget.suffixIcon != null
+                    ? IconButton(
+                        icon: Icon(widget.suffixIcon, color: Colors.blueAccent),
+                        onPressed: widget.onSuffixIconPressed,
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(color: Colors.grey.shade300, width: 1.5),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2.0,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: const BorderSide(color: Colors.red, width: 2.0),
+                ),
+                disabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                  borderSide: BorderSide(color: Colors.grey.shade200, width: 1.0),
+                ),
+                filled: true,
+                fillColor: widget.enabled ? Colors.white : Colors.grey.shade50,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: context.isMobile ? 16.0 : 20.0,
+                  vertical: context.isMobile ? 16.0 : 18.0,
+                ),
+                helperText: widget.helperText,
+                errorText: widget.errorText,
               ),
             ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
-              borderSide: const BorderSide(color: Colors.red, width: 2.0),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
-              borderSide: BorderSide(color: Colors.grey.shade200, width: 1.0),
-            ),
-            filled: true,
-            fillColor: widget.enabled ? Colors.white : Colors.grey.shade50,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: context.isMobile ? 16.0 : 20.0,
-              vertical: context.isMobile ? 16.0 : 18.0,
-            ),
-            helperText: widget.helperText,
-            errorText: widget.errorText,
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

@@ -905,11 +905,11 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
 
   Widget _buildDraftOption(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 4), // Reducido 65%
-      padding: const EdgeInsets.all(4), // Reducido 65%
+      margin: const EdgeInsets.only(bottom: 2), // Reducido aún más para dar espacio
+      padding: const EdgeInsets.all(2), // Reducido al mínimo
       decoration: BoxDecoration(
         color: saveAsDraft ? Colors.blue.shade100 : Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: saveAsDraft ? Colors.blue.shade400 : Colors.blue.shade200,
           width: saveAsDraft ? 2 : 1,
@@ -917,8 +917,8 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
       ),
       child: CheckboxListTile(
         value: saveAsDraft,
-        dense: true, // Hace el CheckboxListTile más compacto
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0), // Reducido 65%
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0), // Mínimo padding
         onChanged: (value) {
           setState(() {
             saveAsDraft = value ?? false;
@@ -936,17 +936,15 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         title: Text(
           'Guardar como borrador',
           style: TextStyle(
-            fontSize: 10, // Reducido 65%
+            fontSize: 8, // Reducido aún más para compactar
             fontWeight: FontWeight.w600,
             color: saveAsDraft ? Colors.blue.shade800 : Colors.blue.shade700,
           ),
         ),
         subtitle: Text(
-          saveAsDraft
-              ? 'La factura se guardará para revisión posterior'
-              : 'La factura necesita revisión antes de procesar el pago',
+          saveAsDraft ? 'Para revisión posterior' : 'Revisar antes de procesar',
           style: TextStyle(
-            fontSize: 7, // Reducido 65%
+            fontSize: 6, // Texto muy pequeño para ahorrar espacio
             color: saveAsDraft ? Colors.blue.shade700 : Colors.blue.shade600,
           ),
         ),
@@ -973,14 +971,14 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
 
   // ==================== ACTIONS ====================
 
-  // ✅ NUEVAS ACCIONES - MÓVIL CON DOS BOTONES
+  // ✅ ACCIONES MÓVILES - Estilo original con texto reducido
   Widget _buildMobileActions(BuildContext context) {
     return Column(
       children: [
-        // ✅ NUEVO BOTÓN: Procesar e Imprimir
+        // ✅ BOTÓN: Procesar e Imprimir
         SizedBox(
           width: double.infinity,
-          height: 30, // Reducido 40%
+          height: 48,
           child: Tooltip(
             message: 'Procesar pago e imprimir factura (Shift + P)',
             child: ElevatedButton.icon(
@@ -990,20 +988,20 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                 backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.white,
               ),
-              icon: const Icon(Icons.print),
+              icon: const Icon(Icons.print, size: 18),
               label: const Text(
                 'Procesar Venta e Imprimir',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600), // Reducido 40%
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
               ),
             ),
           ),
         ),
         const SizedBox(height: 12),
 
-        // ✅ BOTÓN ORIGINAL: Solo procesar (sin imprimir)
+        // ✅ BOTÓN: Solo procesar (sin imprimir)
         SizedBox(
           width: double.infinity,
-          height: 30, // Reducido 40%
+          height: 48,
           child: Tooltip(
             message: 'Procesar pago sin imprimir (Shift+Enter)',
             child: OutlinedButton.icon(
@@ -1013,10 +1011,10 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                 foregroundColor: Theme.of(context).primaryColor,
                 side: BorderSide(color: Theme.of(context).primaryColor),
               ),
-              icon: const Icon(Icons.save),
+              icon: const Icon(Icons.save, size: 18),
               label: const Text(
                 'Procesar Venta',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600), // Reducido 40%
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -1026,12 +1024,15 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         // Botón cancelar
         SizedBox(
           width: double.infinity,
-          height: 30, // Reducido 40%
+          height: 48,
           child: Tooltip(
             message: 'Cancelar y cerrar diálogo (ESC)',
             child: OutlinedButton(
               onPressed: widget.onCancel,
-              child: const Text('Cancelar'),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ),
@@ -1039,7 +1040,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
     );
   }
 
-  // ✅ NUEVAS ACCIONES - DESKTOP CON DOS BOTONES
+  // ✅ ACCIONES DESKTOP - Estilo original 
   Widget _buildDesktopActions(BuildContext context) {
     return Column(
       children: [
@@ -1052,7 +1053,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                 child: OutlinedButton(
                   onPressed: widget.onCancel,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.all(10), // Reducido 40%
+                    padding: const EdgeInsets.all(16),
                   ),
                   child: const Text('Cancelar'),
                 ),
@@ -1069,14 +1070,14 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                           ? () => _confirmPayment(shouldPrint: false)
                           : null,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.all(10), // Reducido 40%
+                    padding: const EdgeInsets.all(16),
                     foregroundColor: Theme.of(context).primaryColor,
                     side: BorderSide(color: Theme.of(context).primaryColor),
                   ),
                   icon: const Icon(Icons.save),
                   label: const Text(
                     'Procesar Venta',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600), // Reducido 40%
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -1085,23 +1086,23 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         ),
         const SizedBox(height: 12),
 
-        // ✅ NUEVO BOTÓN PRINCIPAL: Procesar e Imprimir
+        // ✅ BOTÓN PRINCIPAL: Procesar e Imprimir
         SizedBox(
           width: double.infinity,
           child: Tooltip(
-            message: 'Procesar pago e imprimir factura (Shift + P )',
+            message: 'Procesar pago e imprimir factura (Enter)',
             child: ElevatedButton.icon(
               onPressed:
                   canProcess ? () => _confirmPayment(shouldPrint: true) : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.all(10), // Reducido 40%
+                padding: const EdgeInsets.all(16),
               ),
               icon: const Icon(Icons.print),
               label: const Text(
                 'Procesar Venta e Imprimir',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600), // Reducido 40%
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ),
           ),

@@ -51,27 +51,47 @@ class SubscriptionValidationService {
       
       // Verificar si tenemos controlador de organización
       if (!Get.isRegistered<OrganizationController>()) {
-        print('⚠️ OrganizationController no registrado - permitiendo operación');
-        return true; // Permitir si no hay controlador (evitar bloqueos)
+        print('⚠️ OrganizationController no registrado - permitiendo operación (backend validará)');
+        return true; // Permitir si no hay controlador, backend validará
       }
       
       final orgController = Get.find<OrganizationController>();
       final organization = orgController.currentOrganization;
       
+      // Si la organización aún no se ha cargado, intentar cargarla antes de validar
       if (organization == null) {
-        print('⚠️ No hay organización actual - permitiendo operación');
-        return true; // Permitir si no hay organización
+        print('⚠️ No hay organización actual - datos aún no cargados');
+        
+        // Si el controlador está cargando, confiar en que el backend validará
+        if (orgController.isLoading) {
+          print('🔄 Organización cargando - backend validará la operación');
+          return true; // Backend validará, no bloquear la UI
+        }
+        
+        // Si no está cargando y no hay datos, podría ser un error
+        print('❌ Sin datos de organización y no está cargando - backend validará');
+        return true; // Permitir que backend valide
       }
       
       // Verificar estado de suscripción
       final subscriptionStatus = organization.subscriptionStatus?.name.toLowerCase();
+      final hasValidSubscription = organization.hasValidSubscription ?? false;
+      final isTrialExpired = organization.isTrialExpired ?? false;
+      
+      // Una suscripción está expirada si:
+      // 1. El estado es 'expired' o 'inactive'
+      // 2. El trial ha expirado y no hay suscripción válida
+      // 3. No hay suscripción válida
       final isExpired = subscriptionStatus == 'expired' || 
                        subscriptionStatus == 'inactive' ||
-                       subscriptionStatus == null;
+                       isTrialExpired ||
+                       !hasValidSubscription;
       
       print('📋 Estado de suscripción actual:');
       print('   - Status: $subscriptionStatus');
       print('   - Plan: ${organization.subscriptionPlan?.name}');
+      print('   - Has Valid Subscription: $hasValidSubscription');
+      print('   - Is Trial Expired: $isTrialExpired');
       print('   - Expirada: $isExpired');
       
       if (isExpired) {

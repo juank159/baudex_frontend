@@ -127,10 +127,12 @@ class ProductFormController extends GetxController {
   @override
   void onClose() {
     print('🔚 ProductFormController: Iniciando liberación de recursos...');
+    
+    // Marcar como en proceso de disposal
     _isDisposing.value = true;
 
-    // ✅ SOLUCIÓN: Retrasar el disposal para evitar conflictos con Flutter
-    Future.delayed(const Duration(milliseconds: 100), () {
+    // ✅ SOLUCIÓN DEFINITIVA: Postergar disposal para permitir que widgets terminen
+    Future.delayed(const Duration(milliseconds: 300), () {
       try {
         _disposeControllers();
         print('✅ ProductFormController: Recursos liberados exitosamente');
@@ -1480,11 +1482,6 @@ class ProductFormController extends GetxController {
 
   /// Disponer controladores de forma segura
   void _disposeControllers() {
-    if (_isDisposing.value) {
-      print('⚠️ ProductFormController: Disposal ya en progreso, saltando...');
-      return;
-    }
-
     try {
       final controllers = [
         nameController,
@@ -1507,6 +1504,8 @@ class ProductFormController extends GetxController {
 
       for (final controller in controllers) {
         try {
+          // Verificar si el controller aún es válido antes de disponer
+          final _ = controller.text; // Esto lanzará excepción si ya está dispuesto
           controller.dispose();
         } catch (e) {
           print('⚠️ Error disposing individual controller: $e');

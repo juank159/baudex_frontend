@@ -208,57 +208,10 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
         ),
 
         // Menú de opciones
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, size: 14),
-          padding: EdgeInsets.all(context.isMobile ? 3 : 4),
-          constraints: BoxConstraints(
-            minWidth: context.isMobile ? 20 : 24,
-            minHeight: context.isMobile ? 20 : 24,
-          ),
-          onSelected: _handleMenuAction,
-          itemBuilder:
-              (context) => [
-                const PopupMenuItem(
-                  value: 'duplicate',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.content_copy,
-                        size: 12,
-                        color: Colors.lightBlue,
-                      ),
-                      SizedBox(width: 4),
-                      Text('Duplicar', style: TextStyle(fontSize: 11)),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'close_others',
-                  child: Row(
-                    children: [
-                      Icon(Icons.close_fullscreen, size: 12, color: Colors.red),
-                      SizedBox(width: 4),
-                      Text('Cerrar Otras', style: TextStyle(fontSize: 11)),
-                    ],
-                  ),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'shortcuts',
-                  child: Row(
-                    children: [
-                      Icon(Icons.keyboard, size: 12, color: Colors.green),
-                      SizedBox(width: 4),
-                      Text('Atajos', style: TextStyle(fontSize: 11)),
-                    ],
-                  ),
-                ),
-              ],
-        ),
 
         // Botón de configuraciones
         IconButton(
-          icon: const Icon(Icons.settings, size: 14),
+          icon: const Icon(Icons.settings, size: 14, color: Colors.white),
           tooltip: 'Config',
           padding: EdgeInsets.all(context.isMobile ? 3 : 4),
           constraints: BoxConstraints(
@@ -269,11 +222,6 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
         ),
       ],
     );
-  }
-
-  PreferredSizeWidget? _buildTabBar() {
-    // Ya no necesitamos un TabBar separado, todo está fusionado
-    return null;
   }
 
   Widget _buildTabWidget(InvoiceTab tab) {

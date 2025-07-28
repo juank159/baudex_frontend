@@ -836,7 +836,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
               try {
                 // Guardar la factura con el estado y método de pago correctos
-                await controller.saveInvoiceWithPayment(
+                final success = await controller.saveInvoiceWithPayment(
                   amount,
                   change,
                   paymentMethod,
@@ -844,42 +844,53 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   shouldPrint,
                 );
 
-                // ✅ NOTA: El diálogo ya se cerró automáticamente en _confirmPayment
+                print('🔍 SCREEN: saveInvoiceWithPayment returned: $success');
 
-                // ✅ NUEVO: Cerrar la pestaña automáticamente después de procesar venta
-                // Solo cerrar si no es borrador Y si hay más de una pestaña abierta
-                if (status != InvoiceStatus.draft) {
-                  final tabsController = Get.find<InvoiceTabsController>();
-                  if (tabsController.currentTab != null) {
-                    // ✅ NUEVA VALIDACIÓN: Solo cerrar si hay más de una pestaña
-                    if (tabsController.tabs.length > 1) {
-                      print('🔖 Cerrando pestaña después de procesar venta (quedan ${tabsController.tabs.length - 1} pestañas)...');
-                      tabsController.closeTab(
-                        tabsController.currentTab!.id,
-                        forceClose: true,
-                      );
-                    } else {
-                      print('🔖 No se cierra la pestaña: es la única abierta');
-                      // ✅ OPCIONAL: Limpiar la factura actual para una nueva venta
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        controller.clearFormForNewSale();
-                      });
+                // ✅ SOLO CONTINUAR SI LA OPERACIÓN FUE EXITOSA
+                if (success) {
+                  print('✅ SCREEN: Operación exitosa - continuando con limpieza y snackbar');
+                  
+                  // ✅ NOTA: El diálogo ya se cerró automáticamente en _confirmPayment
+
+                  // ✅ NUEVO: Cerrar la pestaña automáticamente después de procesar venta
+                  // Solo cerrar si no es borrador Y si hay más de una pestaña abierta
+                  if (status != InvoiceStatus.draft) {
+                    final tabsController = Get.find<InvoiceTabsController>();
+                    if (tabsController.currentTab != null) {
+                      // ✅ NUEVA VALIDACIÓN: Solo cerrar si hay más de una pestaña
+                      if (tabsController.tabs.length > 1) {
+                        print('🔖 Cerrando pestaña después de procesar venta (quedan ${tabsController.tabs.length - 1} pestañas)...');
+                        tabsController.closeTab(
+                          tabsController.currentTab!.id,
+                          forceClose: true,
+                        );
+                      } else {
+                        print('🔖 No se cierra la pestaña: es la única abierta');
+                        // ✅ OPCIONAL: Limpiar la factura actual para una nueva venta
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          controller.clearFormForNewSale();
+                        });
+                      }
                     }
                   }
-                }
 
-                // Mostrar mensaje de éxito
-                Get.snackbar(
-                  'Venta Procesada',
-                  status == InvoiceStatus.draft
-                      ? 'Factura guardada como borrador'
-                      : 'Venta procesada exitosamente',
-                  snackPosition: SnackPosition.TOP,
-                  backgroundColor: Colors.green.shade100,
-                  colorText: Colors.green.shade800,
-                  icon: const Icon(Icons.check_circle, color: Colors.green),
-                  duration: const Duration(seconds: 3),
-                );
+                  // ✅ MOSTRAR MENSAJE DE ÉXITO SOLO SI LA OPERACIÓN FUE EXITOSA
+                  print('🎉 SCREEN: Mostrando snackbar de éxito');
+                  Get.snackbar(
+                    'Venta Procesada',
+                    status == InvoiceStatus.draft
+                        ? 'Factura guardada como borrador'
+                        : 'Venta procesada exitosamente',
+                    snackPosition: SnackPosition.TOP,
+                    backgroundColor: Colors.green.shade100,
+                    colorText: Colors.green.shade800,
+                    icon: const Icon(Icons.check_circle, color: Colors.green),
+                    duration: const Duration(seconds: 3),
+                  );
+                } else {
+                  print('❌ SCREEN: Operación falló - NO se muestra snackbar');
+                  // No hacer nada más, el controlador ya manejó el error
+                }
               } catch (e) {
                 print('❌ Error al procesar venta: $e');
                 // ✅ NOTA: El diálogo ya se cerró automáticamente en _confirmPayment

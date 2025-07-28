@@ -418,7 +418,7 @@ SOLUCIÓN RECOMENDADA:
           getProductByIdUseCase: Get.find<GetProductByIdUseCase>(),
           getCategoriesUseCase: _getCategoriesUseCaseSafely(),
         ),
-        fenix: true,
+        fenix: true, // ✅ USAR fenix: true para evitar disposal prematuro
       );
       print('  ✅ ProductFormController registrado');
     }

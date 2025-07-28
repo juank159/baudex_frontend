@@ -1149,7 +1149,8 @@ class InvoiceCardWidget extends StatelessWidget {
     final daysUntilDue = invoice.dueDate.difference(DateTime.now()).inDays;
     return daysUntilDue <= 3 &&
         daysUntilDue > 0 &&
-        (invoice.status == InvoiceStatus.pending || invoice.status == InvoiceStatus.partiallyPaid);
+        (invoice.status == InvoiceStatus.pending ||
+            invoice.status == InvoiceStatus.partiallyPaid);
   }
 
   int _daysUntilDue() {

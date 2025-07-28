@@ -13,7 +13,7 @@ class UpdateOrganizationUseCase implements UseCase<Organization, UpdateOrganizat
 
   @override
   Future<Either<Failure, Organization>> call(UpdateOrganizationParams params) async {
-    return await repository.updateOrganization(params.id, params.updates);
+    return await repository.updateCurrentOrganization(params.updates);
   }
 }
 

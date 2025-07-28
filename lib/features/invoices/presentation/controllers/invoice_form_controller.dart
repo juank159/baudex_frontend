@@ -24,6 +24,7 @@ import '../../domain/usecases/get_invoice_by_id_usecase.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../../../customers/domain/usecases/get_customers_usecase.dart';
 import '../../../customers/domain/usecases/search_customers_usecase.dart';
+import '../../../customers/domain/usecases/create_customer_usecase.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/get_products_usecase.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
@@ -45,6 +46,7 @@ class InvoiceFormController extends GetxController {
   final GetInvoiceByIdUseCase _getInvoiceByIdUseCase;
   GetCustomersUseCase? _getCustomersUseCase;
   SearchCustomersUseCase? _searchCustomersUseCase;
+  CreateCustomerUseCase? _createCustomerUseCase;
   GetProductsUseCase? _getProductsUseCase;
   SearchProductsUseCase? _searchProductsUseCase;
   GetCustomerByIdUseCase? _getCustomerByIdUseCase;
@@ -58,6 +60,7 @@ class InvoiceFormController extends GetxController {
     required GetInvoiceByIdUseCase getInvoiceByIdUseCase,
     GetCustomersUseCase? getCustomersUseCase,
     SearchCustomersUseCase? searchCustomersUseCase,
+    CreateCustomerUseCase? createCustomerUseCase,
     GetProductsUseCase? getProductsUseCase,
     SearchProductsUseCase? searchProductsUseCase,
     GetCustomerByIdUseCase? getCustomerByIdUseCase,
@@ -66,6 +69,7 @@ class InvoiceFormController extends GetxController {
        _getInvoiceByIdUseCase = getInvoiceByIdUseCase,
        _getCustomersUseCase = getCustomersUseCase,
        _searchCustomersUseCase = searchCustomersUseCase,
+       _createCustomerUseCase = createCustomerUseCase,
        _getProductsUseCase = getProductsUseCase,
        _searchProductsUseCase = searchProductsUseCase,
        _getCustomerByIdUseCase = getCustomerByIdUseCase {
@@ -134,8 +138,15 @@ class InvoiceFormController extends GetxController {
   String? get editingInvoiceId => _editingInvoiceId.value;
 
   // Datos del formulario
-  static const String DEFAULT_CUSTOMER_ID =
-      '3c605381-362b-454a-8c0f-b3c055aa568d';
+  static const String DEFAULT_CUSTOMER_NAME = 'Consumidor Final';
+  
+  // ==================== CACHE DE OPTIMIZACIÓN ====================
+  
+  // Cache del cliente "Consumidor Final" para evitar búsquedas repetidas
+  Customer? _cachedDefaultCustomer;
+  DateTime? _customerCacheTime;
+  static const Duration _customerCacheExpiry = Duration(minutes: 30);
+  
   Customer? get selectedCustomer => _selectedCustomer.value;
   List<InvoiceItemFormData> get invoiceItems => _invoiceItems;
   DateTime get invoiceDate => _invoiceDate.value;
@@ -215,11 +226,22 @@ class InvoiceFormController extends GetxController {
       try {
         print('🔄 [AUTO-INIT] Verificando dependencias faltantes...');
 
-        // Solo inicializar si son null (fueron creadas sin dependencias)
-        if (_getCustomersUseCase == null &&
-            !Get.isRegistered<GetCustomersUseCase>()) {
-          print('👥 [AUTO-INIT] Inicializando CustomerBinding...');
+        // Inicializar si faltan dependencias críticas
+        if (!Get.isRegistered<CreateCustomerUseCase>() || _createCustomerUseCase == null) {
+          print('👥 [AUTO-INIT] Inicializando CustomerBinding completo...');
+          
+          // Inicializar CustomerBinding completo
           CustomerBinding().dependencies();
+
+          // Esperar un poco para que se registren todas las dependencias
+          await Future.delayed(const Duration(milliseconds: 100));
+
+          // Verificar y actualizar referencias
+          print('🔍 [AUTO-INIT] Verificando dependencias registradas...');
+          print('   - GetCustomersUseCase: ${Get.isRegistered<GetCustomersUseCase>()}');
+          print('   - SearchCustomersUseCase: ${Get.isRegistered<SearchCustomersUseCase>()}');
+          print('   - CreateCustomerUseCase: ${Get.isRegistered<CreateCustomerUseCase>()}');
+          print('   - GetCustomerByIdUseCase: ${Get.isRegistered<GetCustomerByIdUseCase>()}');
 
           // Actualizar las referencias
           final getCustomersUseCase =
@@ -234,13 +256,19 @@ class InvoiceFormController extends GetxController {
               Get.isRegistered<GetCustomerByIdUseCase>()
                   ? Get.find<GetCustomerByIdUseCase>()
                   : null;
+          final createCustomerUseCase =
+              Get.isRegistered<CreateCustomerUseCase>()
+                  ? Get.find<CreateCustomerUseCase>()
+                  : null;
 
           // Re-asignar las dependencias
           _getCustomersUseCase = getCustomersUseCase;
           _searchCustomersUseCase = searchCustomersUseCase;
+          _createCustomerUseCase = createCustomerUseCase;
           _getCustomerByIdUseCase = getCustomerByIdUseCase;
 
           print('✅ [AUTO-INIT] CustomerBinding inicializado');
+          print('✅ [AUTO-INIT] CreateCustomerUseCase disponible: ${_createCustomerUseCase != null}');
         }
 
         await Future.delayed(const Duration(milliseconds: 50));
@@ -360,42 +388,75 @@ class InvoiceFormController extends GetxController {
     print('   - TOTAL: \${total.toStringAsFixed(2)}');
   }
 
+  /// ⚡ OPTIMIZADO: Cargar cliente por defecto con cache
   Future<void> _loadDefaultCustomer() async {
     try {
-      print('🔍 Cargando cliente final desde BD: $DEFAULT_CUSTOMER_ID');
+      // Verificar cache primero
+      if (_cachedDefaultCustomer != null && _customerCacheTime != null) {
+        final timeSinceCache = DateTime.now().difference(_customerCacheTime!);
+        if (timeSinceCache < _customerCacheExpiry) {
+          print('⚡ Cargando cliente "$DEFAULT_CUSTOMER_NAME" desde CACHE (${timeSinceCache.inMinutes}min antiguo)');
+          _selectedCustomer.value = _cachedDefaultCustomer;
+          return;
+        }
+      }
+      
+      print('🔍 Buscando cliente "$DEFAULT_CUSTOMER_NAME" en BD...');
 
       // ✅ ESTABLECER CLIENTE FALLBACK INMEDIATAMENTE
       _setFallbackDefaultCustomer();
 
-      if (_getCustomerByIdUseCase != null) {
-        print('✅ GetCustomerByIdUseCase disponible, realizando consulta...');
+      if (_searchCustomersUseCase != null) {
+        print('✅ SearchCustomersUseCase disponible, realizando búsqueda en servidor...');
 
-        // ✅ CARGAR CLIENTE REAL EN BACKGROUND SIN BLOQUEAR
-        _getCustomerByIdUseCase!(GetCustomerByIdParams(id: DEFAULT_CUSTOMER_ID))
+        // ✅ BUSCAR CLIENTE "Consumidor Final" EN BACKGROUND SIN BLOQUEAR
+        _searchCustomersUseCase!(SearchCustomersParams(searchTerm: DEFAULT_CUSTOMER_NAME, limit: 5))
             .timeout(const Duration(seconds: 5))
             .then((result) {
               result.fold(
                 (failure) {
                   print(
-                    '❌ Error cargando cliente final: ${failure.toString()}',
+                    '❌ Error buscando cliente final: ${failure.toString()}',
                   );
                   // Mantener cliente fallback
                 },
-                (customer) {
-                  _selectedCustomer.value = customer;
-                  print('✅ Cliente final cargado exitosamente:');
-                  print('   - ID: ${customer.id}');
-                  print('   - Nombre: ${customer.displayName}');
-                  print('   - Email: ${customer.email}');
+                (customers) {
+                  // Buscar cliente que coincida exactamente con "Consumidor Final"
+                  Customer? defaultCustomer;
+                  try {
+                    defaultCustomer = customers.firstWhere((customer) {
+                      final fullName = '${customer.firstName} ${customer.lastName}'.trim();
+                      return fullName.toLowerCase() == DEFAULT_CUSTOMER_NAME.toLowerCase();
+                    });
+                  } catch (e) {
+                    // No se encontró el cliente
+                    defaultCustomer = null;
+                  }
+
+                  if (defaultCustomer != null) {
+                    _selectedCustomer.value = defaultCustomer;
+                    
+                    // ⚡ GUARDAR EN CACHE
+                    _cachedDefaultCustomer = defaultCustomer;
+                    _customerCacheTime = DateTime.now();
+                    
+                    print('✅ Cliente final encontrado y cargado exitosamente:');
+                    print('   - ID: ${defaultCustomer.id}');
+                    print('   - Nombre: ${defaultCustomer.displayName}');
+                    print('   - Email: ${defaultCustomer.email}');
+                    print('💾 Cliente cacheado para próximas cargas');
+                  } else {
+                    print('⚠️ No se encontró cliente "$DEFAULT_CUSTOMER_NAME", usando fallback');
+                  }
                 },
               );
             })
             .catchError((e) {
-              print('💥 Error inesperado cargando cliente final: $e');
+              print('💥 Error inesperado buscando cliente final: $e');
               // Mantener cliente fallback
             });
       } else {
-        print('❌ GetCustomerByIdUseCase NO disponible');
+        print('❌ SearchCustomersUseCase NO disponible');
         print('🔄 Usando cliente fallback...');
       }
     } catch (e) {
@@ -405,44 +466,10 @@ class InvoiceFormController extends GetxController {
     }
   }
 
-  // ✅ NUEVA FUNCIÓN: Cargar cliente asíncronamente
+  // ✅ FUNCIÓN OBSOLETA: Ahora se usa _loadDefaultCustomer que busca por nombre
   void _loadDefaultCustomerAsync() {
-    try {
-      print('🔍 Cargando cliente final desde BD: $DEFAULT_CUSTOMER_ID');
-
-      if (_getCustomerByIdUseCase != null) {
-        print('✅ GetCustomerByIdUseCase disponible, realizando consulta...');
-
-        _getCustomerByIdUseCase!(GetCustomerByIdParams(id: DEFAULT_CUSTOMER_ID))
-            .timeout(const Duration(seconds: 5))
-            .then((result) {
-              result.fold(
-                (failure) {
-                  print(
-                    '❌ Error cargando cliente final: ${failure.toString()}',
-                  );
-                  // Mantener cliente fallback
-                },
-                (customer) {
-                  _selectedCustomer.value = customer;
-                  print('✅ Cliente final cargado exitosamente:');
-                  print('   - ID: ${customer.id}');
-                  print('   - Nombre: ${customer.displayName}');
-                  print('   - Email: ${customer.email}');
-                },
-              );
-            })
-            .catchError((e) {
-              print('💥 Error inesperado cargando cliente final: $e');
-              // Mantener cliente fallback
-            });
-      } else {
-        print('❌ GetCustomerByIdUseCase NO disponible');
-        print('🔄 Usando cliente fallback...');
-      }
-    } catch (e) {
-      print('💥 Error inesperado cargando cliente final: $e');
-    }
+    print('⚠️ _loadDefaultCustomerAsync está obsoleto, usando _loadDefaultCustomer');
+    _loadDefaultCustomer();
   }
 
   // ✅ NUEVA FUNCIÓN: Cargar factura para edición asíncronamente
@@ -454,9 +481,208 @@ class InvoiceFormController extends GetxController {
     });
   }
 
+  /// Asegurar que tenemos un cliente válido con UUID real antes de crear factura
+  Future<Customer?> _ensureValidCustomer() async {
+    final currentCustomer = selectedCustomer;
+    
+    if (currentCustomer == null) {
+      print('❌ No hay cliente seleccionado');
+      return null;
+    }
+
+    // Verificar si el cliente actual es válido (tiene UUID real)
+    if (_isValidUUID(currentCustomer.id) && !currentCustomer.id.startsWith('fallback_')) {
+      print('✅ Cliente actual es válido: ${currentCustomer.displayName} (${currentCustomer.id})');
+      return currentCustomer;
+    }
+
+    print('⚠️ Cliente actual es temporal/fallback, buscando cliente real...');
+    
+    // Si es el cliente fallback "Consumidor Final", buscar el real
+    if (_isDefaultCustomer(currentCustomer)) {
+      final realCustomer = await _findOrCreateDefaultCustomer();
+      if (realCustomer != null) {
+        // Actualizar el cliente seleccionado al real
+        _selectedCustomer.value = realCustomer;
+        print('✅ Cliente real encontrado y actualizado: ${realCustomer.displayName} (${realCustomer.id})');
+        return realCustomer;
+      }
+    }
+
+    print('❌ No se pudo resolver a un cliente válido');
+    return null;
+  }
+
+  /// Verificar si un string es un UUID válido
+  bool _isValidUUID(String id) {
+    final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+    return uuidRegex.hasMatch(id.toLowerCase());
+  }
+
+  /// Verificar si un cliente es el cliente por defecto
+  bool _isDefaultCustomer(Customer customer) {
+    final fullName = '${customer.firstName} ${customer.lastName}'.trim();
+    return fullName.toLowerCase() == DEFAULT_CUSTOMER_NAME.toLowerCase() ||
+        customer.id.startsWith('fallback_consumidor_final');
+  }
+
+  /// ⚡ OPTIMIZADO: Buscar o crear el cliente "Consumidor Final" con cache
+  Future<Customer?> _findOrCreateDefaultCustomer() async {
+    try {
+      // Verificar cache primero
+      if (_cachedDefaultCustomer != null && _customerCacheTime != null) {
+        final timeSinceCache = DateTime.now().difference(_customerCacheTime!);
+        if (timeSinceCache < _customerCacheExpiry) {
+          print('⚡ Usando cliente "$DEFAULT_CUSTOMER_NAME" desde CACHE (${timeSinceCache.inMinutes}min antiguo)');
+          return _cachedDefaultCustomer;
+        } else {
+          print('🔄 Cache del cliente expirado, buscando en servidor...');
+        }
+      }
+      
+      print('🔍 Buscando cliente real "$DEFAULT_CUSTOMER_NAME" en servidor...');
+      
+      if (_searchCustomersUseCase != null) {
+        // Buscar primero por nombre
+        final nameResult = await _searchCustomersUseCase!(
+          SearchCustomersParams(searchTerm: DEFAULT_CUSTOMER_NAME, limit: 5)
+        ).timeout(const Duration(seconds: 5));
+
+        Customer? foundCustomer = nameResult.fold(
+          (failure) {
+            print('❌ Error buscando cliente por nombre: ${failure.message}');
+            return null;
+          },
+          (customers) {
+            // Buscar cliente que coincida exactamente por nombre
+            try {
+              return customers.firstWhere((customer) {
+                final fullName = '${customer.firstName} ${customer.lastName}'.trim();
+                return fullName.toLowerCase() == DEFAULT_CUSTOMER_NAME.toLowerCase();
+              });
+            } catch (e) {
+              return null;
+            }
+          },
+        );
+
+        // Si no se encontró por nombre, buscar por documento
+        if (foundCustomer == null) {
+          print('🔍 No encontrado por nombre, buscando por documento "222222222222"...');
+          final documentResult = await _searchCustomersUseCase!(
+            SearchCustomersParams(searchTerm: '222222222222', limit: 5)
+          ).timeout(const Duration(seconds: 5));
+
+          foundCustomer = documentResult.fold(
+            (failure) {
+              print('❌ Error buscando cliente por documento: ${failure.message}');
+              return null;
+            },
+            (customers) {
+              // Buscar cliente que coincida por documento
+              try {
+                return customers.firstWhere((customer) {
+                  return customer.documentNumber == '222222222222';
+                });
+              } catch (e) {
+                return null;
+              }
+            },
+          );
+        }
+
+        if (foundCustomer != null) {
+          print('✅ Cliente real encontrado: ${foundCustomer.displayName} (${foundCustomer.id})');
+          print('   - Documento: ${foundCustomer.documentNumber}');
+          
+          // ⚡ GUARDAR EN CACHE
+          _cachedDefaultCustomer = foundCustomer;
+          _customerCacheTime = DateTime.now();
+          print('💾 Cliente cacheado para futuras búsquedas (expira en ${_customerCacheExpiry.inMinutes}min)');
+          
+          return foundCustomer;
+        } else {
+          print('⚠️ Cliente "$DEFAULT_CUSTOMER_NAME" no existe, creando automáticamente...');
+          return await _createDefaultCustomer();
+        }
+      } else {
+        print('❌ SearchCustomersUseCase no disponible');
+        return null;
+      }
+    } catch (e) {
+      print('💥 Error buscando cliente por defecto: $e');
+      return null;
+    }
+  }
+
+  /// Crear automáticamente el cliente "Consumidor Final"
+  Future<Customer?> _createDefaultCustomer() async {
+    try {
+      // Intentar obtener CreateCustomerUseCase si no está disponible
+      if (_createCustomerUseCase == null) {
+        if (Get.isRegistered<CreateCustomerUseCase>()) {
+          _createCustomerUseCase = Get.find<CreateCustomerUseCase>();
+          print('✅ CreateCustomerUseCase obtenido desde Get.find');
+        } else {
+          print('❌ CreateCustomerUseCase no disponible - no se puede crear cliente');
+          print('💡 SOLUCIÓN: Crea manualmente un cliente "Consumidor Final" con documento "222222222222"');
+          return null;
+        }
+      }
+
+      print('➕ Creando cliente "$DEFAULT_CUSTOMER_NAME" automáticamente...');
+      
+      final createResult = await _createCustomerUseCase!(
+        CreateCustomerParams(
+          firstName: 'Consumidor',
+          lastName: 'Final',
+          email: 'consumidor.final@empresa.com',
+          documentType: DocumentType.cc,
+          documentNumber: '222222222222',
+          address: 'Venta de mostrador',
+          city: 'Cúcuta',
+          state: 'Norte de Santander',
+          country: 'Colombia',
+          status: CustomerStatus.active,
+          paymentTerms: 0,
+          creditLimit: 0.0,
+          notes: 'Cliente creado automáticamente para ventas de mostrador',
+          metadata: {
+            'isDefaultCustomer': true,
+            'autoCreated': true,
+            'createdAt': DateTime.now().toIso8601String(),
+          },
+        ),
+      ).timeout(const Duration(seconds: 10));
+
+      return createResult.fold(
+        (failure) {
+          print('❌ Error creando cliente por defecto: ${failure.message}');
+          return null;
+        },
+        (customer) {
+          print('✅ Cliente "$DEFAULT_CUSTOMER_NAME" creado exitosamente:');
+          print('   - ID: ${customer.id}');
+          print('   - Nombre: ${customer.displayName}');
+          print('   - Email: ${customer.email}');
+          
+          // ⚡ GUARDAR EN CACHE
+          _cachedDefaultCustomer = customer;
+          _customerCacheTime = DateTime.now();
+          print('💾 Nuevo cliente cacheado para futuras búsquedas');
+          
+          return customer;
+        },
+      );
+    } catch (e) {
+      print('💥 Error inesperado creando cliente por defecto: $e');
+      return null;
+    }
+  }
+
   void _setFallbackDefaultCustomer() {
     final fallbackCustomer = Customer(
-      id: DEFAULT_CUSTOMER_ID,
+      id: 'fallback_consumidor_final_${DateTime.now().millisecondsSinceEpoch}',
       firstName: 'Consumidor',
       lastName: 'Final',
       email: 'ventas@empresa.com',
@@ -478,9 +704,10 @@ class InvoiceFormController extends GetxController {
 
     _selectedCustomer.value = fallbackCustomer;
     print(
-      '👤 Cliente fallback establecido con ID real: ${fallbackCustomer.id}',
+      '👤 Cliente fallback establecido: ${fallbackCustomer.displayName}',
     );
-    print('   - Nombre: ${fallbackCustomer.displayName}');
+    print('   - ID temporal: ${fallbackCustomer.id}');
+    print('   - Nota: Se reemplazará automáticamente cuando se encuentre el cliente real "$DEFAULT_CUSTOMER_NAME"');
   }
 
   // ✅ FUNCIÓN OBSOLETA - YA NO SE USA
@@ -1244,14 +1471,14 @@ class InvoiceFormController extends GetxController {
   // ==================== PAYMENT & SAVE ====================
 
   // ✅ MÉTODO PRINCIPAL ACTUALIZADO CON IMPRESIÓN
-  Future<void> saveInvoiceWithPayment(
+  Future<bool> saveInvoiceWithPayment(
     double receivedAmount,
     double change,
     PaymentMethod paymentMethod,
     InvoiceStatus status,
     bool shouldPrint, // ✅ NUEVO PARÁMETRO
   ) async {
-    if (!_validateForm()) return;
+    if (!_validateForm()) return false;
 
     try {
       _isSaving.value = true;
@@ -1286,16 +1513,31 @@ class InvoiceFormController extends GetxController {
         savedInvoice = await _createNewInvoice(status);
       }
 
-      // ✅ NUEVA LÓGICA: IMPRIMIR SI SE SOLICITÓ
-      if (savedInvoice != null && shouldPrint) {
-        print('🖨️ Iniciando impresión automática...');
-        await _printInvoiceAutomatically(savedInvoice);
+      // ✅ VALIDAR SI LA FACTURA SE GUARDÓ CORRECTAMENTE
+      print('🔍 DEBUG: Validando si savedInvoice es null...');
+      print('🔍 savedInvoice == null: ${savedInvoice == null}');
+      print('🔍 savedInvoice: $savedInvoice');
+      
+      if (savedInvoice != null) {
+        // ✅ NUEVA LÓGICA: IMPRIMIR SI SE SOLICITÓ
+        if (shouldPrint) {
+          print('🖨️ Iniciando impresión automática...');
+          await _printInvoiceAutomatically(savedInvoice);
+        }
+        
+        print('✅ === FACTURA GUARDADA EXITOSAMENTE ===');
+        print('🎉 RETORNANDO TRUE - OPERACIÓN EXITOSA');
+        // ✅ NO MOSTRAR SNACKBAR AQUÍ - LA PANTALLA LO MOSTRARÁ
+        return true; // ✅ ÉXITO
+      } else {
+        print('❌ === FACTURA NO GUARDADA - OPERACIÓN BLOQUEADA ===');
+        print('🚫 RETORNANDO FALSE - OPERACIÓN FALLÓ');
+        return false; // ✅ FALLÓ
       }
-
-      print('✅ === FACTURA GUARDADA EXITOSAMENTE ===');
     } catch (e) {
       print('💥 Error inesperado al guardar: $e');
       _showError('Error inesperado', 'No se pudo procesar la venta');
+      return false; // ✅ ERROR
     } finally {
       _isSaving.value = false;
     }
@@ -1510,6 +1752,17 @@ class InvoiceFormController extends GetxController {
     }
     
     print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con creación de factura');
+
+    // 🔍 VALIDAR Y RESOLVER CLIENTE ANTES DE CREAR FACTURA
+    final validCustomer = await _ensureValidCustomer();
+    if (validCustomer == null) {
+      print('❌ No se pudo obtener un cliente válido para crear la factura');
+      _showError(
+        'Cliente "Consumidor Final" requerido', 
+        'Crea un cliente "Consumidor Final" con documento "222222222222" en la sección de clientes antes de crear facturas.'
+      );
+      return null;
+    }
     
     final items =
         _invoiceItems
@@ -1529,7 +1782,7 @@ class InvoiceFormController extends GetxController {
 
     final result = await _createInvoiceUseCase(
       CreateInvoiceParams(
-        customerId: selectedCustomer!.id,
+        customerId: validCustomer.id,
         items: items,
         number: null,
         date: invoiceDate,
@@ -1546,6 +1799,10 @@ class InvoiceFormController extends GetxController {
 
     return result.fold(
       (failure) {
+        print('💥 _createNewInvoice FAILED: ${failure.message}');
+        print('💥 Failure code: ${failure.code}');
+        print('💥 Retornando NULL por error');
+        
         // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
         final handled = SubscriptionErrorHandler.handleFailure(
           failure,
@@ -1559,7 +1816,8 @@ class InvoiceFormController extends GetxController {
         return null;
       },
       (invoice) {
-        //_showSuccessWithStatus('¡Venta procesada exitosamente!', status);
+        print('✅ _createNewInvoice SUCCESS: Factura creada con ID ${invoice.id}');
+        print('✅ Preparando para nueva venta...');
         _prepareForNewSale();
         return invoice; // ✅ RETORNAR LA FACTURA CREADA
       },
@@ -1575,6 +1833,17 @@ class InvoiceFormController extends GetxController {
     }
     
     print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con actualización de factura');
+
+    // 🔍 VALIDAR Y RESOLVER CLIENTE ANTES DE ACTUALIZAR FACTURA
+    final validCustomer = await _ensureValidCustomer();
+    if (validCustomer == null) {
+      print('❌ No se pudo obtener un cliente válido para actualizar la factura');
+      _showError(
+        'Cliente "Consumidor Final" requerido', 
+        'Crea un cliente "Consumidor Final" con documento "222222222222" en la sección de clientes antes de actualizar facturas.'
+      );
+      return null;
+    }
     
     final items =
         _invoiceItems
@@ -1605,7 +1874,7 @@ class InvoiceFormController extends GetxController {
         discountAmount: discountAmount,
         notes: notesController.text.isNotEmpty ? notesController.text : null,
         terms: termsController.text.isNotEmpty ? termsController.text : null,
-        customerId: selectedCustomer?.id,
+        customerId: validCustomer.id,
         items: items,
       ),
     );

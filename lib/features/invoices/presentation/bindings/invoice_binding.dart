@@ -80,7 +80,9 @@ class InvoiceBinding extends Bindings {
     print('⚠️ InvoiceStatsController NO cargado intencionalmente');
     print('💡 Se cargará solo cuando sea necesario');
 
-    print('✅ InvoiceBinding: Dependencias básicas configuradas (sin estadísticas)');
+    print(
+      '✅ InvoiceBinding: Dependencias básicas configuradas (sin estadísticas)',
+    );
   }
 
   /// Verificar que las dependencias core estén disponibles
@@ -221,12 +223,15 @@ class InvoiceBinding extends Bindings {
             deleteInvoiceUseCase: Get.find<DeleteInvoiceUseCase>(),
             confirmInvoiceUseCase: Get.find<ConfirmInvoiceUseCase>(),
             cancelInvoiceUseCase: Get.find<CancelInvoiceUseCase>(),
+            getInvoiceByIdUseCase: Get.find<GetInvoiceByIdUseCase>(),
           ),
           permanent: false, // ✅ No permanente para permitir disposal correcto
           // ✅ REMOVER TAG PARA QUE SEA ACCESIBLE SIN TAG
           // tag: 'invoice_list', ← COMENTADO
         );
-        print('✅ InvoiceListController registrado (sin tag)');
+        print(
+          '✅ InvoiceListController registrado (sin tag) con integración de impresora predeterminada',
+        );
       } catch (e) {
         print('❌ Error registrando InvoiceListController: $e');
         throw Exception('No se pudo registrar InvoiceListController: $e');
@@ -292,8 +297,12 @@ class InvoiceBinding extends Bindings {
   // El InvoiceFormController ahora se crea directamente en el wrapper
   // para evitar problemas de dependencias circulares
   static void registerFormController() {
-    print('⚠️ registerFormController() está obsoleto - usa InvoiceFormScreenWrapper');
-    print('💡 El controlador se crea automáticamente en el wrapper con lazy loading');
+    print(
+      '⚠️ registerFormController() está obsoleto - usa InvoiceFormScreenWrapper',
+    );
+    print(
+      '💡 El controlador se crea automáticamente en el wrapper con lazy loading',
+    );
   }
 
   // static void _verifyExternalDependencies() {
@@ -400,7 +409,9 @@ class InvoiceBinding extends Bindings {
 
   /// Limpiar controlador de formulario (OBSOLETO - se maneja en el wrapper)
   static void clearFormController() {
-    print('⚠️ clearFormController() está obsoleto - el wrapper maneja la limpieza automáticamente');
+    print(
+      '⚠️ clearFormController() está obsoleto - el wrapper maneja la limpieza automáticamente',
+    );
   }
 
   /// ✅ SOLUCIÓN: Limpiar controlador de detalle SIN TAG de forma segura
@@ -408,13 +419,29 @@ class InvoiceBinding extends Bindings {
     if (Get.isRegistered<InvoiceDetailController>()) {
       try {
         final controller = Get.find<InvoiceDetailController>();
-        // Permitir que el controlador complete su disposal
-        Get.delete<InvoiceDetailController>(force: false);
-        print('🧹 InvoiceDetailController limpiado de forma segura');
+
+        // Dar tiempo al controlador para completar operaciones pendientes
+        Future.delayed(const Duration(milliseconds: 100), () {
+          try {
+            Get.delete<InvoiceDetailController>(force: false);
+            print(
+              '🧹 InvoiceDetailController limpiado de forma segura (delayed)',
+            );
+          } catch (e) {
+            print('⚠️ Error en limpieza delayed: $e');
+            Get.delete<InvoiceDetailController>(force: true);
+          }
+        });
+
+        print('🧹 InvoiceDetailController marcado para limpieza');
       } catch (e) {
         print('⚠️ Error al limpiar InvoiceDetailController: $e');
         // Fallback: limpieza forzada
-        Get.delete<InvoiceDetailController>(force: true);
+        try {
+          Get.delete<InvoiceDetailController>(force: true);
+        } catch (e2) {
+          print('❌ Error en fallback de limpieza: $e2');
+        }
       }
     }
   }

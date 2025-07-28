@@ -112,6 +112,13 @@ class ThermalPrinterController extends GetxController {
   // Configuración de impresora actual
   final _currentPrinterConfig = Rxn<settings.PrinterSettings>();
 
+  // ==================== CACHE DE OPTIMIZACIÓN ====================
+  
+  // Cache del logo procesado para evitar cargarlo cada vez
+  img.Image? _cachedLogo;
+  DateTime? _logoLoadTime;
+  static const Duration _logoCacheExpiry = Duration(hours: 1);
+
   final format = NumberFormat(
     '#,###',
     'es_CO',
@@ -1064,9 +1071,21 @@ class ThermalPrinterController extends GetxController {
     }
   }
 
+  /// ⚡ OPTIMIZADO: Cargar logo con cache para impresión rápida
   Future<img.Image?> _loadLogoImage() async {
     try {
-      print('🖼️ Cargando logo desde assets...');
+      // Verificar si tenemos logo en cache y no ha expirado
+      if (_cachedLogo != null && _logoLoadTime != null) {
+        final timeSinceLoad = DateTime.now().difference(_logoLoadTime!);
+        if (timeSinceLoad < _logoCacheExpiry) {
+          print('⚡ Usando logo desde CACHE (${timeSinceLoad.inSeconds}s antiguo)');
+          return _cachedLogo;
+        } else {
+          print('🔄 Cache del logo expirado, recargando...');
+        }
+      }
+
+      print('🖼️ Cargando logo desde assets (primera vez o cache expirado)...');
 
       // Cargar imagen desde assets
       final ByteData data = await rootBundle.load(
@@ -1094,8 +1113,12 @@ class ThermalPrinterController extends GetxController {
       // Convertir a escala de grises y aumentar contraste
       final img.Image processedImage = _processImageForThermal(resizedImage);
 
+      // ⚡ GUARDAR EN CACHE
+      _cachedLogo = processedImage;
+      _logoLoadTime = DateTime.now();
+
       print(
-        '✅ Logo procesado: ${processedImage.width}x${processedImage.height}',
+        '✅ Logo procesado y cacheado: ${processedImage.width}x${processedImage.height}',
       );
       return processedImage;
     } catch (e) {

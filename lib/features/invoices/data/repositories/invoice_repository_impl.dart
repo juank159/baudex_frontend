@@ -669,7 +669,14 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   /// Mapear excepciones a failures
   Failure _mapExceptionToFailure(Object exception) {
     if (exception is ServerException) {
-      return ServerFailure(exception.message);
+      if (exception.statusCode != null) {
+        return ServerFailure.fromStatusCode(
+          exception.statusCode!,
+          exception.message,
+        );
+      } else {
+        return ServerFailure(exception.message);
+      }
     } else if (exception is ConnectionException) {
       return ConnectionFailure(exception.message);
     } else if (exception is CacheException) {

@@ -2,30 +2,26 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../domain/entities/organization.dart';
-import '../../domain/entities/create_organization_request.dart';
 import '../../domain/repositories/organization_repository.dart';
 import '../../../../app/core/errors/failures.dart';
 
 class OrganizationController extends GetxController {
-  
   // ==================== DEPENDENCIES ====================
-  
+
   final OrganizationRepository _organizationRepository;
-  
+
   OrganizationController(this._organizationRepository);
-  
+
   // ==================== OBSERVABLES ====================
-  
+
   final _isLoading = false.obs;
   final _currentOrganization = Rxn<Organization>();
-  final _organizations = <Organization>[].obs;
   final _error = Rxn<String>();
 
   // ==================== GETTERS ====================
-  
+
   bool get isLoading => _isLoading.value;
   Organization? get currentOrganization => _currentOrganization.value;
-  List<Organization> get organizations => _organizations;
   String? get error => _error.value;
 
   // ==================== LIFECYCLE ====================
@@ -43,9 +39,9 @@ class OrganizationController extends GetxController {
     try {
       _setLoading(true);
       _clearError();
-      
+
       final result = await _organizationRepository.getCurrentOrganization();
-      
+
       result.fold(
         (failure) => _handleFailure(failure),
         (organization) => _currentOrganization.value = organization,
@@ -57,140 +53,39 @@ class OrganizationController extends GetxController {
     }
   }
 
-  /// Cargar todas las organizaciones disponibles
-  Future<void> loadAllOrganizations() async {
+  /// Actualizar organización actual del usuario
+  Future<bool> updateCurrentOrganization(
+    Map<String, dynamic> updates,
+  ) async {
     try {
+      print('🔄 Starting organization update...');
       _setLoading(true);
       _clearError();
-      
-      final result = await _organizationRepository.getAllOrganizations();
-      
-      result.fold(
-        (failure) => _handleFailure(failure),
-        (organizationList) => _organizations.value = organizationList,
-      );
-    } catch (e) {
-      _handleError('Error inesperado al cargar organizaciones: $e');
-    } finally {
-      _setLoading(false);
-    }
-  }
 
-  /// Crear una nueva organización
-  Future<bool> createOrganization(CreateOrganizationRequest request) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      final result = await _organizationRepository.createOrganization(request);
-      
+      final result = await _organizationRepository.updateCurrentOrganization(
+        updates,
+      );
+
       return result.fold(
         (failure) {
+          print('❌ Update failed: $failure');
           _handleFailure(failure);
           return false;
         },
         (organization) {
+          print('✅ Update successful!');
           _currentOrganization.value = organization;
-          _organizations.add(organization);
-          
-          Get.snackbar(
-            'Éxito',
-            'Organización "${organization.name}" creada exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
-            icon: const Icon(Icons.check_circle, color: Colors.green),
-          );
-          
-          return true;
-        },
-      );
-    } catch (e) {
-      _handleError('Error inesperado al crear organización: $e');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
 
-  /// Actualizar organización existente
-  Future<bool> updateOrganization(String id, Map<String, dynamic> updates) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      final result = await _organizationRepository.updateOrganization(id, updates);
-      
-      return result.fold(
-        (failure) {
-          _handleFailure(failure);
-          return false;
-        },
-        (organization) {
-          _currentOrganization.value = organization;
-          
-          // Actualizar en la lista si existe
-          final index = _organizations.indexWhere((org) => org.id == id);
-          if (index != -1) {
-            _organizations[index] = organization;
-          }
-          
-          Get.snackbar(
-            'Éxito',
-            'Organización actualizada exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
-            icon: const Icon(Icons.check_circle, color: Colors.green),
-          );
-          
+          // Actualizar la organización actual
+          // Movemos el snackbar al diálogo para evitar conflictos de timing
+
+          print('📤 Returning true from controller');
           return true;
         },
       );
     } catch (e) {
+      print('❌ Exception in controller: $e');
       _handleError('Error inesperado al actualizar organización: $e');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  /// Eliminar organización
-  Future<bool> deleteOrganization(String id) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      final result = await _organizationRepository.deleteOrganization(id);
-      
-      return result.fold(
-        (failure) {
-          _handleFailure(failure);
-          return false;
-        },
-        (_) {
-          // Remover de la lista
-          _organizations.removeWhere((org) => org.id == id);
-          
-          // Si era la organización actual, limpiarla
-          if (_currentOrganization.value?.id == id) {
-            _currentOrganization.value = null;
-          }
-          
-          Get.snackbar(
-            'Éxito',
-            'Organización eliminada exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
-            icon: const Icon(Icons.check_circle, color: Colors.green),
-          );
-          
-          return true;
-        },
-      );
-    } catch (e) {
-      _handleError('Error inesperado al eliminar organización: $e');
       return false;
     } finally {
       _setLoading(false);
@@ -202,16 +97,13 @@ class OrganizationController extends GetxController {
     try {
       _setLoading(true);
       _clearError();
-      
+
       final result = await _organizationRepository.getOrganizationById(id);
-      
-      return result.fold(
-        (failure) {
-          _handleFailure(failure);
-          return null;
-        },
-        (organization) => organization,
-      );
+
+      return result.fold((failure) {
+        _handleFailure(failure);
+        return null;
+      }, (organization) => organization);
     } catch (e) {
       _handleError('Error inesperado al obtener organización: $e');
       return null;
@@ -222,10 +114,7 @@ class OrganizationController extends GetxController {
 
   /// Refrescar datos
   Future<void> refresh() async {
-    await Future.wait([
-      loadCurrentOrganization(),
-      loadAllOrganizations(),
-    ]);
+    await loadCurrentOrganization();
   }
 
   /// Limpiar error
@@ -240,15 +129,15 @@ class OrganizationController extends GetxController {
     if (value == null || value.trim().isEmpty) {
       return 'El nombre de la organización es requerido';
     }
-    
+
     if (value.trim().length < 2) {
       return 'El nombre debe tener al menos 2 caracteres';
     }
-    
+
     if (value.trim().length > 100) {
       return 'El nombre no puede exceder 100 caracteres';
     }
-    
+
     return null;
   }
 
@@ -257,20 +146,20 @@ class OrganizationController extends GetxController {
     if (value == null || value.trim().isEmpty) {
       return 'El slug es requerido';
     }
-    
+
     final slugRegex = RegExp(r'^[a-z0-9-]+$');
     if (!slugRegex.hasMatch(value.trim())) {
       return 'El slug solo puede contener letras minúsculas, números y guiones';
     }
-    
+
     if (value.trim().length < 2) {
       return 'El slug debe tener al menos 2 caracteres';
     }
-    
+
     if (value.trim().length > 50) {
       return 'El slug no puede exceder 50 caracteres';
     }
-    
+
     return null;
   }
 
@@ -279,15 +168,15 @@ class OrganizationController extends GetxController {
     if (value == null || value.trim().isEmpty) {
       return null; // El dominio es opcional
     }
-    
+
     final domainRegex = RegExp(
-      r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$'
+      r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$',
     );
-    
+
     if (!domainRegex.hasMatch(value.trim())) {
       return 'Ingrese un dominio válido (ej: miempresa.com)';
     }
-    
+
     return null;
   }
 
@@ -303,7 +192,7 @@ class OrganizationController extends GetxController {
 
   void _handleError(String message) {
     _error.value = message;
-    
+
     Get.snackbar(
       'Error',
       message,
@@ -317,7 +206,7 @@ class OrganizationController extends GetxController {
 
   void _handleFailure(Failure failure) {
     String message;
-    
+
     switch (failure.runtimeType) {
       case ServerFailure:
         message = 'Error del servidor. Intente nuevamente.';
@@ -334,7 +223,7 @@ class OrganizationController extends GetxController {
       default:
         message = 'Error desconocido. Intente nuevamente.';
     }
-    
+
     _handleError(message);
   }
 
@@ -344,7 +233,6 @@ class OrganizationController extends GetxController {
     print('🐛 OrganizationController Debug Info:');
     print('   isLoading: $isLoading');
     print('   currentOrganization: ${currentOrganization?.name ?? 'null'}');
-    print('   organizations count: ${organizations.length}');
     print('   error: ${error ?? 'none'}');
   }
 }

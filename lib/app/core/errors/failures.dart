@@ -32,7 +32,10 @@ class ServerFailure extends Failure {
           code: 401,
         );
       case 403:
-        return const ServerFailure('Acceso prohibido.', code: 403);
+        return ServerFailure(
+          message.isNotEmpty ? message : 'Acceso prohibido.',
+          code: 403,
+        );
       case 404:
         return ServerFailure(
           'Recurso no encontrado: $message',

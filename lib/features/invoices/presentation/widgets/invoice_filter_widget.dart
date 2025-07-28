@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
-import '../../../../app/shared/widgets/custom_text_field.dart';
+import '../../../../app/shared/widgets/custom_text_field_safe.dart';
+import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../controllers/invoice_list_controller.dart';
 import '../../domain/entities/invoice.dart';
 
@@ -25,8 +26,8 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
   late double? _minAmount;
   late double? _maxAmount;
 
-  final TextEditingController _minAmountController = TextEditingController();
-  final TextEditingController _maxAmountController = TextEditingController();
+  final SafeTextEditingController _minAmountController = SafeTextEditingController(debugLabel: 'FilterMinAmount');
+  final SafeTextEditingController _maxAmountController = SafeTextEditingController(debugLabel: 'FilterMaxAmount');
 
   @override
   void initState() {
@@ -225,7 +226,7 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
         Row(
           children: [
             Expanded(
-              child: CustomTextField(
+              child: CustomTextFieldSafe(
                 controller: _minAmountController,
                 label: 'Monto Mínimo',
                 hint: '0.00',
@@ -233,6 +234,7 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                debugLabel: 'FilterMinAmount',
                 onChanged: (value) {
                   _minAmount = double.tryParse(value);
                 },
@@ -240,7 +242,7 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: CustomTextField(
+              child: CustomTextFieldSafe(
                 controller: _maxAmountController,
                 label: 'Monto Máximo',
                 hint: '999999.99',
@@ -248,6 +250,7 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                debugLabel: 'FilterMaxAmount',
                 onChanged: (value) {
                   _maxAmount = double.tryParse(value);
                 },
@@ -566,8 +569,8 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
     setState(() {
       _minAmount = min;
       _maxAmount = max;
-      _minAmountController.text = min?.toString() ?? '';
-      _maxAmountController.text = max?.toString() ?? '';
+      _minAmountController.safeSetText(min?.toString() ?? '');
+      _maxAmountController.safeSetText(max?.toString() ?? '');
     });
   }
 
@@ -591,8 +594,8 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
       _endDate = null;
       _minAmount = null;
       _maxAmount = null;
-      _minAmountController.clear();
-      _maxAmountController.clear();
+      _minAmountController.safeClear();
+      _maxAmountController.safeClear();
     });
   }
 

@@ -295,23 +295,21 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   SizedBox(height: context.verticalSpacing),
 
                   // Stock y dimensiones en desktop
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: CustomCard(child: _buildStockContent(context)),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: CustomCard(child: _buildStockContent(context)),
+                      ),
+                      SizedBox(width: context.horizontalSpacing),
+                      Expanded(
+                        flex: 1,
+                        child: CustomCard(
+                          child: _buildDimensionsContent(context),
                         ),
-                        SizedBox(width: context.horizontalSpacing),
-                        Expanded(
-                          flex: 1,
-                          child: CustomCard(
-                            child: _buildDimensionsContent(context),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                   SizedBox(height: context.verticalSpacing),
 
