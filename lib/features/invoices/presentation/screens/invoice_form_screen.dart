@@ -35,6 +35,29 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     super.initState();
     // Register global keyboard handler
     ServicesBinding.instance.keyboard.addHandler(_handleGlobalKeyEvent);
+    
+    // ✅ NUEVO: Escuchar cambios en lastUpdatedItemIndex para selección automática
+    _setupUpdatedItemListener();
+  }
+
+  // ✅ NUEVO: Configurar listener para productos actualizados
+  void _setupUpdatedItemListener() {
+    final controller = widget.controller;
+    if (controller != null) {
+      // Usar ever para reaccionar cada vez que cambie lastUpdatedItemIndex
+      ever(controller.lastUpdatedItemIndexObs, (int? index) {
+        if (index != null && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            setState(() {
+              _selectedIndex = index;
+              print('🎯 SCREEN: Producto actualizado seleccionado automáticamente en índice: $index');
+            });
+            // ✅ MEJORADO: Hacer scroll suave al item seleccionado con delay
+            _scrollToSelectedWithDelay();
+          });
+        }
+      });
+    }
   }
 
   @override
@@ -82,25 +105,25 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         return true;
       }
 
-      // ✅ NUEVOS SHORTCUTS: Solo con Shift presionado
+      // ✅ SHORTCUTS ACTUALIZADOS: Solo con Control presionado
       if (_selectedIndex >= 0 &&
           _selectedIndex < controller.invoiceItems.length) {
         
-        // Shortcuts SOLO con Shift presionado
-        if (_isShiftPressed) {
-          // Shift + = (tecla +) para incrementar en 1
+        // Shortcuts SOLO con Control presionado
+        if (_isCtrlPressed) {
+          // Ctrl + = (tecla +) para incrementar en 1
           if (event.logicalKey == LogicalKeyboardKey.equal) {
             _incrementQuantity(1, controller);
             return true;
           }
           
-          // Shift + - para decrementar en 1
+          // Ctrl + - para decrementar en 1
           if (event.logicalKey == LogicalKeyboardKey.minus) {
             _decrementQuantity(1, controller);
             return true;
           }
 
-          // Shift + número (1-9) para incrementar por esa cantidad
+          // Ctrl + número (1-9) para incrementar por esa cantidad
           if (event.logicalKey.keyLabel.length == 1) {
             final key = event.logicalKey.keyLabel;
             if (RegExp(r'^[1-9]$').hasMatch(key)) {
@@ -110,9 +133,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             }
           }
           
-          // Shift + Enter para procesar venta
-          if (event.logicalKey == LogicalKeyboardKey.enter) {
-            print('🎹 SCREEN Shift+Enter detectado - canSave: ${controller.canSave}, isSaving: ${controller.isSaving}');
+          // Ctrl + Enter para procesar venta (SOLO con Ctrl presionado)
+          if (event.logicalKey == LogicalKeyboardKey.enter && _isCtrlPressed) {
+            print('🎹 SCREEN Ctrl+Enter detectado - canSave: ${controller.canSave}, isSaving: ${controller.isSaving}');
             if (controller.canSave && !controller.isSaving) {
               print('🎯 SCREEN Abriendo diálogo de pago...');
               _showPaymentDialog(context, controller);
@@ -121,8 +144,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           }
         }
 
-        // Eliminar producto seleccionado con Shift + Delete
-        if (event.logicalKey == LogicalKeyboardKey.delete && _isShiftPressed) {
+        // Eliminar producto seleccionado con Ctrl + Delete
+        if (event.logicalKey == LogicalKeyboardKey.delete && _isCtrlPressed) {
           _deleteSelectedItem(controller);
           return true;
         }
@@ -232,6 +255,17 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         curve: Curves.easeInOut,
       );
     }
+  }
+
+  // ✅ NUEVO: Método para hacer scroll con delay para productos actualizados
+  void _scrollToSelectedWithDelay() {
+    // Dar un breve delay para que las animaciones de UI se completen primero
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        _scrollToSelected();
+        print('📜 SCREEN: Scroll automático ejecutado para índice: $_selectedIndex');
+      }
+    });
   }
 
   void _incrementQuantity(int increment, InvoiceFormController controller) {
@@ -422,9 +456,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 product,
                 quantity: quantity,
               );
-              setState(() {
-                _selectedIndex = 0;
-              });
+              // ✅ MODIFICADO: No forzar selección aquí, dejar que el controlador maneje la selección automática
+              // La selección se manejará automáticamente por el listener
             },
           ),
           SizedBox(height: context.verticalSpacing * 0.4),
@@ -644,7 +677,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   ),
                 )
                 : Tooltip(
-                  message: 'Procesar Venta (Shift+Enter)',
+                  message: 'Procesar Venta (Ctrl+Enter)',
                   child: const Icon(Icons.point_of_sale, size: 20),
                 ),
       ),
@@ -657,7 +690,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   ) {
     return Obx(
       () => Tooltip(
-        message: 'Procesar Venta (Shift+Enter)',
+        message: 'Procesar Venta (Ctrl+Enter)',
         child: ElevatedButton.icon(
           onPressed:
               controller.canSave && !controller.isSaving

@@ -243,7 +243,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
       onKeyEvent: (FocusNode node, KeyEvent event) {
         if (event is KeyDownEvent) {
           print(
-            '🎹 MODERN DIALOG evento: ${event.logicalKey} - Shift: ${HardwareKeyboard.instance.isShiftPressed}',
+            '🎹 MODERN DIALOG evento: ${event.logicalKey} - Ctrl: ${HardwareKeyboard.instance.isControlPressed}',
           );
 
           // ESC - Cancelar
@@ -253,35 +253,28 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
             return KeyEventResult.handled;
           }
 
-          // Shift + Enter - Procesar sin imprimir
+          // Ctrl + Enter - Procesar sin imprimir
           if (event.logicalKey == LogicalKeyboardKey.enter &&
-              HardwareKeyboard.instance.isShiftPressed) {
-            print('💾 MODERN DIALOG Shift+Enter - Procesando sin imprimir...');
+              HardwareKeyboard.instance.isControlPressed) {
+            print('💾 MODERN DIALOG Ctrl+Enter - Procesando sin imprimir...');
             if (canProcess) {
               _confirmPayment(shouldPrint: false);
             }
             return KeyEventResult.handled;
           }
 
-          // Shift + P - Procesar e imprimir (MEJORADO PARA WINDOWS)
+          // Ctrl + P - Procesar e imprimir (MEJORADO PARA WINDOWS)
           if (event.logicalKey == LogicalKeyboardKey.keyP &&
-              HardwareKeyboard.instance.isShiftPressed) {
-            print('🖨️ MODERN DIALOG Shift+P - Procesando e imprimiendo...');
+              HardwareKeyboard.instance.isControlPressed) {
+            print('🖨️ MODERN DIALOG Ctrl+P - Procesando e imprimiendo...');
             if (canProcess) {
               _confirmPayment(shouldPrint: true);
             }
             return KeyEventResult.handled;
           }
 
-          // Enter solo - Procesar e imprimir
-          if (event.logicalKey == LogicalKeyboardKey.enter &&
-              !HardwareKeyboard.instance.isShiftPressed) {
-            print('🖨️ MODERN DIALOG Enter - Procesando e imprimiendo...');
-            if (canProcess) {
-              _confirmPayment(shouldPrint: true);
-            }
-            return KeyEventResult.handled;
-          }
+          // ✅ ELIMINADO: Enter solo ya no procesa e imprime
+          // Ahora SOLO Ctrl + P procesa e imprime
         }
         return KeyEventResult.ignored;
       },
@@ -473,7 +466,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
                 // ✅ NUEVO: Icono de ayuda con tooltip de shortcuts
                 Tooltip(
                   message:
-                      '⌨️ Shortcuts disponibles:\n• Enter: Procesar e Imprimir\n• Shift+Enter: Solo Procesar\n• Shift+P: Imprimir\n• ESC: Cancelar',
+                      '⌨️ Shortcuts disponibles:\n• Ctrl+P: Procesar e Imprimir\n• Ctrl+Enter: Solo Procesar\n• ESC: Cancelar',
                   preferBelow: true,
                   child: Icon(
                     Icons.help_outline,
@@ -980,7 +973,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
           width: double.infinity,
           height: 48,
           child: Tooltip(
-            message: 'Procesar pago e imprimir factura (Shift + P)',
+            message: 'Procesar pago e imprimir factura (Ctrl + P)',
             child: ElevatedButton.icon(
               onPressed:
                   canProcess ? () => _confirmPayment(shouldPrint: true) : null,
@@ -1003,7 +996,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
           width: double.infinity,
           height: 48,
           child: Tooltip(
-            message: 'Procesar pago sin imprimir (Shift+Enter)',
+            message: 'Procesar pago sin imprimir (Ctrl+Enter)',
             child: OutlinedButton.icon(
               onPressed:
                   canProcess ? () => _confirmPayment(shouldPrint: false) : null,
@@ -1063,7 +1056,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
             Expanded(
               flex: 2,
               child: Tooltip(
-                message: 'Procesar pago sin imprimir (Shift+Enter)',
+                message: 'Procesar pago sin imprimir (Ctrl+Enter)',
                 child: OutlinedButton.icon(
                   onPressed:
                       canProcess
@@ -1090,7 +1083,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
         SizedBox(
           width: double.infinity,
           child: Tooltip(
-            message: 'Procesar pago e imprimir factura (Enter)',
+            message: 'Procesar pago e imprimir factura (Ctrl+P)',
             child: ElevatedButton.icon(
               onPressed:
                   canProcess ? () => _confirmPayment(shouldPrint: true) : null,

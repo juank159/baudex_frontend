@@ -252,28 +252,62 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
     int index,
     bool isSelected,
   ) {
-    return InkWell(
-      onTap: () => widget.onSelectionChanged(index),
-      child: Container(
-        padding: EdgeInsets.all(context.isMobile ? 1 : 2),
-        decoration: BoxDecoration(
-          color: isSelected 
-            ? Theme.of(context).primaryColor.withOpacity(0.05)
-            : null,
-          border: Border(
-            left: BorderSide(
-              width: 3,
-              color: isSelected 
-                ? Theme.of(context).primaryColor
-                : Colors.transparent,
+    return Obx(() {
+      // ✅ NUEVO: Detectar si este item fue recientemente actualizado
+      final isRecentlyUpdated = widget.controller.lastUpdatedItemIndex == index && 
+                               widget.controller.shouldHighlightUpdatedItem;
+      
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        child: InkWell(
+          onTap: () => widget.onSelectionChanged(index),
+          child: Container(
+            padding: EdgeInsets.all(context.isMobile ? 1 : 2),
+            decoration: BoxDecoration(
+              color: _getRowBackgroundColor(context, isSelected, isRecentlyUpdated),
+              border: Border(
+                left: BorderSide(
+                  width: 3,
+                  color: _getRowBorderColor(context, isSelected, isRecentlyUpdated),
+                ),
+              ),
+              // ✅ NUEVO: Sombra adicional para productos recientemente actualizados
+              boxShadow: isRecentlyUpdated ? [
+                BoxShadow(
+                  color: Colors.green.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ] : null,
             ),
+            child: context.isMobile 
+              ? _buildMobileRow(context, item, index, isSelected, isRecentlyUpdated)
+              : _buildDesktopRow(context, item, index, isSelected, isRecentlyUpdated),
           ),
         ),
-        child: context.isMobile 
-          ? _buildMobileRow(context, item, index, isSelected)
-          : _buildDesktopRow(context, item, index, isSelected),
-      ),
-    );
+      );
+    });
+  }
+
+  // ✅ NUEVO: Método para determinar el color de fondo
+  Color? _getRowBackgroundColor(BuildContext context, bool isSelected, bool isRecentlyUpdated) {
+    if (isRecentlyUpdated) {
+      return Colors.green.withOpacity(0.1); // Verde claro para actualizaciones
+    } else if (isSelected) {
+      return Theme.of(context).primaryColor.withOpacity(0.05);
+    }
+    return null;
+  }
+
+  // ✅ NUEVO: Método para determinar el color del borde
+  Color _getRowBorderColor(BuildContext context, bool isSelected, bool isRecentlyUpdated) {
+    if (isRecentlyUpdated) {
+      return Colors.green; // Verde para actualizaciones
+    } else if (isSelected) {
+      return Theme.of(context).primaryColor;
+    }
+    return Colors.transparent;
   }
 
   Widget _buildMobileRow(
@@ -281,6 +315,7 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
     InvoiceItemFormData item,
     int index,
     bool isSelected,
+    bool isRecentlyUpdated,
   ) {
     return Column(
       children: [
@@ -320,20 +355,45 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
             // Cantidad
             Expanded(
               flex: 2,
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: isRecentlyUpdated 
+                    ? Colors.green.withOpacity(0.2)
+                    : Theme.of(context).primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
+                  border: isRecentlyUpdated ? Border.all(
+                    color: Colors.green,
+                    width: 1.5,
+                  ) : null,
                 ),
-                child: Text(
-                  AppFormatters.formatStock(item.quantity),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).primaryColor,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isRecentlyUpdated) ...[
+                      Icon(
+                        Icons.trending_up,
+                        size: 12,
+                        color: Colors.green.shade700,
+                      ),
+                      const SizedBox(width: 2),
+                    ],
+                    Flexible(
+                      child: Text(
+                        AppFormatters.formatStock(item.quantity),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isRecentlyUpdated 
+                            ? Colors.green.shade700
+                            : Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -374,6 +434,7 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
     InvoiceItemFormData item,
     int index,
     bool isSelected,
+    bool isRecentlyUpdated,
   ) {
     return Row(
       children: [
@@ -415,20 +476,45 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
         // Cantidad
         Expanded(
           flex: 2,
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              color: isRecentlyUpdated 
+                ? Colors.green.withOpacity(0.2)
+                : Theme.of(context).primaryColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
+              border: isRecentlyUpdated ? Border.all(
+                color: Colors.green,
+                width: 2,
+              ) : null,
             ),
-            child: Text(
-              AppFormatters.formatStock(item.quantity),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).primaryColor,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isRecentlyUpdated) ...[
+                  Icon(
+                    Icons.trending_up,
+                    size: 14,
+                    color: Colors.green.shade700,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(
+                  child: Text(
+                    AppFormatters.formatStock(item.quantity),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isRecentlyUpdated 
+                        ? Colors.green.shade700
+                        : Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

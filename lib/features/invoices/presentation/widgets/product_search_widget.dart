@@ -704,11 +704,17 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
       // 1. Búsqueda exacta por código de barras (prioritaria)
       final exactMatch = await _searchByBarcode(query);
       if (exactMatch != null) {
-        setState(() {
-          _isSearching = false;
+        // ✅ SOLUCIÓN: Mostrar resultado Y agregar automáticamente después de un breve delay
+        results.add(exactMatch);
+        
+        // Agregar automáticamente después de mostrar el resultado
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted && _searchResults.isNotEmpty) {
+              _selectProduct(exactMatch);
+            }
+          });
         });
-        _selectProduct(exactMatch);
-        return;
       }
 
       // 2. Búsqueda por SKU exacto
@@ -726,6 +732,16 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
       for (final product in results) {
         uniqueResults[product.id] = product;
       }
+      
+      // ✅ SOLUCIÓN: Verificar si algún resultado tiene coincidencia exacta de código de barras
+      Product? barcodeExactMatch;
+      for (final product in uniqueResults.values) {
+        if (product.barcode != null && 
+            product.barcode!.toLowerCase() == query.toLowerCase()) {
+          barcodeExactMatch = product;
+          break;
+        }
+      }
 
       if (mounted) {
         setState(() {
@@ -739,15 +755,28 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
                   : -1; // ✅ NUEVO: Seleccionar primer resultado automáticamente
         });
         
-        // ✅ NUEVO: Activar keyboard focus cuando hay resultados PERO mantener TextField focus
-        if (_searchResults.isNotEmpty) {
-          // No quitar el focus del TextField, solo preparar el keyboard listener
+        // ✅ SOLUCIÓN: Si hay coincidencia exacta por código de barras, agregar automáticamente
+        if (barcodeExactMatch != null) {
+          print('🎯 Código de barras exacto encontrado: ${barcodeExactMatch.name}');
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              // Asegurar que el TextField mantenga el focus para seguir escribiendo
-              _focusNode.requestFocus();
-            }
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted && _searchResults.isNotEmpty) {
+                print('✅ Agregando automáticamente producto por código de barras: ${barcodeExactMatch!.name}');
+                _selectProduct(barcodeExactMatch!);
+              }
+            });
           });
+        } else {
+          // ✅ NUEVO: Activar keyboard focus cuando hay resultados PERO mantener TextField focus
+          if (_searchResults.isNotEmpty) {
+            // No quitar el focus del TextField, solo preparar el keyboard listener
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                // Asegurar que el TextField mantenga el focus para seguir escribiendo
+                _focusNode.requestFocus();
+              }
+            });
+          }
         }
       }
 

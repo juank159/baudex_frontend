@@ -78,18 +78,8 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
         return true;
       }
 
-      // Ctrl+1-5 - Ir a pestaña específica
-      if (HardwareKeyboard.instance.isControlPressed &&
-          event.logicalKey.keyLabel.length == 1) {
-        final key = event.logicalKey.keyLabel;
-        if (RegExp(r'^[1-5]$').hasMatch(key)) {
-          final tabIndex = int.parse(key) - 1;
-          if (tabIndex < tabsController.tabs.length) {
-            tabsController.switchToTab(tabIndex);
-            return true;
-          }
-        }
-      }
+      // ✅ ELIMINADO: Ctrl+1-5 - Ir a pestaña específica (conflicto con shortcuts de productos)
+      // Este shortcut ha sido eliminado para evitar conflictos con el aumentar productos
     }
     return false;
   }
@@ -953,11 +943,7 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                                   'Siguiente pestaña',
                                   Icons.keyboard_tab,
                                 ),
-                                _ShortcutItem(
-                                  'Ctrl + 1-5',
-                                  'Ir a pestaña específica',
-                                  Icons.filter_1,
-                                ),
+                                // ✅ ELIMINADO: Shortcut Ctrl+1-5 removido para evitar conflictos
                               ],
                             ),
                             SizedBox(height: context.verticalSpacing),
@@ -973,22 +959,22 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                                   Icons.keyboard_arrow_up,
                                 ),
                                 _ShortcutItem(
-                                  'Shift + 1-9',
+                                  'Ctrl + 1-9',
                                   'Incrementar cantidad',
                                   Icons.add_circle,
                                 ),
                                 _ShortcutItem(
-                                  'Shift + +',
+                                  'Ctrl + +',
                                   'Incrementar cantidad en 1',
                                   Icons.plus_one,
                                 ),
                                 _ShortcutItem(
-                                  'Shift + -',
+                                  'Ctrl + -',
                                   'Decrementar cantidad en 1',
                                   Icons.remove_circle,
                                 ),
                                 _ShortcutItem(
-                                  'Shift + Delete',
+                                  'Ctrl + Delete',
                                   'Eliminar producto seleccionado',
                                   Icons.delete,
                                 ),
@@ -1002,7 +988,7 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                               color: Colors.orange,
                               shortcuts: [
                                 _ShortcutItem(
-                                  'Shift + Enter',
+                                  'Ctrl + Enter',
                                   'Procesar venta',
                                   Icons.payment,
                                 ),
