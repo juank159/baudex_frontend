@@ -370,4 +370,28 @@ class DashboardRepositoryImpl implements DashboardRepository {
       return Left(ConnectionFailure('Sin conexión a internet'));
     }
   }
+
+  @override
+  Future<Either<Failure, ProfitabilityStats>> getProfitabilityStats({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? warehouseId,
+    String? categoryId,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final stats = await remoteDataSource.getProfitabilityStats(
+          startDate: startDate,
+          endDate: endDate,
+          warehouseId: warehouseId,
+          categoryId: categoryId,
+        );
+        return Right(stats);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
+      }
+    } else {
+      return Left(ConnectionFailure('Sin conexión a internet'));
+    }
+  }
 }

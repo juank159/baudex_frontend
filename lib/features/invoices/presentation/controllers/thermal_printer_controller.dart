@@ -89,8 +89,13 @@ class PrintJob {
 
 class ThermalPrinterController extends GetxController {
   // ==================== DEPENDENCIAS ====================
-  
+
   SettingsController? _settingsController;
+
+  // ==================== ESTADO DEL CONTROLADOR ====================
+
+  bool _isControllerActive =
+      true; // ✅ NUEVO: Rastrear si el controlador está activo
 
   // ==================== OBSERVABLES ====================
 
@@ -113,7 +118,7 @@ class ThermalPrinterController extends GetxController {
   final _currentPrinterConfig = Rxn<settings.PrinterSettings>();
 
   // ==================== CACHE DE OPTIMIZACIÓN ====================
-  
+
   // Cache del logo procesado para evitar cargarlo cada vez
   img.Image? _cachedLogo;
   DateTime? _logoLoadTime;
@@ -139,7 +144,8 @@ class ThermalPrinterController extends GetxController {
   int get paperWidth => _paperWidth.value;
   bool get autoCut => _autoCut.value;
   bool get openCashDrawer => _openCashDrawer.value;
-  settings.PrinterSettings? get currentPrinterConfig => _currentPrinterConfig.value;
+  settings.PrinterSettings? get currentPrinterConfig =>
+      _currentPrinterConfig.value;
 
   // ==================== LIFECYCLE ====================
 
@@ -162,22 +168,64 @@ class ThermalPrinterController extends GetxController {
       // Intentar obtener SettingsController existente
       _settingsController = Get.find<SettingsController>();
       print('✅ SettingsController encontrado');
-      
+
       // Cargar configuración de impresora por defecto
       await _loadDefaultPrinterConfig();
     } catch (e) {
-      print('⚠️ SettingsController no encontrado: $e');
+      print('⚠️ SettingsController no encontrado inicialmente: $e');
+      print(
+        '🔄 Configurando reintento para cargar configuración de impresora...',
+      );
       _settingsController = null;
+
+      // ✅ NUEVO: Programa reintento para cargar configuración después
+      _scheduleSettingsRetry();
+    }
+  }
+
+  /// ✅ NUEVO: Programa reintentos para cargar la configuración de impresora
+  void _scheduleSettingsRetry() {
+    // Programar reintentos con delays incrementales
+    final retryDelays = [1, 3, 5, 10]; // segundos
+
+    for (int i = 0; i < retryDelays.length; i++) {
+      Future.delayed(Duration(seconds: retryDelays[i]), () async {
+        if (_settingsController == null && _isControllerActive) {
+          await _retryLoadingSettings(i + 1, retryDelays.length);
+        }
+      });
+    }
+  }
+
+  /// ✅ NUEVO: Reintenta cargar configuración de impresora
+  Future<void> _retryLoadingSettings(int attempt, int maxAttempts) async {
+    try {
+      print('🔄 Intento $attempt/$maxAttempts: Buscando SettingsController...');
+      _settingsController = Get.find<SettingsController>();
+      print('✅ SettingsController encontrado en intento $attempt');
+
+      // Cargar configuración de impresora
+      await _loadDefaultPrinterConfig();
+    } catch (e) {
+      print(
+        '⚠️ Intento $attempt fallido: SettingsController aún no disponible',
+      );
+
+      if (attempt == maxAttempts) {
+        print(
+          '❌ Todos los reintentos agotados. Impresora usará configuración por defecto.',
+        );
+      }
     }
   }
 
   Future<void> _loadDefaultPrinterConfig() async {
     if (_settingsController == null) return;
-    
+
     try {
       print('🔍 Cargando configuración de impresora por defecto...');
       await _settingsController!.loadPrinterSettings();
-      
+
       final defaultPrinter = _settingsController!.defaultPrinter;
       if (defaultPrinter != null) {
         _currentPrinterConfig.value = defaultPrinter;
@@ -194,9 +242,48 @@ class ThermalPrinterController extends GetxController {
     }
   }
 
+  /// ✅ NUEVO: Método público para forzar recarga de configuración de impresora
+  /// Este método puede ser llamado desde enhanced_payment_dialog.dart antes de imprimir
+  Future<bool> ensurePrinterConfigLoaded() async {
+    print('🔄 === ASEGURANDO CONFIGURACIÓN DE IMPRESORA ===');
+
+    // Si ya tenemos configuración, verificar que sigue siendo válida
+    if (_currentPrinterConfig.value != null) {
+      print(
+        '✅ Configuración de impresora ya disponible: ${_currentPrinterConfig.value!.name}',
+      );
+      return true;
+    }
+
+    // Intentar cargar SettingsController si no está disponible
+    if (_settingsController == null) {
+      try {
+        print('🔍 Intentando obtener SettingsController...');
+        _settingsController = Get.find<SettingsController>();
+        print('✅ SettingsController obtenido exitosamente');
+      } catch (e) {
+        print('❌ SettingsController no disponible: $e');
+        return false;
+      }
+    }
+
+    // Cargar configuración de impresora
+    await _loadDefaultPrinterConfig();
+
+    final hasConfig = _currentPrinterConfig.value != null;
+    if (hasConfig) {
+      print('✅ Configuración de impresora cargada exitosamente');
+    } else {
+      print('⚠️ No se pudo cargar configuración de impresora');
+    }
+
+    return hasConfig;
+  }
+
   @override
   void onClose() {
     print('🔚 ThermalPrinterController: Cerrando conexiones...');
+    _isControllerActive = false; // ✅ NUEVO: Marcar controlador como inactivo
     _closeAllConnections();
     super.onClose();
   }
@@ -314,7 +401,7 @@ class ThermalPrinterController extends GetxController {
       _lastError.value = null;
 
       print('🖨️ === IMPRIMIENDO PÁGINA DE PRUEBA ===');
-      
+
       final printerConfig = _currentPrinterConfig.value;
       if (printerConfig != null) {
         print('📄 Usando impresora configurada: ${printerConfig.name}');
@@ -331,7 +418,8 @@ class ThermalPrinterController extends GetxController {
 
       // Usar configuración de impresora si está disponible
       if (printerConfig != null) {
-        if (printerConfig.connectionType == settings.PrinterConnectionType.usb) {
+        if (printerConfig.connectionType ==
+            settings.PrinterConnectionType.usb) {
           print('🔌 Página de prueba USB configurada');
           success = await _printTestPageUSB(printerConfig);
         } else {
@@ -379,7 +467,7 @@ class ThermalPrinterController extends GetxController {
       print('🖨️ === INICIANDO IMPRESIÓN TÉRMICA ===');
       print('   - Factura: ${invoice.number}');
       print('   - Plataforma: ${_getPlatformName()}');
-      
+
       // ✅ NUEVA LÓGICA: Usar configuración de impresora por defecto
       final printerConfig = _currentPrinterConfig.value;
       if (printerConfig != null) {
@@ -494,13 +582,17 @@ class ThermalPrinterController extends GetxController {
 
   // ==================== IMPRESIÓN USB PARA PÁGINAS DE PRUEBA ====================
 
-  Future<Uint8List> _generateTestPageContentUSB(settings.PrinterSettings config) async {
-    print('📄 Generando contenido USB para página de prueba (formato ESC/POS)...');
-    
+  Future<Uint8List> _generateTestPageContentUSB(
+    settings.PrinterSettings config,
+  ) async {
+    print(
+      '📄 Generando contenido USB para página de prueba (formato ESC/POS)...',
+    );
+
     try {
       // Usar el generador de comandos ESC/POS directamente
       final profile = await esc_pos.CapabilityProfile.load();
-      
+
       // Crear el tamaño de papel correcto
       esc_pos.PaperSize paperSize;
       if (config.paperSize == settings.PaperSize.mm58) {
@@ -508,110 +600,183 @@ class ThermalPrinterController extends GetxController {
       } else {
         paperSize = esc_pos.PaperSize.mm80;
       }
-      
+
       // Crear generador de comandos ESC/POS
       final generator = esc_pos.Generator(paperSize, profile);
       List<int> commands = [];
-      
+
       // Comandos de inicialización
       commands.addAll(SATQ22UEConfig.initializeCommands);
-      
+
       // Título centrado y grande
-      commands.addAll(generator.text(
-        'PÁGINA DE PRUEBA',
-        styles: esc_pos.PosStyles(
-          align: esc_pos.PosAlign.center,
-          bold: true,
-          height: esc_pos.PosTextSize.size2,
-          width: esc_pos.PosTextSize.size2,
+      commands.addAll(
+        generator.text(
+          'PÁGINA DE PRUEBA',
+          styles: esc_pos.PosStyles(
+            align: esc_pos.PosAlign.center,
+            bold: true,
+            height: esc_pos.PosTextSize.size2,
+            width: esc_pos.PosTextSize.size2,
+          ),
         ),
-      ));
+      );
       commands.addAll(generator.feed(2));
-      
+
       // Información del sistema
-      commands.addAll(generator.text('Sistema: Baudex Desktop', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
-      commands.addAll(generator.text('Impresora: ${config.name}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
-      commands.addAll(generator.text('Conexión: USB', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
-      commands.addAll(generator.text('Ruta: ${config.usbPath}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
-      commands.addAll(generator.text('Papel: ${config.paperSize == settings.PaperSize.mm58 ? "58mm" : "80mm"}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
-      commands.addAll(generator.text('Fecha: ${DateTime.now().toString().split(' ')[0]}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
-      commands.addAll(generator.text('Hora: ${DateTime.now().toString().split(' ')[1].split('.')[0]}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
+      commands.addAll(
+        generator.text(
+          'Sistema: Baudex Desktop',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
+      commands.addAll(
+        generator.text(
+          'Impresora: ${config.name}',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
+      commands.addAll(
+        generator.text(
+          'Conexión: USB',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
+      commands.addAll(
+        generator.text(
+          'Ruta: ${config.usbPath}',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
+      commands.addAll(
+        generator.text(
+          'Papel: ${config.paperSize == settings.PaperSize.mm58 ? "58mm" : "80mm"}',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
+      commands.addAll(
+        generator.text(
+          'Fecha: ${DateTime.now().toString().split(' ')[0]}',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
+      commands.addAll(
+        generator.text(
+          'Hora: ${DateTime.now().toString().split(' ')[1].split('.')[0]}',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
       commands.addAll(generator.feed(2));
-      
+
       // Línea separadora
-      commands.addAll(generator.text('================================', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
+      commands.addAll(
+        generator.text(
+          '================================',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
       commands.addAll(generator.feed(1));
-      
+
       // Prueba de caracteres
-      commands.addAll(generator.text('Prueba de caracteres:', styles: esc_pos.PosStyles(bold: true)));
+      commands.addAll(
+        generator.text(
+          'Prueba de caracteres:',
+          styles: esc_pos.PosStyles(bold: true),
+        ),
+      );
       commands.addAll(generator.text('ABCDEFGHIJKLMNOPQRSTUVWXYZ'));
       commands.addAll(generator.text('abcdefghijklmnopqrstuvwxyz'));
       commands.addAll(generator.text('0123456789'));
       commands.addAll(generator.text('ñáéíóúü ¡!¿?'));
       commands.addAll(generator.feed(2));
-      
+
       // Prueba de alineación
-      commands.addAll(generator.text('Izquierda', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.left)));
-      commands.addAll(generator.text('Centro', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
-      commands.addAll(generator.text('Derecha', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.right)));
+      commands.addAll(
+        generator.text(
+          'Izquierda',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.left),
+        ),
+      );
+      commands.addAll(
+        generator.text(
+          'Centro',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
+      commands.addAll(
+        generator.text(
+          'Derecha',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.right),
+        ),
+      );
       commands.addAll(generator.feed(2));
-      
+
       // Mensaje final
-      commands.addAll(generator.text('Impresión exitosa!', styles: esc_pos.PosStyles(
-        align: esc_pos.PosAlign.center,
-        bold: true,
-      )));
+      commands.addAll(
+        generator.text(
+          'Impresión exitosa!',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true),
+        ),
+      );
       commands.addAll(generator.feed(2));
-      
+
       // Línea separadora final
-      commands.addAll(generator.text('================================', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
+      commands.addAll(
+        generator.text(
+          '================================',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
       commands.addAll(generator.feed(1));
-      
+
       // Corte de papel si está habilitado
       if (config.autoCut) {
         commands.addAll(SATQ22UEConfig.cutCommands);
       }
-      
+
       // Abrir caja registradora si está habilitado
       if (config.cashDrawer) {
         commands.addAll(SATQ22UEConfig.openDrawerCommands);
       }
-      
+
       final data = Uint8List.fromList(commands);
-      
-      print('📝 Contenido generado con Generator ESC/POS: ${data.length} bytes');
+
+      print(
+        '📝 Contenido generado con Generator ESC/POS: ${data.length} bytes',
+      );
       print('✅ Contenido USB generado: ${data.length} bytes');
       return data;
-      
     } catch (e) {
       print('❌ Error generando contenido USB: $e');
       // Fallback a formato simple si hay error
-      return Uint8List.fromList(utf8.encode('Error generando contenido de prueba: $e'));
+      return Uint8List.fromList(
+        utf8.encode('Error generando contenido de prueba: $e'),
+      );
     }
   }
 
   Future<bool> _printToUSBWindows(String usbPath, Uint8List data) async {
     try {
       print("🪟 Imprimiendo a USB Windows: $usbPath");
-      
+
       // Crear archivo temporal con los datos
-      final tempFile = "${Directory.systemTemp.path}\\temp_print_${DateTime.now().millisecondsSinceEpoch}.tmp";
+      final tempFile =
+          "${Directory.systemTemp.path}\\temp_print_${DateTime.now().millisecondsSinceEpoch}.tmp";
       final file = File(tempFile);
       await file.writeAsBytes(data);
-      
+
       print("📁 Archivo temporal creado: $tempFile");
-      
+
       // Método 1: Usar PowerShell Out-Printer que es más confiable
       final psResult = await Process.run("powershell", [
-        "-Command", 
-        "Get-Content '$tempFile' -Raw | Out-Printer -Name '$usbPath'"
+        "-Command",
+        "Get-Content '$tempFile' -Raw | Out-Printer -Name '$usbPath'",
       ]);
-      
+
       print("🔍 Resultado PowerShell Out-Printer:");
       print("   - Código de salida: ${psResult.exitCode}");
       print("   - Salida estándar: ${psResult.stdout}");
       print("   - Salida de error: ${psResult.stderr}");
-      
+
       if (psResult.exitCode == 0) {
         print("✅ Impresión exitosa con PowerShell Out-Printer");
         await _cleanupTempFile(file);
@@ -619,14 +784,14 @@ class ThermalPrinterController extends GetxController {
       } else {
         print("❌ Error con PowerShell Out-Printer: ${psResult.stderr}");
       }
-      
+
       // Método 2: Usar copy con UNC path
       final copyResult = await Process.run("copy", [
         "/b",
         tempFile,
         "\\\\localhost\\$usbPath",
       ]);
-      
+
       if (copyResult.exitCode == 0) {
         print("✅ Impresión exitosa con copy UNC");
         await _cleanupTempFile(file);
@@ -634,7 +799,7 @@ class ThermalPrinterController extends GetxController {
       } else {
         print("❌ Error con copy UNC: ${copyResult.stderr}");
       }
-      
+
       // Método 3: Buscar impresoras USB con WMI
       final wmiResult = await Process.run("wmic", [
         "printer",
@@ -642,23 +807,25 @@ class ThermalPrinterController extends GetxController {
         "name,portname",
         "/format:csv",
       ]);
-      
+
       if (wmiResult.exitCode == 0) {
         final lines = wmiResult.stdout.toString().split("\n");
-        
+
         for (String line in lines) {
-          if (line.contains("USB") || line.contains("POS") || line.contains("Thermal")) {
+          if (line.contains("USB") ||
+              line.contains("POS") ||
+              line.contains("Thermal")) {
             final parts = line.split(",");
             if (parts.length >= 3) {
               final printerName = parts[2].trim();
               if (printerName.isNotEmpty && printerName != "Name") {
                 print("🖨️ Intentando con impresora encontrada: $printerName");
-                
+
                 final testPrintResult = await Process.run("print", [
                   "/D:$printerName",
                   tempFile,
                 ]);
-                
+
                 if (testPrintResult.exitCode == 0) {
                   print("✅ Impresión exitosa con WMI: $printerName");
                   await _cleanupTempFile(file);
@@ -669,7 +836,7 @@ class ThermalPrinterController extends GetxController {
           }
         }
       }
-      
+
       // Método 4: Intentar con variaciones del nombre
       final variations = [
         "USB$usbPath",
@@ -679,33 +846,32 @@ class ThermalPrinterController extends GetxController {
         "POS-58",
         "Thermal Printer",
       ];
-      
+
       for (String variation in variations) {
         print("🔄 Probando con variación: $variation");
         final varResult = await Process.run("print", [
           "/D:$variation",
           tempFile,
         ]);
-        
+
         if (varResult.exitCode == 0) {
           print("✅ Impresión exitosa con variación: $variation");
           await _cleanupTempFile(file);
           return true;
         }
       }
-      
+
       await _cleanupTempFile(file);
       print("❌ No se pudo enviar a ninguna impresora USB");
       _lastError.value = "No se pudo encontrar o acceder a la impresora USB";
       return false;
-      
     } catch (e) {
       print("❌ Error en impresión USB Windows: $e");
       _lastError.value = "Error USB Windows: $e";
       return false;
     }
   }
-  
+
   Future<void> _cleanupTempFile(File file) async {
     try {
       await file.delete();
@@ -718,17 +884,17 @@ class ThermalPrinterController extends GetxController {
   Future<bool> _printToUSBLinux(String usbPath, Uint8List data) async {
     try {
       print('🐧 Imprimiendo a USB Linux: $usbPath');
-      
+
       // En Linux, las impresoras USB suelen estar en /dev/usb/lp0, /dev/usb/lp1, etc.
       String devicePath = usbPath;
-      
+
       // Si no es una ruta absoluta, asumir que es un dispositivo en /dev/usb/
       if (!usbPath.startsWith('/')) {
         devicePath = '/dev/usb/$usbPath';
       }
-      
+
       print('📂 Ruta del dispositivo: $devicePath');
-      
+
       // Verificar que el dispositivo existe
       final deviceFile = File(devicePath);
       if (!await deviceFile.exists()) {
@@ -736,7 +902,7 @@ class ThermalPrinterController extends GetxController {
         _lastError.value = 'El dispositivo $devicePath no existe';
         return false;
       }
-      
+
       // Escribir datos directamente al dispositivo
       try {
         await deviceFile.writeAsBytes(data, mode: FileMode.write);
@@ -757,13 +923,14 @@ class ThermalPrinterController extends GetxController {
   Future<bool> _printToUSBMacOS(String usbPath, Uint8List data) async {
     try {
       print('🍎 Imprimiendo a USB macOS: $usbPath');
-      
+
       // En macOS, podemos usar el sistema de impresión CUPS
       // Primero intentar con lpr
-      final tempFile = '${Directory.systemTemp.path}/temp_print_${DateTime.now().millisecondsSinceEpoch}.tmp';
+      final tempFile =
+          '${Directory.systemTemp.path}/temp_print_${DateTime.now().millisecondsSinceEpoch}.tmp';
       final file = File(tempFile);
       await file.writeAsBytes(data);
-      
+
       // Intentar imprimir con lpr
       final result = await Process.run('lpr', [
         '-P',
@@ -772,14 +939,14 @@ class ThermalPrinterController extends GetxController {
         'raw',
         tempFile,
       ]);
-      
+
       // Limpiar archivo temporal
       try {
         await file.delete();
       } catch (e) {
         print('⚠️ No se pudo eliminar archivo temporal: $e');
       }
-      
+
       if (result.exitCode == 0) {
         print('✅ Datos enviados exitosamente a USB macOS');
         return true;
@@ -821,7 +988,10 @@ class ThermalPrinterController extends GetxController {
   }
 
   // ✅ NUEVA FUNCIÓN: Impresión por red con configuración específica
-  Future<bool> _printViaNetworkWithConfig(Invoice invoice, settings.PrinterSettings config) async {
+  Future<bool> _printViaNetworkWithConfig(
+    Invoice invoice,
+    settings.PrinterSettings config,
+  ) async {
     try {
       print('🌐 Impresión por red con configuración específica...');
       print('   - IP: ${config.ipAddress}');
@@ -911,13 +1081,13 @@ class ThermalPrinterController extends GetxController {
 
     try {
       final profile = await esc_pos.CapabilityProfile.load();
-      
+
       // Usar el tamaño de papel configurado
       esc_pos.PaperSize paperSize = esc_pos.PaperSize.mm80;
       if (config.paperSize == settings.PaperSize.mm58) {
         paperSize = esc_pos.PaperSize.mm58;
       }
-      
+
       printer = NetworkPrinter(paperSize, profile);
 
       print('🔗 Conectando a ${printerInfo.ip}:${printerInfo.port}...');
@@ -1064,7 +1234,9 @@ class ThermalPrinterController extends GetxController {
       // Espaciado final
       printer.feed(3);
 
-      print('✅ Contenido de impresión con configuración generado completamente');
+      print(
+        '✅ Contenido de impresión con configuración generado completamente',
+      );
     } catch (e) {
       print('❌ Error generando contenido con configuración: $e');
       throw Exception('Error en generación de contenido: $e');
@@ -1078,7 +1250,9 @@ class ThermalPrinterController extends GetxController {
       if (_cachedLogo != null && _logoLoadTime != null) {
         final timeSinceLoad = DateTime.now().difference(_logoLoadTime!);
         if (timeSinceLoad < _logoCacheExpiry) {
-          print('⚡ Usando logo desde CACHE (${timeSinceLoad.inSeconds}s antiguo)');
+          print(
+            '⚡ Usando logo desde CACHE (${timeSinceLoad.inSeconds}s antiguo)',
+          );
           return _cachedLogo;
         } else {
           print('🔄 Cache del logo expirado, recargando...');
@@ -1089,8 +1263,11 @@ class ThermalPrinterController extends GetxController {
 
       // Cargar imagen desde assets
       final ByteData data = await rootBundle.load(
-        'assets/images/LOGO_GRANADA.png',
+        'assets/images/LOGO_FORTALEZA.png',
       );
+      // final ByteData data = await rootBundle.load(
+      //   'assets/images/LOGO_GRANADA.png',
+      // );
       final Uint8List bytes = data.buffer.asUint8List();
 
       // Decodificar imagen
@@ -1133,7 +1310,7 @@ class ThermalPrinterController extends GetxController {
     final img.Image grayImage = img.grayscale(image);
 
     // Aumentar contraste para mejor definición en impresora térmica
-    final img.Image contrastedImage = img.contrast(grayImage, contrast: 250);
+    final img.Image contrastedImage = img.contrast(grayImage, contrast: 150);
 
     // Aplicar dithering para mejor calidad en blanco y negro
     final img.Image ditheredImage = img.monochrome(contrastedImage);
@@ -1198,6 +1375,16 @@ class ThermalPrinterController extends GetxController {
           'Ragonvalia, Norte de Santander',
           styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
         );
+
+        printer.text(
+          'Calle 8  # 3-05 B. Centenario',
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        );
+
+        // printer.text(
+        //   'Av 3  # 2-58 B. Humildad',
+        //   styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        // );
 
         printer.feed(1);
       } else {
@@ -1287,7 +1474,11 @@ class ThermalPrinterController extends GetxController {
 
       // Número de factura
       printer.row([
-        esc_pos.PosColumn(text: 'No:', width: 4, styles: const esc_pos.PosStyles(bold: true)),
+        esc_pos.PosColumn(
+          text: 'No:',
+          width: 4,
+          styles: const esc_pos.PosStyles(bold: true),
+        ),
         esc_pos.PosColumn(
           text: invoice.number,
           width: 8,
@@ -1314,7 +1505,11 @@ class ThermalPrinterController extends GetxController {
 
       // Método de pago
       printer.row([
-        esc_pos.PosColumn(text: 'Pago:', width: 4, styles: const esc_pos.PosStyles(bold: true)),
+        esc_pos.PosColumn(
+          text: 'Pago:',
+          width: 4,
+          styles: const esc_pos.PosStyles(bold: true),
+        ),
         esc_pos.PosColumn(
           text: invoice.paymentMethodDisplayName,
           width: 8,
@@ -1375,7 +1570,10 @@ class ThermalPrinterController extends GetxController {
         // ✅ TÍTULO DEL PRODUCTO CON NÚMERO
         printer.text(
           '${itemNumber.toString().padLeft(2, '0')} - ${item.description.toUpperCase()}',
-          styles: const esc_pos.PosStyles(bold: true, align: esc_pos.PosAlign.left),
+          styles: const esc_pos.PosStyles(
+            bold: true,
+            align: esc_pos.PosAlign.left,
+          ),
         );
 
         // ✅ LÍNEA DE DETALLES CON FORMATEO PROFESIONAL
@@ -1402,7 +1600,10 @@ class ThermalPrinterController extends GetxController {
           esc_pos.PosColumn(
             text: AppFormatters.formatCurrency(total),
             width: 4, // Total del item con formato profesional
-            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right, bold: true),
+            styles: const esc_pos.PosStyles(
+              align: esc_pos.PosAlign.right,
+              bold: true,
+            ),
           ),
         ]);
 
@@ -1437,7 +1638,10 @@ class ThermalPrinterController extends GetxController {
       printer.hr(ch: '-', len: 40);
       printer.text(
         'TOTAL ITEMS: ${invoice.items.length}',
-        styles: const esc_pos.PosStyles(bold: true, align: esc_pos.PosAlign.left),
+        styles: const esc_pos.PosStyles(
+          bold: true,
+          align: esc_pos.PosAlign.left,
+        ),
       );
       printer.feed(1);
     } catch (e) {
@@ -1491,7 +1695,10 @@ class ThermalPrinterController extends GetxController {
           esc_pos.PosColumn(
             text: '-${AppFormatters.formatCurrency(invoice.discountAmount)}',
             width: 4,
-            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right, bold: true),
+            styles: const esc_pos.PosStyles(
+              align: esc_pos.PosAlign.right,
+              bold: true,
+            ),
           ),
         ]);
       }
@@ -1633,12 +1840,18 @@ class ThermalPrinterController extends GetxController {
           esc_pos.PosColumn(
             text: 'Dinero Recibido:',
             width: 8,
-            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left, bold: true),
+            styles: const esc_pos.PosStyles(
+              align: esc_pos.PosAlign.left,
+              bold: true,
+            ),
           ),
           esc_pos.PosColumn(
             text: AppFormatters.formatCurrency(receivedAmount),
             width: 4,
-            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right, bold: true),
+            styles: const esc_pos.PosStyles(
+              align: esc_pos.PosAlign.right,
+              bold: true,
+            ),
           ),
         ]);
 
@@ -1648,12 +1861,18 @@ class ThermalPrinterController extends GetxController {
             esc_pos.PosColumn(
               text: 'Cambio:',
               width: 8,
-              styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left, bold: true),
+              styles: const esc_pos.PosStyles(
+                align: esc_pos.PosAlign.left,
+                bold: true,
+              ),
             ),
             esc_pos.PosColumn(
               text: AppFormatters.formatCurrency(changeAmount),
               width: 4,
-              styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right, bold: true),
+              styles: const esc_pos.PosStyles(
+                align: esc_pos.PosAlign.right,
+                bold: true,
+              ),
             ),
           ]);
         } else if (changeAmount == 0) {
@@ -1699,7 +1918,10 @@ class ThermalPrinterController extends GetxController {
       // Mensaje de agradecimiento
       printer.text(
         '¡Gracias por su compra!',
-        styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true),
+        styles: const esc_pos.PosStyles(
+          align: esc_pos.PosAlign.center,
+          bold: true,
+        ),
       );
       printer.feed(1);
       printer.text(
@@ -1872,7 +2094,12 @@ class ThermalPrinterController extends GetxController {
     }
   }
 
-  void _addToPrintHistory(Invoice? invoice, bool success, [String? error, String? method]) {
+  void _addToPrintHistory(
+    Invoice? invoice,
+    bool success, [
+    String? error,
+    String? method,
+  ]) {
     final job = PrintJob(
       invoiceNumber: invoice?.number ?? 'TEST-PAGE',
       timestamp: DateTime.now(),
@@ -1901,7 +2128,7 @@ class ThermalPrinterController extends GetxController {
   Future<bool> _printTestPageNetwork() async {
     try {
       print('🌐 Imprimiendo página de prueba por red...');
-      
+
       if (_networkPrinters.isEmpty) {
         await _discoverNetworkPrinters();
       }
@@ -1920,23 +2147,25 @@ class ThermalPrinterController extends GetxController {
     }
   }
 
-  Future<bool> _printTestPageNetworkWithConfig(settings.PrinterSettings config) async {
+  Future<bool> _printTestPageNetworkWithConfig(
+    settings.PrinterSettings config,
+  ) async {
     try {
       print('🌐 Imprimiendo página de prueba por red con configuración...');
-      
+
       // Validar configuración
       if (config.ipAddress == null || config.ipAddress!.isEmpty) {
         _lastError.value = 'IP no configurada';
         print('❌ IP no configurada');
         return false;
       }
-      
+
       if (config.port == null || config.port! <= 0) {
         _lastError.value = 'Puerto no configurado';
         print('❌ Puerto no configurado');
         return false;
       }
-      
+
       final printerInfo = NetworkPrinterInfo(
         name: config.name,
         ip: config.ipAddress!,
@@ -1946,24 +2175,25 @@ class ThermalPrinterController extends GetxController {
 
       return await _sendTestPageToPrinterWithConfig(printerInfo, config);
     } catch (e) {
-      print('❌ Error en impresión de página de prueba por red con configuración: $e');
+      print(
+        '❌ Error en impresión de página de prueba por red con configuración: $e',
+      );
       _lastError.value = 'Red (configurada): $e';
       return false;
     }
   }
 
-
   Future<bool> _printTestPageUSB(settings.PrinterSettings config) async {
     try {
       print('🔌 Imprimiendo página de prueba USB...');
       print('   - Ruta USB: ${config.usbPath}');
-      
+
       // Generar contenido de página de prueba
       final testPageContent = await _generateTestPageContentUSB(config);
-      
+
       // Enviar a impresora USB según el sistema operativo
       bool success = false;
-      
+
       if (Platform.isWindows) {
         success = await _printToUSBWindows(config.usbPath!, testPageContent);
       } else if (Platform.isLinux) {
@@ -1975,13 +2205,13 @@ class ThermalPrinterController extends GetxController {
         _lastError.value = 'Sistema operativo no soportado para impresión USB';
         return false;
       }
-      
+
       if (success) {
         print('✅ Página de prueba USB enviada exitosamente');
       } else {
         print('❌ Error al enviar página de prueba USB');
       }
-      
+
       return success;
     } catch (e) {
       print('❌ Error en impresión de página de prueba USB: $e');
@@ -1998,36 +2228,39 @@ class ThermalPrinterController extends GetxController {
       final profile = await esc_pos.CapabilityProfile.load();
       printer = NetworkPrinter(SATQ22UEConfig.paperSize, profile);
 
-      print('🔗 Conectando a ${printerInfo.ip}:${printerInfo.port} para página de prueba...');
+      print(
+        '🔗 Conectando a ${printerInfo.ip}:${printerInfo.port} para página de prueba...',
+      );
       print('📊 Detalles de conexión:');
       print('   - IP: ${printerInfo.ip}');
       print('   - Puerto: ${printerInfo.port}');
       print('   - Nombre: ${printerInfo.name}');
       print('   - Papel: ${SATQ22UEConfig.paperSize.toString()}');
 
-      final result = await printer.connect(
-        printerInfo.ip,
-        port: printerInfo.port,
-      ).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          print('⏰ Timeout en conexión a impresora (15 segundos)');
-          return PosPrintResult.timeout;
-        },
-      );
+      final result = await printer
+          .connect(printerInfo.ip, port: printerInfo.port)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              print('⏰ Timeout en conexión a impresora (15 segundos)');
+              return PosPrintResult.timeout;
+            },
+          );
 
       print('📡 Resultado de conexión: ${result.msg}');
 
       if (result != PosPrintResult.success) {
         String errorMsg = 'Error de conexión: ${result.msg}';
-        
+
         // Mensajes de error más descriptivos
         if (result == PosPrintResult.timeout) {
-          errorMsg = 'Timeout de conexión: La impresora no responde en ${printerInfo.ip}:${printerInfo.port}';
+          errorMsg =
+              'Timeout de conexión: La impresora no responde en ${printerInfo.ip}:${printerInfo.port}';
         } else {
-          errorMsg = 'Error de conexión: No se puede alcanzar la impresora en ${printerInfo.ip}:${printerInfo.port} - ${result.msg}';
+          errorMsg =
+              'Error de conexión: No se puede alcanzar la impresora en ${printerInfo.ip}:${printerInfo.port} - ${result.msg}';
         }
-        
+
         _lastError.value = errorMsg;
         print('❌ Falló la conexión: $errorMsg');
         return false;
@@ -2074,45 +2307,48 @@ class ThermalPrinterController extends GetxController {
 
     try {
       final profile = await esc_pos.CapabilityProfile.load();
-      
+
       // Usar el tamaño de papel configurado
       esc_pos.PaperSize paperSize = esc_pos.PaperSize.mm80;
       if (config.paperSize == settings.PaperSize.mm58) {
         paperSize = esc_pos.PaperSize.mm58;
       }
-      
+
       printer = NetworkPrinter(paperSize, profile);
 
-      print('🔗 Conectando a ${printerInfo.ip}:${printerInfo.port} para página de prueba...');
+      print(
+        '🔗 Conectando a ${printerInfo.ip}:${printerInfo.port} para página de prueba...',
+      );
       print('📊 Detalles de conexión:');
       print('   - IP: ${printerInfo.ip}');
       print('   - Puerto: ${printerInfo.port}');
       print('   - Nombre: ${printerInfo.name}');
       print('   - Papel: ${paperSize.toString()}');
 
-      final result = await printer.connect(
-        printerInfo.ip,
-        port: printerInfo.port,
-      ).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          print('⏰ Timeout en conexión a impresora (15 segundos)');
-          return PosPrintResult.timeout;
-        },
-      );
+      final result = await printer
+          .connect(printerInfo.ip, port: printerInfo.port)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              print('⏰ Timeout en conexión a impresora (15 segundos)');
+              return PosPrintResult.timeout;
+            },
+          );
 
       print('📡 Resultado de conexión: ${result.msg}');
 
       if (result != PosPrintResult.success) {
         String errorMsg = 'Error de conexión: ${result.msg}';
-        
+
         // Mensajes de error más descriptivos
         if (result == PosPrintResult.timeout) {
-          errorMsg = 'Timeout de conexión: La impresora no responde en ${printerInfo.ip}:${printerInfo.port}';
+          errorMsg =
+              'Timeout de conexión: La impresora no responde en ${printerInfo.ip}:${printerInfo.port}';
         } else {
-          errorMsg = 'Error de conexión: No se puede alcanzar la impresora en ${printerInfo.ip}:${printerInfo.port} - ${result.msg}';
+          errorMsg =
+              'Error de conexión: No se puede alcanzar la impresora en ${printerInfo.ip}:${printerInfo.port} - ${result.msg}';
         }
-        
+
         _lastError.value = errorMsg;
         print('❌ Falló la conexión: $errorMsg');
         return false;
@@ -2173,17 +2409,32 @@ class ThermalPrinterController extends GetxController {
       printer.feed(2);
 
       // Información del sistema
-      printer.text('Sistema: Baudex Desktop', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
-      printer.text('Fecha: ${DateTime.now().toString().split(' ')[0]}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
-      printer.text('Hora: ${DateTime.now().toString().split(' ')[1].split('.')[0]}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
+      printer.text(
+        'Sistema: Baudex Desktop',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
+      printer.text(
+        'Fecha: ${DateTime.now().toString().split(' ')[0]}',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
+      printer.text(
+        'Hora: ${DateTime.now().toString().split(' ')[1].split('.')[0]}',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
       printer.feed(2);
 
       // Línea separadora
-      printer.text('================================', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
+      printer.text(
+        '================================',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
       printer.feed(1);
 
       // Prueba de caracteres
-      printer.text('Prueba de caracteres:', styles: esc_pos.PosStyles(bold: true));
+      printer.text(
+        'Prueba de caracteres:',
+        styles: esc_pos.PosStyles(bold: true),
+      );
       printer.text('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
       printer.text('abcdefghijklmnopqrstuvwxyz');
       printer.text('0123456789');
@@ -2191,16 +2442,25 @@ class ThermalPrinterController extends GetxController {
       printer.feed(2);
 
       // Prueba de alineación
-      printer.text('Izquierda', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.left));
-      printer.text('Centro', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
-      printer.text('Derecha', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.right));
+      printer.text(
+        'Izquierda',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.left),
+      );
+      printer.text(
+        'Centro',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
+      printer.text(
+        'Derecha',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.right),
+      );
       printer.feed(2);
 
       // Mensaje final
-      printer.text('Impresión exitosa!', styles: esc_pos.PosStyles(
-        align: esc_pos.PosAlign.center,
-        bold: true,
-      ));
+      printer.text(
+        'Impresión exitosa!',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true),
+      );
       printer.feed(3);
 
       print('✅ Contenido de página de prueba generado');
@@ -2234,30 +2494,66 @@ class ThermalPrinterController extends GetxController {
       printer.feed(2);
 
       // Información de la impresora
-      printer.text('Impresora: ${config.name}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true));
-      printer.text('Tipo: ${config.connectionType.name.toUpperCase()}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
+      printer.text(
+        'Impresora: ${config.name}',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true),
+      );
+      printer.text(
+        'Tipo: ${config.connectionType.name.toUpperCase()}',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
       if (config.connectionType == settings.PrinterConnectionType.network) {
-        printer.text('IP: ${config.ipAddress}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
-        printer.text('Puerto: ${config.port}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
+        printer.text(
+          'IP: ${config.ipAddress}',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        );
+        printer.text(
+          'Puerto: ${config.port}',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        );
       } else {
-        printer.text('USB: ${config.usbPath}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
+        printer.text(
+          'USB: ${config.usbPath}',
+          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        );
       }
-      printer.text('Papel: ${config.paperSize}mm', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
-      printer.text('Auto-corte: ${config.autoCut ? "SÍ" : "NO"}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
+      printer.text(
+        'Papel: ${config.paperSize}mm',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
+      printer.text(
+        'Auto-corte: ${config.autoCut ? "SÍ" : "NO"}',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
       printer.feed(2);
 
       // Información del sistema
-      printer.text('Sistema: Baudex Desktop', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
-      printer.text('Fecha: ${DateTime.now().toString().split(' ')[0]}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
-      printer.text('Hora: ${DateTime.now().toString().split(' ')[1].split('.')[0]}', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
+      printer.text(
+        'Sistema: Baudex Desktop',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
+      printer.text(
+        'Fecha: ${DateTime.now().toString().split(' ')[0]}',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
+      printer.text(
+        'Hora: ${DateTime.now().toString().split(' ')[1].split('.')[0]}',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
       printer.feed(2);
 
       // Línea separadora
-      printer.text('================================', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
+      printer.text(
+        '================================',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
       printer.feed(1);
 
       // Prueba de caracteres
-      printer.text('Prueba de caracteres:', styles: esc_pos.PosStyles(bold: true));
+      printer.text(
+        'Prueba de caracteres:',
+        styles: esc_pos.PosStyles(bold: true),
+      );
       printer.text('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
       printer.text('abcdefghijklmnopqrstuvwxyz');
       printer.text('0123456789');
@@ -2265,21 +2561,32 @@ class ThermalPrinterController extends GetxController {
       printer.feed(2);
 
       // Prueba de alineación
-      printer.text('Izquierda', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.left));
-      printer.text('Centro', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center));
-      printer.text('Derecha', styles: esc_pos.PosStyles(align: esc_pos.PosAlign.right));
+      printer.text(
+        'Izquierda',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.left),
+      );
+      printer.text(
+        'Centro',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+      );
+      printer.text(
+        'Derecha',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.right),
+      );
       printer.feed(2);
 
       // Mensaje final
-      printer.text('Configuración exitosa!', styles: esc_pos.PosStyles(
-        align: esc_pos.PosAlign.center,
-        bold: true,
-      ));
+      printer.text(
+        'Configuración exitosa!',
+        styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true),
+      );
       printer.feed(3);
 
       print('✅ Contenido de página de prueba con configuración generado');
     } catch (e) {
-      print('❌ Error generando contenido de página de prueba con configuración: $e');
+      print(
+        '❌ Error generando contenido de página de prueba con configuración: $e',
+      );
       throw Exception('Error en generación de página de prueba: $e');
     }
   }
@@ -2675,7 +2982,10 @@ class ThermalPrinterController extends GetxController {
 
       printer.text(
         '*** PRUEBA EXITOSA ***',
-        styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true),
+        styles: const esc_pos.PosStyles(
+          align: esc_pos.PosAlign.center,
+          bold: true,
+        ),
       );
 
       printer.feed(3);

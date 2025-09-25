@@ -11,7 +11,7 @@ class SecureStorageService {
     wOptions: WindowsOptions(),
     lOptions: LinuxOptions(),
     mOptions: MacOsOptions(
-      groupId: 'com.example.baudex_desktop',
+      groupId: 'com.example.baudexDesktop',
       accountName: 'baudex_desktop',
       synchronizable: false,
     ),
@@ -188,7 +188,7 @@ class SecureStorageService {
   /// Guardar valor genérico
   Future<void> write(String key, String value) async {
     try {
-      await _storage.write(key: key, value: value);
+      await _writeSecure(key, value);
     } catch (e) {
       throw Exception('Error al escribir $key: $e');
     }
@@ -197,7 +197,7 @@ class SecureStorageService {
   /// Leer valor genérico
   Future<String?> read(String key) async {
     try {
-      return await _storage.read(key: key);
+      return await _readSecure(key);
     } catch (e) {
       throw Exception('Error al leer $key: $e');
     }
@@ -206,7 +206,7 @@ class SecureStorageService {
   /// Eliminar valor genérico
   Future<void> delete(String key) async {
     try {
-      await _storage.delete(key: key);
+      await _deleteSecure(key);
     } catch (e) {
       throw Exception('Error al eliminar $key: $e');
     }
@@ -215,7 +215,16 @@ class SecureStorageService {
   /// Limpiar todo el almacenamiento
   Future<void> clearAll() async {
     try {
-      await _storage.deleteAll();
+      if (await _shouldUseSharedPreferences()) {
+        final prefs = await SharedPreferences.getInstance();
+        // Obtener todas las claves que empiecen con 'secure_'
+        final keys = prefs.getKeys().where((key) => key.startsWith('secure_')).toList();
+        for (final key in keys) {
+          await prefs.remove(key);
+        }
+      } else {
+        await _storage.deleteAll();
+      }
     } catch (e) {
       throw Exception('Error al limpiar almacenamiento: $e');
     }
@@ -224,7 +233,22 @@ class SecureStorageService {
   /// Obtener todas las claves
   Future<Map<String, String>> readAll() async {
     try {
-      return await _storage.readAll();
+      if (await _shouldUseSharedPreferences()) {
+        final prefs = await SharedPreferences.getInstance();
+        final Map<String, String> result = {};
+        final keys = prefs.getKeys().where((key) => key.startsWith('secure_')).toList();
+        for (final key in keys) {
+          final value = prefs.getString(key);
+          if (value != null) {
+            // Remover el prefijo 'secure_' para devolver la clave original
+            final originalKey = key.replaceFirst('secure_', '');
+            result[originalKey] = value;
+          }
+        }
+        return result;
+      } else {
+        return await _storage.readAll();
+      }
     } catch (e) {
       throw Exception('Error al leer todo el almacenamiento: $e');
     }
@@ -233,7 +257,7 @@ class SecureStorageService {
   /// Verificar si una clave existe
   Future<bool> containsKey(String key) async {
     try {
-      final value = await _storage.read(key: key);
+      final value = await _readSecure(key);
       return value != null;
     } catch (e) {
       return false;
@@ -364,6 +388,95 @@ class SecureStorageService {
       return hasTokenResult && hasUserResult;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ===================== EMAIL MANAGEMENT =====================
+
+  /// Guardar lista de correos recordados
+  Future<void> saveSavedEmails(List<String> emails) async {
+    try {
+      final emailsJson = jsonEncode(emails);
+      await _writeSecure(ApiConstants.savedEmailsKey, emailsJson);
+    } catch (e) {
+      throw Exception('Error al guardar correos: $e');
+    }
+  }
+
+  /// Obtener lista de correos recordados
+  Future<List<String>> getSavedEmails() async {
+    try {
+      final emailsJson = await _readSecure(ApiConstants.savedEmailsKey);
+      if (emailsJson != null) {
+        final List<dynamic> emailsList = jsonDecode(emailsJson);
+        return emailsList.cast<String>();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Añadir un correo a la lista de recordados
+  Future<void> addSavedEmail(String email) async {
+    try {
+      final currentEmails = await getSavedEmails();
+      
+      // Remover el email si ya existe para evitar duplicados
+      currentEmails.removeWhere((e) => e.toLowerCase() == email.toLowerCase());
+      
+      // Añadir al principio de la lista
+      currentEmails.insert(0, email);
+      
+      // Mantener solo los últimos 5 correos
+      if (currentEmails.length > 5) {
+        currentEmails.removeRange(5, currentEmails.length);
+      }
+      
+      await saveSavedEmails(currentEmails);
+    } catch (e) {
+      throw Exception('Error al añadir correo: $e');
+    }
+  }
+
+  /// Eliminar un correo específico de la lista
+  Future<void> removeSavedEmail(String email) async {
+    try {
+      final currentEmails = await getSavedEmails();
+      currentEmails.removeWhere((e) => e.toLowerCase() == email.toLowerCase());
+      await saveSavedEmails(currentEmails);
+    } catch (e) {
+      throw Exception('Error al eliminar correo: $e');
+    }
+  }
+
+  /// Guardar el último email usado para login
+  Future<void> saveLastEmail(String email) async {
+    try {
+      await _writeSecure(ApiConstants.lastEmailKey, email);
+    } catch (e) {
+      throw Exception('Error al guardar último email: $e');
+    }
+  }
+
+  /// Obtener el último email usado para login
+  Future<String?> getLastEmail() async {
+    try {
+      return await _readSecure(ApiConstants.lastEmailKey);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Limpiar todos los correos guardados
+  Future<void> clearSavedEmails() async {
+    try {
+      await Future.wait([
+        _deleteSecure(ApiConstants.savedEmailsKey),
+        _deleteSecure(ApiConstants.lastEmailKey),
+      ]);
+    } catch (e) {
+      throw Exception('Error al limpiar correos guardados: $e');
     }
   }
 }

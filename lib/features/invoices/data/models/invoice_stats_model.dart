@@ -186,6 +186,22 @@ class InvoiceStatsModel extends InvoiceStats {
     );
   }
 
+  /// Convierte el modelo a entidad de dominio
+  InvoiceStats toEntity() {
+    return InvoiceStats(
+      total: total,
+      draft: draft,
+      pending: pending,
+      paid: paid,
+      overdue: overdue,
+      cancelled: cancelled,
+      partiallyPaid: partiallyPaid,
+      totalSales: totalSales,
+      pendingAmount: pendingAmount,
+      overdueAmount: overdueAmount,
+    );
+  }
+
   @override
   String toString() {
     return 'InvoiceStatsModel(total: $total, draft: $draft, pending: $pending, paid: $paid, overdue: $overdue, cancelled: $cancelled, partiallyPaid: $partiallyPaid, totalSales: $totalSales, pendingAmount: $pendingAmount, overdueAmount: $overdueAmount)';

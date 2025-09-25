@@ -7,6 +7,7 @@ import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/auth_header_widget.dart';
+import '../widgets/email_autocomplete_field.dart';
 
 class LoginScreen extends GetView<AuthController> {
   const LoginScreen({super.key});
@@ -146,12 +147,10 @@ class LoginScreen extends GetView<AuthController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          CustomTextField(
+          EmailAutocompleteField(
             controller: controller.loginEmailController,
             label: 'Correo Electrónico',
             hint: 'ejemplo@correo.com',
-            prefixIcon: Icons.email_outlined,
-            keyboardType: TextInputType.emailAddress,
             validator: _validateEmail,
           ),
           SizedBox(height: context.verticalSpacing),

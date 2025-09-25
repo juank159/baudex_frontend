@@ -28,6 +28,7 @@ enum ActivityType {
 
   // Gastos
   expenseCreated('expense_created'),
+  expenseAdded('expense_added'), // ✅ AGREGAR TIPO FALTANTE
   expenseUpdated('expense_updated'),
   expenseApproved('expense_approved'),
   expenseRejected('expense_rejected'),
@@ -278,13 +279,47 @@ class RecentActivityAdvanced extends Equatable {
 
   // Factory constructor for creating from JSON
   factory RecentActivityAdvanced.fromJson(Map<String, dynamic> json) {
+    // Manejar timestamp como createdAt si no existe createdAt
+    DateTime createdAt;
+    if (json['createdAt'] != null) {
+      createdAt = DateTime.parse(json['createdAt'] as String);
+    } else if (json['timestamp'] != null) {
+      createdAt = DateTime.parse(json['timestamp'] as String);
+    } else {
+      createdAt = DateTime.now();
+    }
+    
+    // Determinar categoría basada en el tipo de actividad
+    ActivityCategory category;
+    final typeStr = json['type'] as String? ?? '';
+    if (typeStr.contains('invoice') || typeStr.contains('payment') || typeStr.contains('expense')) {
+      category = ActivityCategory.financial;
+    } else if (typeStr.contains('product') || typeStr.contains('stock')) {
+      category = ActivityCategory.inventory;
+    } else if (typeStr.contains('customer')) {
+      category = ActivityCategory.customer;
+    } else {
+      category = ActivityCategory.system;
+    }
+    
+    // Determinar prioridad basada en el estado
+    ActivityPriority priority;
+    final status = json['status'] as String?;
+    if (status == 'critical' || status == 'failed') {
+      priority = ActivityPriority.critical;
+    } else if (status == 'pending') {
+      priority = ActivityPriority.medium;
+    } else {
+      priority = ActivityPriority.low;
+    }
+
     return RecentActivityAdvanced(
       id: json['id'] as String,
-      type: ActivityType.fromString(json['type'] as String),
-      category: ActivityCategory.fromString(json['category'] as String),
-      priority: ActivityPriority.fromString(json['priority'] as String),
-      title: json['title'] as String,
-      description: json['description'] as String,
+      type: ActivityType.fromString(json['type'] as String? ?? 'system'),
+      category: category,
+      priority: priority,
+      title: json['title'] as String? ?? 'Actividad',
+      description: json['description'] as String? ?? '',
       entityId: json['entityId'] as String?,
       entityType: json['entityType'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
@@ -298,8 +333,10 @@ class RecentActivityAdvanced extends Equatable {
           ? '${json['user']['firstName']} ${json['user']['lastName'] ?? ''}'.trim()
           : json['userName'] as String? ?? 'Usuario',
       organizationId: json['organizationId'] as String? ?? '',
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      createdAt: createdAt,
+      updatedAt: json['updatedAt'] != null 
+          ? DateTime.parse(json['updatedAt'] as String)
+          : createdAt,
     );
   }
 

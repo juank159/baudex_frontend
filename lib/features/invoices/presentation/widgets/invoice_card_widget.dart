@@ -26,10 +26,11 @@ class InvoiceCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ USAR LAYOUT RESPONSIVE ORIGINAL PERO CORREGIDO
     return ResponsiveLayout(
       mobile: _buildMobileCard(context),
-      tablet: _buildTabletCard(context),
-      desktop: _buildDesktopCard(context),
+      tablet: _buildMobileCard(context), // Usar mobile para tablet también
+      desktop: _buildMobileCard(context), // Usar mobile para desktop también por ahora
     );
   }
 
@@ -1402,6 +1403,185 @@ class InvoiceCardWidget extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+
+  // ✅ LAYOUT UNIFICADO QUE FUNCIONA EN TODAS LAS PANTALLAS
+  Widget _buildUnifiedCard(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width > 1100;
+    final isTablet = MediaQuery.of(context).size.width > 650 && MediaQuery.of(context).size.width <= 1100;
+    
+    return Container(
+      margin: EdgeInsets.only(bottom: isDesktop ? 3 : isTablet ? 10 : 2),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? Theme.of(context).primaryColor.withOpacity(isDesktop ? 0.04 : isTablet ? 0.06 : 0.08)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(isDesktop ? 8 : isTablet ? 12 : 8),
+        border: Border.all(
+          color: isSelected
+              ? Theme.of(context).primaryColor
+              : Colors.grey.shade200,
+          width: isSelected ? (isDesktop ? 1.2 : isTablet ? 1.5 : 2) : (isDesktop ? 0.8 : 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDesktop ? 0.02 : isTablet ? 0.03 : 0.04),
+            blurRadius: isDesktop ? 4 : isTablet ? 6 : 8,
+            offset: Offset(0, isDesktop ? 1 : 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(isDesktop ? 8 : isTablet ? 12 : 8),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isDesktop ? 12 : isTablet ? 18 : 16,
+              vertical: isDesktop ? 8 : isTablet ? 18 : 16,
+            ),
+            child: Row(
+              children: [
+                if (isMultiSelectMode) ...[
+                  Transform.scale(
+                    scale: isTablet ? 1.05 : 1.0,
+                    child: Checkbox(
+                      value: isSelected,
+                      onChanged: (_) => onTap?.call(),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      visualDensity: isDesktop ? VisualDensity.compact : null,
+                    ),
+                  ),
+                  SizedBox(width: isDesktop ? 12 : 16),
+                ],
+
+                // Información principal
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          // Número de factura
+                          Expanded(
+                            child: Text(
+                              invoice.number,
+                              style: TextStyle(
+                                fontSize: isDesktop ? 13 : isTablet ? 15 : 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          
+                          // Estado de la factura
+                          InvoiceStatusWidget(
+                            invoice: invoice,
+                            isCompact: true,
+                          ),
+                        ],
+                      ),
+                      
+                      SizedBox(height: isDesktop ? 4 : isTablet ? 6 : 8),
+                      
+                      // Cliente y fecha
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              invoice.customerName,
+                              style: TextStyle(
+                                fontSize: isDesktop ? 11 : isTablet ? 13 : 14,
+                                color: Colors.grey.shade600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          
+                          Text(
+                            AppFormatters.formatDate(invoice.createdAt),
+                            style: TextStyle(
+                              fontSize: isDesktop ? 10 : isTablet ? 11 : 12,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      SizedBox(height: isDesktop ? 4 : isTablet ? 6 : 8),
+                      
+                      // Monto y vencimiento
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Monto
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Total',
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 9 : isTablet ? 10 : 11,
+                                  color: Colors.grey.shade500,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                AppFormatters.formatCurrency(invoice.total),
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 12 : isTablet ? 14 : 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          // Fecha de vencimiento
+                          if (invoice.dueDate != null)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Vence',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 9 : isTablet ? 10 : 11,
+                                    color: invoice.isOverdue ? Colors.red.shade600 : Colors.grey.shade500,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  AppFormatters.formatDate(invoice.dueDate!),
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 11 : isTablet ? 12 : 13,
+                                    color: invoice.isOverdue ? Colors.red.shade700 : Colors.grey.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // ✅ ACCIONES RÁPIDAS (incluyendo imprimir)
+                if (!isMultiSelectMode) ...[
+                  SizedBox(height: isDesktop ? 8 : isTablet ? 12 : 8),
+                  _buildQuickActions(context),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

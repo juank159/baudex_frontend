@@ -4,6 +4,7 @@ import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../domain/entities/user.dart';
+import '../../domain/entities/auth_result.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../datasources/auth_local_datasource.dart';
@@ -86,6 +87,48 @@ class AuthRepositoryImpl implements AuthRepository {
         return Left(CacheFailure(e.message));
       } catch (e) {
         return Left(UnknownFailure('Error inesperado durante el registro: $e'));
+      }
+    } else {
+      return const Left(ConnectionFailure.noInternet);
+    }
+  }
+
+  @override
+  Future<Either<Failure, AuthResult>> registerWithOnboarding({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+    UserRole? role,
+    String? organizationName,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final request = RegisterRequestModel.fromParams(
+          firstName: firstName,
+          lastName: lastName,
+          email: email,
+          password: password,
+          role: role,
+          organizationName: organizationName,
+        );
+
+        print('🏗️ AuthRepository: Ejecutando registro con onboarding automático...');
+        final response = await remoteDataSource.registerWithOnboarding(request);
+
+        // Guardar datos localmente
+        await localDataSource.saveAuthData(response);
+        print('✅ AuthRepository: Onboarding completado exitosamente');
+
+        return Right(response.toAuthResult());
+      } on ServerException catch (e) {
+        return Left(_mapServerExceptionToFailure(e));
+      } on ConnectionException catch (e) {
+        return Left(ConnectionFailure(e.message));
+      } on CacheException catch (e) {
+        return Left(CacheFailure(e.message));
+      } catch (e) {
+        return Left(UnknownFailure('Error inesperado durante el registro con onboarding: $e'));
       }
     } else {
       return const Left(ConnectionFailure.noInternet);

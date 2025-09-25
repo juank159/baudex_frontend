@@ -38,6 +38,7 @@ import '../../../products/presentation/bindings/product_binding.dart';
 import 'package:baudex_desktop/features/invoices/data/models/invoice_form_models.dart';
 
 // ✅ NUEVO IMPORT: Controlador de impresión térmica
+import '../services/invoice_inventory_service.dart';
 
 class InvoiceFormController extends GetxController {
   // ==================== DEPENDENCIES ====================
@@ -54,6 +55,9 @@ class InvoiceFormController extends GetxController {
 
   // ✅ NUEVO: Controlador de impresión térmica
   late final ThermalPrinterController _thermalPrinterController;
+  
+  // ✅ NUEVO: Servicio de integración con inventario
+  late final InvoiceInventoryService _inventoryService;
 
   InvoiceFormController({
     required CreateInvoiceUseCase createInvoiceUseCase,
@@ -83,6 +87,14 @@ class InvoiceFormController extends GetxController {
     } catch (e) {
       _thermalPrinterController = Get.put(ThermalPrinterController());
       print('🆕 Creando nuevo ThermalPrinterController');
+    }
+    
+    // ✅ INICIALIZAR SERVICIO DE INVENTARIO (REUTILIZAR SI YA EXISTE)
+    try {
+      _inventoryService = Get.find<InvoiceInventoryService>();
+      print('♻️ Reutilizando InvoiceInventoryService existente');
+    } catch (e) {
+      print('❌ InvoiceInventoryService no encontrado - debe ser registrado en bindings');
     }
   }
 
@@ -1648,6 +1660,14 @@ class InvoiceFormController extends GetxController {
       print('   - Cliente: ${invoice.customerName}');
       print('   - Total: \${invoice.total.toStringAsFixed(2)}');
 
+      // ✅ NUEVO: Asegurar que la configuración de impresora esté cargada
+      print('🔄 Verificando configuración de impresora antes de imprimir...');
+      final printerConfigLoaded = await _thermalPrinterController.ensurePrinterConfigLoaded();
+      
+      if (!printerConfigLoaded) {
+        print('⚠️ No se pudo cargar configuración de impresora, continuando con valores por defecto');
+      }
+
       // Usar el controlador de impresión térmica
       final success = await _thermalPrinterController.printInvoice(invoice);
 
@@ -1915,10 +1935,23 @@ class InvoiceFormController extends GetxController {
         }
         return null;
       },
-      (invoice) {
+      (invoice) async {
         print(
           '✅ _createNewInvoice SUCCESS: Factura creada con ID ${invoice.id}',
         );
+        
+        // ✅ PROCESAR INVENTARIO AUTOMÁTICAMENTE
+        try {
+          final inventoryProcessed = await _inventoryService.processInventoryForInvoice(invoice);
+          if (inventoryProcessed) {
+            print('✅ Inventario procesado exitosamente para factura ${invoice.number}');
+          } else {
+            print('⚠️ Inventario no procesado (configuración o error)');
+          }
+        } catch (e) {
+          print('❌ Error procesando inventario: $e');
+        }
+        
         print('✅ Preparando para nueva venta...');
         _prepareForNewSale();
         return invoice; // ✅ RETORNAR LA FACTURA CREADA

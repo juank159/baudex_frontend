@@ -26,16 +26,22 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   int _selectedIndex = -1;
   bool _isShiftPressed = false;
   bool _isCtrlPressed = false;
-  
+  bool _isProductSearchActive = false; // ✅ NUEVO: Rastrear si ProductSearchWidget está activo
+  DateTime? _lastEnterEvent; // ✅ NUEVO: Rastrear último evento Enter para evitar propagación
+
   // ScrollController para la tabla de productos (para hacer scroll automático)
   final ScrollController _productsScrollController = ScrollController();
+  
+  // ✅ NUEVO: GlobalKeys para coordinar focus entre widgets
+  final GlobalKey<ProductSearchWidgetState> _productSearchKey = GlobalKey<ProductSearchWidgetState>();
+  final GlobalKey<CustomerSelectorWidgetState> _customerSelectorKey = GlobalKey<CustomerSelectorWidgetState>();
 
   @override
   void initState() {
     super.initState();
     // Register global keyboard handler
     ServicesBinding.instance.keyboard.addHandler(_handleGlobalKeyEvent);
-    
+
     // ✅ NUEVO: Escuchar cambios en lastUpdatedItemIndex para selección automática
     _setupUpdatedItemListener();
   }
@@ -50,7 +56,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
               _selectedIndex = index;
-              print('🎯 SCREEN: Producto actualizado seleccionado automáticamente en índice: $index');
+              print(
+                '🎯 SCREEN: Producto actualizado seleccionado automáticamente en índice: $index',
+              );
             });
             // ✅ MEJORADO: Hacer scroll suave al item seleccionado con delay
             _scrollToSelectedWithDelay();
@@ -82,16 +90,27 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       return false;
     }
 
+    // ✅ CRÍTICO: No procesar Enter si el ProductSearchWidget está activo
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+      final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
+      if (focusedWidget != null && focusedWidget.toString().contains('TextField')) {
+        print('🚫 SCREEN Enter ignorado - Focus está en campo de búsqueda de productos');
+        return false;
+      }
+    }
+
     if (event is KeyDownEvent) {
       // Detectar teclas modificadoras
       if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
           event.logicalKey == LogicalKeyboardKey.shiftRight) {
         _isShiftPressed = true;
+        print('🔧 SCREEN Shift PRESIONADO');
         return true;
       }
       if (event.logicalKey == LogicalKeyboardKey.controlLeft ||
           event.logicalKey == LogicalKeyboardKey.controlRight) {
         _isCtrlPressed = true;
+        print('🔧 SCREEN Ctrl PRESIONADO');
         return true;
       }
 
@@ -105,25 +124,28 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         return true;
       }
 
-      // ✅ SHORTCUTS ACTUALIZADOS: Solo con Control presionado
+      // ✅ SHORTCUTS ACTUALIZADOS: Solo con Control presionado (NATIVO)
       if (_selectedIndex >= 0 &&
           _selectedIndex < controller.invoiceItems.length) {
         
-        // Shortcuts SOLO con Control presionado
-        if (_isCtrlPressed) {
-          // Ctrl + = (tecla +) para incrementar en 1
+        // ✅ USAR FLUTTER NATIVO para detectar Ctrl presionado
+        final isCtrlPressed = HardwareKeyboard.instance.isControlPressed;
+        
+        // Shortcuts SOLO con Control presionado (NATIVO)
+        if (isCtrlPressed) {
+          // Ctrl + = (tecla +) para incrementar en 1 - NATIVO
           if (event.logicalKey == LogicalKeyboardKey.equal) {
             _incrementQuantity(1, controller);
             return true;
           }
-          
-          // Ctrl + - para decrementar en 1
+
+          // Ctrl + - para decrementar en 1 - NATIVO
           if (event.logicalKey == LogicalKeyboardKey.minus) {
             _decrementQuantity(1, controller);
             return true;
           }
 
-          // Ctrl + número (1-9) para incrementar por esa cantidad
+          // Ctrl + número (1-9) para incrementar por esa cantidad - NATIVO
           if (event.logicalKey.keyLabel.length == 1) {
             final key = event.logicalKey.keyLabel;
             if (RegExp(r'^[1-9]$').hasMatch(key)) {
@@ -132,28 +154,66 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               return true;
             }
           }
-          
-          // Ctrl + Enter para procesar venta (SOLO con Ctrl presionado)
-          if (event.logicalKey == LogicalKeyboardKey.enter && _isCtrlPressed) {
-            print('🎹 SCREEN Ctrl+Enter detectado - canSave: ${controller.canSave}, isSaving: ${controller.isSaving}');
+
+          // Ctrl + T - NATIVO (nuevo shortcut)
+          if (event.logicalKey == LogicalKeyboardKey.keyT) {
+            // Acción para Ctrl + T (puedes definir qué hace)
+            print('🎹 SCREEN Ctrl+T detectado (NATIVO)');
+            // TODO: Implementar acción específica para Ctrl + T
+            return true;
+          }
+
+          // Ctrl + W - NATIVO (nuevo shortcut)
+          if (event.logicalKey == LogicalKeyboardKey.keyW) {
+            // Acción para Ctrl + W (puedes definir qué hace)
+            print('🎹 SCREEN Ctrl+W detectado (NATIVO)');
+            // TODO: Implementar acción específica para Ctrl + W
+            return true;
+          }
+
+          // Ctrl + Tab - NATIVO (nuevo shortcut)
+          if (event.logicalKey == LogicalKeyboardKey.tab) {
+            // Acción para Ctrl + Tab (puedes definir qué hace)
+            print('🎹 SCREEN Ctrl+Tab detectado (NATIVO)');
+            // TODO: Implementar acción específica para Ctrl + Tab
+            return true;
+          }
+
+          // Ctrl + Enter para procesar venta - NATIVO
+          if (event.logicalKey == LogicalKeyboardKey.enter) {
+            print('🔍 SCREEN Enter detectado - Ctrl nativo: $isCtrlPressed');
+            
+            // ✅ VERIFICACIÓN: Asegurar que no haya focus en TextField
+            final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
+            if (focusedWidget != null && focusedWidget.toString().contains('TextField')) {
+              print('🚫 SCREEN Ctrl+Enter cancelado - Focus en campo de búsqueda');
+              return false;
+            }
+            
+            // ✅ NUEVO: Evitar eventos Enter duplicados o propagados
+            final now = DateTime.now();
+            if (_lastEnterEvent != null && 
+                now.difference(_lastEnterEvent!).inMilliseconds < 500) {
+              print('🚫 SCREEN Ctrl+Enter ignorado - Evento muy reciente (${now.difference(_lastEnterEvent!).inMilliseconds}ms)');
+              return false;
+            }
+            _lastEnterEvent = now;
+            
+            print(
+              '🎹 SCREEN Ctrl+Enter detectado (NATIVO) - canSave: ${controller.canSave}, isSaving: ${controller.isSaving}',
+            );
             if (controller.canSave && !controller.isSaving) {
               print('🎯 SCREEN Abriendo diálogo de pago...');
               _showPaymentDialog(context, controller);
             }
             return true;
           }
-        }
 
-        // Eliminar producto seleccionado con Ctrl + Delete
-        if (event.logicalKey == LogicalKeyboardKey.delete && _isCtrlPressed) {
-          _deleteSelectedItem(controller);
-          return true;
-        }
-
-        // Duplicar producto con Ctrl + D
-        if (_isCtrlPressed && event.logicalKey == LogicalKeyboardKey.keyD) {
-          _duplicateSelectedItem(controller);
-          return true;
+          // Ctrl + Delete para eliminar producto - NATIVO
+          if (event.logicalKey == LogicalKeyboardKey.delete) {
+            _deleteSelectedItem(controller);
+            return true;
+          }
         }
       }
 
@@ -173,10 +233,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
           event.logicalKey == LogicalKeyboardKey.shiftRight) {
         _isShiftPressed = false;
+        print('🔧 SCREEN Shift LIBERADO');
       }
       if (event.logicalKey == LogicalKeyboardKey.controlLeft ||
           event.logicalKey == LogicalKeyboardKey.controlRight) {
         _isCtrlPressed = false;
+        print('🔧 SCREEN Ctrl LIBERADO');
       }
     }
 
@@ -192,7 +254,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         controller.invoiceItems.length - 1,
       );
     });
-    
+
     // Hacer scroll automático para que el elemento seleccionado sea visible
     _scrollToSelected();
   }
@@ -222,19 +284,20 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     // Altura estimada de cada fila en la tabla (coincide con el diseño compacto)
     const double itemHeight = 50.0; // Altura compacta de cada fila (ajustada)
     const double padding = 4.0; // Padding entre elementos (reducido)
-    
+
     final double targetPosition = (_selectedIndex * (itemHeight + padding));
-    final double viewportHeight = _productsScrollController.position.viewportDimension;
+    final double viewportHeight =
+        _productsScrollController.position.viewportDimension;
     final double currentScroll = _productsScrollController.offset;
-    
+
     // Calcular si el elemento está fuera de la vista
     final double itemTop = targetPosition;
     final double itemBottom = targetPosition + itemHeight;
     final double viewportTop = currentScroll;
     final double viewportBottom = currentScroll + viewportHeight;
-    
+
     double? newScrollPosition;
-    
+
     // Si el elemento está arriba de la vista, hacer scroll hacia arriba
     if (itemTop < viewportTop) {
       newScrollPosition = itemTop - padding;
@@ -243,12 +306,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     else if (itemBottom > viewportBottom) {
       newScrollPosition = itemBottom - viewportHeight + padding;
     }
-    
+
     // Solo hacer scroll si es necesario
     if (newScrollPosition != null) {
       _productsScrollController.animateTo(
         newScrollPosition.clamp(
-          0.0, 
+          0.0,
           _productsScrollController.position.maxScrollExtent,
         ),
         duration: const Duration(milliseconds: 200),
@@ -263,7 +326,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) {
         _scrollToSelected();
-        print('📜 SCREEN: Scroll automático ejecutado para índice: $_selectedIndex');
+        print(
+          '📜 SCREEN: Scroll automático ejecutado para índice: $_selectedIndex',
+        );
       }
     });
   }
@@ -428,27 +493,40 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             controller.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : context.isMobile
-                    ? _buildMobileLayout(context, controller)
-                    : _buildDesktopLayout(context, controller),
+                ? _buildMobileLayout(context, controller)
+                : _buildDesktopLayout(context, controller),
       ),
     );
   }
 
   // Layout para móviles (scroll completo como antes)
-  Widget _buildMobileLayout(BuildContext context, InvoiceFormController controller) {
+  Widget _buildMobileLayout(
+    BuildContext context,
+    InvoiceFormController controller,
+  ) {
     return SingleChildScrollView(
       padding: context.responsivePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CustomerSelectorWidget(
+            key: _customerSelectorKey,
             selectedCustomer: controller.selectedCustomer,
             onCustomerSelected: controller.selectCustomer,
             onClearCustomer: controller.clearCustomer,
             controller: controller,
+            onFocusChanged: (hasFocus) {
+              // ✅ NUEVO: Coordinar focus con ProductSearchWidget
+              if (hasFocus) {
+                _productSearchKey.currentState?.pauseFocusRestoration();
+              } else {
+                _productSearchKey.currentState?.resumeFocusRestoration();
+              }
+            },
           ),
           SizedBox(height: context.verticalSpacing * 0.4),
           ProductSearchWidget(
+            key: _productSearchKey,
             controller: controller,
             autoFocus: true,
             onProductSelected: (product, quantity) {
@@ -479,7 +557,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   }
 
   // Layout para desktop (resumen fijo en la parte inferior)
-  Widget _buildDesktopLayout(BuildContext context, InvoiceFormController controller) {
+  Widget _buildDesktopLayout(
+    BuildContext context,
+    InvoiceFormController controller,
+  ) {
     return Column(
       children: [
         // Sección superior con scroll
@@ -490,13 +571,23 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CustomerSelectorWidget(
+                  key: _customerSelectorKey,
                   selectedCustomer: controller.selectedCustomer,
                   onCustomerSelected: controller.selectCustomer,
                   onClearCustomer: controller.clearCustomer,
                   controller: controller,
+                  onFocusChanged: (hasFocus) {
+                    // ✅ NUEVO: Coordinar focus con ProductSearchWidget
+                    if (hasFocus) {
+                      _productSearchKey.currentState?.pauseFocusRestoration();
+                    } else {
+                      _productSearchKey.currentState?.resumeFocusRestoration();
+                    }
+                  },
                 ),
                 SizedBox(height: context.verticalSpacing * 0.4),
                 ProductSearchWidget(
+                  key: _productSearchKey,
                   controller: controller,
                   autoFocus: true,
                   onProductSelected: (product, quantity) {
@@ -521,7 +612,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                         _selectedIndex = index;
                       });
                     },
-                    scrollController: _productsScrollController, // Para scroll automático
+                    scrollController:
+                        _productsScrollController, // Para scroll automático
                   ),
                 ),
               ],
@@ -534,13 +626,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             context.responsivePadding.left,
             4, // Reducir más el padding superior
             context.responsivePadding.right,
-            context.responsivePadding.bottom * 0.4, // Reducir más el padding inferior
+            context.responsivePadding.bottom *
+                0.4, // Reducir más el padding inferior
           ),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
-            border: Border(
-              top: BorderSide(color: Colors.grey.shade300),
-            ),
+            border: Border(top: BorderSide(color: Colors.grey.shade300)),
           ),
           child: _buildTotalsSection(context, controller),
         ),
@@ -676,10 +767,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     color: Colors.white,
                   ),
                 )
-                : Tooltip(
-                  message: 'Procesar Venta (Ctrl+Enter)',
-                  child: const Icon(Icons.point_of_sale, size: 20),
-                ),
+                : const Icon(Icons.point_of_sale, size: 20),
       ),
     );
   }
@@ -821,9 +909,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           Expanded(
             flex: 2,
             child: Text(
-              isDiscount 
-                ? '-${AppFormatters.formatCurrency(amount.abs())}'
-                : AppFormatters.formatCurrency(amount.abs()),
+              isDiscount
+                  ? '-${AppFormatters.formatCurrency(amount.abs())}'
+                  : AppFormatters.formatCurrency(amount.abs()),
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize:
@@ -881,8 +969,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
                 // ✅ SOLO CONTINUAR SI LA OPERACIÓN FUE EXITOSA
                 if (success) {
-                  print('✅ SCREEN: Operación exitosa - continuando con limpieza y snackbar');
-                  
+                  print(
+                    '✅ SCREEN: Operación exitosa - continuando con limpieza y snackbar',
+                  );
+
                   // ✅ NOTA: El diálogo ya se cerró automáticamente en _confirmPayment
 
                   // ✅ NUEVO: Cerrar la pestaña automáticamente después de procesar venta
@@ -892,13 +982,17 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     if (tabsController.currentTab != null) {
                       // ✅ NUEVA VALIDACIÓN: Solo cerrar si hay más de una pestaña
                       if (tabsController.tabs.length > 1) {
-                        print('🔖 Cerrando pestaña después de procesar venta (quedan ${tabsController.tabs.length - 1} pestañas)...');
+                        print(
+                          '🔖 Cerrando pestaña después de procesar venta (quedan ${tabsController.tabs.length - 1} pestañas)...',
+                        );
                         tabsController.closeTab(
                           tabsController.currentTab!.id,
                           forceClose: true,
                         );
                       } else {
-                        print('🔖 No se cierra la pestaña: es la única abierta');
+                        print(
+                          '🔖 No se cierra la pestaña: es la única abierta',
+                        );
                         // ✅ OPCIONAL: Limpiar la factura actual para una nueva venta
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           controller.clearFormForNewSale();

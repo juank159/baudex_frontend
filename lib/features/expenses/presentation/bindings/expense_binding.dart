@@ -21,6 +21,7 @@ import '../../domain/usecases/create_expense_category_usecase.dart';
 import '../../domain/usecases/update_expense_category_usecase.dart';
 import '../../domain/usecases/delete_expense_category_usecase.dart';
 import '../controllers/expenses_controller.dart';
+import '../controllers/enhanced_expenses_controller.dart';
 import '../controllers/expense_form_controller.dart';
 import '../controllers/expense_categories_controller.dart';
 
@@ -28,6 +29,16 @@ class ExpenseBinding extends Bindings {
   @override
   void dependencies() {
     print('🔄 Inicializando Expense Binding...');
+
+    // ==================== SERVICES ====================
+    
+    // Registrar FileService si no está ya registrado
+    if (!Get.isRegistered<FileService>()) {
+      Get.lazyPut<FileService>(
+        () => FileServiceImpl(),
+        fenix: true,
+      );
+    }
 
     // ==================== DATA SOURCES ====================
 
@@ -116,6 +127,19 @@ class ExpenseBinding extends Bindings {
 
     // ==================== CONTROLLERS ====================
 
+    // ✅ Usar EnhancedExpensesController como controlador principal
+    Get.lazyPut<EnhancedExpensesController>(
+      () => EnhancedExpensesController(
+        getExpensesUseCase: Get.find<GetExpensesUseCase>(),
+        deleteExpenseUseCase: Get.find<DeleteExpenseUseCase>(),
+        getExpenseStatsUseCase: Get.find<GetExpenseStatsUseCase>(),
+        approveExpenseUseCase: Get.find<ApproveExpenseUseCase>(),
+        submitExpenseUseCase: Get.find<SubmitExpenseUseCase>(),
+      ),
+      fenix: true,
+    );
+
+    // ✅ Mantener el controlador original como fallback si es necesario
     Get.lazyPut<ExpensesController>(
       () => ExpensesController(
         getExpensesUseCase: Get.find<GetExpensesUseCase>(),

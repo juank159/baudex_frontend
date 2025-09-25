@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
+import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../domain/entities/category_tree.dart';
 import '../../domain/usecases/get_category_tree_usecase.dart';
 
@@ -28,8 +29,8 @@ class CategoryTreeController extends GetxController {
   final _searchTerm = ''.obs;
   final _filteredTree = <CategoryTree>[].obs;
 
-  // UI Controllers
-  final searchController = TextEditingController();
+  // UI Controllers - Using SafeTextEditingController to prevent disposal errors
+  final searchController = SafeTextEditingController(debugLabel: 'CategoryTreeSearch');
 
   // ==================== GETTERS ====================
 
@@ -56,8 +57,18 @@ class CategoryTreeController extends GetxController {
 
   @override
   void onClose() {
-    searchController.dispose();
+    print('🔧 CategoryTreeController: Iniciando dispose...');
+    
+    // SafeTextEditingController handles safe disposal automatically
+    if (!searchController.isDisposed) {
+      searchController.dispose();
+      print('✅ CategoryTreeController: searchController disposed');
+    } else {
+      print('⚠️ CategoryTreeController: searchController ya estaba disposed');
+    }
+    
     super.onClose();
+    print('✅ CategoryTreeController: Dispose completado');
   }
 
   // ==================== PUBLIC METHODS ====================

@@ -17,6 +17,8 @@ class CategoryModel extends Category {
     required super.createdAt,
     required super.updatedAt,
     super.deletedAt,
+    super.isSynced,
+    super.lastSyncAt,
   });
 
   // factory CategoryModel.fromJson(Map<String, dynamic> json) {

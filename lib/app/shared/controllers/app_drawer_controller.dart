@@ -7,27 +7,29 @@ import '../models/drawer_menu_item.dart';
 /// Controlador independiente para el drawer de la aplicación
 /// Maneja la navegación, badges, estado de items del menú
 class AppDrawerController extends GetxController {
-  
   // ==================== OBSERVABLES ====================
-  
+
   /// Lista de items del menú
   final _menuItems = <DrawerMenuItem>[].obs;
-  
+
   /// Contadores de badges para notificaciones
   final _badgeCounts = <String, int>{}.obs;
-  
+
   /// Estado de carga
   final _isLoading = false.obs;
-  
+
   /// Estado de expansión del grupo de configuración
   final _isConfigurationExpanded = false.obs;
-  
+
+  /// Estado de expansión de submenús
+  final _submenuExpandedStates = <String, bool>{}.obs;
+
   // ==================== GETTERS ====================
-  
+
   List<DrawerMenuItem> get menuItems => _menuItems;
   Map<String, int> get badgeCounts => _badgeCounts;
   bool get isLoading => _isLoading.value;
-  
+
   /// Getter para el estado de expansión del grupo de configuración
   bool get isConfigurationExpanded => _isConfigurationExpanded.value;
 
@@ -37,7 +39,7 @@ class AppDrawerController extends GetxController {
   void onInit() {
     super.onInit();
     _initializeMenuItems();
-    _loadBadgeCounts();
+    //_loadBadgeCounts();
   }
 
   // ==================== INITIALIZATION ====================
@@ -45,7 +47,6 @@ class AppDrawerController extends GetxController {
   void _initializeMenuItems() {
     _menuItems.value = [
       // ==================== MÓDULOS PRINCIPALES ====================
-      
       const DrawerMenuItem(
         id: 'dashboard',
         title: 'Dashboard',
@@ -53,7 +54,7 @@ class AppDrawerController extends GetxController {
         route: AppRoutes.dashboard,
         subtitle: 'Panel principal',
       ),
-      
+
       const DrawerMenuItem(
         id: 'invoices',
         title: 'Facturas',
@@ -61,7 +62,7 @@ class AppDrawerController extends GetxController {
         route: AppRoutes.invoices,
         subtitle: 'Gestión de facturas',
       ),
-      
+
       const DrawerMenuItem(
         id: 'invoices_create',
         title: 'Crear Factura',
@@ -69,7 +70,7 @@ class AppDrawerController extends GetxController {
         route: AppRoutes.invoicesWithTabs,
         subtitle: 'Nueva factura',
       ),
-      
+
       const DrawerMenuItem(
         id: 'products',
         title: 'Productos',
@@ -77,7 +78,7 @@ class AppDrawerController extends GetxController {
         route: AppRoutes.products,
         subtitle: 'Catálogo de productos',
       ),
-      
+
       const DrawerMenuItem(
         id: 'customers',
         title: 'Clientes',
@@ -85,7 +86,7 @@ class AppDrawerController extends GetxController {
         route: AppRoutes.customers,
         subtitle: 'Gestión de clientes',
       ),
-      
+
       const DrawerMenuItem(
         id: 'categories',
         title: 'Categorías',
@@ -93,27 +94,42 @@ class AppDrawerController extends GetxController {
         route: AppRoutes.categories,
         subtitle: 'Organizar productos',
       ),
-      
+
       const DrawerMenuItem(
         id: 'expenses',
         title: 'Gastos',
-        icon: Icons.receipt_long_outlined,
+        icon: Icons.attach_money,
         route: AppRoutes.expenses,
         subtitle: 'Gestión de gastos',
       ),
-      
+
       const DrawerMenuItem(
-        id: 'expense_categories',
-        title: 'Categorías de Gastos',
-        icon: Icons.category_outlined,
-        route: AppRoutes.expensesCategories,
-        subtitle: 'Gestionar categorías',
+        id: 'suppliers',
+        title: 'Proveedores',
+        icon: Icons.local_shipping,
+        route: AppRoutes.suppliers,
+        subtitle: 'Gestión de proveedores',
+      ),
+
+      const DrawerMenuItem(
+        id: 'purchase_orders',
+        title: 'Órdenes de Compra',
+        icon: Icons.shopping_cart_rounded,
+        route: AppRoutes.purchaseOrders,
+        subtitle: 'Gestión de compras',
+      ),
+
+      const DrawerMenuItem(
+        id: 'inventory',
+        title: 'Inventario',
+        icon: Icons.warehouse,
+        route: AppRoutes.inventory,
+        subtitle: 'Gestión completa de inventario',
       ),
 
       // ==================== CONFIGURACIÓN Y HERRAMIENTAS ====================
-      
+
       // ==================== GRUPO DE CONFIGURACIÓN ====================
-      
       const DrawerMenuItem(
         id: 'organization_settings',
         title: 'Organización',
@@ -123,7 +139,7 @@ class AppDrawerController extends GetxController {
         isInSettings: true,
         isInConfigurationGroup: true,
       ),
-      
+
       const DrawerMenuItem(
         id: 'invoice_settings',
         title: 'Facturas',
@@ -133,9 +149,9 @@ class AppDrawerController extends GetxController {
         isInSettings: true,
         isInConfigurationGroup: true,
       ),
-      
+
       const DrawerMenuItem(
-        id: 'printer_settings', 
+        id: 'printer_settings',
         title: 'Impresoras',
         icon: Icons.print,
         route: AppRoutes.settingsPrinter,
@@ -143,7 +159,7 @@ class AppDrawerController extends GetxController {
         isInSettings: true,
         isInConfigurationGroup: true,
       ),
-      
+
       const DrawerMenuItem(
         id: 'app_settings',
         title: 'Aplicación',
@@ -153,17 +169,17 @@ class AppDrawerController extends GetxController {
         isInSettings: true,
         isInConfigurationGroup: true,
       ),
-      
+
       const DrawerMenuItem(
-        id: 'user_settings',
+        id: 'user_preferences',
         title: 'Usuario',
         icon: Icons.person_outline,
-        route: AppRoutes.settingsUser,
-        subtitle: 'Perfil y preferencias',
+        route: AppRoutes.settingsUserPreferences,
+        subtitle: 'Preferencias personales',
         isInSettings: true,
         isInConfigurationGroup: true,
       ),
-      
+
       const DrawerMenuItem(
         id: 'backup_settings',
         title: 'Respaldos',
@@ -173,7 +189,7 @@ class AppDrawerController extends GetxController {
         isInSettings: true,
         isInConfigurationGroup: true,
       ),
-      
+
       const DrawerMenuItem(
         id: 'security_settings',
         title: 'Seguridad',
@@ -183,7 +199,7 @@ class AppDrawerController extends GetxController {
         isInSettings: true,
         isInConfigurationGroup: true,
       ),
-      
+
       const DrawerMenuItem(
         id: 'notifications_settings',
         title: 'Notificaciones',
@@ -197,28 +213,27 @@ class AppDrawerController extends GetxController {
   }
 
   /// Cargar contadores de badges desde la API o localStorage
-  Future<void> _loadBadgeCounts() async {
-    try {
-      _isLoading.value = true;
-      
-      // TODO: Implementar carga real desde API
-      // Por ahora usamos datos simulados
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      _badgeCounts.value = {
-        'invoices': 3,        // 3 facturas pendientes
-        'customers': 1,       // 1 cliente nuevo
-        'products': 5,        // 5 productos con stock bajo
-        'expenses': 2,        // 2 gastos pendientes de aprobación
-        'notifications': 8,   // 8 notificaciones no leídas
-      };
-      
-    } catch (e) {
-      print('❌ Error al cargar badges: $e');
-    } finally {
-      _isLoading.value = false;
-    }
-  }
+  // Future<void> _loadBadgeCounts() async {
+  //   try {
+  //     _isLoading.value = true;
+
+  //     // TODO: Implementar carga real desde API
+  //     // Por ahora usamos datos simulados
+  //     await Future.delayed(const Duration(milliseconds: 500));
+
+  //     _badgeCounts.value = {
+  //       'invoices': 3, // 3 facturas pendientes
+  //       'customers': 1, // 1 cliente nuevo
+  //       'products': , // 5 productos con stock bajo
+  //       'expenses': 2, // 2 gastos pendientes de aprobación
+  //       'notifications': 8, // 8 notificaciones no leídas
+  //     };
+  //   } catch (e) {
+  //     print('❌ Error al cargar badges: $e');
+  //   } finally {
+  //     _isLoading.value = false;
+  //   }
+  // }
 
   // ==================== PUBLIC METHODS ====================
 
@@ -275,22 +290,49 @@ class AppDrawerController extends GetxController {
       _menuItems[index] = _menuItems[index].copyWith(isEnabled: enabled);
     }
   }
-  
+
   /// Alternar expansión del grupo de configuración
   void toggleConfigurationExpanded() {
     _isConfigurationExpanded.value = !_isConfigurationExpanded.value;
   }
-  
+
   /// Método alternativo para obtener el estado de expansión
   bool getConfigurationExpandedState() {
     return _isConfigurationExpanded.value;
   }
-  
+
+  // ==================== SUBMENU METHODS ====================
+
+  /// Alternar expansión de un submenú
+  void toggleSubmenuExpanded(String itemId) {
+    _submenuExpandedStates[itemId] = !(_submenuExpandedStates[itemId] ?? false);
+  }
+
+  /// Obtener estado de expansión de un submenú
+  bool isSubmenuExpanded(String itemId) {
+    return _submenuExpandedStates[itemId] ?? false;
+  }
+
+  /// Expandir submenú
+  void expandSubmenu(String itemId) {
+    _submenuExpandedStates[itemId] = true;
+  }
+
+  /// Colapsar submenú
+  void collapseSubmenu(String itemId) {
+    _submenuExpandedStates[itemId] = false;
+  }
+
+  /// Colapsar todos los submenús
+  void collapseAllSubmenus() {
+    _submenuExpandedStates.clear();
+  }
+
   /// Expandir grupo de configuración
   void expandConfiguration() {
     _isConfigurationExpanded.value = true;
   }
-  
+
   /// Colapsar grupo de configuración
   void collapseConfiguration() {
     _isConfigurationExpanded.value = false;
@@ -345,24 +387,41 @@ class AppDrawerController extends GetxController {
     Get.toNamed(AppRoutes.expenses);
   }
 
+  /// Navegación rápida a proveedores
+  void goToSuppliers() {
+    Get.toNamed(AppRoutes.suppliers);
+  }
+
+  /// Navegación rápida a órdenes de compra
+  void goToPurchaseOrders() {
+    Get.toNamed(AppRoutes.purchaseOrders);
+  }
+
+  /// Navegación rápida a inventario
+  void goToInventory() {
+    Get.toNamed(AppRoutes.inventory);
+  }
+
   // ==================== STATISTICS METHODS ====================
 
   /// Refrescar estadísticas y badges
   Future<void> refreshStatistics() async {
     try {
       _isLoading.value = true;
-      
+
       // Cargar estadísticas en paralelo
       final futures = [
         _loadInvoiceStats(),
         _loadCustomerStats(),
         _loadProductStats(),
         _loadExpenseStats(),
+        _loadSupplierStats(),
+        _loadPurchaseOrderStats(),
+        _loadInventoryStats(),
         _loadNotificationStats(),
       ];
-      
+
       await Future.wait(futures);
-      
     } catch (e) {
       print('❌ Error al refrescar estadísticas: $e');
     } finally {
@@ -394,6 +453,24 @@ class AppDrawerController extends GetxController {
     updateBadgeCount('expenses', 2); // Gastos pendientes de aprobación
   }
 
+  Future<void> _loadSupplierStats() async {
+    // TODO: Implementar carga real de estadísticas de proveedores
+    await Future.delayed(const Duration(milliseconds: 200));
+    updateBadgeCount('suppliers', 2); // Proveedores con documentos pendientes
+  }
+
+  Future<void> _loadPurchaseOrderStats() async {
+    // TODO: Implementar carga real de estadísticas de órdenes de compra
+    await Future.delayed(const Duration(milliseconds: 200));
+    updateBadgeCount('purchase_orders', 4); // Órdenes de compra pendientes de aprobación
+  }
+
+  Future<void> _loadInventoryStats() async {
+    // TODO: Implementar carga real de estadísticas de inventario
+    await Future.delayed(const Duration(milliseconds: 200));
+    updateBadgeCount('inventory', 7); // Productos con stock crítico
+  }
+
   Future<void> _loadNotificationStats() async {
     // TODO: Implementar carga real de notificaciones
     await Future.delayed(const Duration(milliseconds: 200));
@@ -405,12 +482,12 @@ class AppDrawerController extends GetxController {
   /// Buscar en el menú
   List<DrawerMenuItem> searchMenuItems(String query) {
     if (query.trim().isEmpty) return _menuItems;
-    
+
     final lowercaseQuery = query.toLowerCase().trim();
-    
+
     return _menuItems.where((item) {
       return item.title.toLowerCase().contains(lowercaseQuery) ||
-             (item.subtitle?.toLowerCase().contains(lowercaseQuery) ?? false);
+          (item.subtitle?.toLowerCase().contains(lowercaseQuery) ?? false);
     }).toList();
   }
 
@@ -421,6 +498,9 @@ class AppDrawerController extends GetxController {
       _menuItems.firstWhere((item) => item.id == 'dashboard'),
       _menuItems.firstWhere((item) => item.id == 'invoices'),
       _menuItems.firstWhere((item) => item.id == 'products'),
+      _menuItems.firstWhere((item) => item.id == 'inventory'),
+      _menuItems.firstWhere((item) => item.id == 'purchase_orders'),
+      _menuItems.firstWhere((item) => item.id == 'suppliers'),
       _menuItems.firstWhere((item) => item.id == 'expenses'),
     ];
   }

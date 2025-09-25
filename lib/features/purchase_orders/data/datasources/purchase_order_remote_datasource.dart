@@ -275,7 +275,7 @@ class PurchaseOrderRemoteDataSourceImpl
         data: requestModel.toJson(),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final responseModel = PurchaseOrderResponseModel.fromJson(
           response.data,
         );
@@ -325,7 +325,7 @@ class PurchaseOrderRemoteDataSourceImpl
         data: {if (approvalNotes != null) 'approval_notes': approvalNotes},
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final responseModel = PurchaseOrderResponseModel.fromJson(
           response.data,
         );
@@ -358,7 +358,7 @@ class PurchaseOrderRemoteDataSourceImpl
         data: {'rejection_reason': rejectionReason},
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final responseModel = PurchaseOrderResponseModel.fromJson(
           response.data,
         );
@@ -391,7 +391,7 @@ class PurchaseOrderRemoteDataSourceImpl
         data: {if (sendNotes != null) 'send_notes': sendNotes},
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final responseModel = PurchaseOrderResponseModel.fromJson(
           response.data,
         );
@@ -425,7 +425,7 @@ class PurchaseOrderRemoteDataSourceImpl
         data: requestModel.toJson(),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final responseModel = PurchaseOrderResponseModel.fromJson(
           response.data,
         );
@@ -458,7 +458,7 @@ class PurchaseOrderRemoteDataSourceImpl
         data: {'cancellation_reason': cancellationReason},
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final responseModel = PurchaseOrderResponseModel.fromJson(
           response.data,
         );

@@ -10,6 +10,7 @@ class CustomerSelectorWidget extends StatefulWidget {
   final VoidCallback? onClearCustomer;
   final InvoiceFormController?
   controller; // ✅ NUEVO: Recibir el controlador específico
+  final Function(bool)? onFocusChanged; // ✅ NUEVO: Callback para cambios de focus
 
   const CustomerSelectorWidget({
     super.key,
@@ -17,13 +18,14 @@ class CustomerSelectorWidget extends StatefulWidget {
     required this.onCustomerSelected,
     this.onClearCustomer,
     this.controller, // ✅ NUEVO: Parámetro del controlador
+    this.onFocusChanged, // ✅ NUEVO: Callback de focus
   });
 
   @override
-  State<CustomerSelectorWidget> createState() => _CustomerSelectorWidgetState();
+  State<CustomerSelectorWidget> createState() => CustomerSelectorWidgetState();
 }
 
-class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
+class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final List<Customer> _searchResults = [];
@@ -51,6 +53,11 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    
+    // ✅ NUEVO: Escuchar cambios de focus para coordinar con ProductSearchWidget
+    _focusNode.addListener(() {
+      widget.onFocusChanged?.call(_focusNode.hasFocus);
+    });
   }
 
   @override

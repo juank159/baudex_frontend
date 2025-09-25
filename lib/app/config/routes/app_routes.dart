@@ -109,6 +109,31 @@ abstract class AppRoutes {
       '/invoices/customer/$customerId';
   static String invoicesByStatus(String status) => '/invoices/status/$status';
 
+  // ==================== SUPPLIERS ROUTES ====================
+  static const String suppliers = '/suppliers';
+  static const String suppliersCreate = '/suppliers/create';
+  static const String suppliersEdit = '/suppliers/edit';
+  static const String suppliersDetail = '/suppliers/detail';
+  static const String suppliersStats = '/suppliers/stats';
+
+  // Suppliers with parameters
+  static String supplierEdit(String id) => '/suppliers/edit/$id';
+  static String supplierDetail(String id) => '/suppliers/detail/$id';
+
+  // ==================== PURCHASE ORDERS ROUTES ====================
+  static const String purchaseOrders = '/purchase-orders';
+  static const String purchaseOrdersCreate = '/purchase-orders/create';
+  static const String purchaseOrdersEdit = '/purchase-orders/edit';
+  static const String purchaseOrdersDetail = '/purchase-orders/detail';
+  static const String purchaseOrdersStats = '/purchase-orders/stats';
+
+  // Purchase Orders with parameters
+  static String purchaseOrderEdit(String id) => '/purchase-orders/edit/$id';
+  static String purchaseOrderDetail(String id) => '/purchase-orders/detail/$id';
+  static String purchaseOrdersBySupplier(String supplierId) =>
+      '/purchase-orders/supplier/$supplierId';
+  static String purchaseOrdersByStatus(String status) => '/purchase-orders/status/$status';
+
   // ==================== EXPENSES ROUTES ====================
   static const String expenses = '/expenses';
   static const String expensesCreate = '/expenses/create';
@@ -124,6 +149,56 @@ abstract class AppRoutes {
       '/expenses/category/$categoryId';
   static String expensesByStatus(String status) => '/expenses/status/$status';
 
+  // ==================== INVENTORY ROUTES ====================
+  static const String inventory = '/inventory';
+  static const String inventoryMovements = '/inventory/movements';
+  static const String inventoryBalances = '/inventory/balances';
+  static const String inventoryStats = '/inventory/stats';
+  static const String inventoryMovementsCreate = '/inventory/movements/create';
+  static const String inventoryAdjustments = '/inventory/adjustments';
+  static const String inventoryAdjustmentsCreate = '/inventory/adjustments/create';
+  static const String inventoryBulkAdjustments = '/inventory/bulk-adjustments';
+  static const String inventoryTransfers = '/inventory/transfers';
+  static const String inventoryTransfersCreate = '/inventory/transfers/create';
+  static const String inventoryBatches = '/inventory/batches';
+  static const String inventorySummary = '/inventory/summary';
+  static const String inventoryAgingReport = '/inventory/aging-report';
+  static const String inventoryValuation = '/inventory/valuation';
+  static const String inventoryReports = '/inventory/reports';
+
+  // ==================== WAREHOUSES ROUTES ====================
+  static const String warehouses = '/warehouses';
+  static const String warehousesCreate = '/warehouses/create';
+  static const String warehousesEdit = '/warehouses/edit';
+  static const String warehousesDetail = '/warehouses/detail';
+  static const String warehousesStats = '/warehouses/stats';
+
+  // Inventory with parameters
+  static String inventoryProductDetail(String productId) => '/inventory/product/$productId';
+  static String inventoryMovementDetail(String movementId) => '/inventory/movement/$movementId';
+  static String inventoryMovementEdit(String movementId) => '/inventory/movement/$movementId/edit';
+  static String inventoryBalanceByProduct(String productId) => '/inventory/balance/product/$productId';
+  static String inventoryProductKardex(String productId) => '/inventory/product/$productId/kardex';
+  static String inventoryProductBatches(String productId) => '/inventory/product/$productId/batches';
+  static String inventoryTransferDetail(String transferId) => '/inventory/transfer/$transferId';
+
+  // Warehouses with parameters
+  static String warehouseEdit(String id) => '/warehouses/edit/$id';
+  static String warehouseDetail(String id) => '/warehouses/detail/$id';
+
+  // ==================== REPORTS ROUTES ====================
+  static const String reports = '/reports';
+  static const String reportsDashboard = '/reports/dashboard';
+  static const String reportsProfitabilityProducts = '/reports/profitability/products';
+  static const String reportsProfitabilityCategories = '/reports/profitability/categories';
+  static const String reportsProfitabilityTop = '/reports/profitability/top';
+  static const String reportsValuationSummary = '/reports/valuation/summary';
+  static const String reportsValuationProducts = '/reports/valuation/products';
+  static const String reportsValuationCategories = '/reports/valuation/categories';
+  static const String reportsKardexMultiProduct = '/reports/kardex/multi-product';
+  static const String reportsMovementsSummary = '/reports/movements/summary';
+  static const String reportsInventoryAging = '/reports/inventory/aging';
+
   // ==================== SETTINGS ROUTES ====================
   static const String settings = '/settings';
   static const String settingsApp = '/settings/app';
@@ -132,6 +207,7 @@ abstract class AppRoutes {
   static const String settingsDatabase = '/settings/database';
   static const String settingsOrganization = '/settings/organization';
   static const String settingsUser = '/settings/user';
+  static const String settingsUserPreferences = '/settings/user-preferences';
   static const String settingsBackup = '/settings/backup';
   static const String settingsSecurity = '/settings/security';
   static const String settingsNotifications = '/settings/notifications';

@@ -52,15 +52,30 @@ class _CustomTextFieldState extends State<CustomTextField> {
   @override
   void initState() {
     super.initState();
-    _initializeController();
+    try {
+      _initializeController();
+    } catch (e) {
+      print('❌ Error en initState de CustomTextField: $e');
+      // Crear fallback controller si falla la inicialización
+      _internalController = TextEditingController();
+      _activeController = _internalController!;
+    }
   }
 
   @override
   void didUpdateWidget(CustomTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Si el controller externo cambió, reinicializar
+    // Si el controller externo cambió, reinicializar de forma segura
     if (oldWidget.controller != widget.controller) {
-      _initializeController();
+      try {
+        _initializeController();
+      } catch (e) {
+        print('❌ Error en didUpdateWidget de CustomTextField: $e');
+        // Crear controlador interno de emergencia
+        _internalController?.dispose();
+        _internalController = TextEditingController();
+        _activeController = _internalController!;
+      }
     }
   }
 
@@ -105,15 +120,27 @@ class _CustomTextFieldState extends State<CustomTextField> {
     if (widget.controller == null) return false;
     
     try {
-      // Verificación 1: Propiedades básicas
-      final _ = widget.controller!.text;
-      final __ = widget.controller!.selection;
-      final ___ = widget.controller!.value;
+      // Verificación básica: el controller existe
+      final controller = widget.controller!;
       
-      // Verificación 2: Intentar agregar/remover listener (detecta disposed)
+      // Verificación 1: Propiedades básicas (estas fallan si el controller está disposed)
+      final _ = controller.text;
+      final __ = controller.selection;
+      final ___ = controller.value;
+      
+      // Verificación 2: Intentar agregar/remover listener (detecta disposed más profundamente)
       void testListener() {}
-      widget.controller!.addListener(testListener);
-      widget.controller!.removeListener(testListener);
+      controller.addListener(testListener);
+      controller.removeListener(testListener);
+      
+      // Verificación 3: Intentar acceder a métodos (estos también fallan si disposed)
+      final ____ = controller.toString();
+      
+      // Verificación 4: Test específico para disposed flag (más directo)
+      if (controller.toString().contains('DISPOSED')) {
+        print('⚠️ CustomTextField: Controller disposed detectado en toString()');
+        return false;
+      }
       
       return true;
     } catch (e) {
@@ -158,21 +185,42 @@ class _CustomTextFieldState extends State<CustomTextField> {
     }
   }
 
-  /// ✅ WIDGET BÁSICO CUANDO NO ESTÁ MOUNTED
+  /// ✅ WIDGET BÁSICO CUANDO NO ESTÁ MOUNTED O HAY PROBLEMAS
   Widget _buildBasicTextField() {
+    // Crear un controller completamente nuevo y seguro para el fallback
+    final fallbackController = TextEditingController();
+    
     return TextFormField(
-      controller: TextEditingController(), // Controller básico temporal
+      controller: fallbackController,
       obscureText: widget.obscureText,
       keyboardType: widget.keyboardType,
-      enabled: false, // Deshabilitar para evitar interacciones
+      enabled: widget.enabled,
+      maxLines: widget.maxLines,
+      onChanged: widget.onChanged,
+      inputFormatters: widget.inputFormatters,
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: widget.hint,
+        prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon) : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8.0),
         ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8.0),
+          borderSide: BorderSide(color: Colors.grey.shade300, width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8.0),
+          borderSide: BorderSide(
+            color: Colors.blue,
+            width: 2.0,
+          ),
+        ),
         filled: true,
-        fillColor: Colors.grey.shade100,
+        fillColor: widget.enabled ? Colors.white : Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+        helperText: widget.helperText,
+        errorText: widget.errorText,
       ),
     );
   }
@@ -186,12 +234,14 @@ class _CustomTextFieldState extends State<CustomTextField> {
     }
 
     // ✅ VERIFICACIÓN PREVENTIVA ULTRA-ROBUSTA MEJORADA
-    return LayoutBuilder(
-      builder: (context, constraints) {
+    // Usar Builder simple en lugar de LayoutBuilder para evitar problemas de eventos
+    return Builder(
+      builder: (context) {
         // ✅ VERIFICACIÓN ADICIONAL: Evitar reconstrucción durante dispose
         try {
           // Verificar si estamos en proceso de dispose
           if (!mounted) {
+            print('⚠️ CustomTextField: Widget no mounted durante build, usando fallback');
             return _buildBasicTextField();
           }
 
@@ -216,33 +266,35 @@ class _CustomTextFieldState extends State<CustomTextField> {
           return _buildBasicTextField();
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _isActiveControllerSafe() ? _activeController : null,
-              obscureText: widget.obscureText,
-              keyboardType: widget.keyboardType,
-              validator: widget.validator,
-              enabled: widget.enabled,
-              maxLines: widget.maxLines,
-              onTap: widget.onTap,
-              onChanged: (value) {
-                // Manejar cambios de forma segura
-                try {
-                  widget.onChanged?.call(value);
-                  
-                  // Si estamos usando controller interno pero hay uno externo, intentar sincronizar
-                  if (_internalController != null && 
-                      widget.controller != null && 
-                      _isExternalControllerSafe()) {
-                    widget.controller!.text = value;
+        return FocusScope(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                key: ValueKey('${widget.label}_${_activeController.hashCode}'),
+                controller: _isActiveControllerSafe() ? _activeController : null,
+                obscureText: widget.obscureText,
+                keyboardType: widget.keyboardType,
+                validator: widget.validator,
+                enabled: widget.enabled,
+                maxLines: widget.maxLines,
+                onTap: widget.onTap,
+                onChanged: (value) {
+                  // Manejar cambios de forma segura
+                  try {
+                    widget.onChanged?.call(value);
+                    
+                    // Si estamos usando controller interno pero hay uno externo, intentar sincronizar
+                    if (_internalController != null && 
+                        widget.controller != null && 
+                        _isExternalControllerSafe()) {
+                      widget.controller!.text = value;
+                    }
+                  } catch (e) {
+                    print('⚠️ CustomTextField: Error en onChanged - $e');
                   }
-                } catch (e) {
-                  print('⚠️ CustomTextField: Error en onChanged - $e');
-                }
-              },
-              inputFormatters: widget.inputFormatters,
+                },
+                inputFormatters: widget.inputFormatters,
               style: TextStyle(
                 fontSize: Responsive.getFontSize(context),
                 color: Colors.black,
@@ -289,8 +341,9 @@ class _CustomTextFieldState extends State<CustomTextField> {
                 helperText: widget.helperText,
                 errorText: widget.errorText,
               ),
-            ),
-          ],
+              ),
+            ],
+          ),
         );
       },
     );

@@ -33,15 +33,18 @@ dependencies:
   esc_pos_printer_plus: ^0.1.1
   esc_pos_utils_plus: ^2.0.4
   pdf: ^3.10.4 # Para crear PDFs
+  excel: ^4.0.6 # Para crear archivos Excel
   intl: ^0.20.2 # Para internacionalización y formateo de fechas
-  isar: ^3.1.0
-  isar_flutter_libs: ^3.1.0
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+  path_provider: ^2.1.5 # Para ISAR database path
 
   share_plus: ^11.0.0 # Para compartir contenido
-  path_provider: ^2.1.5 # Para acceder a rutas de almacenamiento
   google_fonts: ^6.2.1 # Para usar fuentes de Google Fonts
   fl_chart: ^0.68.0 # Para gráficos y visualizaciones
-  
+  flutter_tts: ^3.8.5 # Para notificaciones de voz Text-to-Speech
+  lottie: ^3.1.2 # Para animaciones Lottie
+
   # Para manejo de archivos e imágenes
   image_picker: ^1.0.8 # Para seleccionar imágenes y tomar fotos
   file_picker: ^8.1.6 # Para seleccionar archivos
@@ -52,7 +55,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   build_runner: ^2.4.13
-  isar_generator: ^3.1.0
+  isar_generator: ^3.1.0+1
   json_serializable: ^6.8.0
   flutter_launcher_icons: ^0.14.4
 
@@ -80,6 +83,8 @@ flutter:
     - .env.production
     - assets/images/LOGO_GRANADA.png
     - assets/images/baudex_logo.png
+    - assets/images/LOGO_FORTALEZA.png
+    - assets/images/shopping cart.json
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

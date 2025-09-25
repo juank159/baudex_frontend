@@ -355,7 +355,7 @@ class CategoriesListScreen extends GetView<CategoriesController> {
 
             final category = categories[index];
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 4), // ✅ Reducido de 6 a 4 para más compacto
               child: CategoryCardWidget(
                 category: category,
                 onTap: () => controller.showCategoryDetails(category.id),

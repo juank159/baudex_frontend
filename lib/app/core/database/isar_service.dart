@@ -27,6 +27,7 @@ class IsarService {
     try {
       print('🗃️ IsarService: Inicializando base de datos local...');
       
+      
       final dir = await getApplicationDocumentsDirectory();
       print('🗃️ IsarService: Directorio de documentos: ${dir.path}');
 

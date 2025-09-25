@@ -97,7 +97,16 @@ class CategoryRepositoryImpl implements CategoryRepository {
       }
     } else {
       // Sin conexión, intentar obtener desde cache
-      return _getCategoriesFromCache();
+      return _getCategoriesFromCache(
+        page: page,
+        limit: limit,
+        search: search,
+        status: status,
+        parentId: parentId,
+        onlyParents: onlyParents,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      );
     }
   }
 
@@ -637,13 +646,17 @@ class CategoryRepositoryImpl implements CategoryRepository {
   // ==================== PRIVATE HELPER METHODS ====================
 
   /// Determinar si se debe cachear el resultado
+  /// Cacheamos más casos para asegurar disponibilidad offline
   bool _shouldCacheResult(
     int page,
     String? search,
     CategoryStatus? status,
     String? parentId,
   ) {
-    return page == 1 && search == null && status == null && parentId == null;
+    // Cache first page results for common use cases
+    return page == 1 && search == null && 
+           (status == null || status == CategoryStatus.active) &&
+           parentId == null;
   }
 
   /// Invalidar cache de listados para reflejar cambios
@@ -655,31 +668,114 @@ class CategoryRepositoryImpl implements CategoryRepository {
     }
   }
 
-  /// Obtener categorías desde cache local
+  /// Obtener categorías desde cache local con filtros aplicados
   Future<Either<Failure, PaginatedResult<Category>>>
-  _getCategoriesFromCache() async {
+  _getCategoriesFromCache({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    CategoryStatus? status,
+    String? parentId,
+    bool? onlyParents,
+    String? sortBy,
+    String? sortOrder,
+  }) async {
     try {
       final categories = await localDataSource.getCachedCategories();
+      var filteredCategories = categories.map((model) => model.toEntity()).toList();
 
-      // Crear meta de paginación básica para cache
+      print('📂 CategoryRepository: Applying offline filters to ${filteredCategories.length} cached categories');
+      print('   Filters: status=$status, onlyParents=$onlyParents, search=$search, parentId=$parentId');
+
+      // Apply search filter
+      if (search != null && search.isNotEmpty) {
+        filteredCategories = filteredCategories.where((category) {
+          return category.name.toLowerCase().contains(search.toLowerCase()) ||
+                 (category.description?.toLowerCase().contains(search.toLowerCase()) ?? false);
+        }).toList();
+        print('   After search filter: ${filteredCategories.length} categories');
+      }
+
+      // Apply status filter
+      if (status != null) {
+        filteredCategories = filteredCategories.where((category) {
+          return category.status == status;
+        }).toList();
+        print('   After status filter: ${filteredCategories.length} categories');
+      }
+
+      // Apply parent filter
+      if (parentId != null) {
+        filteredCategories = filteredCategories.where((category) {
+          return category.parentId == parentId;
+        }).toList();
+        print('   After parentId filter: ${filteredCategories.length} categories');
+      } else if (onlyParents == true) {
+        filteredCategories = filteredCategories.where((category) {
+          return category.parentId == null || category.parentId!.isEmpty;
+        }).toList();
+        print('   After onlyParents filter: ${filteredCategories.length} categories');
+      }
+
+      // Apply sorting
+      if (sortBy != null) {
+        switch (sortBy) {
+          case 'name':
+            filteredCategories.sort((a, b) {
+              final comparison = a.name.compareTo(b.name);
+              return sortOrder == 'desc' ? -comparison : comparison;
+            });
+            break;
+          case 'created_at':
+            filteredCategories.sort((a, b) {
+              final comparison = a.createdAt.compareTo(b.createdAt);
+              return sortOrder == 'desc' ? -comparison : comparison;
+            });
+            break;
+          case 'sort_order':
+          default:
+            filteredCategories.sort((a, b) {
+              final comparison = (a.sortOrder ?? 0).compareTo(b.sortOrder ?? 0);
+              return sortOrder == 'desc' ? -comparison : comparison;
+            });
+            break;
+        }
+        print('   After sorting by $sortBy: ${filteredCategories.length} categories');
+      }
+
+      // Apply pagination
+      final totalItems = filteredCategories.length;
+      final totalPages = (totalItems / limit).ceil();
+      final startIndex = (page - 1) * limit;
+      final endIndex = (startIndex + limit).clamp(0, totalItems);
+      
+      final paginatedCategories = filteredCategories.sublist(
+        startIndex.clamp(0, totalItems),
+        endIndex,
+      );
+
+      print('   Final result: ${paginatedCategories.length}/${totalItems} categories (page $page/$totalPages)');
+
       final meta = PaginationMeta(
-        page: 1,
-        limit: categories.length,
-        totalItems: categories.length,
-        totalPages: 1,
-        hasNextPage: false,
-        hasPreviousPage: false,
+        page: page,
+        limit: limit,
+        totalItems: totalItems,
+        totalPages: totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
       );
 
       return Right(
         PaginatedResult<Category>(
-          data: categories.map((model) => model.toEntity()).toList(),
+          data: paginatedCategories,
           meta: meta,
         ),
       );
     } on CacheException catch (e) {
+      print('❌ CategoryRepository: Cache error in _getCategoriesFromCache: ${e.message}');
       return Left(CacheFailure(e.message));
     } catch (e) {
+      print('❌ CategoryRepository: Unexpected error in _getCategoriesFromCache: $e');
       return Left(
         UnknownFailure('Error al obtener categorías desde cache: $e'),
       );

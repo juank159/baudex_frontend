@@ -67,6 +67,11 @@ class ConnectionFailure extends Failure {
   static const socketException = ConnectionFailure('Error de red');
 }
 
+/// Fallo de red - Alias para ConnectionFailure para compatibilidad
+class NetworkFailure extends ConnectionFailure {
+  const NetworkFailure([String message = 'Error de red']) : super(message);
+}
+
 /// Fallo de cache/almacenamiento local
 class CacheFailure extends Failure {
   const CacheFailure([String message = 'Error de cache']) : super(message);

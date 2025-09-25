@@ -12,3 +12,6 @@ PRODUCT_BUNDLE_IDENTIFIER = com.example.baudexDesktop
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2025 com.example. All rights reserved.
+
+// Set minimum macOS deployment target to 10.15 for flutter_tts and other plugins
+MACOSX_DEPLOYMENT_TARGET = 10.15

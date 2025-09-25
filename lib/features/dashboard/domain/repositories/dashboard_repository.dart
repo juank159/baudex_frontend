@@ -58,4 +58,12 @@ abstract class DashboardRepository {
     DateTime? startDate,
     DateTime? endDate,
   });
+
+  /// Obtiene métricas de rentabilidad FIFO
+  Future<Either<Failure, ProfitabilityStats>> getProfitabilityStats({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? warehouseId,
+    String? categoryId,
+  });
 }

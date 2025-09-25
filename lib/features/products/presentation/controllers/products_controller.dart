@@ -1,7 +1,9 @@
 // lib/features/products/presentation/controllers/products_controller.dart
+import 'dart:async';
 import 'package:baudex_desktop/app/core/models/pagination_meta.dart';
 import 'package:baudex_desktop/features/categories/domain/repositories/category_repository.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product_stats.dart';
+import 'package:baudex_desktop/app/core/widgets/safe_text_editing_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
@@ -12,7 +14,7 @@ import '../../domain/usecases/get_products_usecase.dart';
 import '../../domain/usecases/delete_product_usecase.dart';
 import '../../domain/usecases/search_products_usecase.dart';
 import '../../domain/usecases/get_product_stats_usecase.dart';
-import '../../domain/usecases/get_low_stock_products_usecase.dart';
+import '../../domain/usecases/get_low_stock_products_usecase.dart' as products_usecases;
 import '../../domain/usecases/get_products_by_category_usecase.dart';
 
 class ProductsController extends GetxController {
@@ -21,7 +23,7 @@ class ProductsController extends GetxController {
   final DeleteProductUseCase _deleteProductUseCase;
   final SearchProductsUseCase _searchProductsUseCase;
   final GetProductStatsUseCase _getProductStatsUseCase;
-  final GetLowStockProductsUseCase _getLowStockProductsUseCase;
+  final products_usecases.GetLowStockProductsUseCase _getLowStockProductsUseCase;
   final GetProductsByCategoryUseCase _getProductsByCategoryUseCase;
 
   ProductsController({
@@ -29,7 +31,7 @@ class ProductsController extends GetxController {
     required DeleteProductUseCase deleteProductUseCase,
     required SearchProductsUseCase searchProductsUseCase,
     required GetProductStatsUseCase getProductStatsUseCase,
-    required GetLowStockProductsUseCase getLowStockProductsUseCase,
+    required products_usecases.GetLowStockProductsUseCase getLowStockProductsUseCase,
     required GetProductsByCategoryUseCase getProductsByCategoryUseCase,
   }) : _getProductsUseCase = getProductsUseCase,
        _deleteProductUseCase = deleteProductUseCase,
@@ -45,6 +47,9 @@ class ProductsController extends GetxController {
   final _isLoadingMore = false.obs;
   final _isSearching = false.obs;
   final _isDeleting = false.obs;
+  
+  // Estados de UI
+  final _isFabExpanded = false.obs;
 
   // Datos
   final _products = <Product>[].obs;
@@ -71,9 +76,12 @@ class ProductsController extends GetxController {
   final _inStock = Rxn<bool>();
   final _lowStock = Rxn<bool>();
 
-  // UI Controllers
-  final searchController = TextEditingController();
+  // UI Controllers - usando SafeTextEditingController
+  final searchController = SafeTextEditingController();
   final scrollController = ScrollController();
+  
+  // Debounce timer for search
+  Timer? _searchDebounceTimer;
 
   // Configuración
   static const int _pageSize = 20;
@@ -84,6 +92,7 @@ class ProductsController extends GetxController {
   bool get isLoadingMore => _isLoadingMore.value;
   bool get isSearching => _isSearching.value;
   bool get isDeleting => _isDeleting.value;
+  Rx<bool> get isFabExpanded => _isFabExpanded;
 
   List<Product> get products => _products;
   List<Product> get searchResults => _searchResults;
@@ -111,6 +120,11 @@ class ProductsController extends GetxController {
   bool get hasSearchResults => _searchResults.isNotEmpty;
   bool get isSearchMode => _searchTerm.value.isNotEmpty;
 
+  // ✅ NUEVOS GETTERS PARA PAGINACIÓN PROFESIONAL
+  String get paginationInfo => 'Página $currentPage de $totalPages ($totalItems productos)';
+  double get loadingProgress => totalPages > 0 ? currentPage / totalPages : 0.0;
+  bool get canLoadMore => hasNextPage && !_isLoadingMore.value && !_isLoading.value;
+
   // ==================== LIFECYCLE ====================
 
   // @override
@@ -137,14 +151,55 @@ class ProductsController extends GetxController {
 
   @override
   void onClose() {
-    searchController.dispose();
-    scrollController.dispose();
+    try {
+      print('🔚 ProductsController: Iniciando proceso de dispose...');
+      
+      // Cancel debounce timer first
+      _searchDebounceTimer?.cancel();
+      _searchDebounceTimer = null;
+      print('  ✅ Timer de búsqueda cancelado');
+      
+      // Safe disposal of SafeTextEditingController
+      try {
+        if (!searchController.isDisposed && searchController.isSafeToUse) {
+          searchController.dispose();
+          print('  ✅ SafeSearchController disposed');
+        } else {
+          print('  ⚠️ SafeSearchController already disposed or unsafe');
+        }
+      } catch (e) {
+        print('  ⚠️ SafeSearchController disposal error: $e');
+      }
+      
+      try {
+        scrollController.dispose();
+        print('  ✅ ScrollController disposed');
+      } catch (e) {
+        print('  ⚠️ Error al dispose scrollController: $e');
+      }
+      
+      print('✅ ProductsController: Controllers and timers disposed safely');
+    } catch (e) {
+      print('⚠️ ProductsController: Error during disposal - $e');
+    }
     super.onClose();
   }
 
   // ==================== INITIALIZATION ====================
 
   // ==================== PUBLIC METHODS ====================
+
+  /// Toggle FAB expansion state
+  void toggleFabExpanded() {
+    _isFabExpanded.value = !_isFabExpanded.value;
+  }
+
+  /// Close FAB if expanded
+  void closeFab() {
+    if (_isFabExpanded.value) {
+      _isFabExpanded.value = false;
+    }
+  }
 
   Future<void> loadInitialData() async {
     print('🚀 ProductsController: Iniciando carga inicial unificada...');
@@ -351,7 +406,19 @@ class ProductsController extends GetxController {
           _showError('Error al cargar más productos', failure.message);
         },
         (paginatedResult) {
-          _products.addAll(paginatedResult.data);
+          // ✅ PREVENIR DUPLICADOS: Solo agregar productos que no existan ya
+          final existingIds = _products.map((p) => p.id).toSet();
+          final newProducts = paginatedResult.data.where(
+            (product) => !existingIds.contains(product.id)
+          ).toList();
+          
+          if (newProducts.isNotEmpty) {
+            _products.addAll(newProducts);
+            print('✅ ProductsController: Agregados ${newProducts.length} productos nuevos');
+          } else {
+            print('⚠️ ProductsController: No hay productos nuevos para agregar');
+          }
+          
           _updatePaginationInfo(paginatedResult.meta);
         },
       );
@@ -834,7 +901,54 @@ class ProductsController extends GetxController {
     loadProducts();
   }
 
-  /// Actualizar búsqueda
+  /// Limpiar todos los filtros y refrescar lista completamente
+  Future<void> clearFiltersAndRefresh() async {
+    print('🔄 ProductsController: Limpiando filtros y refrescando lista...');
+    
+    // Limpiar todos los filtros
+    _currentStatus.value = null;
+    _currentType.value = null;
+    _selectedCategoryId.value = null;
+    _searchTerm.value = '';
+    _minPrice.value = null;
+    _maxPrice.value = null;
+    _priceType.value = PriceType.price1;
+    _inStock.value = null;
+    _lowStock.value = null;
+    searchController.clear();
+    _searchResults.clear();
+    _currentPage.value = 1;
+    
+    // Refrescar datos completamente
+    await refreshProducts();
+    
+    print('✅ ProductsController: Filtros limpiados y lista refrescada');
+  }
+
+  /// Búsqueda con debounce profesional
+  void debouncedSearch(String query) {
+    // Cancelar timer anterior si existe
+    _searchDebounceTimer?.cancel();
+    
+    // Actualizar el campo de búsqueda inmediatamente para UI responsiva
+    _searchTerm.value = query;
+    
+    // Si está vacío, limpiar inmediatamente
+    if (query.trim().isEmpty) {
+      _searchResults.clear();
+      loadProducts();
+      return;
+    }
+    
+    // Para queries válidas, crear timer con delay
+    if (query.trim().length >= 2) {
+      _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+        searchProducts(query);
+      });
+    }
+  }
+
+  /// Actualizar búsqueda (método legacy mantenido para compatibilidad)
   void updateSearch(String value) {
     _searchTerm.value = value;
     if (value.trim().isEmpty) {
@@ -843,6 +957,43 @@ class ProductsController extends GetxController {
     } else if (value.trim().length >= 2) {
       searchProducts(value);
     }
+  }
+
+  // ==================== NAVEGACIÓN DE PAGINACIÓN ====================
+
+  /// Ir a una página específica
+  Future<void> goToPage(int pageNumber) async {
+    if (pageNumber < 1 || pageNumber > totalPages || pageNumber == currentPage) {
+      return;
+    }
+
+    print('🔄 ProductsController: Navegando a página $pageNumber');
+    _currentPage.value = pageNumber;
+    await loadProducts();
+  }
+
+  /// Ir a la primera página
+  Future<void> goToFirstPage() async {
+    if (currentPage == 1) return;
+    await goToPage(1);
+  }
+
+  /// Ir a la última página
+  Future<void> goToLastPage() async {
+    if (currentPage == totalPages) return;
+    await goToPage(totalPages);
+  }
+
+  /// Ir a la página siguiente
+  Future<void> goToNextPage() async {
+    if (!hasNextPage) return;
+    await goToPage(currentPage + 1);
+  }
+
+  /// Ir a la página anterior
+  Future<void> goToPreviousPage() async {
+    if (!hasPreviousPage) return;
+    await goToPage(currentPage - 1);
   }
 
   // ==================== UI HELPERS ====================
@@ -951,6 +1102,7 @@ class ProductsController extends GetxController {
       duration: const Duration(seconds: 3),
     );
   }
+
 }
 
 extension ProductStatsExtension on ProductStats {

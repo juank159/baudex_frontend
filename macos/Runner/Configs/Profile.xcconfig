@@ -1,0 +1,5 @@
+#include "../../Flutter/Flutter-Release.xcconfig"
+#include "Warnings.xcconfig"
+
+// Set minimum macOS deployment target to 10.15 for flutter_tts and other plugins
+MACOSX_DEPLOYMENT_TARGET = 10.15

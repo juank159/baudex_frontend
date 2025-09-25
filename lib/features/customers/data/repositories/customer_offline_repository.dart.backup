@@ -1,0 +1,917 @@
+// lib/features/customers/data/repositories/customer_offline_repository.dart
+import 'package:dartz/dartz.dart';
+import 'package:isar/isar.dart';
+import '../../../../app/core/errors/failures.dart';
+import '../../../../app/core/errors/exceptions.dart';
+import '../../../../app/core/models/pagination_meta.dart';
+import '../../../../app/data/local/base_offline_repository.dart';
+import '../../../../app/data/local/database_service.dart';
+import '../../domain/entities/customer.dart';
+import '../../domain/entities/customer_stats.dart';
+import '../../domain/repositories/customer_repository.dart';
+import '../datasources/customer_remote_datasource.dart';
+import '../models/isar/isar_customer.dart';
+
+/// Implementación offline del repositorio de clientes
+/// 
+/// Esta clase extiende BaseOfflineRepository y maneja operaciones CRUD
+/// tanto online como offline, con sincronización automática.
+class CustomerOfflineRepository extends BaseOfflineRepository<Customer, IsarCustomer> 
+    implements CustomerRepository {
+  final CustomerRemoteDataSource remoteDataSource;
+  final DatabaseService databaseService;
+
+  CustomerOfflineRepository({
+    required this.remoteDataSource,
+    required this.databaseService,
+  });
+
+  @override
+  IsarCollection<IsarCustomer> get collection => databaseService.isar.isarCustomers;
+
+  @override
+  IsarCustomer toIsarModel(Customer entity) => IsarCustomer.fromEntity(entity);
+
+  @override
+  Customer fromIsarModel(IsarCustomer model) => model.toEntity();
+
+  // ==================== READ OPERATIONS ====================
+
+  @override
+  Future<Either<Failure, PaginatedResult<Customer>>> getCustomers({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    CustomerStatus? status,
+    DocumentType? documentType,
+    String? city,
+    String? state,
+    String? sortBy,
+    String? sortOrder,
+  }) async {
+    try {
+      // Construir query base
+      var query = collection.where().filter();
+      
+      // Aplicar filtros
+      if (search != null && search.isNotEmpty) {
+        query = query.firstNameContains(search, caseSensitive: false)
+            .or()
+            .lastNameContains(search, caseSensitive: false)
+            .or()
+            .emailContains(search, caseSensitive: false)
+            .or()
+            .documentNumberContains(search, caseSensitive: false);
+      }
+      
+      if (status != null) {
+        final isarStatus = _mapCustomerStatusToIsar(status);
+        query = query.statusEqualTo(isarStatus);
+      }
+      
+      if (documentType != null) {
+        final isarDocumentType = _mapDocumentTypeToIsar(documentType);
+        query = query.documentTypeEqualTo(isarDocumentType);
+      }
+      
+      if (city != null) {
+        query = query.cityEqualTo(city);
+      }
+      
+      if (state != null) {
+        query = query.stateEqualTo(state);
+      }
+      
+      // Excluir elementos eliminados
+      query = query.deletedAtIsNull();
+      
+      // Contar total para paginación
+      final totalCount = await query.count();
+      
+      // Aplicar paginación y ordenamiento
+      final offset = (page - 1) * limit;
+      var sortedQuery = query.sortBy(sortBy ?? 'updatedAt');
+      
+      if (sortOrder?.toLowerCase() == 'desc') {
+        sortedQuery = query.sortByUpdatedAtDesc();
+      }
+      
+      final isarCustomers = await sortedQuery.offset(offset).limit(limit).findAll();
+      
+      // Convertir a entidades de dominio
+      final customers = isarCustomers.map((model) => fromIsarModel(model)).toList();
+      
+      // Crear metadata de paginación
+      final totalPages = (totalCount / limit).ceil();
+      final meta = PaginationMeta(
+        page: page,
+        limit: limit,
+        totalItems: totalCount,
+        totalPages: totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      );
+      
+      return Right(PaginatedResult(data: customers, meta: meta));
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener clientes: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Customer?>> getDefaultCustomer(String customerId) async {
+    try {
+      final isarCustomer = await collection
+          .filter()
+          .serverIdEqualTo(customerId)
+          .and()
+          .deletedAtIsNull()
+          .findFirst();
+      
+      if (isarCustomer == null) {
+        return Right(null);
+      }
+      
+      return Right(fromIsarModel(isarCustomer));
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener cliente por defecto: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Customer>> getCustomerById(String id) async {
+    try {
+      final isarCustomer = await collection
+          .filter()
+          .serverIdEqualTo(id)
+          .and()
+          .deletedAtIsNull()
+          .findFirst();
+      
+      if (isarCustomer == null) {
+        return Left(CacheFailure('Cliente no encontrado'));
+      }
+      
+      return Right(fromIsarModel(isarCustomer));
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener cliente: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Customer>> getCustomerByDocument(
+    DocumentType documentType,
+    String documentNumber,
+  ) async {
+    try {
+      final isarDocumentType = _mapDocumentTypeToIsar(documentType);
+      final isarCustomer = await collection
+          .filter()
+          .documentTypeEqualTo(isarDocumentType)
+          .and()
+          .documentNumberEqualTo(documentNumber)
+          .and()
+          .deletedAtIsNull()
+          .findFirst();
+      
+      if (isarCustomer == null) {
+        return Left(CacheFailure('Cliente no encontrado'));
+      }
+      
+      return Right(fromIsarModel(isarCustomer));
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener cliente por documento: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Customer>> getCustomerByEmail(String email) async {
+    try {
+      final isarCustomer = await collection
+          .filter()
+          .emailEqualTo(email)
+          .and()
+          .deletedAtIsNull()
+          .findFirst();
+      
+      if (isarCustomer == null) {
+        return Left(CacheFailure('Cliente no encontrado'));
+      }
+      
+      return Right(fromIsarModel(isarCustomer));
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener cliente por email: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Customer>>> searchCustomers(
+    String searchTerm, {
+    int limit = 10,
+  }) async {
+    try {
+      final isarCustomers = await collection
+          .filter()
+          .firstNameContains(searchTerm, caseSensitive: false)
+          .or()
+          .lastNameContains(searchTerm, caseSensitive: false)
+          .or()
+          .emailContains(searchTerm, caseSensitive: false)
+          .or()
+          .documentNumberContains(searchTerm, caseSensitive: false)
+          .and()
+          .deletedAtIsNull()
+          .limit(limit)
+          .findAll();
+      
+      final customers = isarCustomers.map((model) => fromIsarModel(model)).toList();
+      return Right(customers);
+    } catch (e) {
+      return Left(CacheFailure('Error al buscar clientes: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, CustomerStats>> getCustomerStats() async {
+    try {
+      final allCustomers = await collection.filter().deletedAtIsNull().findAll();
+      
+      final totalCustomers = allCustomers.length;
+      final activeCustomers = allCustomers.where((c) => c.status == IsarCustomerStatus.active).length;
+      final inactiveCustomers = allCustomers.where((c) => c.status == IsarCustomerStatus.inactive).length;
+      final suspendedCustomers = allCustomers.where((c) => c.status == IsarCustomerStatus.suspended).length;
+      
+      final totalSales = allCustomers.fold<double>(
+        0.0,
+        (sum, customer) => sum + customer.totalPurchases,
+      );
+      
+      final averageSalesPerCustomer = totalCustomers > 0 ? totalSales / totalCustomers : 0.0;
+      
+      final customersWithCredit = allCustomers.where((c) => c.creditLimit > 0).length;
+      final totalCreditLimit = allCustomers.fold<double>(
+        0.0,
+        (sum, customer) => sum + customer.creditLimit,
+      );
+      
+      final totalOutstandingBalance = allCustomers.fold<double>(
+        0.0,
+        (sum, customer) => sum + customer.currentBalance,
+      );
+      
+      final stats = CustomerStats(
+        totalCustomers: totalCustomers,
+        activeCustomers: activeCustomers,
+        inactiveCustomers: inactiveCustomers,
+        suspendedCustomers: suspendedCustomers,
+        newCustomersThisMonth: 0, // TODO: Calculate based on createdAt
+        totalSales: totalSales,
+        averageSalesPerCustomer: averageSalesPerCustomer,
+        customersWithCredit: customersWithCredit,
+        totalCreditLimit: totalCreditLimit,
+        totalOutstandingBalance: totalOutstandingBalance,
+      );
+      
+      return Right(stats);
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener estadísticas: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Customer>>> getCustomersWithOverdueInvoices() async {
+    try {
+      // TODO: This would require joining with invoice data
+      // For now, return customers with outstanding balance
+      final isarCustomers = await collection
+          .filter()
+          .currentBalanceGreaterThan(0)
+          .and()
+          .deletedAtIsNull()
+          .findAll();
+      
+      final customers = isarCustomers.map((model) => fromIsarModel(model)).toList();
+      return Right(customers);
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener clientes con facturas vencidas: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Customer>>> getTopCustomers({int limit = 10}) async {
+    try {
+      final isarCustomers = await collection
+          .filter()
+          .deletedAtIsNull()
+          .sortByTotalPurchasesDesc()
+          .limit(limit)
+          .findAll();
+      
+      final customers = isarCustomers.map((model) => fromIsarModel(model)).toList();
+      return Right(customers);
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener top clientes: ${e.toString()}'));
+    }
+  }
+
+  // ==================== WRITE OPERATIONS ====================
+
+  @override
+  Future<Either<Failure, Customer>> createCustomer({
+    required String firstName,
+    required String lastName,
+    String? companyName,
+    required String email,
+    String? phone,
+    String? mobile,
+    required DocumentType documentType,
+    required String documentNumber,
+    String? address,
+    String? city,
+    String? state,
+    String? zipCode,
+    String? country,
+    CustomerStatus? status,
+    double? creditLimit,
+    int? paymentTerms,
+    DateTime? birthDate,
+    String? notes,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      // Verificar si el email ya existe
+      final emailCheckResult = await isEmailAvailable(email);
+      final emailAvailable = emailCheckResult.fold(
+        (failure) => false,
+        (available) => available,
+      );
+      
+      if (!emailAvailable) {
+        return Left(ValidationFailure('El email ya está en uso'));
+      }
+      
+      // Verificar si el documento ya existe
+      final documentCheckResult = await isDocumentAvailable(documentType, documentNumber);
+      final documentAvailable = documentCheckResult.fold(
+        (failure) => false,
+        (available) => available,
+      );
+      
+      if (!documentAvailable) {
+        return Left(ValidationFailure('El documento ya está registrado'));
+      }
+      
+      // Crear entidad de dominio
+      final now = DateTime.now();
+      final customerId = DateTime.now().millisecondsSinceEpoch.toString(); // Temporal ID
+      
+      final customer = Customer(
+        id: customerId,
+        firstName: firstName,
+        lastName: lastName,
+        companyName: companyName,
+        email: email,
+        phone: phone,
+        mobile: mobile,
+        documentType: documentType,
+        documentNumber: documentNumber,
+        address: address,
+        city: city,
+        state: state,
+        zipCode: zipCode,
+        country: country,
+        status: status ?? CustomerStatus.active,
+        creditLimit: creditLimit ?? 0.0,
+        currentBalance: 0.0,
+        paymentTerms: paymentTerms ?? 30,
+        birthDate: birthDate,
+        notes: notes,
+        metadata: metadata,
+        lastPurchaseAt: null,
+        totalPurchases: 0.0,
+        totalOrders: 0,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      );
+      
+      // Guardar localmente y marcar como no sincronizado
+      await saveLocally(customer);
+      
+      return Right(customer);
+    } catch (e) {
+      return Left(CacheFailure('Error al crear cliente: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Customer>> updateCustomer({
+    required String id,
+    String? firstName,
+    String? lastName,
+    String? companyName,
+    String? email,
+    String? phone,
+    String? mobile,
+    DocumentType? documentType,
+    String? documentNumber,
+    String? address,
+    String? city,
+    String? state,
+    String? zipCode,
+    String? country,
+    CustomerStatus? status,
+    double? creditLimit,
+    int? paymentTerms,
+    DateTime? birthDate,
+    String? notes,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      // Obtener cliente existente
+      final existingResult = await getCustomerById(id);
+      
+      return existingResult.fold(
+        (failure) => Left(failure),
+        (existingCustomer) async {
+          // Verificar email si se está cambiando
+          if (email != null && email != existingCustomer.email) {
+            final emailCheckResult = await isEmailAvailable(email, excludeId: id);
+            final emailAvailable = emailCheckResult.fold(
+              (failure) => false,
+              (available) => available,
+            );
+            
+            if (!emailAvailable) {
+              return Left(ValidationFailure('El email ya está en uso'));
+            }
+          }
+          
+          // Verificar documento si se está cambiando
+          if ((documentType != null && documentType != existingCustomer.documentType) ||
+              (documentNumber != null && documentNumber != existingCustomer.documentNumber)) {
+            final newDocumentType = documentType ?? existingCustomer.documentType;
+            final newDocumentNumber = documentNumber ?? existingCustomer.documentNumber;
+            
+            final documentCheckResult = await isDocumentAvailable(
+              newDocumentType,
+              newDocumentNumber,
+              excludeId: id,
+            );
+            final documentAvailable = documentCheckResult.fold(
+              (failure) => false,
+              (available) => available,
+            );
+            
+            if (!documentAvailable) {
+              return Left(ValidationFailure('El documento ya está registrado'));
+            }
+          }
+          
+          // Actualizar campos
+          final updatedCustomer = Customer(
+            id: existingCustomer.id,
+            firstName: firstName ?? existingCustomer.firstName,
+            lastName: lastName ?? existingCustomer.lastName,
+            companyName: companyName ?? existingCustomer.companyName,
+            email: email ?? existingCustomer.email,
+            phone: phone ?? existingCustomer.phone,
+            mobile: mobile ?? existingCustomer.mobile,
+            documentType: documentType ?? existingCustomer.documentType,
+            documentNumber: documentNumber ?? existingCustomer.documentNumber,
+            address: address ?? existingCustomer.address,
+            city: city ?? existingCustomer.city,
+            state: state ?? existingCustomer.state,
+            zipCode: zipCode ?? existingCustomer.zipCode,
+            country: country ?? existingCustomer.country,
+            status: status ?? existingCustomer.status,
+            creditLimit: creditLimit ?? existingCustomer.creditLimit,
+            currentBalance: existingCustomer.currentBalance,
+            paymentTerms: paymentTerms ?? existingCustomer.paymentTerms,
+            birthDate: birthDate ?? existingCustomer.birthDate,
+            notes: notes ?? existingCustomer.notes,
+            metadata: metadata ?? existingCustomer.metadata,
+            lastPurchaseAt: existingCustomer.lastPurchaseAt,
+            totalPurchases: existingCustomer.totalPurchases,
+            totalOrders: existingCustomer.totalOrders,
+            createdAt: existingCustomer.createdAt,
+            updatedAt: DateTime.now(),
+            deletedAt: existingCustomer.deletedAt,
+          );
+          
+          // Guardar localmente y marcar como no sincronizado
+          await saveLocally(updatedCustomer);
+          
+          return Right(updatedCustomer);
+        },
+      );
+    } catch (e) {
+      return Left(CacheFailure('Error al actualizar cliente: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Customer>> updateCustomerStatus({
+    required String id,
+    required CustomerStatus status,
+  }) async {
+    return updateCustomer(id: id, status: status);
+  }
+
+  @override
+  Future<Either<Failure, Customer>> updateCustomerBalance({
+    required String id,
+    required double amount,
+    required String operation,
+  }) async {
+    try {
+      final existingResult = await getCustomerById(id);
+      
+      return existingResult.fold(
+        (failure) => Left(failure),
+        (existingCustomer) async {
+          final newBalance = operation == 'add' 
+              ? existingCustomer.currentBalance + amount
+              : existingCustomer.currentBalance - amount;
+          
+          final updatedCustomer = Customer(
+            id: existingCustomer.id,
+            firstName: existingCustomer.firstName,
+            lastName: existingCustomer.lastName,
+            companyName: existingCustomer.companyName,
+            email: existingCustomer.email,
+            phone: existingCustomer.phone,
+            mobile: existingCustomer.mobile,
+            documentType: existingCustomer.documentType,
+            documentNumber: existingCustomer.documentNumber,
+            address: existingCustomer.address,
+            city: existingCustomer.city,
+            state: existingCustomer.state,
+            zipCode: existingCustomer.zipCode,
+            country: existingCustomer.country,
+            status: existingCustomer.status,
+            creditLimit: existingCustomer.creditLimit,
+            currentBalance: newBalance,
+            paymentTerms: existingCustomer.paymentTerms,
+            birthDate: existingCustomer.birthDate,
+            notes: existingCustomer.notes,
+            metadata: existingCustomer.metadata,
+            lastPurchaseAt: existingCustomer.lastPurchaseAt,
+            totalPurchases: existingCustomer.totalPurchases,
+            totalOrders: existingCustomer.totalOrders,
+            createdAt: existingCustomer.createdAt,
+            updatedAt: DateTime.now(),
+            deletedAt: existingCustomer.deletedAt,
+          );
+          
+          await saveLocally(updatedCustomer);
+          return Right(updatedCustomer);
+        },
+      );
+    } catch (e) {
+      return Left(CacheFailure('Error al actualizar balance: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> deleteCustomer(String id) async {
+    try {
+      await deleteLocally(id);
+      return Right(unit);
+    } catch (e) {
+      return Left(CacheFailure('Error al eliminar cliente: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Customer>> restoreCustomer(String id) async {
+    try {
+      final isarCustomer = await collection
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+      
+      if (isarCustomer == null) {
+        return Left(CacheFailure('Cliente no encontrado'));
+      }
+      
+      // Restaurar cliente
+      isarCustomer.deletedAt = null;
+      isarCustomer.markAsUnsynced();
+      
+      await databaseService.isar.writeTxn(() async {
+        await collection.put(isarCustomer);
+      });
+      
+      return Right(fromIsarModel(isarCustomer));
+    } catch (e) {
+      return Left(CacheFailure('Error al restaurar cliente: ${e.toString()}'));
+    }
+  }
+
+  // ==================== VALIDATION OPERATIONS ====================
+
+  @override
+  Future<Either<Failure, bool>> isEmailAvailable(
+    String email, {
+    String? excludeId,
+  }) async {
+    try {
+      var query = collection.filter().emailEqualTo(email).and().deletedAtIsNull();
+      
+      if (excludeId != null) {
+        query = query.not().serverIdEqualTo(excludeId);
+      }
+      
+      final count = await query.count();
+      return Right(count == 0);
+    } catch (e) {
+      return Left(CacheFailure('Error al verificar email: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> isDocumentAvailable(
+    DocumentType documentType,
+    String documentNumber, {
+    String? excludeId,
+  }) async {
+    try {
+      final isarDocumentType = _mapDocumentTypeToIsar(documentType);
+      var query = collection
+          .filter()
+          .documentTypeEqualTo(isarDocumentType)
+          .and()
+          .documentNumberEqualTo(documentNumber)
+          .and()
+          .deletedAtIsNull();
+      
+      if (excludeId != null) {
+        query = query.not().serverIdEqualTo(excludeId);
+      }
+      
+      final count = await query.count();
+      return Right(count == 0);
+    } catch (e) {
+      return Left(CacheFailure('Error al verificar documento: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, dynamic>>> canMakePurchase({
+    required String customerId,
+    required double amount,
+  }) async {
+    try {
+      final customerResult = await getCustomerById(customerId);
+      
+      return customerResult.fold(
+        (failure) => Left(failure),
+        (customer) {
+          final canPurchase = customer.status == CustomerStatus.active &&
+              (customer.creditLimit == 0 || 
+               customer.currentBalance + amount <= customer.creditLimit);
+          
+          return Right({
+            'canPurchase': canPurchase,
+            'currentBalance': customer.currentBalance,
+            'creditLimit': customer.creditLimit,
+            'availableCredit': customer.creditLimit - customer.currentBalance,
+            'reason': canPurchase ? null : 'Credit limit exceeded or customer inactive',
+          });
+        },
+      );
+    } catch (e) {
+      return Left(CacheFailure('Error al verificar capacidad de compra: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, dynamic>>> getCustomerFinancialSummary(
+    String customerId,
+  ) async {
+    try {
+      final customerResult = await getCustomerById(customerId);
+      
+      return customerResult.fold(
+        (failure) => Left(failure),
+        (customer) {
+          return Right({
+            'totalPurchases': customer.totalPurchases,
+            'totalOrders': customer.totalOrders,
+            'currentBalance': customer.currentBalance,
+            'creditLimit': customer.creditLimit,
+            'availableCredit': customer.creditLimit - customer.currentBalance,
+            'lastPurchaseAt': customer.lastPurchaseAt?.toIso8601String(),
+            'averageOrderValue': customer.totalOrders > 0 
+                ? customer.totalPurchases / customer.totalOrders 
+                : 0.0,
+            'creditUtilization': customer.creditLimit > 0 
+                ? (customer.currentBalance / customer.creditLimit) * 100 
+                : 0.0,
+          });
+        },
+      );
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener resumen financiero: ${e.toString()}'));
+    }
+  }
+
+  // ==================== CACHE OPERATIONS ====================
+
+  @override
+  Future<Either<Failure, List<Customer>>> getCachedCustomers() async {
+    try {
+      final isarCustomers = await collection
+          .filter()
+          .deletedAtIsNull()
+          .findAll();
+      
+      final customers = isarCustomers.map((model) => fromIsarModel(model)).toList();
+      return Right(customers);
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener clientes de cache: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> clearCustomerCache() async {
+    try {
+      await databaseService.isar.writeTxn(() async {
+        await collection.clear();
+      });
+      return Right(unit);
+    } catch (e) {
+      return Left(CacheFailure('Error al limpiar cache: ${e.toString()}'));
+    }
+  }
+
+  // ==================== SYNC OPERATIONS ====================
+
+  @override
+  Future<List<Customer>> getUnsyncedEntities() async {
+    final isarCustomers = await collection
+        .filter()
+        .isSyncedEqualTo(false)
+        .findAll();
+    
+    return isarCustomers.map((model) => fromIsarModel(model)).toList();
+  }
+
+  @override
+  Future<List<Customer>> getUnsyncedDeleted() async {
+    final isarCustomers = await collection
+        .filter()
+        .deletedAtIsNotNull()
+        .and()
+        .isSyncedEqualTo(false)
+        .findAll();
+    
+    return isarCustomers.map((model) => fromIsarModel(model)).toList();
+  }
+
+  @override
+  Future<void> markAsSynced(List<String> ids) async {
+    await databaseService.isar.writeTxn(() async {
+      for (final id in ids) {
+        final isarCustomer = await collection
+            .filter()
+            .serverIdEqualTo(id)
+            .findFirst();
+        if (isarCustomer != null) {
+          isarCustomer.markAsSynced();
+          await collection.put(isarCustomer);
+        }
+      }
+    });
+  }
+
+  @override
+  Future<void> markAsUnsynced(String id) async {
+    await databaseService.isar.writeTxn(() async {
+      final isarCustomer = await collection
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+      if (isarCustomer != null) {
+        isarCustomer.markAsUnsynced();
+        await collection.put(isarCustomer);
+      }
+    });
+  }
+
+  @override
+  Future<void> saveLocally(Customer entity) async {
+    final isarModel = toIsarModel(entity);
+    isarModel.markAsUnsynced();
+    
+    await databaseService.isar.writeTxn(() async {
+      await collection.put(isarModel);
+    });
+  }
+
+  @override
+  Future<void> saveAllLocally(List<Customer> entities) async {
+    final isarModels = entities.map((entity) {
+      final model = toIsarModel(entity);
+      model.markAsUnsynced();
+      return model;
+    }).toList();
+    
+    await databaseService.isar.writeTxn(() async {
+      await collection.putAll(isarModels);
+    });
+  }
+
+  @override
+  Future<void> deleteLocally(String id) async {
+    await databaseService.isar.writeTxn(() async {
+      final isarCustomer = await collection
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+      if (isarCustomer != null) {
+        isarCustomer.softDelete();
+        await collection.put(isarCustomer);
+      }
+    });
+  }
+
+  @override
+  Future<SyncResult<Customer>> syncToServer(List<Customer> entities) async {
+    // TODO: Implement sync to server logic with remoteDataSource
+    throw UnimplementedError('syncToServer not implemented yet');
+  }
+
+  @override
+  Future<SyncResult<Customer>> syncFromServer(List<Customer> serverEntities) async {
+    // TODO: Implement sync from server logic
+    throw UnimplementedError('syncFromServer not implemented yet');
+  }
+
+  @override
+  Future<Customer> resolveConflict(
+    SyncConflict<Customer> conflict,
+    ConflictResolutionPolicy policy,
+  ) async {
+    // TODO: Implement conflict resolution
+    throw UnimplementedError('resolveConflict not implemented yet');
+  }
+
+  @override
+  Future<List<SyncConflict<Customer>>> detectConflicts(List<Customer> serverEntities) async {
+    // TODO: Implement conflict detection
+    throw UnimplementedError('detectConflicts not implemented yet');
+  }
+
+  @override
+  Future<SyncStats> getSyncStats() async {
+    final totalEntities = await collection.count();
+    final syncedEntities = await collection.filter().isSyncedEqualTo(true).count();
+    final unsyncedEntities = await collection.filter().isSyncedEqualTo(false).count();
+    final pendingDeletes = await collection.filter().deletedAtIsNotNull().and().isSyncedEqualTo(false).count();
+    
+    // Get last sync time from most recently synced entity
+    final lastSyncedEntity = await collection
+        .filter()
+        .lastSyncAtIsNotNull()
+        .sortByLastSyncAtDesc()
+        .findFirst();
+    
+    return SyncStats(
+      totalEntities: totalEntities,
+      syncedEntities: syncedEntities,
+      unsyncedEntities: unsyncedEntities,
+      pendingDeletes: pendingDeletes,
+      lastSyncAt: lastSyncedEntity?.lastSyncAt,
+    );
+  }
+
+  // ==================== HELPER METHODS ====================
+
+  IsarCustomerStatus _mapCustomerStatusToIsar(CustomerStatus status) {
+    switch (status) {
+      case CustomerStatus.active:
+        return IsarCustomerStatus.active;
+      case CustomerStatus.inactive:
+        return IsarCustomerStatus.inactive;
+      case CustomerStatus.suspended:
+        return IsarCustomerStatus.suspended;
+    }
+  }
+
+  IsarDocumentType _mapDocumentTypeToIsar(DocumentType type) {
+    switch (type) {
+      case DocumentType.cc:
+        return IsarDocumentType.cc;
+      case DocumentType.nit:
+        return IsarDocumentType.nit;
+      case DocumentType.ce:
+        return IsarDocumentType.ce;
+      case DocumentType.passport:
+        return IsarDocumentType.passport;
+      case DocumentType.other:
+        return IsarDocumentType.other;
+    }
+  }
+}

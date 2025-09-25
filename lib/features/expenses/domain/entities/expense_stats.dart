@@ -20,6 +20,13 @@ class ExpenseStats extends Equatable {
   final Map<String, double> expensesByType;
   final Map<String, int> expensesByStatus;
   final List<MonthlyExpenseTrend> monthlyTrends;
+  
+  // ✅ NUEVAS PROPIEDADES PARA ESTADÍSTICAS MEJORADAS
+  final int? dailyCount;
+  final int? weeklyCount;
+  final int monthlyCount;
+  final double? previousMonthAmount;
+  final int? previousMonthCount;
 
   const ExpenseStats({
     required this.totalExpenses,
@@ -40,6 +47,11 @@ class ExpenseStats extends Equatable {
     required this.expensesByType,
     required this.expensesByStatus,
     required this.monthlyTrends,
+    this.dailyCount,
+    this.weeklyCount,
+    required this.monthlyCount,
+    this.previousMonthAmount,
+    this.previousMonthCount,
   });
 
   @override
@@ -62,6 +74,11 @@ class ExpenseStats extends Equatable {
         expensesByType,
         expensesByStatus,
         monthlyTrends,
+        dailyCount,
+        weeklyCount,
+        monthlyCount,
+        previousMonthAmount,
+        previousMonthCount,
       ];
 
   // Getters útiles

@@ -1,3 +1,4 @@
+// lib/features/products/presentation/widgets/price_calculator_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -16,7 +17,7 @@ class CurrencyInputFormatter extends TextInputFormatter {
     }
 
     String digitsOnly = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    
+
     if (digitsOnly.isEmpty) {
       return const TextEditingValue(text: '');
     }
@@ -29,7 +30,7 @@ class CurrencyInputFormatter extends TextInputFormatter {
 
     final number = int.parse(digitsOnly);
     final formatted = AppFormatters.formatNumber(number);
-    
+
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),
@@ -75,11 +76,11 @@ class _PriceCalculatorDialogState extends State<PriceCalculatorDialog> {
 
   void _calculate() {
     print('🧮 PriceCalculatorDialog: Iniciando cálculo...');
-    
+
     // Usar parseNumber para convertir el texto formateado de vuelta a número
     final cost = AppFormatters.parseNumber(_costController.text) ?? 0;
     print('🧮 PriceCalculatorDialog: Costo parseado: $cost');
-    
+
     if (cost <= 0) {
       print('❌ PriceCalculatorDialog: Costo inválido');
       Get.snackbar('Error', 'El costo debe ser un número positivo');
@@ -87,24 +88,26 @@ class _PriceCalculatorDialogState extends State<PriceCalculatorDialog> {
     }
 
     final calculatedPrices = <String, double>{};
-    
+
     // Incluir el precio de costo en los resultados
     calculatedPrices['cost'] = cost;
     print('🧮 PriceCalculatorDialog: cost -> ${calculatedPrices['cost']}');
-    
+
     _percentageControllers.forEach((key, controller) {
       final percentage = double.tryParse(controller.text) ?? 0;
       calculatedPrices[key] = cost * (1 + (percentage / 100));
-      print('🧮 PriceCalculatorDialog: $key -> $percentage% = ${calculatedPrices[key]}');
+      print(
+        '🧮 PriceCalculatorDialog: $key -> $percentage% = ${calculatedPrices[key]}',
+      );
     });
 
     print('🧮 PriceCalculatorDialog: Llamando callback...');
-    
+
     // Cerrar el diálogo ANTES de llamar al callback para evitar problemas
     print('🧮 PriceCalculatorDialog: Cerrando diálogo...');
     Navigator.of(context).pop();
     print('🧮 PriceCalculatorDialog: Diálogo cerrado');
-    
+
     // Llamar al callback después de cerrar
     widget.onCalculate(calculatedPrices);
     print('🧮 PriceCalculatorDialog: Callback ejecutado');

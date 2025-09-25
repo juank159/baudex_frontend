@@ -7,6 +7,7 @@ class DashboardStats extends Equatable {
   final ProductStats products;
   final CustomerStats customers;
   final ExpenseStats expenses;
+  final ProfitabilityStats profitability; // 🆕 Métricas FIFO de rentabilidad
 
   const DashboardStats({
     required this.sales,
@@ -14,10 +15,11 @@ class DashboardStats extends Equatable {
     required this.products,
     required this.customers,
     required this.expenses,
+    required this.profitability,
   });
 
   @override
-  List<Object?> get props => [sales, invoices, products, customers, expenses];
+  List<Object?> get props => [sales, invoices, products, customers, expenses, profitability];
 }
 
 class SalesStats extends Equatable {
@@ -146,6 +148,7 @@ class ExpenseStats extends Equatable {
   final int pendingExpenses;
   final int approvedExpenses;
   final double monthlyGrowth;
+  final Map<String, double> expensesByCategory;
 
   const ExpenseStats({
     required this.totalAmount,
@@ -155,6 +158,7 @@ class ExpenseStats extends Equatable {
     required this.pendingExpenses,
     required this.approvedExpenses,
     required this.monthlyGrowth,
+    required this.expensesByCategory,
   });
 
   @override
@@ -166,5 +170,138 @@ class ExpenseStats extends Equatable {
     pendingExpenses,
     approvedExpenses,
     monthlyGrowth,
+    expensesByCategory,
   ];
+}
+
+// 🆕 NUEVA ENTIDAD: Métricas de Rentabilidad FIFO
+class ProfitabilityStats extends Equatable {
+  final double totalRevenue;           // Total de ingresos
+  final double totalCOGS;              // Costo de ventas FIFO real
+  final double grossProfit;            // Ganancia bruta (revenue - COGS)
+  final double grossMarginPercentage;  // Margen bruto %
+  final double netProfit;              // Ganancia neta (gross - expenses)
+  final double netMarginPercentage;    // Margen neto %
+  final double averageMarginPerSale;   // Margen promedio por venta
+  final List<ProductProfitability> topProfitableProducts;   // Top 5 más rentables
+  final List<ProductProfitability> lowProfitableProducts;   // Top 5 menos rentables
+  final Map<String, double> marginsByCategory;             // Márgenes por categoría
+  final ProfitabilityTrend trend;                          // Tendencia de rentabilidad
+
+  const ProfitabilityStats({
+    required this.totalRevenue,
+    required this.totalCOGS,
+    required this.grossProfit,
+    required this.grossMarginPercentage,
+    required this.netProfit,
+    required this.netMarginPercentage,
+    required this.averageMarginPerSale,
+    required this.topProfitableProducts,
+    required this.lowProfitableProducts,
+    required this.marginsByCategory,
+    required this.trend,
+  });
+
+  @override
+  List<Object?> get props => [
+    totalRevenue,
+    totalCOGS,
+    grossProfit,
+    grossMarginPercentage,
+    netProfit,
+    netMarginPercentage,
+    averageMarginPerSale,
+    topProfitableProducts,
+    lowProfitableProducts,
+    marginsByCategory,
+    trend,
+  ];
+}
+
+// 🆕 Rentabilidad por producto
+class ProductProfitability extends Equatable {
+  final String productId;
+  final String productName;
+  final String sku;
+  final String? categoryName;
+  final double totalRevenue;
+  final double totalCOGS;
+  final double grossProfit;
+  final double marginPercentage;
+  final int unitsSold;
+  final double averageSellingPrice;
+  final double averageFifoCost;
+
+  const ProductProfitability({
+    required this.productId,
+    required this.productName,
+    required this.sku,
+    this.categoryName,
+    required this.totalRevenue,
+    required this.totalCOGS,
+    required this.grossProfit,
+    required this.marginPercentage,
+    required this.unitsSold,
+    required this.averageSellingPrice,
+    required this.averageFifoCost,
+  });
+
+  @override
+  List<Object?> get props => [
+    productId,
+    productName,
+    sku,
+    categoryName,
+    totalRevenue,
+    totalCOGS,
+    grossProfit,
+    marginPercentage,
+    unitsSold,
+    averageSellingPrice,
+    averageFifoCost,
+  ];
+}
+
+// 🆕 Tendencia de rentabilidad
+class ProfitabilityTrend extends Equatable {
+  final double previousPeriodGrossMargin;
+  final double currentPeriodGrossMargin;
+  final double marginGrowth;
+  final bool isImproving;
+  final List<DailyMarginPoint> dailyMargins;
+
+  const ProfitabilityTrend({
+    required this.previousPeriodGrossMargin,
+    required this.currentPeriodGrossMargin,
+    required this.marginGrowth,
+    required this.isImproving,
+    required this.dailyMargins,
+  });
+
+  @override
+  List<Object?> get props => [
+    previousPeriodGrossMargin,
+    currentPeriodGrossMargin,
+    marginGrowth,
+    isImproving,
+    dailyMargins,
+  ];
+}
+
+// 🆕 Punto de margen diario para gráficos
+class DailyMarginPoint extends Equatable {
+  final DateTime date;
+  final double grossMarginPercentage;
+  final double dailyRevenue;
+  final double dailyCOGS;
+
+  const DailyMarginPoint({
+    required this.date,
+    required this.grossMarginPercentage,
+    required this.dailyRevenue,
+    required this.dailyCOGS,
+  });
+
+  @override
+  List<Object?> get props => [date, grossMarginPercentage, dailyRevenue, dailyCOGS];
 }

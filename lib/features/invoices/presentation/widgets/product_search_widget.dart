@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/core/services/audio_notification_service.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/entities/product_price.dart';
 import '../controllers/invoice_form_controller.dart';
@@ -25,10 +26,10 @@ class ProductSearchWidget extends StatefulWidget {
   });
 
   @override
-  State<ProductSearchWidget> createState() => _ProductSearchWidgetState();
+  State<ProductSearchWidget> createState() => ProductSearchWidgetState();
 }
 
-class _ProductSearchWidgetState extends State<ProductSearchWidget> {
+class ProductSearchWidgetState extends State<ProductSearchWidget> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode(); // Para el TextField
   final FocusNode _keyboardFocusNode = FocusNode(); // ✅ NUEVO: Para el RawKeyboardListener
@@ -44,11 +45,21 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
   // Timer para debounce
   Timer? _debounceTimer;
   static const Duration _debounceDuration = Duration(milliseconds: 500);
+  
+  // ✅ NUEVO: Timer para mantener focus persistente
+  Timer? _focusTimer;
+  static const Duration _focusCheckDuration = Duration(milliseconds: 100);
+  
+  // ✅ NUEVO: Control para pausar temporalmente la restauración de focus
+  bool _pauseFocusRestoration = false;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+
+    // ✅ NUEVO: Inicializar servicio de audio para notificaciones de voz
+    _initializeAudioService();
 
     // Auto focus al abrir la pantalla - con delay para evitar bloqueos
     if (widget.autoFocus) {
@@ -56,10 +67,29 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) {
             _focusNode.requestFocus(); // TextField focus
-            // El keyboard focus se activará automáticamente cuando haya resultados
+            _startPersistentFocusMonitoring(); // ✅ NUEVO: Iniciar monitoreo de focus para scanning
           }
         });
       });
+    } else {
+      // ✅ NUEVO: Siempre iniciar focus monitoring para escáner de códigos de barras
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _startPersistentFocusMonitoring();
+          }
+        });
+      });
+    }
+  }
+
+  /// ✅ NUEVO: Inicializar servicio de notificaciones de audio
+  Future<void> _initializeAudioService() async {
+    try {
+      await AudioNotificationService.instance.initialize();
+      print('🔊 ProductSearchWidget: Servicio de audio inicializado para notificaciones');
+    } catch (e) {
+      print('⚠️ ProductSearchWidget: Error al inicializar audio: $e');
     }
   }
 
@@ -67,6 +97,7 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
   void dispose() {
     try {
       _debounceTimer?.cancel();
+      _focusTimer?.cancel(); // ✅ NUEVO: Cancelar timer de focus
       
       // Remover listener antes de dispose
       _searchController.removeListener(_onSearchChanged);
@@ -79,6 +110,83 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
       print('⚠️ Error en dispose de ProductSearchWidget: $e');
     }
     super.dispose();
+  }
+
+  // ✅ MEJORADO: Sistema de focus persistente para barcode scanning
+  void _startPersistentFocusMonitoring() {
+    print('🔍 FOCUS: Iniciando monitoreo de focus persistente para códigos de barras');
+    
+    _focusTimer = Timer.periodic(_focusCheckDuration, (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      
+      // Solo mantener focus activo si no hay dialogs modales abiertos Y no está pausado
+      if (!_hasModalRouteAbove() && !_focusNode.hasFocus && !_pauseFocusRestoration) {
+        _focusNode.requestFocus();
+        print('🔍 Focus restaurado automáticamente');
+      }
+    });
+  }
+
+  // ✅ NUEVO: Verificar si hay rutas modales abiertas (dialogs)
+  bool _hasModalRouteAbove() {
+    try {
+      final overlay = Overlay.of(context);
+      return ModalRoute.of(context)?.isCurrent != true;
+    } catch (e) {
+      return false; // Si hay error, asumir que no hay modal
+    }
+  }
+
+  // ✅ MEJORADO: Focus manual cuando sea necesario
+  void _ensureSearchFieldFocus() {
+    if (mounted && !_focusNode.hasFocus && !_hasModalRouteAbove()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_hasModalRouteAbove()) {
+          _focusNode.requestFocus();
+          print('🔍 Focus asegurado en campo de búsqueda');
+        }
+      });
+    }
+  }
+
+  // ✅ NUEVO: Pausar temporalmente la restauración automática de focus
+  void pauseFocusRestoration() {
+    _pauseFocusRestoration = true;
+    print('🔍 Focus restauración pausada - otros campos pueden tomar control');
+  }
+
+  // ✅ NUEVO: Reanudar la restauración automática de focus
+  void resumeFocusRestoration() {
+    _pauseFocusRestoration = false;
+    print('🔍 Focus restauración reanudada - monitoreo activo');
+  }
+
+  // ✅ NUEVO: Auto-seleccionar texto completo para códigos de barras
+  void _autoSelectBarcodeText() {
+    if (!mounted || _searchController.text.isEmpty) return;
+    
+    try {
+      // Programar la selección para el siguiente frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _searchController.text.isNotEmpty) {
+          _searchController.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: _searchController.text.length,
+          );
+          print('✅ Texto auto-seleccionado: "${_searchController.text}"');
+          
+          // Asegurar focus después de seleccionar
+          if (!_focusNode.hasFocus && !_hasModalRouteAbove()) {
+            _focusNode.requestFocus();
+          }
+        }
+      });
+    } catch (e) {
+      print('⚠️ Error auto-seleccionando texto: $e');
+    }
   }
 
   @override
@@ -162,10 +270,25 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
         children: [
           // Campo de texto principal
           Expanded(
-            child: RawKeyboardListener(
-              focusNode: _keyboardFocusNode, // ✅ NUEVO: FocusNode separado para navegación
-              onKey: _handleKeyboardNavigation,
-              child: TextField(
+            child: Focus(
+              onKeyEvent: (FocusNode node, KeyEvent event) {
+                // ✅ CRÍTICO: Interceptar Enter ANTES de que llegue al TextField
+                if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+                  if (_showResults && _searchResults.isNotEmpty && _selectedResultIndex >= 0) {
+                    print('🚫 INTERCEPTANDO Enter - hay selección activa ($_selectedResultIndex)');
+                    final selectedProduct = _searchResults[_selectedResultIndex];
+                    if (selectedProduct.stock > 0) {
+                      _selectProduct(selectedProduct);
+                    }
+                    return KeyEventResult.handled; // ✅ Bloquear propagación
+                  }
+                }
+                return KeyEventResult.ignored; // ✅ Permitir propagación normal
+              },
+              child: RawKeyboardListener(
+                focusNode: _keyboardFocusNode, // ✅ NUEVO: FocusNode separado para navegación
+                onKey: _handleKeyboardNavigation,
+                child: TextField(
                 controller: _searchController,
                 focusNode: _focusNode,
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
@@ -186,7 +309,21 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
                     vertical: 16,
                   ),
                 ),
-                onSubmitted: (value) => _handleDirectSearch(value),
+                onSubmitted: (value) {
+                  // ✅ CRÍTICO: Solo procesar onSubmitted si no hay selección activa
+                  if (_selectedResultIndex < 0) {
+                    print('🔍 SUBMIT: Procesando sin selección activa');
+                    _handleDirectSearch(value);
+                  } else {
+                    print('🔍 SUBMIT: Hay selección activa ($_selectedResultIndex) - procesando producto seleccionado');
+                    // Si hay selección activa, procesar ese producto en lugar de buscar
+                    final selectedProduct = _searchResults[_selectedResultIndex];
+                    if (selectedProduct.stock > 0) {
+                      _selectProduct(selectedProduct);
+                    }
+                  }
+                },
+                ),
               ),
             ),
           ),
@@ -197,7 +334,7 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
               icon: const Icon(Icons.clear),
               onPressed: () {
                 _searchController.clear();
-                _focusNode.requestFocus();
+                _ensureSearchFieldFocus();
               },
             ),
 
@@ -287,7 +424,10 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          onTap: hasStock ? () => _selectProduct(product) : null,
+          onTap: hasStock ? () => _selectProduct(product) : () {
+            // Solo mensaje de log para productos sin stock (SIN audio)
+            print('🔊 Producto sin stock: ${product.name}');
+          },
           child: Container(
             decoration:
                 isSelected
@@ -445,9 +585,9 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
 
   Widget _buildUnregisteredProductOption(BuildContext context) {
     final searchValue = _searchController.text.trim();
-    final isNumeric = _isNumericValue(searchValue);
+    final isUnregisteredProduct = _isUnregisteredProductQuery(searchValue);
 
-    if (!isNumeric) {
+    if (!isUnregisteredProduct) {
       return _buildNoResultsMessage();
     }
 
@@ -584,25 +724,7 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
         return;
       }
 
-      // Enter para seleccionar
-      if (event.logicalKey == LogicalKeyboardKey.enter &&
-          _selectedResultIndex >= 0) {
-        final selectedProduct = _searchResults[_selectedResultIndex];
-        if (selectedProduct.stock > 0) {
-          print('✅ Seleccionando con Enter: ${selectedProduct.name}');
-          _selectProduct(selectedProduct);
-          // ✅ NUEVO: Asegurar que el focus vuelva al TextField después de seleccionar con Enter
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Future.delayed(const Duration(milliseconds: 150), () {
-              if (mounted) {
-                _focusNode.requestFocus();
-                print('🔍 Focus devuelto después de Enter - producto: ${selectedProduct.name}');
-              }
-            });
-          });
-        }
-        return;
-      }
+      // ✅ REMOVIDO: Enter handling se hace ahora en el Focus widget superior
     }
   }
 
@@ -631,18 +753,15 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
     try {
       // ✅ NUEVO: Asegurar que el focus permanezca en el TextField mientras se escribe
       if (_focusNode.canRequestFocus && !_focusNode.hasFocus) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _focusNode.requestFocus();
-            print('🔍 Focus restaurado durante escritura');
-          }
-        });
+        _ensureSearchFieldFocus();
       }
       
       // Cancelar timer anterior si existe
       _debounceTimer?.cancel();
 
       final query = _searchController.text.trim();
+
+      // ✅ No auto-seleccionar durante la escritura para evitar cortar el código
 
     if (query.isEmpty) {
       setState(() {
@@ -700,47 +819,61 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
 
     try {
       List<Product> results = [];
-
-      // 1. Búsqueda exacta por código de barras (prioritaria)
-      final exactMatch = await _searchByBarcode(query);
-      if (exactMatch != null) {
-        // ✅ SOLUCIÓN: Mostrar resultado Y agregar automáticamente después de un breve delay
-        results.add(exactMatch);
+      
+      // Verificar si el query es un código de barras (>7 dígitos) o precio (≤7 dígitos)
+      final isBarcode = _isBarcodeQuery(query);
+      final isUnregisteredProduct = _isUnregisteredProductQuery(query);
+      
+      if (isBarcode) {
+        // Búsqueda por código de barras para números >7 dígitos
+        print('🔍 Búsqueda por código de barras: $query');
         
-        // Agregar automáticamente después de mostrar el resultado
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted && _searchResults.isNotEmpty) {
-              _selectProduct(exactMatch);
-            }
+        // 1. Primero buscar localmente
+        final exactMatch = await _searchByBarcode(query);
+        if (exactMatch != null) {
+          results.add(exactMatch);
+        }
+        
+        // 2. Si no se encuentra localmente, buscar en la API
+        if (exactMatch == null) {
+          print('🌐 Código de barras no encontrado localmente, buscando en API...');
+          final apiResults = await widget.controller.searchProducts(query);
+          results.addAll(apiResults);
+        }
+        
+        // Si hay resultados después de búsqueda local + API, agregar automáticamente el primero
+        if (results.isNotEmpty) {
+          final productToAdd = results.first;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted && _searchResults.isNotEmpty) {
+                _selectProduct(productToAdd);
+              }
+            });
           });
-        });
-      }
+        } else {
+          // Solo mensaje de log, SIN audio para códigos de barras no encontrados
+          print('🔊 Código de barras no encontrado');
+        }
+      } else if (!isUnregisteredProduct) {
+        // Búsqueda normal para texto y números que no son códigos de barras ni precios
+        
+        // 1. Búsqueda por SKU exacto
+        final skuMatch = await _searchBySku(query);
+        if (skuMatch != null) {
+          results.add(skuMatch);
+        }
 
-      // 2. Búsqueda por SKU exacto
-      final skuMatch = await _searchBySku(query);
-      if (skuMatch != null) {
-        results.add(skuMatch);
+        // 2. Búsqueda general usando el controlador (solo para búsquedas de texto)
+        final searchResults = await widget.controller.searchProducts(query);
+        results.addAll(searchResults);
       }
-
-      // 3. Búsqueda general usando el controlador
-      final searchResults = await widget.controller.searchProducts(query);
-      results.addAll(searchResults);
+      // Si isUnregisteredProduct es true, no agregamos resultados para que aparezca la opción de producto sin registrar
 
       // Eliminar duplicados y limitar resultados
       final uniqueResults = <String, Product>{};
       for (final product in results) {
         uniqueResults[product.id] = product;
-      }
-      
-      // ✅ SOLUCIÓN: Verificar si algún resultado tiene coincidencia exacta de código de barras
-      Product? barcodeExactMatch;
-      for (final product in uniqueResults.values) {
-        if (product.barcode != null && 
-            product.barcode!.toLowerCase() == query.toLowerCase()) {
-          barcodeExactMatch = product;
-          break;
-        }
       }
 
       if (mounted) {
@@ -752,36 +885,32 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
           _selectedResultIndex =
               _searchResults.isNotEmpty
                   ? 0
-                  : -1; // ✅ NUEVO: Seleccionar primer resultado automáticamente
+                  : -1;
         });
         
-        // ✅ SOLUCIÓN: Si hay coincidencia exacta por código de barras, agregar automáticamente
-        if (barcodeExactMatch != null) {
-          print('🎯 Código de barras exacto encontrado: ${barcodeExactMatch.name}');
+        // Activar keyboard focus cuando hay resultados PERO mantener TextField focus
+        if (_searchResults.isNotEmpty) {
+          _ensureSearchFieldFocus();
+        }
+        
+        // ✅ NUEVO: Audio y auto-selección para códigos de barras no encontrados
+        if (isBarcode && _searchResults.isEmpty) {
+          // Reproducir audio "Producto no encontrado" para códigos de barras
+          AudioNotificationService.instance.announceProductNotFound();
+          print('🔊 Código de barras no encontrado - Reproduciendo audio');
+          
+          // Auto-seleccionar cuando no se encontró el código de barras para facilitar reemplazo
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted && _searchResults.isNotEmpty) {
-                print('✅ Agregando automáticamente producto por código de barras: ${barcodeExactMatch!.name}');
-                _selectProduct(barcodeExactMatch!);
-              }
-            });
+            if (mounted) {
+              _autoSelectBarcodeText();
+              print('🔍 Código de barras no encontrado - Texto auto-seleccionado para reemplazo');
+            }
           });
-        } else {
-          // ✅ NUEVO: Activar keyboard focus cuando hay resultados PERO mantener TextField focus
-          if (_searchResults.isNotEmpty) {
-            // No quitar el focus del TextField, solo preparar el keyboard listener
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                // Asegurar que el TextField mantenga el focus para seguir escribiendo
-                _focusNode.requestFocus();
-              }
-            });
-          }
         }
       }
 
       print(
-        '✅ Búsqueda completada: ${_searchResults.length} productos encontrados',
+        '✅ Búsqueda completada: ${_searchResults.length} productos encontrados (Código barras: $isBarcode, Producto sin registrar: $isUnregisteredProduct)',
       );
     } catch (e) {
       print('❌ Error en búsqueda de productos: $e');
@@ -791,6 +920,12 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
           _showResults = true;
           _isSearching = false;
         });
+        
+        // ✅ MEJORADO: Mantener focus incluso cuando hay errores
+        if (_isBarcodeQuery(query)) {
+          _ensureSearchFieldFocus();
+          print('🔍 Focus mantenido después de error en búsqueda de código de barras (SIN audio)');
+        }
       }
     }
   }
@@ -833,8 +968,8 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
     // Si hay resultados, seleccionar el primero
     if (_searchResults.isNotEmpty) {
       _selectProduct(_searchResults.first);
-    } else if (_isNumericValue(query)) {
-      // Si es un número y no hay resultados, crear producto sin registrar
+    } else if (_isUnregisteredProductQuery(query)) {
+      // Si es un número ≤7 dígitos y no hay resultados, crear producto sin registrar
       final price = double.tryParse(query) ?? 0.0;
       _createUnregisteredProduct(price);
     }
@@ -843,13 +978,28 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
   // ==================== FUNCIONES AUXILIARES ====================
 
   bool _isNumericValue(String value) {
-    // Solo números de 6 dígitos o menos
-    if (double.tryParse(value) == null) return false;
+    return double.tryParse(value) != null;
+  }
+  
+  bool _isBarcodeQuery(String value) {
+    // Códigos de barras: números con más de 7 dígitos
+    if (!_isNumericValue(value)) return false;
     String digitsOnly = value.replaceAll('.', '').replaceAll(',', '');
-    return RegExp(r'^\d{1,6}$').hasMatch(digitsOnly);
+    return RegExp(r'^\d{8,}$').hasMatch(digitsOnly);
+  }
+  
+  bool _isUnregisteredProductQuery(String value) {
+    // Productos sin registrar: números con 7 dígitos o menos
+    if (!_isNumericValue(value)) return false;
+    String digitsOnly = value.replaceAll('.', '').replaceAll(',', '');
+    return RegExp(r'^\d{1,7}$').hasMatch(digitsOnly);
   }
 
   void _createUnregisteredProduct(double price) {
+    // ✅ NUEVO: Notificación de voz para productos sin registrar
+    AudioNotificationService.instance.announceProductNotRegistered();
+    print('🔊 Creando producto sin registrar con precio: ${AppFormatters.formatCurrency(price)}');
+    
     _showProductNameDialog(price);
   }
 
@@ -926,8 +1076,13 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  // Mantener focus en el campo de búsqueda
-                  _focusNode.requestFocus();
+                  // ✅ MEJORADO: Mantener focus para continuar escaneando después de cancelar
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      _ensureSearchFieldFocus();
+                      print('🔍 Focus restaurado después de cancelar diálogo');
+                    }
+                  });
                 },
                 child: const Text('Cancelar'),
               ),
@@ -1021,14 +1176,26 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
 
       if (scannedCode != null && scannedCode.isNotEmpty) {
         print('🔍 Código escaneado: $scannedCode');
+        
+        // ✅ MEJORADO: Establecer texto y auto-seleccionar para próximo escaneo
         _searchController.text = scannedCode;
+        _autoSelectBarcodeText();
+        
+        // Asegurar focus después del escaneo
+        _ensureSearchFieldFocus();
 
         // Trigger búsqueda automática después del escaneo
         _handleDirectSearch(scannedCode);
+      } else {
+        // Si no se escaneó nada, mantener focus para próximo intento
+        _ensureSearchFieldFocus();
       }
     } catch (e) {
       print('❌ Error al abrir escáner: $e');
       _showError('Error de escáner', 'No se pudo abrir el escáner de códigos');
+      
+      // Mantener focus aunque haya error
+      _ensureSearchFieldFocus();
     }
   }
 
@@ -1046,21 +1213,18 @@ class _ProductSearchWidgetState extends State<ProductSearchWidget> {
       _selectedResultIndex = -1; // ✅ NUEVO: Resetear selección
     });
 
-    // ✅ MEJORADO: Asegurar que el focus vuelva al TextField de forma confiable
+    // ✅ MEJORADO: Asegurar focus inmediato para escáner continuo
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Pequeño delay adicional para asegurar que toda la UI se haya actualizado
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          _focusNode.requestFocus();
-          print('🔍 Focus devuelto al campo de búsqueda después de seleccionar: ${product.name}');
-        }
-      });
+      if (mounted && !_hasModalRouteAbove()) {
+        _focusNode.requestFocus();
+        print('🔍 Focus restaurado para escáner continuo después de selección');
+      }
     });
 
-    // Notificar selección
+    // Notificar selección (SIN audio para productos agregados)
     widget.onProductSelected(product, quantity);
 
-    print('✅ Producto seleccionado: ${product.name}');
+    print('✅ Producto seleccionado: ${product.name} - Focus mantenido para próximo escaneo');
   }
 
   void _showError(String title, String message) {

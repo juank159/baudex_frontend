@@ -89,19 +89,27 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
       });
     }
 
-    // ✅ MEJORADO: Focus más confiable para Windows
+    // ✅ MEJORADO: Focus más confiable para capturar shortcuts
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Dar focus inmediato al diálogo
+      // Dar focus inmediato al diálogo para capturar shortcuts
       if (mounted && dialogFocusNode.canRequestFocus) {
         dialogFocusNode.requestFocus();
-        print('🔍 Focus inicial solicitado para dialog');
+        print('🔍 PAYMENT DIALOG: Focus inicial solicitado para shortcuts');
       }
       
-      // Backup focus después de delay para Windows
-      Future.delayed(const Duration(milliseconds: 200), () {
+      // Backup focus después de delay
+      Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted && !dialogFocusNode.hasFocus && dialogFocusNode.canRequestFocus) {
           dialogFocusNode.requestFocus();
-          print('🔍 Focus backup solicitado para Windows');
+          print('🔍 PAYMENT DIALOG: Focus backup solicitado');
+        }
+      });
+      
+      // Focus adicional para asegurar captura de shortcuts
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && dialogFocusNode.canRequestFocus) {
+          dialogFocusNode.requestFocus();
+          print('🔍 PAYMENT DIALOG: Focus final para garantizar shortcuts');
         }
       });
     });
@@ -120,7 +128,16 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
     final received = AppFormatters.parseNumber(receivedController.text) ?? 0.0;
 
     setState(() {
-      change = received - widget.total;
+      // ✅ CORRECCIÓN: Redondear ambos valores a 2 decimales antes de calcular cambio
+      final totalRounded = double.parse(widget.total.toStringAsFixed(2));
+      final receivedRounded = double.parse(received.toStringAsFixed(2));
+      
+      change = receivedRounded - totalRounded;
+      
+      // ✅ CORRECCIÓN: Manejar precisión de punto flotante - si es muy cercano a 0, considerarlo 0
+      if (change.abs() < 0.01) {
+        change = 0.0;
+      }
 
       if (saveAsDraft) {
         canProcess = true;
@@ -129,14 +146,10 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
       }
 
       if (selectedPaymentMethod == PaymentMethod.cash) {
-        // ✅ Corrección: comparar valores redondeados a 2 decimales
-        final totalRounded = double.parse(widget.total.toStringAsFixed(2));
-        final receivedRounded = double.parse(received.toStringAsFixed(2));
-
         canProcess = receivedRounded >= totalRounded;
 
         print(
-          '💰 Efectivo - Recibido: $receivedRounded, Total: $totalRounded, Puede procesar: $canProcess',
+          '💰 Efectivo - Recibido: $receivedRounded, Total: $totalRounded, Cambio: ${change.toStringAsFixed(2)}, Puede procesar: $canProcess',
         );
       } else {
         canProcess = true;
@@ -243,12 +256,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
       onKeyEvent: (FocusNode node, KeyEvent event) {
         if (event is KeyDownEvent) {
           print(
-            '🎹 MODERN DIALOG evento: ${event.logicalKey} - Ctrl: ${HardwareKeyboard.instance.isControlPressed}',
+            '🎹 PAYMENT DIALOG evento: ${event.logicalKey} - Ctrl: ${HardwareKeyboard.instance.isControlPressed}',
           );
 
           // ESC - Cancelar
           if (event.logicalKey == LogicalKeyboardKey.escape) {
-            print('🔴 MODERN DIALOG ESC - Cancelando...');
+            print('🔴 PAYMENT DIALOG ESC - Cancelando...');
             widget.onCancel();
             return KeyEventResult.handled;
           }
@@ -256,25 +269,28 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog> {
           // Ctrl + Enter - Procesar sin imprimir
           if (event.logicalKey == LogicalKeyboardKey.enter &&
               HardwareKeyboard.instance.isControlPressed) {
-            print('💾 MODERN DIALOG Ctrl+Enter - Procesando sin imprimir...');
+            print('💾 PAYMENT DIALOG Ctrl+Enter - Procesando sin imprimir...');
             if (canProcess) {
               _confirmPayment(shouldPrint: false);
+            } else {
+              print('⚠️ No se puede procesar - canProcess: $canProcess');
             }
             return KeyEventResult.handled;
           }
 
-          // Ctrl + P - Procesar e imprimir (MEJORADO PARA WINDOWS)
+          // Ctrl + P - Procesar e imprimir
           if (event.logicalKey == LogicalKeyboardKey.keyP &&
               HardwareKeyboard.instance.isControlPressed) {
-            print('🖨️ MODERN DIALOG Ctrl+P - Procesando e imprimiendo...');
+            print('🖨️ PAYMENT DIALOG Ctrl+P - Procesando e imprimiendo...');
             if (canProcess) {
               _confirmPayment(shouldPrint: true);
+            } else {
+              print('⚠️ No se puede procesar - canProcess: $canProcess');
             }
             return KeyEventResult.handled;
           }
 
-          // ✅ ELIMINADO: Enter solo ya no procesa e imprime
-          // Ahora SOLO Ctrl + P procesa e imprime
+          print('🔍 PAYMENT DIALOG - Evento no manejado: ${event.logicalKey}');
         }
         return KeyEventResult.ignored;
       },

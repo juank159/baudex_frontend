@@ -1,42 +1,51 @@
 // lib/features/auth/presentation/controllers/auth_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:dartz/dartz.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/user.dart';
-import '../../domain/usecases/login_usecase.dart';
-import '../../domain/usecases/register_usecase.dart';
-import '../../domain/usecases/get_profile_usecase.dart';
-import '../../domain/usecases/logout_usecase.dart';
-import '../../domain/usecases/change_password_usecase.dart';
-import '../../domain/usecases/is_authenticated_usecase.dart';
+import '../../domain/entities/auth_result.dart';
+import '../../domain/usecases/login_usecase.dart' show LoginParams;
+import '../../domain/usecases/register_usecase.dart' show RegisterParams;  
+import '../../domain/usecases/register_with_onboarding_usecase.dart' show RegisterWithOnboardingParams;
+import '../../domain/usecases/change_password_usecase.dart' show ChangePasswordParams;
 import '../../../../core/storage/tenant_storage.dart';
+import '../../../../app/core/storage/secure_storage_service.dart';
+// ✅ IMPORT PARA LIMPIAR CACHE DE CATEGORÍAS AL LOGOUT
+import '../../../products/presentation/controllers/product_form_controller.dart';
 
 class AuthController extends GetxController {
   // Dependencies
-  final LoginUseCase _loginUseCase;
-  final RegisterUseCase _registerUseCase;
-  final GetProfileUseCase _getProfileUseCase;
-  final LogoutUseCase _logoutUseCase;
-  final ChangePasswordUseCase _changePasswordUseCase;
-  final IsAuthenticatedUseCase _isAuthenticatedUseCase;
+  final UseCase<AuthResult, LoginParams> _loginUseCase;
+  final UseCase<AuthResult, RegisterParams> _registerUseCase;
+  final UseCase<AuthResult, RegisterWithOnboardingParams> _registerWithOnboardingUseCase;
+  final UseCase<User, NoParams> _getProfileUseCase;
+  final UseCase<Unit, NoParams> _logoutUseCase;
+  final UseCase<Unit, ChangePasswordParams> _changePasswordUseCase;
+  final UseCase<bool, NoParams> _isAuthenticatedUseCase;
   final TenantStorage _tenantStorage;
+  final SecureStorageService _secureStorageService;
 
   AuthController({
-    required LoginUseCase loginUseCase,
-    required RegisterUseCase registerUseCase,
-    required GetProfileUseCase getProfileUseCase,
-    required LogoutUseCase logoutUseCase,
-    required ChangePasswordUseCase changePasswordUseCase,
-    required IsAuthenticatedUseCase isAuthenticatedUseCase,
+    required UseCase<AuthResult, LoginParams> loginUseCase,
+    required UseCase<AuthResult, RegisterParams> registerUseCase,
+    required UseCase<AuthResult, RegisterWithOnboardingParams> registerWithOnboardingUseCase,
+    required UseCase<User, NoParams> getProfileUseCase,
+    required UseCase<Unit, NoParams> logoutUseCase,
+    required UseCase<Unit, ChangePasswordParams> changePasswordUseCase,
+    required UseCase<bool, NoParams> isAuthenticatedUseCase,
     required TenantStorage tenantStorage,
+    required SecureStorageService secureStorageService,
   }) : _loginUseCase = loginUseCase,
        _registerUseCase = registerUseCase,
+       _registerWithOnboardingUseCase = registerWithOnboardingUseCase,
        _getProfileUseCase = getProfileUseCase,
        _logoutUseCase = logoutUseCase,
        _changePasswordUseCase = changePasswordUseCase,
        _isAuthenticatedUseCase = isAuthenticatedUseCase,
-       _tenantStorage = tenantStorage;
+       _tenantStorage = tenantStorage,
+       _secureStorageService = secureStorageService;
 
   // ==================== OBSERVABLES ====================
 
@@ -78,6 +87,10 @@ class AuthController extends GetxController {
   final registerFormKey = GlobalKey<FormState>();
   final changePasswordFormKey = GlobalKey<FormState>();
 
+  // Correos guardados
+  final _savedEmails = <String>[].obs;
+  final _showEmailSuggestions = false.obs;
+
   // ==================== GETTERS ====================
 
   bool get isLoading => _isLoading.value;
@@ -93,6 +106,9 @@ class AuthController extends GetxController {
   bool get isCurrentPasswordVisible => _isCurrentPasswordVisible.value;
   bool get isNewPasswordVisible => _isNewPasswordVisible.value;
 
+  List<String> get savedEmails => _savedEmails;
+  bool get showEmailSuggestions => _showEmailSuggestions.value;
+
   // ==================== LIFECYCLE ====================
 
   @override
@@ -100,6 +116,8 @@ class AuthController extends GetxController {
     super.onInit();
     _initializeTenant();
     _checkAuthenticationStatus();
+    _loadSavedEmails();
+    _setupEmailListener();
   }
   
   /// Inicializar el tenant basado en la sesión del usuario autenticado
@@ -246,6 +264,9 @@ class AuthController extends GetxController {
           // CRÍTICO: Establecer tenant del usuario después del login exitoso
           await _setTenantAfterLogin(authResult.user);
 
+          // Guardar el correo para recordarlo en futuros logins
+          await _saveEmailAfterSuccessfulLogin(loginEmailController.text.trim());
+
           _clearLoginForm();
 
           Get.snackbar(
@@ -259,7 +280,7 @@ class AuthController extends GetxController {
 
           print('🔧 AuthController: Navegando al dashboard...');
           // Navegar al dashboard
-          Get.offAllNamed(AppRoutes.invoicesWithTabs);
+          Get.offAllNamed(AppRoutes.dashboard);
         },
       );
     } catch (e) {
@@ -278,16 +299,16 @@ class AuthController extends GetxController {
     }
   }
 
-  /// Registrar usuario
+  /// Registrar usuario con onboarding automático (crear almacén por defecto)
   Future<void> register() async {
     if (!registerFormKey.currentState!.validate()) return;
 
     _isRegisterLoading.value = true;
-    print('🔧 AuthController: Iniciando registro...');
+    print('🏗️ AuthController: Iniciando registro con onboarding automático...');
 
     try {
-      final result = await _registerUseCase(
-        RegisterParams(
+      final result = await _registerWithOnboardingUseCase(
+        RegisterWithOnboardingParams(
           firstName: registerFirstNameController.text.trim(),
           lastName: registerLastNameController.text.trim(),
           email: registerEmailController.text.trim(),
@@ -297,11 +318,11 @@ class AuthController extends GetxController {
         ),
       );
 
-      print('🔧 AuthController: Resultado recibido');
+      print('🔧 AuthController: Resultado de registro con onboarding recibido');
 
       result.fold(
         (failure) {
-          print('❌ AuthController: Error en registro - ${failure.message}');
+          print('❌ AuthController: Error en registro con onboarding - ${failure.message}');
           Get.snackbar(
             'Error de Registro',
             failure.message,
@@ -313,7 +334,7 @@ class AuthController extends GetxController {
         },
         (authResult) {
           print(
-            '✅ AuthController: Registro exitoso - ${authResult.user.email}',
+            '✅ AuthController: Registro con onboarding exitoso - ${authResult.user.email}',
           );
 
           final email = registerEmailController.text.trim();
@@ -321,12 +342,12 @@ class AuthController extends GetxController {
 
           Get.snackbar(
             'Registro Exitoso',
-            'Cuenta creada exitosamente. Ahora puedes iniciar sesión.',
+            '¡Cuenta creada exitosamente! Tu almacén principal ya está configurado.',
             snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
             icon: const Icon(Icons.check_circle, color: Colors.green),
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 4),
           );
 
           print('🔧 AuthController: Navegando al login...');
@@ -342,7 +363,7 @@ class AuthController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 AuthController: Excepción no manejada - $e');
+      print('💥 AuthController: Excepción no manejada en registro con onboarding - $e');
       Get.snackbar(
         'Error Inesperado',
         'Ocurrió un error inesperado: $e',
@@ -353,7 +374,7 @@ class AuthController extends GetxController {
       );
     } finally {
       _isRegisterLoading.value = false;
-      print('🔧 AuthController: Registro finalizado');
+      print('🔧 AuthController: Registro con onboarding finalizado');
     }
   }
 
@@ -405,6 +426,14 @@ class AuthController extends GetxController {
         (_) {
           _isAuthenticated.value = false;
           _currentUser.value = null;
+
+          // ✅ LIMPIAR CACHE DE CATEGORÍAS AL CERRAR SESIÓN
+          try {
+            ProductFormController.clearCategoriesCache();
+            print('🗑️ AuthController: Cache de categorías limpiado al cerrar sesión');
+          } catch (e) {
+            print('⚠️ AuthController: Error al limpiar cache de categorías: $e');
+          }
 
           _clearAllForms();
 
@@ -588,5 +617,98 @@ class AuthController extends GetxController {
     _clearLoginForm();
     _clearRegisterForm();
     _clearChangePasswordForm();
+  }
+
+  // ==================== EMAIL MANAGEMENT ====================
+
+  /// Cargar correos guardados al inicializar
+  Future<void> _loadSavedEmails() async {
+    try {
+      final emails = await _secureStorageService.getSavedEmails();
+      _savedEmails.assignAll(emails);
+      
+      // Cargar el último email usado si está disponible
+      final lastEmail = await _secureStorageService.getLastEmail();
+      if (lastEmail != null && lastEmail.isNotEmpty) {
+        loginEmailController.text = lastEmail;
+      }
+    } catch (e) {
+      print('⚠️ Error cargando correos guardados: $e');
+    }
+  }
+
+  /// Configurar listener para el campo de email
+  void _setupEmailListener() {
+    loginEmailController.addListener(() {
+      final text = loginEmailController.text.toLowerCase();
+      if (text.isEmpty) {
+        _showEmailSuggestions.value = false;
+        return;
+      }
+
+      // Mostrar sugerencias solo si hay texto y hay correos guardados que coincidan
+      final hasMatches = _savedEmails.any((email) => 
+        email.toLowerCase().contains(text));
+      _showEmailSuggestions.value = hasMatches;
+    });
+  }
+
+  /// Guardar correo después de login exitoso
+  Future<void> _saveEmailAfterSuccessfulLogin(String email) async {
+    try {
+      await _secureStorageService.addSavedEmail(email);
+      await _secureStorageService.saveLastEmail(email);
+      await _loadSavedEmails(); // Recargar la lista
+    } catch (e) {
+      print('⚠️ Error guardando correo: $e');
+    }
+  }
+
+  /// Obtener correos filtrados para autocompletado
+  List<String> getFilteredEmails(String query) {
+    if (query.isEmpty) return _savedEmails;
+    
+    final lowerQuery = query.toLowerCase();
+    return _savedEmails.where((email) => 
+      email.toLowerCase().contains(lowerQuery)).toList();
+  }
+
+  /// Seleccionar un correo de las sugerencias
+  void selectSavedEmail(String email) {
+    loginEmailController.text = email;
+    _showEmailSuggestions.value = false;
+    // Mover el cursor al final
+    loginEmailController.selection = TextSelection.fromPosition(
+      TextPosition(offset: email.length));
+  }
+
+  /// Eliminar un correo guardado
+  Future<void> removeSavedEmail(String email) async {
+    try {
+      await _secureStorageService.removeSavedEmail(email);
+      await _loadSavedEmails();
+      Get.snackbar(
+        'Correo eliminado',
+        'El correo ha sido eliminado de los guardados',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.blue.shade100,
+        colorText: Colors.blue.shade800,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      print('⚠️ Error eliminando correo: $e');
+    }
+  }
+
+  /// Ocultar sugerencias
+  void hideEmailSuggestions() {
+    _showEmailSuggestions.value = false;
+  }
+
+  /// Mostrar sugerencias
+  void displayEmailSuggestions() {
+    if (_savedEmails.isNotEmpty) {
+      _showEmailSuggestions.value = true;
+    }
   }
 }

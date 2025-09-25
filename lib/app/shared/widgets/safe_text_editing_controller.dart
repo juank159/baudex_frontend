@@ -184,29 +184,36 @@ class SafeTextEditingController extends TextEditingController {
   @override
   void dispose() {
     if (_isDisposed) {
+      _log('⚠️ Dispose llamado en controlador ya disposed, ignorando');
       return;
     }
+
+    _log('🗑️ Iniciando dispose del controlador...');
 
     try {
       // Marcar como disposed ANTES de cualquier operación
       _isDisposed = true;
       _isInitialized = false;
 
+      _log('🧹 Removiendo ${_safeListeners.length} listeners...');
       // Remover todos los listeners de forma segura
       final listenersToRemove = List<VoidCallback>.from(_safeListeners);
       for (final listener in listenersToRemove) {
         try {
           super.removeListener(listener);
         } catch (e) {
-          // Silently handle listener removal errors
+          _log('⚠️ Error removiendo listener: $e');
         }
       }
       _safeListeners.clear();
 
+      _log('🗑️ Llamando super.dispose()...');
       // Llamar dispose del padre
       super.dispose();
       
+      _log('✅ Dispose completado exitosamente');
     } catch (e) {
+      _log('💥 Error durante dispose: $e');
       _isDisposed = true;
       _isInitialized = false;
     }

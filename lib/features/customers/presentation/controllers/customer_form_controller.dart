@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/repositories/customer_repository.dart';
 import '../../domain/usecases/create_customer_usecase.dart';
@@ -37,20 +38,21 @@ class CustomerFormController extends GetxController {
   final formKey = GlobalKey<FormState>();
 
   // ==================== TEXT CONTROLLERS ====================
-  final firstNameController = TextEditingController();
-  final lastNameController = TextEditingController();
-  final companyNameController = TextEditingController();
-  final emailController = TextEditingController();
-  final phoneController = TextEditingController();
-  final mobileController = TextEditingController();
-  final documentNumberController = TextEditingController();
-  final addressController = TextEditingController();
-  final cityController = TextEditingController();
-  final stateController = TextEditingController();
-  final zipCodeController = TextEditingController();
-  final creditLimitController = TextEditingController();
-  final paymentTermsController = TextEditingController();
-  final notesController = TextEditingController();
+  // Using SafeTextEditingController to prevent disposal errors
+  final firstNameController = SafeTextEditingController(debugLabel: 'CustomerFormFirstName');
+  final lastNameController = SafeTextEditingController(debugLabel: 'CustomerFormLastName');
+  final companyNameController = SafeTextEditingController(debugLabel: 'CustomerFormCompanyName');
+  final emailController = SafeTextEditingController(debugLabel: 'CustomerFormEmail');
+  final phoneController = SafeTextEditingController(debugLabel: 'CustomerFormPhone');
+  final mobileController = SafeTextEditingController(debugLabel: 'CustomerFormMobile');
+  final documentNumberController = SafeTextEditingController(debugLabel: 'CustomerFormDocumentNumber');
+  final addressController = SafeTextEditingController(debugLabel: 'CustomerFormAddress');
+  final cityController = SafeTextEditingController(debugLabel: 'CustomerFormCity');
+  final stateController = SafeTextEditingController(debugLabel: 'CustomerFormState');
+  final zipCodeController = SafeTextEditingController(debugLabel: 'CustomerFormZipCode');
+  final creditLimitController = SafeTextEditingController(debugLabel: 'CustomerFormCreditLimit');
+  final paymentTermsController = SafeTextEditingController(debugLabel: 'CustomerFormPaymentTerms');
+  final notesController = SafeTextEditingController(debugLabel: 'CustomerFormNotes');
 
   // ==================== OBSERVABLES ====================
   final _isLoading = false.obs;
@@ -118,16 +120,37 @@ class CustomerFormController extends GetxController {
   @override
   void onClose() {
     print('🔚 CustomerFormController: Liberando recursos...');
-    _emailValidationTimer?.cancel();
-    _documentValidationTimer?.cancel();
+    
+    try {
+      print('⏹️ Cancelando timer de validación de email...');
+      _emailValidationTimer?.cancel();
+      
+      print('⏹️ Cancelando timer de validación de documento...');
+      _documentValidationTimer?.cancel();
 
-    // ✅ Limpiar cache de validaciones
-    _lastValidatedEmail = null;
-    _lastValidatedDocument = null;
-    _lastValidatedDocumentType = null;
+      print('🧹 Limpiando cache de validaciones...');
+      // ✅ Limpiar cache de validaciones
+      _lastValidatedEmail = null;
+      _lastValidatedDocument = null;
+      _lastValidatedDocumentType = null;
 
-    _disposeControllers();
-    super.onClose();
+      print('🎮 Llamando a _disposeControllers()...');
+      _disposeControllers();
+      
+      print('🔚 Llamando a super.onClose()...');
+      super.onClose();
+      
+      print('✅ CustomerFormController: Recursos liberados exitosamente');
+    } catch (e) {
+      print('💥 CustomerFormController: Error durante onClose() - $e');
+      print('📍 Stack trace: ${StackTrace.current}');
+      // Intentar llamar super.onClose() aunque haya errores
+      try {
+        super.onClose();
+      } catch (superError) {
+        print('💥 Error adicional en super.onClose() - $superError');
+      }
+    }
   }
 
   // ==================== PRIVATE INITIALIZATION ====================
@@ -821,20 +844,56 @@ class CustomerFormController extends GetxController {
   }
 
   void _disposeControllers() {
-    firstNameController.dispose();
-    lastNameController.dispose();
-    companyNameController.dispose();
-    emailController.dispose();
-    phoneController.dispose();
-    mobileController.dispose();
-    documentNumberController.dispose();
-    addressController.dispose();
-    cityController.dispose();
-    stateController.dispose();
-    zipCodeController.dispose();
-    creditLimitController.dispose();
-    paymentTermsController.dispose();
-    notesController.dispose();
+    print('🧹 CustomerFormController: Iniciando limpieza de controladores...');
+    
+    try {
+      print('🧹 Disposing firstNameController...');
+      firstNameController.dispose();
+      
+      print('🧹 Disposing lastNameController...');
+      lastNameController.dispose();
+      
+      print('🧹 Disposing companyNameController...');
+      companyNameController.dispose();
+      
+      print('🧹 Disposing emailController...');
+      emailController.dispose();
+      
+      print('🧹 Disposing phoneController...');
+      phoneController.dispose();
+      
+      print('🧹 Disposing mobileController...');
+      mobileController.dispose();
+      
+      print('🧹 Disposing documentNumberController...');
+      documentNumberController.dispose();
+      
+      print('🧹 Disposing addressController...');
+      addressController.dispose();
+      
+      print('🧹 Disposing cityController...');
+      cityController.dispose();
+      
+      print('🧹 Disposing stateController...');
+      stateController.dispose();
+      
+      print('🧹 Disposing zipCodeController...');
+      zipCodeController.dispose();
+      
+      print('🧹 Disposing creditLimitController...');
+      creditLimitController.dispose();
+      
+      print('🧹 Disposing paymentTermsController...');
+      paymentTermsController.dispose();
+      
+      print('🧹 Disposing notesController...');
+      notesController.dispose();
+      
+      print('✅ CustomerFormController: Todos los controladores limpiados exitosamente');
+    } catch (e) {
+      print('💥 CustomerFormController: Error al limpiar controladores - $e');
+      print('📍 Stack trace: ${StackTrace.current}');
+    }
   }
 
   void _showError(String title, String message) {

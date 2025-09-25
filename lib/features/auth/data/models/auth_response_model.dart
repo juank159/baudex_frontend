@@ -1,4 +1,4 @@
-import '../../domain/repositories/auth_repository.dart';
+import '../../domain/entities/auth_result.dart';
 import 'user_model.dart';
 
 class AuthResponseModel {

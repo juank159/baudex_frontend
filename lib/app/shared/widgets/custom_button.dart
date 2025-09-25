@@ -5,6 +5,9 @@ import '../../core/utils/responsive_helper.dart';
 enum ButtonType { primary, secondary, outline, text }
 enum ButtonSize { small, medium, large, compact }
 
+// Alias para compatibilidad con código existente
+typedef CustomButtonVariant = ButtonType;
+
 class CustomButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
@@ -36,6 +39,7 @@ class CustomButton extends StatelessWidget {
     this.fontSize,
     this.isCompact = false,
   }) : super(key: key);
+
 
   @override
   Widget build(BuildContext context) {

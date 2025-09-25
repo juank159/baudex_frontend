@@ -1,7 +1,4 @@
 // lib/app/config/routes/app_pages.dart
-import 'package:baudex_desktop/features/dashboard/domain/repositories/dashboard_repository.dart';
-import 'package:baudex_desktop/features/dashboard/domain/usecases/get_dashboard_stats_usecase.dart';
-import 'package:baudex_desktop/features/dashboard/presentation/controllers/dashboard_controller.dart';
 import 'package:baudex_desktop/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:baudex_desktop/features/dashboard/presentation/bindings/dashboard_binding.dart';
 import 'package:baudex_desktop/app/shared/screens/splash_screen.dart';
@@ -23,6 +20,7 @@ import 'package:baudex_desktop/features/customers/presentation/screens/customer_
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_form_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_stats_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/modern_customers_list_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_controller.dart';
 import 'package:baudex_desktop/features/invoices/presentation/bindings/invoice_binding.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_detail_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_screen.dart';
@@ -34,10 +32,13 @@ import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_se
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_stats_screen.dart';
 import 'package:baudex_desktop/features/settings/presentation/screens/printer_configuration_screen.dart';
 import 'package:baudex_desktop/features/settings/presentation/screens/organization_settings_screen.dart';
+import 'package:baudex_desktop/features/settings/presentation/screens/user_preferences_screen.dart';
 import 'package:baudex_desktop/features/settings/presentation/bindings/settings_binding.dart';
+import 'package:baudex_desktop/features/settings/presentation/bindings/user_preferences_binding.dart';
 import 'package:baudex_desktop/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:baudex_desktop/features/settings/presentation/controllers/organization_controller.dart';
 import 'package:baudex_desktop/features/products/domain/usecases/get_products_usecase.dart';
+import 'package:baudex_desktop/features/products/domain/usecases/search_products_usecase.dart';
 import 'package:baudex_desktop/features/products/presentation/bindings/product_binding.dart';
 import 'package:baudex_desktop/features/products/presentation/controllers/products_controller.dart';
 import 'package:baudex_desktop/features/products/presentation/controllers/product_detail_controller.dart';
@@ -55,6 +56,62 @@ import 'package:baudex_desktop/features/expenses/presentation/screens/expenses_l
 import 'package:baudex_desktop/features/expenses/presentation/screens/expense_form_screen.dart';
 import 'package:baudex_desktop/features/expenses/presentation/screens/expense_detail_screen.dart';
 import 'package:baudex_desktop/features/expenses/presentation/screens/expense_categories_screen.dart';
+import 'package:baudex_desktop/features/suppliers/presentation/bindings/suppliers_binding.dart';
+import 'package:baudex_desktop/features/suppliers/presentation/controllers/suppliers_controller.dart';
+import 'package:baudex_desktop/features/suppliers/presentation/controllers/supplier_detail_controller.dart';
+import 'package:baudex_desktop/features/suppliers/presentation/controllers/supplier_form_controller.dart';
+import 'package:baudex_desktop/features/suppliers/presentation/screens/suppliers_list_screen.dart';
+import 'package:baudex_desktop/features/suppliers/presentation/screens/supplier_detail_screen.dart';
+import 'package:baudex_desktop/features/suppliers/presentation/screens/supplier_form_screen.dart';
+import 'package:baudex_desktop/features/purchase_orders/presentation/bindings/purchase_orders_binding.dart';
+import 'package:baudex_desktop/features/purchase_orders/presentation/bindings/purchase_order_form_binding.dart';
+import 'package:baudex_desktop/features/purchase_orders/presentation/bindings/purchase_order_detail_binding.dart'
+    hide PurchaseOrderDetailBinding;
+import 'package:baudex_desktop/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
+import 'package:baudex_desktop/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
+import 'package:baudex_desktop/features/purchase_orders/presentation/controllers/purchase_order_form_controller.dart';
+import 'package:baudex_desktop/features/purchase_orders/presentation/screens/purchase_orders_list_screen.dart';
+import 'package:baudex_desktop/features/purchase_orders/presentation/screens/futuristic_purchase_order_detail_screen.dart';
+import 'package:baudex_desktop/features/purchase_orders/presentation/screens/purchase_order_form_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/bindings/inventory_binding.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_list_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_dashboard_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_movements_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_adjustments_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_bulk_adjustments_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/kardex_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_balance_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_batches_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_transfers_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/create_transfer_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/bindings/create_transfer_binding.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/warehouses_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/warehouse_form_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/warehouse_detail_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_aging_report_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_valuation_screen.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_movements_controller.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_adjustments_controller.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_bulk_adjustments_controller.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/kardex_controller.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_balance_controller.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_batches_controller.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_transfers_controller.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/warehouses_controller.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/warehouse_form_controller.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/warehouse_detail_controller.dart';
+import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_aging_controller.dart';
+import 'package:baudex_desktop/features/reports/presentation/bindings/reports_binding.dart';
+import 'package:baudex_desktop/features/reports/presentation/screens/reports_dashboard_screen.dart';
+import 'package:baudex_desktop/features/reports/presentation/screens/profitability_products_screen.dart';
+import 'package:baudex_desktop/features/reports/presentation/screens/profitability_categories_screen.dart';
+import 'package:baudex_desktop/features/reports/presentation/screens/top_profitable_products_screen.dart';
+import 'package:baudex_desktop/features/reports/presentation/screens/valuation_summary_screen.dart';
+import 'package:baudex_desktop/features/reports/presentation/screens/valuation_products_screen.dart';
+import 'package:baudex_desktop/features/reports/presentation/screens/valuation_categories_screen.dart';
+import 'package:baudex_desktop/features/reports/presentation/screens/kardex_multi_product_screen.dart';
+import 'package:baudex_desktop/features/reports/presentation/screens/movements_summary_screen.dart';
+import 'package:baudex_desktop/features/reports/presentation/screens/inventory_aging_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -129,18 +186,18 @@ class AppPages {
       page: () => const ProfileScreen(),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ==================== DASHBOARD ====================
     GetPage(
       name: AppRoutes.dashboard,
       page: () => const DashboardScreen(),
-      // ✅ NO BINDING - Las dependencias son GLOBALES desde InitialBinding
+      binding: DashboardBinding(),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
-      preventDuplicates: true, // ✅ Prevenir duplicación de rutas
+      // middlewares: [AuthMiddleware()],
+      preventDuplicates: true,
     ),
 
     // ==================== CATEGORIES PAGES ====================
@@ -150,7 +207,7 @@ class AppPages {
       binding: CategoryBinding(),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -163,7 +220,7 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -176,7 +233,7 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -189,7 +246,7 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -202,7 +259,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ==================== PRODUCTS PAGES ====================
@@ -228,7 +285,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -257,7 +314,7 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -286,7 +343,7 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -306,7 +363,7 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -326,29 +383,31 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ✅ NUEVA RUTA PARA ESTADÍSTICAS DE PRODUCTOS
-    // GetPage(
-    //   name: AppRoutes.productsStats,
-    //   page: () => const ProductStatsScreen(),
-    //   binding: BindingsBuilder(() {
-    //     print('🔧 [ESTADÍSTICAS PRODUCTOS] Verificando ProductsController...');
-    //     if (!Get.isRegistered<ProductsController>()) {
-    //       print(
-    //         '📦 [ESTADÍSTICAS PRODUCTOS] Registrando ProductBinding para ProductsController',
-    //       );
-    //       ProductBinding().dependencies();
-    //       print('✅ [ESTADÍSTICAS PRODUCTOS] ProductBinding registrado exitosamente');
-    //     } else {
-    //       print('✅ [ESTADÍSTICAS PRODUCTOS] ProductsController ya registrado');
-    //     }
-    //   }),
-    //   transition: Transition.fade,
-    //   transitionDuration: const Duration(milliseconds: 300),
-    //   middlewares: [AuthMiddleware()],
-    // ),
+    GetPage(
+      name: AppRoutes.productsStats,
+      page: () => const ProductStatsScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [ESTADÍSTICAS PRODUCTOS] Verificando ProductsController...');
+        if (!Get.isRegistered<ProductsController>()) {
+          print(
+            '📦 [ESTADÍSTICAS PRODUCTOS] Registrando ProductBinding para ProductsController',
+          );
+          ProductBinding().dependencies();
+          print(
+            '✅ [ESTADÍSTICAS PRODUCTOS] ProductBinding registrado exitosamente',
+          );
+        } else {
+          print('✅ [ESTADÍSTICAS PRODUCTOS] ProductsController ya registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
     GetPage(
       name: '/products/category/:categoryId',
       page: () => const ProductsListScreen(),
@@ -368,7 +427,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ==================== CUSTOMERS PAGES ====================
@@ -378,7 +437,7 @@ class AppPages {
       binding: CustomerBinding(), // ✅ OK - Solo necesita CustomersController
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // // ✅ CREAR CLIENTE - USAR CustomerFormBinding
@@ -408,7 +467,7 @@ class AppPages {
       binding: CustomerFormBinding(), // ← CAMBIADO: binding directo
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -417,7 +476,7 @@ class AppPages {
       binding: CustomerFormBinding(), // ← CAMBIADO: binding directo
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ✅ DETALLE CLIENTE - USAR CustomerDetailBinding
@@ -428,7 +487,7 @@ class AppPages {
           CustomerDetailBinding(), // ← CAMBIADO: Usar CustomerDetailBinding directamente
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ✅ ESTADÍSTICAS CLIENTES - USAR CustomerStatsBinding
@@ -439,7 +498,586 @@ class AppPages {
           CustomerStatsBinding(), // ← CAMBIADO: Usar CustomerStatsBinding directamente
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== SUPPLIERS PAGES ====================
+    GetPage(
+      name: AppRoutes.suppliers,
+      page: () => const SuppliersListScreen(),
+      binding: SuppliersBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: AppRoutes.suppliersCreate,
+      page: () => const SupplierFormScreen(),
+      binding: SupplierFormBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: '${AppRoutes.suppliersEdit}/:id',
+      page: () => const SupplierFormScreen(),
+      binding: SupplierFormBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: '${AppRoutes.suppliersDetail}/:id',
+      page: () => const SupplierDetailScreen(),
+      binding: SupplierDetailBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== PURCHASE ORDERS PAGES ====================
+    GetPage(
+      name: AppRoutes.purchaseOrders,
+      page: () => const PurchaseOrdersListScreen(),
+      binding: PurchaseOrdersBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: AppRoutes.purchaseOrdersCreate,
+      page: () => const PurchaseOrderFormScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [CREAR ORDEN] Inicializando binding con cleanup...');
+        PurchaseOrderFormBinding().dependencies();
+        print('✅ [CREAR ORDEN] PurchaseOrderFormBinding completado');
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: '${AppRoutes.purchaseOrdersEdit}/:id',
+      page: () => const PurchaseOrderFormScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [EDITAR ORDEN] Inicializando binding con cleanup...');
+        PurchaseOrderFormBinding().dependencies();
+        print('✅ [EDITAR ORDEN] PurchaseOrderFormBinding completado');
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: '${AppRoutes.purchaseOrdersDetail}/:id',
+      page: () => const FuturisticPurchaseOrderDetailScreen(),
+      binding: PurchaseOrderDetailBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 500),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: '/purchase-orders/supplier/:supplierId',
+      page: () => const PurchaseOrdersListScreen(),
+      binding: PurchaseOrdersBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: '/purchase-orders/status/:status',
+      page: () => const PurchaseOrdersListScreen(),
+      binding: PurchaseOrdersBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== INVENTORY PAGES ====================
+
+    // 📦 LISTA DE INVENTARIO (pantalla principal con tabs)
+    GetPage(
+      name: AppRoutes.inventory,
+      page: () => const InventoryDashboardScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [CENTRO INVENTARIO] Inicializando bindings...');
+
+        // Registrar dependencias base de productos (para búsqueda)
+        if (!Get.isRegistered<GetProductsUseCase>()) {
+          print('📦 [CENTRO INVENTARIO] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [CENTRO INVENTARIO] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryController>()) {
+          print('📊 [CENTRO INVENTARIO] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [CENTRO INVENTARIO] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📋 MOVIMIENTOS DE INVENTARIO
+    GetPage(
+      name: AppRoutes.inventoryMovements,
+      page: () => const InventoryMovementsScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [MOVIMIENTOS INVENTARIO] Inicializando bindings...');
+
+        // Registrar dependencias base de productos (para búsqueda)
+        if (!Get.isRegistered<GetProductsUseCase>()) {
+          print('📦 [MOVIMIENTOS INVENTARIO] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [MOVIMIENTOS INVENTARIO] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryMovementsController>()) {
+          print('📋 [MOVIMIENTOS INVENTARIO] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [MOVIMIENTOS INVENTARIO] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ⚖️ AJUSTES DE INVENTARIO
+    GetPage(
+      name: AppRoutes.inventoryAdjustments,
+      page: () => const InventoryAdjustmentsScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [AJUSTES INVENTARIO] Inicializando bindings...');
+
+        // Registrar dependencias base de productos (para búsqueda)
+        if (!Get.isRegistered<GetProductsUseCase>()) {
+          print('📦 [AJUSTES INVENTARIO] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [AJUSTES INVENTARIO] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryAdjustmentsController>()) {
+          print('⚖️ [AJUSTES INVENTARIO] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [AJUSTES INVENTARIO] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📊 BALANCES DE INVENTARIO
+    GetPage(
+      name: AppRoutes.inventoryBalances,
+      page: () => const InventoryBalanceScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [BALANCES INVENTARIO] Inicializando bindings...');
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryBalanceController>()) {
+          print('📊 [BALANCES INVENTARIO] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [BALANCES INVENTARIO] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📈 KARDEX DE PRODUCTO
+    GetPage(
+      name: '/inventory/product/:productId/kardex',
+      page: () => const KardexScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [KARDEX] Inicializando bindings...');
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<KardexController>()) {
+          print('📈 [KARDEX] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [KARDEX] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📦 LOTES DE PRODUCTO
+    GetPage(
+      name: '/inventory/product/:productId/batches',
+      page: () => const InventoryBatchesScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [LOTES] Inicializando bindings...');
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryBatchesController>()) {
+          print('📦 [LOTES] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [LOTES] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ➕ CREAR MOVIMIENTO DE INVENTARIO
+    GetPage(
+      name: AppRoutes.inventoryMovementsCreate,
+      page: () => const InventoryMovementsScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [CREAR MOVIMIENTO] Inicializando bindings...');
+
+        // Registrar dependencias base de productos (para búsqueda)
+        if (!Get.isRegistered<GetProductsUseCase>()) {
+          print('📦 [CREAR MOVIMIENTO] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [CREAR MOVIMIENTO] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryMovementsController>()) {
+          print('➕ [CREAR MOVIMIENTO] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [CREAR MOVIMIENTO] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ➕ CREAR AJUSTE DE INVENTARIO
+    GetPage(
+      name: AppRoutes.inventoryAdjustmentsCreate,
+      page: () => const InventoryAdjustmentsScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [CREAR AJUSTE] Inicializando bindings...');
+
+        // Registrar dependencias base de productos (para búsqueda)
+        if (!Get.isRegistered<GetProductsUseCase>()) {
+          print('📦 [CREAR AJUSTE] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [CREAR AJUSTE] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryAdjustmentsController>()) {
+          print('➕ [CREAR AJUSTE] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [CREAR AJUSTE] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📦 AJUSTES MASIVOS DE INVENTARIO
+    GetPage(
+      name: AppRoutes.inventoryBulkAdjustments,
+      page: () => const InventoryBulkAdjustmentsScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [AJUSTES MASIVOS] Inicializando bindings...');
+
+        // Registrar dependencias base de productos (para búsqueda)
+        if (!Get.isRegistered<GetProductsUseCase>()) {
+          print('📦 [AJUSTES MASIVOS] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [AJUSTES MASIVOS] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryBulkAdjustmentsController>()) {
+          print('📦 [AJUSTES MASIVOS] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [AJUSTES MASIVOS] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 🔄 TRANSFERENCIAS DE INVENTARIO
+    GetPage(
+      name: AppRoutes.inventoryTransfers,
+      page: () => const InventoryTransfersScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [TRANSFERENCIAS] Inicializando bindings...');
+
+        // Registrar ProductBinding primero (dependencia requerida)
+        if (!Get.isRegistered<SearchProductsUseCase>()) {
+          print('📦 [TRANSFERENCIAS] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [TRANSFERENCIAS] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryTransfersController>()) {
+          print('🔄 [TRANSFERENCIAS] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [TRANSFERENCIAS] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ➕ CREAR TRANSFERENCIA DE INVENTARIO
+    GetPage(
+      name: AppRoutes.inventoryTransfersCreate,
+      page: () => const CreateTransferScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [CREAR TRANSFERENCIA] Inicializando bindings...');
+
+        // Registrar ProductBinding primero (dependencia requerida)
+        if (!Get.isRegistered<SearchProductsUseCase>()) {
+          print('📦 [CREAR TRANSFERENCIA] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [CREAR TRANSFERENCIA] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryTransfersController>()) {
+          print('📦 [CREAR TRANSFERENCIA] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [CREAR TRANSFERENCIA] InventoryBinding registrado');
+        }
+
+        // Registrar binding específico para creación de transferencias
+        CreateTransferBinding().dependencies();
+        print('✅ [CREAR TRANSFERENCIA] CreateTransferBinding registrado');
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ⏰ REPORTE DE ANTIGÜEDAD DE INVENTARIO
+    GetPage(
+      name: AppRoutes.inventoryAgingReport,
+      page: () => const InventoryAgingReportScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [REPORTE ANTIGÜEDAD] Inicializando bindings...');
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryAgingController>()) {
+          print('⏰ [REPORTE ANTIGÜEDAD] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [REPORTE ANTIGÜEDAD] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 🏪 ALMACENES
+    GetPage(
+      name: AppRoutes.warehouses,
+      page: () => const WarehousesScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [ALMACENES] Inicializando bindings...');
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<WarehousesController>()) {
+          print('🏪 [ALMACENES] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [ALMACENES] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ➕ CREAR ALMACÉN
+    GetPage(
+      name: AppRoutes.warehousesCreate,
+      page: () => const WarehouseFormScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [CREAR ALMACÉN] Inicializando bindings...');
+
+        if (!Get.isRegistered<WarehouseFormController>()) {
+          print('➕ [CREAR ALMACÉN] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [CREAR ALMACÉN] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ✏️ EDITAR ALMACÉN
+    GetPage(
+      name: '${AppRoutes.warehousesEdit}/:id',
+      page: () => const WarehouseFormScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [EDITAR ALMACÉN] Inicializando bindings...');
+
+        if (!Get.isRegistered<WarehouseFormController>()) {
+          print('✏️ [EDITAR ALMACÉN] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [EDITAR ALMACÉN] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 👁️ DETALLE DE ALMACÉN
+    GetPage(
+      name: '${AppRoutes.warehousesDetail}/:id',
+      page: () => const WarehouseDetailScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [DETALLE ALMACÉN] Inicializando bindings...');
+
+        if (!Get.isRegistered<WarehouseDetailController>()) {
+          print('👁️ [DETALLE ALMACÉN] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [DETALLE ALMACÉN] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 💰 VALORACIÓN DE INVENTARIO
+    GetPage(
+      name: AppRoutes.inventoryValuation,
+      page: () => const InventoryValuationScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [VALORACIÓN INVENTARIO] Inicializando bindings...');
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryBalanceController>()) {
+          print('💰 [VALORACIÓN INVENTARIO] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [VALORACIÓN INVENTARIO] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📋 DETALLE DE PRODUCTO EN INVENTARIO
+    GetPage(
+      name: '/inventory/product/:productId',
+      page: () => const InventoryBalanceScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [PRODUCTO INVENTARIO] Inicializando bindings...');
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryBalanceController>()) {
+          print('📋 [PRODUCTO INVENTARIO] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [PRODUCTO INVENTARIO] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📋 DETALLE DE MOVIMIENTO
+    GetPage(
+      name: '/inventory/movement/:movementId',
+      page: () => const InventoryMovementsScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [DETALLE MOVIMIENTO] Inicializando bindings...');
+
+        // Registrar dependencias base de productos
+        if (!Get.isRegistered<GetProductsUseCase>()) {
+          print('📦 [DETALLE MOVIMIENTO] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [DETALLE MOVIMIENTO] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryMovementsController>()) {
+          print('📋 [DETALLE MOVIMIENTO] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [DETALLE MOVIMIENTO] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ✏️ EDITAR MOVIMIENTO
+    GetPage(
+      name: '/inventory/movement/:movementId/edit',
+      page: () => const InventoryMovementsScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [EDITAR MOVIMIENTO] Inicializando bindings...');
+
+        // Registrar dependencias base de productos
+        if (!Get.isRegistered<GetProductsUseCase>()) {
+          print('📦 [EDITAR MOVIMIENTO] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [EDITAR MOVIMIENTO] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryMovementsController>()) {
+          print('✏️ [EDITAR MOVIMIENTO] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [EDITAR MOVIMIENTO] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 🔄 DETALLE DE TRANSFERENCIA
+    GetPage(
+      name: '/inventory/transfer/:transferId',
+      page: () => const InventoryTransfersScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [DETALLE TRANSFERENCIA] Inicializando bindings...');
+
+        // Registrar ProductBinding primero (dependencia requerida)
+        if (!Get.isRegistered<SearchProductsUseCase>()) {
+          print('📦 [DETALLE TRANSFERENCIA] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [DETALLE TRANSFERENCIA] ProductBinding registrado');
+        }
+
+        // Registrar binding completo de inventario
+        if (!Get.isRegistered<InventoryTransfersController>()) {
+          print('🔄 [DETALLE TRANSFERENCIA] Registrando InventoryBinding...');
+          InventoryBinding().dependencies();
+          print('✅ [DETALLE TRANSFERENCIA] InventoryBinding registrado');
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ==================== INVOICES PAGES ====================
@@ -464,7 +1102,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // 📝 CREAR FACTURA
@@ -474,7 +1112,7 @@ class AppPages {
       // ✅ SOLUCIÓN RADICAL: NO BINDING - Todo lazy
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ✏️ EDITAR FACTURA
@@ -484,7 +1122,7 @@ class AppPages {
       // ✅ SOLUCIÓN RADICAL: NO BINDING - Todo lazy
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // 👁️ DETALLE DE FACTURA
@@ -507,7 +1145,7 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // 📊 ESTADÍSTICAS DE FACTURAS
@@ -544,7 +1182,7 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 250),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // 🖨️ IMPRIMIR FACTURA
@@ -568,7 +1206,7 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ⚠️ FACTURAS VENCIDAS
@@ -591,7 +1229,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // 👤 FACTURAS POR CLIENTE
@@ -614,7 +1252,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // 📋 FACTURAS POR ESTADO
@@ -637,7 +1275,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ==================== EXPENSES PAGES ====================
@@ -651,7 +1289,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -676,7 +1314,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -701,7 +1339,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -724,7 +1362,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -737,7 +1375,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -750,7 +1388,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     GetPage(
@@ -773,7 +1411,7 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ==================== SETTINGS PAGES ====================
@@ -791,7 +1429,7 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ⚙️ CONFIGURACIÓN DE FACTURAS
@@ -800,7 +1438,7 @@ class AppPages {
       page: () => const InvoiceSettingsScreen(),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
     ),
 
     // 🏢 CONFIGURACIÓN DE ORGANIZACIÓN
@@ -821,7 +1459,17 @@ class AppPages {
       }),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 👤 PREFERENCIAS DE USUARIO
+    GetPage(
+      name: AppRoutes.settingsUserPreferences,
+      page: () => const UserPreferencesScreen(),
+      binding: UserPreferencesBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
     ),
 
     // 📝 FACTURAS CON PESTAÑAS
@@ -834,7 +1482,109 @@ class AppPages {
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
-      middlewares: [AuthMiddleware()],
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== REPORTS PAGES ====================
+
+    // 📊 CENTRO DE REPORTES
+    GetPage(
+      name: AppRoutes.reportsDashboard,
+      page: () => const ReportsDashboardScreen(),
+      binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📈 RENTABILIDAD POR PRODUCTOS
+    GetPage(
+      name: AppRoutes.reportsProfitabilityProducts,
+      page: () => const ProfitabilityProductsScreen(),
+      binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 💰 VALORACIÓN DE INVENTARIO
+    GetPage(
+      name: AppRoutes.reportsValuationSummary,
+      page: () => const ValuationSummaryScreen(),
+      binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📊 RENTABILIDAD POR CATEGORÍAS
+    GetPage(
+      name: AppRoutes.reportsProfitabilityCategories,
+      page: () => const ProfitabilityCategoriesScreen(),
+      binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 🏆 TOP PRODUCTOS RENTABLES
+    GetPage(
+      name: AppRoutes.reportsProfitabilityTop,
+      page: () => const TopProfitableProductsScreen(),
+      binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📦 VALORACIÓN POR PRODUCTOS
+    GetPage(
+      name: AppRoutes.reportsValuationProducts,
+      page: () => const ValuationProductsScreen(),
+      binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📂 VALORACIÓN POR CATEGORÍAS
+    GetPage(
+      name: AppRoutes.reportsValuationCategories,
+      page: () => const ValuationCategoriesScreen(),
+      binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 🔄 KARDEX MULTI-PRODUCTO
+    GetPage(
+      name: AppRoutes.reportsKardexMultiProduct,
+      page: () => const KardexMultiProductScreen(),
+      binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📋 RESUMEN DE MOVIMIENTOS
+    GetPage(
+      name: AppRoutes.reportsMovementsSummary,
+      page: () => const MovementsSummaryScreen(),
+      binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ⏰ ANÁLISIS DE ANTIGÜEDAD
+    GetPage(
+      name: AppRoutes.reportsInventoryAging,
+      page: () => const InventoryAgingScreen(),
+      binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
     ),
 
     // ==================== ERROR PAGES ====================

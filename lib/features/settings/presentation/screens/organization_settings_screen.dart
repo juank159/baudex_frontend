@@ -8,6 +8,7 @@ import '../../../../app/shared/widgets/loading_overlay.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../controllers/organization_controller.dart';
 import '../widgets/edit_organization_dialog.dart';
+import '../widgets/main_warehouse_selector.dart';
 
 class OrganizationSettingsScreen extends GetView<OrganizationController> {
   const OrganizationSettingsScreen({super.key});
@@ -47,6 +48,8 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCurrentOrganizationCard(),
+          const SizedBox(height: AppDimensions.spacingLarge),
+          const MainWarehouseSelector(),
         ],
       ),
     );
@@ -59,6 +62,8 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCurrentOrganizationCard(),
+          const SizedBox(height: AppDimensions.spacingLarge),
+          const MainWarehouseSelector(),
         ],
       ),
     );

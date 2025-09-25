@@ -15,10 +15,16 @@ class TenantInterceptor extends Interceptor {
   ) async {
     // 1. Intentar obtener el tenant desde el storage
     final tenantSlug = await _secureStorage.getTenantSlug();
+    
+    // DEBUG: Log detallado del tenant
+    print('🔍 TENANT DEBUG: Storage tenant slug: $tenantSlug');
 
     if (tenantSlug != null && tenantSlug.isNotEmpty) {
       // Agregar el tenant como header
       options.headers['X-Tenant-Slug'] = tenantSlug;
+      print('✅ TENANT: Using tenant from storage: $tenantSlug');
+    } else {
+      print('⚠️ TENANT: No tenant found in storage');
     }
 
     // 2. Verificar si hay un subdominio en la URL (solo para dominios reales, no IPs)

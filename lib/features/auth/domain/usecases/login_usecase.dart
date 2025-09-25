@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/usecases/usecase.dart';
+import '../entities/auth_result.dart';
 import '../repositories/auth_repository.dart';
 
 /// Caso de uso para iniciar sesión

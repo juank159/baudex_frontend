@@ -104,6 +104,7 @@
 import 'package:dartz/dartz.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../entities/user.dart';
+import '../entities/auth_result.dart';
 
 /// Contrato abstracto para operaciones de autenticación
 abstract class AuthRepository {
@@ -121,6 +122,19 @@ abstract class AuthRepository {
   /// Retorna [Right] con [AuthResult] si es exitoso
   /// Retorna [Left] con [Failure] si hay error
   Future<Either<Failure, AuthResult>> register({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+    UserRole? role,
+    String? organizationName,
+  });
+
+  /// Registrar nuevo usuario con onboarding automático (crear almacén por defecto)
+  ///
+  /// Retorna [Right] con [AuthResult] si es exitoso
+  /// Retorna [Left] con [Failure] si hay error
+  Future<Either<Failure, AuthResult>> registerWithOnboarding({
     required String firstName,
     required String lastName,
     required String email,
@@ -188,21 +202,3 @@ abstract class AuthRepository {
   Future<Either<Failure, Unit>> clearLocalAuth();
 }
 
-/// Resultado de operaciones de autenticación exitosas
-class AuthResult {
-  final String token;
-  final User user;
-  final String? refreshToken;
-
-  const AuthResult({
-    required this.token,
-    required this.user,
-    this.refreshToken,
-  });
-
-  // Nota: Faltaba @override y la implementación de equatable si AuthResult extiende Equatable
-  // O una implementación de hashCode y operator == si no extiende Equatable
-  // Asumiendo que Equatable está siendo usado en tus entidades.
-  // @override
-  // List<Object?> get props => [token, user, refreshToken];
-}

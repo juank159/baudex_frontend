@@ -21,6 +21,11 @@ class ExpenseStatsModel extends ExpenseStats {
     required super.expensesByType,
     required super.expensesByStatus,
     required super.monthlyTrends,
+    super.dailyCount,
+    super.weeklyCount,
+    required super.monthlyCount,
+    super.previousMonthAmount,
+    super.previousMonthCount,
   });
 
   factory ExpenseStatsModel.fromJson(Map<String, dynamic> json) {
@@ -54,6 +59,11 @@ class ExpenseStatsModel extends ExpenseStats {
       monthlyTrends: (json['monthlyTrends'] as List<dynamic>?)
           ?.map((trend) => MonthlyExpenseTrendModel.fromJson(trend))
           .toList() ?? [],
+      dailyCount: (json['dailyCount'] as num?)?.toInt(),
+      weeklyCount: (json['weeklyCount'] as num?)?.toInt(),
+      monthlyCount: (json['monthlyCount'] as num?)?.toInt() ?? 0,
+      previousMonthAmount: _parseDouble(json['previousMonthAmount']),
+      previousMonthCount: (json['previousMonthCount'] as num?)?.toInt(),
     );
   }
 
@@ -100,6 +110,11 @@ class ExpenseStatsModel extends ExpenseStats {
     expensesByType: expensesByType,
     expensesByStatus: expensesByStatus,
     monthlyTrends: monthlyTrends,
+    dailyCount: dailyCount,
+    weeklyCount: weeklyCount,
+    monthlyCount: monthlyCount,
+    previousMonthAmount: previousMonthAmount,
+    previousMonthCount: previousMonthCount,
   );
 
   factory ExpenseStatsModel.fromEntity(ExpenseStats stats) {
@@ -122,6 +137,11 @@ class ExpenseStatsModel extends ExpenseStats {
       expensesByType: stats.expensesByType,
       expensesByStatus: stats.expensesByStatus,
       monthlyTrends: stats.monthlyTrends,
+      dailyCount: stats.dailyCount,
+      weeklyCount: stats.weeklyCount,
+      monthlyCount: stats.monthlyCount,
+      previousMonthAmount: stats.previousMonthAmount,
+      previousMonthCount: stats.previousMonthCount,
     );
   }
 

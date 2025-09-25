@@ -386,4 +386,35 @@ class InvoiceModel extends Invoice {
       deletedAt: invoice.deletedAt,
     );
   }
+
+  /// Convierte el modelo a entidad de dominio
+  Invoice toEntity() {
+    return Invoice(
+      id: id,
+      number: number,
+      date: date,
+      dueDate: dueDate,
+      status: status,
+      paymentMethod: paymentMethod,
+      subtotal: subtotal,
+      taxPercentage: taxPercentage,
+      taxAmount: taxAmount,
+      discountPercentage: discountPercentage,
+      discountAmount: discountAmount,
+      total: total,
+      paidAmount: paidAmount,
+      balanceDue: balanceDue,
+      notes: notes,
+      terms: terms,
+      metadata: metadata,
+      customerId: customerId,
+      customer: customer,
+      createdById: createdById,
+      createdBy: createdBy,
+      items: items,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      deletedAt: deletedAt,
+    );
+  }
 }

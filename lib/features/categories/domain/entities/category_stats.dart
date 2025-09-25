@@ -8,6 +8,8 @@ class CategoryStats extends Equatable {
   final int parents;
   final int children;
   final int deleted;
+  final int totalProducts;
+  final double averageProductsPerCategory;
 
   const CategoryStats({
     required this.total,
@@ -16,6 +18,8 @@ class CategoryStats extends Equatable {
     required this.parents,
     required this.children,
     required this.deleted,
+    this.totalProducts = 0,
+    this.averageProductsPerCategory = 0.0,
   });
 
   // Propiedades calculadas
@@ -32,6 +36,8 @@ class CategoryStats extends Equatable {
     parents,
     children,
     deleted,
+    totalProducts,
+    averageProductsPerCategory,
   ];
 
   factory CategoryStats.fromJson(Map<String, dynamic> json) {

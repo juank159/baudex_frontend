@@ -1,0 +1,478 @@
+// lib/app/app_binding.dart
+import 'package:get/get.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+
+// Core
+import '../core/network/network_info.dart';
+import '../core/network/dio_client.dart';
+
+// Auth
+import '../features/auth/data/datasources/auth_remote_datasource.dart';
+import '../features/auth/data/datasources/auth_local_datasource.dart';
+import '../features/auth/data/repositories/auth_repository_impl.dart';
+import '../features/auth/domain/repositories/auth_repository.dart';
+import '../features/auth/domain/usecases/login_usecase.dart';
+import '../features/auth/domain/usecases/logout_usecase.dart';
+import '../features/auth/domain/usecases/is_authenticated_usecase.dart';
+import '../features/auth/domain/usecases/register_usecase.dart';
+import '../features/auth/domain/usecases/get_profile_usecase.dart';
+import '../features/auth/domain/usecases/change_password_usecase.dart';
+import '../features/auth/presentation/controllers/auth_controller.dart';
+
+// Products
+import '../features/products/data/datasources/product_remote_datasource.dart';
+import '../features/products/data/repositories/product_repository_impl.dart';
+import '../features/products/data/repositories/product_offline_repository.dart';
+import '../features/products/domain/repositories/product_repository.dart';
+import '../features/products/domain/usecases/get_products_usecase.dart';
+import '../features/products/domain/usecases/create_product_usecase.dart';
+import '../features/products/domain/usecases/update_product_usecase.dart';
+import '../features/products/domain/usecases/delete_product_usecase.dart';
+import '../features/products/domain/usecases/search_products_usecase.dart';
+import '../features/products/presentation/controllers/product_controller.dart';
+
+// Customers
+import '../features/customers/data/datasources/customer_remote_datasource.dart';
+import '../features/customers/data/repositories/customer_repository_impl.dart';
+import '../features/customers/data/repositories/customer_offline_repository.dart';
+import '../features/customers/domain/repositories/customer_repository.dart';
+import '../features/customers/domain/usecases/get_customers_usecase.dart';
+import '../features/customers/domain/usecases/get_customer_by_id_usecase.dart';
+import '../features/customers/domain/usecases/create_customer_usecase.dart';
+import '../features/customers/domain/usecases/update_customer_usecase.dart';
+import '../features/customers/domain/usecases/delete_customer_usecase.dart';
+import '../features/customers/domain/usecases/search_customers_usecase.dart';
+import '../features/customers/presentation/controllers/customer_controller.dart';
+
+// Categories
+import '../features/categories/data/datasources/category_remote_datasource.dart';
+import '../features/categories/data/repositories/category_repository_impl.dart';
+import '../features/categories/data/repositories/category_offline_repository.dart';
+import '../features/categories/domain/repositories/category_repository.dart';
+import '../features/categories/domain/usecases/get_categories_usecase.dart';
+import '../features/categories/domain/usecases/create_category_usecase.dart';
+import '../features/categories/domain/usecases/update_category_usecase.dart';
+import '../features/categories/domain/usecases/delete_category_usecase.dart';
+import '../features/categories/presentation/controllers/category_controller.dart';
+
+// Invoices
+import '../features/invoices/data/datasources/invoice_remote_datasource.dart';
+import '../features/invoices/data/repositories/invoice_repository_impl.dart';
+import '../features/invoices/data/repositories/invoice_offline_repository.dart';
+import '../features/invoices/domain/repositories/invoice_repository.dart';
+import '../features/invoices/domain/usecases/get_invoices_usecase.dart';
+import '../features/invoices/domain/usecases/create_invoice_usecase.dart';
+import '../features/invoices/domain/usecases/update_invoice_usecase.dart';
+import '../features/invoices/domain/usecases/delete_invoice_usecase.dart';
+import '../features/invoices/presentation/controllers/invoice_controller.dart';
+import '../features/invoices/presentation/controllers/invoice_form_controller.dart';
+
+// Expenses
+import '../features/expenses/data/datasources/expense_remote_datasource.dart';
+import '../features/expenses/data/repositories/expense_repository_impl.dart';
+import '../features/expenses/data/repositories/expense_offline_repository.dart';
+import '../features/expenses/domain/repositories/expense_repository.dart';
+import '../features/expenses/domain/usecases/get_expenses_usecase.dart';
+import '../features/expenses/domain/usecases/create_expense_usecase.dart';
+import '../features/expenses/domain/usecases/update_expense_usecase.dart';
+import '../features/expenses/domain/usecases/delete_expense_usecase.dart';
+import '../features/expenses/presentation/controllers/expense_controller.dart';
+
+// Settings/Organization
+import '../features/settings/data/datasources/organization_remote_datasource.dart';
+import '../features/settings/data/repositories/organization_repository_impl.dart';
+import '../features/settings/data/repositories/organization_offline_repository.dart';
+import '../features/settings/domain/repositories/organization_repository.dart';
+import '../features/settings/domain/usecases/get_organization_usecase.dart';
+import '../features/settings/domain/usecases/update_organization_usecase.dart';
+import '../features/settings/presentation/controllers/settings_controller.dart';
+
+// Dashboard/Notifications
+import '../features/dashboard/data/repositories/notification_offline_repository.dart';
+import '../features/dashboard/domain/repositories/dashboard_repository.dart';
+import '../features/dashboard/domain/usecases/get_dashboard_stats_usecase.dart';
+import '../features/dashboard/presentation/controllers/dashboard_controller.dart';
+
+// Offline Services
+import 'data/local/isar_database.dart';
+import 'data/local/repositories_registry.dart';
+import 'data/services/sync_service.dart';
+import 'data/services/connection_service.dart';
+
+// Core Services
+import '../core/storage/secure_storage_service.dart';
+import '../core/storage/tenant_storage.dart';
+import '../core/services/file_service.dart';
+
+// Shared UI
+import '../app/shared/controllers/app_drawer_controller.dart';
+
+// Bindings
+import '../features/customers/presentation/bindings/customer_binding.dart';
+import '../features/settings/presentation/bindings/settings_binding.dart';
+import '../features/dashboard/presentation/bindings/dashboard_binding.dart';
+
+class InitialBinding implements Bindings {
+  @override
+  void dependencies() {
+    print('🚀 InitialBinding: Iniciando dependencias globales con arquitectura offline...');
+    print('📱 Modo: OFFLINE-FIRST');
+
+    // ==================== CORE DEPENDENCIES ====================
+    _registerCoreDependencies();
+
+    // ==================== OFFLINE INFRASTRUCTURE ====================
+    _registerOfflineInfrastructure();
+
+    // ==================== SHARED UI CONTROLLERS ====================
+    _registerSharedUIControllers();
+
+    // ==================== AUTH MODULE ====================
+    _registerAuthModule();
+
+    // ==================== FEATURE MODULES ====================
+    _registerCustomerModule();
+    _registerProductModule();
+    _registerCategoryModule();
+    _registerInvoiceModule();
+    _registerExpenseModule();
+    _registerSettingsModule();
+    _registerDashboardModule();
+
+    // ==================== VALIDACIÓN FINAL ====================
+    _validateDependencies();
+
+    print('🎉 InitialBinding: Arquitectura offline-first completada exitosamente');
+  }
+
+  /// Registrar dependencias core del sistema
+  void _registerCoreDependencies() {
+    print('📦 Registrando dependencias core...');
+
+    // External dependencies
+    Get.lazyPut<Dio>(() => Dio(), fenix: true);
+    Get.lazyPut<FlutterSecureStorage>(() => const FlutterSecureStorage(), fenix: true);
+    Get.lazyPut<Connectivity>(() => Connectivity(), fenix: true);
+
+    // Network
+    Get.lazyPut<NetworkInfo>(() => NetworkInfoImpl(Get.find<Connectivity>()), fenix: true);
+    Get.lazyPut<DioClient>(() => DioClient(Get.find<Dio>()), fenix: true);
+
+    // Core Services
+    Get.lazyPut<SecureStorageService>(() => SecureStorageServiceImpl(Get.find<FlutterSecureStorage>()), fenix: true);
+    Get.lazyPut<FileService>(() => FileServiceImpl(), fenix: true);
+    Get.lazyPut<TenantStorage>(() => TenantStorageImpl(Get.find<SecureStorageService>()), fenix: true);
+
+    print('✅ Dependencias core registradas');
+  }
+
+  /// Registrar infraestructura offline
+  void _registerOfflineInfrastructure() {
+    print('💾 Registrando infraestructura offline...');
+
+    // ISAR Database (singleton)
+    Get.put<IsarDatabase>(IsarDatabase.instance, permanent: true);
+
+    // Offline Repositories
+    Get.lazyPut<ProductOfflineRepository>(() => ProductOfflineRepository(Get.find<IsarDatabase>()), fenix: true);
+    Get.lazyPut<CustomerOfflineRepository>(() => CustomerOfflineRepository(Get.find<IsarDatabase>()), fenix: true);
+    Get.lazyPut<CategoryOfflineRepository>(() => CategoryOfflineRepository(Get.find<IsarDatabase>()), fenix: true);
+    Get.lazyPut<InvoiceOfflineRepository>(() => InvoiceOfflineRepository(Get.find<IsarDatabase>()), fenix: true);
+    Get.lazyPut<ExpenseOfflineRepository>(() => ExpenseOfflineRepository(Get.find<IsarDatabase>()), fenix: true);
+    Get.lazyPut<OrganizationOfflineRepository>(() => OrganizationOfflineRepository(Get.find<IsarDatabase>()), fenix: true);
+    Get.lazyPut<NotificationOfflineRepository>(() => NotificationOfflineRepository(Get.find<IsarDatabase>()), fenix: true);
+
+    // Registry
+    Get.lazyPut<RepositoriesRegistry>(() => RepositoriesRegistry.instance, fenix: true);
+
+    // Sync and Connection Services
+    Get.lazyPut<SyncService>(() => SyncService(
+      Get.find<NetworkInfo>(),
+      Get.find<AuthLocalDataSource>(),
+      Get.find<RepositoriesRegistry>(),
+    ), fenix: true);
+
+    Get.put<ConnectionService>(ConnectionService(
+      Get.find<NetworkInfo>(),
+      Get.find<SyncService>(),
+    ), permanent: true);
+
+    print('✅ Infraestructura offline registrada');
+  }
+
+  /// Registrar controladores compartidos de UI
+  void _registerSharedUIControllers() {
+    print('🎨 Registrando controladores de UI compartidos...');
+
+    Get.lazyPut<AppDrawerController>(() => AppDrawerController(), fenix: true);
+
+    print('✅ Controladores de UI compartidos registrados');
+  }
+
+  /// Registrar módulo de autenticación
+  void _registerAuthModule() {
+    print('🔐 Registrando módulo de autenticación...');
+
+    // Datasources
+    Get.lazyPut<AuthLocalDataSource>(() => AuthLocalDataSourceImpl(storageService: Get.find<SecureStorageService>()), fenix: true);
+    Get.lazyPut<AuthRemoteDataSource>(() => AuthRemoteDataSourceImpl(dioClient: Get.find<DioClient>()), fenix: true);
+
+    // Repository
+    Get.lazyPut<AuthRepository>(() => AuthRepositoryImpl(
+      remoteDataSource: Get.find<AuthRemoteDataSource>(),
+      localDataSource: Get.find<AuthLocalDataSource>(),
+      networkInfo: Get.find<NetworkInfo>(),
+    ), fenix: true);
+
+    // Use cases
+    Get.lazyPut<LoginUseCase>(() => LoginUseCase(Get.find<AuthRepository>()), fenix: true);
+    Get.lazyPut<LogoutUseCase>(() => LogoutUseCase(Get.find<AuthRepository>()), fenix: true);
+    Get.lazyPut<IsAuthenticatedUseCase>(() => IsAuthenticatedUseCase(Get.find<AuthRepository>()), fenix: true);
+    Get.lazyPut<RegisterUseCase>(() => RegisterUseCase(Get.find<AuthRepository>()), fenix: true);
+    Get.lazyPut<GetProfileUseCase>(() => GetProfileUseCase(Get.find<AuthRepository>()), fenix: true);
+    Get.lazyPut<ChangePasswordUseCase>(() => ChangePasswordUseCase(Get.find<AuthRepository>()), fenix: true);
+
+    // Controller
+    Get.put<AuthController>(AuthController(
+      loginUseCase: Get.find<LoginUseCase>(),
+      logoutUseCase: Get.find<LogoutUseCase>(),
+      isAuthenticatedUseCase: Get.find<IsAuthenticatedUseCase>(),
+      registerUseCase: Get.find<RegisterUseCase>(),
+      getProfileUseCase: Get.find<GetProfileUseCase>(),
+      changePasswordUseCase: Get.find<ChangePasswordUseCase>(),
+      tenantStorage: Get.find<TenantStorage>(),
+    ), permanent: true);
+
+    print('✅ Módulo de autenticación registrado');
+  }
+
+  /// Registrar módulo de productos
+  void _registerProductModule() {
+    print('📦 Registrando módulo de productos (offline-first)...');
+
+    // Remote datasource (for sync)
+    Get.lazyPut<ProductRemoteDatasource>(() => ProductRemoteDatasourceImpl(Get.find<DioClient>()), fenix: true);
+
+    // Repository - Use offline repository as primary
+    Get.lazyPut<ProductRepository>(() => Get.find<ProductOfflineRepository>() as ProductRepository, fenix: true);
+
+    // Use cases
+    Get.lazyPut<GetProductsUseCase>(() => GetProductsUseCase(Get.find<ProductRepository>()), fenix: true);
+    Get.lazyPut<CreateProductUsecase>(() => CreateProductUsecase(Get.find<ProductRepository>()), fenix: true);
+    Get.lazyPut<UpdateProductUsecase>(() => UpdateProductUsecase(Get.find<ProductRepository>()), fenix: true);
+    Get.lazyPut<DeleteProductUsecase>(() => DeleteProductUsecase(Get.find<ProductRepository>()), fenix: true);
+    Get.lazyPut<SearchProductsUseCase>(() => SearchProductsUseCase(Get.find<ProductRepository>()), fenix: true);
+
+    // Controller
+    Get.lazyPut<ProductController>(() => ProductController(
+      getProductsUsecase: Get.find<GetProductsUseCase>(),
+      createProductUsecase: Get.find<CreateProductUsecase>(),
+      updateProductUsecase: Get.find<UpdateProductUsecase>(),
+      deleteProductUsecase: Get.find<DeleteProductUsecase>(),
+      searchProductsUsecase: Get.find<SearchProductsUseCase>(),
+    ), fenix: true);
+
+    print('✅ Módulo de productos (offline-first) registrado');
+  }
+
+  /// Registrar módulo de clientes
+  void _registerCustomerModule() {
+    print('👥 Registrando módulo de clientes (offline-first)...');
+
+    try {
+      // Use existing CustomerBinding for complex setup
+      CustomerBinding().dependencies();
+
+      // Override repository to use offline version
+      Get.delete<CustomerRepository>();
+      Get.lazyPut<CustomerRepository>(() => Get.find<CustomerOfflineRepository>() as CustomerRepository, fenix: true);
+
+      print('✅ Módulo de clientes (offline-first) registrado');
+    } catch (e) {
+      print('❌ Error registrando módulo de clientes: $e');
+    }
+  }
+
+  /// Registrar módulo de categorías
+  void _registerCategoryModule() {
+    print('📂 Registrando módulo de categorías (offline-first)...');
+
+    // Remote datasource (for sync)
+    Get.lazyPut<CategoryRemoteDatasource>(() => CategoryRemoteDatasourceImpl(Get.find<DioClient>()), fenix: true);
+
+    // Repository - Use offline repository as primary
+    Get.lazyPut<CategoryRepository>(() => Get.find<CategoryOfflineRepository>() as CategoryRepository, fenix: true);
+
+    // Use cases
+    Get.lazyPut<GetCategoriesUsecase>(() => GetCategoriesUsecase(Get.find<CategoryRepository>()), fenix: true);
+    Get.lazyPut<CreateCategoryUsecase>(() => CreateCategoryUsecase(Get.find<CategoryRepository>()), fenix: true);
+    Get.lazyPut<UpdateCategoryUsecase>(() => UpdateCategoryUsecase(Get.find<CategoryRepository>()), fenix: true);
+    Get.lazyPut<DeleteCategoryUsecase>(() => DeleteCategoryUsecase(Get.find<CategoryRepository>()), fenix: true);
+
+    // Controller
+    Get.lazyPut<CategoryController>(() => CategoryController(
+      getCategoriesUsecase: Get.find<GetCategoriesUsecase>(),
+      createCategoryUsecase: Get.find<CreateCategoryUsecase>(),
+      updateCategoryUsecase: Get.find<UpdateCategoryUsecase>(),
+      deleteCategoryUsecase: Get.find<DeleteCategoryUsecase>(),
+    ), fenix: true);
+
+    print('✅ Módulo de categorías (offline-first) registrado');
+  }
+
+  /// Registrar módulo de facturas
+  void _registerInvoiceModule() {
+    print('📄 Registrando módulo de facturas (offline-first)...');
+
+    // Remote datasource (for sync)
+    Get.lazyPut<InvoiceRemoteDatasource>(() => InvoiceRemoteDatasourceImpl(Get.find<DioClient>()), fenix: true);
+
+    // Repository - Use offline repository as primary
+    Get.lazyPut<InvoiceRepository>(() => Get.find<InvoiceOfflineRepository>() as InvoiceRepository, fenix: true);
+
+    // Use cases
+    Get.lazyPut<GetInvoicesUsecase>(() => GetInvoicesUsecase(Get.find<InvoiceRepository>()), fenix: true);
+    Get.lazyPut<CreateInvoiceUsecase>(() => CreateInvoiceUsecase(Get.find<InvoiceRepository>()), fenix: true);
+    Get.lazyPut<UpdateInvoiceUsecase>(() => UpdateInvoiceUsecase(Get.find<InvoiceRepository>()), fenix: true);
+    Get.lazyPut<DeleteInvoiceUsecase>(() => DeleteInvoiceUsecase(Get.find<InvoiceRepository>()), fenix: true);
+
+    // Controllers
+    Get.lazyPut<InvoiceController>(() => InvoiceController(
+      getInvoicesUsecase: Get.find<GetInvoicesUsecase>(),
+      createInvoiceUsecase: Get.find<CreateInvoiceUsecase>(),
+      updateInvoiceUsecase: Get.find<UpdateInvoiceUsecase>(),
+      deleteInvoiceUsecase: Get.find<DeleteInvoiceUsecase>(),
+    ), fenix: true);
+
+    Get.lazyPut<InvoiceFormController>(() => InvoiceFormController(
+      createInvoiceUsecase: Get.find<CreateInvoiceUsecase>(),
+      updateInvoiceUsecase: Get.find<UpdateInvoiceUsecase>(),
+      getProductsUsecase: Get.find<GetProductsUseCase>(),
+      getCustomersUsecase: Get.find<GetCustomersUseCase>(),
+    ), fenix: true);
+
+    print('✅ Módulo de facturas (offline-first) registrado');
+  }
+
+  /// Registrar módulo de gastos
+  void _registerExpenseModule() {
+    print('💰 Registrando módulo de gastos (offline-first)...');
+
+    // Remote datasource (for sync)
+    Get.lazyPut<ExpenseRemoteDatasource>(() => ExpenseRemoteDatasourceImpl(Get.find<DioClient>()), fenix: true);
+
+    // Repository - Use offline repository as primary
+    Get.lazyPut<ExpenseRepository>(() => Get.find<ExpenseOfflineRepository>() as ExpenseRepository, fenix: true);
+
+    // Use cases
+    Get.lazyPut<GetExpensesUsecase>(() => GetExpensesUsecase(Get.find<ExpenseRepository>()), fenix: true);
+    Get.lazyPut<CreateExpenseUsecase>(() => CreateExpenseUsecase(Get.find<ExpenseRepository>()), fenix: true);
+    Get.lazyPut<UpdateExpenseUsecase>(() => UpdateExpenseUsecase(Get.find<ExpenseRepository>()), fenix: true);
+    Get.lazyPut<DeleteExpenseUsecase>(() => DeleteExpenseUsecase(Get.find<ExpenseRepository>()), fenix: true);
+
+    // Controller
+    Get.lazyPut<ExpenseController>(() => ExpenseController(
+      getExpensesUsecase: Get.find<GetExpensesUsecase>(),
+      createExpenseUsecase: Get.find<CreateExpenseUsecase>(),
+      updateExpenseUsecase: Get.find<UpdateExpenseUsecase>(),
+      deleteExpenseUsecase: Get.find<DeleteExpenseUsecase>(),
+    ), fenix: true);
+
+    print('✅ Módulo de gastos (offline-first) registrado');
+  }
+
+  /// Registrar módulo de configuraciones
+  void _registerSettingsModule() {
+    print('⚙️ Registrando módulo de configuraciones (offline-first)...');
+
+    try {
+      // Use existing SettingsBinding for ISAR setup
+      SettingsBinding().dependencies();
+
+      // Override with offline repository
+      Get.delete<OrganizationRepository>(force: true);
+      Get.lazyPut<OrganizationRemoteDatasource>(() => OrganizationRemoteDatasourceImpl(Get.find<DioClient>()), fenix: true);
+      Get.lazyPut<OrganizationRepository>(() => Get.find<OrganizationOfflineRepository>() as OrganizationRepository, fenix: true);
+      
+      // Use cases
+      Get.lazyPut<GetOrganizationUsecase>(() => GetOrganizationUsecase(Get.find<OrganizationRepository>()), fenix: true);
+      Get.lazyPut<UpdateOrganizationUsecase>(() => UpdateOrganizationUsecase(Get.find<OrganizationRepository>()), fenix: true);
+
+      // Controller
+      Get.delete<SettingsController>(force: true);
+      Get.lazyPut<SettingsController>(() => SettingsController(
+        getOrganizationUsecase: Get.find<GetOrganizationUsecase>(),
+        updateOrganizationUsecase: Get.find<UpdateOrganizationUsecase>(),
+      ), fenix: true);
+
+      print('✅ Módulo de configuraciones (offline-first) registrado');
+    } catch (e) {
+      print('❌ Error registrando módulo de configuraciones: $e');
+    }
+  }
+
+  /// Registrar módulo de dashboard
+  void _registerDashboardModule() {
+    print('🏠 Registrando módulo de dashboard (offline-first)...');
+
+    try {
+      // Use existing DashboardBinding for complex setup
+      DashboardBinding().dependencies();
+
+      // Override controller to include offline services
+      Get.delete<DashboardController>(force: true);
+      Get.put<DashboardController>(DashboardController(
+        getProductsUsecase: Get.find<GetProductsUseCase>(),
+        getInvoicesUsecase: Get.find<GetInvoicesUsecase>(),
+        getCustomersUsecase: Get.find<GetCustomersUseCase>(),
+        getExpensesUsecase: Get.find<GetExpensesUsecase>(),
+        getDashboardStatsUseCase: Get.find<GetDashboardStatsUseCase>(),
+        notificationRepository: Get.find<NotificationOfflineRepository>(),
+        connectionService: Get.find<ConnectionService>(),
+        syncService: Get.find<SyncService>(),
+      ), permanent: true);
+
+      print('✅ Módulo de dashboard (offline-first) registrado');
+    } catch (e) {
+      print('❌ Error registrando módulo de dashboard: $e');
+    }
+  }
+
+  /// Validar que todas las dependencias críticas estén registradas
+  void _validateDependencies() {
+    print('🔍 Validando dependencias críticas offline-first...');
+
+    final criticalDependencies = {
+      'IsarDatabase': Get.isRegistered<IsarDatabase>(),
+      'RepositoriesRegistry': Get.isRegistered<RepositoriesRegistry>(),
+      'SyncService': Get.isRegistered<SyncService>(),
+      'ConnectionService': Get.isRegistered<ConnectionService>(),
+      'ProductOfflineRepository': Get.isRegistered<ProductOfflineRepository>(),
+      'CustomerOfflineRepository': Get.isRegistered<CustomerOfflineRepository>(),
+      'InvoiceOfflineRepository': Get.isRegistered<InvoiceOfflineRepository>(),
+      'AuthController': Get.isRegistered<AuthController>(),
+    };
+
+    final failedDependencies = criticalDependencies.entries
+        .where((entry) => !entry.value)
+        .map((entry) => entry.key)
+        .toList();
+
+    if (failedDependencies.isEmpty) {
+      print('✅ Todas las dependencias offline-first están registradas');
+    } else {
+      print('❌ Dependencias críticas faltantes:');
+      for (String dependency in failedDependencies) {
+        print('   - $dependency');
+      }
+      throw Exception('Faltan dependencias críticas offline: ${failedDependencies.join(", ")}');
+    }
+  }
+
+  @override
+  void onDispose() {
+    print('🧹 InitialBinding: Limpiando dependencias offline...');
+  }
+}

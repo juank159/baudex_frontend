@@ -24,6 +24,7 @@ import '../../domain/usecases/get_invoices_by_customer_usecase.dart';
 import '../../data/datasources/invoice_remote_datasource.dart';
 import '../../data/datasources/invoice_local_datasource.dart';
 import '../../data/repositories/invoice_repository_impl.dart';
+import '../../data/repositories/invoice_offline_repository_simple.dart';
 
 // Importar use cases de clientes y productos
 import '../../../customers/domain/usecases/get_customers_usecase.dart';
@@ -35,6 +36,9 @@ import '../controllers/invoice_list_controller.dart';
 import '../controllers/invoice_form_controller.dart';
 import '../controllers/invoice_detail_controller.dart';
 import '../controllers/invoice_stats_controller.dart';
+import '../controllers/thermal_printer_controller.dart';
+import '../services/invoice_inventory_service.dart';
+import '../../../inventory/domain/usecases/process_outbound_movement_fifo_usecase.dart';
 
 class InvoiceBinding extends Bindings {
   @override
@@ -55,6 +59,12 @@ class InvoiceBinding extends Bindings {
 
     // ==================== STATS CONTROLLER (SINGLETON) ====================
     _registerStatsController();
+
+    // ==================== THERMAL PRINTER CONTROLLER ====================
+    _registerThermalPrinterController();
+
+    // ==================== INVENTORY SERVICE ====================
+    _registerInventoryService();
 
     print('✅ InvoiceBinding: Dependencias configuradas exitosamente');
   }
@@ -79,6 +89,9 @@ class InvoiceBinding extends Bindings {
     // ==================== NOTA: NO REGISTRAR STATS CONTROLLER ====================
     print('⚠️ InvoiceStatsController NO cargado intencionalmente');
     print('💡 Se cargará solo cuando sea necesario');
+
+    // ==================== THERMAL PRINTER CONTROLLER ====================
+    _registerThermalPrinterController();
 
     print(
       '✅ InvoiceBinding: Dependencias básicas configuradas (sin estadísticas)',
@@ -125,11 +138,19 @@ class InvoiceBinding extends Bindings {
 
   /// Registrar repository
   void _registerRepository() {
+    // Register offline repository
+    Get.lazyPut<InvoiceOfflineRepositorySimple>(
+      () => InvoiceOfflineRepositorySimple(),
+      fenix: true,
+    );
+    
+    // Register main repository (with offline ISAR fallback)
     Get.lazyPut<InvoiceRepository>(
       () => InvoiceRepositoryImpl(
         remoteDataSource: Get.find<InvoiceRemoteDataSource>(),
         localDataSource: Get.find<InvoiceLocalDataSource>(),
         networkInfo: Get.find<NetworkInfo>(),
+        offlineRepository: Get.find<InvoiceOfflineRepositorySimple>(),
       ),
       fenix: true,
     );
@@ -210,34 +231,163 @@ class InvoiceBinding extends Bindings {
     }
   }
 
+  /// Registrar ThermalPrinterController (singleton global)
+  void _registerThermalPrinterController() {
+    if (!Get.isRegistered<ThermalPrinterController>()) {
+      Get.put(
+        ThermalPrinterController(),
+        permanent: true, // Mantener disponible globalmente
+      );
+      print('✅ ThermalPrinterController registrado como singleton');
+    } else {
+      print('ℹ️ ThermalPrinterController ya está registrado');
+    }
+  }
+
+  /// Registrar InvoiceInventoryService (singleton global)
+  void _registerInventoryService() {
+    if (!Get.isRegistered<InvoiceInventoryService>()) {
+      try {
+        // Verificar que el use case de inventario esté disponible
+        if (!Get.isRegistered<ProcessOutboundMovementFifoUseCase>()) {
+          print('⚠️ ProcessOutboundMovementFifoUseCase no encontrado - InvoiceInventoryService no se registrará');
+          return;
+        }
+
+        Get.put(
+          InvoiceInventoryService(
+            processOutboundMovementFifoUseCase: Get.find<ProcessOutboundMovementFifoUseCase>(),
+          ),
+          permanent: true, // Mantener disponible globalmente
+        );
+        print('✅ InvoiceInventoryService registrado como singleton');
+      } catch (e) {
+        print('❌ Error registrando InvoiceInventoryService: $e');
+      }
+    } else {
+      print('ℹ️ InvoiceInventoryService ya está registrado');
+    }
+  }
+
   // ==================== MÉTODOS PARA CONTROLADORES ESPECÍFICOS ====================
 
-  /// ✅ SOLUCIÓN: Registrar controlador de lista SIN TAG
+  /// ✅ SOLUCIÓN: Registrar controlador de lista SIN TAG con validaciones
   static void registerListController() {
     if (!Get.isRegistered<InvoiceListController>()) {
       try {
+        print('🔧 Iniciando registro de InvoiceListController...');
+        
+        // ✅ Validar dependencias antes de crear el controlador
+        print('🔍 Validando dependencias requeridas...');
+        final requiredDependencies = [
+          'GetInvoicesUseCase',
+          'SearchInvoicesUseCase', 
+          'DeleteInvoiceUseCase',
+          'ConfirmInvoiceUseCase',
+          'CancelInvoiceUseCase',
+          'GetInvoiceByIdUseCase',
+        ];
+        
+        for (final dep in requiredDependencies) {
+          switch (dep) {
+            case 'GetInvoicesUseCase':
+              if (!Get.isRegistered<GetInvoicesUseCase>()) {
+                throw Exception('$dep no está registrado');
+              }
+              break;
+            case 'SearchInvoicesUseCase':
+              if (!Get.isRegistered<SearchInvoicesUseCase>()) {
+                throw Exception('$dep no está registrado');
+              }
+              break;
+            case 'DeleteInvoiceUseCase':
+              if (!Get.isRegistered<DeleteInvoiceUseCase>()) {
+                throw Exception('$dep no está registrado');
+              }
+              break;
+            case 'ConfirmInvoiceUseCase':
+              if (!Get.isRegistered<ConfirmInvoiceUseCase>()) {
+                throw Exception('$dep no está registrado');
+              }
+              break;
+            case 'CancelInvoiceUseCase':
+              if (!Get.isRegistered<CancelInvoiceUseCase>()) {
+                throw Exception('$dep no está registrado');
+              }
+              break;
+            case 'GetInvoiceByIdUseCase':
+              if (!Get.isRegistered<GetInvoiceByIdUseCase>()) {
+                throw Exception('$dep no está registrado');
+              }
+              break;
+          }
+          print('✅ $dep validado');
+        }
+        
+        print('🛠️ Creando InvoiceListController...');
+        final controller = InvoiceListController(
+          getInvoicesUseCase: Get.find<GetInvoicesUseCase>(),
+          searchInvoicesUseCase: Get.find<SearchInvoicesUseCase>(),
+          deleteInvoiceUseCase: Get.find<DeleteInvoiceUseCase>(),
+          confirmInvoiceUseCase: Get.find<ConfirmInvoiceUseCase>(),
+          cancelInvoiceUseCase: Get.find<CancelInvoiceUseCase>(),
+          getInvoiceByIdUseCase: Get.find<GetInvoiceByIdUseCase>(),
+        );
+        
+        if (controller == null) {
+          throw Exception('InvoiceListController creado pero es null');
+        }
+        
+        print('📝 Registrando controlador en GetX...');
         Get.put(
-          InvoiceListController(
-            getInvoicesUseCase: Get.find<GetInvoicesUseCase>(),
-            searchInvoicesUseCase: Get.find<SearchInvoicesUseCase>(),
-            deleteInvoiceUseCase: Get.find<DeleteInvoiceUseCase>(),
-            confirmInvoiceUseCase: Get.find<ConfirmInvoiceUseCase>(),
-            cancelInvoiceUseCase: Get.find<CancelInvoiceUseCase>(),
-            getInvoiceByIdUseCase: Get.find<GetInvoiceByIdUseCase>(),
-          ),
+          controller,
           permanent: false, // ✅ No permanente para permitir disposal correcto
-          // ✅ REMOVER TAG PARA QUE SEA ACCESIBLE SIN TAG
-          // tag: 'invoice_list', ← COMENTADO
         );
-        print(
-          '✅ InvoiceListController registrado (sin tag) con integración de impresora predeterminada',
-        );
-      } catch (e) {
+        
+        // ✅ Verificar que se registró correctamente
+        if (!Get.isRegistered<InvoiceListController>()) {
+          throw Exception('Controlador no se registró correctamente en GetX');
+        }
+        
+        final registeredController = Get.find<InvoiceListController>();
+        if (registeredController == null) {
+          throw Exception('Controlador registrado pero Get.find retorna null');
+        }
+        
+        print('✅ InvoiceListController registrado y validado exitosamente');
+        
+      } catch (e, stackTrace) {
         print('❌ Error registrando InvoiceListController: $e');
+        print('📍 Stack trace: $stackTrace');
         throw Exception('No se pudo registrar InvoiceListController: $e');
       }
     } else {
       print('ℹ️ InvoiceListController ya está registrado');
+      
+      try {
+        // ✅ Verificar que el controlador existente no sea null
+        final existingController = Get.find<InvoiceListController>();
+        if (existingController == null) {
+          print('⚠️ Controlador registrado pero es null, limpiando y re-registrando...');
+          Get.delete<InvoiceListController>(force: true);
+          registerListController(); // Recursivamente re-registrar
+          return;
+        }
+        
+        // ✅ SOLUCIÓN RADICAL: Recrear ScrollController para evitar conflictos
+        print('🔄 Recreando ScrollController del controlador existente');
+        existingController.recreateScrollController();
+        
+      } catch (e) {
+        print('❌ Error verificando controlador existente: $e');
+        print('🗺 Forzando limpieza y re-registro...');
+        try {
+          Get.delete<InvoiceListController>(force: true);
+        } catch (deleteError) {
+          print('❌ Error en limpieza forzada: $deleteError');
+        }
+        registerListController(); // Re-registrar
+      }
     }
   }
 

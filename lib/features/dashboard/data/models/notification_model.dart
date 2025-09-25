@@ -28,10 +28,41 @@ class NotificationModel extends Notification {
           actionData: actionData,
         );
 
-  factory NotificationModel.fromJson(Map<String, dynamic> json) =>
-      _$NotificationModelFromJson(json);
+  factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    // Temporalmente sin generación automática
+    return NotificationModel(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      message: json['message'] ?? '',
+      type: NotificationType.values.firstWhere(
+        (e) => e.toString().split('.').last == json['type'],
+        orElse: () => NotificationType.system,
+      ),
+      priority: NotificationPriority.values.firstWhere(
+        (e) => e.toString().split('.').last == json['priority'],
+        orElse: () => NotificationPriority.medium,
+      ),
+      isRead: json['isRead'] ?? false,
+      timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
+      relatedId: json['relatedId'],
+      actionData: json['actionData'],
+    );
+  }
 
-  Map<String, dynamic> toJson() => _$NotificationModelToJson(this);
+  Map<String, dynamic> toJson() {
+    // Temporalmente sin generación automática
+    return {
+      'id': id,
+      'title': title,
+      'message': message,
+      'type': type.toString().split('.').last,
+      'priority': priority.toString().split('.').last,
+      'isRead': isRead,
+      'timestamp': timestamp.toIso8601String(),
+      'relatedId': relatedId,
+      'actionData': actionData,
+    };
+  }
 
   @override
   NotificationModel copyWith({

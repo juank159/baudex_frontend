@@ -25,6 +25,9 @@ class AppFormatters {
   // Formateador de fechas
   static final dateFormat = DateFormat('dd/MM/yyyy', 'es_CO');
 
+  // Formateador de fecha y hora
+  static final dateTimeFormat = DateFormat('dd/MM/yyyy HH:mm', 'es_CO');
+
   /// Formatea un número (double o int) como un string con separadores de miles.
   ///
   /// Ejemplo: formatNumber(12345) => "12.345"
@@ -42,6 +45,21 @@ class AppFormatters {
     // Formatear sin símbolo y luego agregar el símbolo al inicio manualmente
     String formatted = numberFormat.format(value);
     return '\$ $formatted';
+  }
+
+  /// Formatea un número como moneda compacta para gráficos (K, M, etc.).
+  ///
+  /// Ejemplo: formatCompactCurrency(1500000) => "$ 1.5M"
+  static String formatCompactCurrency(num? value) {
+    if (value == null || value == 0) return '\$ 0';
+    
+    if (value >= 1000000) {
+      return '\$ ${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value >= 1000) {
+      return '\$ ${(value / 1000).toStringAsFixed(1)}K';
+    } else {
+      return '\$ ${value.toStringAsFixed(0)}';
+    }
   }
 
   /// Formatea un número como moneda CON decimales (solo para casos especiales).
@@ -92,5 +110,42 @@ class AppFormatters {
   static String formatDate(DateTime? date) {
     if (date == null) return '';
     return dateFormat.format(date);
+  }
+
+  /// Formatea una fecha y hora como string.
+  ///
+  /// Ejemplo: formatDateTime(DateTime(2023, 12, 25, 14, 30)) => "25/12/2023 14:30"
+  static String formatDateTime(DateTime? dateTime) {
+    if (dateTime == null) return '';
+    return dateTimeFormat.format(dateTime);
+  }
+
+  /// Formatea una fecha para enviar a la API en formato YYYY-MM-DD.
+  ///
+  /// Ejemplo: formatDateForApi(DateTime(2023, 12, 25)) => "2023-12-25"
+  static String formatDateForApi(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Formatea el tiempo transcurrido desde una fecha hasta ahora.
+  ///
+  /// Ejemplo: formatTimeAgo(DateTime.now().subtract(Duration(hours: 2))) => "Hace 2 horas"
+  static String formatTimeAgo(DateTime? dateTime) {
+    if (dateTime == null) return '';
+
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 7) {
+      return formatDate(dateTime);
+    } else if (difference.inDays > 0) {
+      return 'Hace ${difference.inDays} ${difference.inDays == 1 ? 'día' : 'días'}';
+    } else if (difference.inHours > 0) {
+      return 'Hace ${difference.inHours} ${difference.inHours == 1 ? 'hora' : 'horas'}';
+    } else if (difference.inMinutes > 0) {
+      return 'Hace ${difference.inMinutes} ${difference.inMinutes == 1 ? 'minuto' : 'minutos'}';
+    } else {
+      return 'Ahora';
+    }
   }
 }

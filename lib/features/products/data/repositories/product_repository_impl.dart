@@ -1,5 +1,4 @@
 // lib/features/products/data/repositories/product_repository_impl.dart
-import 'package:baudex_desktop/features/products/data/models/product_response_model.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
@@ -11,7 +10,6 @@ import '../../domain/entities/product_stats.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../datasources/product_remote_datasource.dart';
 import '../datasources/product_local_datasource.dart';
-import '../models/product_model.dart';
 import '../models/product_query_model.dart';
 import '../models/create_product_request_model.dart';
 import '../models/update_product_request_model.dart';
@@ -453,7 +451,60 @@ class ProductRepositoryImpl implements ProductRepository {
         return Left(UnknownFailure('Error inesperado al crear producto: $e'));
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      // Sin conexión, crear producto offline para sincronizar después
+      print('📱 ProductRepository: Creating product offline: $name');
+      try {
+        // Generar un ID temporal único para el producto offline
+        final now = DateTime.now();
+        final tempId = 'product_offline_${now.millisecondsSinceEpoch}_${name.hashCode}';
+        
+        // Crear producto con ID temporal
+        final tempProduct = Product(
+          id: tempId,
+          name: name,
+          description: description ?? '',
+          sku: sku,
+          barcode: barcode,
+          type: type ?? ProductType.product,
+          status: status ?? ProductStatus.active,
+          stock: stock ?? 0.0,
+          minStock: minStock ?? 0.0,
+          unit: unit ?? 'pcs',
+          weight: weight,
+          length: length,
+          width: width,
+          height: height,
+          images: images ?? [],
+          metadata: metadata ?? {},
+          categoryId: categoryId,
+          createdById: '', // Will be set from authentication when syncing
+          category: null, // Will be resolved when syncing
+          prices: prices?.map((priceParam) => ProductPrice(
+            id: 'price_${tempId}_${priceParam.type.name}',
+            productId: tempId,
+            type: priceParam.type,
+            amount: priceParam.amount,
+            currency: priceParam.currency ?? 'USD', // Default currency
+            status: PriceStatus.active, // Default to active for new products
+            discountPercentage: priceParam.discountPercentage ?? 0.0,
+            minQuantity: priceParam.minQuantity ?? 1.0,
+            createdAt: now,
+            updatedAt: now,
+          )).toList() ?? [],
+          createdBy: null, // Will be set from authentication when syncing
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        // Cache el producto localmente
+        await localDataSource.cacheProductForSync(tempProduct);
+        
+        print('✅ ProductRepository: Product created offline successfully');
+        return Right(tempProduct);
+      } catch (e) {
+        print('❌ ProductRepository: Error creating product offline: $e');
+        return Left(CacheFailure('Error al crear producto offline: $e'));
+      }
     }
   }
 
@@ -782,6 +833,99 @@ class ProductRepositoryImpl implements ProductRepository {
     }
   }
 
+  // ==================== ✅ SYNC OPERATIONS ====================
+
+  /// Sincronizar productos creados offline con el servidor
+  Future<Either<Failure, List<Product>>> syncOfflineProducts() async {
+    if (!await networkInfo.isConnected) {
+      return const Left(ConnectionFailure.noInternet);
+    }
+
+    try {
+      print('🔄 ProductRepository: Starting offline products sync...');
+      
+      // Obtener productos no sincronizados
+      final unsyncedProducts = await localDataSource.getUnsyncedProducts();
+      
+      if (unsyncedProducts.isEmpty) {
+        print('✅ ProductRepository: No products to sync');
+        return const Right([]);
+      }
+
+      print('📤 ProductRepository: Syncing ${unsyncedProducts.length} offline products...');
+      final syncedProducts = <Product>[];
+      final failures = <String>[];
+
+      for (final product in unsyncedProducts) {
+        try {
+          // Crear request model para el servidor
+          final request = CreateProductRequestModel.fromParams(
+            name: product.name,
+            description: product.description?.isNotEmpty == true ? product.description : null,
+            sku: product.sku,
+            barcode: product.barcode,
+            type: product.type,
+            status: product.status,
+            stock: product.stock,
+            minStock: product.minStock,
+            unit: product.unit,
+            weight: product.weight,
+            length: product.length,
+            width: product.width,
+            height: product.height,
+            images: product.images?.isNotEmpty == true ? product.images : null,
+            metadata: product.metadata?.isNotEmpty == true ? product.metadata : null,
+            categoryId: product.categoryId,
+            prices: product.prices?.map((price) => CreateProductPriceParams(
+              type: price.type,
+              amount: price.amount,
+              currency: price.currency,
+              discountPercentage: price.discountPercentage,
+              minQuantity: price.minQuantity,
+            )).toList() ?? [],
+          );
+
+          // Enviar al servidor
+          final serverProduct = await remoteDataSource.createProduct(request);
+          
+          // Marcar como sincronizado localmente
+          await localDataSource.markProductAsSynced(product.id, serverProduct.id);
+          
+          // Cache el producto del servidor
+          await localDataSource.cacheProduct(serverProduct);
+          
+          syncedProducts.add(serverProduct.toEntity());
+          print('✅ ProductRepository: Synced product: ${product.name} -> ${serverProduct.id}');
+          
+        } catch (e) {
+          print('❌ ProductRepository: Failed to sync product ${product.name}: $e');
+          failures.add('${product.name}: $e');
+        }
+      }
+
+      print('🎯 ProductRepository: Sync completed. Success: ${syncedProducts.length}, Failures: ${failures.length}');
+      
+      if (failures.isNotEmpty) {
+        print('⚠️ ProductRepository: Sync failures:\n${failures.join('\n')}');
+      }
+
+      return Right(syncedProducts);
+    } catch (e) {
+      print('💥 ProductRepository: Error during offline products sync: $e');
+      return Left(UnknownFailure('Error al sincronizar productos offline: $e'));
+    }
+  }
+
+  /// Obtener productos que faltan por sincronizar
+  Future<Either<Failure, List<Product>>> getUnsyncedProducts() async {
+    try {
+      final unsyncedProducts = await localDataSource.getUnsyncedProducts();
+      return Right(unsyncedProducts);
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener productos no sincronizados: $e'));
+    }
+  }
+
   // ==================== PRIVATE HELPER METHODS ====================
 
   /// Determinar si se debe cachear el resultado
@@ -856,12 +1000,86 @@ class ProductRepositoryImpl implements ProductRepository {
   /// Obtener estadísticas desde cache
   Future<Either<Failure, ProductStats>> _getProductStatsFromCache() async {
     try {
-      final stats = await localDataSource.getCachedProductStats();
-      if (stats != null) {
-        return Right(stats.toEntity());
-      } else {
-        return const Left(CacheFailure('Datos no encontrados en cache'));
+      // Primero intentar obtener estadísticas cacheadas
+      final cachedStats = await localDataSource.getCachedProductStats();
+      if (cachedStats != null) {
+        print('📊 ISAR: Estadísticas encontradas en cache');
+        return Right(cachedStats.toEntity());
       }
+      
+      print('📊 ISAR: No hay estadísticas en cache, calculando desde productos locales...');
+      
+      // Si no hay estadísticas cacheadas, calcularlas desde los productos locales
+      try {
+        final products = await localDataSource.getCachedProducts();
+        
+        // Calcular estadísticas desde los productos
+        int total = products.length;
+        int active = 0;
+        int inactive = 0;
+        int outOfStock = 0;
+        int lowStock = 0;
+        double totalValue = 0.0;
+        double totalPrices = 0.0;
+        int productsWithPrices = 0;
+        
+        for (final product in products) {
+          // Contar estados
+          if (product.status == 'active') {
+            active++;
+          } else {
+            inactive++;
+          }
+          
+          // Contar stock
+          if (product.stock <= 0) {
+            outOfStock++;
+          } else if (product.stock <= product.minStock) {
+            lowStock++;
+          }
+          
+          // Calcular valores (usar primer precio si existe)
+          if (product.prices != null && product.prices!.isNotEmpty) {
+            final firstPrice = product.prices!.first;
+            final price = firstPrice.finalAmount;
+            totalValue += price * product.stock;
+            totalPrices += price;
+            productsWithPrices++;
+          }
+        }
+        
+        final activePercentage = total > 0 ? (active / total) * 100 : 0.0;
+        final averagePrice = productsWithPrices > 0 ? totalPrices / productsWithPrices : 0.0;
+        
+        final calculatedStats = ProductStats(
+          total: total,
+          active: active,
+          inactive: inactive,
+          outOfStock: outOfStock,
+          lowStock: lowStock,
+          activePercentage: activePercentage,
+          totalValue: totalValue,
+          averagePrice: averagePrice,
+        );
+        
+        print('✅ Estadísticas calculadas desde productos locales: $total productos');
+        return Right(calculatedStats);
+        
+      } on CacheException {
+        // Si no hay productos en cache, devolver estadísticas vacías
+        print('📊 No hay productos en cache, devolviendo estadísticas vacías');
+        return const Right(ProductStats(
+          total: 0,
+          active: 0,
+          inactive: 0,
+          outOfStock: 0,
+          lowStock: 0,
+          activePercentage: 0.0,
+          totalValue: 0.0,
+          averagePrice: 0.0,
+        ));
+      }
+      
     } on CacheException catch (e) {
       return Left(CacheFailure(e.message));
     } catch (e) {

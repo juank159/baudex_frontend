@@ -1,6 +1,7 @@
 // lib/features/dashboard/presentation/widgets/dashboard_stats_grid.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'dart:math' as math;
 import '../controllers/dashboard_controller.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
@@ -259,7 +260,7 @@ class DashboardStatsGrid extends GetView<DashboardController> {
   }
 }
 
-class _StatCard extends StatelessWidget {
+class _StatCard extends StatefulWidget {
   final String title;
   final String value;
   final String? subtitle;
@@ -277,68 +278,270 @@ class _StatCard extends StatelessWidget {
   });
 
   @override
+  State<_StatCard> createState() => _StatCardState();
+}
+
+class _StatCardState extends State<_StatCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _glowAnimation;
+  late Animation<double> _rotationAnimation;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.05,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.elasticOut,
+    ));
+
+    _glowAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _rotationAnimation = Tween<double>(
+      begin: 0.0,
+      end: 0.02,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-        child: Container(
-          padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, color: color, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w500,
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return MouseRegion(
+          onEnter: (_) => _onHover(true),
+          onExit: (_) => _onHover(false),
+          child: Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..rotateX(_rotationAnimation.value)
+                ..rotateY(_rotationAnimation.value * 0.5),
+              child: Container(
+                height: 150, // Aumentado para evitar overflow
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.surface,
+                      AppColors.surface.withOpacity(0.8),
+                    ],
+                  ),
+                  boxShadow: [
+                    // Sombra principal profunda
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                      spreadRadius: 0,
+                    ),
+                    // Sombra secundaria para efecto de elevación
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                      spreadRadius: 0,
+                    ),
+                    // Brillo interno sutil (simulado con brillo superior)
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.1),
+                      blurRadius: 1,
+                      offset: const Offset(0, -1),
+                      spreadRadius: 0,
+                    ),
+                    // Efecto glow cuando hover
+                    if (_glowAnimation.value > 0)
+                      BoxShadow(
+                        color: widget.color.withOpacity(_glowAnimation.value * 0.3),
+                        blurRadius: 25 * _glowAnimation.value,
+                        offset: const Offset(0, 5),
+                        spreadRadius: 2 * _glowAnimation.value,
+                      ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  child: InkWell(
+                    onTap: widget.onTap,
+                    borderRadius: BorderRadius.circular(20),
+                    overlayColor: WidgetStateProperty.all(
+                      widget.color.withOpacity(0.05),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        // Gradiente sutil para dar profundidad
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withOpacity(0.1),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header con icono y título
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              // Icono con efecto 3D
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      widget.color.withOpacity(0.2),
+                                      widget.color.withOpacity(0.1),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: widget.color.withOpacity(0.2),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  widget.icon,
+                                  color: widget.color,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Título con animación de brillos
+                              Expanded(
+                                child: ShaderMask(
+                                  shaderCallback: (bounds) => LinearGradient(
+                                    colors: [
+                                      AppColors.textSecondary,
+                                      AppColors.textSecondary.withOpacity(0.8),
+                                    ],
+                                  ).createShader(bounds),
+                                  child: Text(
+                                    widget.title,
+                                    style: AppTextStyles.bodyMedium.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          // Valor principal con efecto de brillo
+                          ShaderMask(
+                            shaderCallback: (bounds) => LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.textPrimary,
+                                AppColors.textPrimary.withOpacity(0.8),
+                              ],
+                            ).createShader(bounds),
+                            child: Text(
+                              widget.value,
+                              style: AppTextStyles.headlineSmall.copyWith(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 28,
+                                height: 1.0,
+                                letterSpacing: -0.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          // Subtitle con indicador visual
+                          if (widget.subtitle != null) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                // Pequeño indicador de color
+                                Container(
+                                  width: 4,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: widget.color,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    widget.subtitle!,
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: AppColors.textSecondary,
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                value,
-                style: AppTextStyles.headlineSmall.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  subtitle!,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
+  }
+
+  void _onHover(bool isHovered) {
+    setState(() {
+      _isHovered = isHovered;
+    });
+    
+    if (isHovered) {
+      _animationController.forward();
+    } else {
+      _animationController.reverse();
+    }
   }
 }

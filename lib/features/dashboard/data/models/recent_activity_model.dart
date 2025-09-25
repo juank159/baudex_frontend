@@ -24,8 +24,32 @@ class RecentActivityModel extends RecentActivity {
           metadata: metadata,
         );
 
-  factory RecentActivityModel.fromJson(Map<String, dynamic> json) =>
-      _$RecentActivityModelFromJson(json);
+  factory RecentActivityModel.fromJson(Map<String, dynamic> json) {
+    // Temporalmente sin generación automática
+    return RecentActivityModel(
+      id: json['id'] ?? '',
+      type: ActivityType.values.firstWhere(
+        (e) => e.toString().split('.').last == json['type'],
+        orElse: () => ActivityType.invoice,
+      ),
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
+      relatedId: json['relatedId'],
+      metadata: json['metadata'],
+    );
+  }
 
-  Map<String, dynamic> toJson() => _$RecentActivityModelToJson(this);
+  Map<String, dynamic> toJson() {
+    // Temporalmente sin generación automática
+    return {
+      'id': id,
+      'type': type.toString().split('.').last,
+      'title': title,
+      'description': description,
+      'timestamp': timestamp.toIso8601String(),
+      'relatedId': relatedId,
+      'metadata': metadata,
+    };
+  }
 }

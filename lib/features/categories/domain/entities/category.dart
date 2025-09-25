@@ -1,9 +1,10 @@
 // lib/features/categories/domain/entities/category.dart
 import 'package:equatable/equatable.dart';
+import '../../../../app/data/local/base_offline_repository.dart';
 
 enum CategoryStatus { active, inactive }
 
-class Category extends Equatable {
+class Category extends Equatable implements SyncableEntity {
   final String id;
   final String name;
   final String? description;
@@ -18,6 +19,8 @@ class Category extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
+  final bool isSynced;
+  final DateTime? lastSyncAt;
 
   const Category({
     required this.id,
@@ -34,6 +37,8 @@ class Category extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
+    this.isSynced = false,
+    this.lastSyncAt,
   });
 
   // Computed properties
@@ -77,6 +82,8 @@ class Category extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
+    bool? isSynced,
+    DateTime? lastSyncAt,
   }) {
     return Category(
       id: id ?? this.id,
@@ -93,6 +100,8 @@ class Category extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      isSynced: isSynced ?? this.isSynced,
+      lastSyncAt: lastSyncAt ?? this.lastSyncAt,
     );
   }
 
@@ -112,5 +121,7 @@ class Category extends Equatable {
     createdAt,
     updatedAt,
     deletedAt,
+    isSynced,
+    lastSyncAt,
   ];
 }

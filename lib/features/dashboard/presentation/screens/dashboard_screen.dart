@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/dashboard_controller.dart';
-import '../widgets/dashboard_stats_grid.dart';
 import '../widgets/dashboard_charts_section.dart';
+import '../widgets/profitability_section.dart';
 import '../widgets/recent_activity_card.dart';
 import '../widgets/notifications_panel.dart';
 import '../widgets/period_selector.dart';
@@ -76,12 +76,7 @@ class DashboardScreen extends GetView<DashboardController> {
                 ),
               ),
             ),
-            Obx(
-              () => LoadingOverlay(
-                isLoading: controller.isLoading,
-                message: 'Cargando dashboard...',
-              ),
-            ),
+            // Removido LoadingOverlay global para evitar bloqueo de las cards
           ],
         ),
       ),
@@ -92,12 +87,12 @@ class DashboardScreen extends GetView<DashboardController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Stats Grid
-        const DashboardStatsGrid(),
+        // Charts Section unificada (incluye stats principales integradas)
+        const DashboardChartsSection(),
         const SizedBox(height: AppDimensions.spacingMedium),
 
-        // Charts Section
-        const DashboardChartsSection(),
+        // Profitability Section
+        const ProfitabilitySection(),
         const SizedBox(height: AppDimensions.spacingMedium),
 
         // Recent Activity
@@ -114,22 +109,27 @@ class DashboardScreen extends GetView<DashboardController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Stats Grid
-        const DashboardStatsGrid(),
-        const SizedBox(height: AppDimensions.spacingMedium),
+        // Charts Section unificada - Primera fila (incluye stats principales integradas)
+        const SizedBox(
+          height: 580,
+          child: DashboardChartsSection(),
+        ),
+        const SizedBox(height: AppDimensions.spacingLarge),
 
-        // Charts Section
-        const DashboardChartsSection(),
-        const SizedBox(height: AppDimensions.spacingMedium),
+        // Profitability Section - Segunda fila
+        const ProfitabilitySection(),
+        const SizedBox(height: AppDimensions.spacingLarge),
 
-        // Two column layout for activity and notifications
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Expanded(flex: 2, child: RecentActivityCard()),
-            const SizedBox(width: AppDimensions.spacingMedium),
-            const Expanded(flex: 1, child: NotificationsPanel()),
-          ],
+        // Two column layout for activity and notifications - Tercera fila
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(flex: 2, child: RecentActivityCard()),
+              const SizedBox(width: AppDimensions.spacingMedium),
+              const Expanded(flex: 1, child: NotificationsPanel()),
+            ],
+          ),
         ),
       ],
     );
@@ -139,30 +139,44 @@ class DashboardScreen extends GetView<DashboardController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Stats Grid
-        const DashboardStatsGrid(),
-        const SizedBox(height: AppDimensions.spacingMedium),
+        // Primera fila: Resumen Financiero unificado (incluye stats principales integradas)
+        const SizedBox(
+          height: 580, // Altura aumentada para incluir stats integradas
+          child: DashboardChartsSection(),
+        ),
+        const SizedBox(height: AppDimensions.spacingLarge),
 
-        // Main content area with three columns
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left column - Charts
-            const Expanded(flex: 2, child: DashboardChartsSection()),
-            const SizedBox(width: AppDimensions.spacingMedium),
+        // Segunda fila: Profitabilidad FIFO
+        const ProfitabilitySection(),
+        const SizedBox(height: AppDimensions.spacingLarge),
 
-            // Right column - Activity and Notifications
-            Expanded(
-              flex: 1,
-              child: Column(
-                children: [
-                  const RecentActivityCard(),
-                  const SizedBox(height: AppDimensions.spacingMedium),
-                  const NotificationsPanel(),
-                ],
+        // Tercera fila: Grid de componentes adicionales (2x2)
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Columna izquierda
+              Expanded(
+                flex: 1,
+                child: Column(
+                  children: [
+                    const Expanded(child: RecentActivityCard()),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: AppDimensions.spacingMedium),
+              
+              // Columna derecha
+              Expanded(
+                flex: 1,
+                child: Column(
+                  children: [
+                    const Expanded(child: NotificationsPanel()),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

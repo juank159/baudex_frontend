@@ -17,6 +17,7 @@ import '../models/api_error_model.dart';
 abstract class AuthRemoteDataSource {
   Future<AuthResponseModel> login(LoginRequestModel request);
   Future<AuthResponseModel> register(RegisterRequestModel request);
+  Future<AuthResponseModel> registerWithOnboarding(RegisterRequestModel request);
   Future<ProfileResponseModel> getProfile();
   Future<RefreshTokenResponseModel> refreshToken();
   Future<void> logout();
@@ -81,6 +82,51 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw _handleDioException(e);
     } catch (e) {
       throw ServerException('Error inesperado durante el registro: $e');
+    }
+  }
+
+  @override
+  Future<AuthResponseModel> registerWithOnboarding(RegisterRequestModel request) async {
+    try {
+      print('🏗️ AuthRemoteDataSource: Iniciando registro con onboarding automático...');
+      
+      // PASO 1: Registrar el usuario normalmente
+      final authResponse = await register(request);
+      print('✅ AuthRemoteDataSource: Usuario registrado exitosamente');
+      
+      // PASO 2: Crear almacén por defecto automáticamente
+      try {
+        print('🏗️ AuthRemoteDataSource: Creando almacén por defecto...');
+        
+        // Datos del almacén por defecto según la propuesta arquitectural
+        final warehouseData = {
+          'name': 'Almacén Principal',
+          'code': 'ALM-001',
+          'description': 'Almacén principal creado automáticamente durante el registro',
+          'isActive': true,
+        };
+
+        final warehouseResponse = await dioClient.post(
+          '/warehouses',
+          data: warehouseData,
+        );
+
+        if (warehouseResponse.statusCode == 201 || warehouseResponse.statusCode == 200) {
+          print('✅ AuthRemoteDataSource: Almacén por defecto creado exitosamente');
+        } else {
+          print('⚠️ AuthRemoteDataSource: Error creando almacén por defecto: ${warehouseResponse.statusCode}');
+          // No lanzar excepción aquí - el usuario ya está registrado
+        }
+      } catch (warehouseError) {
+        print('⚠️ AuthRemoteDataSource: Error no crítico creando almacén por defecto: $warehouseError');
+        // No interrumpir el flujo - el registro fue exitoso, el almacén se puede crear después
+      }
+
+      return authResponse;
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      throw ServerException('Error inesperado durante el registro con onboarding: $e');
     }
   }
 

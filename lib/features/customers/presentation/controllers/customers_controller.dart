@@ -525,6 +525,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/models/pagination_meta.dart';
+import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/usecases/get_customers_usecase.dart';
 import '../../domain/usecases/delete_customer_usecase.dart';
@@ -573,8 +574,8 @@ class CustomersController extends GetxController {
   final _sortBy = 'createdAt'.obs;
   final _sortOrder = 'DESC'.obs;
 
-  // UI Controllers
-  final searchController = TextEditingController();
+  // UI Controllers - Using SafeTextEditingController to prevent disposal errors
+  final searchController = SafeTextEditingController(debugLabel: 'CustomersSearch');
   final scrollController = ScrollController();
 
   // Configuración
@@ -630,9 +631,22 @@ class CustomersController extends GetxController {
 
   @override
   void onClose() {
-    searchController.dispose();
+    print('🔧 CustomersController: Iniciando dispose...');
+    
+    // Dispose seguro del searchController
+    if (!searchController.isDisposed) {
+      searchController.dispose();
+      print('✅ CustomersController: searchController disposed');
+    } else {
+      print('⚠️ CustomersController: searchController ya estaba disposed');
+    }
+    
+    // Dispose del scrollController
     scrollController.dispose();
+    print('✅ CustomersController: scrollController disposed');
+    
     super.onClose();
+    print('✅ CustomersController: Dispose completado');
   }
 
   // ==================== INITIALIZATION ====================

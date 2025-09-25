@@ -145,8 +145,9 @@ class AppTheme {
       snackBarTheme: const SnackBarThemeData(
         backgroundColor: AppColors.textPrimary,
         contentTextStyle: TextStyle(color: Colors.white),
+        behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
         ),
       ),
 
@@ -300,8 +301,9 @@ class AppTheme {
       snackBarTheme: const SnackBarThemeData(
         backgroundColor: AppColors.darkSurface,
         contentTextStyle: TextStyle(color: AppColors.darkTextPrimary),
+        behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
         ),
       ),
 

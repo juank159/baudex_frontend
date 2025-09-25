@@ -12,6 +12,7 @@ class DrawerMenuItem {
   final bool isInSettings;
   final bool isInConfigurationGroup;
   final bool isEnabled;
+  final List<DrawerMenuItem>? submenu;
   
   const DrawerMenuItem({
     required this.id,
@@ -23,7 +24,11 @@ class DrawerMenuItem {
     this.isInSettings = false,
     this.isInConfigurationGroup = false,
     this.isEnabled = true,
+    this.submenu,
   });
+
+  /// Getter para determinar si tiene submenú
+  bool get hasSubmenu => submenu != null && submenu!.isNotEmpty;
 
   DrawerMenuItem copyWith({
     String? id,
@@ -35,6 +40,7 @@ class DrawerMenuItem {
     bool? isInSettings,
     bool? isInConfigurationGroup,
     bool? isEnabled,
+    List<DrawerMenuItem>? submenu,
   }) {
     return DrawerMenuItem(
       id: id ?? this.id,
@@ -46,6 +52,7 @@ class DrawerMenuItem {
       isInSettings: isInSettings ?? this.isInSettings,
       isInConfigurationGroup: isInConfigurationGroup ?? this.isInConfigurationGroup,
       isEnabled: isEnabled ?? this.isEnabled,
+      submenu: submenu ?? this.submenu,
     );
   }
 }

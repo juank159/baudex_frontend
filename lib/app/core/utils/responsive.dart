@@ -4,6 +4,18 @@ import 'package:get/get.dart';
 
 enum DeviceType { mobile, tablet, desktop }
 
+enum TextStyleType {
+  displayLarge,
+  displayMedium,
+  titleLarge,
+  titleMedium,
+  bodyLarge,
+  bodyMedium,
+  bodySmall,
+  labelMedium,
+  labelSmall,
+}
+
 class Responsive {
   static const double mobileMaxWidth = 650;
   static const double tabletMaxWidth = 1100;
@@ -104,6 +116,108 @@ class Responsive {
     }
   }
 
+  /// Sistema de Typography Responsivo
+  static TextStyle getTextStyle(
+    BuildContext context,
+    TextStyleType type, {
+    Color? color,
+    FontWeight? fontWeight,
+  }) {
+    final device = getDeviceType(context);
+    final baseStyle = _getBaseTextStyle(type, device);
+    
+    return baseStyle.copyWith(
+      color: color,
+      fontWeight: fontWeight,
+    );
+  }
+
+  static TextStyle _getBaseTextStyle(TextStyleType type, DeviceType device) {
+    switch (type) {
+      case TextStyleType.displayLarge:
+        switch (device) {
+          case DeviceType.mobile:
+            return const TextStyle(fontSize: 28, fontWeight: FontWeight.bold);
+          case DeviceType.tablet:
+            return const TextStyle(fontSize: 32, fontWeight: FontWeight.bold);
+          case DeviceType.desktop:
+            return const TextStyle(fontSize: 36, fontWeight: FontWeight.bold);
+        }
+      case TextStyleType.displayMedium:
+        switch (device) {
+          case DeviceType.mobile:
+            return const TextStyle(fontSize: 24, fontWeight: FontWeight.w600);
+          case DeviceType.tablet:
+            return const TextStyle(fontSize: 28, fontWeight: FontWeight.w600);
+          case DeviceType.desktop:
+            return const TextStyle(fontSize: 32, fontWeight: FontWeight.w600);
+        }
+      case TextStyleType.titleLarge:
+        switch (device) {
+          case DeviceType.mobile:
+            return const TextStyle(fontSize: 20, fontWeight: FontWeight.w600);
+          case DeviceType.tablet:
+            return const TextStyle(fontSize: 22, fontWeight: FontWeight.w600);
+          case DeviceType.desktop:
+            return const TextStyle(fontSize: 24, fontWeight: FontWeight.w600);
+        }
+      case TextStyleType.titleMedium:
+        switch (device) {
+          case DeviceType.mobile:
+            return const TextStyle(fontSize: 16, fontWeight: FontWeight.w500);
+          case DeviceType.tablet:
+            return const TextStyle(fontSize: 18, fontWeight: FontWeight.w500);
+          case DeviceType.desktop:
+            return const TextStyle(fontSize: 20, fontWeight: FontWeight.w500);
+        }
+      case TextStyleType.bodyLarge:
+        switch (device) {
+          case DeviceType.mobile:
+            return const TextStyle(fontSize: 16);
+          case DeviceType.tablet:
+            return const TextStyle(fontSize: 17);
+          case DeviceType.desktop:
+            return const TextStyle(fontSize: 18);
+        }
+      case TextStyleType.bodyMedium:
+        switch (device) {
+          case DeviceType.mobile:
+            return const TextStyle(fontSize: 14);
+          case DeviceType.tablet:
+            return const TextStyle(fontSize: 15);
+          case DeviceType.desktop:
+            return const TextStyle(fontSize: 16);
+        }
+      case TextStyleType.bodySmall:
+        switch (device) {
+          case DeviceType.mobile:
+            return const TextStyle(fontSize: 12);
+          case DeviceType.tablet:
+            return const TextStyle(fontSize: 13);
+          case DeviceType.desktop:
+            return const TextStyle(fontSize: 14);
+        }
+      case TextStyleType.labelMedium:
+        switch (device) {
+          case DeviceType.mobile:
+            return const TextStyle(fontSize: 12, fontWeight: FontWeight.w500);
+          case DeviceType.tablet:
+            return const TextStyle(fontSize: 13, fontWeight: FontWeight.w500);
+          case DeviceType.desktop:
+            return const TextStyle(fontSize: 14, fontWeight: FontWeight.w500);
+        }
+      case TextStyleType.labelSmall:
+        switch (device) {
+          case DeviceType.mobile:
+            return const TextStyle(fontSize: 10, fontWeight: FontWeight.w500);
+          case DeviceType.tablet:
+            return const TextStyle(fontSize: 11, fontWeight: FontWeight.w500);
+          case DeviceType.desktop:
+            return const TextStyle(fontSize: 12, fontWeight: FontWeight.w500);
+        }
+    }
+  }
+
   /// Obtener height del app bar responsivo
   static double getAppBarHeight(BuildContext context) {
     if (isMobile(context)) {
@@ -168,6 +282,20 @@ extension ResponsiveExtension on BuildContext {
   double get responsiveMaxWidth => Responsive.getMaxWidth(this);
   double get verticalSpacing => Responsive.getVerticalSpacing(this);
   double get horizontalSpacing => Responsive.getHorizontalSpacing(this);
+
+  // Typography Extensions
+  TextStyle responsiveTextStyle(TextStyleType type, {Color? color, FontWeight? fontWeight}) =>
+      Responsive.getTextStyle(this, type, color: color, fontWeight: fontWeight);
+      
+  TextStyle get displayLarge => Responsive.getTextStyle(this, TextStyleType.displayLarge);
+  TextStyle get displayMedium => Responsive.getTextStyle(this, TextStyleType.displayMedium);
+  TextStyle get titleLarge => Responsive.getTextStyle(this, TextStyleType.titleLarge);
+  TextStyle get titleMedium => Responsive.getTextStyle(this, TextStyleType.titleMedium);
+  TextStyle get bodyLarge => Responsive.getTextStyle(this, TextStyleType.bodyLarge);
+  TextStyle get bodyMedium => Responsive.getTextStyle(this, TextStyleType.bodyMedium);
+  TextStyle get bodySmall => Responsive.getTextStyle(this, TextStyleType.bodySmall);
+  TextStyle get labelMedium => Responsive.getTextStyle(this, TextStyleType.labelMedium);
+  TextStyle get labelSmall => Responsive.getTextStyle(this, TextStyleType.labelSmall);
 }
 
 /// Widget helper para layouts responsivos

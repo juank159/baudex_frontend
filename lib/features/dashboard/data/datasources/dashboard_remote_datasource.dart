@@ -3,7 +3,9 @@ import 'package:dio/dio.dart';
 import '../../../../app/config/constants/api_constants.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/errors/exceptions.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../models/dashboard_stats_model.dart';
+import '../models/profitability_stats_model.dart';
 import '../models/recent_activity_model.dart';
 import '../models/notification_model.dart';
 import '../../domain/entities/recent_activity.dart';
@@ -86,6 +88,13 @@ abstract class DashboardRemoteDataSource {
     DateTime? startDate,
     DateTime? endDate,
   });
+
+  Future<ProfitabilityStatsModel> getProfitabilityStats({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? warehouseId,
+    String? categoryId,
+  });
 }
 
 class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
@@ -102,10 +111,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       final queryParams = <String, dynamic>{};
       
       if (startDate != null) {
-        queryParams['startDate'] = startDate.toIso8601String();
+        queryParams['startDate'] = AppFormatters.formatDateForApi(startDate);
       }
       if (endDate != null) {
-        queryParams['endDate'] = endDate.toIso8601String();
+        queryParams['endDate'] = AppFormatters.formatDateForApi(endDate);
       }
 
       final response = await dioClient.get(
@@ -630,6 +639,54 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       throw ServerException(
         e.response?.data['message'] ?? 'Error al obtener KPIs financieros',
         statusCode: e.response?.statusCode ?? 500,
+      );
+    }
+  }
+
+  @override
+  Future<ProfitabilityStatsModel> getProfitabilityStats({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? warehouseId,
+    String? categoryId,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      
+      if (startDate != null) {
+        queryParams['startDate'] = startDate.toIso8601String();
+      }
+      if (endDate != null) {
+        queryParams['endDate'] = endDate.toIso8601String();
+      }
+      if (warehouseId != null) {
+        queryParams['warehouseId'] = warehouseId;
+      }
+      if (categoryId != null) {
+        queryParams['categoryId'] = categoryId;
+      }
+
+      // ✅ USAR ENDPOINT CORRECTO CON FILTROS: /dashboard/profitability
+      final response = await dioClient.get(
+        '/dashboard/profitability',
+        queryParameters: queryParams,
+      );
+      
+      // Extraer datos de la respuesta del endpoint real
+      // Backend envuelve la respuesta con {success: true, data: {...}, timestamp: "..."}
+      final responseData = response.data['data'];
+      print('🔍 PROFITABILITY DEBUG: Full response = ${response.data}');
+      print('🔍 PROFITABILITY DEBUG: Data portion = ${responseData}');
+      return ProfitabilityStatsModel.fromJson(responseData);
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data['message'] ?? 'Error al obtener métricas de rentabilidad',
+        statusCode: e.response?.statusCode ?? 500,
+      );
+    } catch (e) {
+      throw ServerException(
+        'Error inesperado al obtener métricas de rentabilidad: $e',
+        statusCode: 500,
       );
     }
   }

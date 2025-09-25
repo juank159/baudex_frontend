@@ -77,7 +77,7 @@
 //                 Theme.of(context).primaryColor,
 //               ),
 //             ),
-//             const SizedBox(width: 12),
+//             const SizedBox(width: 8), // ✅ Reducido de 12 a 8
 //             Expanded(
 //               child: _buildStatCard(
 //                 context,
@@ -90,7 +90,7 @@
 //           ],
 //         ),
 
-//         const SizedBox(height: 12),
+//         const SizedBox(height: 8), // ✅ Reducido de 12 a 8
 
 //         // Fila 2: Padres y Hijos
 //         Row(
@@ -104,7 +104,7 @@
 //                 Colors.blue,
 //               ),
 //             ),
-//             const SizedBox(width: 12),
+//             const SizedBox(width: 8), // ✅ Reducido de 12 a 8
 //             Expanded(
 //               child: _buildStatCard(
 //                 context,
@@ -118,7 +118,7 @@
 //         ),
 
 //         if (stats.inactive > 0 || stats.deleted > 0) ...[
-//           const SizedBox(height: 12),
+//           const SizedBox(height: 8), // ✅ Reducido de 12 a 8
 
 //           // Fila 3: Inactivas y Eliminadas (si existen)
 //           Row(
@@ -134,7 +134,7 @@
 //                   ),
 //                 ),
 //               if (stats.inactive > 0 && stats.deleted > 0)
-//                 const SizedBox(width: 12),
+//                 const SizedBox(width: 8), // ✅ Reducido de 12 a 8
 //               if (stats.deleted > 0)
 //                 Expanded(
 //                   child: _buildStatCard(
@@ -167,7 +167,7 @@
 //                 Theme.of(context).primaryColor,
 //               ),
 //             ),
-//             const SizedBox(width: 16),
+//             const SizedBox(width: 10), // ✅ Reducido de 16 a 10
 //             Expanded(
 //               child: _buildStatCard(
 //                 context,
@@ -177,7 +177,7 @@
 //                 Colors.green,
 //               ),
 //             ),
-//             const SizedBox(width: 16),
+//             const SizedBox(width: 10), // ✅ Reducido de 16 a 10
 //             Expanded(
 //               child: _buildStatCard(
 //                 context,
@@ -190,7 +190,7 @@
 //           ],
 //         ),
 
-//         const SizedBox(height: 16),
+//         const SizedBox(height: 10), // ✅ Reducido de 16 a 10
 
 //         // Estadísticas secundarias
 //         Row(
@@ -204,7 +204,7 @@
 //                 Colors.orange,
 //               ),
 //             ),
-//             const SizedBox(width: 16),
+//             const SizedBox(width: 10), // ✅ Reducido de 16 a 10
 //             if (stats.inactive > 0)
 //               Expanded(
 //                 child: _buildStatCard(
@@ -246,7 +246,7 @@
 //             Theme.of(context).primaryColor,
 //           ),
 //         ),
-//         const SizedBox(width: 20),
+//         const SizedBox(width: 12), // ✅ Reducido de 20 a 12
 //         Expanded(
 //           child: _buildStatCard(
 //             context,
@@ -256,7 +256,7 @@
 //             Colors.green,
 //           ),
 //         ),
-//         const SizedBox(width: 20),
+//         const SizedBox(width: 12), // ✅ Reducido de 20 a 12
 //         Expanded(
 //           child: _buildStatCard(
 //             context,
@@ -266,7 +266,7 @@
 //             Colors.blue,
 //           ),
 //         ),
-//         const SizedBox(width: 20),
+//         const SizedBox(width: 12), // ✅ Reducido de 20 a 12
 //         Expanded(
 //           child: _buildStatCard(
 //             context,
@@ -277,7 +277,7 @@
 //           ),
 //         ),
 //         if (stats.inactive > 0) ...[
-//           const SizedBox(width: 20),
+//           const SizedBox(width: 12), // ✅ Reducido de 20 a 12
 //           Expanded(
 //             child: _buildStatCard(
 //               context,
@@ -289,7 +289,7 @@
 //           ),
 //         ],
 //         if (stats.deleted > 0) ...[
-//           const SizedBox(width: 20),
+//           const SizedBox(width: 12), // ✅ Reducido de 20 a 12
 //           Expanded(
 //             child: _buildStatCard(
 //               context,
@@ -497,7 +497,7 @@ class CategoryStatsWidget extends StatelessWidget {
 
   Widget _buildCompactStats(BuildContext context) {
     return CustomCard(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8), // ✅ Reducido de 12 a 8
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -544,7 +544,7 @@ class CategoryStatsWidget extends StatelessWidget {
                 Theme.of(context).primaryColor,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8), // ✅ Reducido de 12 a 8
             Expanded(
               child: _buildStatCard(
                 context,
@@ -557,7 +557,7 @@ class CategoryStatsWidget extends StatelessWidget {
           ],
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 8), // ✅ Reducido de 12 a 8
 
         // Fila 2: Padres y Subcategorías
         Row(
@@ -571,7 +571,7 @@ class CategoryStatsWidget extends StatelessWidget {
                 Colors.blue,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8), // ✅ Reducido de 12 a 8
             Expanded(
               child: _buildStatCard(
                 context,
@@ -585,7 +585,7 @@ class CategoryStatsWidget extends StatelessWidget {
         ),
 
         if (stats.inactive > 0 || stats.deleted > 0) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // ✅ Reducido de 12 a 8
 
           // Fila 3: Inactivas y Eliminadas (si existen)
           Row(
@@ -601,7 +601,7 @@ class CategoryStatsWidget extends StatelessWidget {
                   ),
                 ),
               if (stats.inactive > 0 && stats.deleted > 0)
-                const SizedBox(width: 12),
+                const SizedBox(width: 8), // ✅ Reducido de 12 a 8
               if (stats.deleted > 0)
                 Expanded(
                   child: _buildStatCard(
@@ -634,7 +634,7 @@ class CategoryStatsWidget extends StatelessWidget {
                 Theme.of(context).primaryColor,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10), // ✅ Reducido de 16 a 10
             Expanded(
               child: _buildStatCard(
                 context,
@@ -644,7 +644,7 @@ class CategoryStatsWidget extends StatelessWidget {
                 Colors.green,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10), // ✅ Reducido de 16 a 10
             Expanded(
               child: _buildStatCard(
                 context,
@@ -657,7 +657,7 @@ class CategoryStatsWidget extends StatelessWidget {
           ],
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 10), // ✅ Reducido de 16 a 10
 
         // Estadísticas secundarias
         Row(
@@ -671,7 +671,7 @@ class CategoryStatsWidget extends StatelessWidget {
                 Colors.orange,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10), // ✅ Reducido de 16 a 10
             if (stats.inactive > 0)
               Expanded(
                 child: _buildStatCard(
@@ -713,7 +713,7 @@ class CategoryStatsWidget extends StatelessWidget {
             Theme.of(context).primaryColor,
           ),
         ),
-        const SizedBox(width: 20),
+        const SizedBox(width: 12), // ✅ Reducido de 20 a 12
         Expanded(
           child: _buildStatCard(
             context,
@@ -723,7 +723,7 @@ class CategoryStatsWidget extends StatelessWidget {
             Colors.green,
           ),
         ),
-        const SizedBox(width: 20),
+        const SizedBox(width: 12), // ✅ Reducido de 20 a 12
         Expanded(
           child: _buildStatCard(
             context,
@@ -733,7 +733,7 @@ class CategoryStatsWidget extends StatelessWidget {
             Colors.blue,
           ),
         ),
-        const SizedBox(width: 20),
+        const SizedBox(width: 12), // ✅ Reducido de 20 a 12
         Expanded(
           child: _buildStatCard(
             context,
@@ -744,7 +744,7 @@ class CategoryStatsWidget extends StatelessWidget {
           ),
         ),
         if (stats.inactive > 0) ...[
-          const SizedBox(width: 20),
+          const SizedBox(width: 12), // ✅ Reducido de 20 a 12
           Expanded(
             child: _buildStatCard(
               context,
@@ -756,7 +756,7 @@ class CategoryStatsWidget extends StatelessWidget {
           ),
         ],
         if (stats.deleted > 0) ...[
-          const SizedBox(width: 20),
+          const SizedBox(width: 12), // ✅ Reducido de 20 a 12
           Expanded(
             child: _buildStatCard(
               context,
@@ -779,49 +779,53 @@ class CategoryStatsWidget extends StatelessWidget {
     Color color,
   ) {
     return CustomCard(
-      padding: EdgeInsets.all(context.isMobile ? 16 : 20),
+      padding: EdgeInsets.all(context.isMobile ? 8 : 10), // ✅ Reducido 65%
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // ✅ Evita overflow
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(4), // ✅ Reducido de 8 a 4
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6), // ✅ Reducido de 8 a 6
                 ),
                 child: Icon(
                   icon,
                   color: color,
-                  size: context.isMobile ? 20 : 24,
+                  size: context.isMobile ? 14 : 16, // ✅ Reducido de 20/24 a 14/16
                 ),
               ),
-              const Spacer(),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: Responsive.getFontSize(
-                    context,
-                    mobile: 24,
-                    tablet: 28,
-                    desktop: 32,
+              const SizedBox(width: 6), // ✅ Reducido de 8 a 6
+              Flexible(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: Responsive.getFontSize(
+                      context,
+                      mobile: 16, // ✅ Reducido de 20 a 16
+                      tablet: 18, // ✅ Reducido de 24 a 18
+                      desktop: 20, // ✅ Reducido de 28 a 20
+                    ),
+                    fontWeight: FontWeight.bold,
+                    color: color,
                   ),
-                  fontWeight: FontWeight.bold,
-                  color: color,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          SizedBox(height: context.isMobile ? 8 : 12),
+          SizedBox(height: context.isMobile ? 4 : 6), // ✅ Reducido de 8/12 a 4/6
           Text(
             title,
             style: TextStyle(
               fontSize: Responsive.getFontSize(
                 context,
-                mobile: 12,
-                tablet: 14,
-                desktop: 16,
+                mobile: 10, // ✅ Reducido de 12 a 10
+                tablet: 11, // ✅ Reducido de 14 a 11
+                desktop: 12, // ✅ Reducido de 16 a 12
               ),
               color: Colors.grey.shade600,
               fontWeight: FontWeight.w500,
@@ -845,25 +849,25 @@ class CategoryStatsWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(4), // ✅ Reducido de 6 a 4
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4), // ✅ Reducido de 6 a 4
           ),
-          child: Icon(icon, color: color, size: 16),
+          child: Icon(icon, color: color, size: 12), // ✅ Reducido de 16 a 12
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 3), // ✅ Reducido de 4 a 3
         Text(
           value,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 12, // ✅ Reducido de 16 a 12
             fontWeight: FontWeight.bold,
             color: color,
           ),
         ),
         Text(
           label,
-          style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 8, color: Colors.grey.shade600), // ✅ Reducido de 10 a 8
           textAlign: TextAlign.center,
         ),
       ],
@@ -871,7 +875,7 @@ class CategoryStatsWidget extends StatelessWidget {
   }
 
   Widget _buildVerticalDivider() {
-    return Container(height: 40, width: 1, color: Colors.grey.shade300);
+    return Container(height: 25, width: 1, color: Colors.grey.shade300); // ✅ Reducido de 40 a 25
   }
 
   // ✅ NUEVO: Método para debugging de estadísticas

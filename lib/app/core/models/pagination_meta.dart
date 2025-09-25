@@ -18,6 +18,12 @@ class PaginationMeta extends Equatable {
     required this.hasPreviousPage,
   });
 
+  // Aliases para compatibilidad con código existente
+  int get total => totalItems;
+  bool get hasNext => hasNextPage;
+  bool get hasPrev => hasPreviousPage;
+  int get currentPage => page;
+
   @override
   List<Object?> get props => [
     page,

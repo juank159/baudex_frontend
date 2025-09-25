@@ -4,6 +4,7 @@ import 'package:baudex_desktop/features/dashboard/domain/usecases/get_notificati
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_recent_activity_usecase.dart';
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_unread_notifications_count_usecase.dart';
 import 'package:baudex_desktop/features/dashboard/domain/usecases/mark_notification_as_read_usecase.dart';
+import 'package:baudex_desktop/features/dashboard/domain/usecases/get_profitability_stats_usecase.dart';
 import 'package:get/get.dart';
 import '../controllers/dashboard_controller.dart';
 import '../../domain/repositories/dashboard_repository.dart';
@@ -66,6 +67,11 @@ class DashboardBinding extends Bindings {
       fenix: true,
     );
 
+    Get.lazyPut(
+      () => GetProfitabilityStatsUseCase(Get.find<DashboardRepository>()),
+      fenix: true,
+    );
+
     // Controller - mantener instancia persistente
     Get.lazyPut(
       () => DashboardController(
@@ -76,6 +82,7 @@ class DashboardBinding extends Bindings {
             Get.find<MarkNotificationAsReadUseCase>(),
         getUnreadNotificationsCountUseCase:
             Get.find<GetUnreadNotificationsCountUseCase>(),
+        getProfitabilityStatsUseCase: Get.find<GetProfitabilityStatsUseCase>(),
       ),
       fenix: true, // ✅ CLAVE: Mantener instancia en memoria incluso después de eliminar
     );

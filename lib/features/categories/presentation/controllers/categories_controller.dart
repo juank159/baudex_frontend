@@ -395,6 +395,7 @@
 // lib/features/categories/presentation/controllers/categories_controller.dart
 import 'package:baudex_desktop/app/core/models/pagination_meta.dart';
 import 'package:baudex_desktop/features/categories/domain/entities/category_stats.dart';
+import 'package:baudex_desktop/app/core/widgets/safe_text_editing_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
@@ -450,8 +451,8 @@ class CategoriesController extends GetxController {
   final _sortOrder = 'ASC'.obs;
   final _selectedParentId = Rxn<String>();
 
-  // UI Controllers
-  final searchController = TextEditingController();
+  // UI Controllers - usando SafeTextEditingController
+  final searchController = SafeTextEditingController();
   final scrollController = ScrollController();
 
   // Configuración
@@ -499,9 +500,22 @@ class CategoriesController extends GetxController {
 
   @override
   void onClose() {
-    searchController.dispose();
+    print('🔧 CategoriesController: Iniciando dispose...');
+    
+    // Dispose seguro del searchController
+    if (!searchController.isDisposed) {
+      searchController.dispose();
+      print('✅ CategoriesController: searchController disposed');
+    } else {
+      print('⚠️ CategoriesController: searchController ya estaba disposed');
+    }
+    
+    // Dispose del scrollController
     scrollController.dispose();
+    print('✅ CategoriesController: scrollController disposed');
+    
     super.onClose();
+    print('✅ CategoriesController: Dispose completado');
   }
 
   // ==================== INITIALIZATION ====================
@@ -868,23 +882,42 @@ class CategoriesController extends GetxController {
 
   /// Limpiar filtros
   void clearFilters() {
+    print('🧹 Limpiando filtros...');
+    
     _currentStatus.value = null;
     _selectedParentId.value = null;
     _searchTerm.value = '';
-    searchController.clear();
+    
+    // Clear seguro del searchController
+    if (searchController.isSafeToUse) {
+      searchController.clear();
+      print('✅ SearchController limpiado');
+    } else {
+      print('⚠️ SearchController no es seguro para limpiar');
+    }
+    
     _searchResults.clear();
     _currentPage.value = 1;
     loadCategories();
+    
+    print('✅ Filtros limpiados');
   }
 
   /// Actualizar búsqueda
   void updateSearch(String value) {
+    print('🔍 Actualizando búsqueda: "$value"');
+    
     _searchTerm.value = value;
+    
     if (value.trim().isEmpty) {
+      print('🔍 Búsqueda vacía, limpiando resultados');
       _searchResults.clear();
       loadCategories();
     } else if (value.trim().length >= 2) {
+      print('🔍 Iniciando búsqueda de categorías');
       searchCategories(value);
+    } else {
+      print('🔍 Término de búsqueda muy corto (${value.length} caracteres)');
     }
   }
 
@@ -996,6 +1029,11 @@ class CategoriesController extends GetxController {
       'currentStatus': _currentStatus.value?.name,
       'sortBy': _sortBy.value,
       'sortOrder': _sortOrder.value,
+      'searchControllerStatus': {
+        'isDisposed': searchController.isDisposed,
+        'isSafeToUse': searchController.isSafeToUse,
+        'textLength': searchController.isSafeToUse ? searchController.text.length : -1,
+      },
     };
   }
 

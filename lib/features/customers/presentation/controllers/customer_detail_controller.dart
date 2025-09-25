@@ -1,6 +1,7 @@
 // lib/features/customers/presentation/controllers/customer_detail_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/repositories/customer_repository.dart';
 import '../../domain/usecases/get_customer_by_id_usecase.dart';
@@ -274,7 +275,7 @@ class CustomerDetailController extends GetxController {
   }
 
   void showPurchaseCheckDialog() {
-    final amountController = TextEditingController();
+    final amountController = SafeTextEditingController(debugLabel: 'PurchaseCheckAmount');
 
     Get.dialog(
       AlertDialog(

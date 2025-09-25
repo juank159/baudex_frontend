@@ -1,7 +1,6 @@
 // lib/features/settings/presentation/screens/printer_configuration_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/shared/widgets/app_scaffold.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
@@ -87,10 +86,20 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
           return const Center(child: LoadingWidget());
         }
 
-        return ResponsiveLayout(
-          mobile: _buildMobileLayout(context, settingsController),
-          tablet: _buildTabletLayout(context, settingsController),
-          desktop: _buildDesktopLayout(context, settingsController),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // Mejorar responsive: Usar ancho real en lugar de breakpoints fijos
+            if (constraints.maxWidth < 600) {
+              // Móvil: < 600px
+              return _buildMobileLayout(context, settingsController);
+            } else if (constraints.maxWidth < 1200) {
+              // Tablet/Desktop pequeño: 600px - 1200px
+              return _buildTabletLayout(context, settingsController);
+            } else {
+              // Desktop grande: > 1200px
+              return _buildDesktopLayout(context, settingsController);
+            }
+          },
         );
       }),
     );
@@ -123,24 +132,33 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
   }
 
   Widget _buildDesktopLayout(BuildContext context, SettingsController controller) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Formulario
-          Expanded(
-            flex: 2,
-            child: _buildPrinterForm(context, controller),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Adaptar padding y layout según el ancho disponible
+        final isLargeDesktop = constraints.maxWidth > 1400;
+        final padding = isLargeDesktop ? 32.0 : 16.0;
+        final spacing = isLargeDesktop ? 32.0 : 16.0;
+        
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(padding),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Formulario - Se adapta al tamaño de pantalla
+              Expanded(
+                flex: isLargeDesktop ? 2 : 1,
+                child: _buildPrinterForm(context, controller),
+              ),
+              SizedBox(width: spacing),
+              // Lista de impresoras - Se adapta al tamaño de pantalla
+              Expanded(
+                flex: isLargeDesktop ? 3 : 1,
+                child: _buildPrintersList(context, controller),
+              ),
+            ],
           ),
-          const SizedBox(width: 32),
-          // Lista de impresoras
-          Expanded(
-            flex: 3,
-            child: _buildPrintersList(context, controller),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -191,69 +209,137 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
               ),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: RadioListTile<PrinterConnectionType>(
-                    title: const Text('Red (IP)'),
-                    subtitle: const Text('Ethernet/WiFi'),
-                    value: PrinterConnectionType.network,
-                    groupValue: _connectionType,
-                    onChanged: (value) {
-                      setState(() {
-                        _connectionType = value!;
-                      });
-                    },
-                  ),
-                ),
-                Expanded(
-                  child: RadioListTile<PrinterConnectionType>(
-                    title: const Text('USB'),
-                    subtitle: const Text('Puerto USB'),
-                    value: PrinterConnectionType.usb,
-                    groupValue: _connectionType,
-                    onChanged: (value) {
-                      setState(() {
-                        _connectionType = value!;
-                      });
-                    },
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // En pantallas muy pequeñas, usar layout vertical
+                if (constraints.maxWidth < 500) {
+                  return Column(
+                    children: [
+                      RadioListTile<PrinterConnectionType>(
+                        title: const Text('Red (IP)'),
+                        subtitle: const Text('Ethernet/WiFi'),
+                        value: PrinterConnectionType.network,
+                        groupValue: _connectionType,
+                        onChanged: (value) {
+                          setState(() {
+                            _connectionType = value!;
+                          });
+                        },
+                      ),
+                      RadioListTile<PrinterConnectionType>(
+                        title: const Text('USB'),
+                        subtitle: const Text('Puerto USB'),
+                        value: PrinterConnectionType.usb,
+                        groupValue: _connectionType,
+                        onChanged: (value) {
+                          setState(() {
+                            _connectionType = value!;
+                          });
+                        },
+                      ),
+                    ],
+                  );
+                } else {
+                  // Layout horizontal para pantallas más grandes
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: RadioListTile<PrinterConnectionType>(
+                          title: const Text('Red (IP)'),
+                          subtitle: const Text('Ethernet/WiFi'),
+                          value: PrinterConnectionType.network,
+                          groupValue: _connectionType,
+                          onChanged: (value) {
+                            setState(() {
+                              _connectionType = value!;
+                            });
+                          },
+                        ),
+                      ),
+                      Expanded(
+                        child: RadioListTile<PrinterConnectionType>(
+                          title: const Text('USB'),
+                          subtitle: const Text('Puerto USB'),
+                          value: PrinterConnectionType.usb,
+                          groupValue: _connectionType,
+                          onChanged: (value) {
+                            setState(() {
+                              _connectionType = value!;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
             const SizedBox(height: 16),
             
             // Configuración específica por tipo
             if (_connectionType == PrinterConnectionType.network) ...[
-              Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: CustomTextField(
-                      controller: _ipController,
-                      label: 'Dirección IP',
-                      hint: '192.168.1.100',
-                      prefixIcon: Icons.router,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'La dirección IP es requerida';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 1,
-                    child: CustomTextField(
-                      controller: _portController,
-                      label: 'Puerto',
-                      hint: '9100',
-                      prefixIcon: Icons.settings_ethernet,
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  // En pantallas muy pequeñas, usar layout vertical
+                  if (constraints.maxWidth < 500) {
+                    return Column(
+                      children: [
+                        CustomTextField(
+                          controller: _ipController,
+                          label: 'Dirección IP',
+                          hint: '192.168.1.100',
+                          prefixIcon: Icons.router,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'La dirección IP es requerida';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        CustomTextField(
+                          controller: _portController,
+                          label: 'Puerto',
+                          hint: '9100',
+                          prefixIcon: Icons.settings_ethernet,
+                          keyboardType: TextInputType.number,
+                        ),
+                      ],
+                    );
+                  } else {
+                    // Layout horizontal para pantallas más grandes
+                    return Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: CustomTextField(
+                            controller: _ipController,
+                            label: 'Dirección IP',
+                            hint: '192.168.1.100',
+                            prefixIcon: Icons.router,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'La dirección IP es requerida';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 1,
+                          child: CustomTextField(
+                            controller: _portController,
+                            label: 'Puerto',
+                            hint: '9100',
+                            prefixIcon: Icons.settings_ethernet,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                },
               ),
             ] else ...[
               CustomTextField(
@@ -348,52 +434,100 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
             ),
             const SizedBox(height: 24),
             
-            // Botones de acción
-            Row(
-              children: [
-                if (_isEditMode) ...[
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Cancelar',
-                      type: ButtonType.outline,
-                      onPressed: _clearForm,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                ],
-                Expanded(
-                  child: CustomButton(
-                    text: 'Probar Conexión',
-                    icon: Icons.wifi_find,
-                    onPressed: controller.isTestingConnection 
-                        ? null 
-                        : () => _testConnection(controller),
-                    isLoading: controller.isTestingConnection,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: CustomButton(
-                    text: 'Página de Prueba',
-                    icon: Icons.print_outlined,
-                    onPressed: controller.isTestingConnection 
-                        ? null 
-                        : () => _printTestPage(controller),
-                    isLoading: controller.isTestingConnection,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: CustomButton(
-                    text: _isEditMode ? 'Actualizar' : 'Agregar',
-                    icon: _isEditMode ? Icons.update : Icons.add,
-                    onPressed: controller.isSaving 
-                        ? null 
-                        : () => _savePrinter(controller),
-                    isLoading: controller.isSaving,
-                  ),
-                ),
-              ],
+            // Botones de acción - Responsive
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Si el espacio es muy limitado, usar layout vertical
+                if (constraints.maxWidth < 600) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_isEditMode) ...[
+                        CustomButton(
+                          text: 'Cancelar',
+                          type: ButtonType.outline,
+                          onPressed: _clearForm,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      CustomButton(
+                        text: 'Probar Conexión',
+                        icon: Icons.wifi_find,
+                        onPressed: controller.isTestingConnection 
+                            ? null 
+                            : () => _testConnection(controller),
+                        isLoading: controller.isTestingConnection,
+                      ),
+                      const SizedBox(height: 12),
+                      CustomButton(
+                        text: 'Página de Prueba',
+                        icon: Icons.print_outlined,
+                        onPressed: controller.isTestingConnection 
+                            ? null 
+                            : () => _printTestPage(controller),
+                        isLoading: controller.isTestingConnection,
+                      ),
+                      const SizedBox(height: 12),
+                      CustomButton(
+                        text: _isEditMode ? 'Actualizar' : 'Agregar',
+                        icon: _isEditMode ? Icons.update : Icons.add,
+                        onPressed: controller.isSaving 
+                            ? null 
+                            : () => _savePrinter(controller),
+                        isLoading: controller.isSaving,
+                      ),
+                    ],
+                  );
+                } else {
+                  // Layout horizontal para pantallas más grandes
+                  return Row(
+                    children: [
+                      if (_isEditMode) ...[
+                        Expanded(
+                          child: CustomButton(
+                            text: 'Cancelar',
+                            type: ButtonType.outline,
+                            onPressed: _clearForm,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                      ],
+                      Expanded(
+                        child: CustomButton(
+                          text: 'Probar Conexión',
+                          icon: Icons.wifi_find,
+                          onPressed: controller.isTestingConnection 
+                              ? null 
+                              : () => _testConnection(controller),
+                          isLoading: controller.isTestingConnection,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: CustomButton(
+                          text: 'Página de Prueba',
+                          icon: Icons.print_outlined,
+                          onPressed: controller.isTestingConnection 
+                              ? null 
+                              : () => _printTestPage(controller),
+                          isLoading: controller.isTestingConnection,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: CustomButton(
+                          text: _isEditMode ? 'Actualizar' : 'Agregar',
+                          icon: _isEditMode ? Icons.update : Icons.add,
+                          onPressed: controller.isSaving 
+                              ? null 
+                              : () => _savePrinter(controller),
+                          isLoading: controller.isSaving,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
           ],
         ),

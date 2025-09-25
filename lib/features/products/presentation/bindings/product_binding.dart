@@ -1,184 +1,3 @@
-// // lib/features/products/presentation/bindings/product_binding.dart
-// import 'package:baudex_desktop/app/core/network/dio_client.dart';
-// import 'package:baudex_desktop/app/core/network/network_info.dart';
-// import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
-// import 'package:connectivity_plus/connectivity_plus.dart';
-// import 'package:get/get.dart';
-
-// import '../../data/datasources/product_remote_datasource.dart';
-// import '../../data/datasources/product_local_datasource.dart';
-
-// // Repository Imports
-// import '../../data/repositories/product_repository_impl.dart';
-// import '../../domain/repositories/product_repository.dart';
-
-// // Use Cases Imports
-// import '../../domain/usecases/get_products_usecase.dart';
-// import '../../domain/usecases/get_product_by_id_usecase.dart';
-// import '../../domain/usecases/create_product_usecase.dart';
-// import '../../domain/usecases/update_product_usecase.dart';
-// import '../../domain/usecases/delete_product_usecase.dart';
-// import '../../domain/usecases/search_products_usecase.dart';
-// import '../../domain/usecases/get_product_stats_usecase.dart';
-// import '../../domain/usecases/update_product_stock_usecase.dart';
-// import '../../domain/usecases/get_low_stock_products_usecase.dart';
-// import '../../domain/usecases/get_products_by_category_usecase.dart';
-
-// // Controllers Imports
-// import '../controllers/products_controller.dart';
-// import '../controllers/product_detail_controller.dart';
-// import '../controllers/product_form_controller.dart';
-
-// class ProductBinding implements Bindings {
-//   @override
-//   void dependencies() {
-//     print('🔧 ProductBinding: Registrando dependencias...');
-
-//     // ==================== DATA SOURCES ====================
-//     Get.lazyPut<ProductRemoteDataSource>(
-//       () => ProductRemoteDataSourceImpl(dioClient: Get.find()),
-//       tag: 'ProductRemoteDataSource',
-//     );
-
-//     Get.lazyPut<ProductLocalDataSource>(
-//       () => ProductLocalDataSourceImpl(storageService: Get.find()),
-//       tag: 'ProductLocalDataSource',
-//     );
-
-//     // ==================== REPOSITORY ====================
-//     Get.lazyPut<ProductRepository>(
-//       () => ProductRepositoryImpl(
-//         remoteDataSource: Get.find(tag: 'ProductRemoteDataSource'),
-//         localDataSource: Get.find(tag: 'ProductLocalDataSource'),
-//         networkInfo: Get.find(),
-//       ),
-//       tag: 'ProductRepository',
-//     );
-
-//     // ==================== USE CASES ====================
-//     Get.lazyPut(() => GetProductsUseCase(Get.find(tag: 'ProductRepository')));
-//     Get.lazyPut(
-//       () => GetProductByIdUseCase(Get.find(tag: 'ProductRepository')),
-//     );
-//     Get.lazyPut(
-//       () => SearchProductsUseCase(Get.find(tag: 'ProductRepository')),
-//     );
-//     Get.lazyPut(
-//       () => GetProductStatsUseCase(Get.find(tag: 'ProductRepository')),
-//     );
-//     Get.lazyPut(
-//       () => GetLowStockProductsUseCase(Get.find(tag: 'ProductRepository')),
-//     );
-//     Get.lazyPut(
-//       () => GetProductsByCategoryUseCase(Get.find(tag: 'ProductRepository')),
-//     );
-//     Get.lazyPut(() => CreateProductUseCase(Get.find(tag: 'ProductRepository')));
-//     Get.lazyPut(() => UpdateProductUseCase(Get.find(tag: 'ProductRepository')));
-//     Get.lazyPut(
-//       () => UpdateProductStockUseCase(Get.find(tag: 'ProductRepository')),
-//     );
-//     Get.lazyPut(() => DeleteProductUseCase(Get.find(tag: 'ProductRepository')));
-
-//     // ==================== CONTROLLERS ====================
-//     Get.lazyPut(
-//       () => ProductsController(
-//         getProductsUseCase: Get.find(),
-//         searchProductsUseCase: Get.find(),
-//         getProductStatsUseCase: Get.find(),
-//         getLowStockProductsUseCase: Get.find(),
-//         getProductsByCategoryUseCase: Get.find(),
-//         deleteProductUseCase: Get.find(),
-//       ),
-//     );
-
-//     // ✅ CONTROLADOR CORREGIDO - Sin el parámetro problemático
-//     Get.lazyPut(
-//       () => ProductDetailController(
-//         getProductByIdUseCase: Get.find(),
-//         updateProductStockUseCase: Get.find(),
-//         deleteProductUseCase: Get.find(),
-//       ),
-//     );
-
-//     Get.lazyPut(
-//       () => ProductFormController(
-//         createProductUseCase: Get.find(),
-//         updateProductUseCase: Get.find(),
-//         getProductByIdUseCase: Get.find(),
-//       ),
-//     );
-
-//     print('✅ ProductBinding: Dependencias registradas exitosamente');
-//   }
-
-//   @override
-//   void onDispose() {
-//     print('🗑️ ProductBinding: Limpiando dependencias...');
-
-//     // Controllers
-//     Get.delete<ProductsController>();
-//     Get.delete<ProductDetailController>();
-//     Get.delete<ProductFormController>();
-
-//     // Use Cases
-//     Get.delete<GetProductsUseCase>();
-//     Get.delete<GetProductByIdUseCase>();
-//     Get.delete<SearchProductsUseCase>();
-//     Get.delete<GetProductStatsUseCase>();
-//     Get.delete<GetLowStockProductsUseCase>();
-//     Get.delete<GetProductsByCategoryUseCase>();
-//     Get.delete<CreateProductUseCase>();
-//     Get.delete<UpdateProductUseCase>();
-//     Get.delete<UpdateProductStockUseCase>();
-//     Get.delete<DeleteProductUseCase>();
-
-//     // Repository
-//     Get.delete<ProductRepository>(tag: 'ProductRepository');
-
-//     // DataSources
-//     Get.delete<ProductRemoteDataSource>(tag: 'ProductRemoteDataSource');
-//     Get.delete<ProductLocalDataSource>(tag: 'ProductLocalDataSource');
-//   }
-
-//   // ✅ MÉTODO DE VERIFICACIÓN MEJORADO
-//   static void verifyDependencies() {
-//     print('🔍 Verificando dependencias del módulo Products...');
-
-//     final dependencies = [
-//       () => Get.find<ProductRepository>(),
-//       () => Get.find<ProductsController>(),
-//       () => Get.find<ProductFormController>(),
-//       () => Get.find<ProductDetailController>(),
-//       () => Get.find<Connectivity>(),
-//       () => Get.find<NetworkInfo>(),
-//       () => Get.find<DioClient>(),
-//       () => Get.find<SecureStorageService>(),
-//     ];
-
-//     final names = [
-//       'ProductRepository',
-//       'ProductsController',
-//       'ProductFormController',
-//       'ProductDetailController',
-//       'Connectivity',
-//       'NetworkInfo',
-//       'DioClient',
-//       'SecureStorageService',
-//     ];
-
-//     for (int i = 0; i < dependencies.length; i++) {
-//       try {
-//         dependencies[i]();
-//         print('✅ ${names[i]} registrado');
-//       } catch (e) {
-//         print('❌ ${names[i]} no encontrado: $e');
-//       }
-//     }
-
-//     print('🔍 Verificación completada');
-//   }
-// }
-
 // lib/features/products/presentation/bindings/product_binding.dart
 import 'package:baudex_desktop/app/core/network/dio_client.dart';
 import 'package:baudex_desktop/app/core/network/network_info.dart';
@@ -189,8 +8,10 @@ import 'package:get/get.dart';
 // Product Data Layer
 import '../../data/datasources/product_remote_datasource.dart';
 import '../../data/datasources/product_local_datasource.dart';
+import '../../data/datasources/product_local_datasource_isar.dart';
 import '../../data/repositories/product_repository_impl.dart';
 import '../../domain/repositories/product_repository.dart';
+import '../../../../app/data/local/isar_database.dart';
 
 // Product Use Cases
 import '../../domain/usecases/get_products_usecase.dart';
@@ -201,7 +22,7 @@ import '../../domain/usecases/delete_product_usecase.dart';
 import '../../domain/usecases/search_products_usecase.dart';
 import '../../domain/usecases/get_product_stats_usecase.dart';
 import '../../domain/usecases/update_product_stock_usecase.dart';
-import '../../domain/usecases/get_low_stock_products_usecase.dart';
+import '../../domain/usecases/get_low_stock_products_usecase.dart' as products_usecases;
 import '../../domain/usecases/get_products_by_category_usecase.dart';
 
 // Category Use Cases (para ProductFormController)
@@ -327,15 +148,13 @@ SOLUCIÓN RECOMENDADA:
       print('  ✅ ProductRemoteDataSource registrado');
     }
 
-    // Local DataSource
+    // Local DataSource - ISAR Implementation (offline-first)
     if (!Get.isRegistered<ProductLocalDataSource>()) {
       Get.lazyPut<ProductLocalDataSource>(
-        () => ProductLocalDataSourceImpl(
-          storageService: Get.find<SecureStorageService>(),
-        ),
+        () => ProductLocalDataSourceIsar(Get.find<IsarDatabase>()),
         fenix: true,
       );
-      print('  ✅ ProductLocalDataSource registrado');
+      print('  ✅ ProductLocalDataSource (ISAR) registrado');
     }
 
     // Repository
@@ -363,7 +182,7 @@ SOLUCIÓN RECOMENDADA:
     Get.lazyPut(() => GetProductByIdUseCase(repository), fenix: true);
     Get.lazyPut(() => SearchProductsUseCase(repository), fenix: true);
     Get.lazyPut(() => GetProductStatsUseCase(repository), fenix: true);
-    Get.lazyPut(() => GetLowStockProductsUseCase(repository), fenix: true);
+    Get.lazyPut(() => products_usecases.GetLowStockProductsUseCase(repository), fenix: true, tag: 'products');
     Get.lazyPut(() => GetProductsByCategoryUseCase(repository), fenix: true);
 
     // Write Operations
@@ -386,7 +205,7 @@ SOLUCIÓN RECOMENDADA:
           getProductsUseCase: Get.find<GetProductsUseCase>(),
           searchProductsUseCase: Get.find<SearchProductsUseCase>(),
           getProductStatsUseCase: Get.find<GetProductStatsUseCase>(),
-          getLowStockProductsUseCase: Get.find<GetLowStockProductsUseCase>(),
+          getLowStockProductsUseCase: Get.find<products_usecases.GetLowStockProductsUseCase>(tag: 'products'),
           getProductsByCategoryUseCase:
               Get.find<GetProductsByCategoryUseCase>(),
           deleteProductUseCase: Get.find<DeleteProductUseCase>(),
@@ -417,6 +236,7 @@ SOLUCIÓN RECOMENDADA:
           updateProductUseCase: Get.find<UpdateProductUseCase>(),
           getProductByIdUseCase: Get.find<GetProductByIdUseCase>(),
           getCategoriesUseCase: _getCategoriesUseCaseSafely(),
+          secureStorageService: Get.find<SecureStorageService>(),
         ),
         fenix: true, // ✅ USAR fenix: true para evitar disposal prematuro
       );
@@ -507,7 +327,7 @@ SOLUCIÓN RECOMENDADA:
       () => Get.delete<GetProductByIdUseCase>(force: true),
       () => Get.delete<SearchProductsUseCase>(force: true),
       () => Get.delete<GetProductStatsUseCase>(force: true),
-      () => Get.delete<GetLowStockProductsUseCase>(force: true),
+      () => Get.delete<products_usecases.GetLowStockProductsUseCase>(force: true, tag: 'products'),
       () => Get.delete<GetProductsByCategoryUseCase>(force: true),
       () => Get.delete<CreateProductUseCase>(force: true),
       () => Get.delete<UpdateProductUseCase>(force: true),

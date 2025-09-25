@@ -3,12 +3,15 @@ import 'dart:convert';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 import '../models/product_model.dart';
-import '../models/product_stats_model.dart'; // ✅ AGREGAR ESTE IMPORT
+import '../models/product_stats_model.dart';
+import '../../domain/entities/product.dart'; // ✅ NUEVO: Para manejar entidades offline
+import '../../domain/entities/product_price.dart'; // ✅ NUEVO: Para precios
 
 /// Contrato para el datasource local de productos
 abstract class ProductLocalDataSource {
   Future<void> cacheProducts(List<ProductModel> products);
   Future<void> cacheProduct(ProductModel product);
+  Future<void> cacheProductForSync(Product product); // ✅ NUEVO: Para productos creados offline
   Future<List<ProductModel>> getCachedProducts();
   Future<ProductModel?> getCachedProduct(String id);
   Future<ProductModel?> getCachedProductBySku(String sku);
@@ -17,6 +20,8 @@ abstract class ProductLocalDataSource {
   Future<ProductStatsModel?> getCachedProductStats();
   Future<void> removeCachedProduct(String id);
   Future<void> clearProductCache();
+  Future<List<Product>> getUnsyncedProducts(); // ✅ NUEVO: Para obtener productos pendientes de sincronizar
+  Future<void> markProductAsSynced(String tempId, String serverId); // ✅ NUEVO: Para marcar como sincronizado
 }
 
 /// Implementación del datasource local usando SecureStorage
@@ -318,5 +323,138 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
     } catch (e) {
       return false;
     }
+  }
+
+  // ==================== ✅ NUEVOS MÉTODOS PARA SINCRONIZACIÓN OFFLINE ====================
+
+  /// Guardar producto creado offline para posterior sincronización
+  @override
+  Future<void> cacheProductForSync(Product product) async {
+    try {
+      // Convertir Product entity a Map para guardar
+      final productData = {
+        'id': product.id,
+        'name': product.name,
+        'description': product.description,
+        'sku': product.sku,
+        'barcode': product.barcode,
+        'type': product.type.name,
+        'status': product.status.name,
+        'stock': product.stock,
+        'minStock': product.minStock,
+        'unit': product.unit,
+        'weight': product.weight,
+        'length': product.length,
+        'width': product.width,
+        'height': product.height,
+        'images': product.images,
+        'metadata': product.metadata,
+        'categoryId': product.categoryId,
+        'createdById': product.createdById,
+        'prices': product.prices?.map((price) => {
+          'id': price.id,
+          'productId': price.productId,
+          'type': price.type.name,
+          'amount': price.amount,
+          'currency': price.currency,
+          'status': price.status.name,
+          'discountPercentage': price.discountPercentage,
+          'minQuantity': price.minQuantity,
+          'createdAt': price.createdAt.toIso8601String(),
+          'updatedAt': price.updatedAt.toIso8601String(),
+        }).toList() ?? [],
+        'createdAt': product.createdAt.toIso8601String(),
+        'updatedAt': product.updatedAt.toIso8601String(),
+        'isSynced': false, // Siempre false para productos offline
+      };
+
+      // Guardar en una clave específica para productos no sincronizados
+      final unsyncedKey = 'unsynced_product_${product.id}';
+      await storageService.write(unsyncedKey, jsonEncode(productData));
+
+      print('✅ ProductLocalDataSource: Product cached for sync: ${product.name}');
+    } catch (e) {
+      throw CacheException('Error caching product for sync: $e');
+    }
+  }
+
+  /// Obtener todos los productos que faltan por sincronizar
+  @override
+  Future<List<Product>> getUnsyncedProducts() async {
+    try {
+      final allData = await storageService.readAll();
+      final unsyncedProducts = <Product>[];
+
+      for (final entry in allData.entries) {
+        if (entry.key.startsWith('unsynced_product_')) {
+          try {
+            final productData = jsonDecode(entry.value) as Map<String, dynamic>;
+            final product = _mapToProductEntity(productData);
+            unsyncedProducts.add(product);
+          } catch (e) {
+            print('⚠️ Error parsing unsynced product ${entry.key}: $e');
+          }
+        }
+      }
+
+      print('📋 ProductLocalDataSource: Found ${unsyncedProducts.length} unsynced products');
+      return unsyncedProducts;
+    } catch (e) {
+      throw CacheException('Error getting unsynced products: $e');
+    }
+  }
+
+  /// Marcar producto como sincronizado y actualizar su ID
+  @override
+  Future<void> markProductAsSynced(String tempId, String serverId) async {
+    try {
+      // Remover de productos no sincronizados
+      final unsyncedKey = 'unsynced_product_$tempId';
+      await storageService.delete(unsyncedKey);
+
+      print('✅ ProductLocalDataSource: Product marked as synced: $tempId -> $serverId');
+    } catch (e) {
+      throw CacheException('Error marking product as synced: $e');
+    }
+  }
+
+  /// Mapear datos JSON a entidad Product
+  Product _mapToProductEntity(Map<String, dynamic> data) {
+    return Product(
+      id: data['id'] as String,
+      name: data['name'] as String,
+      description: data['description'] as String? ?? '',
+      sku: data['sku'] as String,
+      barcode: data['barcode'] as String?,
+      type: ProductType.values.firstWhere((t) => t.name == data['type']),
+      status: ProductStatus.values.firstWhere((s) => s.name == data['status']),
+      stock: (data['stock'] as num?)?.toDouble() ?? 0.0,
+      minStock: (data['minStock'] as num?)?.toDouble() ?? 0.0,
+      unit: data['unit'] as String? ?? 'pcs',
+      weight: (data['weight'] as num?)?.toDouble(),
+      length: (data['length'] as num?)?.toDouble(),
+      width: (data['width'] as num?)?.toDouble(),
+      height: (data['height'] as num?)?.toDouble(),
+      images: List<String>.from(data['images'] ?? []),
+      metadata: Map<String, dynamic>.from(data['metadata'] ?? {}),
+      categoryId: data['categoryId'] as String,
+      createdById: data['createdById'] as String? ?? '',
+      category: null,
+      prices: (data['prices'] as List?)?.map((priceData) => ProductPrice(
+        id: priceData['id'] as String,
+        productId: priceData['productId'] as String,
+        type: PriceType.values.firstWhere((t) => t.name == priceData['type']),
+        amount: (priceData['amount'] as num).toDouble(),
+        currency: priceData['currency'] as String? ?? 'USD',
+        status: PriceStatus.values.firstWhere((s) => s.name == (priceData['status'] ?? 'active')),
+        discountPercentage: (priceData['discountPercentage'] as num?)?.toDouble() ?? 0.0,
+        minQuantity: (priceData['minQuantity'] as num?)?.toDouble() ?? 1.0,
+        createdAt: DateTime.parse(priceData['createdAt'] as String),
+        updatedAt: DateTime.parse(priceData['updatedAt'] as String),
+      )).toList() ?? [],
+      createdBy: null,
+      createdAt: DateTime.parse(data['createdAt'] as String),
+      updatedAt: DateTime.parse(data['updatedAt'] as String),
+    );
   }
 }

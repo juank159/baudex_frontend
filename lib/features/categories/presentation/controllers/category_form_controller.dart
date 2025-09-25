@@ -524,6 +524,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
+import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/entities/category_tree.dart';
 import '../../domain/usecases/create_category_usecase.dart';
@@ -564,14 +565,14 @@ class CategoryFormController extends GetxController {
     null,
   ); // ✅ EXPLÍCITO
 
-  // Form controllers
-  final nameController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final slugController = TextEditingController();
-  final imageController = TextEditingController();
-  final metaTitleController = TextEditingController();
-  final metaDescriptionController = TextEditingController();
-  final metaKeywordsController = TextEditingController();
+  // Form controllers - Using SafeTextEditingController to prevent disposal errors
+  final nameController = SafeTextEditingController(debugLabel: 'CategoryFormName');
+  final descriptionController = SafeTextEditingController(debugLabel: 'CategoryFormDescription');
+  final slugController = SafeTextEditingController(debugLabel: 'CategoryFormSlug');
+  final imageController = SafeTextEditingController(debugLabel: 'CategoryFormImage');
+  final metaTitleController = SafeTextEditingController(debugLabel: 'CategoryFormMetaTitle');
+  final metaDescriptionController = SafeTextEditingController(debugLabel: 'CategoryFormMetaDescription');
+  final metaKeywordsController = SafeTextEditingController(debugLabel: 'CategoryFormMetaKeywords');
 
   // Form state
   final formKey = GlobalKey<FormState>();
@@ -652,6 +653,7 @@ class CategoryFormController extends GetxController {
 
   @override
   void onClose() {
+    // SafeTextEditingController handles safe disposal automatically
     nameController.dispose();
     descriptionController.dispose();
     slugController.dispose();
@@ -660,13 +662,29 @@ class CategoryFormController extends GetxController {
     metaDescriptionController.dispose();
     metaKeywordsController.dispose();
     super.onClose();
+    print('🗑️ CategoryFormController disposed safely');
   }
 
   // ==================== PUBLIC METHODS ====================
 
   /// Guardar categoría (crear o actualizar)
   Future<void> saveCategory() async {
-    if (!formKey.currentState!.validate()) return;
+    print('🚀 CategoryFormController: Iniciando saveCategory()');
+    
+    // Validar campos manualmente si FormKey no está disponible
+    if (!_validateFieldsManually()) {
+      print('❌ Validación manual falló');
+      return;
+    }
+    
+    print('✅ Validación exitosa, procediendo con la creación');
+    
+    // Generar slug automáticamente si está vacío
+    if (slugController.text.trim().isEmpty) {
+      final generatedSlug = _generateSlugFromName(nameController.text.trim());
+      slugController.text = generatedSlug;
+      print('🔧 Slug generado automáticamente: $generatedSlug');
+    }
 
     _isLoading.value = true;
 
@@ -1098,6 +1116,33 @@ class CategoryFormController extends GetxController {
       icon: const Icon(Icons.check_circle, color: Colors.green),
       duration: const Duration(seconds: 3),
     );
+  }
+
+  // ==================== VALIDATION METHODS ====================
+
+  /// Validar campos manualmente (sin depender del FormKey)
+  bool _validateFieldsManually() {
+    List<String> errors = [];
+    
+    // Validar nombre (requerido)
+    if (nameController.text.trim().isEmpty) {
+      errors.add('El nombre es requerido');
+    } else if (nameController.text.trim().length < 2) {
+      errors.add('El nombre debe tener al menos 2 caracteres');
+    }
+    
+    // Validar slug (se genera automáticamente, pero verificar)
+    if (slugController.text.trim().isEmpty) {
+      errors.add('El slug es requerido');
+    }
+    
+    // Si hay errores, mostrarlos
+    if (errors.isNotEmpty) {
+      _showError('Validación', errors.join('\n'));
+      return false;
+    }
+    
+    return true;
   }
 
   // ==================== DEBUGGING METHODS ====================

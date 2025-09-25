@@ -53,9 +53,23 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
 
   bool _handleGlobalKeyEvent(KeyEvent event) {
     if (event is KeyDownEvent) {
+      // ✅ CRÍTICO: No procesar shortcuts cuando el focus está en un TextField (búsqueda de productos)
+      final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
+      if (focusedWidget != null && focusedWidget.toString().contains('TextField')) {
+        print('🚫 TABS Shortcuts deshabilitados - Focus en campo de búsqueda');
+        return false;
+      }
+
+      // ✅ CRÍTICO: No procesar Enter para evitar conflictos con el form
+      if (event.logicalKey == LogicalKeyboardKey.enter) {
+        print('🚫 TABS Enter ignorado - Dejando que el form lo maneje');
+        return false;
+      }
+
       // Ctrl+T - Nueva pestaña
       if ((event.logicalKey == LogicalKeyboardKey.keyT) &&
           (HardwareKeyboard.instance.isControlPressed)) {
+        print('🔖 TABS Ctrl+T - Nueva pestaña');
         tabsController.addNewTab();
         return true;
       }
@@ -63,6 +77,7 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
       // Ctrl+W - Cerrar pestaña actual
       if ((event.logicalKey == LogicalKeyboardKey.keyW) &&
           (HardwareKeyboard.instance.isControlPressed)) {
+        print('🔖 TABS Ctrl+W - Cerrar pestaña');
         if (tabsController.currentTab != null) {
           tabsController.closeTab(tabsController.currentTab!.id);
         }
@@ -72,14 +87,14 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
       // Ctrl+Tab - Siguiente pestaña
       if ((event.logicalKey == LogicalKeyboardKey.tab) &&
           (HardwareKeyboard.instance.isControlPressed)) {
+        print('🔖 TABS Ctrl+Tab - Siguiente pestaña');
         final nextIndex =
             (tabsController.currentTabIndex + 1) % tabsController.tabs.length;
         tabsController.switchToTab(nextIndex);
         return true;
       }
 
-      // ✅ ELIMINADO: Ctrl+1-5 - Ir a pestaña específica (conflicto con shortcuts de productos)
-      // Este shortcut ha sido eliminado para evitar conflictos con el aumentar productos
+      // ✅ ELIMINADO: Ctrl+1-5 y otros shortcuts que podrían causar conflictos
     }
     return false;
   }
