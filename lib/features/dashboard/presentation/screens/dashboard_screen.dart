@@ -121,15 +121,13 @@ class DashboardScreen extends GetView<DashboardController> {
         const SizedBox(height: AppDimensions.spacingLarge),
 
         // Two column layout for activity and notifications - Tercera fila
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Expanded(flex: 2, child: RecentActivityCard()),
-              const SizedBox(width: AppDimensions.spacingMedium),
-              const Expanded(flex: 1, child: NotificationsPanel()),
-            ],
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 400, child: RecentActivityCard()),
+            const SizedBox(width: AppDimensions.spacingMedium),
+            SizedBox(width: 300, child: NotificationsPanel()),
+          ],
         ),
       ],
     );
@@ -151,32 +149,30 @@ class DashboardScreen extends GetView<DashboardController> {
         const SizedBox(height: AppDimensions.spacingLarge),
 
         // Tercera fila: Grid de componentes adicionales (2x2)
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Columna izquierda
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    const Expanded(child: RecentActivityCard()),
-                  ],
-                ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Columna izquierda
+            SizedBox(
+              width: 600,
+              child: Column(
+                children: [
+                  const RecentActivityCard(),
+                ],
               ),
-              const SizedBox(width: AppDimensions.spacingMedium),
-              
-              // Columna derecha
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    const Expanded(child: NotificationsPanel()),
-                  ],
-                ),
+            ),
+            const SizedBox(width: AppDimensions.spacingMedium),
+            
+            // Columna derecha
+            SizedBox(
+              width: 400,
+              child: Column(
+                children: [
+                  const NotificationsPanel(),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
     );

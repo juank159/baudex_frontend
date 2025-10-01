@@ -44,6 +44,7 @@ class ProfitabilitySection extends GetWidget<DashboardController> {
   Widget _buildSectionHeader() {
     return Builder(
       builder: (context) => Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(10),
@@ -247,7 +248,7 @@ class ProfitabilitySection extends GetWidget<DashboardController> {
                 size: ResponsiveText.getSmallIconSize(context),
               ),
               const SizedBox(width: 6),
-              Flexible(
+              Expanded(
                 child: Text(
                   title,
                   style: AppTextStyles.bodySmall.copyWith(
@@ -311,7 +312,7 @@ class ProfitabilitySection extends GetWidget<DashboardController> {
                 size: ResponsiveText.getCaptionSize(context) + 4,
               ),
               const SizedBox(width: 4),
-              Flexible(
+              Expanded(
                 child: Text(
                   title,
                   style: AppTextStyles.bodySmall.copyWith(

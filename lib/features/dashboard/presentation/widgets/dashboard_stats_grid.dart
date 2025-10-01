@@ -232,14 +232,12 @@ class DashboardStatsGrid extends GetView<DashboardController> {
           children: [
             Icon(Icons.error_outline, color: AppColors.error, size: 24),
             const SizedBox(height: 4),
-            Flexible(
-              child: Text(
-                'Error al cargar estadísticas',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+            Text(
+              'Error al cargar estadísticas',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
             TextButton(

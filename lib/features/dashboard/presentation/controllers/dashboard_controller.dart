@@ -61,7 +61,7 @@ class DashboardController extends GetxController {
   // Filters
   final _selectedDateRange = Rxn<DateTimeRange>();
   final _selectedActivityTypes = <ActivityType>[].obs;
-  final _selectedPeriod = 'hoy'.obs;
+  final _selectedPeriod = 'ultimos_3_meses'.obs;
 
   // Getters
   bool get isLoadingStats => _isLoadingStats.value;
@@ -97,6 +97,23 @@ class DashboardController extends GetxController {
   int get lowStockProducts =>
       dashboardStats?.products.lowStockProducts ?? 0;
   double get totalExpenses => dashboardStats?.expenses.totalAmount ?? 0.0;
+  
+  // ✅ Calcular ganancia bruta correcta (Revenue - COGS)
+  double get realGrossProfit {
+    final profitStats = profitabilityStats;
+    if (profitStats != null) {
+      // ✅ SIEMPRE usar datos del backend (ahora ya calculan FIFO correctamente)
+      print('✅ FIFO: Usando datos reales del backend - Revenue=${profitStats.totalRevenue.toInt()}, COGS=${profitStats.totalCOGS.toInt()}, Ganancia=${profitStats.grossProfit.toInt()}');
+      return profitStats.grossProfit;
+    } else {
+      // Solo como fallback si no hay datos del backend
+      print('⚠️ WARNING: No hay datos de rentabilidad del backend');
+      return 0.0;
+    }
+  }
+  
+  // ✅ COGS real del backend (o 0 si no está disponible)
+  double get totalCOGS => profitabilityStats?.totalCOGS ?? 0.0;
 
   @override
   void onInit() {
@@ -486,7 +503,7 @@ class DashboardController extends GetxController {
   void clearFilters() {
     _selectedDateRange.value = null;
     _selectedActivityTypes.clear();
-    _selectedPeriod.value = 'hoy';
+    _selectedPeriod.value = 'ultimos_3_meses';
     _loadInitialData();
   }
 
@@ -516,6 +533,14 @@ class DashboardController extends GetxController {
       case 'este_mes':
         dateRange = DateTimeRange(
           start: DateTime(now.year, now.month, 1),
+          end: DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+        );
+        break;
+      case 'ultimos_3_meses':
+        // ✅ PERÍODO POR DEFECTO: Incluir últimos 3 meses para mostrar datos existentes
+        final threeMonthsAgo = DateTime(now.year, now.month - 3, 1);
+        dateRange = DateTimeRange(
+          start: threeMonthsAgo,
           end: DateTime(now.year, now.month + 1, 0, 23, 59, 59),
         );
         break;

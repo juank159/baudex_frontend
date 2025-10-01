@@ -147,6 +147,10 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
   late List<Animation<double>> _itemAnimations;
   late AnimationController _glowController;
   late Animation<double> _glowAnimation;
+  
+  bool _showCustomDatePicker = false;
+  DateTime? _selectedStartDate;
+  DateTime? _selectedEndDate;
 
   @override
   void initState() {
@@ -295,7 +299,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
                         ),
                       
                       // Contenido principal con scroll para evitar overflow
-                      Flexible(
+                      Positioned.fill(
                         child: SingleChildScrollView(
                           padding: EdgeInsets.all(isMobile ? 16 : 24),
                           child: Column(
@@ -303,9 +307,13 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
                             children: [
                               _buildHeader(context),
                               SizedBox(height: isMobile ? 16 : 24),
-                              _buildPeriodOptions(context),
-                              SizedBox(height: isMobile ? 12 : 20),
-                              _buildCustomDateSection(context),
+                              if (!_showCustomDatePicker) ...[
+                                _buildPeriodOptions(context),
+                                SizedBox(height: isMobile ? 12 : 20),
+                                _buildCustomDateSection(context),
+                              ] else ...[
+                                _buildCustomDatePickerSection(context),
+                              ],
                               SizedBox(height: isMobile ? 16 : 24),
                               _buildActionButtons(context),
                             ],
@@ -445,7 +453,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
         return Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => _selectPeriod(key),
+            onTap: () => _selectPeriod(context, key),
             borderRadius: BorderRadius.circular(16),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
@@ -591,7 +599,11 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
                     ),
                   ),
                   OutlinedButton(
-                    onPressed: _showDateRangePicker,
+                    onPressed: () {
+                      setState(() {
+                        _showCustomDatePicker = true;
+                      });
+                    },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.secondary ?? AppColors.primary,
                       side: BorderSide(
@@ -615,6 +627,51 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
   Widget _buildActionButtons(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
+    
+    if (_showCustomDatePicker) {
+      return Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () {
+                setState(() {
+                  _showCustomDatePicker = false;
+                  _selectedStartDate = null;
+                  _selectedEndDate = null;
+                });
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: BorderSide(color: AppColors.textSecondary.withOpacity(0.3)),
+                padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Atrás'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _selectedStartDate != null && _selectedEndDate != null 
+                ? () => _applyCustomDateRange(context)
+                : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: const Text('Aplicar Rango'),
+            ),
+          ),
+        ],
+      );
+    }
     
     return Row(
       children: [
@@ -652,36 +709,232 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
     );
   }
   
-  void _selectPeriod(String period) {
-    final controller = Get.find<DashboardController>();
-    controller.setPredefinedPeriod(period);
+  Widget _buildCustomDatePickerSection(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header del selector de fechas
+        Container(
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primary.withOpacity(0.1),
+                AppColors.primary.withOpacity(0.05),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.primary.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.date_range,
+                color: AppColors.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Seleccionar Rango Personalizado',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
+                      ),
+                    ),
+                    SizedBox(height: isMobile ? 2 : 4),
+                    Text(
+                      'Elige las fechas de inicio y fin',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: isMobile ? 11 : 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: isMobile ? 16 : 20),
+        
+        // Selectores de fecha
+        Row(
+          children: [
+            Expanded(
+              child: _buildDateSelector(
+                context,
+                'Fecha Inicio',
+                _selectedStartDate,
+                Icons.calendar_today,
+                (date) {
+                  setState(() {
+                    _selectedStartDate = date;
+                    // Si la fecha de fin es anterior a la de inicio, la reseteamos
+                    if (_selectedEndDate != null && _selectedEndDate!.isBefore(date)) {
+                      _selectedEndDate = null;
+                    }
+                  });
+                },
+              ),
+            ),
+            SizedBox(width: isMobile ? 8 : 16),
+            Expanded(
+              child: _buildDateSelector(
+                context,
+                'Fecha Fin',
+                _selectedEndDate,
+                Icons.event,
+                (date) {
+                  setState(() {
+                    _selectedEndDate = date;
+                  });
+                },
+                minDate: _selectedStartDate,
+              ),
+            ),
+          ],
+        ),
+        
+        if (_selectedStartDate != null && _selectedEndDate != null) ...[
+          SizedBox(height: isMobile ? 12 : 16),
+          Container(
+            padding: EdgeInsets.all(isMobile ? 12 : 16),
+            decoration: BoxDecoration(
+              color: AppColors.success.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.success.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: AppColors.success,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Rango seleccionado: ${_formatDate(_selectedStartDate!)} - ${_formatDate(_selectedEndDate!)}',
+                    style: TextStyle(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w600,
+                      fontSize: isMobile ? 12 : 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
   }
-  
-  void _showDateRangePicker() async {
-    final controller = Get.find<DashboardController>();
+
+  Widget _buildDateSelector(
+    BuildContext context,
+    String label,
+    DateTime? selectedDate,
+    IconData icon,
+    Function(DateTime) onDateSelected, {
+    DateTime? minDate,
+  }) {
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _selectDate(context, selectedDate, onDateSelected, minDate),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
+          decoration: BoxDecoration(
+            color: selectedDate != null 
+              ? AppColors.primary.withOpacity(0.1)
+              : Colors.grey.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selectedDate != null 
+                ? AppColors.primary.withOpacity(0.3)
+                : Colors.grey.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    icon,
+                    color: selectedDate != null 
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: selectedDate != null 
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: isMobile ? 12 : 14,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: isMobile ? 6 : 8),
+              Text(
+                selectedDate != null 
+                  ? _formatDate(selectedDate)
+                  : 'Seleccionar fecha',
+                style: TextStyle(
+                  color: selectedDate != null 
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+                  fontWeight: selectedDate != null 
+                    ? FontWeight.w600
+                    : FontWeight.w400,
+                  fontSize: isMobile ? 13 : 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _selectDate(
+    BuildContext context,
+    DateTime? currentDate,
+    Function(DateTime) onDateSelected,
+    DateTime? minDate,
+  ) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     
-    DateTimeRange? safeInitialRange;
-    if (controller.selectedDateRange != null) {
-      final currentRange = controller.selectedDateRange!;
-      final safeStart = currentRange.start.isBefore(DateTime(2020)) 
-          ? DateTime(2020, 1, 1) 
-          : currentRange.start;
-      final safeEnd = currentRange.end.isAfter(today) 
-          ? today 
-          : currentRange.end;
-      
-      if (!safeStart.isAfter(safeEnd)) {
-        safeInitialRange = DateTimeRange(start: safeStart, end: safeEnd);
-      }
-    }
-    
-    final DateTimeRange? picked = await showDateRangePicker(
+    final DateTime? picked = await showDatePicker(
       context: context,
-      firstDate: DateTime(2020, 1, 1),
+      initialDate: currentDate ?? today,
+      firstDate: minDate ?? DateTime(2020, 1, 1),
       lastDate: today,
-      initialDateRange: safeInitialRange,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -698,10 +951,32 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
     );
 
     if (picked != null) {
-      controller.setDateRange(picked);
-      if (mounted) {
-        Navigator.of(context).pop(); // Cerrar el dialog después de seleccionar
-      }
+      onDateSelected(picked);
     }
   }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  void _applyCustomDateRange(BuildContext context) {
+    if (_selectedStartDate != null && _selectedEndDate != null) {
+      final controller = Get.find<DashboardController>();
+      final dateRange = DateTimeRange(
+        start: _selectedStartDate!,
+        end: _selectedEndDate!,
+      );
+      controller.setDateRange(dateRange);
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _selectPeriod(BuildContext context, String period) {
+    final controller = Get.find<DashboardController>();
+    controller.setPredefinedPeriod(period);
+    
+    // Cerrar el dialog automáticamente después de seleccionar
+    Navigator.of(context).pop();
+  }
+  
 }
