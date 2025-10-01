@@ -77,6 +77,8 @@ class PeriodSelector extends StatelessWidget {
         return Icons.view_week;
       case 'este_mes':
         return Icons.calendar_month;
+      case 'ultimos_3_meses':
+        return Icons.date_range;
       case 'custom':
         return Icons.tune;
       default:
@@ -92,6 +94,8 @@ class PeriodSelector extends StatelessWidget {
         return 'Esta Semana';
       case 'este_mes':
         return 'Este Mes';
+      case 'ultimos_3_meses':
+        return 'Últimos 3 Meses';
       case 'custom':
         return 'Personalizado';
       default:
@@ -176,8 +180,8 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
       curve: Curves.easeInOut,
     ));
     
-    // Controladores individuales para cada item
-    _itemControllers = List.generate(5, (index) => 
+    // Controladores individuales para cada item (1 header + 4 periods + 1 custom = 6)
+    _itemControllers = List.generate(6, (index) => 
       AnimationController(
         duration: const Duration(milliseconds: 300),
         vsync: this,
@@ -408,6 +412,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
       {'key': 'hoy', 'label': 'Hoy', 'icon': Icons.today, 'subtitle': 'Solo el día de hoy'},
       {'key': 'esta_semana', 'label': 'Esta Semana', 'icon': Icons.view_week, 'subtitle': 'Últimos 7 días'},
       {'key': 'este_mes', 'label': 'Este Mes', 'icon': Icons.calendar_month, 'subtitle': 'Todo el mes actual'},
+      {'key': 'ultimos_3_meses', 'label': 'Últimos 3 Meses', 'icon': Icons.date_range, 'subtitle': 'Últimos 3 meses de datos'},
     ];
     
     return GetBuilder<DashboardController>(
@@ -546,12 +551,12 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
     final isMobile = screenSize.width < 600;
     
     return AnimatedBuilder(
-      animation: _itemAnimations[4],
+      animation: _itemAnimations[5],
       builder: (context, child) {
         return Transform.translate(
-          offset: Offset(0, 50 * (1 - _itemAnimations[4].value)),
+          offset: Offset(0, 50 * (1 - _itemAnimations[5].value)),
           child: Opacity(
-            opacity: _itemAnimations[4].value.clamp(0.0, 1.0),
+            opacity: _itemAnimations[5].value.clamp(0.0, 1.0),
             child: Container(
               padding: EdgeInsets.all(isMobile ? 12 : 16),
               decoration: BoxDecoration(
