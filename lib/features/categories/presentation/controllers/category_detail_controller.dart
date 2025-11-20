@@ -40,6 +40,9 @@ class CategoryDetailController extends GetxController
 
   // Tab controller para las pestañas
   late TabController tabController;
+  
+  // Tab management for futuristic interface
+  final _selectedTab = 0.obs;
 
   // ==================== GETTERS ====================
 
@@ -53,6 +56,9 @@ class CategoryDetailController extends GetxController
 
   bool get hasCategory => _category.value != null;
   bool get hasSubcategories => _subcategories.isNotEmpty;
+  
+  // Tab getters
+  RxInt get selectedTab => _selectedTab;
 
   // ==================== LIFECYCLE ====================
 
@@ -72,6 +78,13 @@ class CategoryDetailController extends GetxController
   void onClose() {
     tabController.dispose();
     super.onClose();
+  }
+
+  /// Switch between tabs in futuristic interface
+  void switchTab(int tabIndex) {
+    if (tabIndex >= 0 && tabIndex <= 3) {
+      _selectedTab.value = tabIndex;
+    }
   }
 
   // ==================== PUBLIC METHODS ====================

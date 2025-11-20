@@ -9,6 +9,9 @@ abstract class OrganizationRemoteDataSource {
   Future<OrganizationModel> getCurrentOrganization();
   Future<OrganizationModel> updateCurrentOrganization(Map<String, dynamic> updates);
   Future<OrganizationModel> getOrganizationById(String id);
+  
+  /// ✅ NUEVO: Actualizar margen de ganancia para productos temporales
+  Future<bool> updateProfitMargin(double marginPercentage);
 }
 
 class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
@@ -78,6 +81,39 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener organización: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  @override
+  Future<bool> updateProfitMargin(double marginPercentage) async {
+    try {
+      print('🌐 Enviando PUT a /organizations/current/profit-margin con margen: $marginPercentage%');
+      
+      final response = await dioClient.put(
+        '/organizations/current/profit-margin',
+        data: {
+          'marginPercentage': marginPercentage,
+        },
+      );
+
+      // El backend devuelve: { success: boolean, marginPercentage: number, message: string }
+      final success = response.data['success'] as bool? ?? false;
+      
+      print('✅ Respuesta del servidor: ${response.data}');
+      
+      return success;
+    } on DioException catch (e) {
+      print('❌ Error DioException: ${e.response?.data}');
+      throw ServerException(
+        e.response?.data['message'] ?? 'Error al actualizar margen de ganancia',
+        statusCode: e.response?.statusCode ?? 500,
+      );
+    } catch (e) {
+      print('❌ Error inesperado: $e');
+      throw ServerException(
+        'Error inesperado al actualizar margen de ganancia: $e',
         statusCode: 500,
       );
     }

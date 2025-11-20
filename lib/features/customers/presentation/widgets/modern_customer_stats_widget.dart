@@ -1,6 +1,7 @@
 // lib/features/customers/presentation/widgets/modern_customer_stats_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../domain/entities/customer_stats.dart';
 
 class ModernCustomerStatsWidget extends StatelessWidget {
@@ -23,18 +24,14 @@ class ModernCustomerStatsWidget extends StatelessWidget {
   Widget _buildMobileStats(BuildContext context) {
     if (isCompact) {
       return Container(
-        padding: const EdgeInsets.all(12), // Ultra compacto
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          gradient: ElegantLightTheme.cardGradient,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          border: Border.all(
+            color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+          ),
+          boxShadow: ElegantLightTheme.elevatedShadow,
         ),
         child: Row(
           children: [
@@ -43,7 +40,7 @@ class ModernCustomerStatsWidget extends StatelessWidget {
                 '${stats.total}',
                 'Total',
                 Icons.people,
-                Theme.of(context).primaryColor,
+                ElegantLightTheme.primaryBlue,
               ),
             ),
             _buildVerticalDivider(),
@@ -52,16 +49,16 @@ class ModernCustomerStatsWidget extends StatelessWidget {
                 '${stats.active}',
                 'Activos',
                 Icons.check_circle,
-                Colors.green,
+                Colors.green.shade600,
               ),
             ),
             _buildVerticalDivider(),
             Expanded(
               child: _buildUltraCompactStat(
-                '${stats.customersWithOverdue}',
+                '${stats.customersWithOverdue ?? 0}',
                 'Riesgo',
                 Icons.warning,
-                Colors.red,
+                Colors.red.shade600,
               ),
             ),
           ],
@@ -69,42 +66,43 @@ class ModernCustomerStatsWidget extends StatelessWidget {
       );
     }
 
-    // Versión normal móvil (reducida en 65%)
+    // Versión normal móvil
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Column(
         children: [
-          // Header compacto
+          // Header compacto con gradiente
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  gradient: ElegantLightTheme.primaryGradient.scale(0.2),
                   borderRadius: BorderRadius.circular(8),
+                  boxShadow: ElegantLightTheme.glowShadow,
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.analytics,
-                  color: Theme.of(context).primaryColor,
+                  color: ElegantLightTheme.primaryBlue,
                   size: 18,
                 ),
               ),
               const SizedBox(width: 8),
               const Text(
                 'Estadísticas de Clientes',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: ElegantLightTheme.textPrimary,
+                ),
               ),
             ],
           ),
@@ -118,7 +116,7 @@ class ModernCustomerStatsWidget extends StatelessWidget {
                   '${stats.total}',
                   'Total Clientes',
                   Icons.people,
-                  Theme.of(context).primaryColor,
+                  ElegantLightTheme.primaryBlue,
                 ),
               ),
               const SizedBox(width: 8),
@@ -127,7 +125,7 @@ class ModernCustomerStatsWidget extends StatelessWidget {
                   '${stats.active}',
                   'Activos',
                   Icons.check_circle,
-                  Colors.green,
+                  Colors.green.shade600,
                 ),
               ),
             ],
@@ -140,16 +138,16 @@ class ModernCustomerStatsWidget extends StatelessWidget {
                   '${stats.inactive}',
                   'Inactivos',
                   Icons.pause_circle,
-                  Colors.orange,
+                  ElegantLightTheme.accentOrange,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _buildCompactStatCard(
-                  '${stats.customersWithOverdue}',
+                  '${stats.customersWithOverdue ?? 0}',
                   'En Riesgo',
                   Icons.warning,
-                  Colors.red,
+                  Colors.red.shade600,
                 ),
               ),
             ],
@@ -194,34 +192,31 @@ class ModernCustomerStatsWidget extends StatelessWidget {
 
   Widget _buildDesktopStats(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16), // Reducido más para evitar overflow
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header elegante
+          // Header elegante con gradiente
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(9),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  gradient: ElegantLightTheme.primaryGradient.scale(0.2),
                   borderRadius: BorderRadius.circular(10),
+                  boxShadow: ElegantLightTheme.glowShadow,
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.analytics,
-                  color: Theme.of(context).primaryColor,
+                  color: ElegantLightTheme.primaryBlue,
                   size: 24,
                 ),
               ),
@@ -229,7 +224,11 @@ class ModernCustomerStatsWidget extends StatelessWidget {
               const Expanded(
                 child: Text(
                   'Panel de Estadísticas',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
                 ),
               ),
             ],
@@ -242,40 +241,40 @@ class ModernCustomerStatsWidget extends StatelessWidget {
               Expanded(
                 child: _buildDesktopStatCard(
                   '${stats.total}',
-                  'Total ',
-                  '',
+                  'Total',
+                  'Clientes',
                   Icons.people,
-                  Theme.of(context).primaryColor,
+                  ElegantLightTheme.primaryBlue,
                 ),
               ),
-              const SizedBox(width: 4), // Reducido el espacio
+              const SizedBox(width: 4),
               Expanded(
                 child: _buildDesktopStatCard(
                   '${stats.active}',
                   'Activos',
                   '${_calculatePercentage(stats.active, stats.total)}%',
                   Icons.check_circle,
-                  Colors.green,
+                  Colors.green.shade600,
                 ),
               ),
-              const SizedBox(width: 4), // Reducido el espacio
+              const SizedBox(width: 4),
               Expanded(
                 child: _buildDesktopStatCard(
                   '${stats.inactive}',
                   'Inactivos',
-                  '${_calculatePercentage(stats.inactive, stats.total)}% ',
+                  '${_calculatePercentage(stats.inactive, stats.total)}%',
                   Icons.pause_circle,
-                  Colors.orange,
+                  ElegantLightTheme.accentOrange,
                 ),
               ),
-              const SizedBox(width: 4), // Reducido el espacio
+              const SizedBox(width: 4),
               Expanded(
                 child: _buildDesktopStatCard(
-                  '${stats.customersWithOverdue}',
+                  '${stats.customersWithOverdue ?? 0}',
                   'Riesgo',
-                  '${_calculatePercentage(stats.customersWithOverdue, stats.total)}% ',
+                  '${_calculatePercentage(stats.customersWithOverdue ?? 0, stats.total)}%',
                   Icons.warning,
-                  Colors.red,
+                  Colors.red.shade600,
                 ),
               ),
             ],
@@ -349,12 +348,21 @@ class ModernCustomerStatsWidget extends StatelessWidget {
     IconData icon,
     Color color,
   ) {
+    final gradient = _getGradientForColor(color);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        gradient: gradient.scale(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -364,18 +372,35 @@ class ModernCustomerStatsWidget extends StatelessWidget {
             value,
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            style: const TextStyle(
+              fontSize: 11,
+              color: ElegantLightTheme.textSecondary,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
       ),
     );
+  }
+
+  LinearGradient _getGradientForColor(Color color) {
+    if (color == ElegantLightTheme.primaryBlue) {
+      return ElegantLightTheme.primaryGradient;
+    } else if (color == Colors.green.shade600) {
+      return ElegantLightTheme.successGradient;
+    } else if (color == ElegantLightTheme.accentOrange) {
+      return ElegantLightTheme.warningGradient;
+    } else if (color == Colors.red.shade600) {
+      return ElegantLightTheme.errorGradient;
+    } else {
+      return ElegantLightTheme.infoGradient;
+    }
   }
 
   // Widget _buildDesktopStatCard(
@@ -457,62 +482,77 @@ class ModernCustomerStatsWidget extends StatelessWidget {
     IconData icon,
     Color color,
   ) {
+    final gradient = _getGradientForColor(color);
+
     return Container(
-      // Estilo del contenedor principal de la tarjeta
       padding: const EdgeInsets.all(5.0),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        gradient: gradient.scale(0.1),
         borderRadius: BorderRadius.circular(10.0),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      // Columna principal que organiza todo verticalmente
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.center, // Alinea los hijos a la izquierda
-        mainAxisAlignment:
-            MainAxisAlignment.center, // Alinea los hijos en la parte superior
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 1. Ícono
+          // 1. Ícono con gradiente
           Container(
             padding: const EdgeInsets.all(6.0),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              gradient: gradient.scale(0.3),
               borderRadius: BorderRadius.circular(6.0),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
             child: Icon(icon, size: 16, color: color),
           ),
 
-          const SizedBox(height: 12.0), // Espacio vertical
-          // 2. Valor principal (ej: "1,200")
+          const SizedBox(height: 12.0),
+          // 2. Valor principal
           Text(
             value,
             style: TextStyle(
-              fontSize: 10, // Tamaño aumentado para más énfasis
-              fontWeight: FontWeight.w700,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
               color: color,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
 
-          const SizedBox(height: 8.0), // Espacio vertical
-          // 3. Título (ej: "Ventas Totales")
+          const SizedBox(height: 8.0),
+          // 3. Título
           Text(
             title,
             style: const TextStyle(
-              fontSize: 10, // Tamaño ligeramente ajustado
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: ElegantLightTheme.textPrimary,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
 
-          const SizedBox(height: 2.0), // Pequeño espacio vertical
-          // 4. Subtítulo (ej: "Últimos 30 días")
+          const SizedBox(height: 2.0),
+          // 4. Subtítulo
           Text(
             subtitle,
-            style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
+            style: const TextStyle(
+              fontSize: 9,
+              color: ElegantLightTheme.textSecondary,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

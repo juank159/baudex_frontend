@@ -19,8 +19,10 @@ class ReportsController extends GetxController {
   final GetProfitabilityByCategoriesUseCase getProfitabilityByCategoriesUseCase;
   final GetTopProfitableProductsUseCase getTopProfitableProductsUseCase;
   final GetInventoryValuationSummaryUseCase getInventoryValuationSummaryUseCase;
-  final GetInventoryValuationByProductsUseCase getInventoryValuationByProductsUseCase;
-  final GetInventoryValuationByCategoriesUseCase getInventoryValuationByCategoriesUseCase;
+  final GetInventoryValuationByProductsUseCase
+  getInventoryValuationByProductsUseCase;
+  final GetInventoryValuationByCategoriesUseCase
+  getInventoryValuationByCategoriesUseCase;
   final GetProfitabilityTrendsUseCase getProfitabilityTrendsUseCase;
   final GetValuationVariancesUseCase getValuationVariancesUseCase;
 
@@ -38,17 +40,26 @@ class ReportsController extends GetxController {
   // ==================== REACTIVE VARIABLES ====================
 
   // Profitability Reports
-  final RxList<ProfitabilityReport> profitabilityByProducts = <ProfitabilityReport>[].obs;
-  final RxList<ProfitabilityReport> profitabilityByCategories = <ProfitabilityReport>[].obs;
-  final RxList<CategoryProfitabilityReport> profitabilityCategoriesData = <CategoryProfitabilityReport>[].obs;
-  final RxList<ProfitabilityReport> topProfitableProducts = <ProfitabilityReport>[].obs;
-  final RxList<ProfitabilityTrend> profitabilityTrends = <ProfitabilityTrend>[].obs;
+  final RxList<ProfitabilityReport> profitabilityByProducts =
+      <ProfitabilityReport>[].obs;
+  final RxList<ProfitabilityReport> profitabilityByCategories =
+      <ProfitabilityReport>[].obs;
+  final RxList<CategoryProfitabilityReport> profitabilityCategoriesData =
+      <CategoryProfitabilityReport>[].obs;
+  final RxList<ProfitabilityReport> topProfitableProducts =
+      <ProfitabilityReport>[].obs;
+  final RxList<ProfitabilityTrend> profitabilityTrends =
+      <ProfitabilityTrend>[].obs;
 
   // Valuation Reports
-  final Rx<InventoryValuationSummary?> valuationSummary = Rx<InventoryValuationSummary?>(null);
-  final RxList<InventoryValuationReport> valuationByProducts = <InventoryValuationReport>[].obs;
-  final RxList<CategoryValuationBreakdown> valuationByCategories = <CategoryValuationBreakdown>[].obs;
-  final RxList<InventoryValuationVariance> valuationVariances = <InventoryValuationVariance>[].obs;
+  final Rx<InventoryValuationSummary?> valuationSummary =
+      Rx<InventoryValuationSummary?>(null);
+  final RxList<InventoryValuationReport> valuationByProducts =
+      <InventoryValuationReport>[].obs;
+  final RxList<CategoryValuationBreakdown> valuationByCategories =
+      <CategoryValuationBreakdown>[].obs;
+  final RxList<InventoryValuationVariance> valuationVariances =
+      <InventoryValuationVariance>[].obs;
 
   // Loading states
   final RxBool isLoadingProfitability = false.obs;
@@ -58,7 +69,9 @@ class ReportsController extends GetxController {
   final RxString error = ''.obs;
 
   // Filters
-  final Rx<DateTime?> startDate = Rx<DateTime?>(DateTime.now().subtract(const Duration(days: 30)));
+  final Rx<DateTime?> startDate = Rx<DateTime?>(
+    DateTime.now().subtract(const Duration(days: 30)),
+  );
   final Rx<DateTime?> endDate = Rx<DateTime?>(DateTime.now());
   final Rx<DateTime?> asOfDate = Rx<DateTime?>(DateTime.now());
   final RxString selectedCategoryId = ''.obs;
@@ -95,9 +108,14 @@ class ReportsController extends GetxController {
       error.value = '';
 
       final params = ProfitabilityReportParams(
-        startDate: startDate.value ?? DateTime.now().subtract(const Duration(days: 30)),
+        startDate:
+            startDate.value ??
+            DateTime.now().subtract(const Duration(days: 30)),
         endDate: endDate.value ?? DateTime.now(),
-        categoryId: selectedCategoryId.value.isNotEmpty ? selectedCategoryId.value : null,
+        categoryId:
+            selectedCategoryId.value.isNotEmpty
+                ? selectedCategoryId.value
+                : null,
       );
 
       final result = await getProfitabilityByProductsUseCase(params);
@@ -108,7 +126,7 @@ class ReportsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -130,7 +148,9 @@ class ReportsController extends GetxController {
       error.value = '';
 
       final params = ProfitabilityReportParams(
-        startDate: startDate.value ?? DateTime.now().subtract(const Duration(days: 30)),
+        startDate:
+            startDate.value ??
+            DateTime.now().subtract(const Duration(days: 30)),
         endDate: endDate.value ?? DateTime.now(),
       );
 
@@ -142,29 +162,32 @@ class ReportsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
         },
         (paginatedResult) {
-          profitabilityByCategories.value = paginatedResult.data.map((cat) => 
-            ProfitabilityReport(
-              productId: cat.categoryId,
-              productName: cat.categoryName,
-              productSku: '',
-              quantitySold: cat.quantitySold,
-              totalRevenue: cat.totalRevenue,
-              totalCost: cat.totalCost,
-              grossProfit: cat.grossProfit,
-              profitMargin: cat.profitMargin,
-              profitPercentage: cat.profitPercentage,
-              averageSellingPrice: 0,
-              averageCostPrice: 0,
-              periodStart: cat.periodStart,
-              periodEnd: cat.periodEnd,
-            )
-          ).toList();
+          profitabilityByCategories.value =
+              paginatedResult.data
+                  .map(
+                    (cat) => ProfitabilityReport(
+                      productId: cat.categoryId,
+                      productName: cat.categoryName,
+                      productSku: '',
+                      quantitySold: cat.quantitySold,
+                      totalRevenue: cat.totalRevenue,
+                      totalCost: cat.totalCost,
+                      grossProfit: cat.grossProfit,
+                      profitMargin: cat.profitMargin,
+                      profitPercentage: cat.profitPercentage,
+                      averageSellingPrice: 0,
+                      averageCostPrice: 0,
+                      periodStart: cat.periodStart,
+                      periodEnd: cat.periodEnd,
+                    ),
+                  )
+                  .toList();
         },
       );
     } catch (e) {
@@ -180,9 +203,14 @@ class ReportsController extends GetxController {
       error.value = '';
 
       final params = TopProfitableProductsParams(
-        startDate: startDate.value ?? DateTime.now().subtract(const Duration(days: 30)),
+        startDate:
+            startDate.value ??
+            DateTime.now().subtract(const Duration(days: 30)),
         endDate: endDate.value ?? DateTime.now(),
-        categoryId: selectedCategoryId.value.isNotEmpty ? selectedCategoryId.value : null,
+        categoryId:
+            selectedCategoryId.value.isNotEmpty
+                ? selectedCategoryId.value
+                : null,
         limit: topProductsLimit.value,
       );
 
@@ -194,7 +222,7 @@ class ReportsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -219,7 +247,10 @@ class ReportsController extends GetxController {
         startDate: startDate.value!,
         endDate: endDate.value!,
         period: trendsGranularity.value,
-        categoryId: selectedCategoryId.value.isNotEmpty ? selectedCategoryId.value : null,
+        categoryId:
+            selectedCategoryId.value.isNotEmpty
+                ? selectedCategoryId.value
+                : null,
       );
 
       final result = await getProfitabilityTrendsUseCase(params);
@@ -230,7 +261,7 @@ class ReportsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -249,10 +280,7 @@ class ReportsController extends GetxController {
   // ==================== VALUATION REPORTS ====================
 
   Future<void> loadValuationDashboard() async {
-    await Future.wait([
-      loadValuationSummary(),
-      loadValuationByProducts(),
-    ]);
+    await Future.wait([loadValuationSummary(), loadValuationByProducts()]);
   }
 
   Future<void> loadValuationSummary() async {
@@ -262,8 +290,14 @@ class ReportsController extends GetxController {
 
       final params = InventoryValuationParams(
         asOfDate: asOfDate.value,
-        warehouseId: selectedWarehouseId.value.isNotEmpty ? selectedWarehouseId.value : null,
-        categoryId: selectedCategoryId.value.isNotEmpty ? selectedCategoryId.value : null,
+        warehouseId:
+            selectedWarehouseId.value.isNotEmpty
+                ? selectedWarehouseId.value
+                : null,
+        categoryId:
+            selectedCategoryId.value.isNotEmpty
+                ? selectedCategoryId.value
+                : null,
       );
 
       final result = await getInventoryValuationSummaryUseCase(params);
@@ -274,7 +308,7 @@ class ReportsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -297,8 +331,14 @@ class ReportsController extends GetxController {
 
       final params = InventoryValuationParams(
         asOfDate: asOfDate.value,
-        warehouseId: selectedWarehouseId.value.isNotEmpty ? selectedWarehouseId.value : null,
-        categoryId: selectedCategoryId.value.isNotEmpty ? selectedCategoryId.value : null,
+        warehouseId:
+            selectedWarehouseId.value.isNotEmpty
+                ? selectedWarehouseId.value
+                : null,
+        categoryId:
+            selectedCategoryId.value.isNotEmpty
+                ? selectedCategoryId.value
+                : null,
       );
 
       final result = await getInventoryValuationByProductsUseCase(params);
@@ -309,7 +349,7 @@ class ReportsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -332,7 +372,10 @@ class ReportsController extends GetxController {
 
       final params = InventoryValuationParams(
         asOfDate: asOfDate.value,
-        warehouseId: selectedWarehouseId.value.isNotEmpty ? selectedWarehouseId.value : null,
+        warehouseId:
+            selectedWarehouseId.value.isNotEmpty
+                ? selectedWarehouseId.value
+                : null,
       );
 
       final result = await getInventoryValuationByCategoriesUseCase(params);
@@ -343,7 +386,7 @@ class ReportsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -366,8 +409,14 @@ class ReportsController extends GetxController {
 
       final params = ValuationVariancesParams(
         asOfDate: asOfDate.value,
-        warehouseId: selectedWarehouseId.value.isNotEmpty ? selectedWarehouseId.value : null,
-        categoryId: selectedCategoryId.value.isNotEmpty ? selectedCategoryId.value : null,
+        warehouseId:
+            selectedWarehouseId.value.isNotEmpty
+                ? selectedWarehouseId.value
+                : null,
+        categoryId:
+            selectedCategoryId.value.isNotEmpty
+                ? selectedCategoryId.value
+                : null,
       );
 
       final result = await getValuationVariancesUseCase(params);
@@ -378,7 +427,7 @@ class ReportsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -461,10 +510,7 @@ class ReportsController extends GetxController {
   }
 
   Future<void> refreshValuationReports() async {
-    await Future.wait([
-      loadValuationSummary(),
-      loadValuationByProducts(),
-    ]);
+    await Future.wait([loadValuationSummary(), loadValuationByProducts()]);
   }
 
   // ==================== EXPORT METHODS ====================
@@ -473,7 +519,7 @@ class ReportsController extends GetxController {
     Get.snackbar(
       'Exportar Reporte',
       'Generando reporte de rentabilidad...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
     );
@@ -483,7 +529,7 @@ class ReportsController extends GetxController {
     Get.snackbar(
       'Exportar Reporte',
       'Generando reporte de valoración...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
     );
@@ -493,7 +539,7 @@ class ReportsController extends GetxController {
     Get.snackbar(
       'Exportar Reporte',
       'Generando reporte completo...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
     );
@@ -515,21 +561,24 @@ class ReportsController extends GetxController {
 
   // ==================== COMPUTED PROPERTIES ====================
 
-  bool get hasData => 
-      profitabilityByProducts.isNotEmpty || 
+  bool get hasData =>
+      profitabilityByProducts.isNotEmpty ||
       valuationByProducts.isNotEmpty ||
       valuationSummary.value != null;
 
-  bool get isLoading => 
-      isLoadingProfitability.value || 
+  bool get isLoading =>
+      isLoadingProfitability.value ||
       isLoadingValuation.value ||
       isLoadingTrends.value ||
       isLoadingVariances.value;
 
   double get totalProfitability => profitabilityByProducts.fold(
-      0.0, (sum, report) => sum + report.grossProfit);
+    0.0,
+    (sum, report) => sum + report.grossProfit,
+  );
 
-  double get totalInventoryValue => valuationSummary.value?.totalInventoryValue ?? 0.0;
+  double get totalInventoryValue =>
+      valuationSummary.value?.totalInventoryValue ?? 0.0;
 
   int get totalProducts => valuationSummary.value?.totalProducts ?? 0;
 }

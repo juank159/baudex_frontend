@@ -41,7 +41,9 @@ class PurchaseOrdersController extends GetxController {
 
   // Filtros
   final Rx<PurchaseOrderStatus?> statusFilter = Rx<PurchaseOrderStatus?>(null);
-  final Rx<PurchaseOrderPriority?> priorityFilter = Rx<PurchaseOrderPriority?>(null);
+  final Rx<PurchaseOrderPriority?> priorityFilter = Rx<PurchaseOrderPriority?>(
+    null,
+  );
   final RxString supplierIdFilter = ''.obs;
   final Rx<DateTime?> startDateFilter = Rx<DateTime?>(null);
   final Rx<DateTime?> endDateFilter = Rx<DateTime?>(null);
@@ -74,14 +76,16 @@ class PurchaseOrdersController extends GetxController {
     _initializeData();
     _setupSearchListener();
   }
-  
+
   @override
   void onReady() {
     super.onReady();
     // Check if we need to refresh due to a new order
     final parameters = Get.parameters;
     if (parameters.containsKey('newOrderId')) {
-      print('🎆 Nueva orden detectada: ${parameters['newOrderId']}, forzando refresh');
+      print(
+        '🎆 Nueva orden detectada: ${parameters['newOrderId']}, forzando refresh',
+      );
       // Forzar refresh inmediato para nueva orden
       Future.delayed(const Duration(milliseconds: 200), () {
         refreshPurchaseOrders();
@@ -120,7 +124,7 @@ class PurchaseOrdersController extends GetxController {
   void _debounceSearch() {
     // Cancelar timer anterior si existe
     if (_searchTimer?.isActive ?? false) _searchTimer!.cancel();
-    
+
     // Crear nuevo timer
     _searchTimer = Timer(const Duration(milliseconds: 500), () {
       if (searchQuery.value.isNotEmpty) {
@@ -146,7 +150,8 @@ class PurchaseOrdersController extends GetxController {
         search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
         status: statusFilter.value,
         priority: priorityFilter.value,
-        supplierId: supplierIdFilter.value.isNotEmpty ? supplierIdFilter.value : null,
+        supplierId:
+            supplierIdFilter.value.isNotEmpty ? supplierIdFilter.value : null,
         startDate: startDateFilter.value,
         endDate: endDateFilter.value,
         isOverdue: showOverdueOnly.value ? true : null,
@@ -162,7 +167,7 @@ class PurchaseOrdersController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -193,7 +198,7 @@ class PurchaseOrdersController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -212,11 +217,8 @@ class PurchaseOrdersController extends GetxController {
 
     try {
       isSearching.value = true;
-      
-      final params = SearchPurchaseOrdersParams(
-        searchTerm: query,
-        limit: 50,
-      );
+
+      final params = SearchPurchaseOrdersParams(searchTerm: query, limit: 50);
 
       final result = await searchPurchaseOrdersUseCase(params);
 
@@ -319,16 +321,16 @@ class PurchaseOrdersController extends GetxController {
       print('🔄 PurchaseOrdersController: Starting refresh...');
       isRefreshing.value = true;
       currentPage.value = 1;
-      
+
       // Clear all data first
       purchaseOrders.clear();
       filteredPurchaseOrders.clear();
       error.value = '';
-      
+
       // Load fresh data
       await loadPurchaseOrders(showLoading: false);
       await loadStats();
-      
+
       print('✅ PurchaseOrdersController: Refresh completed successfully');
     } catch (e) {
       print('❌ PurchaseOrdersController: Error during refresh: $e');
@@ -337,37 +339,46 @@ class PurchaseOrdersController extends GetxController {
       isRefreshing.value = false;
     }
   }
-  
+
   /// Método especializado para actualizar después de crear/editar una orden
-  Future<void> refreshAfterOrderChange(String? newOrderId, {bool isUpdate = false}) async {
+  Future<void> refreshAfterOrderChange(
+    String? newOrderId, {
+    bool isUpdate = false,
+  }) async {
     try {
-      print('🎆 Actualizando lista después de ${isUpdate ? 'actualizar' : 'crear'} orden: $newOrderId');
-      
+      print(
+        '🎆 Actualizando lista después de ${isUpdate ? 'actualizar' : 'crear'} orden: $newOrderId',
+      );
+
       // Forzar refresh completo para asegurar que aparezca la nueva orden
       await refreshPurchaseOrders();
-      
+
       // Si tenemos el ID de la nueva orden, intentar ponerla al inicio
       if (newOrderId != null && purchaseOrders.isNotEmpty) {
         _prioritizeNewOrder(newOrderId);
       }
-      
-      print('✅ Lista actualizada exitosamente después de ${isUpdate ? 'actualización' : 'creación'}');
+
+      print(
+        '✅ Lista actualizada exitosamente después de ${isUpdate ? 'actualización' : 'creación'}',
+      );
     } catch (e) {
       print('❌ Error al actualizar lista después de cambios: $e');
     }
   }
-  
+
   /// Intenta mover la nueva orden al inicio de la lista para mejor visibilidad
   void _prioritizeNewOrder(String orderId) {
     try {
-      final orderIndex = purchaseOrders.indexWhere((order) => order.id == orderId);
+      final orderIndex = purchaseOrders.indexWhere(
+        (order) => order.id == orderId,
+      );
       if (orderIndex > 0) {
         final newOrder = purchaseOrders.removeAt(orderIndex);
         purchaseOrders.insert(0, newOrder);
-        
+
         // Actualizar la lista filtrada también
         applyFilters();
-        
+
         print('🔝 Orden $orderId movida al inicio de la lista');
       } else if (orderIndex == 0) {
         print('🎆 Orden $orderId ya está al inicio de la lista');
@@ -403,7 +414,7 @@ class PurchaseOrdersController extends GetxController {
     showPendingApprovalOnly.value = false;
     searchController.clear();
     searchQuery.value = '';
-    
+
     currentPage.value = 1;
     purchaseOrders.clear();
     loadPurchaseOrders();
@@ -422,8 +433,15 @@ class PurchaseOrdersController extends GetxController {
     } else {
       // Nuevo campo, empezar con descendente para fechas y montos
       sortBy.value = field;
-      sortOrder.value = ['orderDate', 'expectedDeliveryDate', 'totalAmount', 'createdAt']
-          .contains(field) ? 'desc' : 'asc';
+      sortOrder.value =
+          [
+                'orderDate',
+                'expectedDeliveryDate',
+                'totalAmount',
+                'createdAt',
+              ].contains(field)
+              ? 'desc'
+              : 'asc';
     }
 
     currentPage.value = 1;
@@ -438,7 +456,9 @@ class PurchaseOrdersController extends GetxController {
       final result = await Get.dialog<bool>(
         AlertDialog(
           title: const Text('Confirmar eliminación'),
-          content: const Text('¿Está seguro de que desea eliminar esta orden de compra?'),
+          content: const Text(
+            '¿Está seguro de que desea eliminar esta orden de compra?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Get.back(result: false),
@@ -458,7 +478,7 @@ class PurchaseOrdersController extends GetxController {
 
       if (result == true) {
         isLoading.value = true;
-        
+
         final deleteResult = await deletePurchaseOrderUseCase(id);
 
         deleteResult.fold(
@@ -466,7 +486,7 @@ class PurchaseOrdersController extends GetxController {
             Get.snackbar(
               'Error',
               failure.message,
-              snackPosition: SnackPosition.BOTTOM,
+              snackPosition: SnackPosition.TOP,
               backgroundColor: Colors.red.shade100,
               colorText: Colors.red.shade800,
             );
@@ -475,11 +495,11 @@ class PurchaseOrdersController extends GetxController {
             Get.snackbar(
               'Éxito',
               'Orden de compra eliminada correctamente',
-              snackPosition: SnackPosition.BOTTOM,
+              snackPosition: SnackPosition.TOP,
               backgroundColor: Colors.green.shade100,
               colorText: Colors.green.shade800,
             );
-            
+
             // Recargar lista
             refreshPurchaseOrders();
           },
@@ -489,7 +509,7 @@ class PurchaseOrdersController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -501,7 +521,7 @@ class PurchaseOrdersController extends GetxController {
   Future<void> approvePurchaseOrder(String id) async {
     try {
       isLoading.value = true;
-      
+
       final params = ApprovePurchaseOrderParams(id: id);
       final result = await approvePurchaseOrderUseCase(params);
 
@@ -510,7 +530,7 @@ class PurchaseOrdersController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -519,11 +539,11 @@ class PurchaseOrdersController extends GetxController {
           Get.snackbar(
             'Éxito',
             'Orden de compra aprobada correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
-          
+
           // Actualizar orden en la lista
           final index = purchaseOrders.indexWhere((order) => order.id == id);
           if (index != -1) {
@@ -536,7 +556,7 @@ class PurchaseOrdersController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -552,13 +572,17 @@ class PurchaseOrdersController extends GetxController {
   }
 
   void goToPurchaseOrderEdit(String purchaseOrderId) async {
-    print('🔄 PurchaseOrdersController: Navigating to edit form: $purchaseOrderId');
+    print(
+      '🔄 PurchaseOrdersController: Navigating to edit form: $purchaseOrderId',
+    );
     final result = await Get.toNamed('/purchase-orders/edit/$purchaseOrderId');
-    
+
     // Refresh data when returning from edit form
-    print('🔄 PurchaseOrdersController: Returned from edit form, refreshing data');
+    print(
+      '🔄 PurchaseOrdersController: Returned from edit form, refreshing data',
+    );
     await refreshPurchaseOrders();
-    
+
     if (result != null) {
       print('✅ PurchaseOrdersController: Edit form returned result: $result');
     }
@@ -571,8 +595,13 @@ class PurchaseOrdersController extends GetxController {
   }
 
   void goToCreateFromSupplier(String supplierId) {
-    print('🔄 PurchaseOrdersController: Navigating to create form with supplier: $supplierId');
-    Get.toNamed('/purchase-orders/create', arguments: {'supplierId': supplierId});
+    print(
+      '🔄 PurchaseOrdersController: Navigating to create form with supplier: $supplierId',
+    );
+    Get.toNamed(
+      '/purchase-orders/create',
+      arguments: {'supplierId': supplierId},
+    );
     // No need to wait for result since form uses Get.offAllNamed
   }
 
@@ -655,7 +684,8 @@ class PurchaseOrdersController extends GetxController {
     }
   }
 
-  bool get canLoadMore => hasNextPage.value && !isLoadingMore.value && !isLoading.value;
+  bool get canLoadMore =>
+      hasNextPage.value && !isLoadingMore.value && !isLoading.value;
 
   Map<String, dynamic> get activeFiltersCount {
     int count = 0;
@@ -690,9 +720,6 @@ class PurchaseOrdersController extends GetxController {
       activeFilters.add('Solo pendientes de aprobación');
     }
 
-    return {
-      'count': count,
-      'filters': activeFilters,
-    };
+    return {'count': count, 'filters': activeFilters};
   }
 }

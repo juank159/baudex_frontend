@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
+import '../../../../app/services/password_validation_service.dart';
 import '../../domain/entities/user_preferences.dart';
 import '../../domain/usecases/get_user_preferences_usecase.dart';
 import '../../domain/usecases/update_user_preferences_usecase.dart';
@@ -20,6 +21,7 @@ class UserPreferencesController extends GetxController {
   final Rx<UserPreferences?> _userPreferences = Rx<UserPreferences?>(null);
   final RxBool _isLoading = false.obs;
   final RxString _errorMessage = ''.obs;
+  final RxInt selectedTab = 0.obs;
 
   // Getters
   UserPreferences? get userPreferences => _userPreferences.value;
@@ -61,10 +63,10 @@ class UserPreferencesController extends GetxController {
       result.fold(
         (failure) {
           _errorMessage.value = failure.message;
-          Get.snackbar(
-            'Error',
-            'No se pudieron cargar las preferencias: ${failure.message}',
-            snackPosition: SnackPosition.BOTTOM,
+          _showSnackbar(
+            title: 'Error',
+            message: 'No se pudieron cargar las preferencias: ${failure.message}',
+            isError: true,
           );
         },
         (preferences) {
@@ -74,6 +76,14 @@ class UserPreferencesController extends GetxController {
     } finally {
       _isLoading.value = false;
     }
+  }
+
+  /// Valida la contraseña antes de permitir cambios en preferencias
+  Future<bool> _validatePasswordForChanges() async {
+    return await PasswordValidationService.showPasswordValidationDialog(
+      title: 'Verificación de Seguridad',
+      message: 'Para tu seguridad, confirma tu contraseña antes de modificar las preferencias del sistema.',
+    );
   }
 
   Future<bool> updatePreference(String key, dynamic value) async {
@@ -86,10 +96,10 @@ class UserPreferencesController extends GetxController {
 
       return result.fold(
         (failure) {
-          Get.snackbar(
-            'Error',
-            'No se pudo actualizar la preferencia: ${failure.message}',
-            snackPosition: SnackPosition.BOTTOM,
+          _showSnackbar(
+            title: 'Error',
+            message: 'No se pudo actualizar la preferencia: ${failure.message}',
+            isError: true,
           );
           return false;
         },
@@ -99,10 +109,10 @@ class UserPreferencesController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Error inesperado al actualizar la preferencia',
-        snackPosition: SnackPosition.BOTTOM,
+      _showSnackbar(
+        title: 'Error',
+        message: 'Error inesperado al actualizar la preferencia',
+        isError: true,
       );
       return false;
     }
@@ -111,6 +121,10 @@ class UserPreferencesController extends GetxController {
   Future<bool> updateMultiplePreferences(
     Map<String, dynamic> preferences,
   ) async {
+    // Validar contraseña antes de permitir múltiples cambios
+    final isPasswordValid = await _validatePasswordForChanges();
+    if (!isPasswordValid) return false;
+
     try {
       Get.dialog(
         const Center(child: CircularProgressIndicator()),
@@ -123,28 +137,28 @@ class UserPreferencesController extends GetxController {
 
       return result.fold(
         (failure) {
-          Get.snackbar(
-            'Error',
-            'No se pudieron actualizar las preferencias: ${failure.message}',
-            snackPosition: SnackPosition.BOTTOM,
+          _showSnackbar(
+            title: 'Error',
+            message: 'No se pudieron actualizar las preferencias: ${failure.message}',
+            isError: true,
           );
           return false;
         },
         (updatedPreferences) {
           _userPreferences.value = updatedPreferences;
-          Get.snackbar(
-            'Éxito',
-            'Preferencias actualizadas correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+          _showSnackbar(
+            title: 'Éxito',
+            message: 'Preferencias actualizadas correctamente',
+            isError: false,
           );
           return true;
         },
       );
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Error inesperado al actualizar las preferencias',
-        snackPosition: SnackPosition.BOTTOM,
+      _showSnackbar(
+        title: 'Error',
+        message: 'Error inesperado al actualizar las preferencias',
+        isError: true,
       );
       return false;
     } finally {
@@ -154,6 +168,10 @@ class UserPreferencesController extends GetxController {
 
   // Convenience methods for common preference updates
   Future<void> toggleAutoDeductInventory() async {
+    // Validar contraseña antes de permitir el cambio
+    final isPasswordValid = await _validatePasswordForChanges();
+    if (!isPasswordValid) return;
+
     final currentValue = autoDeductInventory;
     final success = await updatePreference(
       'autoDeductInventory',
@@ -162,55 +180,128 @@ class UserPreferencesController extends GetxController {
 
     if (success) {
       final action = !currentValue ? 'habilitado' : 'deshabilitado';
-      Get.snackbar(
-        'Configuración actualizada',
-        'Descuento automático de inventario $action',
-        snackPosition: SnackPosition.BOTTOM,
+      _showSnackbar(
+        title: 'Configuración actualizada',
+        message: 'Descuento automático de inventario $action',
+        isError: false,
       );
     }
   }
 
   Future<void> toggleUseFifoCosting() async {
+    // Validar contraseña antes de permitir el cambio
+    final isPasswordValid = await _validatePasswordForChanges();
+    if (!isPasswordValid) return;
+
     final currentValue = useFifoCosting;
     await updatePreference('useFifoCosting', !currentValue);
   }
 
   Future<void> toggleValidateStockBeforeInvoice() async {
+    // Validar contraseña antes de permitir el cambio
+    final isPasswordValid = await _validatePasswordForChanges();
+    if (!isPasswordValid) return;
+
     final currentValue = validateStockBeforeInvoice;
     await updatePreference('validateStockBeforeInvoice', !currentValue);
   }
 
   Future<void> toggleAllowOverselling() async {
+    // Validar contraseña antes de permitir el cambio
+    final isPasswordValid = await _validatePasswordForChanges();
+    if (!isPasswordValid) return;
+
     final currentValue = allowOverselling;
     await updatePreference('allowOverselling', !currentValue);
   }
 
   Future<void> toggleShowStockWarnings() async {
+    // Validar contraseña antes de permitir el cambio
+    final isPasswordValid = await _validatePasswordForChanges();
+    if (!isPasswordValid) return;
+
     final currentValue = showStockWarnings;
     await updatePreference('showStockWarnings', !currentValue);
   }
 
   Future<void> toggleShowConfirmationDialogs() async {
+    // Validar contraseña antes de permitir el cambio
+    final isPasswordValid = await _validatePasswordForChanges();
+    if (!isPasswordValid) return;
+
     final currentValue = showConfirmationDialogs;
     await updatePreference('showConfirmationDialogs', !currentValue);
   }
 
   Future<void> toggleUseCompactMode() async {
+    // Validar contraseña antes de permitir el cambio
+    final isPasswordValid = await _validatePasswordForChanges();
+    if (!isPasswordValid) return;
+
     final currentValue = useCompactMode;
     await updatePreference('useCompactMode', !currentValue);
   }
 
   Future<void> toggleEnableExpiryNotifications() async {
+    // Validar contraseña antes de permitir el cambio
+    final isPasswordValid = await _validatePasswordForChanges();
+    if (!isPasswordValid) return;
+
     final currentValue = enableExpiryNotifications;
     await updatePreference('enableExpiryNotifications', !currentValue);
   }
 
   Future<void> toggleEnableLowStockNotifications() async {
+    // Validar contraseña antes de permitir el cambio
+    final isPasswordValid = await _validatePasswordForChanges();
+    if (!isPasswordValid) return;
+
     final currentValue = enableLowStockNotifications;
     await updatePreference('enableLowStockNotifications', !currentValue);
   }
 
   void clearError() {
     _errorMessage.value = '';
+  }
+
+  /// Cambiar tab seleccionado
+  void switchTab(int tabIndex) {
+    selectedTab.value = tabIndex;
+  }
+
+  /// Mostrar snackbar estandarizado para la pantalla de preferencias
+  void _showSnackbar({
+    required String title,
+    required String message,
+    bool isError = false,
+  }) {
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: isError 
+        ? Get.theme.colorScheme.error.withOpacity(0.1)
+        : Get.theme.colorScheme.primary.withOpacity(0.1),
+      colorText: isError 
+        ? Get.theme.colorScheme.error
+        : Get.theme.colorScheme.primary,
+      borderColor: isError 
+        ? Get.theme.colorScheme.error.withOpacity(0.3)
+        : Get.theme.colorScheme.primary.withOpacity(0.3),
+      borderWidth: 1,
+      borderRadius: 12,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      icon: Icon(
+        isError ? Icons.error_outline : Icons.check_circle_outline,
+        color: isError 
+          ? Get.theme.colorScheme.error
+          : Get.theme.colorScheme.primary,
+        size: 24,
+      ),
+      shouldIconPulse: false,
+      duration: const Duration(seconds: 3),
+      animationDuration: const Duration(milliseconds: 300),
+    );
   }
 }

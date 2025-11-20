@@ -177,6 +177,7 @@
 
 // lib/features/products/data/models/update_product_request_model.dart
 import '../../domain/entities/product.dart';
+import '../../domain/entities/tax_enums.dart';
 import '../../domain/repositories/product_repository.dart';
 
 /// Modelo para actualización de precios que incluye ID opcional
@@ -253,6 +254,14 @@ class UpdateProductRequestModel {
   final Map<String, dynamic>? metadata;
   final String? categoryId;
   final List<UpdateProductPriceRequestModel>? prices;
+  // Campos de facturación electrónica
+  final String? taxCategory;
+  final double? taxRate;
+  final bool? isTaxable;
+  final String? taxDescription;
+  final String? retentionCategory;
+  final double? retentionRate;
+  final bool? hasRetention;
 
   const UpdateProductRequestModel({
     this.name,
@@ -272,6 +281,14 @@ class UpdateProductRequestModel {
     this.metadata,
     this.categoryId,
     this.prices,
+    // Campos de facturación electrónica
+    this.taxCategory,
+    this.taxRate,
+    this.isTaxable,
+    this.taxDescription,
+    this.retentionCategory,
+    this.retentionRate,
+    this.hasRetention,
   });
 
   factory UpdateProductRequestModel.fromParams({
@@ -292,6 +309,14 @@ class UpdateProductRequestModel {
     Map<String, dynamic>? metadata,
     String? categoryId,
     List<UpdateProductPriceRequestModel>? prices,
+    // Campos de facturación electrónica
+    TaxCategory? taxCategory,
+    double? taxRate,
+    bool? isTaxable,
+    String? taxDescription,
+    RetentionCategory? retentionCategory,
+    double? retentionRate,
+    bool? hasRetention,
   }) {
     print('🏗️ UpdateProductRequestModel.fromParams(): Construyendo modelo');
     print('   📊 Precios recibidos: ${prices?.length ?? 0}');
@@ -323,6 +348,14 @@ class UpdateProductRequestModel {
       metadata: metadata,
       categoryId: categoryId,
       prices: prices,
+      // Campos de facturación electrónica
+      taxCategory: taxCategory?.value,
+      taxRate: taxRate,
+      isTaxable: isTaxable,
+      taxDescription: taxDescription,
+      retentionCategory: retentionCategory?.value,
+      retentionRate: retentionRate,
+      hasRetention: hasRetention,
     );
   }
 
@@ -349,6 +382,14 @@ class UpdateProductRequestModel {
     if (images != null) json['images'] = images;
     if (metadata != null) json['metadata'] = metadata;
     if (categoryId != null) json['categoryId'] = categoryId;
+    // Campos de facturación electrónica
+    if (taxCategory != null) json['taxCategory'] = taxCategory;
+    if (taxRate != null) json['taxRate'] = taxRate;
+    if (isTaxable != null) json['isTaxable'] = isTaxable;
+    if (taxDescription != null) json['taxDescription'] = taxDescription;
+    if (retentionCategory != null) json['retentionCategory'] = retentionCategory;
+    if (retentionRate != null) json['retentionRate'] = retentionRate;
+    if (hasRetention != null) json['hasRetention'] = hasRetention;
 
     // ✅ MEJORADO: Incluir precios con debug detallado
     if (prices != null && prices!.isNotEmpty) {
@@ -418,7 +459,15 @@ class UpdateProductRequestModel {
         images != null ||
         metadata != null ||
         categoryId != null ||
-        (prices != null && prices!.isNotEmpty);
+        (prices != null && prices!.isNotEmpty) ||
+        // Campos de facturación electrónica
+        taxCategory != null ||
+        taxRate != null ||
+        isTaxable != null ||
+        taxDescription != null ||
+        retentionCategory != null ||
+        retentionRate != null ||
+        hasRetention != null;
 
     print('🔍 UpdateProductRequestModel.hasUpdates: $updates');
     if (prices != null && prices!.isNotEmpty) {

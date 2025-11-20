@@ -2,10 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
-import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
-import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/category_tree_controller.dart';
 import '../../domain/entities/category_tree.dart';
 
@@ -15,8 +14,20 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: _buildAppBar(context),
-      body: Obx(() {
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              ElegantLightTheme.backgroundColor,
+              ElegantLightTheme.cardColor,
+            ],
+          ),
+        ),
+        child: Obx(() {
         if (controller.isLoading) {
           return const LoadingWidget(
             message: 'Cargando árbol de categorías...',
@@ -32,29 +43,56 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
           tablet: _buildTabletLayout(context),
           desktop: _buildDesktopLayout(context),
         );
-      }),
+        }),
+      ),
       floatingActionButton: _buildFloatingActionButton(context),
     );
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      title: const Text('Árbol de Categorías'),
-      elevation: 0,
-      actions: [
-        // Búsqueda en desktop
-        if (Responsive.isDesktop(context))
-          Container(
-            width: 300,
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            child: _buildSearchField(context),
+      title: const Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Árbol de Categorías',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
           ),
-
+        ),
+      ),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          boxShadow: ElegantLightTheme.elevatedShadow,
+        ),
+      ),
+      actions: [
         // Expandir/Colapsar todo
-        PopupMenuButton<String>(
-          onSelected: (value) => _handleTreeAction(value),
-          itemBuilder:
-              (context) => [
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          child: PopupMenuButton<String>(
+            onSelected: (value) => _handleTreeAction(value),
+            icon: const Icon(
+              Icons.more_vert,
+              color: Colors.white,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            itemBuilder:
+                (context) => [
                 const PopupMenuItem(
                   value: 'expand_all',
                   child: Row(
@@ -97,6 +135,7 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
                   ),
                 ),
               ],
+          ),
         ),
       ],
     );
@@ -107,9 +146,18 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
       children: [
         // Búsqueda en móvil
         Container(
-          padding: context.responsivePadding,
-          color: Colors.grey.shade50,
-          child: _buildSearchField(context),
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.cardGradient,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+              width: 1,
+            ),
+            boxShadow: ElegantLightTheme.elevatedShadow,
+          ),
+          padding: const EdgeInsets.all(16),
+          child: _buildFuturisticSearchField(context),
         ),
 
         // Árbol
@@ -124,29 +172,43 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
         // Panel lateral con controles
         Container(
           width: 300,
+          margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            border: Border(right: BorderSide(color: Colors.grey.shade300)),
+            gradient: ElegantLightTheme.cardGradient,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+              width: 1,
+            ),
+            boxShadow: ElegantLightTheme.elevatedShadow,
           ),
-          child: Column(
-            children: [
-              // Búsqueda
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: _buildSearchField(context),
-              ),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                // Búsqueda
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildFuturisticSearchField(context),
+                ),
 
-              // Controles del árbol
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildTreeControls(context),
-              ),
+                // Controles del árbol
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildTreeControls(context),
+                ),
 
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // Información seleccionada
-              Expanded(child: _buildSelectedInfo(context)),
-            ],
+                // Información seleccionada
+                SizedBox(
+                  height: 520, // Aumentado para dar más espacio a los botones
+                  child: _buildSelectedInfo(context),
+                ),
+
+                const SizedBox(height: 16), // Espaciado adicional al final
+              ],
+            ),
           ),
         ),
 
@@ -157,83 +219,108 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
-    return Row(
-      children: [
-        // Panel lateral izquierdo
-        Container(
-          width: 350,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            border: Border(right: BorderSide(color: Colors.grey.shade300)),
-          ),
-          child: Column(
-            children: [
-              // Header del panel
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade300),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.account_tree,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Controles del Árbol',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Controles
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: _buildTreeControls(context),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Información de categoría seleccionada
-              Expanded(child: _buildSelectedInfo(context)),
-            ],
-          ),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            ElegantLightTheme.backgroundColor,
+            ElegantLightTheme.cardColor,
+          ],
         ),
+      ),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Header con información clave
+            _buildFuturisticTreeHeader(),
+            const SizedBox(height: 24),
 
-        // Área principal del árbol
-        Expanded(
-          child: Column(
-            children: [
-              // Toolbar superior
-              _buildDesktopToolbar(context),
+            // Tabs futuristas para diferentes vistas
+            _buildFuturisticTreeTabs(),
+            const SizedBox(height: 24),
 
-              // Árbol
-              Expanded(child: _buildTreeView(context)),
-            ],
-          ),
+            // Contenido del árbol
+            _buildTreeContent(),
+
+            // Espacio adicional al final
+            const SizedBox(height: 100),
+          ],
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildSearchField(BuildContext context) {
-    return CustomTextField(
-      controller: controller.searchController,
-      label: 'Buscar categorías',
-      hint: 'Nombre de categoría...',
-      prefixIcon: Icons.search,
-      suffixIcon: controller.isSearchMode ? Icons.clear : null,
-      onSuffixIconPressed:
-          controller.isSearchMode ? controller.clearSearch : null,
+
+  Widget _buildFuturisticSearchField(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller.searchController,
+        style: const TextStyle(
+          color: ElegantLightTheme.textPrimary,
+          fontSize: 14,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Buscar categorías...',
+          hintStyle: TextStyle(
+            color: ElegantLightTheme.textSecondary.withValues(alpha: 0.7),
+            fontSize: 14,
+          ),
+          prefixIcon: Container(
+            margin: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.search,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+          suffixIcon: Obx(() {
+            if (controller.isSearchMode) {
+              return Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.errorGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.clear,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                  onPressed: controller.clearSearch,
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
     );
   }
 
@@ -241,55 +328,64 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CustomButton(
-          text: 'Expandir Todo',
-          icon: Icons.unfold_more,
-          type: ButtonType.outline,
-          onPressed: controller.expandAll,
-          width: double.infinity,
-        ),
-
-        const SizedBox(height: 8),
-
-        CustomButton(
-          text: 'Colapsar Todo',
-          icon: Icons.unfold_less,
-          type: ButtonType.outline,
-          onPressed: controller.collapseAll,
-          width: double.infinity,
-        ),
-
-        const SizedBox(height: 8),
-
-        CustomButton(
-          text: 'Actualizar',
-          icon: Icons.refresh,
-          type: ButtonType.outline,
-          onPressed: controller.refreshTree,
-          width: double.infinity,
+        // Sección de Expansión
+        _buildControlSection(
+          'Expansión del Árbol',
+          Icons.unfold_more,
+          [
+            _buildFuturisticControlButton(
+              'Expandir Todo',
+              Icons.unfold_more,
+              ElegantLightTheme.successGradient,
+              controller.expandAll,
+            ),
+            const SizedBox(height: 12),
+            _buildFuturisticControlButton(
+              'Colapsar Todo',
+              Icons.unfold_less,
+              ElegantLightTheme.warningGradient,
+              controller.collapseAll,
+            ),
+          ],
         ),
 
         const SizedBox(height: 16),
 
-        const Divider(),
-
-        const SizedBox(height: 8),
-
-        CustomButton(
-          text: 'Nueva Categoría',
-          icon: Icons.add,
-          onPressed: () => Get.toNamed('/categories/create'),
-          width: double.infinity,
+        // Sección de Navegación
+        _buildControlSection(
+          'Navegación',
+          Icons.navigation,
+          [
+            _buildFuturisticControlButton(
+              'Actualizar',
+              Icons.refresh,
+              ElegantLightTheme.infoGradient,
+              controller.refreshTree,
+            ),
+            const SizedBox(height: 12),
+            _buildFuturisticControlButton(
+              'Vista de Lista',
+              Icons.list,
+              ElegantLightTheme.errorGradient,
+              () => Get.toNamed('/categories'),
+            ),
+          ],
         ),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
 
-        CustomButton(
-          text: 'Vista de Lista',
-          icon: Icons.list,
-          type: ButtonType.outline,
-          onPressed: () => Get.toNamed('/categories'),
-          width: double.infinity,
+        // Sección de Acciones
+        _buildControlSection(
+          'Acciones Rápidas',
+          Icons.bolt,
+          [
+            _buildFuturisticControlButton(
+              'Nueva Categoría',
+              Icons.add,
+              ElegantLightTheme.primaryGradient,
+              () => Get.toNamed('/categories/create'),
+            ),
+          ],
         ),
       ],
     );
@@ -300,145 +396,161 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
       final selected = controller.selectedNode;
 
       if (selected == null) {
-        return const Padding(
-          padding: EdgeInsets.all(16),
+        return Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
           child: Center(
-            child: Text(
-              'Selecciona una categoría para ver sus detalles',
-              style: TextStyle(color: Colors.grey),
-              textAlign: TextAlign.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.warningGradient,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.touch_app,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Selecciona una categoría',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Toca cualquier categoría del árbol para ver sus detalles',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
         );
       }
 
-      return CustomCard(
+      return Container(
         margin: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Categoría Seleccionada',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-              ),
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.cardGradient,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
-
-            const SizedBox(height: 16),
-
-            _buildInfoRow('Nombre', selected.name),
-            _buildInfoRow('Slug', selected.slug),
-            _buildInfoRow('Nivel', selected.level.toString()),
-            _buildInfoRow(
-              'Productos',
-              (selected.productsCount ?? 0).toString(),
-            ),
-            _buildInfoRow('Hijos', selected.hasChildren ? 'Sí' : 'No'),
-
-            const SizedBox(height: 16),
-
-            // Acciones
-            CustomButton(
-              text: 'Ver Detalles',
-              icon: Icons.visibility,
-              onPressed: () => controller.showCategoryDetails(selected),
-              width: double.infinity,
-            ),
-
-            const SizedBox(height: 8),
-
-            CustomButton(
-              text: 'Editar',
-              icon: Icons.edit,
-              type: ButtonType.outline,
-              onPressed: () => controller.editCategory(selected),
-              width: double.infinity,
-            ),
-
-            if (selected.hasChildren) ...[
-              const SizedBox(height: 8),
-              CustomButton(
-                text: 'Crear Subcategoría',
-                icon: Icons.add,
-                type: ButtonType.outline,
-                onPressed: () => controller.createSubcategory(selected),
-                width: double.infinity,
-              ),
-            ],
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header elegante
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.successGradient,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: ElegantLightTheme.glowShadow,
+                    ),
+                    child: const Icon(
+                      Icons.check_circle,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Categoría Seleccionada',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: ElegantLightTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Información con estilo futurístico
+              _buildFuturisticInfoRow('Nombre', selected.name, Icons.label),
+              _buildFuturisticInfoRow('Slug', selected.slug, Icons.link),
+              _buildFuturisticInfoRow('Nivel', selected.level.toString(), Icons.layers),
+              _buildFuturisticInfoRow(
+                'Productos',
+                (selected.productsCount ?? 0).toString(),
+                Icons.inventory,
+              ),
+              _buildFuturisticInfoRow(
+                'Hijos', 
+                selected.hasChildren ? 'Sí' : 'No',
+                Icons.account_tree,
+              ),
+
+              const SizedBox(height: 20),
+
+              // Acciones con estilo futurístico
+              _buildFuturisticControlButton(
+                'Ver Detalles',
+                Icons.visibility,
+                ElegantLightTheme.infoGradient,
+                () => controller.showCategoryDetails(selected),
+              ),
+
+              const SizedBox(height: 12),
+
+              _buildFuturisticControlButton(
+                'Editar',
+                Icons.edit,
+                ElegantLightTheme.warningGradient,
+                () => controller.editCategory(selected),
+              ),
+
+              if (selected.hasChildren) ...[
+                const SizedBox(height: 12),
+                _buildFuturisticControlButton(
+                  'Crear Subcategoría',
+                  Icons.add,
+                  ElegantLightTheme.successGradient,
+                  () => controller.createSubcategory(selected),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     });
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildDesktopToolbar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Row(
-        children: [
-          // Información del árbol
-          Expanded(
-            child: Obx(() {
-              final total = controller.categoryTree.length;
-              final searchTerm = controller.searchTerm;
-
-              return Text(
-                searchTerm.isNotEmpty
-                    ? 'Resultados para "$searchTerm"'
-                    : 'Total: $total categorías principales',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-              );
-            }),
-          ),
-
-          // Acciones rápidas
-          CustomButton(
-            text: 'Nueva Categoría',
-            icon: Icons.add,
-            onPressed: () => Get.toNamed('/categories/create'),
-          ),
-
-          const SizedBox(width: 12),
-
-          CustomButton(
-            text: 'Vista de Lista',
-            icon: Icons.list,
-            type: ButtonType.outline,
-            onPressed: () => Get.toNamed('/categories'),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildTreeView(BuildContext context) {
     return Obx(() {
@@ -473,68 +585,168 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
     final isSelected = controller.isNodeSelected(category.id);
     final hasChildren = category.hasChildren;
 
-    return Column(
-      children: [
-        // Nodo principal
-        Container(
-          margin: EdgeInsets.only(left: depth * 24.0, bottom: 4),
-          decoration: BoxDecoration(
-            color:
-                isSelected
-                    ? Theme.of(context).primaryColor.withOpacity(0.1)
-                    : null,
-            borderRadius: BorderRadius.circular(8),
-            border:
-                isSelected
-                    ? Border.all(
-                      color: Theme.of(context).primaryColor.withOpacity(0.3),
-                    )
-                    : null,
-          ),
-          child: ListTile(
-            leading:
-                hasChildren
-                    ? IconButton(
-                      icon: Icon(
-                        isExpanded
-                            ? Icons.keyboard_arrow_down
-                            : Icons.keyboard_arrow_right,
-                        color: Theme.of(context).primaryColor,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      child: Column(
+        children: [
+          // Nodo principal
+          Container(
+            margin: EdgeInsets.only(left: depth * 24.0, bottom: 8, right: 16),
+            decoration: BoxDecoration(
+              gradient: isSelected
+                  ? ElegantLightTheme.glassGradient
+                  : ElegantLightTheme.cardGradient,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.4)
+                    : ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                width: isSelected ? 2 : 1,
+              ),
+              boxShadow: isSelected 
+                  ? [
+                      BoxShadow(
+                        color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
                       ),
-                      onPressed:
-                          () => controller.toggleNodeExpansion(category.id),
-                    )
-                    : const SizedBox(
-                      width: 48,
-                      child: Icon(Icons.circle, size: 6),
+                    ]
+                  : ElegantLightTheme.elevatedShadow,
+            ),
+          child: ListTile(
+            leading: hasChildren
+                ? Container(
+                    decoration: BoxDecoration(
+                      gradient: isExpanded 
+                          ? ElegantLightTheme.successGradient
+                          : ElegantLightTheme.infoGradient,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isExpanded 
+                              ? ElegantLightTheme.successGradient.colors.first
+                              : ElegantLightTheme.infoGradient.colors.first)
+                              .withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
+                    child: IconButton(
+                      icon: AnimatedRotation(
+                        turns: isExpanded ? 0.25 : 0,
+                        duration: const Duration(milliseconds: 300),
+                        child: const Icon(
+                          Icons.keyboard_arrow_right,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                      onPressed: () => controller.toggleNodeExpansion(category.id),
+                    ),
+                  )
+                : Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.glassGradient,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.category,
+                      color: ElegantLightTheme.textSecondary,
+                      size: 16,
+                    ),
+                  ),
 
             title: Text(
               category.name,
               style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? Theme.of(context).primaryColor : null,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected 
+                    ? ElegantLightTheme.primaryBlue 
+                    : ElegantLightTheme.textPrimary,
+                fontSize: 16,
               ),
             ),
 
-            subtitle: Row(
-              children: [
-                if (category.productsCount != null) ...[
-                  Icon(Icons.inventory, size: 14, color: Colors.grey.shade600),
-                  const SizedBox(width: 4),
-                  Text('${category.productsCount}'),
-                  const SizedBox(width: 12),
+            subtitle: Container(
+              margin: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  if (category.productsCount != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.warningGradient,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.inventory,
+                            size: 12,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${category.productsCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.infoGradient,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Nivel ${category.level}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
-                Text(
-                  'Nivel ${category.level}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-              ],
+              ),
             ),
 
-            trailing: PopupMenuButton<String>(
-              onSelected: (value) => _handleNodeAction(value, category),
-              itemBuilder:
+            trailing: Container(
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.glassGradient,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: PopupMenuButton<String>(
+                onSelected: (value) => _handleNodeAction(value, category),
+                icon: const Icon(
+                  Icons.more_vert,
+                  color: ElegantLightTheme.textSecondary,
+                  size: 18,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                itemBuilder:
                   (context) => [
                     const PopupMenuItem(
                       value: 'details',
@@ -567,6 +779,7 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
                       ),
                     ),
                   ],
+              ),
             ),
 
             onTap: () => controller.selectNode(category),
@@ -575,10 +788,21 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
 
         // Hijos (si están expandidos)
         if (hasChildren && isExpanded && category.children != null)
-          ...category.children!.map(
-            (child) => _buildTreeNode(context, child, depth + 1),
+          AnimatedSlide(
+            duration: const Duration(milliseconds: 400),
+            offset: isExpanded ? Offset.zero : const Offset(0, -0.3),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 400),
+              opacity: isExpanded ? 1.0 : 0.0,
+              child: Column(
+                children: category.children!.map(
+                  (child) => _buildTreeNode(context, child, depth + 1),
+                ).toList(),
+              ),
+            ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -653,9 +877,28 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
 
   Widget? _buildFloatingActionButton(BuildContext context) {
     if (Responsive.isMobile(context)) {
-      return FloatingActionButton(
-        onPressed: () => Get.toNamed('/categories/create'),
-        child: const Icon(Icons.add),
+      return Container(
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.4),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          onPressed: () => Get.toNamed('/categories/create'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: const Icon(
+            Icons.add,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
       );
     }
     return null;
@@ -692,5 +935,356 @@ class CategoryTreeScreen extends GetView<CategoryTreeController> {
         controller.createSubcategory(category);
         break;
     }
+  }
+
+  // ==================== FUTURISTIC COMPONENTS ====================
+
+  Widget _buildFuturisticTreeHeader() {
+    return FuturisticContainer(
+      hasGlow: true,
+      child: Obx(() {
+        final selectedCategory = controller.selectedNode;
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: ElegantLightTheme.glowShadow,
+                  ),
+                  child: const Icon(
+                    Icons.account_tree,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Árbol de Categorías',
+                        style: TextStyle(
+                          color: ElegantLightTheme.textPrimary,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        selectedCategory != null 
+                            ? 'Categoría seleccionada: ${selectedCategory.name}'
+                            : 'Explora la estructura jerárquica de categorías',
+                        style: const TextStyle(
+                          color: ElegantLightTheme.textSecondary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // Campo de búsqueda futurístico integrado
+            _buildFuturisticSearchField(Get.context!),
+          ],
+        );
+      }),
+    );
+  }
+
+
+
+  Widget _buildFuturisticTreeTabs() {
+    return Obx(() => FuturisticContainer(
+      child: Row(
+        children: [
+          _buildTabHeader('Árbol', 0, Icons.account_tree),
+          _buildTabHeader('Controles', 1, Icons.settings),
+        ],
+      ),
+    ));
+  }
+
+  Widget _buildTabHeader(String title, int index, IconData icon) {
+    final isSelected = controller.selectedTab.value == index;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => controller.switchTab(index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            gradient: isSelected ? ElegantLightTheme.primaryGradient : null,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected ? ElegantLightTheme.glowShadow : null,
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+                size: 20,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTreeContent() {
+    return Obx(() {
+      switch (controller.selectedTab.value) {
+        case 0:
+          return _buildTreeTab();
+        case 1:
+          return _buildControlsTab();
+        default:
+          return _buildTreeTab();
+      }
+    });
+  }
+
+  Widget _buildTreeTab() {
+    return FuturisticContainer(
+      child: SizedBox(
+        height: 600, // Altura consistente para ambas pestañas
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Vista de Árbol',
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: _buildTreeView(Get.context!),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildControlsTab() {
+    return FuturisticContainer(
+      child: SizedBox(
+        height: 600, // Altura consistente para ambas pestañas
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Controles del Árbol',
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildTreeControls(Get.context!),
+            const SizedBox(height: 20),
+            Expanded(
+              child: _buildSelectedInfo(Get.context!),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== FUTURISTIC CONTROL HELPERS ====================
+
+  Widget _buildControlSection(String title, IconData icon, List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: ElegantLightTheme.glowShadow,
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: ElegantLightTheme.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFuturisticControlButton(
+    String text,
+    IconData icon,
+    LinearGradient gradient,
+    VoidCallback onPressed, {
+    bool isOutline = false,
+  }) {
+    return Container(
+      width: double.infinity,
+      height: 48,
+      decoration: BoxDecoration(
+        gradient: isOutline ? null : gradient,
+        borderRadius: BorderRadius.circular(12),
+        border: isOutline
+            ? Border.all(
+                color: gradient.colors.first.withValues(alpha: 0.5),
+                width: 1.5,
+              )
+            : null,
+        boxShadow: isOutline
+            ? null
+            : [
+                BoxShadow(
+                  color: gradient.colors.first.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: isOutline ? gradient.colors.first : Colors.white,
+                  size: 18,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  text,
+                  style: TextStyle(
+                    color: isOutline ? gradient.colors.first : Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFuturisticInfoRow(String label, String value, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(
+              icon,
+              color: ElegantLightTheme.primaryBlue,
+              size: 12,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$label:',
+            style: TextStyle(
+              color: ElegantLightTheme.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

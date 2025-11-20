@@ -7,6 +7,7 @@ import '../../../../app/core/models/pagination_meta.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
 import '../../domain/entities/product_stats.dart';
+import '../../domain/entities/tax_enums.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../datasources/product_remote_datasource.dart';
 import '../datasources/product_local_datasource.dart';
@@ -406,6 +407,14 @@ class ProductRepositoryImpl implements ProductRepository {
     Map<String, dynamic>? metadata,
     required String categoryId,
     List<CreateProductPriceParams>? prices,
+    // Campos de facturación electrónica
+    TaxCategory? taxCategory,
+    double? taxRate,
+    bool? isTaxable,
+    String? taxDescription,
+    RetentionCategory? retentionCategory,
+    double? retentionRate,
+    bool? hasRetention,
   }) async {
     if (await networkInfo.isConnected) {
       try {
@@ -428,6 +437,14 @@ class ProductRepositoryImpl implements ProductRepository {
           metadata: metadata,
           categoryId: categoryId,
           prices: prices,
+          // Campos de facturación electrónica
+          taxCategory: taxCategory,
+          taxRate: taxRate,
+          isTaxable: isTaxable,
+          taxDescription: taxDescription,
+          retentionCategory: retentionCategory,
+          retentionRate: retentionRate,
+          hasRetention: hasRetention,
         );
 
         // Crear producto en el servidor
@@ -528,6 +545,14 @@ class ProductRepositoryImpl implements ProductRepository {
     Map<String, dynamic>? metadata,
     String? categoryId,
     List<CreateProductPriceParams>? prices,
+    // Campos de facturación electrónica
+    TaxCategory? taxCategory,
+    double? taxRate,
+    bool? isTaxable,
+    String? taxDescription,
+    RetentionCategory? retentionCategory,
+    double? retentionRate,
+    bool? hasRetention,
   }) async {
     if (await networkInfo.isConnected) {
       try {
@@ -582,6 +607,14 @@ class ProductRepositoryImpl implements ProductRepository {
           metadata: metadata,
           categoryId: categoryId,
           prices: updatePrices, // Incluir precios procesados
+          // Campos de facturación electrónica
+          taxCategory: taxCategory,
+          taxRate: taxRate,
+          isTaxable: isTaxable,
+          taxDescription: taxDescription,
+          retentionCategory: retentionCategory,
+          retentionRate: retentionRate,
+          hasRetention: hasRetention,
         );
 
         // Validar que hay cambios para actualizar

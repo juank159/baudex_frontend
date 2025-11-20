@@ -5,6 +5,7 @@ import '../../../../app/core/models/pagination_meta.dart';
 import '../entities/product.dart';
 import '../entities/product_price.dart';
 import '../entities/product_stats.dart';
+import '../entities/tax_enums.dart';
 
 abstract class ProductRepository {
   // ==================== READ OPERATIONS ====================
@@ -86,6 +87,14 @@ abstract class ProductRepository {
     Map<String, dynamic>? metadata,
     required String categoryId,
     List<CreateProductPriceParams>? prices,
+    // Campos de facturación electrónica
+    TaxCategory? taxCategory,
+    double? taxRate,
+    bool? isTaxable,
+    String? taxDescription,
+    RetentionCategory? retentionCategory,
+    double? retentionRate,
+    bool? hasRetention,
   });
 
   /// Actualizar producto
@@ -107,7 +116,15 @@ abstract class ProductRepository {
     List<String>? images,
     Map<String, dynamic>? metadata,
     String? categoryId,
-    List<CreateProductPriceParams>? prices, // <-- Añadido
+    List<CreateProductPriceParams>? prices,
+    // Campos de facturación electrónica
+    TaxCategory? taxCategory,
+    double? taxRate,
+    bool? isTaxable,
+    String? taxDescription,
+    RetentionCategory? retentionCategory,
+    double? retentionRate,
+    bool? hasRetention,
   });
 
   /// Actualizar estado del producto

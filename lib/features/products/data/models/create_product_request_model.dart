@@ -1,5 +1,6 @@
 // lib/features/products/data/models/create_product_request_model.dart
 import '../../domain/entities/product.dart';
+import '../../domain/entities/tax_enums.dart';
 import '../../domain/repositories/product_repository.dart';
 
 class CreateProductRequestModel {
@@ -20,6 +21,14 @@ class CreateProductRequestModel {
   final Map<String, dynamic>? metadata;
   final String categoryId;
   final List<CreateProductPriceRequestModel>? prices;
+  // Campos de facturación electrónica
+  final String? taxCategory;
+  final double? taxRate;
+  final bool? isTaxable;
+  final String? taxDescription;
+  final String? retentionCategory;
+  final double? retentionRate;
+  final bool? hasRetention;
 
   const CreateProductRequestModel({
     required this.name,
@@ -39,6 +48,14 @@ class CreateProductRequestModel {
     this.metadata,
     required this.categoryId,
     this.prices,
+    // Campos de facturación electrónica
+    this.taxCategory,
+    this.taxRate,
+    this.isTaxable,
+    this.taxDescription,
+    this.retentionCategory,
+    this.retentionRate,
+    this.hasRetention,
   });
 
   factory CreateProductRequestModel.fromParams({
@@ -59,6 +76,14 @@ class CreateProductRequestModel {
     Map<String, dynamic>? metadata,
     required String categoryId,
     List<CreateProductPriceParams>? prices,
+    // Campos de facturación electrónica
+    TaxCategory? taxCategory,
+    double? taxRate,
+    bool? isTaxable,
+    String? taxDescription,
+    RetentionCategory? retentionCategory,
+    double? retentionRate,
+    bool? hasRetention,
   }) {
     return CreateProductRequestModel(
       name: name,
@@ -81,6 +106,14 @@ class CreateProductRequestModel {
           prices
               ?.map((p) => CreateProductPriceRequestModel.fromParams(p))
               .toList(),
+      // Campos de facturación electrónica
+      taxCategory: taxCategory?.value,
+      taxRate: taxRate,
+      isTaxable: isTaxable,
+      taxDescription: taxDescription,
+      retentionCategory: retentionCategory?.value,
+      retentionRate: retentionRate,
+      hasRetention: hasRetention,
     );
   }
 
@@ -106,6 +139,14 @@ class CreateProductRequestModel {
     if (metadata != null) json['metadata'] = metadata;
     if (prices != null)
       json['prices'] = prices!.map((p) => p.toJson()).toList();
+    // Campos de facturación electrónica
+    if (taxCategory != null) json['taxCategory'] = taxCategory;
+    if (taxRate != null) json['taxRate'] = taxRate;
+    if (isTaxable != null) json['isTaxable'] = isTaxable;
+    if (taxDescription != null) json['taxDescription'] = taxDescription;
+    if (retentionCategory != null) json['retentionCategory'] = retentionCategory;
+    if (retentionRate != null) json['retentionRate'] = retentionRate;
+    if (hasRetention != null) json['hasRetention'] = hasRetention;
 
     return json;
   }

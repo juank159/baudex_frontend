@@ -2,54 +2,188 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../../app/config/themes/app_colors.dart';
-import '../../../../app/config/themes/app_dimensions.dart';
-import '../../../../app/shared/widgets/loading_overlay.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../controllers/organization_controller.dart';
 import '../widgets/edit_organization_dialog.dart';
 import '../widgets/main_warehouse_selector.dart';
 
-class OrganizationSettingsScreen extends GetView<OrganizationController> {
+class OrganizationSettingsScreen extends StatefulWidget {
   const OrganizationSettingsScreen({super.key});
 
   @override
+  State<OrganizationSettingsScreen> createState() => _OrganizationSettingsScreenState();
+}
+
+class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: ElegantLightTheme.normalAnimation,
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _animationController, curve: ElegantLightTheme.elasticCurve),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Configuración de Organización'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.onPrimary,
-        elevation: 0,
-      ),
-      body: Stack(
-        children: [
-          ResponsiveBuilder(
-            mobile: _buildMobileLayout(),
-            tablet: _buildTabletLayout(),
-            desktop: _buildDesktopLayout(),
-          ),
-          Obx(
-            () => LoadingOverlay(
-              isLoading: controller.isLoading,
-              message: 'Cargando configuración...',
+    final controller = Get.find<OrganizationController>();
+    
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: Obx(
+              () => controller.isLoading
+                  ? _buildLoadingState()
+                  : MainLayout(
+                      title: _getResponsiveTitle(context),
+                      showBackButton: true,
+                      showDrawer: false,
+                      actions: _buildAppBarActions(context),
+                      body: _buildFuturisticContent(context),
+                    ),
             ),
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  String _getResponsiveTitle(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    if (screenWidth < 600) {
+      return 'Configuración';
+    } else if (screenWidth < 800) {
+      return 'Config. Organización';
+    } else {
+      return 'Configuración de Organización';
+    }
+  }
+
+  List<Widget> _buildAppBarActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: const Icon(Icons.refresh),
+        onPressed: () => Get.find<OrganizationController>().loadCurrentOrganization(),
+        tooltip: 'Actualizar',
+      ),
+      const SizedBox(width: 16),
+    ];
+  }
+
+  Widget _buildLoadingState() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            ElegantLightTheme.backgroundColor,
+            ElegantLightTheme.backgroundColor.withValues(alpha: 0.95),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: ElegantLightTheme.glowShadow,
+              ),
+              child: const Icon(
+                Icons.corporate_fare,
+                color: Colors.white,
+                size: 50,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Cargando configuración...',
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Preparando tu centro de organización',
+              style: TextStyle(
+                color: ElegantLightTheme.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFuturisticContent(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            ElegantLightTheme.backgroundColor,
+            ElegantLightTheme.backgroundColor.withValues(alpha: 0.95),
+          ],
+        ),
+      ),
+      child: ResponsiveBuilder(
+        mobile: _buildMobileLayout(),
+        tablet: _buildTabletLayout(),
+        desktop: _buildDesktopLayout(),
       ),
     );
   }
 
   Widget _buildMobileLayout() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCurrentOrganizationCard(),
-          const SizedBox(height: AppDimensions.spacingLarge),
+          const SizedBox(height: 24),
           const MainWarehouseSelector(),
+          const SizedBox(height: 24),
+          _buildQuickActionsCard(),
+          const SizedBox(height: 100), // Extra space at bottom
         ],
       ),
     );
@@ -57,13 +191,17 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
 
   Widget _buildTabletLayout() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCurrentOrganizationCard(),
-          const SizedBox(height: AppDimensions.spacingLarge),
+          const SizedBox(height: 32),
           const MainWarehouseSelector(),
+          const SizedBox(height: 32),
+          _buildQuickActionsCard(),
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -71,101 +209,151 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
 
   Widget _buildDesktopLayout() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-      child: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: _buildCurrentOrganizationCard(),
-        ),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildCurrentOrganizationCard(),
+          const SizedBox(height: 32),
+          const MainWarehouseSelector(),
+          const SizedBox(height: 32),
+          _buildQuickActionsCard(),
+          const SizedBox(height: 40),
+        ],
       ),
     );
   }
 
+
+
   Widget _buildCurrentOrganizationCard() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.business, color: AppColors.primary, size: 24),
-                const SizedBox(width: AppDimensions.spacingSmall),
-                Text(
-                  'Organización Actual',
-                  style: Theme.of(
-                    Get.context!,
-                  ).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+    final controller = Get.find<OrganizationController>();
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        
+        // Responsive sizing
+        bool isMobile = screenWidth < 600;
+        bool isTablet = screenWidth >= 600 && screenWidth < 1000;
+        
+        double iconPadding = isMobile ? 10 : isTablet ? 11 : 12;
+        double iconSize = isMobile ? 20 : isTablet ? 22 : 24;
+        double titleFontSize = isMobile ? 16 : isTablet ? 18 : 20;
+        double spacing = isMobile ? 12 : isTablet ? 14 : 16;
+        double verticalSpacing = isMobile ? 18 : isTablet ? 21 : 24;
+        
+        return FuturisticContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(iconPadding),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.infoGradient,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: ElegantLightTheme.glowShadow,
+                    ),
+                    child: Icon(
+                      Icons.apartment,
+                      color: Colors.white,
+                      size: iconSize,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppDimensions.spacingMedium),
-            Obx(() {
-              final organization = controller.currentOrganization;
-              if (organization == null) {
-                return _buildNoOrganizationWidget();
-              }
-              return _buildOrganizationDetails(organization);
-            }),
-          ],
-        ),
-      ),
+                  SizedBox(width: spacing),
+                  Expanded(
+                    child: Text(
+                      isMobile 
+                        ? 'Información\nde la Organización'
+                        : 'Información de la Organización',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: verticalSpacing),
+              Obx(() {
+                final organization = controller.currentOrganization;
+                if (organization == null) {
+                  return _buildNoOrganizationWidget();
+                }
+                return _buildOrganizationDetails(organization);
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildNoOrganizationWidget() {
+    final controller = Get.find<OrganizationController>();
+    
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: AppColors.warning.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-            border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+            gradient: ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.3),
+              width: 1,
+            ),
           ),
           child: Column(
             children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                color: AppColors.warning,
-                size: 48,
-              ),
-              const SizedBox(height: AppDimensions.spacingMedium),
-              Text(
-                'Sin Organización',
-                style: Theme.of(Get.context!).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.warning,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.warningGradient,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: ElegantLightTheme.glowShadow,
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.white,
+                  size: 40,
                 ),
               ),
-              const SizedBox(height: AppDimensions.spacingSmall),
+              const SizedBox(height: 20),
+              const Text(
+                'Sin Organización',
+                style: TextStyle(
+                  color: ElegantLightTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
               Text(
                 'Tu usuario no tiene una organización asignada. Esto puede causar problemas de acceso.',
                 textAlign: TextAlign.center,
-                style: Theme.of(Get.context!).textTheme.bodyMedium,
+                style: TextStyle(
+                  color: ElegantLightTheme.textSecondary,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: AppDimensions.spacingMedium),
+        const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
-          child: ElevatedButton.icon(
+          child: FuturisticButton(
+            text: 'Recargar',
+            icon: Icons.refresh,
             onPressed: controller.loadCurrentOrganization,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Recargar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.onPrimary,
-              padding: const EdgeInsets.symmetric(
-                vertical: AppDimensions.paddingMedium,
-              ),
-            ),
+            gradient: ElegantLightTheme.primaryGradient,
           ),
         ),
       ],
@@ -177,164 +365,349 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Información de suscripción
-        _buildSubscriptionCard(organization),
-        const SizedBox(height: AppDimensions.spacingLarge),
+        _buildFuturisticSubscriptionCard(organization),
+        const SizedBox(height: 24),
         
         // Detalles de organización
-        Text(
-          'Detalles de la Organización',
-          style: Theme.of(Get.context!).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: AppColors.primary,
-          ),
-        ),
-        const SizedBox(height: AppDimensions.spacingMedium),
+        _buildFuturisticDetailsSection(organization),
         
-        _buildDetailRow('Nombre', organization.name),
-        _buildDetailRow('Slug', organization.slug),
-        _buildDetailRow('Moneda', organization.currency),
-        _buildDetailRow('Idioma', organization.locale),
-        _buildDetailRow('Zona Horaria', organization.timezone),
-        _buildDetailRow(
-          'Estado',
-          organization.isActive ? 'Activa' : 'Inactiva',
-        ),
-        if (organization.domain != null)
-          _buildDetailRow('Dominio', organization.domain!),
-        const SizedBox(height: AppDimensions.spacingMedium),
+        const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
-          child: ElevatedButton.icon(
+          child: FuturisticButton(
+            text: 'Editar Organización',
+            icon: Icons.edit,
             onPressed: () => _showEditOrganizationDialog(organization),
-            icon: const Icon(Icons.edit),
-            label: const Text('Editar Organización'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.onPrimary,
-            ),
+            gradient: ElegantLightTheme.primaryGradient,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppDimensions.paddingSmall),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: Theme.of(Get.context!).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+  Widget _buildFuturisticDetailsSection(organization) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        
+        // Responsive sizing
+        bool isMobile = screenWidth < 600;
+        bool isTablet = screenWidth >= 600 && screenWidth < 1000;
+        
+        double containerPadding = isMobile ? 16 : isTablet ? 18 : 20;
+        double iconPadding = isMobile ? 6 : isTablet ? 7 : 8;
+        double iconSize = isMobile ? 14 : isTablet ? 15 : 16;
+        double titleFontSize = isMobile ? 14 : isTablet ? 15 : 16;
+        double spacing = isMobile ? 10 : isTablet ? 11 : 12;
+        double verticalSpacing = isMobile ? 16 : isTablet ? 18 : 20;
+        
+        return Container(
+          padding: EdgeInsets.all(containerPadding),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(iconPadding),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.successGradient,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.info_outline,
+                      color: Colors.white,
+                      size: iconSize,
+                    ),
+                  ),
+                  SizedBox(width: spacing),
+                  Expanded(
+                    child: Text(
+                      isMobile 
+                        ? 'Detalles de\nla Organización'
+                        : 'Detalles de la Organización',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            ),
+              SizedBox(height: verticalSpacing),
+              
+              _buildFuturisticDetailRow('Nombre', organization.name, Icons.business),
+              _buildFuturisticDetailRow('Slug', organization.slug, Icons.link),
+              _buildFuturisticDetailRow('Moneda', organization.currency, Icons.currency_exchange),
+              _buildFuturisticDetailRow('Idioma', organization.locale, Icons.language),
+              _buildFuturisticDetailRow('Zona Horaria', organization.timezone, Icons.access_time),
+              _buildFuturisticDetailRow(
+                'Estado',
+                organization.isActive ? 'Activa' : 'Inactiva',
+                organization.isActive ? Icons.check_circle : Icons.cancel,
+                statusColor: organization.isActive 
+                  ? ElegantLightTheme.successGradient.colors.first
+                  : ElegantLightTheme.errorGradient.colors.first,
+              ),
+              if (organization.domain != null)
+                _buildFuturisticDetailRow('Dominio', organization.domain!, Icons.domain),
+            ],
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: Theme.of(Get.context!).textTheme.bodyMedium,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-
-
-  Widget _buildSubscriptionCard(organization) {
-    return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            _getSubscriptionColor(organization.subscriptionPlan),
-            _getSubscriptionColor(organization.subscriptionPlan).withOpacity(0.8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+  Widget _buildFuturisticDetailRow(
+    String label, 
+    String value, 
+    IconData icon, {
+    Color? statusColor,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        
+        // Responsive sizing
+        bool isMobile = screenWidth < 600;
+        bool isTablet = screenWidth >= 600 && screenWidth < 1000;
+        
+        double margin = isMobile ? 8 : isTablet ? 10 : 12;
+        double padding = isMobile ? 10 : isTablet ? 11 : 12;
+        double iconSize = isMobile ? 16 : isTablet ? 17 : 18;
+        double labelFontSize = isMobile ? 12 : isTablet ? 13 : 14;
+        double valueFontSize = isMobile ? 12 : isTablet ? 13 : 14;
+        double spacing = isMobile ? 8 : isTablet ? 10 : 12;
+        double labelWidth = isMobile ? 80 : isTablet ? 90 : 100;
+        
+        return Container(
+          margin: EdgeInsets.only(bottom: margin),
+          padding: EdgeInsets.all(padding),
+          decoration: BoxDecoration(
+            color: ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: statusColor?.withValues(alpha: 0.2) ?? 
+                     ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
+          child: Row(
             children: [
               Icon(
-                _getSubscriptionIcon(organization.subscriptionPlan),
-                color: Colors.white,
-                size: 24,
+                icon,
+                color: statusColor ?? ElegantLightTheme.textSecondary,
+                size: iconSize,
               ),
-              const SizedBox(width: AppDimensions.spacingSmall),
-              Text(
-                'Plan ${organization.subscriptionPlan.displayName}',
-                style: Theme.of(Get.context!).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimensions.paddingSmall,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                ),
+              SizedBox(width: spacing),
+              SizedBox(
+                width: labelWidth,
                 child: Text(
-                  organization.subscriptionStatus.displayName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                  '$label:',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: labelFontSize,
+                    fontWeight: FontWeight.w500,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: statusColor ?? ElegantLightTheme.textPrimary,
+                    fontSize: valueFontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppDimensions.spacingMedium),
-          
-          // Barra de progreso
-          _buildSubscriptionProgress(organization),
-          
-          const SizedBox(height: AppDimensions.spacingMedium),
-          
-          // Información de fechas
-          Row(
-            children: [
-              Expanded(
-                child: _buildSubscriptionInfo(
-                  'Días restantes',
-                  '${organization.remainingDays}',
-                  Icons.access_time,
-                ),
-              ),
-              const SizedBox(width: AppDimensions.spacingMedium),
-              Expanded(
-                child: _buildSubscriptionInfo(
-                  organization.isTrialPlan ? 'Fecha fin trial' : 'Renovación',
-                  _formatDate(organization.isTrialPlan 
-                    ? organization.trialEndDate 
-                    : organization.subscriptionEndDate),
-                  Icons.event,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSubscriptionProgress(organization) {
+  Widget _buildFuturisticSubscriptionCard(organization) {
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 800),
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      builder: (context, animationValue, child) {
+        return Transform.scale(
+          scale: 0.95 + (0.05 * animationValue),
+          child: Opacity(
+            opacity: animationValue,
+            child: _buildSubscriptionCardContent(organization),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSubscriptionCardContent(organization) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        
+        // Responsive sizing
+        bool isMobile = screenWidth < 600;
+        bool isTablet = screenWidth >= 600 && screenWidth < 1000;
+        
+        double containerPadding = isMobile ? 16 : isTablet ? 20 : 24;
+        double iconPadding = isMobile ? 8 : isTablet ? 10 : 12;
+        double iconSize = isMobile ? 20 : isTablet ? 22 : 24;
+        double titleFontSize = isMobile ? 16 : isTablet ? 18 : 20;
+        double subtitleFontSize = isMobile ? 12 : isTablet ? 13 : 14;
+        double statusFontSize = isMobile ? 10 : isTablet ? 11 : 12;
+        double spacing = isMobile ? 12 : isTablet ? 14 : 16;
+        double verticalSpacing = isMobile ? 18 : isTablet ? 21 : 24;
+        double statusPadding = isMobile ? 8 : isTablet ? 10 : 12;
+        
+        return Container(
+          padding: EdgeInsets.all(containerPadding),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                _getSubscriptionColor(organization.subscriptionPlan),
+                _getSubscriptionColor(organization.subscriptionPlan).withValues(alpha: 0.8),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: _getSubscriptionColor(organization.subscriptionPlan).withValues(alpha: 0.3),
+                offset: const Offset(0, 8),
+                blurRadius: 24,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(iconPadding),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _getSubscriptionIcon(organization.subscriptionPlan),
+                      color: Colors.white,
+                      size: iconSize,
+                    ),
+                  ),
+                  SizedBox(width: spacing),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isMobile 
+                            ? 'Plan ${organization.subscriptionPlan.displayName}'
+                            : 'Plan ${organization.subscriptionPlan.displayName}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: isMobile ? 2 : 4),
+                        Text(
+                          isMobile ? 'Activa' : 'Suscripción activa',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: subtitleFontSize,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: statusPadding, 
+                      vertical: statusPadding / 2
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      organization.subscriptionStatus.displayName,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: statusFontSize,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: verticalSpacing),
+              
+              // Barra de progreso futurista
+              _buildFuturisticSubscriptionProgress(organization),
+              
+              SizedBox(height: verticalSpacing),
+              
+              // Información de fechas
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFuturisticSubscriptionInfo(
+                      isMobile ? 'Días' : 'Días restantes',
+                      '${organization.remainingDays}',
+                      Icons.access_time,
+                    ),
+                  ),
+                  SizedBox(width: spacing),
+                  Expanded(
+                    child: _buildFuturisticSubscriptionInfo(
+                      organization.isTrialPlan 
+                        ? (isMobile ? 'Fin trial' : 'Fecha fin trial')
+                        : (isMobile ? 'Renovación' : 'Renovación'),
+                      _formatDate(organization.isTrialPlan 
+                        ? organization.trialEndDate 
+                        : organization.subscriptionEndDate),
+                      Icons.event,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFuturisticSubscriptionProgress(organization) {
     final progress = organization.subscriptionProgress;
     final remainingDays = organization.remainingDays;
     
@@ -349,68 +722,102 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
-            Text(
-              '${(progress * 100).toInt()}%',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${(progress * 100).toInt()}%',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: progress,
-            backgroundColor: Colors.white.withOpacity(0.3),
-            valueColor: AlwaysStoppedAnimation<Color>(
-              remainingDays <= 3 
-                ? Colors.red.shade300
-                : remainingDays <= 7
-                  ? Colors.orange.shade300
-                  : Colors.white,
-            ),
-            minHeight: 8,
-          ),
+        const SizedBox(height: 12),
+        TweenAnimationBuilder<double>(
+          duration: const Duration(milliseconds: 1000),
+          tween: Tween<double>(begin: 0.0, end: progress),
+          builder: (context, animatedValue, child) {
+            return Container(
+              height: 12,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                color: Colors.white.withValues(alpha: 0.2),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: animatedValue,
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    remainingDays <= 3 
+                      ? Colors.red.shade300
+                      : remainingDays <= 7
+                        ? Colors.orange.shade300
+                        : Colors.white,
+                  ),
+                  minHeight: 12,
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildSubscriptionInfo(String label, String value, IconData icon) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              icon,
-              color: Colors.white.withOpacity(0.8),
-              size: 16,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 12,
+  Widget _buildFuturisticSubscriptionInfo(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                color: Colors.white.withValues(alpha: 0.8),
+                size: 16,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -452,4 +859,197 @@ class OrganizationSettingsScreen extends GetView<OrganizationController> {
   void _showEditOrganizationDialog(organization) {
     Get.dialog(EditOrganizationDialog(organization: organization));
   }
+
+  Widget _buildQuickActionsCard() {
+    return FuturisticContainer(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.infoGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: ElegantLightTheme.glowShadow,
+                ),
+                child: const Icon(
+                  Icons.flash_on,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text(
+                  'Acciones Rápidas',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          
+          _buildQuickActionButton(
+            'Exportar Datos',
+            'Funcionalidad en desarrollo',
+            Icons.download,
+            ElegantLightTheme.primaryGradient,
+            _showDevelopmentDialog,
+          ),
+          const SizedBox(height: 12),
+          _buildQuickActionButton(
+            'Generar Reporte',
+            'Funcionalidad en desarrollo',
+            Icons.analytics,
+            ElegantLightTheme.infoGradient,
+            _showDevelopmentDialog,
+          ),
+          const SizedBox(height: 12),
+          _buildQuickActionButton(
+            'Configurar API',
+            'Funcionalidad en desarrollo',
+            Icons.key,
+            ElegantLightTheme.warningGradient,
+            _showDevelopmentDialog,
+          ),
+          const SizedBox(height: 12),
+          _buildQuickActionButton(
+            'Soporte Técnico',
+            'Funcionalidad en desarrollo',
+            Icons.support_agent,
+            ElegantLightTheme.successGradient,
+            _showDevelopmentDialog,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionButton(
+    String title,
+    String subtitle,
+    IconData icon,
+    LinearGradient gradient,
+    VoidCallback onPressed,
+  ) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: ElegantLightTheme.elevatedShadow,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white.withValues(alpha: 0.7),
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDevelopmentDialog() {
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.warningGradient,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.construction,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'En Desarrollo',
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Esta funcionalidad está actualmente en desarrollo y estará disponible en futuras versiones.',
+          style: TextStyle(
+            color: ElegantLightTheme.textSecondary,
+            fontSize: 14,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text(
+              'Entendido',
+              style: TextStyle(
+                color: ElegantLightTheme.primaryBlue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 }

@@ -1,6 +1,7 @@
 // lib/features/products/presentation/widgets/modern_selector_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class ModernSelectorWidget<T> extends StatelessWidget {
   final String label;
@@ -30,117 +31,104 @@ class ModernSelectorWidget<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label moderno
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
+    final isMobile = ResponsiveHelper.isMobile(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? () => _showSelector(context) : null,
+        borderRadius: BorderRadius.circular(12),
+        child: FuturisticContainer(
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
+          gradient: enabled
+              ? ElegantLightTheme.cardGradient
+              : LinearGradient(
+                  colors: [
+                    Colors.grey.shade100,
+                    Colors.grey.shade200,
+                  ],
+                ),
           child: Row(
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: ResponsiveHelper.isMobile(context) ? 13 : 14,
-                  fontWeight: FontWeight.w600,
-                  color: enabled ? Colors.grey.shade700 : Colors.grey.shade400,
+              // Icono con gradiente (igual que CategorySelector)
+              Container(
+                padding: EdgeInsets.all(isMobile ? 6 : 8),
+                decoration: BoxDecoration(
+                  gradient: enabled
+                      ? ElegantLightTheme.infoGradient
+                      : LinearGradient(
+                          colors: [
+                            Colors.grey.shade300,
+                            Colors.grey.shade400,
+                          ],
+                        ),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: enabled ? ElegantLightTheme.glowShadow : null,
                 ),
+                child: value != null && getIcon != null
+                    ? getIcon!(value!)
+                    : Icon(
+                        Icons.tune,
+                        color: Colors.white,
+                        size: isMobile ? 18 : 20,
+                      ),
               ),
-              if (isRequired)
-                Text(
-                  ' *',
-                  style: TextStyle(
-                    fontSize: ResponsiveHelper.isMobile(context) ? 13 : 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.red.shade600,
-                  ),
-                ),
-            ],
-          ),
-        ),
+              SizedBox(width: isMobile ? 10 : 12),
 
-        // Selector moderno
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color:
-                  enabled
-                      ? (value != null
-                          ? Theme.of(context).primaryColor.withOpacity(0.5)
-                          : Colors.grey.shade300)
-                      : Colors.grey.shade200,
-              width: value != null ? 1.5 : 1,
-            ),
-            color: Colors.white,
-            boxShadow: [
-              if (value != null)
-                BoxShadow(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: enabled ? () => _showSelector(context) : null,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: EdgeInsets.all(
-                  ResponsiveHelper.isMobile(context) ? 12 : 16,
-                ),
-                child: Row(
+              // Column con label y valor (igual que CategorySelector)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Icono del valor seleccionado o por defecto (sin fondo)
-                    value != null && getIcon != null
-                        ? getIcon!(value!)
-                        : Icon(
-                          Icons.tune,
-                          size: 18,
-                          color:
-                              value != null
-                                  ? Theme.of(context).primaryColor
-                                  : Colors.grey.shade400,
-                        ),
-                    const SizedBox(width: 12),
-
-                    // Texto del valor seleccionado
-                    Expanded(
-                      child: Text(
-                        value != null ? getDisplayText(value!) : hint,
-                        style: TextStyle(
-                          fontSize:
-                              ResponsiveHelper.isMobile(context) ? 14 : 16,
-                          fontWeight:
-                              value != null
-                                  ? FontWeight.w500
-                                  : FontWeight.normal,
-                          color:
-                              enabled
-                                  ? (value != null
-                                      ? Colors.grey.shade800
-                                      : Colors.grey.shade500)
-                                  : Colors.grey.shade400,
-                        ),
+                    Text(
+                      '$label${isRequired ? ' *' : ''}',
+                      style: TextStyle(
+                        fontSize: isMobile ? 11 : 12,
+                        color: ElegantLightTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-
-                    // Icono de dropdown
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color:
-                          enabled ? Colors.grey.shade600 : Colors.grey.shade400,
-                      size: 24,
+                    const SizedBox(height: 4),
+                    Text(
+                      value != null ? getDisplayText(value!) : hint,
+                      style: TextStyle(
+                        fontSize: isMobile ? 14 : 16,
+                        color: value != null
+                            ? ElegantLightTheme.textPrimary
+                            : ElegantLightTheme.textTertiary,
+                        fontWeight: value != null
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ],
                 ),
               ),
-            ),
+
+              // Icono de dropdown (igual que CategorySelector)
+              Container(
+                padding: EdgeInsets.all(isMobile ? 3 : 4),
+                decoration: BoxDecoration(
+                  color: enabled
+                      ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.1)
+                      : ElegantLightTheme.textTertiary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  Icons.arrow_drop_down,
+                  color: enabled
+                      ? ElegantLightTheme.primaryBlue
+                      : ElegantLightTheme.textTertiary,
+                  size: isMobile ? 20 : 24,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -217,24 +205,23 @@ class _ModernSelectorBottomSheetState<T>
   Widget build(BuildContext context) {
     final maxHeight = MediaQuery.of(context).size.height * 0.7;
 
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, (1 - _animation.value) * 300),
-          child: Container(
-            constraints: BoxConstraints(maxHeight: maxHeight),
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
+    return SafeArea(
+      child: AnimatedBuilder(
+        animation: _animation,
+        builder: (context, child) {
+          return Transform.translate(
+            offset: Offset(0, (1 - _animation.value) * 300),
+            child: Container(
+              constraints: BoxConstraints(maxHeight: maxHeight),
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+              gradient: ElegantLightTheme.cardGradient,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+              border: Border.all(
+                color: ElegantLightTheme.textTertiary.withOpacity(0.2),
+                width: 1,
+              ),
+              boxShadow: ElegantLightTheme.elevatedShadow,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -243,7 +230,7 @@ class _ModernSelectorBottomSheetState<T>
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.05),
+                    color: ElegantLightTheme.primaryBlue.withOpacity(0.05),
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(20),
                       topRight: Radius.circular(20),
@@ -254,15 +241,14 @@ class _ModernSelectorBottomSheetState<T>
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withOpacity(0.1),
+                          gradient: ElegantLightTheme.primaryGradient,
                           borderRadius: BorderRadius.circular(8),
+                          boxShadow: ElegantLightTheme.glowShadow,
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.tune,
                           size: 20,
-                          color: Theme.of(context).primaryColor,
+                          color: Colors.white,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -279,8 +265,8 @@ class _ModernSelectorBottomSheetState<T>
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close),
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.grey.shade100,
-                          foregroundColor: Colors.grey.shade600,
+                          backgroundColor: ElegantLightTheme.textTertiary.withOpacity(0.1),
+                          foregroundColor: ElegantLightTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -308,18 +294,22 @@ class _ModernSelectorBottomSheetState<T>
                               duration: const Duration(milliseconds: 200),
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color:
+                                gradient:
                                     isSelected
-                                        ? Theme.of(
-                                          context,
-                                        ).primaryColor.withOpacity(0.1)
-                                        : Colors.transparent,
+                                        ? LinearGradient(
+                                          colors: [
+                                            ElegantLightTheme.primaryBlue.withOpacity(0.1),
+                                            ElegantLightTheme.primaryBlueLight.withOpacity(0.05),
+                                          ],
+                                        )
+                                        : null,
+                                color: isSelected ? null : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color:
                                       isSelected
-                                          ? Theme.of(context).primaryColor
-                                          : Colors.grey.shade200,
+                                          ? ElegantLightTheme.primaryBlue
+                                          : ElegantLightTheme.textTertiary.withOpacity(0.3),
                                   width: isSelected ? 2 : 1,
                                 ),
                               ),
@@ -361,8 +351,9 @@ class _ModernSelectorBottomSheetState<T>
                                     Container(
                                       padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
-                                        color: Theme.of(context).primaryColor,
+                                        gradient: ElegantLightTheme.primaryGradient,
                                         shape: BoxShape.circle,
+                                        boxShadow: ElegantLightTheme.glowShadow,
                                       ),
                                       child: const Icon(
                                         Icons.check,
@@ -387,6 +378,7 @@ class _ModernSelectorBottomSheetState<T>
           ),
         );
       },
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../domain/entities/organization.dart';
 import '../../domain/repositories/organization_repository.dart';
 import '../../../../app/core/errors/failures.dart';
+import '../../../../app/services/password_validation_service.dart';
 
 class OrganizationController extends GetxController {
   // ==================== DEPENDENCIES ====================
@@ -54,9 +55,7 @@ class OrganizationController extends GetxController {
   }
 
   /// Actualizar organización actual del usuario
-  Future<bool> updateCurrentOrganization(
-    Map<String, dynamic> updates,
-  ) async {
+  Future<bool> updateCurrentOrganization(Map<String, dynamic> updates) async {
     try {
       print('🔄 Starting organization update...');
       _setLoading(true);
@@ -115,6 +114,9 @@ class OrganizationController extends GetxController {
   /// Refrescar datos
   Future<void> refresh() async {
     await loadCurrentOrganization();
+    // Actualizar el valor temporal del slider con el valor cargado
+    _tempProfitMargin.value = profitMarginPercentage;
+    print('🔄 Datos refrescados - Margen actual: ${profitMarginPercentage}%');
   }
 
   /// Limpiar error
@@ -178,6 +180,102 @@ class OrganizationController extends GetxController {
     }
 
     return null;
+  }
+
+  // ==================== PROFIT MARGIN METHODS ====================
+
+  /// ✅ NUEVO: Obtener margen de ganancia actual (por defecto 20%)
+  double get profitMarginPercentage =>
+      currentOrganization?.profitMargin ?? 20.0;
+
+  /// ✅ NUEVO: Variable temporal para el slider
+  final _tempProfitMargin = 20.0.obs;
+  double get tempProfitMargin => _tempProfitMargin.value;
+
+  @override
+  void onReady() {
+    super.onReady();
+    // Cargar datos de organización y luego inicializar el valor temporal
+    loadCurrentOrganization().then((_) {
+      _tempProfitMargin.value = profitMarginPercentage;
+      print(
+        '🏢 Margen de ganancia cargado desde backend: ${profitMarginPercentage}%',
+      );
+    });
+  }
+
+  /// ✅ NUEVO: Actualizar margen temporal (para el slider) - SIN snackbar
+  void updateTempProfitMargin(double value) {
+    _tempProfitMargin.value = value;
+    // No llamar update() aquí porque estamos usando Obs
+    // Los Obx() se actualizarán automáticamente
+  }
+
+  /// ✅ NUEVO: Guardar margen de ganancia en el backend - LLAMADA REAL AL SERVIDOR CON VALIDACIÓN
+  Future<bool> saveProfitMargin() async {
+    try {
+      _setLoading(true);
+      _clearError();
+
+      print(
+        '🔐 Solicitando validación de contraseña para cambiar margen de ganancia...',
+      );
+
+      // ✅ VALIDACIÓN DE CONTRASEÑA OBLIGATORIA
+      final passwordValid =
+          await PasswordValidationService.showPasswordValidationDialog(
+            title: 'Confirmar Cambio de Margen',
+            message:
+                'Por seguridad, confirma tu contraseña para cambiar el margen de ganancia a ${_tempProfitMargin.value.toStringAsFixed(0)}%',
+          );
+
+      if (!passwordValid) {
+        print('🚫 Validación de contraseña cancelada o fallida');
+        _setLoading(false);
+        return false;
+      }
+
+      print(
+        '✅ Contraseña validada. Procediendo a guardar margen: ${_tempProfitMargin.value}%',
+      );
+
+      // ✅ LLAMADA REAL AL BACKEND usando el repositorio
+      final result = await _organizationRepository.updateProfitMargin(
+        _tempProfitMargin.value,
+      );
+
+      return result.fold(
+        (failure) {
+          print('❌ Error al actualizar margen: $failure');
+          _handleFailure(failure);
+          return false;
+        },
+        (success) {
+          print('✅ Margen actualizado exitosamente en el backend');
+
+          // Recargar la organización desde el backend para tener los datos actualizados
+          loadCurrentOrganization();
+
+          Get.snackbar(
+            'Margen Actualizado',
+            'Nuevo margen: ${_tempProfitMargin.value.toStringAsFixed(0)}% guardado en el servidor',
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: Colors.green.shade100,
+            colorText: Colors.green.shade800,
+            icon: const Icon(Icons.trending_up, color: Colors.green),
+            duration: const Duration(seconds: 2),
+          );
+
+          return true;
+        },
+      );
+    } catch (e) {
+      print('❌ Excepción al actualizar margen: $e');
+      _handleError('Error al actualizar margen de ganancia: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 
   // ==================== PRIVATE METHODS ====================

@@ -8,6 +8,7 @@ import '../../domain/entities/smart_notification.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/config/themes/app_text_styles.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/shimmer_loading.dart';
 
 class NotificationsPanel extends GetView<DashboardController> {
@@ -18,36 +19,18 @@ class NotificationsPanel extends GetView<DashboardController> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.surface,
-            AppColors.surface.withOpacity(0.95),
-            AppColors.surface.withOpacity(0.9),
-          ],
+        gradient: ElegantLightTheme.cardGradient,
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
+          width: 1.5,
         ),
         boxShadow: [
-          // Sombra principal profunda
+          ...ElegantLightTheme.elevatedShadow,
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-          // Sombra secundaria para elevación
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
-          ),
-          // Brillo superior sutil
-          BoxShadow(
-            color: Colors.white.withOpacity(0.3),
-            blurRadius: 1,
-            offset: const Offset(0, -1),
-            spreadRadius: 0,
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+            blurRadius: 25,
+            offset: const Offset(0, 10),
+            spreadRadius: 2,
           ),
         ],
       ),
@@ -55,14 +38,13 @@ class NotificationsPanel extends GetView<DashboardController> {
         borderRadius: BorderRadius.circular(24),
         child: Container(
           decoration: BoxDecoration(
-            // Gradiente interno para profundidad
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withOpacity(0.1),
+                ElegantLightTheme.primaryBlue.withValues(alpha: 0.03),
                 Colors.transparent,
-                Colors.black.withOpacity(0.02),
+                ElegantLightTheme.primaryBlue.withValues(alpha: 0.01),
               ],
             ),
           ),
@@ -71,7 +53,7 @@ class NotificationsPanel extends GetView<DashboardController> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(),
+                _buildFuturisticHeader(),
                 const SizedBox(height: 24),
                 Obx(() => _buildNotificationsContent()),
               ],
@@ -142,6 +124,85 @@ class NotificationsPanel extends GetView<DashboardController> {
         const SizedBox(width: 8),
         // Botón de refresh con animación
         _RefreshButton(onRefresh: controller.refreshNotifications),
+      ],
+    );
+  }
+
+  Widget _buildFuturisticHeader() {
+    return Row(
+      children: [
+        // Icono principal futurístico
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.infoGradient,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              ...ElegantLightTheme.glowShadow,
+              BoxShadow(
+                color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.notifications_active,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Título futurístico con degradado
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShaderMask(
+                shaderCallback: (bounds) => ElegantLightTheme.primaryGradient.createShader(bounds),
+                child: Text(
+                  'Notificaciones',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    letterSpacing: 0.5,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      gradient: ElegantLightTheme.successGradient,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Tiempo real',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: ElegantLightTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // Badge futurístico de notificaciones no leídas
+        Obx(() => controller.unreadNotificationsCount > 0
+            ? _FuturisticUnreadBadge(count: controller.unreadNotificationsCount)
+            : const SizedBox.shrink()),
+        const SizedBox(width: 12),
+        // Botón de refresh futurístico
+        _FuturisticRefreshButton(onRefresh: controller.refreshNotifications),
       ],
     );
   }
@@ -373,7 +434,234 @@ class NotificationsPanel extends GetView<DashboardController> {
   }
 }
 
-// Badge de notificaciones no leídas con animación
+// Badge futurístico de notificaciones no leídas con animación
+class _FuturisticUnreadBadge extends StatefulWidget {
+  final int count;
+
+  const _FuturisticUnreadBadge({required this.count});
+
+  @override
+  State<_FuturisticUnreadBadge> createState() => _FuturisticUnreadBadgeState();
+}
+
+class _FuturisticUnreadBadgeState extends State<_FuturisticUnreadBadge>
+    with TickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late AnimationController _scaleController;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _glowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.4).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _scaleController, curve: ElegantLightTheme.elasticCurve),
+    );
+
+    _glowAnimation = Tween<double>(begin: 0.3, end: 0.8).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _scaleController.forward();
+    _pulseController.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_scaleController, _pulseController]),
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.errorGradient,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: ElegantLightTheme.errorGradient.colors.first
+                      .withValues(alpha: _glowAnimation.value),
+                  blurRadius: 15 * _pulseAnimation.value,
+                  offset: const Offset(0, 3),
+                ),
+                BoxShadow(
+                  color: ElegantLightTheme.errorGradient.colors.first
+                      .withValues(alpha: 0.3),
+                  blurRadius: 25,
+                  offset: const Offset(0, 0),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.priority_high,
+                  color: Colors.white,
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  widget.count.toString(),
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Botón de refresh futurístico
+class _FuturisticRefreshButton extends StatefulWidget {
+  final VoidCallback onRefresh;
+
+  const _FuturisticRefreshButton({required this.onRefresh});
+
+  @override
+  State<_FuturisticRefreshButton> createState() => _FuturisticRefreshButtonState();
+}
+
+class _FuturisticRefreshButtonState extends State<_FuturisticRefreshButton>
+    with TickerProviderStateMixin {
+  late AnimationController _rotationController;
+  late AnimationController _hoverController;
+  late Animation<double> _rotationAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _glowAnimation;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    
+    _hoverController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+
+    _rotationAnimation = Tween<double>(begin: 0.0, end: 2 * math.pi).animate(
+      CurvedAnimation(parent: _rotationController, curve: Curves.easeInOut),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
+
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    _hoverController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_rotationController, _hoverController]),
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: MouseRegion(
+            onEnter: (_) {
+              setState(() => _isHovered = true);
+              _hoverController.forward();
+            },
+            onExit: (_) {
+              setState(() => _isHovered = false);
+              _hoverController.reverse();
+            },
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: _isHovered 
+                    ? ElegantLightTheme.primaryGradient 
+                    : ElegantLightTheme.glassGradient,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  if (_isHovered) ...ElegantLightTheme.glowShadow,
+                  BoxShadow(
+                    color: ElegantLightTheme.primaryBlue
+                        .withValues(alpha: 0.2 * _glowAnimation.value),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(22),
+                child: InkWell(
+                  onTap: () {
+                    _rotationController.forward().then((_) {
+                      _rotationController.reset();
+                    });
+                    widget.onRefresh();
+                  },
+                  borderRadius: BorderRadius.circular(22),
+                  child: Transform.rotate(
+                    angle: _rotationAnimation.value,
+                    child: Icon(
+                      Icons.refresh_rounded,
+                      color: _isHovered ? Colors.white : ElegantLightTheme.primaryBlue,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Badge de notificaciones no leídas con animación (versión original)
 class _UnreadBadge extends StatefulWidget {
   final int count;
 

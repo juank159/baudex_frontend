@@ -403,8 +403,11 @@ class DioClient {
           case 400:
             return ServerException('Solicitud incorrecta: $message', statusCode: 400);
           case 401:
-            // Token expirado o inválido
-            _handleUnauthorized();
+            // Token expirado o inválido - PERO verificar si se debe saltar auth
+            final skipAuthInterceptor = error.requestOptions.extra['skip_auth_interceptor'] == true;
+            if (!skipAuthInterceptor) {
+              _handleUnauthorized();
+            }
             return ServerException('No autorizado: $message', statusCode: 401);
           case 404:
             return ServerException('Recurso no encontrado: $message', statusCode: 404);

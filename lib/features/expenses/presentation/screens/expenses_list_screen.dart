@@ -767,7 +767,7 @@ class ExpensesListScreen extends GetView<EnhancedExpensesController> {
     Get.snackbar(
       'Próximamente',
       'La búsqueda avanzada estará disponible pronto',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -776,7 +776,7 @@ class ExpensesListScreen extends GetView<EnhancedExpensesController> {
     Get.snackbar(
       'Próximamente',
       'Los filtros avanzados estarán disponibles pronto',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -799,7 +799,7 @@ class ExpensesListScreen extends GetView<EnhancedExpensesController> {
     Get.snackbar(
       'Próximamente',
       'Los filtros avanzados estarán disponibles pronto',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -997,4 +997,3 @@ class ExpensesListScreen extends GetView<EnhancedExpensesController> {
     }
   }
 }
-

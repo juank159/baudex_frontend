@@ -226,9 +226,10 @@ class InventoryMovementsController extends GetxController {
       error.value = '';
 
       // Check if we should use warehouse-specific endpoint
-      final result = warehouseIdFilter.value.isNotEmpty
-          ? await _loadWarehouseSpecificMovements()
-          : await _loadGeneralMovements();
+      final result =
+          warehouseIdFilter.value.isNotEmpty
+              ? await _loadWarehouseSpecificMovements()
+              : await _loadGeneralMovements();
 
       result.fold(
         (failure) {
@@ -236,7 +237,7 @@ class InventoryMovementsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -285,7 +286,7 @@ class InventoryMovementsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -315,7 +316,8 @@ class InventoryMovementsController extends GetxController {
         type: selectedType.value,
         reason: selectedReason.value,
         quantity:
-            (selectedType.value == InventoryMovementType.outbound || selectedType.value == InventoryMovementType.transferOut)
+            (selectedType.value == InventoryMovementType.outbound ||
+                    selectedType.value == InventoryMovementType.transferOut)
                 ? -quantity.value
                 : quantity.value,
         unitCost: unitCost.value > 0 ? unitCost.value : 0.0,
@@ -334,7 +336,7 @@ class InventoryMovementsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -343,7 +345,7 @@ class InventoryMovementsController extends GetxController {
           Get.snackbar(
             'Éxito',
             'Movimiento de inventario creado correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -365,7 +367,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Error',
         'Debe seleccionar un producto',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.orange.shade100,
         colorText: Colors.orange.shade800,
       );
@@ -376,7 +378,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Error',
         'La cantidad debe ser mayor a cero',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.orange.shade100,
         colorText: Colors.orange.shade800,
       );
@@ -388,7 +390,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Error',
         'El costo de compra es requerido para este tipo de movimiento',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.orange.shade100,
         colorText: Colors.orange.shade800,
       );
@@ -404,7 +406,8 @@ class InventoryMovementsController extends GetxController {
     final reason = selectedReason.value;
 
     // Unit cost is required for purchases
-    if ((type == InventoryMovementType.inbound || type == InventoryMovementType.transferIn) &&
+    if ((type == InventoryMovementType.inbound ||
+            type == InventoryMovementType.transferIn) &&
         reason == InventoryMovementReason.purchase) {
       return true;
     }
@@ -436,7 +439,7 @@ class InventoryMovementsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -445,7 +448,7 @@ class InventoryMovementsController extends GetxController {
           Get.snackbar(
             'Éxito',
             'Movimiento confirmado correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -457,7 +460,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -477,7 +480,7 @@ class InventoryMovementsController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -486,7 +489,7 @@ class InventoryMovementsController extends GetxController {
           Get.snackbar(
             'Éxito',
             'Movimiento cancelado correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -498,7 +501,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -640,7 +643,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Información',
         'Orden de compra: ${movement.referenceId}',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
       );
       return;
     }
@@ -649,7 +652,7 @@ class InventoryMovementsController extends GetxController {
     Get.snackbar(
       'Información',
       'Movimiento: ${movement.type.name} - ${movement.quantity} unidades',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -802,7 +805,7 @@ class InventoryMovementsController extends GetxController {
           Get.snackbar(
             'Error FIFO',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -831,7 +834,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado calculando FIFO: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -859,7 +862,8 @@ class InventoryMovementsController extends GetxController {
   }
 
   bool get shouldShowFifoButton =>
-      (selectedType.value == InventoryMovementType.outbound || selectedType.value == InventoryMovementType.transferOut) &&
+      (selectedType.value == InventoryMovementType.outbound ||
+          selectedType.value == InventoryMovementType.transferOut) &&
       selectedProductId.value.isNotEmpty &&
       quantity.value > 0;
 
@@ -873,7 +877,7 @@ class InventoryMovementsController extends GetxController {
         Get.snackbar(
           'Sin datos',
           'No hay movimientos para exportar',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
         );
@@ -886,7 +890,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Éxito',
         'Movimientos exportados a PDF correctamente',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
       );
@@ -894,7 +898,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Error',
         'Error exportando a PDF: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -909,7 +913,7 @@ class InventoryMovementsController extends GetxController {
         Get.snackbar(
           'Sin datos',
           'No hay movimientos para exportar',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
         );
@@ -922,7 +926,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Éxito',
         'Movimientos exportados a Excel correctamente',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
       );
@@ -930,7 +934,7 @@ class InventoryMovementsController extends GetxController {
       Get.snackbar(
         'Error',
         'Error exportando a Excel: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -959,7 +963,10 @@ class InventoryMovementsController extends GetxController {
       sortOrder: sortOrder.value,
     );
 
-    return await getWarehouseMovementsUseCase.call(warehouseIdFilter.value, params);
+    return await getWarehouseMovementsUseCase.call(
+      warehouseIdFilter.value,
+      params,
+    );
   }
 
   Future<Either<Failure, core.PaginatedResult<InventoryMovement>>>

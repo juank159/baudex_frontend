@@ -13,6 +13,7 @@ import 'core/network/dio_client.dart';
 import 'core/network/network_info.dart';
 import 'core/services/audio_notification_service.dart';
 import 'core/services/file_service.dart';
+import 'services/password_validation_service.dart';
 import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
 import '../features/settings/presentation/bindings/settings_binding.dart';
@@ -59,6 +60,9 @@ class InitialBinding implements Bindings {
 
     // Core services
     Get.lazyPut<FileService>(() => FileServiceImpl(), fenix: true);
+    
+    // Security services
+    Get.lazyPut<PasswordValidationService>(() => PasswordValidationService(Get.find<DioClient>()), fenix: true);
 
     // UI Controllers
     Get.lazyPut<AppDrawerController>(() => AppDrawerController(), fenix: true);

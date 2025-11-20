@@ -70,7 +70,7 @@ class SuppliersController extends GetxController {
     super.onInit();
     _initializeData();
     _setupSearchListener();
-    
+
     // Check if we need to refresh data
     final args = Get.arguments as Map<String, dynamic>?;
     if (args != null && args['refresh'] == true) {
@@ -123,7 +123,6 @@ class SuppliersController extends GetxController {
     });
   }
 
-
   Timer? _searchTimer;
 
   // ==================== DATA LOADING ====================
@@ -156,7 +155,7 @@ class SuppliersController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -187,7 +186,7 @@ class SuppliersController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -286,7 +285,7 @@ class SuppliersController extends GetxController {
     if (isRefreshing.value || isLoading.value) {
       return;
     }
-    
+
     isRefreshing.value = true;
     currentPage.value = 1;
     suppliers.clear();
@@ -383,7 +382,7 @@ class SuppliersController extends GetxController {
             Get.snackbar(
               'Error',
               failure.message,
-              snackPosition: SnackPosition.BOTTOM,
+              snackPosition: SnackPosition.TOP,
               backgroundColor: Colors.red.shade100,
               colorText: Colors.red.shade800,
             );
@@ -392,7 +391,7 @@ class SuppliersController extends GetxController {
             Get.snackbar(
               'Éxito',
               'Proveedor eliminado correctamente',
-              snackPosition: SnackPosition.BOTTOM,
+              snackPosition: SnackPosition.TOP,
               backgroundColor: Colors.green.shade100,
               colorText: Colors.green.shade800,
             );
@@ -406,7 +405,7 @@ class SuppliersController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );

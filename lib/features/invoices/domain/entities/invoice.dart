@@ -1,8 +1,10 @@
 // lib/features/invoices/domain/entities/invoice.dart
 import 'package:baudex_desktop/features/auth/domain/entities/user.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
 import '../../../customers/domain/entities/customer.dart';
 import 'invoice_item.dart';
+import 'invoice_payment.dart';
 
 enum InvoiceStatus {
   draft('draft', 'Borrador'),
@@ -25,17 +27,18 @@ enum InvoiceStatus {
 }
 
 enum PaymentMethod {
-  cash('cash', 'Efectivo'),
-  credit('credit', 'Crédito'),
-  creditCard('credit_card', 'Tarjeta de Crédito'),
-  debitCard('debit_card', 'Tarjeta de Débito'),
-  bankTransfer('bank_transfer', 'Transferencia Bancaria'),
-  check('check', 'Cheque'),
-  other('other', 'Otro');
+  cash('cash', 'Efectivo', Icons.money),
+  credit('credit', 'Crédito', Icons.credit_score),
+  creditCard('credit_card', 'Tarjeta de Crédito', Icons.credit_card),
+  debitCard('debit_card', 'Tarjeta de Débito', Icons.payment),
+  bankTransfer('bank_transfer', 'Transferencia Bancaria', Icons.account_balance),
+  check('check', 'Cheque', Icons.receipt),
+  other('other', 'Otro', Icons.more_horiz);
 
-  const PaymentMethod(this.value, this.displayName);
+  const PaymentMethod(this.value, this.displayName, this.icon);
   final String value;
   final String displayName;
+  final IconData icon;
 
   static PaymentMethod fromString(String value) {
     return PaymentMethod.values.firstWhere(
@@ -74,6 +77,7 @@ class Invoice extends Equatable {
   final String createdById;
   final User? createdBy;
   final List<InvoiceItem> items;
+  final List<InvoicePayment> payments;
 
   // Timestamps
   final DateTime createdAt;
@@ -103,6 +107,7 @@ class Invoice extends Equatable {
     required this.createdById,
     this.createdBy,
     required this.items,
+    required this.payments,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -132,6 +137,7 @@ class Invoice extends Equatable {
     createdById,
     createdBy,
     items,
+    payments,
     createdAt,
     updatedAt,
     deletedAt,
@@ -210,6 +216,7 @@ class Invoice extends Equatable {
     String? createdById,
     User? createdBy,
     List<InvoiceItem>? items,
+    List<InvoicePayment>? payments,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
@@ -237,6 +244,7 @@ class Invoice extends Equatable {
       createdById: createdById ?? this.createdById,
       createdBy: createdBy ?? this.createdBy,
       items: items ?? this.items,
+      payments: payments ?? this.payments,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -262,8 +270,28 @@ class Invoice extends Equatable {
       customerId: '',
       createdById: '',
       items: [],
+      payments: [],
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
+  }
+
+  // Payment-related helper methods
+  double get totalPaidFromPayments {
+    return payments.fold(0.0, (sum, payment) => sum + payment.amount);
+  }
+
+  double get remainingBalance {
+    return total - totalPaidFromPayments;
+  }
+
+  bool get hasPayments {
+    return payments.isNotEmpty;
+  }
+
+  List<InvoicePayment> get sortedPayments {
+    final sortedList = List<InvoicePayment>.from(payments);
+    sortedList.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+    return sortedList;
   }
 }

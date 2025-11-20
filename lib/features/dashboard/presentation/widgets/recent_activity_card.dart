@@ -8,6 +8,7 @@ import '../../domain/entities/recent_activity_advanced.dart' as advanced;
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/config/themes/app_text_styles.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/shimmer_loading.dart';
 
@@ -19,36 +20,18 @@ class RecentActivityCard extends GetView<DashboardController> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.surface,
-            AppColors.surface.withOpacity(0.95),
-            AppColors.surface.withOpacity(0.9),
-          ],
+        gradient: ElegantLightTheme.cardGradient,
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
+          width: 1.5,
         ),
         boxShadow: [
-          // Sombra principal profunda
+          ...ElegantLightTheme.elevatedShadow,
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-          // Sombra secundaria para elevación
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
-          ),
-          // Brillo superior sutil
-          BoxShadow(
-            color: Colors.white.withOpacity(0.3),
-            blurRadius: 1,
-            offset: const Offset(0, -1),
-            spreadRadius: 0,
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
+            blurRadius: 25,
+            offset: const Offset(0, 10),
+            spreadRadius: 2,
           ),
         ],
       ),
@@ -56,27 +39,35 @@ class RecentActivityCard extends GetView<DashboardController> {
         borderRadius: BorderRadius.circular(24),
         child: Container(
           decoration: BoxDecoration(
-            // Gradiente interno para profundidad
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withOpacity(0.1),
+                ElegantLightTheme.primaryBlue.withValues(alpha: 0.02),
                 Colors.transparent,
-                Colors.black.withOpacity(0.02),
+                ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.01),
               ],
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 24),
-                Obx(() => _buildActivityContent()),
-              ],
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 600;
+              final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+              final padding = isMobile ? 16.0 : (isTablet ? 20.0 : 24.0);
+              final headerSpacing = isMobile ? 16.0 : (isTablet ? 20.0 : 24.0);
+              
+              return Padding(
+                padding: EdgeInsets.all(padding), // Responsive padding
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildFuturisticHeader(),
+                    SizedBox(height: headerSpacing), // Responsive spacing
+                    Obx(() => _buildActivityContent()),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -138,6 +129,80 @@ class RecentActivityCard extends GetView<DashboardController> {
         ),
         // Botón de refresh con animación
         _RefreshButton(onRefresh: controller.refreshActivity),
+      ],
+    );
+  }
+
+  Widget _buildFuturisticHeader() {
+    return Row(
+      children: [
+        // Icono principal futurístico
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.warningGradient,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              ...ElegantLightTheme.glowShadow,
+              BoxShadow(
+                color: ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.electric_bolt,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Título futurístico con degradado
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShaderMask(
+                shaderCallback: (bounds) => ElegantLightTheme.warningGradient.createShader(bounds),
+                child: Text(
+                  'Actividad Reciente',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    letterSpacing: 0.5,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      gradient: ElegantLightTheme.successGradient,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Últimas transacciones',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: ElegantLightTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // Botón de refresh futurístico
+        _FuturisticActivityRefreshButton(onRefresh: controller.refreshActivity),
       ],
     );
   }
@@ -559,6 +624,141 @@ class _ModernButtonState extends State<_ModernButton>
   }
 }
 
+// Botón de refresh futurístico para actividades
+class _FuturisticActivityRefreshButton extends StatefulWidget {
+  final VoidCallback onRefresh;
+
+  const _FuturisticActivityRefreshButton({required this.onRefresh});
+
+  @override
+  State<_FuturisticActivityRefreshButton> createState() => _FuturisticActivityRefreshButtonState();
+}
+
+class _FuturisticActivityRefreshButtonState extends State<_FuturisticActivityRefreshButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _rotationAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _glowAnimation;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    _rotationAnimation = Tween<double>(
+      begin: 0.0,
+      end: 2 * math.pi,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.1,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.elasticOut,
+    ));
+
+    _glowAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Transform.rotate(
+              angle: _rotationAnimation.value,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: _isHovered
+                      ? ElegantLightTheme.warningGradient
+                      : ElegantLightTheme.glassGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: ElegantLightTheme.warningGradient.colors.first
+                        .withValues(alpha: _isHovered ? 0.4 : 0.2),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    ...ElegantLightTheme.elevatedShadow,
+                    if (_isHovered || _glowAnimation.value > 0)
+                      BoxShadow(
+                        color: ElegantLightTheme.warningGradient.colors.first
+                            .withValues(alpha: (_glowAnimation.value * 0.4).clamp(0.0, 1.0)),
+                        blurRadius: (20 * _glowAnimation.value).clamp(0.0, 20.0),
+                        offset: const Offset(0, 0),
+                      ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: () {
+                      _controller.forward().then((_) {
+                        _controller.reverse();
+                      });
+                      widget.onRefresh();
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        gradient: _isHovered
+                            ? LinearGradient(
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.2),
+                                  Colors.white.withValues(alpha: 0.1),
+                                ],
+                              )
+                            : null,
+                      ),
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        color: _isHovered
+                            ? Colors.white
+                            : ElegantLightTheme.warningGradient.colors.first,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 // Item de actividad moderno con animaciones
 class _ModernActivityItem extends StatefulWidget {
   final RecentActivity activity;
@@ -625,45 +825,59 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
           offset: Offset(_slideAnimation.value, 0),
           child: Opacity(
             opacity: _fadeAnimation.value,
-            child: Container(
-              margin: EdgeInsets.only(bottom: widget.index < 4 ? 16 : 0),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: _isHovered
-                      ? [
-                          _getActivityColor().withOpacity(0.05),
-                          _getActivityColor().withOpacity(0.02),
-                        ]
-                      : [
-                          AppColors.surface.withOpacity(0.3),
-                          AppColors.surface.withOpacity(0.1),
-                        ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _isHovered
-                      ? _getActivityColor().withOpacity(0.2)
-                      : AppColors.border.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-              child: MouseRegion(
-                onEnter: (_) => setState(() => _isHovered = true),
-                onExit: (_) => setState(() => _isHovered = false),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      _buildActivityIcon(),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildActivityContent()),
-                      _buildTimeLabel(),
-                    ],
+            child: Builder(
+              builder: (context) {
+                final screenWidth = MediaQuery.of(context).size.width;
+                final isMobile = screenWidth < 600;
+                final isTablet = screenWidth >= 600 && screenWidth < 900;
+                
+                // Responsive spacing and sizing
+                final bottomMargin = isMobile ? 8.0 : (isTablet ? 12.0 : 16.0);
+                final padding = isMobile ? 12.0 : (isTablet ? 16.0 : 20.0);
+                final iconSpacing = isMobile ? 12.0 : (isTablet ? 14.0 : 16.0);
+                final borderRadius = isMobile ? 12.0 : 16.0;
+                
+                return Container(
+                  margin: EdgeInsets.only(bottom: widget.index < 4 ? bottomMargin : 0),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: _isHovered
+                          ? [
+                              _getActivityColor().withOpacity(0.05),
+                              _getActivityColor().withOpacity(0.02),
+                            ]
+                          : [
+                              AppColors.surface.withOpacity(0.3),
+                              AppColors.surface.withOpacity(0.1),
+                            ],
+                    ),
+                    borderRadius: BorderRadius.circular(borderRadius),
+                    border: Border.all(
+                      color: _isHovered
+                          ? _getActivityColor().withOpacity(0.2)
+                          : AppColors.border.withOpacity(0.1),
+                      width: 1,
+                    ),
                   ),
-                ),
-              ),
+                  child: MouseRegion(
+                    onEnter: (_) => setState(() => _isHovered = true),
+                    onExit: (_) => setState(() => _isHovered = false),
+                    child: Padding(
+                      padding: EdgeInsets.all(padding),
+                      child: Row(
+                        children: [
+                          _buildActivityIcon(),
+                          SizedBox(width: iconSpacing),
+                          Expanded(child: _buildActivityContent()),
+                          _buildTimeLabel(),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         );
@@ -672,78 +886,131 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
   }
 
   Widget _buildActivityIcon() {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _getActivityColor().withOpacity(0.15),
-            _getActivityColor().withOpacity(0.08),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: _getActivityColor().withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+    final activityColor = _getActivityColor();
+    return Builder(
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 600;
+        final isTablet = screenWidth >= 600 && screenWidth < 900;
+        
+        // Responsive sizes
+        final iconSize = isMobile ? 36.0 : (isTablet ? 40.0 : 48.0);
+        final iconRadius = iconSize / 2;
+        final innerIconSize = isMobile ? 18.0 : (isTablet ? 20.0 : 24.0);
+        
+        return Container(
+          width: iconSize,
+          height: iconSize,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                activityColor.withOpacity(0.20),
+                activityColor.withOpacity(0.12),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(iconRadius),
+            boxShadow: [
+              BoxShadow(
+                color: activityColor.withOpacity(0.3),
+                blurRadius: isMobile ? 8 : (isTablet ? 10 : 12),
+                offset: Offset(0, isMobile ? 4 : (isTablet ? 5 : 6)),
+                spreadRadius: isMobile ? 0.5 : 1,
+              ),
+              if (widget.activity.type == ActivityType.invoice || 
+                  widget.activity.type == ActivityType.expense)
+                BoxShadow(
+                  color: activityColor.withOpacity(0.15),
+                  blurRadius: isMobile ? 15 : (isTablet ? 18 : 20),
+                  offset: Offset(0, isMobile ? 6 : (isTablet ? 7 : 8)),
+                  spreadRadius: isMobile ? 1 : 2,
+                ),
+            ],
           ),
-        ],
-      ),
-      child: Icon(
-        _getActivityIcon(),
-        color: _getActivityColor(),
-        size: 24,
-      ),
+          child: Icon(
+            _getActivityIcon(),
+            color: activityColor,
+            size: innerIconSize,
+          ),
+        );
+      },
     );
   }
 
   Widget _buildActivityContent() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.activity.title,
-          style: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          widget.activity.description,
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+    return Builder(
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 600;
+        final isTablet = screenWidth >= 600 && screenWidth < 900;
+        
+        // Responsive font sizes
+        final titleFontSize = isMobile ? 13.0 : (isTablet ? 14.0 : 15.0);
+        final descriptionFontSize = isMobile ? 11.0 : (isTablet ? 12.0 : 13.0);
+        final spacing = isMobile ? 2.0 : (isTablet ? 3.0 : 4.0);
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.activity.title,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: titleFontSize,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            SizedBox(height: spacing),
+            Text(
+              widget.activity.description,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: descriptionFontSize,
+              ),
+              maxLines: isMobile ? 1 : 2, // Solo 1 línea en móvil para más compacto
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildTimeLabel() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.textSecondary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        widget.activity.formattedTime,
-        style: AppTextStyles.caption.copyWith(
-          color: AppColors.textSecondary,
-          fontWeight: FontWeight.w500,
-          fontSize: 11,
-        ),
-      ),
+    return Builder(
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 600;
+        final isTablet = screenWidth >= 600 && screenWidth < 900;
+        
+        // Responsive sizes
+        final fontSize = isMobile ? 9.0 : (isTablet ? 10.0 : 11.0);
+        final horizontalPadding = isMobile ? 6.0 : (isTablet ? 7.0 : 8.0);
+        final verticalPadding = isMobile ? 3.0 : 4.0;
+        final borderRadius = isMobile ? 6.0 : 8.0;
+        
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding, 
+            vertical: verticalPadding
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.textSecondary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(borderRadius),
+          ),
+          child: Text(
+            widget.activity.formattedTime,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+              fontSize: fontSize,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -775,7 +1042,7 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
       case ActivityType.sale:
         return AppColors.success;
       case ActivityType.invoice:
-        return AppColors.primary;
+        return AppColors.success; // Verde para facturas
       case ActivityType.payment:
         return AppColors.info;
       case ActivityType.product:
@@ -783,7 +1050,7 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
       case ActivityType.customer:
         return AppColors.info;
       case ActivityType.expense:
-        return AppColors.error;
+        return AppColors.error; // Rojo para gastos
       case ActivityType.order:
         return AppColors.warning;
       case ActivityType.user:
@@ -860,45 +1127,59 @@ class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem
           offset: Offset(_slideAnimation.value, 0),
           child: Opacity(
             opacity: _fadeAnimation.value,
-            child: Container(
-              margin: EdgeInsets.only(bottom: widget.index < 4 ? 16 : 0),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: _isHovered
-                      ? [
-                          widget.activity.color.withOpacity(0.05),
-                          widget.activity.color.withOpacity(0.02),
-                        ]
-                      : [
-                          AppColors.surface.withOpacity(0.3),
-                          AppColors.surface.withOpacity(0.1),
-                        ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _isHovered
-                      ? widget.activity.color.withOpacity(0.2)
-                      : AppColors.border.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-              child: MouseRegion(
-                onEnter: (_) => setState(() => _isHovered = true),
-                onExit: (_) => setState(() => _isHovered = false),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      _buildActivityIcon(),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildActivityContent()),
-                      _buildTimeLabel(),
-                    ],
+            child: Builder(
+              builder: (context) {
+                final screenWidth = MediaQuery.of(context).size.width;
+                final isMobile = screenWidth < 600;
+                final isTablet = screenWidth >= 600 && screenWidth < 900;
+                
+                // Responsive spacing and sizing
+                final bottomMargin = isMobile ? 8.0 : (isTablet ? 12.0 : 16.0);
+                final padding = isMobile ? 12.0 : (isTablet ? 16.0 : 20.0);
+                final iconSpacing = isMobile ? 12.0 : (isTablet ? 14.0 : 16.0);
+                final borderRadius = isMobile ? 12.0 : 16.0;
+                
+                return Container(
+                  margin: EdgeInsets.only(bottom: widget.index < 4 ? bottomMargin : 0),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: _isHovered
+                          ? [
+                              widget.activity.color.withOpacity(0.05),
+                              widget.activity.color.withOpacity(0.02),
+                            ]
+                          : [
+                              AppColors.surface.withOpacity(0.3),
+                              AppColors.surface.withOpacity(0.1),
+                            ],
+                    ),
+                    borderRadius: BorderRadius.circular(borderRadius),
+                    border: Border.all(
+                      color: _isHovered
+                          ? widget.activity.color.withOpacity(0.2)
+                          : AppColors.border.withOpacity(0.1),
+                      width: 1,
+                    ),
                   ),
-                ),
-              ),
+                  child: MouseRegion(
+                    onEnter: (_) => setState(() => _isHovered = true),
+                    onExit: (_) => setState(() => _isHovered = false),
+                    child: Padding(
+                      padding: EdgeInsets.all(padding),
+                      child: Row(
+                        children: [
+                          _buildActivityIcon(),
+                          SizedBox(width: iconSpacing),
+                          Expanded(child: _buildActivityContent()),
+                          _buildTimeLabel(),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         );
@@ -907,81 +1188,130 @@ class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem
   }
 
   Widget _buildActivityIcon() {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            widget.activity.color.withOpacity(0.15),
-            widget.activity.color.withOpacity(0.08),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: widget.activity.color.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+    // Determinar si es factura o gasto basado en el tipo de actividad
+    final isInvoice = widget.activity.title.toLowerCase().contains('factura') || 
+                     widget.activity.icon.contains('receipt');
+    final isExpense = widget.activity.title.toLowerCase().contains('gasto') || 
+                     widget.activity.icon.contains('money_off');
+    
+    // Usar colores específicos para facturas (verde) y gastos (rojo)
+    final activityColor = isInvoice 
+        ? AppColors.success 
+        : isExpense 
+            ? AppColors.error 
+            : widget.activity.color;
+    
+    return Builder(
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 600;
+        final isTablet = screenWidth >= 600 && screenWidth < 900;
+        
+        // Responsive sizes
+        final iconSize = isMobile ? 36.0 : (isTablet ? 40.0 : 48.0);
+        final iconRadius = iconSize / 2;
+        final innerIconSize = isMobile ? 18.0 : (isTablet ? 20.0 : 24.0);
+        
+        return Container(
+          width: iconSize,
+          height: iconSize,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                activityColor.withOpacity(0.20),
+                activityColor.withOpacity(0.12),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(iconRadius),
+            boxShadow: [
+              BoxShadow(
+                color: activityColor.withOpacity(0.3),
+                blurRadius: isMobile ? 8 : (isTablet ? 10 : 12),
+                offset: Offset(0, isMobile ? 4 : (isTablet ? 5 : 6)),
+                spreadRadius: isMobile ? 0.5 : 1,
+              ),
+              if (isInvoice || isExpense)
+                BoxShadow(
+                  color: activityColor.withOpacity(0.15),
+                  blurRadius: isMobile ? 15 : (isTablet ? 18 : 20),
+                  offset: Offset(0, isMobile ? 6 : (isTablet ? 7 : 8)),
+                  spreadRadius: isMobile ? 1 : 2,
+                ),
+            ],
           ),
-        ],
-      ),
-      child: Icon(
-        _getIconFromString(widget.activity.icon),
-        color: widget.activity.color,
-        size: 24,
-      ),
+          child: Icon(
+            _getIconFromString(widget.activity.icon),
+            color: activityColor,
+            size: innerIconSize,
+          ),
+        );
+      },
     );
   }
 
   Widget _buildActivityContent() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return Builder(
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 600;
+        final isTablet = screenWidth >= 600 && screenWidth < 900;
+        
+        // Responsive font sizes
+        final titleFontSize = isMobile ? 13.0 : (isTablet ? 14.0 : 15.0);
+        final descriptionFontSize = isMobile ? 11.0 : (isTablet ? 12.0 : 13.0);
+        final userNameFontSize = isMobile ? 9.0 : (isTablet ? 10.0 : 11.0);
+        final spacing = isMobile ? 2.0 : (isTablet ? 3.0 : 4.0);
+        final badgeSpacing = isMobile ? 6.0 : 8.0;
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                widget.activity.title,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.activity.title,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: titleFontSize,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+                if (widget.activity.priority != advanced.ActivityPriority.normal) ...[
+                  SizedBox(width: badgeSpacing),
+                  _buildPriorityBadge(),
+                ],
+              ],
             ),
-            if (widget.activity.priority != advanced.ActivityPriority.normal) ...[
-              const SizedBox(width: 8),
-              _buildPriorityBadge(),
+            SizedBox(height: spacing),
+            Text(
+              widget.activity.description,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: descriptionFontSize,
+              ),
+              maxLines: isMobile ? 1 : 2, // Solo 1 línea en móvil para más compacto
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (widget.activity.userName.isNotEmpty) ...[
+              SizedBox(height: spacing),
+              Text(
+                'por ${widget.activity.userName}',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                  fontStyle: FontStyle.italic,
+                  fontSize: userNameFontSize,
+                ),
+              ),
             ],
           ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          widget.activity.description,
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        if (widget.activity.userName.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            'por ${widget.activity.userName}',
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.textSecondary,
-              fontStyle: FontStyle.italic,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ],
+        );
+      },
     );
   }
 
@@ -1027,20 +1357,37 @@ class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem
   }
 
   Widget _buildTimeLabel() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.textSecondary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        widget.activity.formattedTime,
-        style: AppTextStyles.caption.copyWith(
-          color: AppColors.textSecondary,
-          fontWeight: FontWeight.w500,
-          fontSize: 11,
-        ),
-      ),
+    return Builder(
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 600;
+        final isTablet = screenWidth >= 600 && screenWidth < 900;
+        
+        // Responsive sizes
+        final fontSize = isMobile ? 9.0 : (isTablet ? 10.0 : 11.0);
+        final horizontalPadding = isMobile ? 6.0 : (isTablet ? 7.0 : 8.0);
+        final verticalPadding = isMobile ? 3.0 : 4.0;
+        final borderRadius = isMobile ? 6.0 : 8.0;
+        
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding, 
+            vertical: verticalPadding
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.textSecondary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(borderRadius),
+          ),
+          child: Text(
+            widget.activity.formattedTime,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+              fontSize: fontSize,
+            ),
+          ),
+        );
+      },
     );
   }
 

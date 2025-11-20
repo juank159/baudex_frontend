@@ -1,6 +1,7 @@
 // lib/features/products/presentation/widgets/unit_selector_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import 'modern_selector_widget.dart';
 
 enum MeasurementUnit {
@@ -209,13 +210,13 @@ class EnhancedUnitSelectorWidget extends StatelessWidget {
       children: [
         // Label moderno
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Row(
             children: [
               Text(
                 'Unidad de Medida',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: enabled ? Colors.grey.shade700 : Colors.grey.shade400,
                 ),
@@ -224,7 +225,7 @@ class EnhancedUnitSelectorWidget extends StatelessWidget {
                 Text(
                   ' *',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Colors.red.shade600,
                   ),
@@ -263,21 +264,21 @@ class EnhancedUnitSelectorWidget extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: 16,
+                  horizontal: 12,
                   vertical:
                       ResponsiveHelper.isMobile(context)
-                          ? 20
-                          : 16, // Más altura en móvil
+                          ? 12
+                          : 10, // Más compacto
                 ),
                 child: Row(
                   children: [
                     // Icono del valor seleccionado o por defecto (sin fondo)
                     Icon(
                       value?.icon ?? Icons.straighten,
-                      size: 18,
+                      size: 16,
                       color: value?.color ?? Colors.grey.shade400,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
 
                     // Texto del valor seleccionado
                     Expanded(
@@ -287,7 +288,7 @@ class EnhancedUnitSelectorWidget extends StatelessWidget {
                           Text(
                             value?.displayName ?? 'Seleccionar unidad',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight:
                                   value != null
                                       ? FontWeight.w500
@@ -304,7 +305,7 @@ class EnhancedUnitSelectorWidget extends StatelessWidget {
                             Text(
                               value!.category,
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 11,
                                 color: value!.color,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -318,7 +319,7 @@ class EnhancedUnitSelectorWidget extends StatelessWidget {
                       Icons.keyboard_arrow_down_rounded,
                       color:
                           enabled ? Colors.grey.shade600 : Colors.grey.shade400,
-                      size: 24,
+                      size: 20,
                     ),
                   ],
                 ),
@@ -412,15 +413,13 @@ class _EnhancedUnitSelectorBottomSheetState
             constraints: BoxConstraints(maxHeight: maxHeight),
             margin: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              gradient: ElegantLightTheme.cardGradient,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+              border: Border.all(
+                color: ElegantLightTheme.textTertiary.withOpacity(0.2),
+                width: 1,
+              ),
+              boxShadow: ElegantLightTheme.elevatedShadow,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -429,7 +428,7 @@ class _EnhancedUnitSelectorBottomSheetState
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.05),
+                    color: ElegantLightTheme.primaryBlue.withOpacity(0.05),
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(20),
                       topRight: Radius.circular(20),
@@ -440,15 +439,14 @@ class _EnhancedUnitSelectorBottomSheetState
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withOpacity(0.1),
+                          gradient: ElegantLightTheme.primaryGradient,
                           borderRadius: BorderRadius.circular(8),
+                          boxShadow: ElegantLightTheme.glowShadow,
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.straighten,
                           size: 20,
-                          color: Theme.of(context).primaryColor,
+                          color: Colors.white,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -465,8 +463,9 @@ class _EnhancedUnitSelectorBottomSheetState
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close),
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.grey.shade100,
-                          foregroundColor: Colors.grey.shade600,
+                          backgroundColor: ElegantLightTheme.textTertiary
+                              .withOpacity(0.1),
+                          foregroundColor: ElegantLightTheme.textSecondary,
                         ),
                       ),
                     ],

@@ -61,7 +61,7 @@ class DashboardController extends GetxController {
   // Filters
   final _selectedDateRange = Rxn<DateTimeRange>();
   final _selectedActivityTypes = <ActivityType>[].obs;
-  final _selectedPeriod = 'ultimos_3_meses'.obs;
+  final _selectedPeriod = 'hoy'.obs;
 
   // Getters
   bool get isLoadingStats => _isLoadingStats.value;
@@ -503,7 +503,7 @@ class DashboardController extends GetxController {
   void clearFilters() {
     _selectedDateRange.value = null;
     _selectedActivityTypes.clear();
-    _selectedPeriod.value = 'ultimos_3_meses';
+    _selectedPeriod.value = 'hoy';
     _loadInitialData();
   }
 

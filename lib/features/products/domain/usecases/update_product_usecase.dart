@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../entities/product.dart';
+import '../entities/tax_enums.dart';
 import '../repositories/product_repository.dart';
 
 class UpdateProductUseCase implements UseCase<Product, UpdateProductParams> {
@@ -32,6 +33,14 @@ class UpdateProductUseCase implements UseCase<Product, UpdateProductParams> {
       metadata: params.metadata,
       categoryId: params.categoryId,
       prices: params.prices,
+      // Campos de facturación electrónica
+      taxCategory: params.taxCategory,
+      taxRate: params.taxRate,
+      isTaxable: params.isTaxable,
+      taxDescription: params.taxDescription,
+      retentionCategory: params.retentionCategory,
+      retentionRate: params.retentionRate,
+      hasRetention: params.hasRetention,
     );
   }
 }
@@ -56,6 +65,16 @@ class UpdateProductParams extends Equatable {
   final String? categoryId;
   final List<CreateProductPriceParams>? prices;
 
+  // ========== CAMPOS PARA FACTURACIÓN ELECTRÓNICA ==========
+  final TaxCategory? taxCategory;
+  final double? taxRate;
+  final bool? isTaxable;
+  final String? taxDescription;
+  final RetentionCategory? retentionCategory;
+  final double? retentionRate;
+  final bool? hasRetention;
+  // ========== FIN CAMPOS FACTURACIÓN ELECTRÓNICA ==========
+
   const UpdateProductParams({
     required this.id,
     this.name,
@@ -75,6 +94,14 @@ class UpdateProductParams extends Equatable {
     this.metadata,
     this.categoryId,
     this.prices,
+    // Campos de facturación electrónica
+    this.taxCategory,
+    this.taxRate,
+    this.isTaxable,
+    this.taxDescription,
+    this.retentionCategory,
+    this.retentionRate,
+    this.hasRetention,
   });
 
   @override
@@ -96,5 +123,12 @@ class UpdateProductParams extends Equatable {
     images,
     metadata,
     categoryId,
+    taxCategory,
+    taxRate,
+    isTaxable,
+    taxDescription,
+    retentionCategory,
+    retentionRate,
+    hasRetention,
   ];
 }

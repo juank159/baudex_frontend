@@ -8,8 +8,8 @@ import '../../../../app/core/utils/responsive_text.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../controllers/dashboard_controller.dart';
 
-/// Sección de rentabilidad FIFO para el dashboard
-/// Muestra métricas precisas de margen bruto basadas en costos FIFO reales
+/// Sección de rentabilidad para el dashboard
+/// Muestra métricas precisas de margen bruto y costos de ventas
 class ProfitabilitySection extends GetWidget<DashboardController> {
   const ProfitabilitySection({super.key});
 
@@ -63,18 +63,11 @@ class ProfitabilitySection extends GetWidget<DashboardController> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Análisis de Rentabilidad FIFO',
+                'Análisis de Rentabilidad',
                 style: AppTextStyles.titleLarge.copyWith(
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                   fontSize: ResponsiveText.getTitleLargeSize(context),
-                ),
-              ),
-              Text(
-                'Costos reales basados en método FIFO',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                  fontSize: ResponsiveText.getBodySmallSize(context),
                 ),
               ),
             ],
@@ -188,7 +181,7 @@ class ProfitabilitySection extends GetWidget<DashboardController> {
             child: _buildMetricColumn(
               'COGS Total',
               AppFormatters.formatCurrency(profitability.totalCOGS),
-              'Método FIFO',
+              'Costo de Ventas',
               AppColors.warning,
               Icons.inventory_2_outlined,
             ),

@@ -471,15 +471,20 @@ class ApiConstants {
   static String restoreSupplier(String id) => '$suppliersBase/$id/restore';
 
   // Validation endpoints
-  static const String validateSupplierDocument = '$suppliersBase/validate-document';
+  static const String validateSupplierDocument =
+      '$suppliersBase/validate-document';
   static const String validateSupplierCode = '$suppliersBase/validate-code';
   static const String validateSupplierEmail = '$suppliersBase/validate-email';
-  static const String checkDocumentUniqueness = '$suppliersBase/check-document-uniqueness';
+  static const String checkDocumentUniqueness =
+      '$suppliersBase/check-document-uniqueness';
 
   // Business logic endpoints
-  static String supplierCanReceivePurchaseOrders(String id) => '$suppliersBase/$id/can-receive-orders';
-  static String supplierTotalPurchases(String id) => '$suppliersBase/$id/total-purchases';
-  static String supplierLastPurchaseDate(String id) => '$suppliersBase/$id/last-purchase';
+  static String supplierCanReceivePurchaseOrders(String id) =>
+      '$suppliersBase/$id/can-receive-orders';
+  static String supplierTotalPurchases(String id) =>
+      '$suppliersBase/$id/total-purchases';
+  static String supplierLastPurchaseDate(String id) =>
+      '$suppliersBase/$id/last-purchase';
 
   // Cache Keys para suppliers
   static const String suppliersCacheKey = 'suppliers_cache';
@@ -495,19 +500,25 @@ class ApiConstants {
   static const String purchaseOrdersStats = '$purchaseOrdersBase/stats';
 
   static const String purchaseOrdersOverdue = '$purchaseOrdersBase/overdue';
-  static const String purchaseOrdersPendingApproval = '$purchaseOrdersBase/pending-approval';
+  static const String purchaseOrdersPendingApproval =
+      '$purchaseOrdersBase/pending-approval';
   static const String purchaseOrdersRecent = '$purchaseOrdersBase/recent';
 
   // Individual purchase order endpoints
   static String purchaseOrderById(String id) => '$purchaseOrdersBase/$id';
-  static String purchaseOrdersBySupplier(String supplierId) => '$purchaseOrdersBase/supplier/$supplierId';
+  static String purchaseOrdersBySupplier(String supplierId) =>
+      '$purchaseOrdersBase/supplier/$supplierId';
 
   // Workflow endpoints
-  static String approvePurchaseOrder(String id) => '$purchaseOrdersBase/$id/approve';
-  static String rejectPurchaseOrder(String id) => '$purchaseOrdersBase/$id/reject';
+  static String approvePurchaseOrder(String id) =>
+      '$purchaseOrdersBase/$id/approve';
+  static String rejectPurchaseOrder(String id) =>
+      '$purchaseOrdersBase/$id/reject';
   static String sendPurchaseOrder(String id) => '$purchaseOrdersBase/$id/send';
-  static String receivePurchaseOrder(String id) => '$purchaseOrdersBase/$id/receive';
-  static String cancelPurchaseOrder(String id) => '$purchaseOrdersBase/$id/cancel';
+  static String receivePurchaseOrder(String id) =>
+      '$purchaseOrdersBase/$id/receive';
+  static String cancelPurchaseOrder(String id) =>
+      '$purchaseOrdersBase/$id/cancel';
 
   // Cache Keys para purchase orders
   static const String purchaseOrdersCacheKey = 'purchase_orders_cache';
@@ -518,9 +529,12 @@ class ApiConstants {
   static const String inventoryBase = '/inventory';
 
   // Stock endpoints
-  static String productStock(String productId) => '$inventoryBase/products/$productId/stock';
-  static String productValuation(String productId) => '$inventoryBase/products/$productId/valuation';
-  static String productKardex(String productId) => '$inventoryBase/products/$productId/kardex';
+  static String productStock(String productId) =>
+      '$inventoryBase/products/$productId/stock';
+  static String productValuation(String productId) =>
+      '$inventoryBase/products/$productId/valuation';
+  static String productKardex(String productId) =>
+      '$inventoryBase/products/$productId/kardex';
 
   // General inventory endpoints
   static const String inventoryMovements = '$inventoryBase/movements';
@@ -531,33 +545,41 @@ class ApiConstants {
   static const String inventoryStats = '$inventoryBase/stats';
   static const String inventoryValuation = '$inventoryBase/valuation';
   static const String inventoryReports = '$inventoryBase/reports';
-  
+
   // Movement specific endpoints
   static String inventoryMovementById(String id) => '$inventoryMovements/$id';
-  static String confirmInventoryMovement(String id) => '$inventoryMovements/$id/confirm';
-  static String cancelInventoryMovement(String id) => '$inventoryMovements/$id/cancel';
+  static String confirmInventoryMovement(String id) =>
+      '$inventoryMovements/$id/confirm';
+  static String cancelInventoryMovement(String id) =>
+      '$inventoryMovements/$id/cancel';
   static const String searchInventoryMovements = '$inventoryMovements/search';
-  
-  // Balance specific endpoints  
+
+  // Balance specific endpoints
   // ✅ CAMBIAR A ENDPOINT QUE SÍ FILTRE POR WAREHOUSE
-  static String inventoryBalanceByProduct(String productId) => '$inventoryBalances?productId=$productId';
+  static String inventoryBalanceByProduct(String productId) =>
+      '$inventoryBalances?productId=$productId';
   static const String lowStockProducts = '$inventoryBalances/low-stock';
   static const String outOfStockProducts = '$inventoryBalances/out-of-stock';
   static const String expiredProducts = '$inventoryBalances/expired';
   static const String nearExpiryProducts = '$inventoryBalances/near-expiry';
-  
+
   // FIFO specific endpoints
-  static String fifoConsumption(String productId) => '$inventoryBalances/product/$productId/fifo-consumption';
+  static String fifoConsumption(String productId) =>
+      '$inventoryBalances/product/$productId/fifo-consumption';
   static const String processFifoMovement = '$inventoryMovements/fifo-outbound';
-  static const String processBulkFifoMovement = '$inventoryMovements/bulk-fifo-outbound';
-  
+  static const String processBulkFifoMovement =
+      '$inventoryMovements/bulk-fifo-outbound';
+
   // Stock adjustment endpoints
-  static const String createStockAdjustment = '$inventoryBase/adjustments/relative';
-  static const String createBulkStockAdjustments = '$inventoryBase/adjustments/relative'; // Usar mismo endpoint para individuales
-  
+  static const String createStockAdjustment =
+      '$inventoryBase/adjustments/relative';
+  static const String createBulkStockAdjustments =
+      '$inventoryBase/adjustments/relative'; // Usar mismo endpoint para individuales
+
   // Transfer specific endpoints
-  static String confirmInventoryTransfer(String id) => '$inventoryTransfers/$id/confirm';
-  
+  static String confirmInventoryTransfer(String id) =>
+      '$inventoryTransfers/$id/confirm';
+
   // Report endpoints
   static const String kardexReport = '$inventoryReports/kardex';
   static const String inventoryAging = '$inventoryReports/aging';
@@ -598,19 +620,27 @@ class ApiConstants {
   static const String reportsBase = '/reports';
 
   // Profitability reports
-  static const String profitabilityProducts = '$reportsBase/profitability/products';
-  static const String profitabilityCategories = '$reportsBase/profitability/categories';
-  static const String profitabilityTopProducts = '$reportsBase/profitability/top-profitable';
-  static const String profitabilityLeastProducts = '$reportsBase/profitability/least-profitable';
+  static const String profitabilityProducts =
+      '$reportsBase/profitability/products';
+  static const String profitabilityCategories =
+      '$reportsBase/profitability/categories';
+  static const String profitabilityTopProducts =
+      '$reportsBase/profitability/top-profitable';
+  static const String profitabilityLeastProducts =
+      '$reportsBase/profitability/least-profitable';
 
   // Inventory reports
-  static const String inventoryValuationSummary = '$reportsBase/inventory/valuation/summary';
-  static const String inventoryValuationProducts = '$reportsBase/inventory/valuation/products';
+  static const String inventoryValuationSummary =
+      '$reportsBase/inventory/valuation/summary';
+  static const String inventoryValuationProducts =
+      '$reportsBase/inventory/valuation/products';
   static const String inventoryAgingReport = '$reportsBase/inventory/aging';
 
   // Kardex reports
-  static String kardexProduct(String productId) => '$reportsBase/kardex/product/$productId';
-  static const String kardexMovementsSummary = '$reportsBase/kardex/movements/summary';
+  static String kardexProduct(String productId) =>
+      '$reportsBase/kardex/product/$productId';
+  static const String kardexMovementsSummary =
+      '$reportsBase/kardex/movements/summary';
   static const String kardexMultiProduct = '$reportsBase/kardex/multi-product';
 
   // Purchase history reports

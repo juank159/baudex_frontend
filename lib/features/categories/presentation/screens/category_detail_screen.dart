@@ -2,814 +2,333 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
-import '../../../../app/shared/widgets/custom_button.dart';
-import '../../../../app/shared/widgets/custom_card.dart';
-import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/category_detail_controller.dart';
-import '../widgets/category_card_widget.dart';
-import '../../domain/entities/category.dart';
 
 class CategoryDetailScreen extends GetView<CategoryDetailController> {
   const CategoryDetailScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(context),
-      body: Obx(() {
-        if (controller.isLoading) {
-          return const LoadingWidget(message: 'Cargando detalles...');
-        }
-
-        if (!controller.hasCategory) {
-          return _buildErrorState(context);
-        }
-
-        return ResponsiveLayout(
-          mobile: _buildMobileLayout(context),
-          tablet: _buildTabletLayout(context),
-          desktop: _buildDesktopLayout(context),
-        );
-      }),
-      floatingActionButton: _buildFloatingActionButton(context),
+    return Obx(
+      () => controller.isLoading
+          ? _buildLoadingState()
+          : !controller.hasCategory
+              ? _buildErrorState()
+              : Scaffold(
+                  backgroundColor: Colors.transparent,
+                  appBar: _buildFuturisticAppBar(context),
+                  body: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          ElegantLightTheme.backgroundColor,
+                          ElegantLightTheme.cardColor,
+                        ],
+                      ),
+                    ),
+                    child: ResponsiveLayout(
+                      mobile: _buildMobileLayout(context),
+                      tablet: _buildTabletLayout(context),
+                      desktop: _buildDesktopLayout(context),
+                    ),
+                  ),
+                  floatingActionButton: _buildFloatingActionButton(context),
+                ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
+  PreferredSizeWidget _buildFuturisticAppBar(BuildContext context) {
     return AppBar(
-      title: Obx(
-        () => Text(
-          controller.hasCategory ? controller.category!.name : 'Categoría',
+      title: Obx(() => Text(
+        controller.hasCategory ? controller.category!.name : 'Categoría',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+      )),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          boxShadow: ElegantLightTheme.elevatedShadow,
         ),
       ),
-      elevation: 0,
       actions: [
         // Editar
-        IconButton(
-          icon: const Icon(Icons.edit),
-          onPressed: controller.goToEditCategory,
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.edit, color: Colors.white),
+            onPressed: controller.goToEditCategory,
+            tooltip: 'Editar categoría',
+          ),
         ),
 
         // Cambiar estado
-        Obx(
-          () => IconButton(
+        Obx(() => Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            gradient: controller.category?.isActive == true
+                ? ElegantLightTheme.successGradient
+                : ElegantLightTheme.warningGradient,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: (controller.category?.isActive == true
+                    ? ElegantLightTheme.successGradient.colors.first
+                    : ElegantLightTheme.warningGradient.colors.first)
+                    .withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: IconButton(
             icon: Icon(
               controller.category?.isActive == true
                   ? Icons.toggle_on
                   : Icons.toggle_off,
-              color:
-                  controller.category?.isActive == true
-                      ? Colors.green
-                      : Colors.orange,
+              color: Colors.white,
             ),
             onPressed: controller.showStatusDialog,
+            tooltip: 'Cambiar estado',
           ),
-        ),
+        )),
 
         // Menú de opciones
-        PopupMenuButton<String>(
-          onSelected: (value) => _handleMenuAction(value, context),
-          itemBuilder:
-              (context) => [
-                const PopupMenuItem(
-                  value: 'create_subcategory',
-                  child: Row(
-                    children: [
-                      Icon(Icons.add),
-                      SizedBox(width: 8),
-                      Text('Crear Subcategoría'),
-                    ],
-                  ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          child: PopupMenuButton<String>(
+            onSelected: (value) => _handleMenuAction(value, context),
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'create_subcategory',
+                child: Row(
+                  children: [
+                    Icon(Icons.add, color: ElegantLightTheme.primaryBlue),
+                    SizedBox(width: 8),
+                    Text('Crear Subcategoría'),
+                  ],
                 ),
-                const PopupMenuItem(
-                  value: 'refresh',
-                  child: Row(
-                    children: [
-                      Icon(Icons.refresh),
-                      SizedBox(width: 8),
-                      Text('Actualizar'),
-                    ],
-                  ),
+              ),
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, color: ElegantLightTheme.primaryBlue),
+                    SizedBox(width: 8),
+                    Text('Actualizar'),
+                  ],
                 ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Eliminar', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Eliminar', style: TextStyle(color: Colors.red)),
+                  ],
                 ),
-              ],
+              ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [ElegantLightTheme.backgroundColor, ElegantLightTheme.cardColor],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: ElegantLightTheme.glowShadow,
+              ),
+              child: const Icon(
+                Icons.category,
+                color: Colors.white,
+                size: 50,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Cargando detalles de categoría...',
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Preparando la experiencia futurista',
+              style: TextStyle(
+                color: ElegantLightTheme.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildMobileLayout(BuildContext context) {
-    return Column(
-      children: [
-        // Breadcrumbs
-        _buildBreadcrumbs(context),
-
-        // Contenido con tabs
-        Expanded(
-          child: DefaultTabController(
-            length: 3,
-            child: Column(
-              children: [
-                _buildTabBar(context),
-                Expanded(child: _buildTabBarView(context)),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
+    return _buildDesktopLayout(context); // Use same futuristic design for mobile
   }
 
   Widget _buildTabletLayout(BuildContext context) {
-    return SingleChildScrollView(
-      child: AdaptiveContainer(
-        maxWidth: 800,
-        child: Column(
-          children: [
-            SizedBox(height: context.verticalSpacing),
-            _buildBreadcrumbs(context),
-            SizedBox(height: context.verticalSpacing),
-            CustomCard(child: _buildCategoryDetails(context)),
-            SizedBox(height: context.verticalSpacing),
-            if (controller.hasSubcategories)
-              CustomCard(child: _buildSubcategoriesSection(context)),
-            SizedBox(height: context.verticalSpacing),
-            _buildActions(context),
-          ],
-        ),
-      ),
-    );
+    return _buildDesktopLayout(context); // Use same futuristic design
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
-    return Row(
-      children: [
-        // Contenido principal
-        Expanded(
-          flex: 2,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              children: [
-                _buildBreadcrumbs(context),
-                const SizedBox(height: 24),
-                CustomCard(child: _buildCategoryDetails(context)),
-                const SizedBox(height: 24),
-                if (controller.hasSubcategories)
-                  CustomCard(child: _buildSubcategoriesSection(context)),
-              ],
-            ),
-          ),
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            ElegantLightTheme.backgroundColor,
+            ElegantLightTheme.cardColor,
+          ],
         ),
-
-        // Panel lateral
-        Container(
-          width: 350,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            border: Border(left: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(context).size.height - 140, // Account for AppBar and padding
           ),
           child: Column(
             children: [
-              // Header del panel
+              // Header futurístico con información clave
+              _buildFuturisticHeader(),
+              const SizedBox(height: 24),
+
+              // Tabs futurísticos
+              _buildFuturisticTabs(),
+              const SizedBox(height: 24),
+
+              // Contenido del tab seleccionado
+              Obx(() => _buildFuturisticTabContent()),
+
+              // Espacio adicional al final
+              const SizedBox(height: 100),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+
+
+
+  Widget _buildErrorState() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [ElegantLightTheme.backgroundColor, ElegantLightTheme.cardColor],
+        ),
+      ),
+      child: Center(
+        child: FuturisticContainer(
+          margin: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade300),
-                  ),
+                  gradient: ElegantLightTheme.errorGradient,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.settings, color: Theme.of(context).primaryColor),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Acciones',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                  ],
+                child: const Icon(
+                  Icons.category_outlined,
+                  color: Colors.white,
+                  size: 48,
                 ),
               ),
-
-              // Acciones
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: _buildSidebarActions(context),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBreadcrumbs(BuildContext context) {
-    return Obx(() {
-      if (controller.breadcrumbs.isEmpty) return const SizedBox.shrink();
-
-      return Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(context.responsivePadding.left),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-        ),
-        child: Wrap(
-          children:
-              controller.breadcrumbs.asMap().entries.map((entry) {
-                final index = entry.key;
-                final category = entry.value;
-                final isLast = index == controller.breadcrumbs.length - 1;
-
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (index > 0) ...[
-                      Icon(
-                        Icons.chevron_right,
-                        color: Colors.grey.shade600,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    GestureDetector(
-                      onTap:
-                          isLast ? null : () => controller.goToParentCategory(),
-                      child: Text(
-                        category.name,
-                        style: TextStyle(
-                          color:
-                              isLast
-                                  ? Theme.of(context).primaryColor
-                                  : Colors.grey.shade600,
-                          fontWeight:
-                              isLast ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                );
-              }).toList(),
-        ),
-      );
-    });
-  }
-
-  Widget _buildTabBar(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      child: TabBar(
-        controller: controller.tabController,
-        labelColor: Theme.of(context).primaryColor,
-        unselectedLabelColor: Colors.grey.shade600,
-        indicatorColor: Theme.of(context).primaryColor,
-        tabs: const [
-          Tab(text: 'Detalles'),
-          Tab(text: 'Subcategorías'),
-          Tab(text: 'Estadísticas'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabBarView(BuildContext context) {
-    return TabBarView(
-      controller: controller.tabController,
-      children: [
-        SingleChildScrollView(
-          padding: context.responsivePadding,
-          child: _buildCategoryDetails(context),
-        ),
-        SingleChildScrollView(
-          padding: context.responsivePadding,
-          child: _buildSubcategoriesSection(context),
-        ),
-        SingleChildScrollView(
-          padding: context.responsivePadding,
-          child: _buildStatsSection(context),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryDetails(BuildContext context) {
-    return Obx(() {
-      final category = controller.category!;
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header con imagen y título
-          Row(
-            children: [
-              // Imagen de categoría
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(12),
-                  image:
-                      category.image != null
-                          ? DecorationImage(
-                            image: NetworkImage(category.image!),
-                            fit: BoxFit.cover,
-                          )
-                          : null,
-                ),
-                child:
-                    category.image == null
-                        ? Icon(
-                          Icons.category,
-                          size: 40,
-                          color: Colors.grey.shade400,
-                        )
-                        : null,
-              ),
-
-              SizedBox(width: context.horizontalSpacing),
-
-              // Información básica
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category.name,
-                      style: TextStyle(
-                        fontSize: Responsive.getFontSize(
-                          context,
-                          mobile: 20,
-                          tablet: 24,
-                          desktop: 28,
-                        ),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            category.isActive
-                                ? Colors.green.shade100
-                                : Colors.orange.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        category.status.name.toUpperCase(),
-                        style: TextStyle(
-                          color:
-                              category.isActive
-                                  ? Colors.green.shade800
-                                  : Colors.orange.shade800,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          SizedBox(height: context.verticalSpacing * 2),
-
-          // Descripción
-          if (category.description != null) ...[
-            _buildDetailRow('Descripción', category.description!),
-            SizedBox(height: context.verticalSpacing),
-          ],
-
-          // Detalles técnicos
-          _buildDetailRow('Slug', category.slug),
-          SizedBox(height: context.verticalSpacing),
-
-          _buildDetailRow('Orden', category.sortOrder.toString()),
-          SizedBox(height: context.verticalSpacing),
-
-          _buildDetailRow(
-            'Productos',
-            (category.productsCount ?? 0).toString(),
-          ),
-          SizedBox(height: context.verticalSpacing),
-
-          _buildDetailRow('Nivel', category.level.toString()),
-          SizedBox(height: context.verticalSpacing),
-
-          // Fechas
-          _buildDetailRow('Creado', _formatDate(category.createdAt)),
-          SizedBox(height: context.verticalSpacing),
-
-          _buildDetailRow('Actualizado', _formatDate(category.updatedAt)),
-        ],
-      );
-    });
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(
-            '$label:',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.grey,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSubcategoriesSection(BuildContext context) {
-    return Obx(() {
-      if (!controller.hasSubcategories) {
-        return _buildEmptySubcategories(context);
-      }
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                'Subcategorías (${controller.subcategories.length})',
+              const SizedBox(height: 16),
+              const Text(
+                'Categoría no encontrada',
                 style: TextStyle(
-                  fontSize: Responsive.getFontSize(
-                    context,
-                    mobile: 16,
-                    tablet: 18,
-                  ),
-                  fontWeight: FontWeight.bold,
+                  color: ElegantLightTheme.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const Spacer(),
-              CustomButton(
-                text: 'Nueva',
-                icon: Icons.add,
-                onPressed: controller.goToCreateSubcategory,
+              const SizedBox(height: 8),
+              Text(
+                'La categoría que buscas no existe o ha sido eliminada',
+                style: TextStyle(
+                  color: ElegantLightTheme.textSecondary,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              FuturisticButton(
+                text: 'Volver a Categorías',
+                icon: Icons.arrow_back,
+                onPressed: () => Get.back(),
               ),
             ],
           ),
-
-          SizedBox(height: context.verticalSpacing),
-
-          ...controller.subcategories.map(
-            (subcategory) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: CategoryCardWidget(
-                category: subcategory,
-                onTap: () => controller.goToSubcategory(subcategory.id),
-              ),
-            ),
-          ),
-        ],
-      );
-    });
-  }
-
-  Widget _buildEmptySubcategories(BuildContext context) {
-    return Column(
-      children: [
-        Icon(Icons.category_outlined, size: 60, color: Colors.grey.shade400),
-        SizedBox(height: context.verticalSpacing),
-        Text(
-          'No hay subcategorías',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
-          ),
         ),
-        SizedBox(height: context.verticalSpacing / 2),
-        Text(
-          'Crea la primera subcategoría para esta categoría',
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-          textAlign: TextAlign.center,
-        ),
-        SizedBox(height: context.verticalSpacing * 2),
-        CustomButton(
-          text: 'Crear Subcategoría',
-          icon: Icons.add,
-          onPressed: controller.goToCreateSubcategory,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatsSection(BuildContext context) {
-    return Obx(() {
-      final category = controller.category!;
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Estadísticas',
-            style: TextStyle(
-              fontSize: Responsive.getFontSize(context, mobile: 16, tablet: 18),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          SizedBox(height: context.verticalSpacing),
-
-          _buildStatCard(
-            'Productos Totales',
-            (category.productsCount ?? 0).toString(),
-            Icons.inventory,
-            Colors.blue,
-          ),
-
-          SizedBox(height: context.verticalSpacing),
-
-          _buildStatCard(
-            'Subcategorías',
-            controller.subcategories.length.toString(),
-            Icons.category,
-            Colors.green,
-          ),
-
-          SizedBox(height: context.verticalSpacing),
-
-          _buildStatCard(
-            'Nivel de Profundidad',
-            category.level.toString(),
-            Icons.layers,
-            Colors.orange,
-          ),
-        ],
-      );
-    });
-  }
-
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: CustomButton(
-            text: 'Editar',
-            icon: Icons.edit,
-            type: ButtonType.outline,
-            onPressed: controller.goToEditCategory,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Obx(
-            () => CustomButton(
-              text:
-                  controller.isUpdatingStatus
-                      ? 'Cambiando...'
-                      : 'Cambiar Estado',
-              icon:
-                  controller.category?.isActive == true
-                      ? Icons.toggle_off
-                      : Icons.toggle_on,
-              onPressed:
-                  controller.isUpdatingStatus
-                      ? null
-                      : controller.showStatusDialog,
-              isLoading: controller.isUpdatingStatus,
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: CustomButton(
-            text: 'Nueva Subcategoría',
-            icon: Icons.add,
-            onPressed: controller.goToCreateSubcategory,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSidebarActions(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        CustomButton(
-          text: 'Editar Categoría',
-          icon: Icons.edit,
-          onPressed: controller.goToEditCategory,
-          width: double.infinity,
-        ),
-
-        const SizedBox(height: 12),
-
-        Obx(
-          () => CustomButton(
-            text:
-                controller.isUpdatingStatus ? 'Cambiando...' : 'Cambiar Estado',
-            icon:
-                controller.category?.isActive == true
-                    ? Icons.toggle_off
-                    : Icons.toggle_on,
-            type: ButtonType.outline,
-            onPressed:
-                controller.isUpdatingStatus
-                    ? null
-                    : controller.showStatusDialog,
-            isLoading: controller.isUpdatingStatus,
-            width: double.infinity,
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        CustomButton(
-          text: 'Nueva Subcategoría',
-          icon: Icons.add,
-          type: ButtonType.outline,
-          onPressed: controller.goToCreateSubcategory,
-          width: double.infinity,
-        ),
-
-        const SizedBox(height: 24),
-
-        const Divider(),
-
-        const SizedBox(height: 12),
-
-        CustomButton(
-          text: 'Actualizar',
-          icon: Icons.refresh,
-          type: ButtonType.outline,
-          onPressed: controller.refreshData,
-          width: double.infinity,
-        ),
-
-        const SizedBox(height: 12),
-
-        Obx(
-          () => CustomButton(
-            text: controller.isDeleting ? 'Eliminando...' : 'Eliminar',
-            icon: Icons.delete,
-            type: ButtonType.outline,
-            onPressed: controller.isDeleting ? null : controller.confirmDelete,
-            isLoading: controller.isDeleting,
-            width: double.infinity,
-            backgroundColor: Colors.red,
-          ),
-        ),
-
-        const Spacer(),
-
-        // Información de última actualización
-        Obx(() {
-          if (!controller.hasCategory) return const SizedBox.shrink();
-
-          return Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Última actualización',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatDate(controller.category!.updatedAt),
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildErrorState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 100, color: Colors.grey.shade400),
-          SizedBox(height: context.verticalSpacing),
-          Text(
-            'Categoría no encontrada',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: context.verticalSpacing / 2),
-          Text(
-            'La categoría que buscas no existe o ha sido eliminada',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: context.verticalSpacing * 2),
-          CustomButton(
-            text: 'Volver a Categorías',
-            icon: Icons.arrow_back,
-            onPressed: () => Get.back(),
-          ),
-        ],
       ),
     );
   }
 
   Widget? _buildFloatingActionButton(BuildContext context) {
-    if (context.isMobile) {
-      return FloatingActionButton(
-        onPressed: controller.goToCreateSubcategory,
-        child: const Icon(Icons.add),
-      );
-    }
+    // No floating action button - actions are available in tabs
     return null;
   }
 
@@ -831,5 +350,839 @@ class CategoryDetailScreen extends GetView<CategoryDetailController> {
 
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  // ==================== FUTURISTIC COMPONENTS ====================
+
+  Widget _buildFuturisticHeader() {
+    return FuturisticContainer(
+      hasGlow: true,
+      child: Obx(() {
+        final category = controller.category!;
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Imagen de categoría futurística
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: category.image != null 
+                        ? null 
+                        : ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: ElegantLightTheme.glowShadow,
+                    image: category.image != null
+                        ? DecorationImage(
+                            image: NetworkImage(category.image!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: category.image == null
+                      ? const Icon(
+                          Icons.category,
+                          color: Colors.white,
+                          size: 40,
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        category.name,
+                        style: const TextStyle(
+                          color: ElegantLightTheme.textPrimary,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: category.isActive
+                              ? ElegantLightTheme.successGradient
+                              : ElegantLightTheme.warningGradient,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (category.isActive
+                                  ? ElegantLightTheme.successGradient.colors.first
+                                  : ElegantLightTheme.warningGradient.colors.first)
+                                  .withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          category.status.name.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (category.description != null) ...[
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.glassGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.infoGradient,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.description,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        category.description!,
+                        style: const TextStyle(
+                          color: ElegantLightTheme.textSecondary,
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildFuturisticTabs() {
+    return Obx(() => FuturisticContainer(
+      child: Row(
+        children: [
+          _buildTabHeader('Detalles', 0, Icons.info),
+          _buildTabHeader('Subcategorías', 1, Icons.account_tree),
+          _buildTabHeader('Estadísticas', 2, Icons.analytics),
+          _buildTabHeader('Acciones', 3, Icons.settings),
+        ],
+      ),
+    ));
+  }
+
+  Widget _buildTabHeader(String title, int index, IconData icon) {
+    final isSelected = controller.selectedTab.value == index;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => controller.switchTab(index),
+        child: AnimatedContainer(
+          duration: ElegantLightTheme.normalAnimation,
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            gradient: isSelected ? ElegantLightTheme.primaryGradient : null,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected ? ElegantLightTheme.glowShadow : null,
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+                size: 20,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFuturisticTabContent() {
+    switch (controller.selectedTab.value) {
+      case 0:
+        return _buildDetailsTab();
+      case 1:
+        return _buildSubcategoriesTab();
+      case 2:
+        return _buildStatsTab();
+      case 3:
+        return _buildActionsTab();
+      default:
+        return _buildDetailsTab();
+    }
+  }
+
+  Widget _buildDetailsTab() {
+    return FuturisticContainer(
+      child: Obx(() {
+        final category = controller.category!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Información Detallada',
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildFuturisticDetailRow('Slug', category.slug, Icons.link),
+            _buildFuturisticDetailRow('Orden', category.sortOrder.toString(), Icons.sort),
+            _buildFuturisticDetailRow('Productos', (category.productsCount ?? 0).toString(), Icons.inventory),
+            _buildFuturisticDetailRow('Nivel', category.level.toString(), Icons.layers),
+            _buildFuturisticDetailRow('Creado', _formatDate(category.createdAt), Icons.calendar_today),
+            _buildFuturisticDetailRow('Actualizado', _formatDate(category.updatedAt), Icons.update),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildSubcategoriesTab() {
+    return Obx(() {
+      if (!controller.hasSubcategories) {
+        return _buildEmptySubcategoriesFuturistic();
+      }
+
+      return FuturisticContainer(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: 400, // Ensure minimum height to fill space
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Subcategorías',
+                    style: TextStyle(
+                      color: ElegantLightTheme.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  FuturisticButton(
+                    text: 'Nueva',
+                    icon: Icons.add,
+                    onPressed: controller.goToCreateSubcategory,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Fix layout issue with proper ListView
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: controller.subcategories.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final subcategory = controller.subcategories[index];
+                  return _buildFuturisticSubcategoryCard(subcategory);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildStatsTab() {
+    return FuturisticContainer(
+      child: Obx(() {
+        final category = controller.category!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Estadísticas Avanzadas',
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = constraints.maxWidth;
+                int crossAxisCount = screenWidth >= 800 ? 2 : 1;
+                
+                return GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: crossAxisCount,
+                  childAspectRatio: screenWidth >= 800 ? 3.5 : 4.0, // Reduced height for better proportions
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  children: [
+                    _buildFuturisticStatCard(
+                      'Productos Totales',
+                      (category.productsCount ?? 0).toString(),
+                      Icons.inventory,
+                      ElegantLightTheme.infoGradient,
+                    ),
+                    _buildFuturisticStatCard(
+                      'Subcategorías',
+                      controller.subcategories.length.toString(),
+                      Icons.account_tree,
+                      ElegantLightTheme.successGradient,
+                    ),
+                    _buildFuturisticStatCard(
+                      'Nivel de Profundidad',
+                      category.level.toString(),
+                      Icons.layers,
+                      ElegantLightTheme.warningGradient,
+                    ),
+                    _buildFuturisticStatCard(
+                      'Orden de Clasificación',
+                      category.sortOrder.toString(),
+                      Icons.sort,
+                      ElegantLightTheme.errorGradient,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildActionsTab() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+        
+        return FuturisticContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Acciones Disponibles',
+                style: TextStyle(
+                  color: ElegantLightTheme.textPrimary,
+                  fontSize: isMobile ? 18 : 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: isMobile ? 16 : 20),
+              _buildFuturisticActionCard(
+                'Editar Categoría',
+                'Modificar nombre, descripción y configuración',
+                Icons.edit,
+                ElegantLightTheme.infoGradient,
+                controller.goToEditCategory,
+              ),
+              SizedBox(height: isMobile ? 12 : 16),
+              Obx(() => _buildFuturisticActionCard(
+                controller.category?.isActive == true ? 'Desactivar' : 'Activar',
+                'Cambiar el estado de disponibilidad de la categoría',
+                controller.category?.isActive == true ? Icons.toggle_off : Icons.toggle_on,
+                controller.category?.isActive == true 
+                    ? ElegantLightTheme.warningGradient 
+                    : ElegantLightTheme.successGradient,
+                controller.showStatusDialog,
+              )),
+              SizedBox(height: isMobile ? 12 : 16),
+              _buildFuturisticActionCard(
+                'Nueva Subcategoría',
+                'Crear una nueva categoría hija',
+                Icons.add,
+                ElegantLightTheme.primaryGradient,
+                controller.goToCreateSubcategory,
+              ),
+              SizedBox(height: isMobile ? 12 : 16),
+              _buildFuturisticActionCard(
+                'Actualizar Datos',
+                'Refrescar la información desde el servidor',
+                Icons.refresh,
+                ElegantLightTheme.glassGradient,
+                controller.refreshData,
+                isOutline: true,
+              ),
+              SizedBox(height: isMobile ? 16 : 24),
+              _buildFuturisticActionCard(
+                'Eliminar Categoría',
+                'Eliminar permanentemente esta categoría',
+                Icons.delete,
+                ElegantLightTheme.errorGradient,
+                controller.confirmDelete,
+                isDangerous: true,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper Widgets
+  Widget _buildFuturisticDetailRow(String label, String value, IconData icon) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        
+        // Determine device type
+        bool isMobile = screenWidth < 600;
+        bool isTablet = screenWidth >= 600 && screenWidth < 1024;
+        
+        // Define sizes based on device type
+        double margin = isMobile ? 6 : isTablet ? 8 : 12;
+        double padding = isMobile ? 8 : isTablet ? 10 : 12;
+        double borderRadius = isMobile ? 8 : isTablet ? 10 : 12;
+        double iconPadding = isMobile ? 3 : isTablet ? 4 : 6;
+        double iconBorderRadius = isMobile ? 3 : isTablet ? 4 : 6;
+        double iconSize = isMobile ? 12 : isTablet ? 14 : 16;
+        double spacing = isMobile ? 6 : isTablet ? 8 : 12;
+        double labelWidth = isMobile ? 70 : isTablet ? 85 : 100;
+        double labelSize = isMobile ? 9 : isTablet ? 10 : 12;
+        double valueSize = isMobile ? 11 : isTablet ? 12 : 14;
+        
+        return Container(
+          margin: EdgeInsets.only(bottom: margin),
+          padding: EdgeInsets.all(padding),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(
+              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(iconPadding),
+                decoration: BoxDecoration(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(iconBorderRadius),
+                ),
+                child: Icon(
+                  icon,
+                  color: ElegantLightTheme.primaryBlue,
+                  size: iconSize,
+                ),
+              ),
+              SizedBox(width: spacing),
+              SizedBox(
+                width: labelWidth,
+                child: Text(
+                  '$label:',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: labelSize,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: valueSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFuturisticStatCard(
+    String title,
+    String value,
+    IconData icon,
+    LinearGradient gradient,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        
+        // Determine device type
+        bool isMobile = screenWidth < 600;
+        bool isTablet = screenWidth >= 600 && screenWidth < 1024;
+        
+        // Define sizes based on device type
+        double padding = isMobile ? 10 : isTablet ? 14 : 16;
+        double borderRadius = isMobile ? 10 : isTablet ? 12 : 16;
+        double iconPadding = isMobile ? 6 : isTablet ? 8 : 12;
+        double iconBorderRadius = isMobile ? 6 : isTablet ? 8 : 12;
+        double iconSize = isMobile ? 16 : isTablet ? 20 : 24;
+        double spacing = isMobile ? 10 : isTablet ? 12 : 16;
+        double titleSize = isMobile ? 9 : isTablet ? 10 : 12;
+        double valueSize = isMobile ? 14 : isTablet ? 17 : 20;
+        double spacingText = isMobile ? 1 : isTablet ? 2 : 4;
+        double blurRadius = isMobile ? 3 : isTablet ? 6 : 8;
+        
+        return Container(
+          padding: EdgeInsets.all(padding),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(
+              color: gradient.colors.first.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(iconPadding),
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                  borderRadius: BorderRadius.circular(iconBorderRadius),
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradient.colors.first.withValues(alpha: 0.3),
+                      blurRadius: blurRadius,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: Colors.white, size: iconSize),
+              ),
+              SizedBox(width: spacing),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: ElegantLightTheme.textSecondary,
+                        fontSize: titleSize,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: isMobile ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: spacingText),
+                    Text(
+                      value,
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: valueSize,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFuturisticActionCard(
+    String title,
+    String description,
+    IconData icon,
+    LinearGradient gradient,
+    VoidCallback onPressed, {
+    bool isOutline = false,
+    bool isDangerous = false,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        
+        // Determine device type
+        bool isMobile = screenWidth < 600;
+        bool isTablet = screenWidth >= 600 && screenWidth < 1024;
+        
+        // Define sizes based on device type
+        double borderRadius = isMobile ? 10 : isTablet ? 12 : 16;
+        double padding = isMobile ? 10 : isTablet ? 12 : 16;
+        double iconPadding = isMobile ? 6 : isTablet ? 8 : 12;
+        double iconBorderRadius = isMobile ? 6 : isTablet ? 8 : 12;
+        double iconSize = isMobile ? 14 : isTablet ? 16 : 20;
+        double spacing = isMobile ? 10 : isTablet ? 12 : 16;
+        double titleSize = isMobile ? 12 : isTablet ? 14 : 16;
+        double descriptionSize = isMobile ? 10 : isTablet ? 11 : 12;
+        double arrowSize = isMobile ? 12 : isTablet ? 14 : 16;
+        double spacingText = isMobile ? 1 : isTablet ? 2 : 4;
+        double blurRadius = isMobile ? 3 : isTablet ? 6 : 8;
+        
+        return Container(
+          decoration: BoxDecoration(
+            gradient: isOutline ? null : ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(
+              color: gradient.colors.first.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(borderRadius),
+              onTap: onPressed,
+              child: Padding(
+                padding: EdgeInsets.all(padding),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(iconPadding),
+                      decoration: BoxDecoration(
+                        gradient: gradient,
+                        borderRadius: BorderRadius.circular(iconBorderRadius),
+                        boxShadow: [
+                          BoxShadow(
+                            color: gradient.colors.first.withValues(alpha: 0.3),
+                            blurRadius: blurRadius,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(icon, color: Colors.white, size: iconSize),
+                    ),
+                    SizedBox(width: spacing),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              color: isDangerous ? Colors.red : ElegantLightTheme.textPrimary,
+                              fontSize: titleSize,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: spacingText),
+                          Text(
+                            description,
+                            style: TextStyle(
+                              color: ElegantLightTheme.textSecondary,
+                              fontSize: descriptionSize,
+                            ),
+                            maxLines: isMobile ? 1 : isTablet ? 1 : 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: ElegantLightTheme.textSecondary,
+                      size: arrowSize,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptySubcategoriesFuturistic() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        
+        // Determine device type
+        bool isMobile = screenWidth < 600;
+        bool isTablet = screenWidth >= 600 && screenWidth < 1024;
+        
+        // Define sizes based on device type
+        double iconSize = isMobile ? 24 : isTablet ? 32 : 40;
+        double iconPadding = isMobile ? 12 : isTablet ? 16 : 20;
+        double borderRadius = isMobile ? 10 : isTablet ? 12 : 16;
+        double titleSize = isMobile ? 14 : isTablet ? 16 : 18;
+        double subtitleSize = isMobile ? 11 : isTablet ? 12 : 14;
+        double spacing1 = isMobile ? 10 : isTablet ? 12 : 16;
+        double spacing2 = isMobile ? 6 : isTablet ? 6 : 8;
+        double spacing3 = isMobile ? 12 : isTablet ? 16 : 20;
+        double minHeight = isMobile ? 200 : isTablet ? 300 : 400;
+        
+        return FuturisticContainer(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: minHeight,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(iconPadding),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.warningGradient,
+                    borderRadius: BorderRadius.circular(borderRadius),
+                  ),
+                  child: Icon(
+                    Icons.category_outlined,
+                    color: Colors.white,
+                    size: iconSize,
+                  ),
+                ),
+                SizedBox(height: spacing1),
+                Text(
+                  'No hay subcategorías',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: titleSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: spacing2),
+                Text(
+                  isMobile 
+                    ? 'Crea la primera subcategoría'
+                    : 'Crea la primera subcategoría para esta categoría',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: subtitleSize,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: spacing3),
+                FuturisticButton(
+                  text: isMobile ? 'Crear' : 'Crear Subcategoría',
+                  icon: Icons.add,
+                  onPressed: controller.goToCreateSubcategory,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFuturisticSubcategoryCard(category) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => controller.goToSubcategory(category.id),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.folder,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      category.name,
+                      style: const TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (category.description != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        category.description!,
+                        style: TextStyle(
+                          color: ElegantLightTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: category.isActive
+                      ? ElegantLightTheme.successGradient
+                      : ElegantLightTheme.warningGradient,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${category.productsCount ?? 0}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

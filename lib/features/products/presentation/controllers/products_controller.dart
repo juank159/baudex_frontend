@@ -76,6 +76,9 @@ class ProductsController extends GetxController {
   final _inStock = Rxn<bool>();
   final _lowStock = Rxn<bool>();
 
+  // ✅ Contador para forzar reconstrucción del campo de búsqueda solo cuando se limpia
+  final _searchFieldRebuildKey = 0.obs;
+
   // UI Controllers - usando SafeTextEditingController
   final searchController = SafeTextEditingController();
   final scrollController = ScrollController();
@@ -125,6 +128,9 @@ class ProductsController extends GetxController {
   double get loadingProgress => totalPages > 0 ? currentPage / totalPages : 0.0;
   bool get canLoadMore => hasNextPage && !_isLoadingMore.value && !_isLoading.value;
 
+  // ✅ Getter para el contador de reconstrucción del campo de búsqueda
+  int get searchFieldRebuildKey => _searchFieldRebuildKey.value;
+
   // ==================== LIFECYCLE ====================
 
   // @override
@@ -139,14 +145,41 @@ class ProductsController extends GetxController {
   void onInit() {
     super.onInit();
     _setupScrollListener();
-    // ✅ CARGAR productos automáticamente al inicializar
-    loadInitialData();
+    // ❌ NO cargar datos automáticamente - esperar a que esté autenticado
+    // loadInitialData(); // Se llamará cuando sea necesario
   }
 
   @override
   void onReady() {
     super.onReady();
     print('🔄 ProductsController: onReady - Controller listo');
+    // ✅ Cargar datos cuando el controller esté completamente listo
+    ensureDataLoaded();
+  }
+
+  /// Método para limpiar búsqueda cuando regresas a la pantalla
+  void clearSearchOnReturn() {
+    if (searchController.text.isNotEmpty) {
+      print('🧹 Limpiando campo de búsqueda anterior: "${searchController.text}"');
+      searchController.clear();
+      _searchTerm.value = '';
+      _searchResults.clear();
+
+      // Si estábamos mostrando resultados de búsqueda, volver a cargar todos los productos
+      print('🔄 Recargando lista completa de productos...');
+      loadProducts();
+    }
+  }
+
+  /// Asegurar que los datos estén cargados (llamar solo cuando esté autenticado)
+  Future<void> ensureDataLoaded() async {
+    // Solo cargar si no hay datos y no está cargando
+    if (_products.isEmpty && !_isLoading.value && !isLoading) {
+      print('🔄 ProductsController: Cargando datos por primera vez...');
+      await loadInitialData();
+    } else {
+      print('🔄 ProductsController: Datos ya cargados o cargando...');
+    }
   }
 
   @override
@@ -904,7 +937,7 @@ class ProductsController extends GetxController {
   /// Limpiar todos los filtros y refrescar lista completamente
   Future<void> clearFiltersAndRefresh() async {
     print('🔄 ProductsController: Limpiando filtros y refrescando lista...');
-    
+
     // Limpiar todos los filtros
     _currentStatus.value = null;
     _currentType.value = null;
@@ -918,33 +951,41 @@ class ProductsController extends GetxController {
     searchController.clear();
     _searchResults.clear();
     _currentPage.value = 1;
-    
+
     // Refrescar datos completamente
     await refreshProducts();
-    
+
     print('✅ ProductsController: Filtros limpiados y lista refrescada');
   }
 
   /// Búsqueda con debounce profesional
   void debouncedSearch(String query) {
+    print('🔍 debouncedSearch LLAMADO con: "$query"');
+
     // Cancelar timer anterior si existe
     _searchDebounceTimer?.cancel();
-    
+
     // Actualizar el campo de búsqueda inmediatamente para UI responsiva
     _searchTerm.value = query;
-    
+    print('   ✅ _searchTerm actualizado a: "$query"');
+
     // Si está vacío, limpiar inmediatamente
     if (query.trim().isEmpty) {
+      print('   🧹 Query vacío, limpiando resultados');
       _searchResults.clear();
       loadProducts();
       return;
     }
-    
+
     // Para queries válidas, crear timer con delay
     if (query.trim().length >= 2) {
+      print('   ⏱️ Creando timer de 500ms para buscar: "$query"');
       _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+        print('   🚀 Timer expiró, ejecutando searchProducts("$query")');
         searchProducts(query);
       });
+    } else {
+      print('   ⚠️ Query demasiado corto (${query.trim().length} chars), mínimo 2');
     }
   }
 
@@ -953,6 +994,8 @@ class ProductsController extends GetxController {
     _searchTerm.value = value;
     if (value.trim().isEmpty) {
       _searchResults.clear();
+      // ✅ Notificar al widget de búsqueda que debe reconstruirse
+      update(['search_field']);
       loadProducts();
     } else if (value.trim().length >= 2) {
       searchProducts(value);

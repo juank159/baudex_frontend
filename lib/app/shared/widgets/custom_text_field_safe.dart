@@ -81,38 +81,76 @@ class _CustomTextFieldSafeState extends State<CustomTextFieldSafe> {
   @override
   void didUpdateWidget(CustomTextFieldSafe oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Si el controller externo cambió, reinicializar
     if (oldWidget.controller != widget.controller) {
       _log('🔄 Controller externo cambió, reinicializando...');
       _initializeSafeController();
+      return;
+    }
+
+    // Si estamos usando el controller externo directamente, no hay nada que sincronizar
+    if (_safeController == widget.controller) {
+      _log('✅ Usando controller externo directamente, sin sincronización necesaria');
+      return;
+    }
+
+    // ✅ SINCRONIZACIÓN: Si el controller externo tiene un valor diferente, sincronizar
+    if (widget.controller != null && widget.controller!.isSafe) {
+      try {
+        // Verificar que el controller interno también sea seguro antes de acceder
+        if (_safeController.canSafelyAccess()) {
+          final externalText = widget.controller!.text;
+          final internalText = _safeController.text;
+
+          if (externalText != internalText) {
+            _log('🔄 Sincronizando texto del controller externo: "$externalText"');
+            _safeController.text = externalText;
+          }
+        } else {
+          _log('⚠️ Controller interno no está listo para sincronizar, reinicializando...');
+          _initializeSafeController();
+        }
+      } catch (e) {
+        _log('⚠️ Error sincronizando en didUpdateWidget: $e');
+      }
     }
   }
 
   @override
   void dispose() {
     _log('🔚 Disposing CustomTextFieldSafe...');
-    
+
     try {
-      _safeController.dispose();
-      _log('✅ SafeController disposed exitosamente');
+      // Solo disponer si NO estamos usando el controller externo directamente
+      if (widget.controller == null || _safeController != widget.controller) {
+        _log('🗑️ Disposing controller interno...');
+        _safeController.dispose();
+        _log('✅ SafeController disposed exitosamente');
+      } else {
+        _log('⚠️ Usando controller externo, NO disposing');
+      }
     } catch (e) {
       _log('⚠️ Error al dispose SafeController: $e');
     }
-    
+
     super.dispose();
   }
 
   /// ✅ INICIALIZACIÓN ULTRA-SEGURA del controller
   void _initializeSafeController() {
     try {
-      // Si hay un controller externo, intentar usarlo
+      // Si hay un controller externo, USARLO DIRECTAMENTE sin crear uno nuevo
       if (widget.controller != null) {
-        _log('🔧 Intentando usar controller externo...');
-        
-        // Verificar si el controller externo es seguro
-        if (widget.controller!.isSafe) {
-          _log('✅ Controller externo es seguro, creando SafeController desde él');
+        _log('🔧 Controller externo detectado');
+
+        // Verificar si el controller externo es un SafeTextEditingController
+        if (widget.controller is SafeTextEditingController) {
+          _log('✅ Controller externo es SafeTextEditingController, usando directamente');
+          _safeController = widget.controller as SafeTextEditingController;
+        } else if (widget.controller!.isSafe) {
+          // Si es un TextEditingController normal pero seguro, crear uno nuevo
+          _log('⚠️ Controller externo NO es SafeTextEditingController, creando wrapper');
           _safeController = SafeTextEditingController.fromExisting(
             widget.controller!,
             debugLabel: _controllerDebugLabel,
@@ -122,7 +160,7 @@ class _CustomTextFieldSafeState extends State<CustomTextFieldSafe> {
           _safeController = SafeTextEditingController(
             debugLabel: _controllerDebugLabel,
           );
-          
+
           // Intentar copiar el texto del controller externo si es posible
           _tryToCopyFromExternalController();
         }
@@ -162,7 +200,13 @@ class _CustomTextFieldSafeState extends State<CustomTextFieldSafe> {
   /// ✅ SINCRONIZACIÓN BIDIRECCIONAL con controller externo
   void _syncWithExternalController(String newValue) {
     if (widget.controller == null) return;
-    
+
+    // Si estamos usando el controller externo directamente, no hay nada que sincronizar
+    if (_safeController == widget.controller) {
+      _log('⚠️ Usando controller externo directamente, skip sync');
+      return;
+    }
+
     try {
       if (widget.controller!.isSafe && widget.controller!.text != newValue) {
         widget.controller!.text = newValue;
@@ -327,9 +371,18 @@ class _CustomTextFieldSafeState extends State<CustomTextFieldSafe> {
   /// ✅ MANEJO SEGURO de cambios de texto
   void _handleTextChanged(String value) {
     try {
+      _log('📝 _handleTextChanged llamado con: "$value"');
+      _log('   onChanged callback disponible: ${widget.onChanged != null}');
+
       // Notificar al callback externo
-      widget.onChanged?.call(value);
-      
+      if (widget.onChanged != null) {
+        _log('   ✅ Llamando callback onChanged...');
+        widget.onChanged?.call(value);
+        _log('   ✅ Callback onChanged ejecutado');
+      } else {
+        _log('   ❌ NO hay callback onChanged configurado!');
+      }
+
       // Sincronizar con controller externo si existe
       _syncWithExternalController(value);
     } catch (e) {

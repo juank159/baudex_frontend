@@ -149,9 +149,11 @@ import 'package:baudex_desktop/features/auth/data/models/user_model.dart';
 
 import '../../domain/entities/invoice.dart';
 import '../../domain/entities/invoice_item.dart';
+import '../../domain/entities/invoice_payment.dart';
 import '../../../customers/data/models/customer_model.dart';
 
 import 'invoice_item_model.dart';
+import 'invoice_payment_model.dart';
 
 class InvoiceModel extends Invoice {
   const InvoiceModel({
@@ -177,6 +179,7 @@ class InvoiceModel extends Invoice {
     required super.createdById,
     super.createdBy,
     required super.items,
+    required super.payments,
     required super.createdAt,
     required super.updatedAt,
     super.deletedAt,
@@ -281,6 +284,9 @@ class InvoiceModel extends Invoice {
         // ✅ ITEMS CON MANEJO DE ERRORES
         items: _parseItems(json['items']),
 
+        // ✅ PAYMENTS CON MANEJO DE ERRORES
+        payments: _parsePayments(json['payments']),
+
         // Timestamps
         createdAt: _parseDateTime(json['createdAt']),
         updatedAt: _parseDateTime(json['updatedAt']),
@@ -326,6 +332,36 @@ class InvoiceModel extends Invoice {
     return items;
   }
 
+  /// ✅ MÉTODO HELPER PARA PARSEAR PAYMENTS DE FORMA SEGURA
+  static List<InvoicePayment> _parsePayments(dynamic paymentsData) {
+    if (paymentsData == null) return [];
+
+    if (paymentsData is! List) {
+      print('⚠️ Payments no es una lista: ${paymentsData.runtimeType}');
+      return [];
+    }
+
+    final payments = <InvoicePayment>[];
+
+    for (int i = 0; i < paymentsData.length; i++) {
+      try {
+        final paymentJson = paymentsData[i];
+        if (paymentJson is Map<String, dynamic>) {
+          final paymentModel = InvoicePaymentModel.fromJson(paymentJson);
+          payments.add(paymentModel.toEntity());
+        } else {
+          print('⚠️ Payment $i no es un Map válido');
+        }
+      } catch (e) {
+        print('❌ Error parseando payment $i: $e');
+        // Continuar con los demás payments
+      }
+    }
+
+    print('✅ Payments parseados: ${payments.length} de ${paymentsData.length}');
+    return payments;
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -351,6 +387,8 @@ class InvoiceModel extends Invoice {
       if (createdBy != null) 'createdBy': (createdBy as UserModel).toJson(),
       'items':
           items.map((item) => (item as InvoiceItemModel).toJson()).toList(),
+      'payments':
+          payments.map((payment) => InvoicePaymentModel.fromEntity(payment).toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
@@ -381,6 +419,7 @@ class InvoiceModel extends Invoice {
       createdById: invoice.createdById,
       createdBy: invoice.createdBy,
       items: invoice.items,
+      payments: invoice.payments,
       createdAt: invoice.createdAt,
       updatedAt: invoice.updatedAt,
       deletedAt: invoice.deletedAt,
@@ -412,6 +451,7 @@ class InvoiceModel extends Invoice {
       createdById: createdById,
       createdBy: createdBy,
       items: items,
+      payments: payments,
       createdAt: createdAt,
       updatedAt: updatedAt,
       deletedAt: deletedAt,

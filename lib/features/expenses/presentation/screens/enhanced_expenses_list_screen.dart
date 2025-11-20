@@ -48,7 +48,10 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
                 if (stats == null) return const SizedBox.shrink();
                 return Text(
                   '${stats.totalExpenses} registros • ${stats.formattedTotalAmount}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.normal,
+                  ),
                 );
               }),
             ],
@@ -58,18 +61,23 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
       elevation: 0,
       actions: [
         // Indicador de período actual
-        Obx(() => Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Chip(
-            label: Text(
-              _getCurrentPeriodText(),
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        Obx(
+          () => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Chip(
+              label: Text(
+                _getCurrentPeriodText(),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+              side: BorderSide(color: Theme.of(context).primaryColor),
             ),
-            backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-            side: BorderSide(color: Theme.of(context).primaryColor),
           ),
-        )),
-        
+        ),
+
         // Refrescar
         IconButton(
           icon: const Icon(Icons.refresh),
@@ -80,38 +88,39 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
         // Menú de opciones
         PopupMenuButton<String>(
           onSelected: (value) => _handleMenuAction(value, context),
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'filters',
-              child: Row(
-                children: [
-                  Icon(Icons.filter_list),
-                  SizedBox(width: 8),
-                  Text('Filtros'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'export',
-              child: Row(
-                children: [
-                  Icon(Icons.download),
-                  SizedBox(width: 8),
-                  Text('Exportar'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'analytics',
-              child: Row(
-                children: [
-                  Icon(Icons.analytics),
-                  SizedBox(width: 8),
-                  Text('Análisis'),
-                ],
-              ),
-            ),
-          ],
+          itemBuilder:
+              (context) => [
+                const PopupMenuItem(
+                  value: 'filters',
+                  child: Row(
+                    children: [
+                      Icon(Icons.filter_list),
+                      SizedBox(width: 8),
+                      Text('Filtros'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'export',
+                  child: Row(
+                    children: [
+                      Icon(Icons.download),
+                      SizedBox(width: 8),
+                      Text('Exportar'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'analytics',
+                  child: Row(
+                    children: [
+                      Icon(Icons.analytics),
+                      SizedBox(width: 8),
+                      Text('Análisis'),
+                    ],
+                  ),
+                ),
+              ],
         ),
       ],
     );
@@ -134,14 +143,12 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
             return EnhancedExpenseStatsWidget(stats: stats, compact: true);
           }),
         ),
-        
+
         // Filtros rápidos para móvil
         _buildMobileQuickFilters(context),
-        
+
         // Lista de gastos
-        Expanded(
-          child: _buildExpensesList(context),
-        ),
+        Expanded(child: _buildExpensesList(context)),
       ],
     );
   }
@@ -180,9 +187,9 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
                   }),
                 ),
               ),
-              
+
               const Divider(),
-              
+
               // Filtros y búsqueda
               Expanded(
                 flex: 2,
@@ -200,11 +207,9 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
             ],
           ),
         ),
-        
+
         // Lista principal
-        Expanded(
-          child: _buildExpensesList(context),
-        ),
+        Expanded(child: _buildExpensesList(context)),
       ],
     );
   }
@@ -256,7 +261,7 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
                   ],
                 ),
               ),
-              
+
               // Estadísticas
               Expanded(
                 child: SingleChildScrollView(
@@ -276,18 +281,16 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
             ],
           ),
         ),
-        
+
         // Contenido principal
         Expanded(
           child: Column(
             children: [
               // Barra de herramientas
               _buildDesktopToolbar(context),
-              
+
               // Lista de gastos
-              Expanded(
-                child: _buildExpensesList(context),
-              ),
+              Expanded(child: _buildExpensesList(context)),
             ],
           ),
         ),
@@ -324,9 +327,9 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
               ),
             ),
           ),
-          
+
           const SizedBox(width: 12),
-          
+
           // Filtro por período
           Expanded(
             flex: 2,
@@ -351,26 +354,35 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
                       ),
                       const SizedBox(width: 4),
                       Expanded(
-                        child: Obx(() => Text(
-                          controller.currentPeriod,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).primaryColor,
+                        child: Obx(
+                          () => Text(
+                            controller.currentPeriod,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                        )),
+                        ),
                       ),
                     ],
                   ),
                 ),
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'today', child: Text('Hoy')),
-                  const PopupMenuItem(value: 'week', child: Text('Esta Semana')),
-                  const PopupMenuItem(value: 'month', child: Text('Este Mes')),
-                  const PopupMenuItem(value: 'all', child: Text('Todos')),
-                ],
+                itemBuilder:
+                    (context) => [
+                      const PopupMenuItem(value: 'today', child: Text('Hoy')),
+                      const PopupMenuItem(
+                        value: 'week',
+                        child: Text('Esta Semana'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'month',
+                        child: Text('Este Mes'),
+                      ),
+                      const PopupMenuItem(value: 'all', child: Text('Todos')),
+                    ],
               ),
             ),
           ),
@@ -385,65 +397,61 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
         ),
       ),
       child: Row(
         children: [
           // Búsqueda avanzada
-          Expanded(
-            flex: 2,
-            child: _buildSearchBar(context),
-          ),
-          
+          Expanded(flex: 2, child: _buildSearchBar(context)),
+
           const SizedBox(width: 16),
-          
+
           // Filtros rápidos
-          Expanded(
-            flex: 3,
-            child: _buildQuickFilters(context),
-          ),
-          
+          Expanded(flex: 3, child: _buildQuickFilters(context)),
+
           const SizedBox(width: 16),
-          
+
           // Contador de resultados
-          Obx(() => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${controller.totalItems} gastos',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).primaryColor,
+          Obx(
+            () => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${controller.totalItems} gastos',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).primaryColor,
+                ),
               ),
             ),
-          )),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildSearchBar(BuildContext context) {
-    return Obx(() => CustomTextField(
-      controller: controller.searchController,
-      label: 'Buscar gastos',
-      hint: 'Descripción, categoría, monto...',
-      prefixIcon: Icons.search,
-      onChanged: controller.updateSearch,
-      suffixIcon: controller.searchTerm.isNotEmpty ? Icons.clear : null,
-      onSuffixIconPressed: controller.searchTerm.isNotEmpty 
-        ? () {
-            controller.searchController.clear();
-            controller.updateSearch('');
-          }
-        : null,
-    ));
+    return Obx(
+      () => CustomTextField(
+        controller: controller.searchController,
+        label: 'Buscar gastos',
+        hint: 'Descripción, categoría, monto...',
+        prefixIcon: Icons.search,
+        onChanged: controller.updateSearch,
+        suffixIcon: controller.searchTerm.isNotEmpty ? Icons.clear : null,
+        onSuffixIconPressed:
+            controller.searchTerm.isNotEmpty
+                ? () {
+                  controller.searchController.clear();
+                  controller.updateSearch('');
+                }
+                : null,
+      ),
+    );
   }
 
   Widget _buildQuickFilters(BuildContext context) {
@@ -452,34 +460,40 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
       runSpacing: 8,
       children: [
         // Filtro por período
-        Obx(() => _buildFilterChip(
-          'Período: ${controller.currentPeriod}',
-          true,
-          () => _showPeriodSelector(context),
-          color: Theme.of(context).primaryColor,
-        )),
-        
+        Obx(
+          () => _buildFilterChip(
+            'Período: ${controller.currentPeriod}',
+            true,
+            () => _showPeriodSelector(context),
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
+
         // Filtro por estado
-        Obx(() => _buildFilterChip(
-          'Estado: ${controller.currentStatus?.displayName ?? "Todos"}',
-          controller.currentStatus != null,
-          () => _showStatusSelector(context),
-          color: Colors.blue,
-        )),
-        
+        Obx(
+          () => _buildFilterChip(
+            'Estado: ${controller.currentStatus?.displayName ?? "Todos"}',
+            controller.currentStatus != null,
+            () => _showStatusSelector(context),
+            color: Colors.blue,
+          ),
+        ),
+
         // Filtro por tipo
-        Obx(() => _buildFilterChip(
-          'Tipo: ${controller.currentType?.displayName ?? "Todos"}',
-          controller.currentType != null,
-          () => _showTypeSelector(context),
-          color: Colors.green,
-        )),
-        
+        Obx(
+          () => _buildFilterChip(
+            'Tipo: ${controller.currentType?.displayName ?? "Todos"}',
+            controller.currentType != null,
+            () => _showTypeSelector(context),
+            color: Colors.green,
+          ),
+        ),
+
         // Limpiar filtros
         Obx(() {
           final hasFilters = controller.hasActiveFilters;
           if (!hasFilters) return const SizedBox.shrink();
-          
+
           return _buildFilterChip(
             'Limpiar',
             false,
@@ -505,14 +519,18 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive 
-            ? (color ?? Theme.of(Get.context!).primaryColor).withOpacity(0.1)
-            : Colors.grey[100],
+          color:
+              isActive
+                  ? (color ?? Theme.of(Get.context!).primaryColor).withOpacity(
+                    0.1,
+                  )
+                  : Colors.grey[100],
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isActive 
-              ? (color ?? Theme.of(Get.context!).primaryColor)
-              : Colors.grey[300]!,
+            color:
+                isActive
+                    ? (color ?? Theme.of(Get.context!).primaryColor)
+                    : Colors.grey[300]!,
           ),
         ),
         child: Row(
@@ -522,9 +540,10 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
               Icon(
                 icon,
                 size: 16,
-                color: isActive 
-                  ? (color ?? Theme.of(Get.context!).primaryColor)
-                  : Colors.grey[600],
+                color:
+                    isActive
+                        ? (color ?? Theme.of(Get.context!).primaryColor)
+                        : Colors.grey[600],
               ),
               const SizedBox(width: 4),
             ],
@@ -533,9 +552,10 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isActive 
-                  ? (color ?? Theme.of(Get.context!).primaryColor)
-                  : Colors.grey[600],
+                color:
+                    isActive
+                        ? (color ?? Theme.of(Get.context!).primaryColor)
+                        : Colors.grey[600],
               ),
             ),
           ],
@@ -559,7 +579,8 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
         child: ListView.builder(
           controller: controller.scrollController,
           padding: const EdgeInsets.all(16),
-          itemCount: controller.expenses.length + (controller.isLoadingMore ? 1 : 0),
+          itemCount:
+              controller.expenses.length + (controller.isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
             if (index >= controller.expenses.length) {
               return const Center(
@@ -577,12 +598,14 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
               onTap: () => controller.showExpenseDetails(expense.id),
               onEdit: () => controller.goToEditExpense(expense.id),
               onDelete: () => controller.confirmDelete(expense),
-              onApprove: expense.canBeApproved
-                  ? () => controller.confirmApprove(expense)
-                  : null,
-              onSubmit: expense.canBeSubmitted
-                  ? () => controller.submitExpense(expense.id)
-                  : null,
+              onApprove:
+                  expense.canBeApproved
+                      ? () => controller.confirmApprove(expense)
+                      : null,
+              onSubmit:
+                  expense.canBeSubmitted
+                      ? () => controller.submitExpense(expense.id)
+                      : null,
             );
           },
         ),
@@ -610,16 +633,16 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
           const SizedBox(height: 24),
           Text(
             'No hay gastos registrados',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
             'Comienza registrando tu primer gasto para llevar el control de tus finanzas',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[600],
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
@@ -678,93 +701,100 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
   void _showPeriodSelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.today),
-            title: const Text('Hoy'),
-            onTap: () {
-              controller.setPeriodFilter('today');
-              Get.back();
-            },
+      builder:
+          (context) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.today),
+                title: const Text('Hoy'),
+                onTap: () {
+                  controller.setPeriodFilter('today');
+                  Get.back();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.date_range),
+                title: const Text('Esta Semana'),
+                onTap: () {
+                  controller.setPeriodFilter('week');
+                  Get.back();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.calendar_month),
+                title: const Text('Este Mes'),
+                onTap: () {
+                  controller.setPeriodFilter('month');
+                  Get.back();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.all_inclusive),
+                title: const Text('Todos los Períodos'),
+                onTap: () {
+                  controller.setPeriodFilter('all');
+                  Get.back();
+                },
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.date_range),
-            title: const Text('Esta Semana'),
-            onTap: () {
-              controller.setPeriodFilter('week');
-              Get.back();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.calendar_month),
-            title: const Text('Este Mes'),
-            onTap: () {
-              controller.setPeriodFilter('month');
-              Get.back();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.all_inclusive),
-            title: const Text('Todos los Períodos'),
-            onTap: () {
-              controller.setPeriodFilter('all');
-              Get.back();
-            },
-          ),
-        ],
-      ),
     );
   }
 
   void _showStatusSelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            title: const Text('Todos los Estados'),
-            onTap: () {
-              controller.applyStatusFilter(null);
-              Get.back();
-            },
+      builder:
+          (context) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('Todos los Estados'),
+                onTap: () {
+                  controller.applyStatusFilter(null);
+                  Get.back();
+                },
+              ),
+              ...ExpenseStatus.values.map(
+                (status) => ListTile(
+                  title: Text(status.displayName),
+                  onTap: () {
+                    controller.applyStatusFilter(status);
+                    Get.back();
+                  },
+                ),
+              ),
+            ],
           ),
-          ...ExpenseStatus.values.map((status) => ListTile(
-            title: Text(status.displayName),
-            onTap: () {
-              controller.applyStatusFilter(status);
-              Get.back();
-            },
-          )),
-        ],
-      ),
     );
   }
 
   void _showTypeSelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            title: const Text('Todos los Tipos'),
-            onTap: () {
-              controller.applyTypeFilter(null);
-              Get.back();
-            },
+      builder:
+          (context) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('Todos los Tipos'),
+                onTap: () {
+                  controller.applyTypeFilter(null);
+                  Get.back();
+                },
+              ),
+              ...ExpenseType.values.map(
+                (type) => ListTile(
+                  title: Text(type.displayName),
+                  onTap: () {
+                    controller.applyTypeFilter(type);
+                    Get.back();
+                  },
+                ),
+              ),
+            ],
           ),
-          ...ExpenseType.values.map((type) => ListTile(
-            title: Text(type.displayName),
-            onTap: () {
-              controller.applyTypeFilter(type);
-              Get.back();
-            },
-          )),
-        ],
-      ),
     );
   }
 
@@ -787,44 +817,45 @@ class EnhancedExpensesListScreen extends GetView<EnhancedExpensesController> {
     Get.snackbar(
       'Próximamente',
       'Los filtros avanzados estarán disponibles pronto',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
   void _showExportOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Wrap(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.picture_as_pdf),
-            title: const Text('Exportar a PDF'),
-            subtitle: const Text('Reporte detallado en PDF'),
-            onTap: () {
-              Get.back();
-              controller.exportToPdf();
-            },
+      builder:
+          (context) => Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf),
+                title: const Text('Exportar a PDF'),
+                subtitle: const Text('Reporte detallado en PDF'),
+                onTap: () {
+                  Get.back();
+                  controller.exportToPdf();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.table_chart),
+                title: const Text('Exportar a Excel'),
+                subtitle: const Text('Hoja de cálculo con todos los datos'),
+                onTap: () {
+                  Get.back();
+                  controller.exportToExcel();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: const Text('Compartir Resumen'),
+                subtitle: const Text('Enviar resumen por email o mensaje'),
+                onTap: () {
+                  Get.back();
+                  controller.shareExpensesSummary();
+                },
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.table_chart),
-            title: const Text('Exportar a Excel'),
-            subtitle: const Text('Hoja de cálculo con todos los datos'),
-            onTap: () {
-              Get.back();
-              controller.exportToExcel();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.share),
-            title: const Text('Compartir Resumen'),
-            subtitle: const Text('Enviar resumen por email o mensaje'),
-            onTap: () {
-              Get.back();
-              controller.shareExpensesSummary();
-            },
-          ),
-        ],
-      ),
     );
   }
 }

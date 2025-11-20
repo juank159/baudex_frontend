@@ -17,9 +17,7 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
       body: Column(
         children: [
           _buildControlsSection(),
-          Expanded(
-            child: _buildContentSection(),
-          ),
+          Expanded(child: _buildContentSection()),
         ],
       ),
     );
@@ -68,13 +66,9 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
                 ),
               ),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildMovementTypeDropdown(),
-              ),
+              Expanded(child: _buildMovementTypeDropdown()),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildWarehouseDropdown(),
-              ),
+              Expanded(child: _buildWarehouseDropdown()),
             ],
           ),
         ],
@@ -94,14 +88,8 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
           value: '',
           child: Text('Todos los movimientos'),
         ),
-        DropdownMenuItem<String>(
-          value: 'IN',
-          child: Text('Solo entradas'),
-        ),
-        DropdownMenuItem<String>(
-          value: 'OUT',
-          child: Text('Solo salidas'),
-        ),
+        DropdownMenuItem<String>(value: 'IN', child: Text('Solo entradas')),
+        DropdownMenuItem<String>(value: 'OUT', child: Text('Solo salidas')),
       ],
       onChanged: (value) {},
     );
@@ -115,10 +103,7 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
         border: OutlineInputBorder(),
       ),
       items: const [
-        DropdownMenuItem<String>(
-          value: '',
-          child: Text('Todos los almacenes'),
-        ),
+        DropdownMenuItem<String>(value: '', child: Text('Todos los almacenes')),
       ],
       onChanged: (value) {},
     );
@@ -321,52 +306,61 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
-              children: movementTypes.map((movement) {
-                final total = movementTypes.fold<int>(0, (sum, m) => sum + (m['quantity'] as int));
-                final percentage = total > 0 ? (movement['quantity'] as int) / total : 0.0;
-                
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Column(
-                    children: [
-                      Row(
+              children:
+                  movementTypes.map((movement) {
+                    final total = movementTypes.fold<int>(
+                      0,
+                      (sum, m) => sum + (m['quantity'] as int),
+                    );
+                    final percentage =
+                        total > 0 ? (movement['quantity'] as int) / total : 0.0;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
                         children: [
-                          Container(
-                            width: 16,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: movement['color'] as Color,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              movement['type'] as String,
-                              style: Get.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w500,
+                          Row(
+                            children: [
+                              Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: movement['color'] as Color,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  movement['type'] as String,
+                                  style: Get.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${movement['quantity']} (${(percentage * 100).toStringAsFixed(1)}%)',
+                                style: Get.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: movement['color'] as Color,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            '${movement['quantity']} (${(percentage * 100).toStringAsFixed(1)}%)',
-                            style: Get.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: movement['color'] as Color,
+                          const SizedBox(height: 6),
+                          LinearProgressIndicator(
+                            value: percentage,
+                            backgroundColor: AppColors.borderColor.withOpacity(
+                              0.3,
+                            ),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              movement['color'] as Color,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      LinearProgressIndicator(
-                        value: percentage,
-                        backgroundColor: AppColors.borderColor.withOpacity(0.3),
-                        valueColor: AlwaysStoppedAnimation<Color>(movement['color'] as Color),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                    );
+                  }).toList(),
             ),
           ),
         ),
@@ -377,11 +371,41 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
   Widget _buildTopMovedProductsTable() {
     // Datos de ejemplo para demostración
     final topProducts = [
-      {'name': 'Producto A', 'sku': 'SKU001', 'inbound': 150, 'outbound': 120, 'net': 30},
-      {'name': 'Producto B', 'sku': 'SKU002', 'inbound': 80, 'outbound': 95, 'net': -15},
-      {'name': 'Producto C', 'sku': 'SKU003', 'inbound': 200, 'outbound': 180, 'net': 20},
-      {'name': 'Producto D', 'sku': 'SKU004', 'inbound': 60, 'outbound': 45, 'net': 15},
-      {'name': 'Producto E', 'sku': 'SKU005', 'inbound': 90, 'outbound': 110, 'net': -20},
+      {
+        'name': 'Producto A',
+        'sku': 'SKU001',
+        'inbound': 150,
+        'outbound': 120,
+        'net': 30,
+      },
+      {
+        'name': 'Producto B',
+        'sku': 'SKU002',
+        'inbound': 80,
+        'outbound': 95,
+        'net': -15,
+      },
+      {
+        'name': 'Producto C',
+        'sku': 'SKU003',
+        'inbound': 200,
+        'outbound': 180,
+        'net': 20,
+      },
+      {
+        'name': 'Producto D',
+        'sku': 'SKU004',
+        'inbound': 60,
+        'outbound': 45,
+        'net': 15,
+      },
+      {
+        'name': 'Producto E',
+        'sku': 'SKU005',
+        'inbound': 90,
+        'outbound': 110,
+        'net': -20,
+      },
     ];
 
     return Column(
@@ -416,85 +440,86 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
                 DataColumn(label: Text('Neto')),
                 DataColumn(label: Text('Estado')),
               ],
-              rows: topProducts.map((product) {
-                final net = product['net'] as int;
-                final isPositive = net >= 0;
-                final netColor = isPositive ? Colors.green : Colors.red;
+              rows:
+                  topProducts.map((product) {
+                    final net = product['net'] as int;
+                    final isPositive = net >= 0;
+                    final netColor = isPositive ? Colors.green : Colors.red;
 
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                product['name'] as String,
+                                style: Get.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        DataCell(
                           Text(
-                            product['name'] as String,
+                            product['sku'] as String,
+                            style: Get.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            (product['inbound'] as int).toString(),
                             style: Get.textTheme.bodyMedium?.copyWith(
+                              color: Colors.green,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        product['sku'] as String,
-                        style: Get.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
                         ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        (product['inbound'] as int).toString(),
-                        style: Get.textTheme.bodyMedium?.copyWith(
-                          color: Colors.green,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        (product['outbound'] as int).toString(),
-                        style: Get.textTheme.bodyMedium?.copyWith(
-                          color: Colors.red,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        net.toString(),
-                        style: Get.textTheme.bodyMedium?.copyWith(
-                          color: netColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: netColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          isPositive ? 'Creciendo' : 'Decreciendo',
-                          style: TextStyle(
-                            color: netColor,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
+                        DataCell(
+                          Text(
+                            (product['outbound'] as int).toString(),
+                            style: Get.textTheme.bodyMedium?.copyWith(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+                        DataCell(
+                          Text(
+                            net.toString(),
+                            style: Get.textTheme.bodyMedium?.copyWith(
+                              color: netColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: netColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              isPositive ? 'Creciendo' : 'Decreciendo',
+                              style: TextStyle(
+                                color: netColor,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
             ),
           ),
         ),
@@ -520,11 +545,7 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.trending_up,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
+                    Icon(Icons.trending_up, color: AppColors.primary, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       'Evolución Temporal',
@@ -564,7 +585,9 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
                 Container(
                   height: 200,
                   decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.borderColor.withOpacity(0.3)),
+                    border: Border.all(
+                      color: AppColors.borderColor.withOpacity(0.3),
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Center(
@@ -590,7 +613,7 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Exportar',
       'Generando reporte de movimientos...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
     );
@@ -600,7 +623,7 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Actualizar',
       'Actualizando datos de movimientos...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.green.shade100,
       colorText: Colors.green.shade800,
     );
@@ -610,7 +633,7 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Filtros',
       'Filtros limpiados',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -618,7 +641,7 @@ class MovementsSummaryScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Ver todos',
       'Navegando a lista completa de productos...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 

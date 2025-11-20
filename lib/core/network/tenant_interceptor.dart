@@ -13,6 +13,9 @@ class TenantInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    print('🏢 ==================== TENANT INTERCEPTOR ====================');
+    print('🔍 Processing request: ${options.method} ${options.path}');
+    
     // 1. Intentar obtener el tenant desde el storage
     final tenantSlug = await _secureStorage.getTenantSlug();
     
@@ -30,20 +33,37 @@ class TenantInterceptor extends Interceptor {
     // 2. Verificar si hay un subdominio en la URL (solo para dominios reales, no IPs)
     final uri = Uri.parse(options.baseUrl + options.path);
     final host = uri.host;
+    print('🌐 Request host: $host');
 
     // Solo procesar subdominios si es un dominio real (no una IP)
     if (!_isIPAddress(host) && host.contains('.') && !host.startsWith('www.')) {
       final subdomain = host.split('.').first;
+      print('🔍 Detected subdomain: $subdomain');
       // Solo usar subdominios válidos (no localhost, api, admin, etc.)
       if (!_isSystemSubdomain(subdomain)) {
         options.headers['X-Tenant-Slug'] = subdomain;
+        print('✅ TENANT: Using subdomain as tenant: $subdomain');
+      } else {
+        print('⚠️ TENANT: Ignoring system subdomain: $subdomain');
       }
+    } else {
+      print('🔍 No valid subdomain detected (IP or system domain)');
     }
 
     // 3. Agregar header de identificación para debugging
     if (options.headers['X-Tenant-Slug'] != null) {
       options.headers['X-Client-Type'] = 'flutter-app';
+      print('✅ TENANT: Final tenant header: ${options.headers['X-Tenant-Slug']}');
+    } else {
+      print('❌ TENANT: No tenant header will be sent!');
     }
+
+    // Log all headers being sent
+    print('📋 Final request headers:');
+    options.headers.forEach((key, value) {
+      print('   $key: $value');
+    });
+    print('🏢 ==================== END TENANT INTERCEPTOR ====================');
 
     super.onRequest(options, handler);
   }

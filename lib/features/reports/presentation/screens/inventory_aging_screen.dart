@@ -16,9 +16,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
       body: Column(
         children: [
           _buildControlsSection(),
-          Expanded(
-            child: _buildContentSection(),
-          ),
+          Expanded(child: _buildContentSection()),
         ],
       ),
     );
@@ -57,21 +55,13 @@ class InventoryAgingScreen extends GetView<ReportsController> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildDateSelector(),
-              ),
+              Expanded(child: _buildDateSelector()),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildCategoryDropdown(),
-              ),
+              Expanded(child: _buildCategoryDropdown()),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildWarehouseDropdown(),
-              ),
+              Expanded(child: _buildWarehouseDropdown()),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildAgingMethodDropdown(),
-              ),
+              Expanded(child: _buildAgingMethodDropdown()),
             ],
           ),
         ],
@@ -122,10 +112,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
         border: OutlineInputBorder(),
       ),
       items: const [
-        DropdownMenuItem<String>(
-          value: '',
-          child: Text('Todos los almacenes'),
-        ),
+        DropdownMenuItem<String>(value: '', child: Text('Todos los almacenes')),
       ],
       onChanged: (value) {},
     );
@@ -332,11 +319,36 @@ class InventoryAgingScreen extends GetView<ReportsController> {
   Widget _buildAgingBucketsChart() {
     // Datos de ejemplo para demostración
     final agingBuckets = [
-      {'range': '0-30 días', 'count': 1200, 'percentage': 48.8, 'color': Colors.green},
-      {'range': '31-60 días', 'count': 650, 'percentage': 26.5, 'color': Colors.blue},
-      {'range': '61-90 días', 'count': 380, 'percentage': 15.5, 'color': Colors.orange},
-      {'range': '91-180 días', 'count': 180, 'percentage': 7.3, 'color': Colors.red},
-      {'range': '+180 días', 'count': 46, 'percentage': 1.9, 'color': Colors.grey},
+      {
+        'range': '0-30 días',
+        'count': 1200,
+        'percentage': 48.8,
+        'color': Colors.green,
+      },
+      {
+        'range': '31-60 días',
+        'count': 650,
+        'percentage': 26.5,
+        'color': Colors.blue,
+      },
+      {
+        'range': '61-90 días',
+        'count': 380,
+        'percentage': 15.5,
+        'color': Colors.orange,
+      },
+      {
+        'range': '91-180 días',
+        'count': 180,
+        'percentage': 7.3,
+        'color': Colors.red,
+      },
+      {
+        'range': '+180 días',
+        'count': 46,
+        'percentage': 1.9,
+        'color': Colors.grey,
+      },
     ];
 
     return Column(
@@ -356,11 +368,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.pie_chart,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
+                    Icon(Icons.pie_chart, color: AppColors.primary, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       'Productos por Rango de Antigüedad',
@@ -372,49 +380,53 @@ class InventoryAgingScreen extends GetView<ReportsController> {
                 ),
                 const SizedBox(height: 16),
                 Column(
-                  children: agingBuckets.map((bucket) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Column(
-                        children: [
-                          Row(
+                  children:
+                      agingBuckets.map((bucket) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
                             children: [
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: bucket['color'] as Color,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  bucket['range'] as String,
-                                  style: Get.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w500,
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: bucket['color'] as Color,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      bucket['range'] as String,
+                                      style: Get.textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${bucket['count']} (${(bucket['percentage'] as double).toStringAsFixed(1)}%)',
+                                    style: Get.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: bucket['color'] as Color,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '${bucket['count']} (${(bucket['percentage'] as double).toStringAsFixed(1)}%)',
-                                style: Get.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: bucket['color'] as Color,
+                              const SizedBox(height: 6),
+                              LinearProgressIndicator(
+                                value: (bucket['percentage'] as double) / 100,
+                                backgroundColor: AppColors.borderColor
+                                    .withOpacity(0.3),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  bucket['color'] as Color,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          LinearProgressIndicator(
-                            value: (bucket['percentage'] as double) / 100,
-                            backgroundColor: AppColors.borderColor.withOpacity(0.3),
-                            valueColor: AlwaysStoppedAnimation<Color>(bucket['color'] as Color),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 ),
               ],
             ),
@@ -433,7 +445,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
         'batch': 'LT001',
         'daysToExpire': 5,
         'quantity': 25,
-        'priority': 'Crítico'
+        'priority': 'Crítico',
       },
       {
         'product': 'Alimento XYZ',
@@ -441,7 +453,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
         'batch': 'LT002',
         'daysToExpire': 15,
         'quantity': 50,
-        'priority': 'Alto'
+        'priority': 'Alto',
       },
       {
         'product': 'Suplemento DEF',
@@ -449,7 +461,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
         'batch': 'LT003',
         'daysToExpire': 28,
         'quantity': 30,
-        'priority': 'Medio'
+        'priority': 'Medio',
       },
     ];
 
@@ -485,125 +497,128 @@ class InventoryAgingScreen extends GetView<ReportsController> {
                 DataColumn(label: Text('Prioridad')),
                 DataColumn(label: Text('Acciones')),
               ],
-              rows: expirationAlerts.map((alert) {
-                final days = alert['daysToExpire'] as int;
-                final priority = alert['priority'] as String;
-                Color priorityColor;
-                
-                switch (priority) {
-                  case 'Crítico':
-                    priorityColor = Colors.red;
-                    break;
-                  case 'Alto':
-                    priorityColor = Colors.orange;
-                    break;
-                  default:
-                    priorityColor = Colors.yellow.shade700;
-                }
+              rows:
+                  expirationAlerts.map((alert) {
+                    final days = alert['daysToExpire'] as int;
+                    final priority = alert['priority'] as String;
+                    Color priorityColor;
 
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
+                    switch (priority) {
+                      case 'Crítico':
+                        priorityColor = Colors.red;
+                        break;
+                      case 'Alto':
+                        priorityColor = Colors.orange;
+                        break;
+                      default:
+                        priorityColor = Colors.yellow.shade700;
+                    }
+
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                alert['product'] as String,
+                                style: Get.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                'SKU: ${alert['sku']}',
+                                style: Get.textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        DataCell(
                           Text(
-                            alert['product'] as String,
+                            alert['batch'] as String,
                             style: Get.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w500,
+                              fontFamily: 'monospace',
                             ),
                           ),
+                        ),
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  days <= 7
+                                      ? Colors.red.withOpacity(0.1)
+                                      : days <= 30
+                                      ? Colors.orange.withOpacity(0.1)
+                                      : Colors.yellow.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '$days días',
+                              style: Get.textTheme.bodyMedium?.copyWith(
+                                color:
+                                    days <= 7
+                                        ? Colors.red
+                                        : days <= 30
+                                        ? Colors.orange
+                                        : Colors.yellow.shade700,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        DataCell(
                           Text(
-                            'SKU: ${alert['sku']}',
-                            style: Get.textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
+                            '${alert['quantity']} und.',
+                            style: Get.textTheme.bodyMedium,
+                          ),
+                        ),
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: priorityColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              priority,
+                              style: TextStyle(
+                                color: priorityColor,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        alert['batch'] as String,
-                        style: Get.textTheme.bodyMedium?.copyWith(
-                          fontFamily: 'monospace',
                         ),
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: days <= 7 
-                              ? Colors.red.withOpacity(0.1)
-                              : days <= 30
-                                  ? Colors.orange.withOpacity(0.1)
-                                  : Colors.yellow.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '$days días',
-                          style: Get.textTheme.bodyMedium?.copyWith(
-                            color: days <= 7 
-                                ? Colors.red 
-                                : days <= 30
-                                    ? Colors.orange
-                                    : Colors.yellow.shade700,
-                            fontWeight: FontWeight.bold,
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                onPressed: () => _createDiscount(alert),
+                                icon: const Icon(Icons.local_offer, size: 16),
+                                tooltip: 'Crear descuento',
+                              ),
+                              IconButton(
+                                onPressed: () => _adjustInventory(alert),
+                                icon: const Icon(Icons.edit, size: 16),
+                                tooltip: 'Ajustar inventario',
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        '${alert['quantity']} und.',
-                        style: Get.textTheme.bodyMedium,
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: priorityColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          priority,
-                          style: TextStyle(
-                            color: priorityColor,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: () => _createDiscount(alert),
-                            icon: const Icon(Icons.local_offer, size: 16),
-                            tooltip: 'Crear descuento',
-                          ),
-                          IconButton(
-                            onPressed: () => _adjustInventory(alert),
-                            icon: const Icon(Icons.edit, size: 16),
-                            tooltip: 'Ajustar inventario',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+                      ],
+                    );
+                  }).toList(),
             ),
           ),
         ),
@@ -666,102 +681,103 @@ class InventoryAgingScreen extends GetView<ReportsController> {
                 DataColumn(label: Text('Valor')),
                 DataColumn(label: Text('Estado')),
               ],
-              rows: agingDetails.map((item) {
-                final days = item['daysIdle'] as int;
-                Color statusColor;
-                String status;
-                
-                if (days <= 30) {
-                  statusColor = Colors.green;
-                  status = 'Normal';
-                } else if (days <= 60) {
-                  statusColor = Colors.orange;
-                  status = 'Atención';
-                } else {
-                  statusColor = Colors.red;
-                  status = 'Crítico';
-                }
+              rows:
+                  agingDetails.map((item) {
+                    final days = item['daysIdle'] as int;
+                    Color statusColor;
+                    String status;
 
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
+                    if (days <= 30) {
+                      statusColor = Colors.green;
+                      status = 'Normal';
+                    } else if (days <= 60) {
+                      statusColor = Colors.orange;
+                      status = 'Atención';
+                    } else {
+                      statusColor = Colors.red;
+                      status = 'Crítico';
+                    }
+
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                item['product'] as String,
+                                style: Get.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                'SKU: ${item['sku']}',
+                                style: Get.textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        DataCell(
                           Text(
-                            item['product'] as String,
+                            item['category'] as String,
+                            style: Get.textTheme.bodyMedium,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            item['lastMovement'] as String,
+                            style: Get.textTheme.bodyMedium,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            '$days días',
+                            style: Get.textTheme.bodyMedium?.copyWith(
+                              color: statusColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            '${item['quantity']} und.',
+                            style: Get.textTheme.bodyMedium,
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            '\$${(item['value'] as double).toStringAsFixed(2)}',
                             style: Get.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          Text(
-                            'SKU: ${item['sku']}',
-                            style: Get.textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
+                        ),
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        item['category'] as String,
-                        style: Get.textTheme.bodyMedium,
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        item['lastMovement'] as String,
-                        style: Get.textTheme.bodyMedium,
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        '$days días',
-                        style: Get.textTheme.bodyMedium?.copyWith(
-                          color: statusColor,
-                          fontWeight: FontWeight.w500,
                         ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        '${item['quantity']} und.',
-                        style: Get.textTheme.bodyMedium,
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        '\$${(item['value'] as double).toStringAsFixed(2)}',
-                        style: Get.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          status,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+                      ],
+                    );
+                  }).toList(),
             ),
           ),
         ),
@@ -782,9 +798,9 @@ class InventoryAgingScreen extends GetView<ReportsController> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: AppColors.primary,
-            ),
+            colorScheme: Theme.of(
+              context,
+            ).colorScheme.copyWith(primary: AppColors.primary),
           ),
           child: child!,
         );
@@ -795,7 +811,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
       Get.snackbar(
         'Fecha actualizada',
         'Análisis para ${_formatDate(date)}',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
       );
     }
   }
@@ -804,7 +820,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Exportar',
       'Generando reporte de antigüedad de inventario...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
     );
@@ -814,7 +830,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Actualizar',
       'Actualizando análisis de antigüedad...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.green.shade100,
       colorText: Colors.green.shade800,
     );
@@ -824,7 +840,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Filtros',
       'Filtros limpiados',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -832,7 +848,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Ver todas',
       'Navegando a lista completa de vencimientos...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -840,7 +856,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Crear descuento',
       'Iniciando proceso de descuento para ${alert['product']}',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.orange.shade100,
       colorText: Colors.orange.shade800,
     );
@@ -850,7 +866,7 @@ class InventoryAgingScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Ajustar inventario',
       'Iniciando ajuste de inventario para ${alert['product']}',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
     );

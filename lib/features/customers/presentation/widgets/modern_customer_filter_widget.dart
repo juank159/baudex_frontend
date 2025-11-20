@@ -1,7 +1,7 @@
 // lib/features/customers/presentation/widgets/modern_customer_filter_widget.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../domain/entities/customer.dart';
 import '../controllers/customers_controller.dart';
 
@@ -20,8 +20,6 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
         // Filtros principales
         _buildStatusFilter(context),
         const SizedBox(height: 12),
-        _buildQuickFilters(context),
-        const SizedBox(height: 12),
         _buildSortingOptions(context),
       ],
     );
@@ -31,21 +29,36 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withOpacity(0.05),
+        gradient: LinearGradient(
+          colors: [
+            ElegantLightTheme.primaryBlue.withOpacity(0.05),
+            ElegantLightTheme.primaryBlueLight.withOpacity(0.02),
+          ],
+        ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: ElegantLightTheme.primaryBlue.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              gradient: ElegantLightTheme.primaryGradient,
               borderRadius: BorderRadius.circular(6),
+              boxShadow: ElegantLightTheme.glowShadow,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.tune,
-              color: Theme.of(context).primaryColor,
+              color: Colors.white,
               size: 16,
             ),
           ),
@@ -56,28 +69,46 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
+                color: ElegantLightTheme.textPrimary,
               ),
             ),
           ),
           GestureDetector(
-            onTap: controller.clearFilters,
+            onTap: () {
+              controller.clearFilters();
+              Get.snackbar(
+                'Filtros limpiados',
+                'Se han restablecido todos los filtros',
+                snackPosition: SnackPosition.BOTTOM,
+                duration: const Duration(seconds: 2),
+                backgroundColor: ElegantLightTheme.surfaceColor,
+                colorText: ElegantLightTheme.textPrimary,
+              );
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                gradient: ElegantLightTheme.warningGradient.scale(0.1),
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: ElegantLightTheme.accentOrange.withOpacity(0.3),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.clear, size: 12, color: Colors.orange.shade600),
+                  Icon(
+                    Icons.clear,
+                    size: 12,
+                    color: ElegantLightTheme.accentOrange,
+                  ),
                   const SizedBox(width: 4),
-                  Text(
+                  const Text(
                     'Limpiar',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Colors.orange.shade600,
+                      color: ElegantLightTheme.accentOrange,
                     ),
                   ),
                 ],
@@ -93,38 +124,52 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
-                Icons.traffic,
-                size: 16,
-                color: Colors.grey.shade600,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.infoGradient.scale(0.3),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.traffic,
+                  size: 16,
+                  color: ElegantLightTheme.primaryBlue,
+                ),
               ),
               const SizedBox(width: 8),
               const Text(
                 'Estado del Cliente',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
+                  color: ElegantLightTheme.textPrimary,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: CustomerStatus.values.map((status) {
-              return _buildStatusChip(status, false); // Simplificado sin estado
-            }).toList(),
-          ),
+          Obx(() {
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: CustomerStatus.values.map((status) {
+                final isSelected = controller.currentStatus == status;
+                return _buildStatusChip(status, isSelected);
+              }).toList(),
+            );
+          }),
         ],
       ),
     );
@@ -132,39 +177,62 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
 
   Widget _buildStatusChip(CustomerStatus status, bool isSelected) {
     Color color;
+    LinearGradient gradient;
     String text;
     IconData icon;
 
     switch (status) {
       case CustomerStatus.active:
-        color = Colors.green;
+        color = Colors.green.shade600;
+        gradient = ElegantLightTheme.successGradient;
         text = 'Activos';
         icon = Icons.check_circle;
         break;
       case CustomerStatus.inactive:
-        color = Colors.orange;
+        color = ElegantLightTheme.accentOrange;
+        gradient = ElegantLightTheme.warningGradient;
         text = 'Inactivos';
         icon = Icons.pause_circle;
         break;
       case CustomerStatus.suspended:
-        color = Colors.red;
+        color = Colors.red.shade600;
+        gradient = ElegantLightTheme.errorGradient;
         text = 'Suspendidos';
         icon = Icons.cancel;
         break;
     }
 
     return GestureDetector(
-      onTap: () {}, // Simplificado sin funcionalidad
+      onTap: () {
+        // Toggle: si ya está seleccionado, lo deselecciona
+        if (isSelected) {
+          controller.applyStatusFilter(null);
+        } else {
+          controller.applyStatusFilter(status);
+        }
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.1) : Colors.grey.shade50,
+          gradient: isSelected ? gradient.scale(0.2) : null,
+          color: isSelected ? null : ElegantLightTheme.surfaceColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? color : Colors.grey.shade300,
+            color: isSelected
+                ? color.withValues(alpha: 0.5)
+                : ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
             width: isSelected ? 1.5 : 1,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -172,114 +240,15 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
             Icon(
               icon,
               size: 14,
-              color: isSelected ? color : Colors.grey.shade600,
+              color: isSelected ? color : ElegantLightTheme.textSecondary,
             ),
             const SizedBox(width: 6),
             Text(
               text,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? color : Colors.grey.shade700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickFilters(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.flash_on,
-                size: 16,
-                color: Colors.grey.shade600,
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Filtros Rápidos',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildQuickFilterChip(
-                'Con Crédito',
-                Icons.credit_card,
-                Colors.blue,
-                () {},
-              ),
-              _buildQuickFilterChip(
-                'Con Balance',
-                Icons.account_balance_wallet,
-                Colors.orange,
-                () {},
-              ),
-              _buildQuickFilterChip(
-                'Empresas',
-                Icons.business,
-                Colors.purple,
-                () {},
-              ),
-              _buildQuickFilterChip(
-                'Personas',
-                Icons.person,
-                Colors.green,
-                () {},
-              ),
-              _buildQuickFilterChip(
-                'Sin Órdenes',
-                Icons.shopping_cart_outlined,
-                Colors.grey,
-                () {},
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickFilterChip(String text, IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 4),
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: color,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? color : ElegantLightTheme.textSecondary,
               ),
             ),
           ],
@@ -292,64 +261,117 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
-                Icons.sort,
-                size: 16,
-                color: Colors.grey.shade600,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.successGradient.scale(0.3),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  Icons.sort,
+                  size: 16,
+                  color: Colors.green.shade600,
+                ),
               ),
               const SizedBox(width: 8),
               const Text(
                 'Ordenar Por',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
+                  color: ElegantLightTheme.textPrimary,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Column(
-            children: [
-              _buildSortOption('Nombre A-Z', 'name_asc', Icons.sort_by_alpha),
-              _buildSortOption('Nombre Z-A', 'name_desc', Icons.sort_by_alpha),
-              _buildSortOption('Fecha (Recientes)', 'date_desc', Icons.access_time),
-              _buildSortOption('Fecha (Antiguos)', 'date_asc', Icons.access_time),
-              _buildSortOption('Mayor Balance', 'balance_desc', Icons.trending_up),
-              _buildSortOption('Más Órdenes', 'orders_desc', Icons.shopping_cart),
-            ],
-          ),
+          Obx(() {
+            final currentSort = '${controller.sortBy}_${controller.sortOrder}';
+            return Column(
+              children: [
+                _buildSortOption(
+                  'Nombre A-Z',
+                  'firstName',
+                  'ASC',
+                  Icons.sort_by_alpha,
+                  currentSort == 'firstName_ASC',
+                ),
+                _buildSortOption(
+                  'Nombre Z-A',
+                  'firstName',
+                  'DESC',
+                  Icons.sort_by_alpha,
+                  currentSort == 'firstName_DESC',
+                ),
+                _buildSortOption(
+                  'Fecha (Recientes)',
+                  'createdAt',
+                  'DESC',
+                  Icons.access_time,
+                  currentSort == 'createdAt_DESC',
+                ),
+                _buildSortOption(
+                  'Fecha (Antiguos)',
+                  'createdAt',
+                  'ASC',
+                  Icons.access_time,
+                  currentSort == 'createdAt_ASC',
+                ),
+              ],
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildSortOption(String text, String value, IconData icon) {
-    final isSelected = false; // Simplificado
-    
+  Widget _buildSortOption(
+    String text,
+    String sortBy,
+    String sortOrder,
+    IconData icon,
+    bool isSelected,
+  ) {
     return GestureDetector(
-      onTap: () {}, // Simplificado
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      onTap: () {
+        controller.changeSorting(sortBy, sortOrder);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         margin: const EdgeInsets.only(bottom: 4),
         decoration: BoxDecoration(
-          color: Colors.transparent,
+          color: isSelected
+              ? ElegantLightTheme.primaryBlue.withOpacity(0.1)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
+          border: isSelected
+              ? Border.all(
+                  color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+                  width: 1.5,
+                )
+              : null,
         ),
         child: Row(
           children: [
             Icon(
               icon,
               size: 14,
-              color: Colors.grey.shade600,
+              color: isSelected
+                  ? ElegantLightTheme.primaryBlue
+                  : Colors.grey.shade600,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -357,11 +379,19 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
                 text,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.normal,
-                  color: Colors.grey.shade700,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected
+                      ? ElegantLightTheme.primaryBlue
+                      : Colors.grey.shade700,
                 ),
               ),
             ),
+            if (isSelected)
+              Icon(
+                Icons.check,
+                size: 16,
+                color: ElegantLightTheme.primaryBlue,
+              ),
           ],
         ),
       ),

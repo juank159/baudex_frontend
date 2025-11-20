@@ -1,6 +1,7 @@
 // lib/features/customers/presentation/widgets/modern_customer_card_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../domain/entities/customer.dart';
 
 class ModernCustomerCardWidget extends StatelessWidget {
@@ -28,16 +29,12 @@ class ModernCustomerCardWidget extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Material(
         color: Colors.transparent,
@@ -45,32 +42,35 @@ class ModernCustomerCardWidget extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.all(12), // Reducido de 16 a 12
+            padding: const EdgeInsets.all(12),
             child: Column(
               children: [
                 // Header compacto
                 Row(
                   children: [
-                    // Avatar ultra compacto
+                    // Avatar con gradiente circular
                     Container(
-                      width: 36, // Reducido de 40 a 36
+                      width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: _getStatusColor().withOpacity(0.1),
+                        gradient: _getStatusGradient(),
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: _getStatusColor().withOpacity(0.3),
-                          width: 1.5,
-                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _getStatusColor().withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Icon(
                         customer.companyName != null ? Icons.business : Icons.person,
-                        size: 18, // Reducido de 20 a 18
-                        color: _getStatusColor(),
+                        size: 18,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    
+
                     // Info principal compacta
                     Expanded(
                       child: Column(
@@ -79,9 +79,9 @@ class ModernCustomerCardWidget extends StatelessWidget {
                           Text(
                             customer.displayName,
                             style: const TextStyle(
-                              fontSize: 14, // Reducido de 16 a 14
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: ElegantLightTheme.textPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -89,9 +89,9 @@ class ModernCustomerCardWidget extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             customer.email,
-                            style: TextStyle(
-                              fontSize: 12, // Reducido de 14 a 12
-                              color: Colors.grey.shade600,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: ElegantLightTheme.textSecondary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -99,28 +99,35 @@ class ModernCustomerCardWidget extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
-                    // Badge de estado compacto
+
+                    // Badge de estado con gradiente
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), // Más compacto
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: _getStatusColor().withOpacity(0.1),
+                        gradient: _getStatusGradient().scale(0.3),
                         borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _getStatusColor().withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
                       child: Text(
                         _getStatusText(),
                         style: TextStyle(
                           color: _getStatusColor(),
-                          fontSize: 10, // Reducido de 12 a 10
-                          fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ],
                 ),
-                
-                const SizedBox(height: 8), // Reducido de 12 a 8
-                
+
+                const SizedBox(height: 8),
+
                 // Info adicional ultra compacta
                 Row(
                   children: [
@@ -128,7 +135,7 @@ class ModernCustomerCardWidget extends StatelessWidget {
                       child: _buildCompactInfoChip(
                         Icons.credit_card,
                         _formatCurrency(customer.creditLimit),
-                        Colors.blue,
+                        ElegantLightTheme.primaryBlue,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -136,7 +143,7 @@ class ModernCustomerCardWidget extends StatelessWidget {
                       child: _buildCompactInfoChip(
                         Icons.shopping_cart,
                         '${customer.totalOrders}',
-                        Colors.orange,
+                        ElegantLightTheme.accentOrange,
                       ),
                     ),
                     if (customer.currentBalance > 0) ...[
@@ -146,17 +153,17 @@ class ModernCustomerCardWidget extends StatelessWidget {
                           Icons.account_balance_wallet,
                           _formatCurrency(customer.currentBalance),
                           customer.currentBalance > customer.creditLimit * 0.8
-                              ? Colors.red
-                              : Colors.orange,
+                              ? Colors.red.shade600
+                              : ElegantLightTheme.accentOrange,
                         ),
                       ),
                     ],
                   ],
                 ),
-                
+
                 const SizedBox(height: 8),
-                
-                // Acciones compactas
+
+                // Acciones compactas con gradiente
                 Row(
                   children: [
                     if (onEdit != null)
@@ -164,7 +171,7 @@ class ModernCustomerCardWidget extends StatelessWidget {
                         child: _buildActionButton(
                           'Editar',
                           Icons.edit,
-                          Theme.of(context).primaryColor,
+                          ElegantLightTheme.primaryBlue,
                           onEdit!,
                         ),
                       ),
@@ -174,7 +181,7 @@ class ModernCustomerCardWidget extends StatelessWidget {
                         child: _buildActionButton(
                           'Eliminar',
                           Icons.delete,
-                          Colors.red,
+                          Colors.red.shade600,
                           onDelete!,
                         ),
                       ),
@@ -192,46 +199,46 @@ class ModernCustomerCardWidget extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
+          hoverColor: ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
           child: Padding(
-            padding: const EdgeInsets.all(16), // Reducido de 24 a 16
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Avatar compacto
+                // Avatar con gradiente
                 Container(
-                  width: 44, // Reducido de 56 a 44
+                  width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: _getStatusColor().withOpacity(0.1),
+                    gradient: _getStatusGradient(),
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: _getStatusColor().withOpacity(0.3),
-                      width: 2,
-                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _getStatusColor().withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     customer.companyName != null ? Icons.business : Icons.person,
-                    size: 22, // Reducido de 28 a 22
-                    color: _getStatusColor(),
+                    size: 22,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(width: 16),
-                
+
                 // Info principal
                 Expanded(
                   flex: 3,
@@ -244,9 +251,9 @@ class ModernCustomerCardWidget extends StatelessWidget {
                             child: Text(
                               customer.displayName,
                               style: const TextStyle(
-                                fontSize: 16, // Reducido de 20 a 16
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: ElegantLightTheme.textPrimary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -256,15 +263,22 @@ class ModernCustomerCardWidget extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: _getStatusColor().withOpacity(0.1),
+                              gradient: _getStatusGradient().scale(0.3),
                               borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _getStatusColor().withValues(alpha: 0.2),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Text(
                               _getStatusText(),
                               style: TextStyle(
                                 color: _getStatusColor(),
                                 fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
@@ -273,27 +287,27 @@ class ModernCustomerCardWidget extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.email, size: 14, color: Colors.grey.shade500),
+                          Icon(Icons.email, size: 14, color: ElegantLightTheme.textTertiary),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               customer.email,
-                              style: TextStyle(
-                                fontSize: 13, // Reducido de 14 a 13
-                                color: Colors.grey.shade600,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: ElegantLightTheme.textSecondary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 16),
-                          Icon(Icons.badge, size: 14, color: Colors.grey.shade500),
+                          Icon(Icons.badge, size: 14, color: ElegantLightTheme.textTertiary),
                           const SizedBox(width: 6),
                           Text(
                             customer.formattedDocument,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 13,
-                              color: Colors.grey.shade600,
+                              color: ElegantLightTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -301,7 +315,7 @@ class ModernCustomerCardWidget extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 // Info adicional compacta
                 Expanded(
                   flex: 2,
@@ -312,14 +326,14 @@ class ModernCustomerCardWidget extends StatelessWidget {
                         Icons.credit_card,
                         'Crédito',
                         _formatCurrency(customer.creditLimit),
-                        Colors.blue,
+                        ElegantLightTheme.primaryBlue,
                       ),
                       const SizedBox(height: 4),
                       _buildDesktopInfoRow(
                         Icons.shopping_cart,
                         'Órdenes',
                         '${customer.totalOrders}',
-                        Colors.orange,
+                        ElegantLightTheme.accentOrange,
                       ),
                       if (customer.currentBalance > 0) ...[
                         const SizedBox(height: 4),
@@ -328,38 +342,57 @@ class ModernCustomerCardWidget extends StatelessWidget {
                           'Balance',
                           _formatCurrency(customer.currentBalance),
                           customer.currentBalance > customer.creditLimit * 0.8
-                              ? Colors.red
-                              : Colors.orange,
+                              ? Colors.red.shade600
+                              : ElegantLightTheme.accentOrange,
                         ),
                       ],
                     ],
                   ),
                 ),
-                
-                // Acciones
+
+                // Acciones con gradiente
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (onEdit != null)
-                      IconButton(
-                        onPressed: onEdit,
-                        icon: const Icon(Icons.edit, size: 18),
-                        tooltip: 'Editar cliente',
-                        color: Theme.of(context).primaryColor,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                          padding: const EdgeInsets.all(8),
+                      Tooltip(
+                        message: 'Editar cliente',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: ElegantLightTheme.primaryGradient.scale(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: ElegantLightTheme.glowShadow,
+                          ),
+                          child: IconButton(
+                            onPressed: onEdit,
+                            icon: const Icon(Icons.edit, size: 18),
+                            color: ElegantLightTheme.primaryBlue,
+                            padding: const EdgeInsets.all(8),
+                          ),
                         ),
                       ),
+                    if (onDelete != null) const SizedBox(width: 8),
                     if (onDelete != null)
-                      IconButton(
-                        onPressed: onDelete,
-                        icon: const Icon(Icons.delete, size: 18),
-                        tooltip: 'Eliminar cliente',
-                        color: Colors.red,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.red.withOpacity(0.1),
-                          padding: const EdgeInsets.all(8),
+                      Tooltip(
+                        message: 'Eliminar cliente',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: ElegantLightTheme.errorGradient.scale(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.shade600.withValues(alpha: 0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: IconButton(
+                            onPressed: onDelete,
+                            icon: const Icon(Icons.delete, size: 18),
+                            color: Colors.red.shade600,
+                            padding: const EdgeInsets.all(8),
+                          ),
                         ),
                       ),
                   ],
@@ -376,8 +409,17 @@ class ModernCustomerCardWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.1),
+            color.withValues(alpha: 0.05),
+          ],
+        ),
         borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -389,7 +431,7 @@ class ModernCustomerCardWidget extends StatelessWidget {
               value,
               style: TextStyle(
                 fontSize: 10,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
                 color: color,
               ),
               maxLines: 1,
@@ -402,14 +444,26 @@ class ModernCustomerCardWidget extends StatelessWidget {
   }
 
   Widget _buildActionButton(String text, IconData icon, Color color, VoidCallback onPressed) {
+    final gradient = color == ElegantLightTheme.primaryBlue
+        ? ElegantLightTheme.primaryGradient
+        : ElegantLightTheme.errorGradient;
+
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: color.withOpacity(0.3)),
+          gradient: gradient.scale(0.2),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
           borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -420,7 +474,7 @@ class ModernCustomerCardWidget extends StatelessWidget {
               text,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
                 color: color,
               ),
             ),
@@ -461,11 +515,22 @@ class ModernCustomerCardWidget extends StatelessWidget {
   Color _getStatusColor() {
     switch (customer.status) {
       case CustomerStatus.active:
-        return Colors.green;
+        return Colors.green.shade600;
       case CustomerStatus.inactive:
-        return Colors.orange;
+        return ElegantLightTheme.accentOrange;
       case CustomerStatus.suspended:
-        return Colors.red;
+        return Colors.red.shade600;
+    }
+  }
+
+  LinearGradient _getStatusGradient() {
+    switch (customer.status) {
+      case CustomerStatus.active:
+        return ElegantLightTheme.successGradient;
+      case CustomerStatus.inactive:
+        return ElegantLightTheme.warningGradient;
+      case CustomerStatus.suspended:
+        return ElegantLightTheme.errorGradient;
     }
   }
 

@@ -28,6 +28,7 @@ import '../../domain/usecases/get_products_by_category_usecase.dart';
 // Category Use Cases (para ProductFormController)
 import '../../../categories/domain/usecases/get_categories_usecase.dart';
 import '../../../categories/domain/usecases/search_categories_usecase.dart';
+import '../../../categories/domain/usecases/create_category_usecase.dart';
 
 // Product Controllers
 import '../controllers/products_controller.dart';
@@ -110,6 +111,7 @@ SOLUCIÓN:
     final categoryDependencies = <String, bool>{
       'GetCategoriesUseCase': Get.isRegistered<GetCategoriesUseCase>(),
       'SearchCategoriesUseCase': Get.isRegistered<SearchCategoriesUseCase>(),
+      'CreateCategoryUseCase': Get.isRegistered<CreateCategoryUseCase>(),
     };
 
     final missingCategoryDeps =
@@ -236,6 +238,7 @@ SOLUCIÓN RECOMENDADA:
           updateProductUseCase: Get.find<UpdateProductUseCase>(),
           getProductByIdUseCase: Get.find<GetProductByIdUseCase>(),
           getCategoriesUseCase: _getCategoriesUseCaseSafely(),
+          createCategoryUseCase: _getCreateCategoryUseCaseSafely(),
           secureStorageService: Get.find<SecureStorageService>(),
         ),
         fenix: true, // ✅ USAR fenix: true para evitar disposal prematuro
@@ -268,6 +271,32 @@ SOLUCIÓN RECOMENDADA:
     // cuando CategoryBinding no está disponible
     throw UnimplementedError(
       'GetCategoriesUseCase no está disponible. '
+      'Asegúrate de ejecutar CategoryBinding antes de ProductBinding.',
+    );
+  }
+
+  /// Obtener CreateCategoryUseCase de forma segura
+  CreateCategoryUseCase _getCreateCategoryUseCaseSafely() {
+    try {
+      if (Get.isRegistered<CreateCategoryUseCase>()) {
+        return Get.find<CreateCategoryUseCase>();
+      } else {
+        // Crear una implementación mock si no está disponible
+        print(
+          '⚠️ CreateCategoryUseCase no disponible, usando implementación mock',
+        );
+        return _createMockCreateCategoryUseCase();
+      }
+    } catch (e) {
+      print('⚠️ Error al obtener CreateCategoryUseCase: $e');
+      return _createMockCreateCategoryUseCase();
+    }
+  }
+
+  /// Crear implementación mock de CreateCategoryUseCase
+  CreateCategoryUseCase _createMockCreateCategoryUseCase() {
+    throw UnimplementedError(
+      'CreateCategoryUseCase no está disponible. '
       'Asegúrate de ejecutar CategoryBinding antes de ProductBinding.',
     );
   }
@@ -423,6 +452,7 @@ SOLUCIÓN RECOMENDADA:
       // Category Dependencies (optional)
       'GetCategoriesUseCase': Get.isRegistered<GetCategoriesUseCase>(),
       'SearchCategoriesUseCase': Get.isRegistered<SearchCategoriesUseCase>(),
+      'CreateCategoryUseCase': Get.isRegistered<CreateCategoryUseCase>(),
     };
 
     dependencies.forEach((name, isRegistered) {
@@ -460,6 +490,7 @@ SOLUCIÓN RECOMENDADA:
         'GetProductsUseCase': Get.isRegistered<GetProductsUseCase>(),
         'CreateProductUseCase': Get.isRegistered<CreateProductUseCase>(),
         'GetCategoriesUseCase': Get.isRegistered<GetCategoriesUseCase>(),
+        'CreateCategoryUseCase': Get.isRegistered<CreateCategoryUseCase>(),
       },
     };
   }

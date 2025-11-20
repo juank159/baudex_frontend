@@ -525,6 +525,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
+import '../../../../app/core/storage/secure_storage_service.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/entities/category_tree.dart';
 import '../../domain/usecases/create_category_usecase.dart';
@@ -670,6 +671,9 @@ class CategoryFormController extends GetxController {
   /// Guardar categoría (crear o actualizar)
   Future<void> saveCategory() async {
     print('🚀 CategoryFormController: Iniciando saveCategory()');
+    
+    // Log tenant information for debugging
+    await _logTenantInfo();
     
     // Validar campos manualmente si FormKey no está disponible
     if (!_validateFieldsManually()) {
@@ -974,32 +978,48 @@ class CategoryFormController extends GetxController {
 
   /// Crear nueva categoría
   Future<void> _createCategory() async {
-    print('🆕 Creating new category...');
-    final result = await _createCategoryUseCase(
-      CreateCategoryParams(
-        name: nameController.text.trim(),
-        description:
-            descriptionController.text.trim().isEmpty
-                ? null
-                : descriptionController.text.trim(),
-        slug: slugController.text.trim(),
-        image:
-            imageController.text.trim().isEmpty
-                ? null
-                : imageController.text.trim(),
-        status: _selectedStatus.value,
-        sortOrder: _sortOrder.value,
-        parentId: _selectedParent.value?.id,
-      ),
+    print('🆕 CategoryFormController: Creating new category...');
+    
+    final params = CreateCategoryParams(
+      name: nameController.text.trim(),
+      description:
+          descriptionController.text.trim().isEmpty
+              ? null
+              : descriptionController.text.trim(),
+      slug: slugController.text.trim(),
+      image:
+          imageController.text.trim().isEmpty
+              ? null
+              : imageController.text.trim(),
+      status: _selectedStatus.value,
+      sortOrder: _sortOrder.value,
+      parentId: _selectedParent.value?.id,
     );
+    
+    print('📋 CategoryFormController: Request parameters:');
+    print('   🏷️  Name: ${params.name}');
+    print('   📝 Description: ${params.description}');
+    print('   🔗 Slug: ${params.slug}');
+    print('   🖼️  Image: ${params.image}');
+    print('   📊 Status: ${params.status?.name}');
+    print('   🔢 Sort Order: ${params.sortOrder}');
+    print('   👨‍👩‍👧‍👦 Parent ID: ${params.parentId}');
+    
+    final result = await _createCategoryUseCase(params);
 
     result.fold(
       (failure) {
-        print('❌ Error creating category: ${failure.message}');
+        print('❌ CategoryFormController: Error creating category');
+        print('   📄 Failure type: ${failure.runtimeType}');
+        print('   📄 Failure message: ${failure.message}');
         _showError('Error al crear categoría', failure.message);
       },
       (category) {
-        print('✅ Category created successfully: ${category.name}');
+        print('✅ CategoryFormController: Category created successfully');
+        print('   🆔 Category ID: ${category.id}');
+        print('   🏷️  Category Name: ${category.name}');
+        print('   🔗 Category Slug: ${category.slug}');
+        print('   📊 Category Status: ${category.status.name}');
         _showSuccess('Categoría creada exitosamente');
 
         // Refrescar la lista antes de navegar
@@ -1188,6 +1208,26 @@ class CategoryFormController extends GetxController {
       for (final cat in _parentCategories) {
         print('     - ${cat.name} (${cat.id})');
       }
+    }
+  }
+
+  /// Log tenant information for debugging
+  Future<void> _logTenantInfo() async {
+    try {
+      final secureStorage = Get.find<SecureStorageService>();
+      final tenantSlug = await secureStorage.getTenantSlug();
+      final userData = await secureStorage.getUserData();
+      
+      print('🏢 ==================== TENANT DEBUG INFO ====================');
+      print('🔍 Current tenant slug: $tenantSlug');
+      print('👤 User data available: ${userData != null}');
+      if (userData != null) {
+        print('   📧 User email: ${userData['email']}');
+        print('   🆔 User ID: ${userData['id']}');
+      }
+      print('🏢 ==================== END TENANT DEBUG INFO ====================');
+    } catch (e) {
+      print('❌ Error getting tenant info: $e');
     }
   }
 }

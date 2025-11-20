@@ -13,9 +13,6 @@ import 'package:baudex_desktop/features/categories/presentation/screens/category
 import 'package:baudex_desktop/features/categories/presentation/screens/category_tree_screen.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customers_usecase.dart';
 import 'package:baudex_desktop/features/customers/presentation/bindings/customer_binding.dart';
-import 'package:baudex_desktop/features/customers/presentation/controllers/customer_detail_controller.dart';
-import 'package:baudex_desktop/features/customers/presentation/controllers/customer_form_controller.dart';
-import 'package:baudex_desktop/features/customers/presentation/controllers/customers_controller.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_detail_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_form_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_stats_screen.dart';

@@ -29,6 +29,9 @@ class CategoryTreeController extends GetxController {
   final _searchTerm = ''.obs;
   final _filteredTree = <CategoryTree>[].obs;
 
+  // Tab management for futuristic interface
+  final _selectedTab = 0.obs;
+
   // UI Controllers - Using SafeTextEditingController to prevent disposal errors
   final searchController = SafeTextEditingController(debugLabel: 'CategoryTreeSearch');
 
@@ -45,6 +48,9 @@ class CategoryTreeController extends GetxController {
   String get searchTerm => _searchTerm.value;
   bool get hasCategories => _categoryTree.isNotEmpty;
   bool get isSearchMode => _searchTerm.value.isNotEmpty;
+
+  // Tab getters
+  RxInt get selectedTab => _selectedTab;
 
   // ==================== LIFECYCLE ====================
 
@@ -178,6 +184,13 @@ class CategoryTreeController extends GetxController {
     final path = getCategoryPath(categoryId);
     for (final category in path) {
       expandNode(category.id);
+    }
+  }
+
+  /// Switch between tabs in futuristic interface
+  void switchTab(int tabIndex) {
+    if (tabIndex >= 0 && tabIndex <= 1) {
+      _selectedTab.value = tabIndex;
     }
   }
 

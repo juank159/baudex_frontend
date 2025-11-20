@@ -42,29 +42,29 @@ class InventoryController extends GetxController {
   // Balances
   final RxList<InventoryBalance> balances = <InventoryBalance>[].obs;
   final RxList<InventoryBalance> filteredBalances = <InventoryBalance>[].obs;
-  
+
   // Movements
   final RxList<InventoryMovement> movements = <InventoryMovement>[].obs;
   final RxList<InventoryMovement> filteredMovements = <InventoryMovement>[].obs;
-  
+
   // Stats
   final Rx<InventoryStats?> stats = Rx<InventoryStats?>(null);
   final Rx<InventoryStats?> inventoryStats = Rx<InventoryStats?>(null);
-  
+
   // Recent activity
   final RxList<InventoryMovement> recentMovements = <InventoryMovement>[].obs;
-  
+
   // Weekly stats count (para resumen semanal)
   final RxInt weeklyTransfersCount = 0.obs;
   final RxInt weeklyAdjustmentsCount = 0.obs;
   final RxInt weeklyNewProductsCount = 0.obs;
-  
+
   // Alert products
   final RxList<InventoryBalance> lowStockProducts = <InventoryBalance>[].obs;
   final RxList<InventoryBalance> outOfStockProducts = <InventoryBalance>[].obs;
   final RxList<InventoryBalance> expiredProducts = <InventoryBalance>[].obs;
   final RxList<InventoryBalance> nearExpiryProducts = <InventoryBalance>[].obs;
-  
+
   // Loading states
   final RxBool isLoading = false.obs;
   final RxBool isLoadingMore = false.obs;
@@ -133,7 +133,7 @@ class InventoryController extends GetxController {
 
   void _debounceSearch() {
     if (_searchTimer?.isActive ?? false) _searchTimer!.cancel();
-    
+
     _searchTimer = Timer(const Duration(milliseconds: 500), () {
       if (searchQuery.value.isNotEmpty) {
         _filterBalances();
@@ -156,8 +156,10 @@ class InventoryController extends GetxController {
         page: currentPage.value,
         limit: pageSize,
         search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
-        categoryId: categoryIdFilter.value.isNotEmpty ? categoryIdFilter.value : null,
-        warehouseId: warehouseIdFilter.value.isNotEmpty ? warehouseIdFilter.value : null,
+        categoryId:
+            categoryIdFilter.value.isNotEmpty ? categoryIdFilter.value : null,
+        warehouseId:
+            warehouseIdFilter.value.isNotEmpty ? warehouseIdFilter.value : null,
         lowStock: showLowStockOnly.value ? true : null,
         outOfStock: showOutOfStockOnly.value ? true : null,
         nearExpiry: showNearExpiryOnly.value ? true : null,
@@ -174,7 +176,7 @@ class InventoryController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -217,7 +219,8 @@ class InventoryController extends GetxController {
         page: currentPage.value,
         limit: pageSize,
         search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
-        warehouseId: warehouseIdFilter.value.isNotEmpty ? warehouseIdFilter.value : null,
+        warehouseId:
+            warehouseIdFilter.value.isNotEmpty ? warehouseIdFilter.value : null,
         sortBy: sortBy.value,
         sortOrder: sortOrder.value,
       );
@@ -230,7 +233,7 @@ class InventoryController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -268,10 +271,14 @@ class InventoryController extends GetxController {
     try {
       print('🔍 DEBUG: loadStats() called');
       final params = InventoryStatsParams(
-        warehouseId: warehouseIdFilter.value.isNotEmpty ? warehouseIdFilter.value : null,
-        categoryId: categoryIdFilter.value.isNotEmpty ? categoryIdFilter.value : null,
+        warehouseId:
+            warehouseIdFilter.value.isNotEmpty ? warehouseIdFilter.value : null,
+        categoryId:
+            categoryIdFilter.value.isNotEmpty ? categoryIdFilter.value : null,
       );
-      print('🔍 DEBUG: params created: warehouseId=${params.warehouseId}, categoryId=${params.categoryId}');
+      print(
+        '🔍 DEBUG: params created: warehouseId=${params.warehouseId}, categoryId=${params.categoryId}',
+      );
 
       print('🔍 DEBUG: Calling getInventoryStatsUseCase...');
       final result = await getInventoryStatsUseCase(params);
@@ -302,9 +309,18 @@ class InventoryController extends GetxController {
     List<InventoryBalance> filtered = List.from(balances);
 
     if (searchQuery.value.isNotEmpty) {
-      filtered = filtered.where((balance) =>
-          balance.productName.toLowerCase().contains(searchQuery.value.toLowerCase()) ||
-          balance.productSku.toLowerCase().contains(searchQuery.value.toLowerCase())).toList();
+      filtered =
+          filtered
+              .where(
+                (balance) =>
+                    balance.productName.toLowerCase().contains(
+                      searchQuery.value.toLowerCase(),
+                    ) ||
+                    balance.productSku.toLowerCase().contains(
+                      searchQuery.value.toLowerCase(),
+                    ),
+              )
+              .toList();
     }
 
     filteredBalances.value = filtered;
@@ -329,11 +345,11 @@ class InventoryController extends GetxController {
     showExpiredOnly.value = false;
     searchController.clear();
     searchQuery.value = '';
-    
+
     currentPage.value = 1;
     balances.clear();
     movements.clear();
-    
+
     if (selectedTab.value == 0) {
       loadBalances();
     } else if (selectedTab.value == 1) {
@@ -366,14 +382,14 @@ class InventoryController extends GetxController {
     currentPage.value = 1;
     balances.clear();
     movements.clear();
-    
+
     // Load main data
     if (selectedTab.value == 0) {
       await loadBalances(showLoading: false);
     } else if (selectedTab.value == 1) {
       await loadMovements(showLoading: false);
     }
-    
+
     // Load supporting data for dashboard
     await Future.wait([
       loadStats(),
@@ -393,7 +409,8 @@ class InventoryController extends GetxController {
 
       final result = await getInventoryMovementsUseCase(params);
       result.fold(
-        (failure) => print('❌ Error loading recent movements: ${failure.message}'),
+        (failure) =>
+            print('❌ Error loading recent movements: ${failure.message}'),
         (paginatedResult) => recentMovements.value = paginatedResult.data,
       );
     } catch (e) {
@@ -407,8 +424,12 @@ class InventoryController extends GetxController {
       final now = DateTime.now();
       // USAR LA MISMA LÓGICA QUE EN TRANSFERENCIAS: desde lunes de esta semana
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-      
+      final startOfWeekDay = DateTime(
+        startOfWeek.year,
+        startOfWeek.month,
+        startOfWeek.day,
+      );
+
       // Obtener transferencias transferOut de esta semana (desde lunes)
       final params = InventoryMovementQueryParams(
         limit: 100, // Más límite para obtener transferencias de la semana
@@ -420,7 +441,7 @@ class InventoryController extends GetxController {
       );
 
       final result = await getInventoryMovementsUseCase(params);
-      
+
       return result.fold(
         (failure) {
           print('❌ Error loading weekly transfers: ${failure.message}');
@@ -428,10 +449,10 @@ class InventoryController extends GetxController {
         },
         (paginatedResult) {
           final transferOutMovements = paginatedResult.data;
-          
+
           // Agrupar transferencias usando la misma lógica que en dashboard
           final groupedTransfers = <String, List<InventoryMovement>>{};
-          
+
           for (final transfer in transferOutMovements) {
             final groupKey = _generateTransferGroupKey(transfer);
             if (!groupedTransfers.containsKey(groupKey)) {
@@ -439,14 +460,14 @@ class InventoryController extends GetxController {
             }
             groupedTransfers[groupKey]!.add(transfer);
           }
-          
+
           final weeklyTransfersCount = groupedTransfers.length;
           print('🏠 DASHBOARD - Transferencias de la semana:');
           print('   • Desde: ${startOfWeekDay.toIso8601String()}');
           print('   • Hasta: ${now.toIso8601String()}');
           print('   • Movimientos transferOut: ${transferOutMovements.length}');
           print('   • Grupos únicos: $weeklyTransfersCount');
-          
+
           return weeklyTransfersCount;
         },
       );
@@ -459,26 +480,33 @@ class InventoryController extends GetxController {
   // Método auxiliar para generar clave de agrupamiento (igual que en dashboard)
   String _generateTransferGroupKey(InventoryMovement transfer) {
     // Usar lógica simplificada sin dependencia de warehouses
-    final timeWindow = transfer.createdAt.millisecondsSinceEpoch ~/ 60000; // Ventana de 1 minuto
-    final notesKey = transfer.notes?.contains('Transfer between warehouses') == true
-        ? 'batch_transfer' // Agrupar transferencias automáticas
-        : transfer.notes ?? 'no_notes';
-    
+    final timeWindow =
+        transfer.createdAt.millisecondsSinceEpoch ~/
+        60000; // Ventana de 1 minuto
+    final notesKey =
+        transfer.notes?.contains('Transfer between warehouses') == true
+            ? 'batch_transfer' // Agrupar transferencias automáticas
+            : transfer.notes ?? 'no_notes';
+
     // Usar metadata para obtener almacenes
     String fromWarehouse = 'unknown';
     String toWarehouse = 'unknown';
-    
+
     try {
       if (transfer.metadata != null) {
-        fromWarehouse = transfer.metadata!['originWarehouse'] as String? ?? transfer.warehouseId ?? 'unknown';
-        toWarehouse = transfer.metadata!['destinationWarehouse'] as String? ?? 'unknown';
+        fromWarehouse =
+            transfer.metadata!['originWarehouse'] as String? ??
+            transfer.warehouseId ??
+            'unknown';
+        toWarehouse =
+            transfer.metadata!['destinationWarehouse'] as String? ?? 'unknown';
       } else {
         fromWarehouse = transfer.warehouseId ?? 'unknown';
       }
     } catch (e) {
       // Usar fallback si hay error
     }
-    
+
     return '${fromWarehouse}_${toWarehouse}_${timeWindow}_${notesKey}';
   }
 
@@ -486,7 +514,7 @@ class InventoryController extends GetxController {
   Future<void> _loadWeeklyStats() async {
     try {
       // REPLICAR EXACTAMENTE la lógica del controlador de transferencias
-      
+
       // 1. Cargar TODOS los datos como lo hace el controlador de transferencias
       final transferInParams = InventoryMovementQueryParams(
         page: 1,
@@ -504,8 +532,12 @@ class InventoryController extends GetxController {
         sortOrder: 'desc',
       );
 
-      final transferInResult = await getInventoryMovementsUseCase(transferInParams);
-      final transferOutResult = await getInventoryMovementsUseCase(transferOutParams);
+      final transferInResult = await getInventoryMovementsUseCase(
+        transferInParams,
+      );
+      final transferOutResult = await getInventoryMovementsUseCase(
+        transferOutParams,
+      );
 
       List<InventoryMovement> allTransfers = [];
 
@@ -522,24 +554,34 @@ class InventoryController extends GetxController {
       // 2. Filtrar por semana usando EXACTAMENTE la misma lógica
       final now = DateTime.now();
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-      final weekTransfersList = allTransfers.where((t) => t.createdAt.isAfter(startOfWeekDay)).toList();
-      
+      final startOfWeekDay = DateTime(
+        startOfWeek.year,
+        startOfWeek.month,
+        startOfWeek.day,
+      );
+      final weekTransfersList =
+          allTransfers
+              .where((t) => t.createdAt.isAfter(startOfWeekDay))
+              .toList();
+
       // 3. Agrupar usando EXACTAMENTE la misma lógica
-      final transfersCount = _groupTransfersLikeTransfersController(weekTransfersList);
+      final transfersCount = _groupTransfersLikeTransfersController(
+        weekTransfersList,
+      );
       weeklyTransfersCount.value = transfersCount;
-      
+
       // 4. Cargar AJUSTES de la semana
       await _loadWeeklyAdjustments(startOfWeekDay, now);
-      
+
       // 5. Cargar PRODUCTOS NUEVOS de la semana
       await _loadWeeklyNewProducts(startOfWeekDay, now);
-      
-      print('🏠 DASHBOARD - Estadísticas semana (${startOfWeekDay.day}/${startOfWeekDay.month} - ${now.day}/${now.month}):');
+
+      print(
+        '🏠 DASHBOARD - Estadísticas semana (${startOfWeekDay.day}/${startOfWeekDay.month} - ${now.day}/${now.month}):',
+      );
       print('   • Transferencias: $transfersCount');
       print('   • Ajustes: ${weeklyAdjustmentsCount.value}');
       print('   • Productos nuevos: ${weeklyNewProductsCount.value}');
-      
     } catch (e) {
       print('❌ Error cargando estadísticas semanales: $e');
       weeklyTransfersCount.value = 0;
@@ -549,33 +591,39 @@ class InventoryController extends GetxController {
   }
 
   // Replicar EXACTAMENTE la lógica de agrupamiento del controlador de transferencias
-  int _groupTransfersLikeTransfersController(List<InventoryMovement> transfers) {
+  int _groupTransfersLikeTransfersController(
+    List<InventoryMovement> transfers,
+  ) {
     // FILTRAR SOLO TRANSFER_OUT para evitar duplicar cantidades
-    final outTransfers = transfers.where((t) => 
-      t.type == InventoryMovementType.transferOut
-    ).toList();
-    
+    final outTransfers =
+        transfers
+            .where((t) => t.type == InventoryMovementType.transferOut)
+            .toList();
+
     final Map<String, List<InventoryMovement>> groupedTransfers = {};
-    
+
     for (final transfer in outTransfers) {
       final groupKey = _generateTransferGroupKey(transfer);
-      
+
       if (!groupedTransfers.containsKey(groupKey)) {
         groupedTransfers[groupKey] = [];
       }
       groupedTransfers[groupKey]!.add(transfer);
     }
-    
+
     print('🏠 DASHBOARD DEBUG:');
     print('   • Total transfers: ${transfers.length}');
     print('   • TransferOut: ${outTransfers.length}');
     print('   • Grupos únicos: ${groupedTransfers.length}');
-    
+
     return groupedTransfers.length;
   }
 
   // Cargar ajustes realizados en la semana
-  Future<void> _loadWeeklyAdjustments(DateTime startOfWeek, DateTime endOfWeek) async {
+  Future<void> _loadWeeklyAdjustments(
+    DateTime startOfWeek,
+    DateTime endOfWeek,
+  ) async {
     try {
       final params = InventoryMovementQueryParams(
         limit: 100,
@@ -587,7 +635,7 @@ class InventoryController extends GetxController {
       );
 
       final result = await getInventoryMovementsUseCase(params);
-      
+
       result.fold(
         (failure) {
           print('❌ Error loading weekly adjustments: ${failure.message}');
@@ -595,7 +643,9 @@ class InventoryController extends GetxController {
         },
         (paginatedResult) {
           weeklyAdjustmentsCount.value = paginatedResult.data.length;
-          print('📊 AJUSTES - Encontrados ${paginatedResult.data.length} ajustes esta semana');
+          print(
+            '📊 AJUSTES - Encontrados ${paginatedResult.data.length} ajustes esta semana',
+          );
         },
       );
     } catch (e) {
@@ -605,7 +655,10 @@ class InventoryController extends GetxController {
   }
 
   // Cargar productos nuevos agregados en la semana (entradas/inbound)
-  Future<void> _loadWeeklyNewProducts(DateTime startOfWeek, DateTime endOfWeek) async {
+  Future<void> _loadWeeklyNewProducts(
+    DateTime startOfWeek,
+    DateTime endOfWeek,
+  ) async {
     try {
       final params = InventoryMovementQueryParams(
         limit: 100,
@@ -617,7 +670,7 @@ class InventoryController extends GetxController {
       );
 
       final result = await getInventoryMovementsUseCase(params);
-      
+
       result.fold(
         (failure) {
           print('❌ Error loading weekly new products: ${failure.message}');
@@ -625,13 +678,16 @@ class InventoryController extends GetxController {
         },
         (paginatedResult) {
           // Contar productos únicos (evitar duplicados)
-          final uniqueProducts = paginatedResult.data
-              .map((movement) => movement.productId)
-              .toSet()
-              .length;
-          
+          final uniqueProducts =
+              paginatedResult.data
+                  .map((movement) => movement.productId)
+                  .toSet()
+                  .length;
+
           weeklyNewProductsCount.value = uniqueProducts;
-          print('📦 PRODUCTOS NUEVOS - ${paginatedResult.data.length} entradas, $uniqueProducts productos únicos esta semana');
+          print(
+            '📦 PRODUCTOS NUEVOS - ${paginatedResult.data.length} entradas, $uniqueProducts productos únicos esta semana',
+          );
         },
       );
     } catch (e) {
@@ -656,9 +712,12 @@ class InventoryController extends GetxController {
 
   Future<void> _loadLowStockProducts() async {
     try {
-      final result = await getLowStockProductsUseCase(const GetLowStockProductsParams());
+      final result = await getLowStockProductsUseCase(
+        const GetLowStockProductsParams(),
+      );
       result.fold(
-        (failure) => print('❌ Error loading low stock products: ${failure.message}'),
+        (failure) =>
+            print('❌ Error loading low stock products: ${failure.message}'),
         (products) => lowStockProducts.value = products,
       );
     } catch (e) {
@@ -670,7 +729,8 @@ class InventoryController extends GetxController {
     try {
       final result = await getOutOfStockProductsUseCase();
       result.fold(
-        (failure) => print('❌ Error loading out of stock products: ${failure.message}'),
+        (failure) =>
+            print('❌ Error loading out of stock products: ${failure.message}'),
         (products) => outOfStockProducts.value = products,
       );
     } catch (e) {
@@ -682,7 +742,8 @@ class InventoryController extends GetxController {
     try {
       final result = await getExpiredProductsUseCase();
       result.fold(
-        (failure) => print('❌ Error loading expired products: ${failure.message}'),
+        (failure) =>
+            print('❌ Error loading expired products: ${failure.message}'),
         (products) => expiredProducts.value = products,
       );
     } catch (e) {
@@ -694,7 +755,8 @@ class InventoryController extends GetxController {
     try {
       final result = await getNearExpiryProductsUseCase();
       result.fold(
-        (failure) => print('❌ Error loading near expiry products: ${failure.message}'),
+        (failure) =>
+            print('❌ Error loading near expiry products: ${failure.message}'),
         (products) => nearExpiryProducts.value = products,
       );
     } catch (e) {
@@ -709,13 +771,16 @@ class InventoryController extends GetxController {
       sortOrder.value = sortOrder.value == 'asc' ? 'desc' : 'asc';
     } else {
       sortBy.value = field;
-      sortOrder.value = ['totalValue', 'totalQuantity', 'averageCost'].contains(field) ? 'desc' : 'asc';
+      sortOrder.value =
+          ['totalValue', 'totalQuantity', 'averageCost'].contains(field)
+              ? 'desc'
+              : 'asc';
     }
 
     currentPage.value = 1;
     balances.clear();
     movements.clear();
-    
+
     if (selectedTab.value == 0) {
       loadBalances();
     } else if (selectedTab.value == 1) {
@@ -746,7 +811,7 @@ class InventoryController extends GetxController {
   void switchTab(int index) {
     selectedTab.value = index;
     currentPage.value = 1;
-    
+
     if (index == 0) {
       // Balances tab
       if (balances.isEmpty) {
@@ -785,7 +850,7 @@ class InventoryController extends GetxController {
         Get.snackbar(
           'Sin datos',
           'No hay balances para exportar',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
         );
@@ -794,11 +859,11 @@ class InventoryController extends GetxController {
 
       isLoading.value = true;
       await InventoryExportService.exportBalancesToExcel(filteredBalances);
-      
+
       Get.snackbar(
         'Éxito',
         'Balances exportados a Excel correctamente',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
       );
@@ -806,7 +871,7 @@ class InventoryController extends GetxController {
       Get.snackbar(
         'Error',
         'Error exportando balances a Excel: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -821,7 +886,7 @@ class InventoryController extends GetxController {
         Get.snackbar(
           'Sin datos',
           'No hay movimientos para exportar',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
         );
@@ -830,11 +895,11 @@ class InventoryController extends GetxController {
 
       isLoading.value = true;
       await InventoryExportService.exportMovementsToExcel(filteredMovements);
-      
+
       Get.snackbar(
         'Éxito',
         'Movimientos exportados a Excel correctamente',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
       );
@@ -842,7 +907,7 @@ class InventoryController extends GetxController {
       Get.snackbar(
         'Error',
         'Error exportando movimientos a Excel: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -857,7 +922,7 @@ class InventoryController extends GetxController {
         Get.snackbar(
           'Sin datos',
           'No hay balances para exportar',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
         );
@@ -868,7 +933,7 @@ class InventoryController extends GetxController {
         Get.snackbar(
           'Sin datos',
           'No hay movimientos para exportar',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
         );
@@ -876,7 +941,7 @@ class InventoryController extends GetxController {
       }
 
       isLoading.value = true;
-      
+
       if (selectedTab.value == 0) {
         // Export balances to PDF
         await InventoryExportService.exportBalancesToPDF(filteredBalances);
@@ -884,11 +949,11 @@ class InventoryController extends GetxController {
         // Export movements to PDF
         await InventoryExportService.exportMovementsToPDF(filteredMovements);
       }
-      
+
       Get.snackbar(
         'Éxito',
         'Reporte exportado a PDF correctamente',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
       );
@@ -896,7 +961,7 @@ class InventoryController extends GetxController {
       Get.snackbar(
         'Error',
         'Error exportando reporte a PDF: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -912,7 +977,10 @@ class InventoryController extends GetxController {
 
   bool get hasBalances => balances.isNotEmpty;
   bool get hasMovements => movements.isNotEmpty;
-  bool get hasResults => selectedTab.value == 0 ? filteredBalances.isNotEmpty : filteredMovements.isNotEmpty;
+  bool get hasResults =>
+      selectedTab.value == 0
+          ? filteredBalances.isNotEmpty
+          : filteredMovements.isNotEmpty;
 
   String get resultsText {
     if (selectedTab.value == 0) {
@@ -930,7 +998,8 @@ class InventoryController extends GetxController {
     }
   }
 
-  bool get canLoadMore => hasNextPage.value && !isLoadingMore.value && !isLoading.value;
+  bool get canLoadMore =>
+      hasNextPage.value && !isLoadingMore.value && !isLoading.value;
 
   Map<String, dynamic> get activeFiltersCount {
     int count = 0;
@@ -961,9 +1030,6 @@ class InventoryController extends GetxController {
       activeFilters.add('Solo vencidos');
     }
 
-    return {
-      'count': count,
-      'filters': activeFilters,
-    };
+    return {'count': count, 'filters': activeFilters};
   }
 }

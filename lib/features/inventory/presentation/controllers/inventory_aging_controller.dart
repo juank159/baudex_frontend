@@ -7,9 +7,7 @@ import '../services/inventory_export_service.dart';
 class InventoryAgingController extends GetxController {
   final GetInventoryAgingUseCase getInventoryAgingUseCase;
 
-  InventoryAgingController({
-    required this.getInventoryAgingUseCase,
-  });
+  InventoryAgingController({required this.getInventoryAgingUseCase});
 
   // ==================== REACTIVE VARIABLES ====================
 
@@ -38,9 +36,10 @@ class InventoryAgingController extends GetxController {
       error.value = '';
 
       final result = await getInventoryAgingUseCase(
-        warehouseId: selectedWarehouseId.value.isNotEmpty 
-            ? selectedWarehouseId.value 
-            : null,
+        warehouseId:
+            selectedWarehouseId.value.isNotEmpty
+                ? selectedWarehouseId.value
+                : null,
       );
 
       result.fold(
@@ -49,7 +48,7 @@ class InventoryAgingController extends GetxController {
           Get.snackbar(
             'Error al cargar reporte',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -64,7 +63,7 @@ class InventoryAgingController extends GetxController {
       Get.snackbar(
         'Error al cargar reporte',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -88,7 +87,8 @@ class InventoryAgingController extends GetxController {
       totalAgeDays += (item['averageAgeDays'] ?? 0) as int;
     }
 
-    final averageAgeDays = totalProducts > 0 ? (totalAgeDays / totalProducts).round() : 0;
+    final averageAgeDays =
+        totalProducts > 0 ? (totalAgeDays / totalProducts).round() : 0;
 
     agingSummary.value = AgingSummary(
       totalProducts: totalProducts,
@@ -138,7 +138,7 @@ class InventoryAgingController extends GetxController {
         Get.snackbar(
           'Sin datos',
           'No hay datos de antigüedad para exportar',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
         );
@@ -147,11 +147,11 @@ class InventoryAgingController extends GetxController {
 
       isLoading.value = true;
       await _createAgingExcelReport();
-      
+
       Get.snackbar(
         'Éxito',
         'Reporte de antigüedad exportado a Excel correctamente',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
       );
@@ -159,7 +159,7 @@ class InventoryAgingController extends GetxController {
       Get.snackbar(
         'Error',
         'Error exportando a Excel: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -174,7 +174,7 @@ class InventoryAgingController extends GetxController {
         Get.snackbar(
           'Sin datos',
           'No hay datos de antigüedad para exportar',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
         );
@@ -183,11 +183,11 @@ class InventoryAgingController extends GetxController {
 
       isLoading.value = true;
       await _createAgingPdfReport();
-      
+
       Get.snackbar(
         'Éxito',
         'Reporte de antigüedad exportado a PDF correctamente',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
       );
@@ -195,7 +195,7 @@ class InventoryAgingController extends GetxController {
       Get.snackbar(
         'Error',
         'Error exportando a PDF: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -212,7 +212,10 @@ class InventoryAgingController extends GetxController {
 
   Future<void> _createAgingPdfReport() async {
     // Create a custom export for aging data
-    await InventoryExportService.exportAgingDataToPDF(agingData, agingSummary.value);
+    await InventoryExportService.exportAgingDataToPDF(
+      agingData,
+      agingSummary.value,
+    );
   }
 
   void showExportOptions() {
@@ -237,7 +240,10 @@ class InventoryAgingController extends GetxController {
               children: [
                 Expanded(
                   child: ListTile(
-                    leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                    leading: const Icon(
+                      Icons.picture_as_pdf,
+                      color: Colors.red,
+                    ),
                     title: const Text('Exportar a PDF'),
                     subtitle: const Text('Formato para impresión'),
                     onTap: () {

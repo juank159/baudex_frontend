@@ -60,7 +60,7 @@ class EnhancedExpensesController extends GetxController {
   final _sortOrder = 'DESC'.obs;
   final _startDate = Rxn<DateTime>();
   final _endDate = Rxn<DateTime>();
-  
+
   // ✅ NUEVO: Filtro por período predefinido - Cambiado a 'all' por defecto
   final _currentPeriod = 'all'.obs; // today, week, month, all
 
@@ -111,10 +111,10 @@ class EnhancedExpensesController extends GetxController {
   void onInit() {
     super.onInit();
     print('🧮 EnhancedExpensesController: Inicializando...');
-    
+
     // ✅ Configurar scroll infinito
     _setupScrollListener();
-    
+
     // ✅ Cargar datos iniciales automáticamente
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
@@ -124,11 +124,11 @@ class EnhancedExpensesController extends GetxController {
   @override
   void onClose() {
     print('🧮 EnhancedExpensesController: Cerrando y limpiando recursos...');
-    
+
     // ✅ Limpiar controladores
     searchController.dispose();
     scrollController.dispose();
-    
+
     super.onClose();
   }
 
@@ -147,13 +147,10 @@ class EnhancedExpensesController extends GetxController {
 
   Future<void> _loadInitialData() async {
     print('🧮 Cargando datos iniciales...');
-    
+
     // ✅ Cargar en paralelo para mejor rendimiento
-    await Future.wait([
-      _loadExpenses(reset: true),
-      _loadStats(),
-    ]);
-    
+    await Future.wait([_loadExpenses(reset: true), _loadStats()]);
+
     print('✅ Datos iniciales cargados correctamente');
   }
 
@@ -170,10 +167,10 @@ class EnhancedExpensesController extends GetxController {
 
     try {
       print('🔍 Cargando gastos - Página: ${_currentPage.value}');
-      
+
       // ✅ Calcular fechas según el período seleccionado
       final dateRange = _getDateRangeForPeriod(_currentPeriod.value);
-      
+
       final result = await _getExpensesUseCase.call(
         GetExpensesParams(
           page: _currentPage.value,
@@ -195,20 +192,20 @@ class EnhancedExpensesController extends GetxController {
           Get.snackbar(
             'Error',
             'No se pudieron cargar los gastos: ${failure.message}',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
         },
         (response) {
           print('✅ Gastos cargados: ${response.data.length} items');
-          
+
           if (reset) {
             _expenses.assignAll(response.data);
           } else {
             _expenses.addAll(response.data);
           }
-          
+
           // ✅ Actualizar metadatos de paginación
           _updatePaginationMetadata(response.meta);
         },
@@ -218,7 +215,7 @@ class EnhancedExpensesController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado al cargar gastos',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -232,10 +229,10 @@ class EnhancedExpensesController extends GetxController {
   Future<void> _loadStats() async {
     try {
       print('📊 Cargando estadísticas...');
-      
+
       // ✅ Calcular fechas según el período seleccionado para consistencia
       final dateRange = _getDateRangeForPeriod(_currentPeriod.value);
-      
+
       // ✅ Cargar estadísticas con el mismo rango de fecha que la lista
       final result = await _getExpenseStatsUseCase.call(
         GetExpenseStatsParams(
@@ -250,7 +247,7 @@ class EnhancedExpensesController extends GetxController {
         },
         (stats) {
           print('✅ Estadísticas cargadas correctamente');
-          
+
           // ✅ Enriquecer estadísticas con datos calculados
           _stats.value = _enrichStatsWithCalculatedData(stats);
         },
@@ -262,7 +259,7 @@ class EnhancedExpensesController extends GetxController {
 
   Future<void> _loadMoreExpenses() async {
     if (_isLoadingMore.value || !_hasNextPage.value) return;
-    
+
     _currentPage.value++;
     await _loadExpenses();
   }
@@ -325,17 +322,17 @@ class EnhancedExpensesController extends GetxController {
 
   void clearFilters() {
     print('🧹 Limpiando todos los filtros...');
-    
+
     _currentStatus.value = null;
     _currentType.value = null;
     _selectedCategoryId.value = null;
     _startDate.value = null;
     _endDate.value = null;
     _currentPeriod.value = 'all';
-    
+
     searchController.clear();
     _searchTerm.value = '';
-    
+
     _loadExpenses(reset: true);
     _loadStats();
   }
@@ -372,7 +369,9 @@ class EnhancedExpensesController extends GetxController {
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
         title: const Text('Confirmar Eliminación'),
-        content: Text('¿Estás seguro de que quieres eliminar el gasto "${expense.description}"?'),
+        content: Text(
+          '¿Estás seguro de que quieres eliminar el gasto "${expense.description}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
@@ -394,39 +393,39 @@ class EnhancedExpensesController extends GetxController {
 
   Future<void> _deleteExpense(String expenseId) async {
     _isDeleting.value = true;
-    
+
     try {
       print('🗑️ Eliminando gasto: $expenseId');
-      
+
       final result = await _deleteExpenseUseCase.call(
         DeleteExpenseParams(id: expenseId),
       );
-      
+
       result.fold(
         (failure) {
           print('❌ Error eliminando gasto: ${failure.message}');
           Get.snackbar(
             'Error',
             'No se pudo eliminar el gasto: ${failure.message}',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
         },
         (_) {
           print('✅ Gasto eliminado correctamente');
-          
+
           // ✅ Remover de la lista local
           _expenses.removeWhere((expense) => expense.id == expenseId);
           _totalItems.value--;
-          
+
           // ✅ Recargar estadísticas
           _loadStats();
-          
+
           Get.snackbar(
             'Éxito',
             'Gasto eliminado correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -437,7 +436,7 @@ class EnhancedExpensesController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado al eliminar el gasto',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -450,7 +449,9 @@ class EnhancedExpensesController extends GetxController {
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
         title: const Text('Confirmar Aprobación'),
-        content: Text('¿Aprobar el gasto "${expense.description}" por ${expense.formattedAmount}?'),
+        content: Text(
+          '¿Aprobar el gasto "${expense.description}" por ${expense.formattedAmount}?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
@@ -472,41 +473,43 @@ class EnhancedExpensesController extends GetxController {
 
   Future<void> _approveExpense(String expenseId) async {
     _isApproving.value = true;
-    
+
     try {
       print('✅ Aprobando gasto: $expenseId');
-      
+
       final result = await _approveExpenseUseCase.call(
         ApproveExpenseParams(id: expenseId),
       );
-      
+
       result.fold(
         (failure) {
           print('❌ Error aprobando gasto: ${failure.message}');
           Get.snackbar(
             'Error',
             'No se pudo aprobar el gasto: ${failure.message}',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
         },
         (updatedExpense) {
           print('✅ Gasto aprobado correctamente');
-          
+
           // ✅ Actualizar en la lista local
-          final index = _expenses.indexWhere((expense) => expense.id == expenseId);
+          final index = _expenses.indexWhere(
+            (expense) => expense.id == expenseId,
+          );
           if (index != -1) {
             _expenses[index] = updatedExpense;
           }
-          
+
           // ✅ Recargar estadísticas
           _loadStats();
-          
+
           Get.snackbar(
             'Éxito',
             'Gasto aprobado correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -517,7 +520,7 @@ class EnhancedExpensesController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado al aprobar el gasto',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -528,41 +531,43 @@ class EnhancedExpensesController extends GetxController {
 
   Future<void> submitExpense(String expenseId) async {
     _isSubmitting.value = true;
-    
+
     try {
       print('📤 Enviando gasto para aprobación: $expenseId');
-      
+
       final result = await _submitExpenseUseCase.call(
         SubmitExpenseParams(id: expenseId),
       );
-      
+
       result.fold(
         (failure) {
           print('❌ Error enviando gasto: ${failure.message}');
           Get.snackbar(
             'Error',
             'No se pudo enviar el gasto: ${failure.message}',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
         },
         (updatedExpense) {
           print('✅ Gasto enviado correctamente');
-          
+
           // ✅ Actualizar en la lista local
-          final index = _expenses.indexWhere((expense) => expense.id == expenseId);
+          final index = _expenses.indexWhere(
+            (expense) => expense.id == expenseId,
+          );
           if (index != -1) {
             _expenses[index] = updatedExpense;
           }
-          
+
           // ✅ Recargar estadísticas
           _loadStats();
-          
+
           Get.snackbar(
             'Éxito',
             'Gasto enviado para aprobación',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.blue.shade100,
             colorText: Colors.blue.shade800,
           );
@@ -573,7 +578,7 @@ class EnhancedExpensesController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado al enviar el gasto',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -590,7 +595,7 @@ class EnhancedExpensesController extends GetxController {
     Get.snackbar(
       'Próximamente',
       'La exportación a PDF estará disponible pronto',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -600,7 +605,7 @@ class EnhancedExpensesController extends GetxController {
     Get.snackbar(
       'Próximamente',
       'La exportación a Excel estará disponible pronto',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -610,7 +615,7 @@ class EnhancedExpensesController extends GetxController {
     Get.snackbar(
       'Próximamente',
       'Compartir resumen estará disponible pronto',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -620,54 +625,45 @@ class EnhancedExpensesController extends GetxController {
     _totalPages.value = meta.totalPages;
     _totalItems.value = meta.total;
     _hasNextPage.value = meta.hasNext;
-    
-    print('📄 Paginación actualizada: ${meta.page}/${meta.totalPages} (${meta.total} total)');
+
+    print(
+      '📄 Paginación actualizada: ${meta.page}/${meta.totalPages} (${meta.total} total)',
+    );
   }
 
   Map<String, DateTime?> _getDateRangeForPeriod(String period) {
     final now = DateTime.now();
-    
+
     switch (period) {
       case 'today':
         final today = DateTime(now.year, now.month, now.day);
-        return {
-          'start': today,
-          'end': today.add(const Duration(days: 1)),
-        };
-        
+        return {'start': today, 'end': today.add(const Duration(days: 1))};
+
       case 'week':
         final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final start = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-        return {
-          'start': start,
-          'end': start.add(const Duration(days: 7)),
-        };
-        
+        final start = DateTime(
+          startOfWeek.year,
+          startOfWeek.month,
+          startOfWeek.day,
+        );
+        return {'start': start, 'end': start.add(const Duration(days: 7))};
+
       case 'month':
         final startOfMonth = DateTime(now.year, now.month, 1);
         final endOfMonth = DateTime(now.year, now.month + 1, 1);
-        return {
-          'start': startOfMonth,
-          'end': endOfMonth,
-        };
-        
+        return {'start': startOfMonth, 'end': endOfMonth};
+
       case 'custom':
-        return {
-          'start': _startDate.value,
-          'end': _endDate.value,
-        };
-        
+        return {'start': _startDate.value, 'end': _endDate.value};
+
       default: // 'all'
-        return {
-          'start': null,
-          'end': null,
-        };
+        return {'start': null, 'end': null};
     }
   }
 
   ExpenseStats _enrichStatsWithCalculatedData(ExpenseStats originalStats) {
     final now = DateTime.now();
-    
+
     // ✅ Calcular datos adicionales usando los gastos cargados
     final dailyCount = _calculateDailyCount();
     final weeklyCount = _calculateWeeklyCount();
@@ -676,13 +672,13 @@ class EnhancedExpensesController extends GetxController {
     final weeklyAmount = _calculateWeeklyAmount();
     final monthlyAmount = _calculateMonthlyAmount();
     final previousMonthAmount = _calculatePreviousMonthAmount();
-    
+
     return ExpenseStats(
       totalExpenses: originalStats.totalExpenses,
       totalAmount: originalStats.totalAmount,
       monthlyAmount: monthlyAmount, // ✅ Usar valor calculado localmente
-      weeklyAmount: weeklyAmount,   // ✅ Usar valor calculado localmente
-      dailyAmount: dailyAmount,     // ✅ Usar valor calculado localmente
+      weeklyAmount: weeklyAmount, // ✅ Usar valor calculado localmente
+      dailyAmount: dailyAmount, // ✅ Usar valor calculado localmente
       pendingExpenses: originalStats.pendingExpenses,
       pendingAmount: originalStats.pendingAmount,
       approvedExpenses: originalStats.approvedExpenses,
@@ -706,7 +702,7 @@ class EnhancedExpensesController extends GetxController {
   int _calculateDailyCount() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     return _expenses.where((expense) {
       final expenseDate = DateTime(
         expense.date.year,
@@ -720,13 +716,22 @@ class EnhancedExpensesController extends GetxController {
   int _calculateWeeklyCount() {
     final now = DateTime.now();
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final start = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final start = DateTime(
+      startOfWeek.year,
+      startOfWeek.month,
+      startOfWeek.day,
+    );
     final end = start.add(const Duration(days: 7));
-    
+
     return _expenses.where((expense) {
-      final expenseDate = DateTime(expense.date.year, expense.date.month, expense.date.day);
-      return (expenseDate.isAtSameMomentAs(start) || expenseDate.isAfter(start)) && 
-             expenseDate.isBefore(end);
+      final expenseDate = DateTime(
+        expense.date.year,
+        expense.date.month,
+        expense.date.day,
+      );
+      return (expenseDate.isAtSameMomentAs(start) ||
+              expenseDate.isAfter(start)) &&
+          expenseDate.isBefore(end);
     }).length;
   }
 
@@ -734,62 +739,94 @@ class EnhancedExpensesController extends GetxController {
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
     final endOfMonth = DateTime(now.year, now.month + 1, 1);
-    
-    return _expenses.where((expense) {
-      final expenseDate = DateTime(expense.date.year, expense.date.month, expense.date.day);
-      return (expenseDate.isAtSameMomentAs(startOfMonth) || expenseDate.isAfter(startOfMonth)) && 
-             expenseDate.isBefore(endOfMonth);
-    }).length;
-  }
 
-  double _calculateDailyAmount() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    
     return _expenses.where((expense) {
       final expenseDate = DateTime(
         expense.date.year,
         expense.date.month,
         expense.date.day,
       );
-      return expenseDate.isAtSameMomentAs(today);
-    }).fold(0.0, (sum, expense) => sum + expense.amount);
+      return (expenseDate.isAtSameMomentAs(startOfMonth) ||
+              expenseDate.isAfter(startOfMonth)) &&
+          expenseDate.isBefore(endOfMonth);
+    }).length;
+  }
+
+  double _calculateDailyAmount() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    return _expenses
+        .where((expense) {
+          final expenseDate = DateTime(
+            expense.date.year,
+            expense.date.month,
+            expense.date.day,
+          );
+          return expenseDate.isAtSameMomentAs(today);
+        })
+        .fold(0.0, (sum, expense) => sum + expense.amount);
   }
 
   double _calculateWeeklyAmount() {
     final now = DateTime.now();
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final start = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final start = DateTime(
+      startOfWeek.year,
+      startOfWeek.month,
+      startOfWeek.day,
+    );
     final end = start.add(const Duration(days: 7));
-    
-    return _expenses.where((expense) {
-      final expenseDate = DateTime(expense.date.year, expense.date.month, expense.date.day);
-      return (expenseDate.isAtSameMomentAs(start) || expenseDate.isAfter(start)) && 
-             expenseDate.isBefore(end);
-    }).fold(0.0, (sum, expense) => sum + expense.amount);
+
+    return _expenses
+        .where((expense) {
+          final expenseDate = DateTime(
+            expense.date.year,
+            expense.date.month,
+            expense.date.day,
+          );
+          return (expenseDate.isAtSameMomentAs(start) ||
+                  expenseDate.isAfter(start)) &&
+              expenseDate.isBefore(end);
+        })
+        .fold(0.0, (sum, expense) => sum + expense.amount);
   }
 
   double _calculateMonthlyAmount() {
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
     final endOfMonth = DateTime(now.year, now.month + 1, 1);
-    
-    return _expenses.where((expense) {
-      final expenseDate = DateTime(expense.date.year, expense.date.month, expense.date.day);
-      return (expenseDate.isAtSameMomentAs(startOfMonth) || expenseDate.isAfter(startOfMonth)) && 
-             expenseDate.isBefore(endOfMonth);
-    }).fold(0.0, (sum, expense) => sum + expense.amount);
+
+    return _expenses
+        .where((expense) {
+          final expenseDate = DateTime(
+            expense.date.year,
+            expense.date.month,
+            expense.date.day,
+          );
+          return (expenseDate.isAtSameMomentAs(startOfMonth) ||
+                  expenseDate.isAfter(startOfMonth)) &&
+              expenseDate.isBefore(endOfMonth);
+        })
+        .fold(0.0, (sum, expense) => sum + expense.amount);
   }
 
   double _calculatePreviousMonthAmount() {
     final now = DateTime.now();
     final startOfPreviousMonth = DateTime(now.year, now.month - 1, 1);
     final endOfPreviousMonth = DateTime(now.year, now.month, 1);
-    
-    return _expenses.where((expense) {
-      final expenseDate = DateTime(expense.date.year, expense.date.month, expense.date.day);
-      return (expenseDate.isAtSameMomentAs(startOfPreviousMonth) || expenseDate.isAfter(startOfPreviousMonth)) && 
-             expenseDate.isBefore(endOfPreviousMonth);
-    }).fold(0.0, (sum, expense) => sum + expense.amount);
+
+    return _expenses
+        .where((expense) {
+          final expenseDate = DateTime(
+            expense.date.year,
+            expense.date.month,
+            expense.date.day,
+          );
+          return (expenseDate.isAtSameMomentAs(startOfPreviousMonth) ||
+                  expenseDate.isAfter(startOfPreviousMonth)) &&
+              expenseDate.isBefore(endOfPreviousMonth);
+        })
+        .fold(0.0, (sum, expense) => sum + expense.amount);
   }
 }

@@ -22,7 +22,8 @@ class PurchaseOrderDetailController extends GetxController {
   final UpdatePurchaseOrderUseCase updatePurchaseOrderUseCase;
   final ApprovePurchaseOrderUseCase approvePurchaseOrderUseCase;
   final SendPurchaseOrderUseCase sendPurchaseOrderUseCase;
-  final ReceivePurchaseOrderAndUpdateInventoryUseCase receivePurchaseOrderAndUpdateInventoryUseCase;
+  final ReceivePurchaseOrderAndUpdateInventoryUseCase
+  receivePurchaseOrderAndUpdateInventoryUseCase;
   final CancelPurchaseOrderUseCase cancelPurchaseOrderUseCase;
   final GetWarehousesUseCase getWarehousesUseCase;
 
@@ -49,12 +50,14 @@ class PurchaseOrderDetailController extends GetxController {
   final RxString purchaseOrderId = ''.obs;
 
   // UI State
-  final RxInt selectedTab = 0.obs; // 0: General, 1: Items, 2: Workflow, 3: Actividad
+  final RxInt selectedTab =
+      0.obs; // 0: General, 1: Items, 2: Workflow, 3: Actividad
   final RxBool showAllDetails = false.obs;
 
   // Receiving state
-  final RxList<ReceivePurchaseOrderItemParams> receivingItems = <ReceivePurchaseOrderItemParams>[].obs;
-  
+  final RxList<ReceivePurchaseOrderItemParams> receivingItems =
+      <ReceivePurchaseOrderItemParams>[].obs;
+
   // Warehouse selection
   final RxList<Warehouse> availableWarehouses = <Warehouse>[].obs;
   final Rx<Warehouse?> selectedWarehouse = Rx<Warehouse?>(null);
@@ -72,7 +75,7 @@ class PurchaseOrderDetailController extends GetxController {
     // Obtener el ID de la orden desde los argumentos o parámetros de ruta
     final args = Get.arguments as Map<String, dynamic>?;
     final paramId = Get.parameters['id'];
-    
+
     if (args != null && args.containsKey('purchaseOrderId')) {
       purchaseOrderId.value = args['purchaseOrderId'] as String;
     } else if (paramId != null) {
@@ -94,7 +97,9 @@ class PurchaseOrderDetailController extends GetxController {
     try {
       isLoading.value = true;
       error.value = '';
-      print('🔍 PurchaseOrderDetailController: Cargando orden ${purchaseOrderId.value}');
+      print(
+        '🔍 PurchaseOrderDetailController: Cargando orden ${purchaseOrderId.value}',
+      );
 
       final result = await getPurchaseOrderByIdUseCase(purchaseOrderId.value);
 
@@ -105,24 +110,30 @@ class PurchaseOrderDetailController extends GetxController {
           Get.snackbar(
             'Error al cargar orden',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
         },
         (loadedPurchaseOrder) {
-          print('✅ PurchaseOrderDetailController: Orden cargada exitosamente - ${loadedPurchaseOrder.orderNumber}');
+          print(
+            '✅ PurchaseOrderDetailController: Orden cargada exitosamente - ${loadedPurchaseOrder.orderNumber}',
+          );
           print('🔍 DEBUG - Supplier info:');
           print('   supplierId: ${loadedPurchaseOrder.supplierId}');
           print('   supplierName: ${loadedPurchaseOrder.supplierName}');
           print('🔍 DEBUG - Items info:');
           for (int i = 0; i < loadedPurchaseOrder.items.length; i++) {
             final item = loadedPurchaseOrder.items[i];
-            print('   Item $i: quantity=${item.quantity}, unitPrice=${item.unitPrice}, totalAmount=${item.totalAmount}');
+            print(
+              '   Item $i: quantity=${item.quantity}, unitPrice=${item.unitPrice}, totalAmount=${item.totalAmount}',
+            );
           }
           purchaseOrder.value = loadedPurchaseOrder;
           _initializeReceivingItems();
-          print('✅ PurchaseOrderDetailController: UI actualizada con datos de la orden');
+          print(
+            '✅ PurchaseOrderDetailController: UI actualizada con datos de la orden',
+          );
         },
       );
     } catch (e) {
@@ -131,13 +142,15 @@ class PurchaseOrderDetailController extends GetxController {
       Get.snackbar(
         'Error al cargar orden',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
     } finally {
       isLoading.value = false;
-      print('🔍 PurchaseOrderDetailController: Loading finalizado. HasOrder: ${purchaseOrder.value != null}');
+      print(
+        '🔍 PurchaseOrderDetailController: Loading finalizado. HasOrder: ${purchaseOrder.value != null}',
+      );
     }
   }
 
@@ -147,18 +160,22 @@ class PurchaseOrderDetailController extends GetxController {
 
   void _initializeReceivingItems() {
     if (purchaseOrder.value != null) {
-      receivingItems.value = purchaseOrder.value!.items.map((item) => 
-        ReceivePurchaseOrderItemParams(
-          itemId: item.id,
-          receivedQuantity: item.quantity, // Use full quantity as default to receive
-          damagedQuantity: 0,
-          missingQuantity: 0,
-          actualUnitCost: null,
-          supplierLotNumber: null,
-          expirationDate: null,
-          notes: null,
-        )
-      ).toList();
+      receivingItems.value =
+          purchaseOrder.value!.items
+              .map(
+                (item) => ReceivePurchaseOrderItemParams(
+                  itemId: item.id,
+                  receivedQuantity:
+                      item.quantity, // Use full quantity as default to receive
+                  damagedQuantity: 0,
+                  missingQuantity: 0,
+                  actualUnitCost: null,
+                  supplierLotNumber: null,
+                  expirationDate: null,
+                  notes: null,
+                ),
+              )
+              .toList();
     }
   }
 
@@ -183,30 +200,33 @@ class PurchaseOrderDetailController extends GetxController {
           if (Get.isDialogOpen == true) {
             Get.back();
           }
-          
+
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
         },
         (updatedPurchaseOrder) {
           purchaseOrder.value = updatedPurchaseOrder;
-          
+
           // Cerrar cualquier diálogo abierto
           if (Get.isDialogOpen == true) {
             Get.back();
           }
-          
+
           // Navegar de vuelta a la lista de órdenes de compra y refrescar
           Future.delayed(const Duration(milliseconds: 500), () {
             if (Get.isRegistered<PurchaseOrderDetailController>()) {
               // Refrescar el controlador de la lista si existe
               try {
                 final listController = Get.find<PurchaseOrdersController>();
-                listController.refreshAfterOrderChange(purchaseOrder.value!.id, isUpdate: true);
+                listController.refreshAfterOrderChange(
+                  purchaseOrder.value!.id,
+                  isUpdate: true,
+                );
               } catch (e) {
                 print('⚠️ No se pudo refrescar la lista: $e');
               }
@@ -220,11 +240,11 @@ class PurchaseOrderDetailController extends GetxController {
       if (Get.isDialogOpen == true) {
         Get.back();
       }
-      
+
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -245,7 +265,7 @@ class PurchaseOrderDetailController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -273,26 +293,29 @@ class PurchaseOrderDetailController extends GetxController {
           if (Get.isDialogOpen == true) {
             Get.back();
           }
-          
+
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
         },
         (updatedPurchaseOrder) {
           purchaseOrder.value = updatedPurchaseOrder;
-          
+
           // Refrescar el controlador de la lista si existe
           try {
             final listController = Get.find<PurchaseOrdersController>();
-            listController.refreshAfterOrderChange(purchaseOrder.value!.id, isUpdate: true);
+            listController.refreshAfterOrderChange(
+              purchaseOrder.value!.id,
+              isUpdate: true,
+            );
           } catch (e) {
             print('⚠️ No se pudo refrescar la lista: $e');
           }
-          
+
           // Cerrar cualquier diálogo abierto
           if (Get.isDialogOpen == true) {
             Get.back();
@@ -304,11 +327,11 @@ class PurchaseOrderDetailController extends GetxController {
       if (Get.isDialogOpen == true) {
         Get.back();
       }
-      
+
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -328,17 +351,17 @@ class PurchaseOrderDetailController extends GetxController {
         if (availableWarehouses.isEmpty) {
           await loadAvailableWarehouses();
         }
-        
+
         if (availableWarehouses.length > 1) {
           await showWarehouseSelectionDialog();
         }
-        
+
         // If still no warehouse selected, show error
         if (selectedWarehouse.value == null) {
           Get.snackbar(
             'Selección Requerida',
             'Debe seleccionar un almacén para recibir la mercancía',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.orange.shade100,
             colorText: Colors.orange.shade800,
           );
@@ -354,14 +377,16 @@ class PurchaseOrderDetailController extends GetxController {
         warehouseId: selectedWarehouse.value!.id, // Add warehouse ID
       );
 
-      final result = await receivePurchaseOrderAndUpdateInventoryUseCase(params);
+      final result = await receivePurchaseOrderAndUpdateInventoryUseCase(
+        params,
+      );
 
       result.fold(
         (failure) {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -369,46 +394,50 @@ class PurchaseOrderDetailController extends GetxController {
         (updatedPurchaseOrder) {
           purchaseOrder.value = updatedPurchaseOrder;
           _initializeReceivingItems();
-          
-          final statusMessage = updatedPurchaseOrder.isReceived 
-            ? 'Orden de compra recibida completamente' 
-            : 'Recepción parcial procesada correctamente';
-            
+
+          final statusMessage =
+              updatedPurchaseOrder.isReceived
+                  ? 'Orden de compra recibida completamente'
+                  : 'Recepción parcial procesada correctamente';
+
           Get.snackbar(
             'Éxito',
             statusMessage,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
-          
+
           // Si la orden está completamente recibida, mostrar mensaje adicional
           if (updatedPurchaseOrder.isReceived) {
             Future.delayed(const Duration(milliseconds: 2000), () {
               Get.snackbar(
                 'Estado Actualizado',
                 'La orden ha sido marcada como completamente recibida',
-                snackPosition: SnackPosition.BOTTOM,
+                snackPosition: SnackPosition.TOP,
                 backgroundColor: Colors.blue.shade100,
                 colorText: Colors.blue.shade800,
                 duration: const Duration(seconds: 3),
               );
             });
           }
-          
+
           // Refrescar el controlador de la lista si existe
           try {
             final listController = Get.find<PurchaseOrdersController>();
-            listController.refreshAfterOrderChange(updatedPurchaseOrder.id, isUpdate: true);
+            listController.refreshAfterOrderChange(
+              updatedPurchaseOrder.id,
+              isUpdate: true,
+            );
           } catch (e) {
             print('⚠️ No se pudo refrescar la lista: $e');
           }
-          
+
           // Refrescar la orden actual para obtener el estado más reciente del servidor
           Future.delayed(const Duration(milliseconds: 500), () async {
             await refreshPurchaseOrder();
           });
-          
+
           // Navegar de vuelta al listado de órdenes de compra con un pequeño delay
           // para asegurar que los snackbars se muestren correctamente
           Future.delayed(const Duration(milliseconds: 1500), () {
@@ -422,7 +451,7 @@ class PurchaseOrderDetailController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -436,29 +465,37 @@ class PurchaseOrderDetailController extends GetxController {
   Future<void> loadAvailableWarehouses() async {
     try {
       isLoadingWarehouses.value = true;
-      
+
       final result = await getWarehousesUseCase();
-      
+
       result.fold(
         (failure) {
           print('❌ Error loading warehouses: ${failure.message}');
           availableWarehouses.clear();
         },
         (warehouses) {
-          availableWarehouses.value = warehouses.where((w) => w.isActive).toList();
-          
+          availableWarehouses.value =
+              warehouses.where((w) => w.isActive).toList();
+
           // Auto-select logic
           if (availableWarehouses.length == 1) {
             // If only one warehouse, auto-select it
             selectedWarehouse.value = availableWarehouses.first;
-            print('🏢 Auto-selected single warehouse: ${selectedWarehouse.value!.name}');
+            print(
+              '🏢 Auto-selected single warehouse: ${selectedWarehouse.value!.name}',
+            );
           } else if (availableWarehouses.isNotEmpty) {
             // If multiple warehouses, try to find "principal" or first one
             final principalWarehouse = availableWarehouses.firstWhereOrNull(
-              (w) => w.name.toLowerCase().contains('principal') || w.code.toLowerCase().contains('main')
+              (w) =>
+                  w.name.toLowerCase().contains('principal') ||
+                  w.code.toLowerCase().contains('main'),
             );
-            selectedWarehouse.value = principalWarehouse ?? availableWarehouses.first;
-            print('🏢 Auto-selected warehouse: ${selectedWarehouse.value!.name}');
+            selectedWarehouse.value =
+                principalWarehouse ?? availableWarehouses.first;
+            print(
+              '🏢 Auto-selected warehouse: ${selectedWarehouse.value!.name}',
+            );
           }
         },
       );
@@ -495,8 +532,8 @@ class PurchaseOrderDetailController extends GetxController {
             children: [
               const Text('¿A qué almacén llega esta mercancía?'),
               const SizedBox(height: 16),
-              ...availableWarehouses.map((warehouse) => 
-                ListTile(
+              ...availableWarehouses.map(
+                (warehouse) => ListTile(
                   title: Text(warehouse.name),
                   subtitle: Text(warehouse.code),
                   leading: Radio<String>(
@@ -546,26 +583,29 @@ class PurchaseOrderDetailController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
         },
         (updatedPurchaseOrder) {
           purchaseOrder.value = updatedPurchaseOrder;
-          
+
           // Refrescar el controlador de la lista si existe
           try {
             final listController = Get.find<PurchaseOrdersController>();
-            listController.refreshAfterOrderChange(purchaseOrder.value!.id, isUpdate: true);
+            listController.refreshAfterOrderChange(
+              purchaseOrder.value!.id,
+              isUpdate: true,
+            );
           } catch (e) {
             print('⚠️ No se pudo refrescar la lista: $e');
           }
-          
+
           Get.snackbar(
             'Éxito',
             'Estado actualizado correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -575,7 +615,7 @@ class PurchaseOrderDetailController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -614,15 +654,17 @@ class PurchaseOrderDetailController extends GetxController {
 
       if (result == true) {
         isDeleting.value = true;
-        
-        final deleteResult = await deletePurchaseOrderUseCase(purchaseOrder.value!.id);
+
+        final deleteResult = await deletePurchaseOrderUseCase(
+          purchaseOrder.value!.id,
+        );
 
         deleteResult.fold(
           (failure) {
             Get.snackbar(
               'Error',
               failure.message,
-              snackPosition: SnackPosition.BOTTOM,
+              snackPosition: SnackPosition.TOP,
               backgroundColor: Colors.red.shade100,
               colorText: Colors.red.shade800,
             );
@@ -631,11 +673,11 @@ class PurchaseOrderDetailController extends GetxController {
             Get.snackbar(
               'Éxito',
               'Orden de compra eliminada correctamente',
-              snackPosition: SnackPosition.BOTTOM,
+              snackPosition: SnackPosition.TOP,
               backgroundColor: Colors.green.shade100,
               colorText: Colors.green.shade800,
             );
-            
+
             // Volver a la lista
             Get.back(result: true);
           },
@@ -645,7 +687,7 @@ class PurchaseOrderDetailController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -658,9 +700,10 @@ class PurchaseOrderDetailController extends GetxController {
     if (purchaseOrder.value == null) return;
 
     try {
-      final reason = cancellationReason?.isNotEmpty == true 
-          ? cancellationReason! 
-          : 'Orden cancelada por el usuario';
+      final reason =
+          cancellationReason?.isNotEmpty == true
+              ? cancellationReason!
+              : 'Orden cancelada por el usuario';
 
       final result = await Get.dialog<bool>(
         AlertDialog(
@@ -704,7 +747,7 @@ class PurchaseOrderDetailController extends GetxController {
 
       if (result == true) {
         isUpdatingStatus.value = true;
-        
+
         final params = CancelPurchaseOrderParams(
           id: purchaseOrder.value!.id,
           cancellationReason: reason,
@@ -717,26 +760,29 @@ class PurchaseOrderDetailController extends GetxController {
             Get.snackbar(
               'Error',
               failure.message,
-              snackPosition: SnackPosition.BOTTOM,
+              snackPosition: SnackPosition.TOP,
               backgroundColor: Colors.red.shade100,
               colorText: Colors.red.shade800,
             );
           },
           (cancelledOrder) {
             purchaseOrder.value = cancelledOrder;
-            
+
             // Refrescar el controlador de la lista si existe
             try {
               final listController = Get.find<PurchaseOrdersController>();
-              listController.refreshAfterOrderChange(purchaseOrder.value!.id, isUpdate: true);
+              listController.refreshAfterOrderChange(
+                purchaseOrder.value!.id,
+                isUpdate: true,
+              );
             } catch (e) {
               print('⚠️ No se pudo refrescar la lista: $e');
             }
-            
+
             Get.snackbar(
               'Orden Cancelada',
               'La orden de compra ha sido cancelada correctamente',
-              snackPosition: SnackPosition.BOTTOM,
+              snackPosition: SnackPosition.TOP,
               backgroundColor: Colors.orange.shade100,
               colorText: Colors.orange.shade800,
             );
@@ -747,7 +793,7 @@ class PurchaseOrderDetailController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -949,39 +995,71 @@ class PurchaseOrderDetailController extends GetxController {
 
   bool get hasPurchaseOrder => purchaseOrder.value != null;
 
-  bool get canEdit => hasPurchaseOrder && purchaseOrder.value!.canEdit && !isLoading.value;
+  bool get canEdit =>
+      hasPurchaseOrder && purchaseOrder.value!.canEdit && !isLoading.value;
 
-  bool get canDelete => hasPurchaseOrder && purchaseOrder.value!.canEdit && !isLoading.value && !isDeleting.value;
+  bool get canDelete =>
+      hasPurchaseOrder &&
+      purchaseOrder.value!.canEdit &&
+      !isLoading.value &&
+      !isDeleting.value;
 
-  bool get canSubmitForReview => hasPurchaseOrder && purchaseOrder.value!.canSubmitForReview && !isLoading.value && !isUpdatingStatus.value;
+  bool get canSubmitForReview =>
+      hasPurchaseOrder &&
+      purchaseOrder.value!.canSubmitForReview &&
+      !isLoading.value &&
+      !isUpdatingStatus.value;
 
-  bool get canApprove => hasPurchaseOrder && 
-    purchaseOrder.value!.canApprove && 
-    purchaseOrder.value!.status == PurchaseOrderStatus.pending &&
-    !isLoading.value && 
-    !isUpdatingStatus.value;
+  bool get canApprove =>
+      hasPurchaseOrder &&
+      purchaseOrder.value!.canApprove &&
+      purchaseOrder.value!.status == PurchaseOrderStatus.pending &&
+      !isLoading.value &&
+      !isUpdatingStatus.value;
 
-  bool get canSend => hasPurchaseOrder && purchaseOrder.value!.canSend && !isLoading.value && !isSending.value;
+  bool get canSend =>
+      hasPurchaseOrder &&
+      purchaseOrder.value!.canSend &&
+      !isLoading.value &&
+      !isSending.value;
 
-  bool get canReceive => hasPurchaseOrder && purchaseOrder.value!.canReceive && !isLoading.value && !isReceiving.value;
+  bool get canReceive =>
+      hasPurchaseOrder &&
+      purchaseOrder.value!.canReceive &&
+      !isLoading.value &&
+      !isReceiving.value;
 
-  bool get canCancel => hasPurchaseOrder && purchaseOrder.value!.canCancel && !isLoading.value && !isUpdatingStatus.value;
+  bool get canCancel =>
+      hasPurchaseOrder &&
+      purchaseOrder.value!.canCancel &&
+      !isLoading.value &&
+      !isUpdatingStatus.value;
 
-  bool get hasDeliveryInfo => hasPurchaseOrder && purchaseOrder.value!.hasDeliveryInfo;
+  bool get hasDeliveryInfo =>
+      hasPurchaseOrder && purchaseOrder.value!.hasDeliveryInfo;
 
-  bool get hasAttachments => hasPurchaseOrder && purchaseOrder.value!.hasAttachments;
+  bool get hasAttachments =>
+      hasPurchaseOrder && purchaseOrder.value!.hasAttachments;
 
   bool get isOverdue => hasPurchaseOrder && purchaseOrder.value!.isOverdue;
 
-  bool get canViewBatches => hasPurchaseOrder && purchaseOrder.value!.isReceived;
+  bool get canViewBatches =>
+      hasPurchaseOrder && purchaseOrder.value!.isReceived;
 
-  bool get hasGeneratedBatches => canViewBatches && purchaseOrder.value!.items.any((item) => item.receivedQuantity != null && item.receivedQuantity! > 0);
+  bool get hasGeneratedBatches =>
+      canViewBatches &&
+      purchaseOrder.value!.items.any(
+        (item) => item.receivedQuantity != null && item.receivedQuantity! > 0,
+      );
 
-  String get displayTitle => hasPurchaseOrder ? (purchaseOrder.value!.orderNumber ?? 'Sin número') : 'Orden de Compra';
+  String get displayTitle =>
+      hasPurchaseOrder
+          ? (purchaseOrder.value!.orderNumber ?? 'Sin número')
+          : 'Orden de Compra';
 
   String get progressPercentage {
     if (!hasPurchaseOrder) return '0%';
-    
+
     final order = purchaseOrder.value!;
     if (order.isReceived) return '100%';
     if (order.isSent) return '75%';
@@ -992,31 +1070,42 @@ class PurchaseOrderDetailController extends GetxController {
 
   int get totalItemsReceived {
     if (!hasPurchaseOrder) return 0;
-    return purchaseOrder.value!.items.where((item) => item.isFullyReceived).length;
+    return purchaseOrder.value!.items
+        .where((item) => item.isFullyReceived)
+        .length;
   }
 
   int get totalItemsPending {
     if (!hasPurchaseOrder) return 0;
-    return purchaseOrder.value!.items.where((item) => item.isPendingDelivery).length;
+    return purchaseOrder.value!.items
+        .where((item) => item.isPendingDelivery)
+        .length;
   }
 
   double get totalReceivedValue {
     if (!hasPurchaseOrder) return 0.0;
     return purchaseOrder.value!.items
         .where((item) => item.receivedQuantity != null)
-        .fold(0.0, (sum, item) => sum + (item.unitPrice * (item.receivedQuantity ?? 0)));
+        .fold(
+          0.0,
+          (sum, item) => sum + (item.unitPrice * (item.receivedQuantity ?? 0)),
+        );
   }
 
   double get totalPendingValue {
     if (!hasPurchaseOrder) return 0.0;
-    return purchaseOrder.value!.items
-        .fold(0.0, (sum, item) => sum + (item.unitPrice * item.pendingQuantity));
+    return purchaseOrder.value!.items.fold(
+      0.0,
+      (sum, item) => sum + (item.unitPrice * item.pendingQuantity),
+    );
   }
 
   int get totalQuantityReceived {
     if (!hasPurchaseOrder) return 0;
-    return purchaseOrder.value!.items
-        .fold(0, (sum, item) => sum + (item.receivedQuantity ?? 0));
+    return purchaseOrder.value!.items.fold(
+      0,
+      (sum, item) => sum + (item.receivedQuantity ?? 0),
+    );
   }
 
   List<Map<String, dynamic>> get purchaseOrderSummary {
@@ -1027,7 +1116,7 @@ class PurchaseOrderDetailController extends GetxController {
     print('   - supplierName: ${order.supplierName}');
     print('   - priority: ${order.priority}');
     print('   - status: ${order.status}');
-    
+
     return [
       {
         'label': 'Estado',
@@ -1043,18 +1132,30 @@ class PurchaseOrderDetailController extends GetxController {
       },
       {
         'label': 'Proveedor',
-        'value': order.supplierName?.isNotEmpty == true ? order.supplierName! : 'Sin proveedor asignado',
+        'value':
+            order.supplierName?.isNotEmpty == true
+                ? order.supplierName!
+                : 'Sin proveedor asignado',
         'icon': Icons.business,
-        'color': (order.supplierName?.isNotEmpty == true) ? null : Colors.grey.shade600,
+        'color':
+            (order.supplierName?.isNotEmpty == true)
+                ? null
+                : Colors.grey.shade600,
       },
       {
         'label': 'Fecha de Orden',
-        'value': order.orderDate != null ? formatDate(order.orderDate!) : 'Sin fecha',
+        'value':
+            order.orderDate != null
+                ? formatDate(order.orderDate!)
+                : 'Sin fecha',
         'icon': Icons.calendar_today,
       },
       {
         'label': 'Entrega Esperada',
-        'value': order.expectedDeliveryDate != null ? formatDate(order.expectedDeliveryDate!) : 'Sin fecha',
+        'value':
+            order.expectedDeliveryDate != null
+                ? formatDate(order.expectedDeliveryDate!)
+                : 'Sin fecha',
         'icon': Icons.schedule,
         'color': isOverdue ? Colors.red : null,
       },
@@ -1079,8 +1180,12 @@ class PurchaseOrderDetailController extends GetxController {
         'label': 'Cantidad Recibida',
         'value': '${totalQuantityReceived} unidades',
         'icon': Icons.check_circle,
-        'color': totalQuantityReceived == order.totalQuantity ? Colors.green : 
-                 totalQuantityReceived > 0 ? Colors.orange : Colors.grey,
+        'color':
+            totalQuantityReceived == order.totalQuantity
+                ? Colors.green
+                : totalQuantityReceived > 0
+                ? Colors.orange
+                : Colors.grey,
       },
       {
         'label': 'Valor Total',

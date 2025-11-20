@@ -19,12 +19,14 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
         children: [
           // Controls Section
           _buildControlsSection(),
-          
+
           // Content
           Expanded(
             child: Obx(() {
               if (controller.isLoadingValuation.value) {
-                return const LoadingWidget(message: 'Cargando valoración de inventario...');
+                return const LoadingWidget(
+                  message: 'Cargando valoración de inventario...',
+                );
               }
 
               if (controller.error.value.isNotEmpty) {
@@ -49,10 +51,7 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
-          bottom: BorderSide(
-            color: AppColors.borderColor,
-            width: 1,
-          ),
+          bottom: BorderSide(color: AppColors.borderColor, width: 1),
         ),
       ),
       child: Column(
@@ -87,30 +86,26 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
           Row(
             children: [
               // As Of Date
-              Expanded(
-                child: _buildDateSelector(),
-              ),
+              Expanded(child: _buildDateSelector()),
               const SizedBox(width: 16),
-              
+
               // Valuation Method
               Expanded(
-                child: Obx(() => ValuationMethodSelector(
-                  selectedMethod: controller.valuationMethod.value,
-                  onMethodChanged: controller.setValuationMethod,
-                )),
+                child: Obx(
+                  () => ValuationMethodSelector(
+                    selectedMethod: controller.valuationMethod.value,
+                    onMethodChanged: controller.setValuationMethod,
+                  ),
+                ),
               ),
               const SizedBox(width: 16),
-              
+
               // Warehouse Filter
-              Expanded(
-                child: _buildWarehouseDropdown(),
-              ),
+              Expanded(child: _buildWarehouseDropdown()),
               const SizedBox(width: 16),
-              
+
               // Category Filter
-              Expanded(
-                child: _buildCategoryDropdown(),
-              ),
+              Expanded(child: _buildCategoryDropdown()),
             ],
           ),
         ],
@@ -119,65 +114,73 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
   }
 
   Widget _buildDateSelector() {
-    return Obx(() => InkWell(
-      onTap: () => _showDatePicker(),
-      borderRadius: BorderRadius.circular(8),
-      child: InputDecorator(
-        decoration: const InputDecoration(
-          labelText: 'Fecha de Valoración',
-          prefixIcon: Icon(Icons.calendar_today),
-          border: OutlineInputBorder(),
-        ),
-        child: Text(
-          controller.asOfDate.value != null
-              ? controller.formatDate(controller.asOfDate.value!)
-              : 'Seleccionar fecha',
-          style: Get.textTheme.bodyMedium,
+    return Obx(
+      () => InkWell(
+        onTap: () => _showDatePicker(),
+        borderRadius: BorderRadius.circular(8),
+        child: InputDecorator(
+          decoration: const InputDecoration(
+            labelText: 'Fecha de Valoración',
+            prefixIcon: Icon(Icons.calendar_today),
+            border: OutlineInputBorder(),
+          ),
+          child: Text(
+            controller.asOfDate.value != null
+                ? controller.formatDate(controller.asOfDate.value!)
+                : 'Seleccionar fecha',
+            style: Get.textTheme.bodyMedium,
+          ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildWarehouseDropdown() {
-    return Obx(() => DropdownButtonFormField<String>(
-      value: controller.selectedWarehouseId.value.isEmpty 
-          ? null 
-          : controller.selectedWarehouseId.value,
-      decoration: const InputDecoration(
-        labelText: 'Almacén',
-        prefixIcon: Icon(Icons.warehouse),
-        border: OutlineInputBorder(),
-      ),
-      items: [
-        const DropdownMenuItem<String>(
-          value: '',
-          child: Text('Todos los almacenes'),
+    return Obx(
+      () => DropdownButtonFormField<String>(
+        value:
+            controller.selectedWarehouseId.value.isEmpty
+                ? null
+                : controller.selectedWarehouseId.value,
+        decoration: const InputDecoration(
+          labelText: 'Almacén',
+          prefixIcon: Icon(Icons.warehouse),
+          border: OutlineInputBorder(),
         ),
-        // TODO: Add actual warehouses
-      ],
-      onChanged: (value) => controller.setWarehouseFilter(value ?? ''),
-    ));
+        items: [
+          const DropdownMenuItem<String>(
+            value: '',
+            child: Text('Todos los almacenes'),
+          ),
+          // TODO: Add actual warehouses
+        ],
+        onChanged: (value) => controller.setWarehouseFilter(value ?? ''),
+      ),
+    );
   }
 
   Widget _buildCategoryDropdown() {
-    return Obx(() => DropdownButtonFormField<String>(
-      value: controller.selectedCategoryId.value.isEmpty 
-          ? null 
-          : controller.selectedCategoryId.value,
-      decoration: const InputDecoration(
-        labelText: 'Categoría',
-        prefixIcon: Icon(Icons.category),
-        border: OutlineInputBorder(),
-      ),
-      items: [
-        const DropdownMenuItem<String>(
-          value: '',
-          child: Text('Todas las categorías'),
+    return Obx(
+      () => DropdownButtonFormField<String>(
+        value:
+            controller.selectedCategoryId.value.isEmpty
+                ? null
+                : controller.selectedCategoryId.value,
+        decoration: const InputDecoration(
+          labelText: 'Categoría',
+          prefixIcon: Icon(Icons.category),
+          border: OutlineInputBorder(),
         ),
-        // TODO: Add actual categories
-      ],
-      onChanged: (value) => controller.setCategoryFilter(value ?? ''),
-    ));
+        items: [
+          const DropdownMenuItem<String>(
+            value: '',
+            child: Text('Todas las categorías'),
+          ),
+          // TODO: Add actual categories
+        ],
+        onChanged: (value) => controller.setCategoryFilter(value ?? ''),
+      ),
+    );
   }
 
   Widget _buildContentSection() {
@@ -188,28 +191,32 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
         children: [
           // Header with summary info
           _buildHeaderSection(),
-          
+
           const SizedBox(height: 24),
-          
+
           // Summary Cards
-          Obx(() => ValuationSummaryCards(
-            summary: controller.valuationSummary.value!,
-          )),
-          
+          Obx(
+            () => ValuationSummaryCards(
+              summary: controller.valuationSummary.value!,
+            ),
+          ),
+
           const SizedBox(height: 24),
-          
+
           // Breakdown Charts
-          Obx(() => ValuationBreakdownCharts(
-            summary: controller.valuationSummary.value!,
-          )),
-          
+          Obx(
+            () => ValuationBreakdownCharts(
+              summary: controller.valuationSummary.value!,
+            ),
+          ),
+
           const SizedBox(height: 24),
-          
+
           // Top Valued Products
           _buildTopValuedProducts(),
-          
+
           const SizedBox(height: 24),
-          
+
           // Valuation Comparison
           _buildValuationComparison(),
         ],
@@ -232,9 +239,7 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.primary.withOpacity(0.2),
-          ),
+          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
         ),
         child: Row(
           children: [
@@ -308,18 +313,12 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.2),
-        ),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: AppColors.primary,
-          ),
+          Icon(icon, size: 16, color: AppColors.primary),
           const SizedBox(width: 6),
           Column(
             children: [
@@ -346,7 +345,8 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
   Widget _buildTopValuedProducts() {
     return Obx(() {
       final summary = controller.valuationSummary.value!;
-      if (summary.topValuedProducts == null || summary.topValuedProducts!.isEmpty) {
+      if (summary.topValuedProducts == null ||
+          summary.topValuedProducts!.isEmpty) {
         return const SizedBox.shrink();
       }
 
@@ -364,68 +364,69 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                children: summary.topValuedProducts!.take(10).map((product) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.inventory_2,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                product.productName,
-                                style: Get.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                'SKU: ${product.productSku}',
-                                style: Get.textTheme.bodySmall?.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                children:
+                    summary.topValuedProducts!.take(10).map((product) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
                           children: [
-                            Text(
-                              controller.formatCurrency(product.totalValue),
-                              style: Get.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.inventory_2,
                                 color: AppColors.primary,
+                                size: 20,
                               ),
                             ),
-                            Text(
-                              '${product.percentageOfTotalValue.toStringAsFixed(1)}%',
-                              style: Get.textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    product.productName,
+                                    style: Get.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'SKU: ${product.productSku}',
+                                    style: Get.textTheme.bodySmall?.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  controller.formatCurrency(product.totalValue),
+                                  style: Get.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                Text(
+                                  '${product.percentageOfTotalValue.toStringAsFixed(1)}%',
+                                  style: Get.textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                      );
+                    }).toList(),
               ),
             ),
           ),
@@ -477,7 +478,9 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
     return Row(
       children: [
         Icon(
-          isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+          isSelected
+              ? Icons.radio_button_checked
+              : Icons.radio_button_unchecked,
           color: isSelected ? AppColors.primary : AppColors.textSecondary,
           size: 20,
         ),
@@ -492,13 +495,17 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
           ),
         ),
         if (isSelected)
-          Obx(() => Text(
-            controller.formatCurrency(controller.valuationSummary.value?.totalInventoryValue ?? 0),
-            style: Get.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
+          Obx(
+            () => Text(
+              controller.formatCurrency(
+                controller.valuationSummary.value?.totalInventoryValue ?? 0,
+              ),
+              style: Get.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
             ),
-          ))
+          )
         else
           TextButton(
             onPressed: () => _calculateWithMethod(method),
@@ -513,11 +520,7 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red.shade300,
-          ),
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
           const SizedBox(height: 16),
           Text(
             'Error al cargar la valoración',
@@ -526,13 +529,15 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
             ),
           ),
           const SizedBox(height: 8),
-          Obx(() => Text(
-            controller.error.value,
-            style: Get.textTheme.bodyMedium?.copyWith(
-              color: Colors.red.shade600,
+          Obx(
+            () => Text(
+              controller.error.value,
+              style: Get.textTheme.bodyMedium?.copyWith(
+                color: Colors.red.shade600,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          )),
+          ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: controller.refreshValuationReports,
@@ -589,9 +594,9 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: AppColors.primary,
-            ),
+            colorScheme: Theme.of(
+              context,
+            ).colorScheme.copyWith(primary: AppColors.primary),
           ),
           child: child!,
         );
@@ -607,7 +612,7 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Calculando',
       'Calculando valoración con método $method...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
     );

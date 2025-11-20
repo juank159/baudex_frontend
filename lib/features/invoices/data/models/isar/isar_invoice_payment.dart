@@ -76,10 +76,12 @@ class IsarInvoicePayment {
       id: serverId,
       amount: amount,
       paymentMethod: _mapIsarPaymentMethod(paymentMethod),
-      paymentDate: paymentDate,
+      paymentDate: paymentDate ?? DateTime.now(),
       reference: reference,
       notes: notes,
       invoiceId: invoiceId,
+      createdById: '', // Default value for backward compatibility
+      organizationId: '', // Default value for backward compatibility
       createdAt: createdAt,
       updatedAt: updatedAt,
     );

@@ -6,13 +6,12 @@ import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/utils/formatters.dart';
-import '../../../../app/shared/widgets/custom_button.dart';
-import '../../../../app/shared/widgets/custom_card.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/product_form_controller.dart';
 import '../../domain/entities/product.dart';
-import '../../domain/entities/product_price.dart';
+import '../../domain/entities/tax_enums.dart';
 import '../widgets/compact_text_field.dart';
 import '../widgets/unit_selector_widget.dart';
 import '../widgets/modern_selector_widget.dart';
@@ -99,10 +98,15 @@ class ProductFormScreen extends GetView<ProductFormController> {
     final isMobile = ResponsiveHelper.isMobile(context);
 
     return AppBar(
-      backgroundColor: Theme.of(context).primaryColor,
+      backgroundColor: Colors.transparent,
       foregroundColor: Colors.white,
       elevation: 0,
       centerTitle: false,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+        ),
+      ),
       title: GetBuilder<ProductFormController>(
         builder:
             (controller) => Row(
@@ -110,7 +114,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -141,49 +145,104 @@ class ProductFormScreen extends GetView<ProductFormController> {
             icon: const Icon(Icons.visibility, size: 20),
             tooltip: 'Vista previa',
             style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withOpacity(0.1),
+              backgroundColor: Colors.white.withValues(alpha: 0.1),
               foregroundColor: Colors.white,
             ),
           ),
 
         // Menú compacto
         PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, size: 20),
+          icon: const Icon(Icons.more_vert, size: 20, color: Colors.white),
           onSelected: (value) => _handleMenuAction(value, context),
           style: IconButton.styleFrom(
-            backgroundColor: Colors.white.withOpacity(0.1),
+            backgroundColor: Colors.white.withValues(alpha: 0.1),
             foregroundColor: Colors.white,
+          ),
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
           itemBuilder:
               (context) => [
                 if (!controller.isEditMode)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'clear',
                     child: Row(
                       children: [
-                        Icon(Icons.refresh, size: 18),
-                        SizedBox(width: 12),
-                        Text('Limpiar'),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: ElegantLightTheme.primaryBlue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.refresh,
+                            size: 18,
+                            color: ElegantLightTheme.primaryBlue,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Limpiar',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'generate_sku',
                   child: Row(
                     children: [
-                      Icon(Icons.auto_fix_high, size: 18),
-                      SizedBox(width: 12),
-                      Text('Generar SKU'),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          gradient: ElegantLightTheme.successGradient,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          Icons.auto_fix_high,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Generar SKU',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'scan_barcode',
                   child: Row(
                     children: [
-                      Icon(Icons.qr_code_scanner, size: 18),
-                      SizedBox(width: 12),
-                      Text('Escanear código'),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          gradient: ElegantLightTheme.warningGradient,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          Icons.qr_code_scanner,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Escanear código',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -213,8 +272,15 @@ class ProductFormScreen extends GetView<ProductFormController> {
 
                   // Precios
                   _buildPricesSection(context),
+                  SizedBox(height: context.verticalSpacing),
+
+                  // ========== FACTURACIÓN ELECTRÓNICA ==========
+                  _buildTaxSection(context),
+                  SizedBox(height: context.verticalSpacing),
+                  // ========== FIN FACTURACIÓN ELECTRÓNICA ==========
+
                   // Espaciado adicional para el teclado
-                  SizedBox(height: context.verticalSpacing * 3),
+                  SizedBox(height: context.verticalSpacing * 2),
 
                   // Dimensiones en móvil
                   _buildDimensionsSection(context),
@@ -230,32 +296,43 @@ class ProductFormScreen extends GetView<ProductFormController> {
   }
 
   Widget _buildTabletLayout(BuildContext context) {
-    return Form(
-      key: controller.formKey,
-      child: SingleChildScrollView(
-        child: AdaptiveContainer(
-          maxWidth: 1000, // Aumentado para tablet
-          child: Column(
-            children: [
-              SizedBox(height: context.verticalSpacing),
-
-              // Información básica
-              CustomCard(child: _buildBasicInfoContent(context)),
-              SizedBox(height: context.verticalSpacing),
-
-              // Stock y dimensiones en dos columnas para tablet
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      children: [
+        Expanded(
+          child: Form(
+            key: controller.formKey,
+            child: SingleChildScrollView(
+              child: AdaptiveContainer(
+                maxWidth: 1000, // Aumentado para tablet
+                child: Column(
                   children: [
-                    Expanded(
-                      flex: 1,
-                      child: CustomCard(child: _buildStockContent(context)),
+                    SizedBox(height: context.verticalSpacing),
+
+                    // Información básica
+                    FuturisticContainer(
+                      padding: const EdgeInsets.all(20),
+                      hasGlow: true,
+                      child: _buildBasicInfoContent(context),
+                    ),
+                    SizedBox(height: context.verticalSpacing),
+
+                    // Stock y dimensiones en dos columnas para tablet
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: FuturisticContainer(
+                        padding: const EdgeInsets.all(20),
+                        child: _buildStockContent(context),
+                      ),
                     ),
                     SizedBox(width: context.horizontalSpacing),
                     Expanded(
                       flex: 1,
-                      child: CustomCard(
+                      child: FuturisticContainer(
+                        padding: const EdgeInsets.all(20),
                         child: _buildDimensionsContent(context),
                       ),
                     ),
@@ -265,18 +342,32 @@ class ProductFormScreen extends GetView<ProductFormController> {
               SizedBox(height: context.verticalSpacing),
 
               // Precios
-              CustomCard(child: _buildPricesContent(context)),
+              FuturisticContainer(
+                padding: const EdgeInsets.all(20),
+                hasGlow: true,
+                child: _buildPricesContent(context),
+              ),
               SizedBox(height: context.verticalSpacing),
 
-              // Acciones para tablet
-              _buildTabletActions(context),
+              // ========== FACTURACIÓN ELECTRÓNICA ==========
+              FuturisticContainer(
+                padding: const EdgeInsets.all(20),
+                hasGlow: true,
+                child: _buildTaxContent(context),
+              ),
               SizedBox(height: context.verticalSpacing),
+              // ========== FIN FACTURACIÓN ELECTRÓNICA ==========
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+  _buildBottomActions(context),
+],
+);
+}
+
 
   Widget _buildDesktopLayout(BuildContext context) {
     return Row(
@@ -291,7 +382,11 @@ class ProductFormScreen extends GetView<ProductFormController> {
               child: Column(
                 children: [
                   // Información básica
-                  CustomCard(child: _buildBasicInfoContent(context)),
+                  FuturisticContainer(
+                    padding: const EdgeInsets.all(20),
+                    hasGlow: true,
+                    child: _buildBasicInfoContent(context),
+                  ),
                   SizedBox(height: context.verticalSpacing),
 
                   // Stock y dimensiones en desktop
@@ -300,12 +395,16 @@ class ProductFormScreen extends GetView<ProductFormController> {
                     children: [
                       Expanded(
                         flex: 1,
-                        child: CustomCard(child: _buildStockContent(context)),
+                        child: FuturisticContainer(
+                          padding: const EdgeInsets.all(20),
+                          child: _buildStockContent(context),
+                        ),
                       ),
                       SizedBox(width: context.horizontalSpacing),
                       Expanded(
                         flex: 1,
-                        child: CustomCard(
+                        child: FuturisticContainer(
+                          padding: const EdgeInsets.all(20),
                           child: _buildDimensionsContent(context),
                         ),
                       ),
@@ -314,8 +413,21 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   SizedBox(height: context.verticalSpacing),
 
                   // Precios
-                  CustomCard(child: _buildPricesContent(context)),
+                  FuturisticContainer(
+                    padding: const EdgeInsets.all(20),
+                    hasGlow: true,
+                    child: _buildPricesContent(context),
+                  ),
                   SizedBox(height: context.verticalSpacing),
+
+                  // ========== FACTURACIÓN ELECTRÓNICA ==========
+                  FuturisticContainer(
+                    padding: const EdgeInsets.all(20),
+                    hasGlow: true,
+                    child: _buildTaxContent(context),
+                  ),
+                  SizedBox(height: context.verticalSpacing),
+                  // ========== FIN FACTURACIÓN ELECTRÓNICA ==========
                 ],
               ),
             ),
@@ -327,8 +439,20 @@ class ProductFormScreen extends GetView<ProductFormController> {
           width: MediaQuery.of(context).size.width * 0.25, // Responsive width
           constraints: const BoxConstraints(minWidth: 280, maxWidth: 350),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            border: Border(left: BorderSide(color: Colors.grey.shade300)),
+            gradient: ElegantLightTheme.cardGradient,
+            border: Border(
+              left: BorderSide(
+                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(-2, 0),
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -336,21 +460,44 @@ class ProductFormScreen extends GetView<ProductFormController> {
               Container(
                 padding: EdgeInsets.all(context.horizontalSpacing),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  gradient: LinearGradient(
+                    colors: [
+                      ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                      ElegantLightTheme.primaryBlueLight.withValues(
+                        alpha: 0.05,
+                      ),
+                    ],
+                  ),
                   border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade300),
+                    bottom: BorderSide(
+                      color: ElegantLightTheme.textTertiary.withValues(
+                        alpha: 0.2,
+                      ),
+                    ),
                   ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.settings, color: Theme.of(context).primaryColor),
-                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: ElegantLightTheme.glowShadow,
+                      ),
+                      child: const Icon(
+                        Icons.settings,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Configuración',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
+                          color: ElegantLightTheme.primaryBlue,
                           fontSize: Responsive.getFontSize(
                             context,
                             mobile: 14,
@@ -387,10 +534,19 @@ class ProductFormScreen extends GetView<ProductFormController> {
   // ==================== SECTIONS ====================
 
   Widget _buildBasicInfoSection(BuildContext context) {
-    return CustomCard(child: _buildBasicInfoContent(context));
+    return FuturisticContainer(
+      padding: EdgeInsets.all(context.isMobile ? 16 : 20),
+      hasGlow: true,
+      child: _buildBasicInfoContent(context),
+    );
   }
 
   Widget _buildBasicInfoContent(BuildContext context) {
+    final compactSpacing =
+        context.isMobile
+            ? context.verticalSpacing * 0.6
+            : context.verticalSpacing * 0.75;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -399,21 +555,21 @@ class ProductFormScreen extends GetView<ProductFormController> {
           style: TextStyle(
             fontSize: Responsive.getFontSize(
               context,
-              mobile: 18,
-              tablet: 20,
-              desktop: 22,
+              mobile: 16,
+              tablet: 18,
+              desktop: 20,
             ),
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: context.verticalSpacing),
+        SizedBox(height: compactSpacing),
 
-        // Nombre del producto - Compacto
-        CompactTextField(
+        // Nombre del producto
+        CustomTextField(
           controller: controller.nameController,
-          label: 'Nombre del Producto',
+          label: 'Nombre del Producto *',
           hint: 'Ingresa el nombre del producto',
-          isRequired: true,
+          prefixIcon: Icons.inventory_2,
           validator: (value) {
             if (value?.trim().isEmpty ?? true) {
               return 'El nombre es requerido';
@@ -421,45 +577,78 @@ class ProductFormScreen extends GetView<ProductFormController> {
             return null;
           },
         ),
-        SizedBox(height: context.verticalSpacing),
+        SizedBox(height: compactSpacing),
 
-        // Descripción
-        CustomTextField(
-          controller: controller.descriptionController,
-          label: 'Descripción',
-          hint: 'Descripción detallada del producto',
-          prefixIcon: Icons.description,
-          maxLines: context.isMobile ? 2 : 3,
-        ),
-        SizedBox(height: context.verticalSpacing),
+        // Descripción - Ahora en ExpansionTile para ahorrar espacio
+        if (context.isMobile)
+          ExpansionTile(
+            title: const Text(
+              'Descripción (Opcional)',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(top: 8, bottom: 8),
+            children: [
+              CustomTextField(
+                controller: controller.descriptionController,
+                label: 'Descripción',
+                hint: 'Descripción detallada del producto',
+                prefixIcon: Icons.description,
+                maxLines: 3,
+              ),
+            ],
+          )
+        else
+          CustomTextField(
+            controller: controller.descriptionController,
+            label: 'Descripción',
+            hint: 'Descripción detallada del producto',
+            prefixIcon: Icons.description,
+            maxLines: 2,
+          ),
+        SizedBox(height: compactSpacing),
 
         // SKU y Código de barras - Responsive
         if (context.isMobile) ...[
           // En móvil: columna
-          CustomTextField(
-            controller: controller.skuController,
-            label: 'SKU *',
-            hint: 'Código único del producto',
-            prefixIcon: Icons.qr_code,
-            validator: (value) {
-              if (value?.trim().isEmpty ?? true) {
-                return 'El SKU es requerido';
-              }
-              return null;
-            },
-          ),
-          SizedBox(height: context.verticalSpacing * 0.75),
-          CustomButton(
-            text: 'Generar SKU',
-            type: ButtonType.outline,
-            onPressed: () {
-              try {
-                controller.generateSku();
-              } catch (e) {
-                print('❌ Error al generar SKU: $e');
-              }
-            },
-            width: double.infinity,
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: CustomTextField(
+                  controller: controller.skuController,
+                  label: 'SKU *',
+                  hint: 'Código único',
+                  prefixIcon: Icons.qr_code,
+                  validator: (value) {
+                    if (value?.trim().isEmpty ?? true) {
+                      return 'El SKU es requerido';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: ElegantButton(
+                    text: 'Auto',
+                    icon: Icons.auto_fix_high,
+                    gradient: ElegantLightTheme.infoGradient,
+                    height: 48,
+                    onPressed: () {
+                      try {
+                        controller.generateSku();
+                      } catch (e) {
+                        print('❌ Error al generar SKU: $e');
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         ] else ...[
           // En tablet/desktop: fila
@@ -480,12 +669,13 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   },
                 ),
               ),
-              SizedBox(width: context.horizontalSpacing * 0.75),
+              SizedBox(width: context.horizontalSpacing * 0.5),
               SizedBox(
                 width: Responsive.isTablet(context) ? 120 : 140,
-                child: CustomButton(
-                  text: 'Generar',
-                  type: ButtonType.outline,
+                child: ElegantButton(
+                  text: 'Auto',
+                  icon: Icons.auto_fix_high,
+                  gradient: ElegantLightTheme.infoGradient,
                   onPressed: () {
                     try {
                       controller.generateSku();
@@ -498,7 +688,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
             ],
           ),
         ],
-        SizedBox(height: context.verticalSpacing),
+        SizedBox(height: compactSpacing),
 
         // Código de barras con escáner
         CustomTextField(
@@ -515,7 +705,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
             }
             return null;
           },
-          suffixIcon: context.isMobile ? Icons.camera_alt : null,
+          suffixIcon: context.isMobile ? Icons.qr_code_scanner : null,
           onSuffixIconPressed:
               context.isMobile
                   ? () async {
@@ -528,27 +718,48 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   }
                   : null,
         ),
-        SizedBox(height: context.verticalSpacing),
+        SizedBox(height: compactSpacing),
 
-        // Tipo y Estado - Responsive
+        // Tipo y Estado - ExpansionTile en móvil, Row en tablet/desktop
         if (context.isMobile) ...[
-          // En móvil: columna
-          _buildTypeSelector(context),
-          SizedBox(height: context.verticalSpacing * 0.75),
-          _buildStatusSelector(context),
-        ] else ...[
-          // En tablet/desktop: fila
-          IntrinsicHeight(
-            child: Row(
+          // En móvil: Selector colapsado combinado
+          ExpansionTile(
+            title: Row(
               children: [
-                Expanded(child: _buildTypeSelector(context)),
-                SizedBox(width: context.horizontalSpacing),
-                Expanded(child: _buildStatusSelector(context)),
+                Icon(Icons.settings, size: 18, color: ElegantLightTheme.primaryBlue),
+                const SizedBox(width: 8),
+                const Text(
+                  'Tipo y Estado',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
               ],
             ),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            children: [
+              SafeArea(
+                minimum: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Column(
+                  children: [
+                    _buildTypeSelector(context),
+                    const SizedBox(height: 12),
+                    _buildStatusSelector(context),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ] else ...[
+          // En tablet/desktop: Fila
+          Row(
+            children: [
+              Expanded(child: _buildTypeSelector(context)),
+              SizedBox(width: context.horizontalSpacing),
+              Expanded(child: _buildStatusSelector(context)),
+            ],
           ),
         ],
-        SizedBox(height: context.verticalSpacing),
+        SizedBox(height: compactSpacing),
 
         // Categoría
         _buildCategorySelector(context),
@@ -557,10 +768,19 @@ class ProductFormScreen extends GetView<ProductFormController> {
   }
 
   Widget _buildStockSection(BuildContext context) {
-    return CustomCard(child: _buildStockContent(context));
+    return FuturisticContainer(
+      padding: EdgeInsets.all(context.isMobile ? 16 : 20),
+      hasGlow: true,
+      child: _buildStockContent(context),
+    );
   }
 
   Widget _buildStockContent(BuildContext context) {
+    final compactSpacing =
+        context.isMobile
+            ? context.verticalSpacing * 0.6
+            : context.verticalSpacing * 0.75;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -569,14 +789,14 @@ class ProductFormScreen extends GetView<ProductFormController> {
           style: TextStyle(
             fontSize: Responsive.getFontSize(
               context,
-              mobile: 18,
-              tablet: 20,
-              desktop: 22,
+              mobile: 16,
+              tablet: 18,
+              desktop: 20,
             ),
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: context.verticalSpacing),
+        SizedBox(height: compactSpacing),
 
         // Stock actual y mínimo - Responsive
         if (context.isMobile) ...[
@@ -599,7 +819,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
               return null;
             },
           ),
-          SizedBox(height: context.verticalSpacing * 0.75),
+          SizedBox(height: compactSpacing),
           CustomTextField(
             controller: controller.minStockController,
             label: 'Stock Mínimo *',
@@ -666,7 +886,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
             ],
           ),
         ],
-        SizedBox(height: context.verticalSpacing),
+        SizedBox(height: compactSpacing),
 
         // Unidad de medida - Selector moderno
         GetBuilder<ProductFormController>(
@@ -683,7 +903,10 @@ class ProductFormScreen extends GetView<ProductFormController> {
 
   // Nueva sección de dimensiones para móvil
   Widget _buildDimensionsSection(BuildContext context) {
-    return CustomCard(child: _buildDimensionsContent(context));
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(20),
+      child: _buildDimensionsContent(context),
+    );
   }
 
   Widget _buildDimensionsContent(BuildContext context) {
@@ -781,10 +1004,19 @@ class ProductFormScreen extends GetView<ProductFormController> {
   }
 
   Widget _buildPricesSection(BuildContext context) {
-    return CustomCard(child: _buildPricesContent(context));
+    return FuturisticContainer(
+      padding: EdgeInsets.all(context.isMobile ? 16 : 20),
+      hasGlow: true,
+      child: _buildPricesContent(context),
+    );
   }
 
   Widget _buildPricesContent(BuildContext context) {
+    final compactSpacing =
+        context.isMobile
+            ? context.verticalSpacing * 0.6
+            : context.verticalSpacing * 0.75;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -792,22 +1024,22 @@ class ProductFormScreen extends GetView<ProductFormController> {
         if (context.isMobile) ...[
           // En móvil: columna
           Text(
-            'Configuración de Precios',
+            'Precios',
             style: TextStyle(
               fontSize: Responsive.getFontSize(
                 context,
-                mobile: 18,
-                tablet: 20,
-                desktop: 22,
+                mobile: 16,
+                tablet: 18,
+                desktop: 20,
               ),
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: context.verticalSpacing * 0.75),
-          CustomButton(
+          SizedBox(height: compactSpacing),
+          ElegantButton(
             text: 'Calculadora de Precios',
             icon: Icons.calculate,
-            type: ButtonType.outline,
+            gradient: ElegantLightTheme.warningGradient,
             onPressed: () {
               try {
                 controller.showPriceCalculator();
@@ -816,6 +1048,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
               }
             },
             width: double.infinity,
+            height: 44,
           ),
         ] else ...[
           // En tablet/desktop: fila
@@ -823,7 +1056,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
             children: [
               Expanded(
                 child: Text(
-                  'Configuración de Precios',
+                  'Precios',
                   style: TextStyle(
                     fontSize: Responsive.getFontSize(
                       context,
@@ -835,13 +1068,13 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   ),
                 ),
               ),
-              CustomButton(
+              ElegantButton(
                 text:
                     Responsive.isTablet(context)
                         ? 'Calculadora'
                         : 'Calculadora de Precios',
                 icon: Icons.calculate,
-                type: ButtonType.outline,
+                gradient: ElegantLightTheme.warningGradient,
                 onPressed: () {
                   try {
                     controller.showPriceCalculator();
@@ -853,7 +1086,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
             ],
           ),
         ],
-        SizedBox(height: context.verticalSpacing),
+        SizedBox(height: compactSpacing),
 
         // Precio de costo
         CustomTextField(
@@ -864,45 +1097,61 @@ class ProductFormScreen extends GetView<ProductFormController> {
           keyboardType: TextInputType.number,
           inputFormatters: [CurrencyInputFormatter()],
         ),
-        SizedBox(height: context.verticalSpacing),
+        SizedBox(height: compactSpacing),
 
         // Precios de venta - Responsive
         if (context.isMobile) ...[
-          // En móvil: uno por fila
-          CustomTextField(
-            controller: controller.price1Controller,
-            label: 'Precio al Público',
-            hint: '0',
-            prefixIcon: Icons.sell,
-            keyboardType: TextInputType.number,
-            inputFormatters: [CurrencyInputFormatter()],
+          // En móvil: dos por fila para ahorrar espacio
+          Row(
+            children: [
+              Expanded(
+                child: CustomTextField(
+                  controller: controller.price1Controller,
+                  label: 'Precio Público',
+                  hint: '0',
+                  prefixIcon: Icons.sell,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [CurrencyInputFormatter()],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: CustomTextField(
+                  controller: controller.price2Controller,
+                  label: 'Mayorista',
+                  hint: '0',
+                  prefixIcon: Icons.sell,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [CurrencyInputFormatter()],
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: context.verticalSpacing * 0.75),
-          CustomTextField(
-            controller: controller.price2Controller,
-            label: 'Precio Mayorista',
-            hint: '0',
-            prefixIcon: Icons.sell,
-            keyboardType: TextInputType.number,
-            inputFormatters: [CurrencyInputFormatter()],
-          ),
-          SizedBox(height: context.verticalSpacing * 0.75),
-          CustomTextField(
-            controller: controller.price3Controller,
-            label: 'Precio Distribuidor',
-            hint: '0',
-            prefixIcon: Icons.sell,
-            keyboardType: TextInputType.number,
-            inputFormatters: [CurrencyInputFormatter()],
-          ),
-          SizedBox(height: context.verticalSpacing * 0.75),
-          CustomTextField(
-            controller: controller.specialPriceController,
-            label: 'Precio Especial',
-            hint: '0',
-            prefixIcon: Icons.local_offer,
-            keyboardType: TextInputType.number,
-            inputFormatters: [CurrencyInputFormatter()],
+          SizedBox(height: compactSpacing),
+          Row(
+            children: [
+              Expanded(
+                child: CustomTextField(
+                  controller: controller.price3Controller,
+                  label: 'Distribuidor',
+                  hint: '0',
+                  prefixIcon: Icons.sell,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [CurrencyInputFormatter()],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: CustomTextField(
+                  controller: controller.specialPriceController,
+                  label: 'Especial',
+                  hint: '0',
+                  prefixIcon: Icons.local_offer,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [CurrencyInputFormatter()],
+                ),
+              ),
+            ],
           ),
         ] else ...[
           // En tablet/desktop: dos por fila
@@ -981,19 +1230,49 @@ class ProductFormScreen extends GetView<ProductFormController> {
       margin: EdgeInsets.only(top: context.verticalSpacing),
       padding: EdgeInsets.all(context.horizontalSpacing * 0.75),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
+        gradient: LinearGradient(
+          colors: [
+            ElegantLightTheme.successGradient.colors.first.withValues(
+              alpha: 0.1,
+            ),
+            ElegantLightTheme.successGradient.colors.last.withValues(
+              alpha: 0.05,
+            ),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.successGradient.colors.first.withValues(
+            alpha: 0.3,
+          ),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: ElegantLightTheme.successGradient.colors.first.withValues(
+              alpha: 0.1,
+            ),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(Icons.trending_up, color: Colors.blue.shade600),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.successGradient,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(Icons.trending_up, color: Colors.white, size: 18),
+          ),
           SizedBox(width: context.horizontalSpacing * 0.5),
           Expanded(
             child: Text(
               'Margen de ganancia: ${margin.toStringAsFixed(1)}%',
               style: TextStyle(
-                color: Colors.blue.shade800,
+                color: ElegantLightTheme.successGradient.colors.last,
                 fontWeight: FontWeight.w600,
                 fontSize: Responsive.getFontSize(
                   context,
@@ -1014,32 +1293,18 @@ class ProductFormScreen extends GetView<ProductFormController> {
   Widget _buildTypeSelector(BuildContext context) {
     return GetBuilder<ProductFormController>(
       builder:
-          (controller) => DropdownButtonFormField<ProductType>(
+          (controller) => ModernSelectorWidget<ProductType>(
+            label: 'Tipo',
+            hint: 'Seleccionar tipo',
             value: controller.productType,
-            decoration: InputDecoration(
-              labelText: 'Tipo *',
-              prefixIcon: const Icon(Icons.category),
-              border: const OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: context.isMobile ? 12 : 16,
-                vertical: context.isMobile ? 16 : 18,
-              ),
-              isDense: !Responsive.isMobile(context),
-            ),
-            isExpanded: true,
-            items:
-                ProductType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(
-                      _getTypeDisplayName(type),
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: Responsive.getFontSize(context),
-                      ),
-                    ),
-                  );
-                }).toList(),
+            items: ProductType.values,
+            getDisplayText: (type) => _getTypeDisplayName(type),
+            getIcon:
+                (type) => Icon(
+                  _getTypeIcon(type),
+                  size: 18,
+                  color: _getTypeColor(type),
+                ),
             onChanged: (value) {
               if (value != null) {
                 try {
@@ -1049,9 +1314,28 @@ class ProductFormScreen extends GetView<ProductFormController> {
                 }
               }
             },
+            isRequired: true,
             validator: (value) => value == null ? 'Selecciona un tipo' : null,
           ),
     );
+  }
+
+  IconData _getTypeIcon(ProductType type) {
+    switch (type) {
+      case ProductType.product:
+        return Icons.inventory_2;
+      case ProductType.service:
+        return Icons.design_services;
+    }
+  }
+
+  Color _getTypeColor(ProductType type) {
+    switch (type) {
+      case ProductType.product:
+        return ElegantLightTheme.primaryBlue;
+      case ProductType.service:
+        return Colors.purple.shade600;
+    }
   }
 
   Widget _buildStatusSelector(BuildContext context) {
@@ -1061,31 +1345,19 @@ class ProductFormScreen extends GetView<ProductFormController> {
         print(
           '🔄 StatusSelector: Rebuilding with status: ${controller.productStatus}',
         );
-        return DropdownButtonFormField<ProductStatus>(
+        return ModernSelectorWidget<ProductStatus>(
           key: ValueKey('status_${controller.productStatus}'), // ✅ Key único
+          label: 'Estado',
+          hint: 'Seleccionar estado',
           value: controller.productStatus,
-          decoration: InputDecoration(
-            labelText: 'Estado *',
-            prefixIcon: const Icon(Icons.toggle_on),
-            border: const OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: context.isMobile ? 12 : 16,
-              vertical: context.isMobile ? 16 : 18,
-            ),
-            isDense: !Responsive.isMobile(context),
-          ),
-          isExpanded: true,
-          items:
-              ProductStatus.values.map((status) {
-                return DropdownMenuItem(
-                  value: status,
-                  child: Text(
-                    _getStatusDisplayName(status),
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: Responsive.getFontSize(context)),
-                  ),
-                );
-              }).toList(),
+          items: ProductStatus.values,
+          getDisplayText: (status) => _getStatusDisplayName(status),
+          getIcon:
+              (status) => Icon(
+                _getStatusIcon(status),
+                size: 18,
+                color: _getStatusColor(status),
+              ),
           onChanged: (value) {
             if (value != null) {
               try {
@@ -1095,9 +1367,32 @@ class ProductFormScreen extends GetView<ProductFormController> {
               }
             }
           },
+          isRequired: true,
         );
       },
     );
+  }
+
+  IconData _getStatusIcon(ProductStatus status) {
+    switch (status) {
+      case ProductStatus.active:
+        return Icons.check_circle;
+      case ProductStatus.inactive:
+        return Icons.cancel;
+      case ProductStatus.outOfStock:
+        return Icons.inventory_outlined;
+    }
+  }
+
+  Color _getStatusColor(ProductStatus status) {
+    switch (status) {
+      case ProductStatus.active:
+        return Colors.green.shade600;
+      case ProductStatus.inactive:
+        return Colors.grey.shade600;
+      case ProductStatus.outOfStock:
+        return Colors.orange.shade600;
+    }
   }
 
   Widget _buildCategorySelector(BuildContext context) {
@@ -1142,15 +1437,15 @@ class ProductFormScreen extends GetView<ProductFormController> {
                 desktop: 16,
               ),
               fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
+              color: ElegantLightTheme.textPrimary,
             ),
           ),
           SizedBox(height: context.verticalSpacing),
 
-          CustomButton(
+          ElegantButton(
             text: 'Generar SKU',
             icon: Icons.auto_fix_high,
-            type: ButtonType.outline,
+            gradient: ElegantLightTheme.infoGradient,
             onPressed: () {
               try {
                 controller.generateSku();
@@ -1162,10 +1457,10 @@ class ProductFormScreen extends GetView<ProductFormController> {
           ),
           SizedBox(height: context.verticalSpacing * 0.75),
 
-          CustomButton(
+          ElegantButton(
             text: 'Calculadora de Precios',
             icon: Icons.calculate,
-            type: ButtonType.outline,
+            gradient: ElegantLightTheme.warningGradient,
             onPressed: () {
               try {
                 controller.showPriceCalculator();
@@ -1177,10 +1472,12 @@ class ProductFormScreen extends GetView<ProductFormController> {
           ),
           SizedBox(height: context.verticalSpacing * 0.75),
 
-          CustomButton(
+          ElegantButton(
             text: 'Previsualizar',
             icon: Icons.preview,
-            type: ButtonType.outline,
+            gradient: LinearGradient(
+              colors: [Colors.purple.shade400, Colors.purple.shade600],
+            ),
             onPressed: () {
               try {
                 controller.previewProduct();
@@ -1205,17 +1502,14 @@ class ProductFormScreen extends GetView<ProductFormController> {
                 desktop: 14,
               ),
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: ElegantLightTheme.textSecondary,
             ),
           ),
           SizedBox(height: context.verticalSpacing * 0.75),
 
-          Container(
+          FuturisticContainer(
             padding: EdgeInsets.all(context.horizontalSpacing * 0.75),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            gradient: ElegantLightTheme.cardGradient,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1224,7 +1518,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
+                    color: ElegantLightTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1252,12 +1546,13 @@ class ProductFormScreen extends GetView<ProductFormController> {
       children: [
         GetBuilder<ProductFormController>(
           builder:
-              (controller) => CustomButton(
+              (controller) => ElegantButton(
                 text:
                     controller.isSaving
                         ? 'Guardando...'
                         : controller.saveButtonText,
                 icon: controller.isEditMode ? Icons.update : Icons.save,
+                gradient: ElegantLightTheme.successGradient,
                 onPressed:
                     controller.isSaving
                         ? null
@@ -1273,9 +1568,12 @@ class ProductFormScreen extends GetView<ProductFormController> {
               ),
         ),
         SizedBox(height: context.verticalSpacing * 0.75),
-        CustomButton(
+        ElegantButton(
           text: 'Cancelar',
-          type: ButtonType.outline,
+          icon: Icons.close,
+          gradient: LinearGradient(
+            colors: [Colors.grey.shade400, Colors.grey.shade600],
+          ),
           onPressed: () => Get.back(),
           width: double.infinity,
         ),
@@ -1289,9 +1587,12 @@ class ProductFormScreen extends GetView<ProductFormController> {
     return Row(
       children: [
         Expanded(
-          child: CustomButton(
+          child: ElegantButton(
             text: 'Cancelar',
-            type: ButtonType.outline,
+            icon: Icons.close,
+            gradient: LinearGradient(
+              colors: [Colors.grey.shade400, Colors.grey.shade600],
+            ),
             onPressed: () => Get.back(),
           ),
         ),
@@ -1300,12 +1601,13 @@ class ProductFormScreen extends GetView<ProductFormController> {
           flex: 2,
           child: GetBuilder<ProductFormController>(
             builder:
-                (controller) => CustomButton(
+                (controller) => ElegantButton(
                   text:
                       controller.isSaving
                           ? 'Guardando...'
                           : controller.saveButtonText,
                   icon: controller.isEditMode ? Icons.update : Icons.save,
+                  gradient: ElegantLightTheme.successGradient,
                   onPressed:
                       controller.isSaving
                           ? null
@@ -1325,65 +1627,21 @@ class ProductFormScreen extends GetView<ProductFormController> {
   }
 
   Widget _buildBottomActions(BuildContext context) {
+    final isMobile = ResponsiveHelper.isMobile(context);
+
     return Container(
-      padding: EdgeInsets.all(context.responsivePadding.horizontal),
+      padding: EdgeInsets.all(isMobile ? 12 : context.responsivePadding.horizontal),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: CustomButton(
-                text: 'Cancelar',
-                type: ButtonType.outline,
-                onPressed: () => Get.back(),
-              ),
-            ),
-            SizedBox(width: context.horizontalSpacing),
-            Expanded(
-              flex: 2,
-              child: GetBuilder<ProductFormController>(
-                builder:
-                    (controller) => CustomButton(
-                      text:
-                          controller.isSaving
-                              ? 'Guardando...'
-                              : controller.saveButtonText,
-                      icon: controller.isEditMode ? Icons.update : Icons.save,
-                      onPressed:
-                          controller.isSaving
-                              ? null
-                              : () {
-                                try {
-                                  controller.saveProduct();
-                                } catch (e) {
-                                  print('❌ Error al guardar: $e');
-                                }
-                              },
-                      isLoading: controller.isSaving,
-                    ),
-              ),
-            ),
-          ],
+        gradient: ElegantLightTheme.cardGradient,
+        border: Border(
+          top: BorderSide(
+            color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget? _buildBottomActionsOld(BuildContext context) {
-    if (!context.isMobile) return null;
-
-    return Container(
-      padding: EdgeInsets.all(context.responsivePadding.horizontal),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
             offset: const Offset(0, -2),
           ),
         ],
@@ -1392,23 +1650,25 @@ class ProductFormScreen extends GetView<ProductFormController> {
         child: Row(
           children: [
             Expanded(
-              child: CustomButton(
+              child: ElegantButton(
                 text: 'Cancelar',
-                type: ButtonType.outline,
+                icon: Icons.close,
+                height: isMobile ? 44 : 48,
+                gradient: LinearGradient(
+                  colors: [Colors.grey.shade400, Colors.grey.shade600],
+                ),
                 onPressed: () => Get.back(),
               ),
             ),
-            SizedBox(width: context.horizontalSpacing),
+            SizedBox(width: isMobile ? 8 : 12),
             Expanded(
-              flex: 2,
               child: GetBuilder<ProductFormController>(
                 builder:
-                    (controller) => CustomButton(
-                      text:
-                          controller.isSaving
-                              ? 'Guardando...'
-                              : controller.saveButtonText,
+                    (controller) => ElegantButton(
+                      text: controller.isSaving ? 'Guardando...' : 'Guardar',
                       icon: controller.isEditMode ? Icons.update : Icons.save,
+                      height: isMobile ? 44 : 48,
+                      gradient: ElegantLightTheme.successGradient,
                       onPressed:
                           controller.isSaving
                               ? null
@@ -1458,9 +1718,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
   Future<void> _scanBarcode(BuildContext context) async {
     try {
       final scannedCode = await Navigator.of(context).push<String>(
-        MaterialPageRoute(
-          builder: (context) => const BarcodeScannerScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const BarcodeScannerScreen()),
       );
       if (scannedCode != null && scannedCode.isNotEmpty) {
         controller.barcodeController.text = scannedCode;
@@ -1500,14 +1758,293 @@ class ProductFormScreen extends GetView<ProductFormController> {
     );
   }
 
+  // ========== SECCIÓN DE FACTURACIÓN ELECTRÓNICA ==========
+
+  /// Sección de impuestos para móvil
+  Widget _buildTaxSection(BuildContext context) {
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(16),
+      hasGlow: true,
+      child: _buildTaxContent(context),
+    );
+  }
+
+  /// Contenido de impuestos para todas las plataformas
+  Widget _buildTaxContent(BuildContext context) {
+    final compactSpacing = context.verticalSpacing * 0.5;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Encabezado
+        Row(
+          children: [
+            Icon(
+              Icons.receipt_long,
+              color: ElegantLightTheme.primaryBlue,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Facturación Electrónica',
+              style: TextStyle(
+                fontSize: Responsive.getFontSize(context, mobile: 16, tablet: 17, desktop: 18),
+                fontWeight: FontWeight.bold,
+                color: ElegantLightTheme.primaryBlue,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: compactSpacing * 1.5),
+
+        // Categoría de impuesto (selector elegante)
+        GetBuilder<ProductFormController>(
+          id: 'tax_selector',
+          builder: (controller) {
+            return ModernSelectorWidget<TaxCategory>(
+              label: 'Categoría de Impuesto',
+              hint: 'Seleccionar categoría de impuesto',
+              value: controller.selectedTaxCategory,
+              items: TaxCategory.values,
+              getDisplayText: (category) => category.displayName,
+              getIcon: (category) => Icon(
+                Icons.monetization_on,
+                size: 18,
+                color: _getTaxCategoryColor(category),
+              ),
+              onChanged: (value) => controller.setTaxCategory(value!),
+            );
+          },
+        ),
+        SizedBox(height: compactSpacing * 1.5),
+
+        // Fila: Tasa de impuesto y Toggle gravable
+        Builder(
+          builder: (context) {
+            final isMobile = ResponsiveHelper.isMobile(context);
+            return Row(
+              children: [
+                Expanded(
+                  flex: isMobile ? 2 : 1,
+                  child: CustomTextField(
+                    controller: controller.taxRateController,
+                    label: 'Tasa (%)',
+                    hint: 'Ej: 19',
+                    prefixIcon: Icons.percent,
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Requerido';
+                      final rate = double.tryParse(value);
+                      if (rate == null || rate < 0 || rate > 100) {
+                        return 'Ingrese tasa válida (0-100)';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                SizedBox(width: context.horizontalSpacing),
+                Expanded(
+                  flex: isMobile ? 3 : 1,
+                  child: GetBuilder<ProductFormController>(
+                id: 'tax_section',
+                builder: (controller) {
+                  final isMobile = ResponsiveHelper.isMobile(context);
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: controller.isTaxable
+                            ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+                            : Colors.grey.shade300,
+                        width: 1.5,
+                      ),
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: isMobile ? 4 : 6,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.check_box_outlined,
+                          color: controller.isTaxable
+                              ? ElegantLightTheme.primaryBlue
+                              : Colors.grey.shade400,
+                          size: isMobile ? 16 : 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Gravable',
+                            style: TextStyle(
+                              fontSize: isMobile ? 13 : 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade700,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Transform.scale(
+                          scale: isMobile ? 0.75 : 0.85,
+                          child: Switch(
+                            value: controller.isTaxable,
+                            onChanged: controller.setTaxable,
+                            activeColor: ElegantLightTheme.primaryBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+          },
+        ),
+        SizedBox(height: compactSpacing),
+
+        // Descripción del impuesto (opcional)
+        CompactTextField(
+          controller: controller.taxDescriptionController,
+          label: 'Descripción del Impuesto (opcional)',
+          maxLines: 2,
+          prefixIcon: Icons.description,
+        ),
+        SizedBox(height: compactSpacing * 1.5),
+
+        // Divisor
+        Divider(color: Colors.grey.shade300, height: 1),
+        SizedBox(height: compactSpacing * 1.5),
+
+        // Sección de retenciones
+        GetBuilder<ProductFormController>(
+          id: 'retention_section',
+          builder: (controller) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Toggle de retención
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: controller.hasRetention
+                          ? ElegantLightTheme.accentOrange.withValues(alpha: 0.3)
+                          : Colors.grey.shade300,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: SwitchListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    title: Row(
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet,
+                          size: 18,
+                          color: controller.hasRetention
+                              ? ElegantLightTheme.accentOrange
+                              : Colors.grey,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Aplica Retención en la Fuente',
+                            style: TextStyle(
+                              fontSize: Responsive.getFontSize(
+                                context,
+                                mobile: 12,
+                                tablet: 14,
+                                desktop: 14,
+                              ),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    value: controller.hasRetention,
+                    onChanged: controller.setHasRetention,
+                    activeColor: ElegantLightTheme.accentOrange,
+                  ),
+                ),
+
+                // Campos de retención (solo si está habilitada)
+                if (controller.hasRetention) ...[
+                  SizedBox(height: compactSpacing),
+                  GetBuilder<ProductFormController>(
+                    id: 'retention_selector',
+                    builder: (controller) {
+                      return ModernSelectorWidget<RetentionCategory>(
+                        label: 'Tipo de Retención',
+                        hint: 'Seleccionar tipo de retención',
+                        value: controller.selectedRetentionCategory,
+                        items: RetentionCategory.values,
+                        getDisplayText: (category) => category.displayName,
+                        getIcon: (category) => Icon(
+                          Icons.account_balance,
+                          size: 18,
+                          color: ElegantLightTheme.accentOrange,
+                        ),
+                        onChanged: (value) => controller.setRetentionCategory(value),
+                      );
+                    },
+                  ),
+                  SizedBox(height: compactSpacing),
+                  CompactTextField(
+                    controller: controller.retentionRateController,
+                    label: 'Tasa de Retención (%)',
+                    keyboardType: TextInputType.number,
+                    prefixIcon: Icons.percent,
+                    validator: (value) {
+                      if (!controller.hasRetention) return null;
+                      if (value == null || value.isEmpty) return 'Requerido';
+                      final rate = double.tryParse(value);
+                      if (rate == null || rate < 0 || rate > 100) {
+                        return 'Tasa válida (0-100)';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Obtener color para categoría de impuesto
+  Color _getTaxCategoryColor(TaxCategory category) {
+    switch (category) {
+      case TaxCategory.iva:
+        return ElegantLightTheme.primaryBlue;
+      case TaxCategory.inc:
+        return ElegantLightTheme.accentOrange;
+      case TaxCategory.incBolsa:
+        return Colors.brown;
+      case TaxCategory.exento:
+        return Colors.green;
+      case TaxCategory.noGravado:
+        return Colors.grey;
+    }
+  }
+
+  // ========== FIN SECCIÓN FACTURACIÓN ELECTRÓNICA ==========
+
   String _getTypeDisplayName(ProductType type) {
     switch (type) {
       case ProductType.product:
         return 'Producto';
       case ProductType.service:
         return 'Servicio';
-      default:
-        return type.toString();
     }
   }
 
@@ -1517,8 +2054,8 @@ class ProductFormScreen extends GetView<ProductFormController> {
         return 'Activo';
       case ProductStatus.inactive:
         return 'Inactivo';
-      default:
-        return status.toString();
+      case ProductStatus.outOfStock:
+        return 'Sin Stock';
     }
   }
 }

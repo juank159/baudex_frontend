@@ -48,6 +48,9 @@ class InvoiceDetailController extends GetxController {
   // UI States
   final _showPaymentForm = false.obs;
   final _selectedPaymentMethod = PaymentMethod.cash.obs;
+  
+  // ✅ NUEVO: Tab system para organizar contenido
+  final _selectedTab = 0.obs;
 
   // Controllers para agregar pago - USANDO SAFE CONTROLLERS
   final paymentAmountController = SafeTextEditingController(debugLabel: 'PaymentAmount');
@@ -62,6 +65,10 @@ class InvoiceDetailController extends GetxController {
   Invoice? get invoice => _invoice.value;
   bool get showPaymentForm => _showPaymentForm.value;
   PaymentMethod get selectedPaymentMethod => _selectedPaymentMethod.value;
+  
+  // ✅ NUEVO: Getters para sistema de tabs
+  RxInt get selectedTab => _selectedTab;
+  int get currentTab => _selectedTab.value;
 
   String get invoiceId => Get.parameters['id'] ?? '';
   bool get hasInvoice => _invoice.value != null;
@@ -185,6 +192,12 @@ class InvoiceDetailController extends GetxController {
   Future<void> refreshInvoice() async {
     print('🔄 Refrescando factura...');
     await loadInvoice();
+  }
+
+  // ✅ NUEVO: Método para cambiar tabs
+  void switchTab(int index) {
+    _selectedTab.value = index;
+    print('📱 Tab cambiado a: $index');
   }
 
   // ==================== INVOICE ACTIONS ====================

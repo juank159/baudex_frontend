@@ -1,6 +1,7 @@
 // lib/features/products/domain/entities/product.dart - CORRECCIÓN FINAL
 import 'package:equatable/equatable.dart';
 import 'product_price.dart';
+import 'tax_enums.dart';
 
 enum ProductStatus { active, inactive, outOfStock }
 
@@ -31,6 +32,16 @@ class Product extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // ========== CAMPOS PARA FACTURACIÓN ELECTRÓNICA ==========
+  final TaxCategory taxCategory;
+  final double taxRate;
+  final bool isTaxable;
+  final String? taxDescription;
+  final RetentionCategory? retentionCategory;
+  final double? retentionRate;
+  final bool hasRetention;
+  // ========== FIN CAMPOS FACTURACIÓN ELECTRÓNICA ==========
+
   const Product({
     required this.id,
     required this.name,
@@ -55,6 +66,14 @@ class Product extends Equatable {
     this.createdBy,
     required this.createdAt,
     required this.updatedAt,
+    // Campos de facturación electrónica
+    this.taxCategory = TaxCategory.iva,
+    this.taxRate = 19.0,
+    this.isTaxable = true,
+    this.taxDescription,
+    this.retentionCategory,
+    this.retentionRate,
+    this.hasRetention = false,
   });
 
   @override
@@ -82,6 +101,13 @@ class Product extends Equatable {
     createdBy,
     createdAt,
     updatedAt,
+    taxCategory,
+    taxRate,
+    isTaxable,
+    taxDescription,
+    retentionCategory,
+    retentionRate,
+    hasRetention,
   ];
 
   // ✅ GETTERS CORREGIDOS - SOLUCIÓN FINAL
@@ -146,6 +172,13 @@ class Product extends Equatable {
     ProductCreator? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
+    TaxCategory? taxCategory,
+    double? taxRate,
+    bool? isTaxable,
+    String? taxDescription,
+    RetentionCategory? retentionCategory,
+    double? retentionRate,
+    bool? hasRetention,
   }) {
     return Product(
       id: id ?? this.id,
@@ -171,6 +204,13 @@ class Product extends Equatable {
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      taxCategory: taxCategory ?? this.taxCategory,
+      taxRate: taxRate ?? this.taxRate,
+      isTaxable: isTaxable ?? this.isTaxable,
+      taxDescription: taxDescription ?? this.taxDescription,
+      retentionCategory: retentionCategory ?? this.retentionCategory,
+      retentionRate: retentionRate ?? this.retentionRate,
+      hasRetention: hasRetention ?? this.hasRetention,
     );
   }
 

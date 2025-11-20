@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../entities/product.dart';
+import '../entities/tax_enums.dart';
 import '../repositories/product_repository.dart';
 
 class CreateProductUseCase implements UseCase<Product, CreateProductParams> {
@@ -31,6 +32,14 @@ class CreateProductUseCase implements UseCase<Product, CreateProductParams> {
       metadata: params.metadata,
       categoryId: params.categoryId,
       prices: params.prices,
+      // Campos de facturación electrónica
+      taxCategory: params.taxCategory,
+      taxRate: params.taxRate,
+      isTaxable: params.isTaxable,
+      taxDescription: params.taxDescription,
+      retentionCategory: params.retentionCategory,
+      retentionRate: params.retentionRate,
+      hasRetention: params.hasRetention,
     );
   }
 }
@@ -54,6 +63,16 @@ class CreateProductParams extends Equatable {
   final String categoryId;
   final List<CreateProductPriceParams>? prices;
 
+  // ========== CAMPOS PARA FACTURACIÓN ELECTRÓNICA ==========
+  final TaxCategory? taxCategory;
+  final double? taxRate;
+  final bool? isTaxable;
+  final String? taxDescription;
+  final RetentionCategory? retentionCategory;
+  final double? retentionRate;
+  final bool? hasRetention;
+  // ========== FIN CAMPOS FACTURACIÓN ELECTRÓNICA ==========
+
   const CreateProductParams({
     required this.name,
     this.description,
@@ -72,6 +91,14 @@ class CreateProductParams extends Equatable {
     this.metadata,
     required this.categoryId,
     this.prices,
+    // Campos de facturación electrónica
+    this.taxCategory,
+    this.taxRate,
+    this.isTaxable,
+    this.taxDescription,
+    this.retentionCategory,
+    this.retentionRate,
+    this.hasRetention,
   });
 
   @override
@@ -93,5 +120,12 @@ class CreateProductParams extends Equatable {
     metadata,
     categoryId,
     prices,
+    taxCategory,
+    taxRate,
+    isTaxable,
+    taxDescription,
+    retentionCategory,
+    retentionRate,
+    hasRetention,
   ];
 }

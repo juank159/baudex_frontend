@@ -115,20 +115,20 @@ class SupplierFormController extends GetxController {
     // Escuchar cambios en los campos principales
     nameController.addListener(_validateForm);
     emailController.addListener(_validateForm);
-    
+
     // Document number controller con debounce para validación de unicidad
-    documentNumberController.addListener((){
+    documentNumberController.addListener(() {
       documentNumber.value = documentNumberController.text.trim();
       // Solo revalidar campos requeridos inmediatamente, no unicidad
       _validateForm();
     });
-    
+
     codeController.addListener(_validateForm);
     paymentTermsController.addListener(_validateForm);
     currencyController.addListener(_validateForm);
     creditLimitController.addListener(_validateForm);
     discountPercentageController.addListener(_validateForm);
-    
+
     // Listen to document changes with debounce for uniqueness validation
     documentType.listen((_) => _debounceDocumentValidation());
     documentNumber.listen((_) => _debounceDocumentValidation());
@@ -171,7 +171,7 @@ class SupplierFormController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -186,7 +186,7 @@ class SupplierFormController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -217,7 +217,7 @@ class SupplierFormController extends GetxController {
 
     documentType.value = supplier.documentType;
     status.value = supplier.status;
-    
+
     // Initialize reactive document number
     documentNumber.value = supplier.documentNumber;
   }
@@ -227,30 +227,40 @@ class SupplierFormController extends GetxController {
   void _validateForm() {
     // Validación básica
     final hasName = nameController.text.trim().isNotEmpty;
-    final hasValidPaymentTerms = paymentTermsController.text.isNotEmpty && 
+    final hasValidPaymentTerms =
+        paymentTermsController.text.isNotEmpty &&
         (int.tryParse(paymentTermsController.text) ?? 0) > 0;
     final hasValidCurrency = currencyController.text.isNotEmpty;
-    
+
     // Validaciones adicionales
-    final isEmailValid = emailController.text.isEmpty || GetUtils.isEmail(emailController.text);
-    final isCreditLimitValid = creditLimitController.text.isEmpty || 
+    final isEmailValid =
+        emailController.text.isEmpty || GetUtils.isEmail(emailController.text);
+    final isCreditLimitValid =
+        creditLimitController.text.isEmpty ||
         (double.tryParse(creditLimitController.text) ?? -1) >= 0;
-    final isDiscountValid = discountPercentageController.text.isEmpty || 
-        ((double.tryParse(discountPercentageController.text) ?? -1) >= 0 && 
-         (double.tryParse(discountPercentageController.text) ?? 101) <= 100);
-    
+    final isDiscountValid =
+        discountPercentageController.text.isEmpty ||
+        ((double.tryParse(discountPercentageController.text) ?? -1) >= 0 &&
+            (double.tryParse(discountPercentageController.text) ?? 101) <= 100);
+
     // Document validation: both type and number are ALWAYS required
     final hasDocumentType = documentType.value != null;
     final hasDocumentNumber = documentNumber.value.isNotEmpty;
     final isDocumentValid = hasDocumentType && hasDocumentNumber;
-    
-    isFormValid.value = hasName && hasValidPaymentTerms && hasValidCurrency && 
-        isEmailValid && isCreditLimitValid && isDiscountValid && isDocumentValid;
-    
+
+    isFormValid.value =
+        hasName &&
+        hasValidPaymentTerms &&
+        hasValidCurrency &&
+        isEmailValid &&
+        isCreditLimitValid &&
+        isDiscountValid &&
+        isDocumentValid;
+
     // Actualizar errores individuales
     nameError.value = !hasName;
     emailError.value = !isEmailValid;
-    
+
     // Validar step actual (si se mantiene el step system)
     isStepValid.value = isFormValid.value;
   }
@@ -282,33 +292,36 @@ class SupplierFormController extends GetxController {
     // Validar documento - AMBOS campos son obligatorios
     final hasDocumentType = documentType.value != null;
     final hasDocumentNumber = documentNumber.value.isNotEmpty;
-    
+
     // Don't reset document errors here as they may be set by async uniqueness validation
     // Only set errors for required fields, don't clear existing errors
-    
+
     // Both fields are required
     if (!hasDocumentType) {
       documentTypeError.value = true;
       documentError.value = true;
       isValid = false;
     }
-    
+
     if (!hasDocumentNumber) {
       documentNumberError.value = true;
       documentError.value = true;
       isValid = false;
     }
-    
+
     // If both fields are present but there are still errors, form is not valid
-    if (hasDocumentType && hasDocumentNumber && 
+    if (hasDocumentType &&
+        hasDocumentNumber &&
         (documentTypeError.value || documentNumberError.value)) {
       documentError.value = true;
       isValid = false;
     }
-    
+
     // Clear documentError if both fields are valid
-    if (hasDocumentType && hasDocumentNumber && 
-        !documentTypeError.value && !documentNumberError.value) {
+    if (hasDocumentType &&
+        hasDocumentNumber &&
+        !documentTypeError.value &&
+        !documentNumberError.value) {
       documentError.value = false;
     }
 
@@ -319,7 +332,8 @@ class SupplierFormController extends GetxController {
     bool isValid = true;
 
     // Validar email si está presente
-    if (emailController.text.isNotEmpty && !GetUtils.isEmail(emailController.text)) {
+    if (emailController.text.isNotEmpty &&
+        !GetUtils.isEmail(emailController.text)) {
       emailError.value = true;
       isValid = false;
     } else {
@@ -357,7 +371,7 @@ class SupplierFormController extends GetxController {
       Get.snackbar(
         'Error',
         'Por favor complete los campos requeridos',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.orange.shade100,
         colorText: Colors.orange.shade800,
       );
@@ -378,7 +392,7 @@ class SupplierFormController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -390,49 +404,65 @@ class SupplierFormController extends GetxController {
   Future<void> _createSupplier() async {
     final params = CreateSupplierParams(
       name: nameController.text.trim(),
-      code: codeController.text.trim().isNotEmpty ? codeController.text.trim() : null,
+      code:
+          codeController.text.trim().isNotEmpty
+              ? codeController.text.trim()
+              : null,
       documentType: documentType.value!,
       documentNumber: documentNumberController.text.trim(),
-      contactPerson: contactPersonController.text.trim().isNotEmpty 
-          ? contactPersonController.text.trim() 
-          : null,
-      email: emailController.text.trim().isNotEmpty 
-          ? emailController.text.trim() 
-          : null,
-      phone: phoneController.text.trim().isNotEmpty 
-          ? phoneController.text.trim() 
-          : null,
-      mobile: mobileController.text.trim().isNotEmpty 
-          ? mobileController.text.trim() 
-          : null,
-      address: addressController.text.trim().isNotEmpty 
-          ? addressController.text.trim() 
-          : null,
-      city: cityController.text.trim().isNotEmpty 
-          ? cityController.text.trim() 
-          : null,
-      state: stateController.text.trim().isNotEmpty 
-          ? stateController.text.trim() 
-          : null,
-      country: countryController.text.trim().isNotEmpty 
-          ? countryController.text.trim() 
-          : null,
-      postalCode: postalCodeController.text.trim().isNotEmpty 
-          ? postalCodeController.text.trim() 
-          : null,
-      website: websiteController.text.trim().isNotEmpty 
-          ? websiteController.text.trim() 
-          : null,
+      contactPerson:
+          contactPersonController.text.trim().isNotEmpty
+              ? contactPersonController.text.trim()
+              : null,
+      email:
+          emailController.text.trim().isNotEmpty
+              ? emailController.text.trim()
+              : null,
+      phone:
+          phoneController.text.trim().isNotEmpty
+              ? phoneController.text.trim()
+              : null,
+      mobile:
+          mobileController.text.trim().isNotEmpty
+              ? mobileController.text.trim()
+              : null,
+      address:
+          addressController.text.trim().isNotEmpty
+              ? addressController.text.trim()
+              : null,
+      city:
+          cityController.text.trim().isNotEmpty
+              ? cityController.text.trim()
+              : null,
+      state:
+          stateController.text.trim().isNotEmpty
+              ? stateController.text.trim()
+              : null,
+      country:
+          countryController.text.trim().isNotEmpty
+              ? countryController.text.trim()
+              : null,
+      postalCode:
+          postalCodeController.text.trim().isNotEmpty
+              ? postalCodeController.text.trim()
+              : null,
+      website:
+          websiteController.text.trim().isNotEmpty
+              ? websiteController.text.trim()
+              : null,
       status: status.value,
-      currency: currencyController.text.trim().isNotEmpty 
-          ? currencyController.text.trim() 
-          : 'COP',
+      currency:
+          currencyController.text.trim().isNotEmpty
+              ? currencyController.text.trim()
+              : 'COP',
       paymentTermsDays: int.tryParse(paymentTermsController.text) ?? 30,
       creditLimit: double.tryParse(creditLimitController.text) ?? 0.0,
-      discountPercentage: double.tryParse(discountPercentageController.text) ?? 0.0,
-      notes: notesController.text.trim().isNotEmpty 
-          ? notesController.text.trim() 
-          : null,
+      discountPercentage:
+          double.tryParse(discountPercentageController.text) ?? 0.0,
+      notes:
+          notesController.text.trim().isNotEmpty
+              ? notesController.text.trim()
+              : null,
     );
 
     final result = await createSupplierUseCase(params);
@@ -443,7 +473,7 @@ class SupplierFormController extends GetxController {
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.red.shade100,
           colorText: Colors.red.shade800,
         );
@@ -452,11 +482,11 @@ class SupplierFormController extends GetxController {
         Get.snackbar(
           'Éxito',
           'Proveedor creado correctamente',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.green.shade100,
           colorText: Colors.green.shade800,
         );
-        
+
         // Volver a la lista y forzar refresco
         Get.offAllNamed('/suppliers');
       },
@@ -469,49 +499,65 @@ class SupplierFormController extends GetxController {
     final params = UpdateSupplierParams(
       id: supplier.value!.id,
       name: nameController.text.trim(),
-      code: codeController.text.trim().isNotEmpty ? codeController.text.trim() : null,
+      code:
+          codeController.text.trim().isNotEmpty
+              ? codeController.text.trim()
+              : null,
       documentType: documentType.value!,
       documentNumber: documentNumberController.text.trim(),
-      contactPerson: contactPersonController.text.trim().isNotEmpty 
-          ? contactPersonController.text.trim() 
-          : null,
-      email: emailController.text.trim().isNotEmpty 
-          ? emailController.text.trim() 
-          : null,
-      phone: phoneController.text.trim().isNotEmpty 
-          ? phoneController.text.trim() 
-          : null,
-      mobile: mobileController.text.trim().isNotEmpty 
-          ? mobileController.text.trim() 
-          : null,
-      address: addressController.text.trim().isNotEmpty 
-          ? addressController.text.trim() 
-          : null,
-      city: cityController.text.trim().isNotEmpty 
-          ? cityController.text.trim() 
-          : null,
-      state: stateController.text.trim().isNotEmpty 
-          ? stateController.text.trim() 
-          : null,
-      country: countryController.text.trim().isNotEmpty 
-          ? countryController.text.trim() 
-          : null,
-      postalCode: postalCodeController.text.trim().isNotEmpty 
-          ? postalCodeController.text.trim() 
-          : null,
-      website: websiteController.text.trim().isNotEmpty 
-          ? websiteController.text.trim() 
-          : null,
+      contactPerson:
+          contactPersonController.text.trim().isNotEmpty
+              ? contactPersonController.text.trim()
+              : null,
+      email:
+          emailController.text.trim().isNotEmpty
+              ? emailController.text.trim()
+              : null,
+      phone:
+          phoneController.text.trim().isNotEmpty
+              ? phoneController.text.trim()
+              : null,
+      mobile:
+          mobileController.text.trim().isNotEmpty
+              ? mobileController.text.trim()
+              : null,
+      address:
+          addressController.text.trim().isNotEmpty
+              ? addressController.text.trim()
+              : null,
+      city:
+          cityController.text.trim().isNotEmpty
+              ? cityController.text.trim()
+              : null,
+      state:
+          stateController.text.trim().isNotEmpty
+              ? stateController.text.trim()
+              : null,
+      country:
+          countryController.text.trim().isNotEmpty
+              ? countryController.text.trim()
+              : null,
+      postalCode:
+          postalCodeController.text.trim().isNotEmpty
+              ? postalCodeController.text.trim()
+              : null,
+      website:
+          websiteController.text.trim().isNotEmpty
+              ? websiteController.text.trim()
+              : null,
       status: status.value,
-      currency: currencyController.text.trim().isNotEmpty 
-          ? currencyController.text.trim() 
-          : 'COP',
+      currency:
+          currencyController.text.trim().isNotEmpty
+              ? currencyController.text.trim()
+              : 'COP',
       paymentTermsDays: int.tryParse(paymentTermsController.text) ?? 30,
       creditLimit: double.tryParse(creditLimitController.text) ?? 0.0,
-      discountPercentage: double.tryParse(discountPercentageController.text) ?? 0.0,
-      notes: notesController.text.trim().isNotEmpty 
-          ? notesController.text.trim() 
-          : null,
+      discountPercentage:
+          double.tryParse(discountPercentageController.text) ?? 0.0,
+      notes:
+          notesController.text.trim().isNotEmpty
+              ? notesController.text.trim()
+              : null,
     );
 
     final result = await updateSupplierUseCase(params);
@@ -522,7 +568,7 @@ class SupplierFormController extends GetxController {
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.red.shade100,
           colorText: Colors.red.shade800,
         );
@@ -531,11 +577,11 @@ class SupplierFormController extends GetxController {
         Get.snackbar(
           'Éxito',
           'Proveedor actualizado correctamente',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.green.shade100,
           colorText: Colors.green.shade800,
         );
-        
+
         // Volver a la lista y forzar refresco
         Get.offAllNamed('/suppliers');
       },
@@ -573,7 +619,7 @@ class SupplierFormController extends GetxController {
 
   void clearForm() {
     formKey.currentState?.reset();
-    
+
     nameController.clear();
     codeController.clear();
     documentNumberController.clear();
@@ -595,7 +641,7 @@ class SupplierFormController extends GetxController {
 
     documentType.value = null;
     status.value = SupplierStatus.active;
-    
+
     // Clear reactive variables
     documentNumber.value = '';
 
@@ -626,14 +672,15 @@ class SupplierFormController extends GetxController {
   // ==================== COMPUTED PROPERTIES ====================
 
   bool get canProceed => isStepValid.value;
-  
+
   bool get isLastStep => currentStep.value == 2;
-  
+
   bool get isFirstStep => currentStep.value == 0;
-  
+
   String get saveButtonText => isEditMode.value ? 'Actualizar' : 'Crear';
-  
-  String get titleText => isEditMode.value ? 'Editar Proveedor' : 'Nuevo Proveedor';
+
+  String get titleText =>
+      isEditMode.value ? 'Editar Proveedor' : 'Nuevo Proveedor';
 
   // ==================== DOCUMENT VALIDATION ====================
 
@@ -643,18 +690,20 @@ class SupplierFormController extends GetxController {
       print('🚫 Validation skipped - campos vacíos');
       return true; // No validation needed if fields are empty
     }
-    
+
     try {
       final params = CheckDocumentUniquenessParams(
         documentType: documentType.value!,
         documentNumber: documentNumber.value,
         excludeId: isEditMode.value ? supplier.value?.id : null,
       );
-      
-      print('📋 Validando con params: ${documentType.value?.name} - ${documentNumber.value} - excludeId: ${params.excludeId}');
-      
+
+      print(
+        '📋 Validando con params: ${documentType.value?.name} - ${documentNumber.value} - excludeId: ${params.excludeId}',
+      );
+
       final result = await checkDocumentUniquenessUseCase(params);
-      
+
       return result.fold(
         (failure) {
           // If there's an error, return true to avoid false positives
@@ -675,24 +724,26 @@ class SupplierFormController extends GetxController {
 
   // Debounced validation to avoid too many API calls
   Timer? _debounceTimer;
-  
+
   void _debounceDocumentValidation() {
     _debounceTimer?.cancel();
-    
+
     // Solo validar unicidad si ambos campos están completos
     if (documentType.value == null || documentNumber.value.isEmpty) {
       return;
     }
-    
+
     _debounceTimer = Timer(const Duration(milliseconds: 1000), () async {
       // Verificar nuevamente que los campos sigan completos después del debounce
       if (documentType.value != null && documentNumber.value.isNotEmpty) {
-        print('🔍 Iniciando validación de unicidad para: ${documentType.value?.name} - ${documentNumber.value}');
-        
+        print(
+          '🔍 Iniciando validación de unicidad para: ${documentType.value?.name} - ${documentNumber.value}',
+        );
+
         final isUnique = await validateDocumentUniqueness();
-        
+
         print('📋 Resultado validación: isUnique = $isUnique');
-        
+
         if (!isUnique) {
           // Documento duplicado - mostrar error
           documentNumberError.value = true;
@@ -700,7 +751,7 @@ class SupplierFormController extends GetxController {
           Get.snackbar(
             'Documento duplicado',
             'Ya existe un proveedor con este tipo y número de documento',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.orange.shade100,
             colorText: Colors.orange.shade800,
             duration: const Duration(seconds: 3),
@@ -711,7 +762,7 @@ class SupplierFormController extends GetxController {
           documentNumberError.value = false;
           documentTypeError.value = false;
         }
-        
+
         // Revalidar el formulario completo
         _validateForm();
       }

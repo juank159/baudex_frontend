@@ -20,7 +20,7 @@ class InventoryBalanceController extends GetxController {
   });
 
   // ==================== CONTROLLERS ====================
-  
+
   final TextEditingController searchTextController = TextEditingController();
 
   // ==================== REACTIVE VARIABLES ====================
@@ -66,22 +66,28 @@ class InventoryBalanceController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    
+
     // Capturar argumentos de la navegación
     final args = Get.arguments as Map<String, dynamic>?;
     if (args != null && args.containsKey('warehouseId')) {
       // Modo almacén específico
       selectedWarehouse.value = args['warehouseId'] as String;
       isGeneralMode.value = false;
-      print('🔍 InventoryBalanceController: Filtro por almacén: ${selectedWarehouse.value}');
-      print('🏢 InventoryBalanceController: Nombre del almacén: ${args['warehouseName']}');
+      print(
+        '🔍 InventoryBalanceController: Filtro por almacén: ${selectedWarehouse.value}',
+      );
+      print(
+        '🏢 InventoryBalanceController: Nombre del almacén: ${args['warehouseName']}',
+      );
     } else {
       // Modo general (desde centro de inventario)
       selectedWarehouse.value = '';
       isGeneralMode.value = true;
-      print('🌍 InventoryBalanceController: Modo general - suma de todos los almacenes');
+      print(
+        '🌍 InventoryBalanceController: Modo general - suma de todos los almacenes',
+      );
     }
-    
+
     loadInventoryBalances();
     loadFixedCounters();
     // Comentado temporalmente hasta implementar endpoint correcto
@@ -99,93 +105,119 @@ class InventoryBalanceController extends GetxController {
   Future<void> loadFixedCounters() async {
     try {
       print('🔍 InventoryBalanceController: Cargando contadores fijos');
-      
+
       // Aplicar filtro de almacén solo si NO estamos en modo general
-      final warehouseFilter = isGeneralMode.value ? null : (selectedWarehouse.value.isNotEmpty ? selectedWarehouse.value : null);
+      final warehouseFilter =
+          isGeneralMode.value
+              ? null
+              : (selectedWarehouse.value.isNotEmpty
+                  ? selectedWarehouse.value
+                  : null);
       if (warehouseFilter != null) {
-        print('🏢 InventoryBalanceController: Aplicando filtro por almacén: $warehouseFilter');
+        print(
+          '🏢 InventoryBalanceController: Aplicando filtro por almacén: $warehouseFilter',
+        );
       } else if (isGeneralMode.value) {
-        print('🌍 InventoryBalanceController: Cargando contadores GENERALES (todos los almacenes)');
+        print(
+          '🌍 InventoryBalanceController: Cargando contadores GENERALES (todos los almacenes)',
+        );
       }
-      
+
       // Cargar contadores en paralelo
       final results = await Future.wait([
         // Todos los productos (con filtro de almacén si aplica)
-        getInventoryBalancesUseCase(InventoryBalanceQueryParams(
-          page: 1,
-          limit: 1,
-          warehouseId: warehouseFilter,
-          sortBy: 'productName',
-          sortOrder: 'asc',
-        )),
+        getInventoryBalancesUseCase(
+          InventoryBalanceQueryParams(
+            page: 1,
+            limit: 1,
+            warehouseId: warehouseFilter,
+            sortBy: 'productName',
+            sortOrder: 'asc',
+          ),
+        ),
         // Stock bajo
-        getInventoryBalancesUseCase(InventoryBalanceQueryParams(
-          page: 1,
-          limit: 1,
-          warehouseId: warehouseFilter,
-          lowStock: true,
-          sortBy: 'productName',
-          sortOrder: 'asc',
-        )),
+        getInventoryBalancesUseCase(
+          InventoryBalanceQueryParams(
+            page: 1,
+            limit: 1,
+            warehouseId: warehouseFilter,
+            lowStock: true,
+            sortBy: 'productName',
+            sortOrder: 'asc',
+          ),
+        ),
         // Sin stock
-        getInventoryBalancesUseCase(InventoryBalanceQueryParams(
-          page: 1,
-          limit: 1,
-          warehouseId: warehouseFilter,
-          outOfStock: true,
-          sortBy: 'productName',
-          sortOrder: 'asc',
-        )),
+        getInventoryBalancesUseCase(
+          InventoryBalanceQueryParams(
+            page: 1,
+            limit: 1,
+            warehouseId: warehouseFilter,
+            outOfStock: true,
+            sortBy: 'productName',
+            sortOrder: 'asc',
+          ),
+        ),
         // Con stock (productos que tienen cantidad > 0)
-        getInventoryBalancesUseCase(InventoryBalanceQueryParams(
-          page: 1,
-          limit: 1,
-          warehouseId: warehouseFilter,
-          sortBy: 'productName',
-          sortOrder: 'asc',
-        )),
+        getInventoryBalancesUseCase(
+          InventoryBalanceQueryParams(
+            page: 1,
+            limit: 1,
+            warehouseId: warehouseFilter,
+            sortBy: 'productName',
+            sortOrder: 'asc',
+          ),
+        ),
         // Vencidos
-        getInventoryBalancesUseCase(InventoryBalanceQueryParams(
-          page: 1,
-          limit: 1,
-          warehouseId: warehouseFilter,
-          expired: true,
-          sortBy: 'productName',
-          sortOrder: 'asc',
-        )),
+        getInventoryBalancesUseCase(
+          InventoryBalanceQueryParams(
+            page: 1,
+            limit: 1,
+            warehouseId: warehouseFilter,
+            expired: true,
+            sortBy: 'productName',
+            sortOrder: 'asc',
+          ),
+        ),
       ]);
 
       // Asignar contadores desde los totales de cada consulta - CONTEXTUALES al filtro aplicado
       int totalProducts = 0;
       int outOfStockProducts = 0;
-      
+
       results[0].fold((failure) => null, (result) {
         totalProducts = result.totalItems;
         fixedTotalItemsCount.value = result.totalItems;
       });
-      results[1].fold((failure) => null, (result) => fixedLowStockCount.value = result.totalItems);
+      results[1].fold(
+        (failure) => null,
+        (result) => fixedLowStockCount.value = result.totalItems,
+      );
       results[2].fold((failure) => null, (result) {
         outOfStockProducts = result.totalItems;
         fixedOutOfStockCount.value = result.totalItems;
       });
-      
+
       // Para "Con Stock" calculamos productos totales menos sin stock
       fixedWithStockCount.value = totalProducts - outOfStockProducts;
-      
+
       // El resultado[3] ahora es solo para calcular "Con Stock", no lo necesitamos guardar
-      results[4].fold((failure) => null, (result) => fixedExpiredCount.value = result.totalItems);
+      results[4].fold(
+        (failure) => null,
+        (result) => fixedExpiredCount.value = result.totalItems,
+      );
 
       if (isGeneralMode.value) {
         print('📊 CONTADORES GENERALES CARGADOS (todos los almacenes):');
       } else {
-        print('📊 CONTADORES ESPECÍFICOS CARGADOS (almacén: $warehouseFilter):');
+        print(
+          '📊 CONTADORES ESPECÍFICOS CARGADOS (almacén: $warehouseFilter):',
+        );
       }
       print('   • Total: ${fixedTotalItemsCount.value}');
       print('   • Stock Bajo: ${fixedLowStockCount.value}');
       print('   • Sin Stock: ${fixedOutOfStockCount.value}');
       print('   • Con Stock: ${fixedWithStockCount.value}');
       print('   • Vencidos: ${fixedExpiredCount.value}');
-      
     } catch (e) {
       print('❌ InventoryBalanceController: Error cargando contadores - $e');
     }
@@ -212,9 +244,12 @@ class InventoryBalanceController extends GetxController {
         search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
         categoryId:
             selectedCategory.value.isNotEmpty ? selectedCategory.value : null,
-        warehouseId: isGeneralMode.value 
-            ? null  // En modo general no filtrar por almacén
-            : (selectedWarehouse.value.isNotEmpty ? selectedWarehouse.value : null),
+        warehouseId:
+            isGeneralMode.value
+                ? null // En modo general no filtrar por almacén
+                : (selectedWarehouse.value.isNotEmpty
+                    ? selectedWarehouse.value
+                    : null),
         lowStock: showLowStock.value ? true : null,
         outOfStock: showOutOfStock.value ? true : null,
         // Para filtro "Con Stock" no enviamos parámetro especial, se filtran en cliente
@@ -232,7 +267,7 @@ class InventoryBalanceController extends GetxController {
           Get.snackbar(
             'Error al cargar inventario',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -245,8 +280,13 @@ class InventoryBalanceController extends GetxController {
           // Aplicar filtro de "Con Stock" en el cliente si está activo
           List<InventoryBalance> filteredData = paginatedResult.data;
           if (showWithStock.value) {
-            filteredData = paginatedResult.data.where((balance) => balance.totalQuantity > 0).toList();
-            print('🔍 Filtro "Con Stock" aplicado: ${filteredData.length} productos con stock');
+            filteredData =
+                paginatedResult.data
+                    .where((balance) => balance.totalQuantity > 0)
+                    .toList();
+            print(
+              '🔍 Filtro "Con Stock" aplicado: ${filteredData.length} productos con stock',
+            );
           }
 
           if (refresh) {
@@ -258,9 +298,11 @@ class InventoryBalanceController extends GetxController {
           currentPage.value = paginatedResult.meta?.currentPage ?? 1;
           totalPages.value = paginatedResult.meta?.totalPages ?? 1;
           // Si aplicamos filtro local, usamos el tamaño filtrado, sino el total del servidor
-          totalItems.value = showWithStock.value 
-              ? filteredData.length 
-              : (paginatedResult.meta?.totalItems ?? paginatedResult.data.length);
+          totalItems.value =
+              showWithStock.value
+                  ? filteredData.length
+                  : (paginatedResult.meta?.totalItems ??
+                      paginatedResult.data.length);
           hasMore.value = paginatedResult.meta?.hasNext ?? false;
 
           print(
@@ -274,7 +316,7 @@ class InventoryBalanceController extends GetxController {
       Get.snackbar(
         'Error al cargar inventario',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -408,7 +450,6 @@ class InventoryBalanceController extends GetxController {
   }
 
   // ==================== UI HELPERS ====================
-
 
   bool get hasCustomSort =>
       !(sortBy.value == 'productName' && sortOrder.value == 'asc');
@@ -631,12 +672,15 @@ class InventoryBalanceController extends GetxController {
   Future<void> exportBalancesToPdf() async {
     try {
       isLoading.value = true;
-      
+
       // Obtener TODOS los datos filtrados para exportación
       final allFilteredData = await _getAllFilteredBalances();
-      
+
       if (allFilteredData.isEmpty) {
-        Get.snackbar('Sin datos', 'No hay balances para compartir con el filtro aplicado');
+        Get.snackbar(
+          'Sin datos',
+          'No hay balances para compartir con el filtro aplicado',
+        );
         return;
       }
 
@@ -656,12 +700,15 @@ class InventoryBalanceController extends GetxController {
   Future<void> downloadBalancesToPdf() async {
     try {
       isLoading.value = true;
-      
+
       // Obtener TODOS los datos filtrados para exportación
       final allFilteredData = await _getAllFilteredBalances();
-      
+
       if (allFilteredData.isEmpty) {
-        Get.snackbar('Sin datos', 'No hay balances para descargar con el filtro aplicado');
+        Get.snackbar(
+          'Sin datos',
+          'No hay balances para descargar con el filtro aplicado',
+        );
         return;
       }
 
@@ -702,12 +749,15 @@ class InventoryBalanceController extends GetxController {
   Future<void> exportBalancesToExcel() async {
     try {
       isLoading.value = true;
-      
+
       // Obtener TODOS los datos filtrados para exportación
       final allFilteredData = await _getAllFilteredBalances();
-      
+
       if (allFilteredData.isEmpty) {
-        Get.snackbar('Sin datos', 'No hay balances para compartir con el filtro aplicado');
+        Get.snackbar(
+          'Sin datos',
+          'No hay balances para compartir con el filtro aplicado',
+        );
         return;
       }
 
@@ -727,12 +777,15 @@ class InventoryBalanceController extends GetxController {
   Future<void> downloadBalancesToExcel() async {
     try {
       isLoading.value = true;
-      
+
       // Obtener TODOS los datos filtrados para exportación
       final allFilteredData = await _getAllFilteredBalances();
-      
+
       if (allFilteredData.isEmpty) {
-        Get.snackbar('Sin datos', 'No hay balances para descargar con el filtro aplicado');
+        Get.snackbar(
+          'Sin datos',
+          'No hay balances para descargar con el filtro aplicado',
+        );
         return;
       }
 
@@ -776,13 +829,15 @@ class InventoryBalanceController extends GetxController {
   Future<List<InventoryBalance>> _getAllFilteredBalances() async {
     try {
       print('🔍 Obteniendo todos los datos filtrados para exportación...');
-      
+
       final params = InventoryBalanceQueryParams(
         page: 1,
         limit: 1000, // Límite alto para obtener todos los datos
         search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
-        categoryId: selectedCategory.value.isNotEmpty ? selectedCategory.value : null,
-        warehouseId: selectedWarehouse.value.isNotEmpty ? selectedWarehouse.value : null,
+        categoryId:
+            selectedCategory.value.isNotEmpty ? selectedCategory.value : null,
+        warehouseId:
+            selectedWarehouse.value.isNotEmpty ? selectedWarehouse.value : null,
         lowStock: showLowStock.value ? true : null,
         outOfStock: showOutOfStock.value ? true : null,
         expired: showExpired.value ? true : null,
@@ -791,22 +846,31 @@ class InventoryBalanceController extends GetxController {
       );
 
       final result = await getInventoryBalancesUseCase(params);
-      
+
       return result.fold(
         (failure) {
-          print('❌ Error obteniendo datos para exportación: ${failure.message}');
+          print(
+            '❌ Error obteniendo datos para exportación: ${failure.message}',
+          );
           return <InventoryBalance>[];
         },
         (paginatedResult) {
-          print('✅ Datos para exportación obtenidos: ${paginatedResult.data.length} items');
-          
+          print(
+            '✅ Datos para exportación obtenidos: ${paginatedResult.data.length} items',
+          );
+
           // Aplicar filtro de "Con Stock" en el cliente si está activo
           List<InventoryBalance> filteredData = paginatedResult.data;
           if (showWithStock.value) {
-            filteredData = paginatedResult.data.where((balance) => balance.totalQuantity > 0).toList();
-            print('🔍 Filtro "Con Stock" aplicado para exportación: ${filteredData.length} productos');
+            filteredData =
+                paginatedResult.data
+                    .where((balance) => balance.totalQuantity > 0)
+                    .toList();
+            print(
+              '🔍 Filtro "Con Stock" aplicado para exportación: ${filteredData.length} productos',
+            );
           }
-          
+
           return filteredData;
         },
       );
@@ -818,34 +882,47 @@ class InventoryBalanceController extends GetxController {
 
   Map<String, String> _getFilterInfo() {
     final Map<String, String> filterInfo = {};
-    
+
     // Filtro de categoría seleccionado
     String filterName = 'Todos los productos';
-    if (selectedAlertCard.value == 1) filterName = 'Con Stock';
-    else if (selectedAlertCard.value == 2) filterName = 'Stock Bajo';
-    else if (selectedAlertCard.value == 3) filterName = 'Sin Stock';
-    else if (selectedAlertCard.value == 4) filterName = 'Vencidos';
-    
+    if (selectedAlertCard.value == 1)
+      filterName = 'Con Stock';
+    else if (selectedAlertCard.value == 2)
+      filterName = 'Stock Bajo';
+    else if (selectedAlertCard.value == 3)
+      filterName = 'Sin Stock';
+    else if (selectedAlertCard.value == 4)
+      filterName = 'Vencidos';
+
     filterInfo['filterType'] = filterName;
-    
+
     // Información de búsqueda
     if (searchQuery.value.isNotEmpty) {
       filterInfo['search'] = searchQuery.value;
     }
-    
+
     // Información de ordenamiento
     filterInfo['sortBy'] = getCurrentSortLabel();
-    
+
     return filterInfo;
   }
 
   Map<String, dynamic> _getSummaryInfo([List<InventoryBalance>? customData]) {
     final List<InventoryBalance> dataToUse = customData ?? inventoryBalances;
     final int totalProducts = dataToUse.length;
-    final int totalQuantity = dataToUse.fold(0, (sum, b) => sum + b.totalQuantity);
-    final double totalValue = dataToUse.fold(0.0, (sum, b) => sum + b.totalValue);
-    final double averageCost = totalProducts > 0 && totalQuantity > 0 ? (totalValue / totalQuantity) : 0.0;
-    
+    final int totalQuantity = dataToUse.fold(
+      0,
+      (sum, b) => sum + b.totalQuantity,
+    );
+    final double totalValue = dataToUse.fold(
+      0.0,
+      (sum, b) => sum + b.totalValue,
+    );
+    final double averageCost =
+        totalProducts > 0 && totalQuantity > 0
+            ? (totalValue / totalQuantity)
+            : 0.0;
+
     return {
       'totalProducts': totalProducts,
       'totalQuantity': totalQuantity,
@@ -853,5 +930,4 @@ class InventoryBalanceController extends GetxController {
       'averageCost': averageCost,
     };
   }
-
 }

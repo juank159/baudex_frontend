@@ -228,24 +228,44 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
     CreateCategoryRequestModel request,
   ) async {
     try {
+      print('🚀 CategoryRemoteDataSource: Creating category');
+      print('   📋 Request data: ${request.toJson()}');
+      print('   🌐 Endpoint: ${ApiConstants.categories}');
+      
       final response = await dioClient.post(
         ApiConstants.categories,
         data: request.toJson(),
       );
 
+      print('📊 CategoryRemoteDataSource: Response received');
+      print('   📈 Status: ${response.statusCode}');
+      print('   📄 Response data: ${response.data}');
+      print('   🔍 Headers: ${response.headers.map}');
+
       if (response.statusCode == 201 || response.statusCode == 200) {
         final responseData = response.data;
         if (responseData['success'] == true && responseData['data'] != null) {
+          print('✅ CategoryRemoteDataSource: Category created successfully');
+          print('   🆔 Category ID: ${responseData['data']['id']}');
           return CategoryModel.fromJson(responseData['data']);
         } else {
+          print('❌ CategoryRemoteDataSource: Invalid response structure');
+          print('   🔍 Response data: $responseData');
           throw ServerException('Respuesta inválida del servidor');
         }
       } else {
+        print('❌ CategoryRemoteDataSource: Unexpected status code: ${response.statusCode}');
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
+      print('❌ CategoryRemoteDataSource: DioException in createCategory');
+      print('   📄 Error type: ${e.type}');
+      print('   📄 Error message: ${e.message}');
+      print('   📄 Response: ${e.response?.data}');
       throw _handleDioException(e);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ CategoryRemoteDataSource: Unexpected error in createCategory: $e');
+      print('   📄 StackTrace: $stackTrace');
       throw ServerException('Error inesperado al crear categoría: $e');
     }
   }

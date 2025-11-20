@@ -7,4 +7,7 @@ abstract class OrganizationRepository {
   Future<Either<Failure, Organization>> getCurrentOrganization();
   Future<Either<Failure, Organization>> updateCurrentOrganization(Map<String, dynamic> updates);
   Future<Either<Failure, Organization>> getOrganizationById(String id);
+  
+  /// ✅ NUEVO: Actualizar margen de ganancia para productos temporales
+  Future<Either<Failure, bool>> updateProfitMargin(double marginPercentage);
 }

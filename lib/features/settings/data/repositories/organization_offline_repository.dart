@@ -37,8 +37,8 @@ class OrganizationOfflineRepository implements OrganizationRepository {
     return Left(ServerFailure('Stub implementation - Update not supported'));
   }
 
-
-
-
-
+  @override
+  Future<Either<Failure, bool>> updateProfitMargin(double marginPercentage) async {
+    return Left(ServerFailure('Stub implementation - Profit margin update not supported offline'));
+  }
 }

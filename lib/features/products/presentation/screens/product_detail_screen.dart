@@ -4,8 +4,9 @@ import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
-import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/product_detail_controller.dart';
 import '../../domain/entities/product.dart';
@@ -18,21 +19,35 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: _buildAppBar(context),
-      body: Obx(() {
-        if (controller.isLoading) {
-          return const LoadingWidget(message: 'Cargando detalles...');
-        }
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              ElegantLightTheme.backgroundColor,
+              ElegantLightTheme.cardColor,
+            ],
+          ),
+        ),
+        child: Obx(() {
+          if (controller.isLoading) {
+            return const LoadingWidget(message: 'Cargando detalles...');
+          }
 
-        if (!controller.hasProduct) {
-          return _buildErrorState(context);
-        }
+          if (!controller.hasProduct) {
+            return _buildErrorState(context);
+          }
 
-        return ResponsiveLayout(
-          mobile: _buildMobileLayout(context),
-          tablet: _buildTabletLayout(context),
-          desktop: _buildDesktopLayout(context),
-        );
-      }),
+          return ResponsiveHelper.responsive(
+            context,
+            mobile: _buildMobileLayout(context),
+            tablet: _buildTabletLayout(context),
+            desktop: _buildDesktopLayout(context),
+          );
+        }),
+      ),
       floatingActionButton: _buildFloatingActionButton(context),
     );
   }
@@ -40,11 +55,25 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       title: Obx(
-        () => Text(controller.hasProduct ? controller.productName : 'Producto'),
+        () => Text(
+          controller.hasProduct ? controller.productName : 'Producto',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
+      backgroundColor: Colors.transparent,
       elevation: 0,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          boxShadow: ElegantLightTheme.elevatedShadow,
+        ),
+      ),
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () {
           // Navega directamente al dashboard y elimina el historial
           Get.offAllNamed(AppRoutes.products);
@@ -53,69 +82,101 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
       actions: [
         // Compartir
         IconButton(
-          icon: const Icon(Icons.share),
+          icon: const Icon(Icons.share, color: Colors.white),
           onPressed: controller.shareProduct,
+          tooltip: 'Compartir producto',
         ),
 
         // Editar
         IconButton(
-          icon: const Icon(Icons.edit),
+          icon: const Icon(Icons.edit, color: Colors.white),
           onPressed: controller.goToEditProduct,
+          tooltip: 'Editar producto',
         ),
 
         // Gestión de stock
         IconButton(
-          icon: const Icon(Icons.inventory),
+          icon: const Icon(Icons.inventory, color: Colors.white),
           onPressed: controller.showStockDialog,
+          tooltip: 'Gestionar stock',
         ),
 
         // Menú de opciones
         PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, color: Colors.white),
           onSelected: (value) => _handleMenuAction(value, context),
-          itemBuilder:
-              (context) => [
-                const PopupMenuItem(
-                  value: 'print_label',
-                  child: Row(
-                    children: [
-                      Icon(Icons.print),
-                      SizedBox(width: 8),
-                      Text('Imprimir Etiqueta'),
-                    ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 8,
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'print_label',
+              child: Row(
+                children: [
+                  Icon(Icons.print, color: ElegantLightTheme.primaryBlue, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Imprimir Etiqueta',
+                    style: TextStyle(
+                      color: ElegantLightTheme.textPrimary,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                const PopupMenuItem(
-                  value: 'generate_report',
-                  child: Row(
-                    children: [
-                      Icon(Icons.analytics),
-                      SizedBox(width: 8),
-                      Text('Generar Reporte'),
-                    ],
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'generate_report',
+              child: Row(
+                children: [
+                  Icon(Icons.analytics, color: ElegantLightTheme.primaryBlue, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Generar Reporte',
+                    style: TextStyle(
+                      color: ElegantLightTheme.textPrimary,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                const PopupMenuItem(
-                  value: 'refresh',
-                  child: Row(
-                    children: [
-                      Icon(Icons.refresh),
-                      SizedBox(width: 8),
-                      Text('Actualizar'),
-                    ],
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'refresh',
+              child: Row(
+                children: [
+                  Icon(Icons.refresh, color: Colors.green.shade600, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Actualizar',
+                    style: TextStyle(
+                      color: ElegantLightTheme.textPrimary,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Eliminar', style: TextStyle(color: Colors.red)),
-                    ],
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.red.shade600, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Eliminar',
+                    style: TextStyle(
+                      color: Colors.red.shade600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -146,11 +207,20 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
         child: Column(
           children: [
             SizedBox(height: context.verticalSpacing),
-            CustomCard(child: _buildProductHeader(context)),
+            ElegantContainer(
+              padding: const EdgeInsets.all(24),
+              child: _buildProductHeader(context),
+            ),
             SizedBox(height: context.verticalSpacing),
-            CustomCard(child: _buildProductDetails(context)),
+            ElegantContainer(
+              padding: const EdgeInsets.all(24),
+              child: _buildProductDetails(context),
+            ),
             SizedBox(height: context.verticalSpacing),
-            CustomCard(child: _buildPricesSection(context)),
+            ElegantContainer(
+              padding: const EdgeInsets.all(24),
+              child: _buildPricesSection(context),
+            ),
             SizedBox(height: context.verticalSpacing),
             _buildActions(context),
           ],
@@ -169,17 +239,26 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
             padding: const EdgeInsets.all(32.0),
             child: Column(
               children: [
-                CustomCard(child: _buildProductHeader(context)),
+                ElegantContainer(
+                  padding: const EdgeInsets.all(24),
+                  child: _buildProductHeader(context),
+                ),
                 const SizedBox(height: 24),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: CustomCard(child: _buildProductDetails(context)),
+                      child: ElegantContainer(
+                        padding: const EdgeInsets.all(24),
+                        child: _buildProductDetails(context),
+                      ),
                     ),
                     const SizedBox(width: 24),
                     Expanded(
-                      child: CustomCard(child: _buildPricesSection(context)),
+                      child: ElegantContainer(
+                        padding: const EdgeInsets.all(24),
+                        child: _buildPricesSection(context),
+                      ),
                     ),
                   ],
                 ),
@@ -201,20 +280,20 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: ElegantLightTheme.primaryBlue.withOpacity(0.1),
                   border: Border(
                     bottom: BorderSide(color: Colors.grey.shade300),
                   ),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    Icon(Icons.settings, color: Theme.of(context).primaryColor),
-                    const SizedBox(width: 8),
+                    Icon(Icons.settings, color: ElegantLightTheme.primaryBlue),
+                    SizedBox(width: 8),
                     Text(
                       'Acciones',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
+                        color: ElegantLightTheme.primaryBlue,
                       ),
                     ),
                   ],
@@ -236,12 +315,9 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
   }
 
   Widget _buildMobileHeader(BuildContext context) {
-    return Container(
+    return ElegantContainer(
       padding: context.responsivePadding,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-      ),
+      margin: EdgeInsets.zero,
       child: Obx(() {
         final product = controller.product!;
         return Row(
@@ -251,7 +327,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
+                color: ElegantLightTheme.cardColor,
                 borderRadius: BorderRadius.circular(8),
                 image:
                     product.primaryImage != null
@@ -266,7 +342,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                       ? Icon(
                         Icons.inventory_2,
                         size: 30,
-                        color: Colors.grey.shade400,
+                        color: ElegantLightTheme.textTertiary,
                       )
                       : null,
             ),
@@ -283,6 +359,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: ElegantLightTheme.textPrimary,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -290,7 +367,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                   const SizedBox(height: 4),
                   Text(
                     'SKU: ${product.sku}',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                    style: TextStyle(color: ElegantLightTheme.textSecondary, fontSize: 14),
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -343,9 +420,9 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
       color: Colors.white,
       child: TabBar(
         controller: controller.tabController,
-        labelColor: Theme.of(context).primaryColor,
+        labelColor: ElegantLightTheme.primaryBlue,
         unselectedLabelColor: Colors.grey.shade600,
-        indicatorColor: Theme.of(context).primaryColor,
+        indicatorColor: ElegantLightTheme.primaryBlue,
         tabs: const [
           Tab(text: 'Detalles'),
           Tab(text: 'Precios'),
@@ -389,7 +466,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
+                  color: ElegantLightTheme.cardColor,
                   borderRadius: BorderRadius.circular(12),
                   image:
                       product.primaryImage != null
@@ -404,7 +481,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                         ? Icon(
                           Icons.inventory_2,
                           size: 60,
-                          color: Colors.grey.shade400,
+                          color: ElegantLightTheme.textTertiary,
                         )
                         : null,
               ),
@@ -426,6 +503,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                           desktop: 32,
                         ),
                         fontWeight: FontWeight.bold,
+                        color: ElegantLightTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -433,7 +511,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                       'SKU: ${product.sku}',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.grey.shade600,
+                        color: ElegantLightTheme.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -443,7 +521,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                         'Código: ${product.barcode}',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey.shade600,
+                          color: ElegantLightTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -524,7 +602,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                         style: TextStyle(
                           fontSize: 16,
                           decoration: TextDecoration.lineThrough,
-                          color: Colors.grey.shade500,
+                          color: ElegantLightTheme.textTertiary,
                         ),
                       ),
                   ],
@@ -538,7 +616,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
               product.description!,
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey.shade700,
+                color: ElegantLightTheme.textSecondary,
                 height: 1.5,
               ),
             ),
@@ -565,71 +643,241 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
           const SizedBox(height: 16),
 
           // Información básica
-          _buildDetailCard('Información Básica', [
-            _buildDetailRow('Tipo', product.type.name.toUpperCase()),
-            _buildDetailRow('Categoría', product.category?.name ?? 'N/A'),
-            _buildDetailRow('Unidad', product.unit ?? 'pcs'),
-            _buildDetailRow('Creado por', product.createdBy?.fullName ?? 'N/A'),
-          ]),
-
-          const SizedBox(height: 16),
+          ElegantContainer(
+            padding: const EdgeInsets.all(24),
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Información Básica',
+                  style: TextStyle(
+                    fontSize: Responsive.getFontSize(
+                      context,
+                      mobile: 18,
+                      tablet: 20,
+                      desktop: 22,
+                    ),
+                    fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildInfoRow(context, 'Tipo', product.type.name.toUpperCase(), Icons.category),
+                _buildInfoRow(context, 'Categoría', product.category?.name ?? 'N/A', Icons.folder),
+                _buildInfoRow(context, 'Unidad', product.unit ?? 'pcs', Icons.straighten),
+                _buildInfoRow(context, 'Creado por', product.createdBy?.fullName ?? 'N/A', Icons.person),
+              ],
+            ),
+          ),
 
           // Información de stock
-          _buildDetailCard('Gestión de Stock', [
-            _buildDetailRow(
-              'Stock Actual',
-              '${AppFormatters.formatStock(product.stock)} ${product.unit ?? "pcs"}',
+          ElegantContainer(
+            padding: const EdgeInsets.all(24),
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Gestión de Stock',
+                  style: TextStyle(
+                    fontSize: Responsive.getFontSize(
+                      context,
+                      mobile: 18,
+                      tablet: 20,
+                      desktop: 22,
+                    ),
+                    fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildInfoRow(
+                  context,
+                  'Stock Actual',
+                  '${AppFormatters.formatStock(product.stock)} ${product.unit ?? "pcs"}',
+                  Icons.inventory,
+                  valueColor: product.isLowStock ? Colors.orange : Colors.green,
+                ),
+                _buildInfoRow(
+                  context,
+                  'Stock Mínimo',
+                  '${AppFormatters.formatStock(product.minStock)} ${product.unit ?? "pcs"}',
+                  Icons.warning_amber,
+                ),
+                _buildInfoRow(context, 'Estado Stock', controller.getStockStatusText(), Icons.assessment),
+                if (product.isLowStock)
+                  _buildInfoRow(
+                    context,
+                    'Alerta',
+                    'Stock por debajo del mínimo',
+                    Icons.error,
+                    valueColor: Colors.orange,
+                  ),
+              ],
             ),
-            _buildDetailRow(
-              'Stock Mínimo',
-              '${AppFormatters.formatStock(product.minStock)} ${product.unit ?? "pcs"}',
-            ),
-            _buildDetailRow('Estado Stock', controller.getStockStatusText()),
-            if (product.isLowStock)
-              _buildDetailRow(
-                'Alerta',
-                'Stock por debajo del mínimo',
-                isWarning: true,
-              ),
-          ]),
+          ),
 
-          const SizedBox(height: 16),
+          // Información de facturación electrónica
+          ElegantContainer(
+            padding: const EdgeInsets.all(24),
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Facturación Electrónica',
+                  style: TextStyle(
+                    fontSize: Responsive.getFontSize(
+                      context,
+                      mobile: 18,
+                      tablet: 20,
+                      desktop: 22,
+                    ),
+                    fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildInfoRow(
+                  context,
+                  'Categoría de Impuesto',
+                  product.taxCategory.displayName,
+                  Icons.receipt_long,
+                ),
+                _buildInfoRow(
+                  context,
+                  'Tasa de Impuesto',
+                  '${AppFormatters.formatNumber(product.taxRate)}%',
+                  Icons.percent,
+                ),
+                _buildInfoRow(
+                  context,
+                  'Está Gravado',
+                  product.isTaxable ? 'Sí' : 'No',
+                  Icons.check_circle,
+                  valueColor: product.isTaxable ? Colors.green : Colors.grey,
+                ),
+                if (product.taxDescription != null)
+                  _buildInfoRow(
+                    context,
+                    'Descripción',
+                    product.taxDescription!,
+                    Icons.description,
+                  ),
+                if (product.hasRetention) ...[
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  if (product.retentionCategory != null)
+                    _buildInfoRow(
+                      context,
+                      'Categoría de Retención',
+                      product.retentionCategory!.displayName,
+                      Icons.money_off,
+                    ),
+                  if (product.retentionRate != null)
+                    _buildInfoRow(
+                      context,
+                      'Tasa de Retención',
+                      '${AppFormatters.formatNumber(product.retentionRate!)}%',
+                      Icons.trending_down,
+                    ),
+                  _buildInfoRow(
+                    context,
+                    'Aplica Retención',
+                    'Sí',
+                    Icons.verified,
+                    valueColor: Colors.blue,
+                  ),
+                ],
+              ],
+            ),
+          ),
 
           // Dimensiones y peso
           if (product.weight != null ||
               product.length != null ||
               product.width != null ||
               product.height != null)
-            _buildDetailCard('Dimensiones y Peso', [
-              if (product.weight != null)
-                _buildDetailRow(
-                  'Peso',
-                  '${AppFormatters.formatNumber(product.weight!)} kg',
-                ),
-              if (product.length != null)
-                _buildDetailRow(
-                  'Largo',
-                  '${AppFormatters.formatNumber(product.length!)} cm',
-                ),
-              if (product.width != null)
-                _buildDetailRow(
-                  'Ancho',
-                  '${AppFormatters.formatNumber(product.width!)} cm',
-                ),
-              if (product.height != null)
-                _buildDetailRow(
-                  'Alto',
-                  '${AppFormatters.formatNumber(product.height!)} cm',
-                ),
-            ]),
-
-          const SizedBox(height: 16),
+            ElegantContainer(
+              padding: const EdgeInsets.all(24),
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dimensiones y Peso',
+                    style: TextStyle(
+                      fontSize: Responsive.getFontSize(
+                        context,
+                        mobile: 18,
+                        tablet: 20,
+                        desktop: 22,
+                      ),
+                      fontWeight: FontWeight.bold,
+                      color: ElegantLightTheme.primaryBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (product.weight != null)
+                    _buildInfoRow(
+                      context,
+                      'Peso',
+                      '${AppFormatters.formatNumber(product.weight!)} kg',
+                      Icons.scale,
+                    ),
+                  if (product.length != null)
+                    _buildInfoRow(
+                      context,
+                      'Largo',
+                      '${AppFormatters.formatNumber(product.length!)} cm',
+                      Icons.height,
+                    ),
+                  if (product.width != null)
+                    _buildInfoRow(
+                      context,
+                      'Ancho',
+                      '${AppFormatters.formatNumber(product.width!)} cm',
+                      Icons.width_normal,
+                    ),
+                  if (product.height != null)
+                    _buildInfoRow(
+                      context,
+                      'Alto',
+                      '${AppFormatters.formatNumber(product.height!)} cm',
+                      Icons.height,
+                    ),
+                ],
+              ),
+            ),
 
           // Fechas
-          _buildDetailCard('Información de Registro', [
-            _buildDetailRow('Creado', _formatDate(product.createdAt)),
-            _buildDetailRow('Actualizado', _formatDate(product.updatedAt)),
-          ]),
+          ElegantContainer(
+            padding: const EdgeInsets.all(24),
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Información de Registro',
+                  style: TextStyle(
+                    fontSize: Responsive.getFontSize(
+                      context,
+                      mobile: 18,
+                      tablet: 20,
+                      desktop: 22,
+                    ),
+                    fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildInfoRow(context, 'Creado', _formatDate(product.createdAt), Icons.calendar_today),
+                _buildInfoRow(context, 'Actualizado', _formatDate(product.updatedAt), Icons.update),
+              ],
+            ),
+          ),
         ],
       );
     });
@@ -764,14 +1012,9 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
   // }
 
   Widget _buildPriceCard(BuildContext context, productPrice) {
-    return Container(
+    return ElegantContainer(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -783,7 +1026,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: ElegantLightTheme.primaryBlue,
                 ),
               ),
               const Spacer(),
@@ -977,32 +1220,28 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
           style: TextStyle(
             fontSize: Responsive.getFontSize(context, mobile: 18, tablet: 20),
             fontWeight: FontWeight.bold,
+            color: ElegantLightTheme.primaryBlue,
           ),
         ),
         const SizedBox(height: 16),
-        Container(
+        ElegantContainer(
           padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
           child: Column(
             children: [
-              Icon(Icons.history, size: 48, color: Colors.grey.shade400),
+              Icon(Icons.history, size: 48, color: ElegantLightTheme.textTertiary),
               const SizedBox(height: 16),
               Text(
                 'Historial de Movimientos',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade600,
+                  color: ElegantLightTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Funcionalidad pendiente de implementar',
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                style: TextStyle(color: ElegantLightTheme.textTertiary, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1012,54 +1251,42 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
     );
   }
 
-  Widget _buildDetailCard(String title, List<Widget> details) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          ...details,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, {bool isWarning = false}) {
+  Widget _buildInfoRow(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon, {
+    Color? valueColor,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 120,
+          Icon(icon, size: 20, color: ElegantLightTheme.textTertiary),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
             child: Text(
-              '$label:',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
+              label,
+              style: const TextStyle(
                 fontSize: 14,
+                color: ElegantLightTheme.textSecondary,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
+            flex: 3,
             child: Text(
               value,
               style: TextStyle(
-                fontWeight: FontWeight.w500,
                 fontSize: 14,
-                color:
-                    isWarning ? Colors.orange.shade700 : Colors.grey.shade800,
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? ElegantLightTheme.textPrimary,
               ),
+              textAlign: TextAlign.end,
             ),
           ),
         ],
@@ -1068,19 +1295,14 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
   }
 
   Widget _buildEmptyPricesState(BuildContext context) {
-    return Container(
+    return ElegantContainer(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
       child: Column(
         children: [
           Icon(
             Icons.price_change_outlined,
             size: 48,
-            color: Colors.grey.shade400,
+            color: ElegantLightTheme.textTertiary,
           ),
           const SizedBox(height: 16),
           Text(
@@ -1088,17 +1310,17 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
+              color: ElegantLightTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Este producto no tiene precios configurados',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+            style: TextStyle(color: ElegantLightTheme.textTertiary, fontSize: 14),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          CustomButton(
+          ElegantButton(
             text: 'Configurar Precios',
             icon: Icons.edit,
             onPressed: controller.goToEditProduct,
@@ -1112,28 +1334,53 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
     return Row(
       children: [
         Expanded(
-          child: CustomButton(
-            text: 'Editar',
-            icon: Icons.edit,
-            type: ButtonType.outline,
-            onPressed: controller.goToEditProduct,
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: ElegantLightTheme.primaryBlue, width: 2),
+              color: Colors.white,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: controller.goToEditProduct,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.edit, color: ElegantLightTheme.primaryBlue, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Editar',
+                      style: TextStyle(
+                        color: ElegantLightTheme.primaryBlue,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: CustomButton(
+          child: ElegantButton(
             text: 'Gestionar Stock',
             icon: Icons.inventory,
+            gradient: ElegantLightTheme.primaryGradient,
             onPressed: controller.showStockDialog,
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: Obx(
-            () => CustomButton(
+            () => ElegantButton(
               text: controller.isDeleting ? 'Eliminando...' : 'Eliminar',
               icon: Icons.delete,
-              backgroundColor: Colors.red,
+              gradient: ElegantLightTheme.errorGradient,
               onPressed:
                   controller.isDeleting ? null : controller.confirmDelete,
               isLoading: controller.isDeleting,
@@ -1148,31 +1395,56 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CustomButton(
+        ElegantButton(
           text: 'Editar Producto',
           icon: Icons.edit,
+          gradient: ElegantLightTheme.primaryGradient,
           onPressed: controller.goToEditProduct,
           width: double.infinity,
         ),
 
         const SizedBox(height: 12),
 
-        CustomButton(
+        ElegantButton(
           text: 'Gestionar Stock',
           icon: Icons.inventory,
-          type: ButtonType.outline,
+          gradient: ElegantLightTheme.infoGradient,
           onPressed: controller.showStockDialog,
           width: double.infinity,
         ),
 
         const SizedBox(height: 12),
 
-        CustomButton(
-          text: 'Imprimir Etiqueta',
-          icon: Icons.print,
-          type: ButtonType.outline,
-          onPressed: controller.printLabel,
+        Container(
           width: double.infinity,
+          height: 48,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: ElegantLightTheme.primaryBlue, width: 2),
+            color: Colors.white,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: controller.printLabel,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.print, color: ElegantLightTheme.primaryBlue, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Imprimir Etiqueta',
+                    style: TextStyle(
+                      color: ElegantLightTheme.primaryBlue,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
 
         const SizedBox(height: 24),
@@ -1181,10 +1453,10 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
 
         const SizedBox(height: 12),
 
-        CustomButton(
+        ElegantButton(
           text: 'Actualizar',
           icon: Icons.refresh,
-          type: ButtonType.outline,
+          gradient: ElegantLightTheme.successGradient,
           onPressed: controller.refreshData,
           width: double.infinity,
         ),
@@ -1192,14 +1464,13 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
         const SizedBox(height: 12),
 
         Obx(
-          () => CustomButton(
+          () => ElegantButton(
             text: controller.isDeleting ? 'Eliminando...' : 'Eliminar',
             icon: Icons.delete,
-            type: ButtonType.outline,
+            gradient: ElegantLightTheme.errorGradient,
             onPressed: controller.isDeleting ? null : controller.confirmDelete,
             isLoading: controller.isDeleting,
             width: double.infinity,
-            backgroundColor: Colors.red,
           ),
         ),
 
@@ -1210,12 +1481,8 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
           if (!controller.hasProduct) return const SizedBox.shrink();
 
           final product = controller.product!;
-          return Container(
+          return ElegantContainer(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1223,28 +1490,37 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                   'Información Rápida',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade600,
+                    color: ElegantLightTheme.primaryBlue,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Stock: ${AppFormatters.formatStock(product.stock)}',
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Categoría: ${product.category?.name ?? "N/A"}',
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Última actualización:',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: ElegantLightTheme.textSecondary),
                 ),
                 Text(
                   _formatDate(product.updatedAt),
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
                 ),
               ],
             ),
@@ -1259,24 +1535,24 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 100, color: Colors.grey.shade400),
+          Icon(Icons.error_outline, size: 100, color: ElegantLightTheme.textTertiary),
           SizedBox(height: context.verticalSpacing),
           Text(
             'Producto no encontrado',
             style: TextStyle(
               fontSize: 18,
-              color: Colors.grey.shade600,
+              color: ElegantLightTheme.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
           SizedBox(height: context.verticalSpacing / 2),
           Text(
             'El producto que buscas no existe o ha sido eliminado',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+            style: TextStyle(color: ElegantLightTheme.textTertiary, fontSize: 14),
             textAlign: TextAlign.center,
           ),
           SizedBox(height: context.verticalSpacing * 2),
-          CustomButton(
+          ElegantButton(
             text: 'Volver a Productos',
             icon: Icons.arrow_back,
             onPressed: () => Get.back(),
@@ -1288,9 +1564,18 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
 
   Widget? _buildFloatingActionButton(BuildContext context) {
     if (context.isMobile) {
-      return FloatingActionButton(
-        onPressed: controller.goToEditProduct,
-        child: const Icon(Icons.edit),
+      return Container(
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: ElegantLightTheme.elevatedShadow,
+        ),
+        child: FloatingActionButton(
+          onPressed: controller.goToEditProduct,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: const Icon(Icons.edit, color: Colors.white),
+        ),
       );
     }
     return null;

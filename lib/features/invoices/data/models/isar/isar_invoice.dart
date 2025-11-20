@@ -140,6 +140,7 @@ class IsarInvoice {
       customerId: customerId,
       createdById: createdById ?? '',
       items: [], // Se cargarán por separado
+      payments: [], // Se cargarán por separado
       createdAt: createdAt,
       updatedAt: updatedAt,
       deletedAt: deletedAt,

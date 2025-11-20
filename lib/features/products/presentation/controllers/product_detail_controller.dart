@@ -11,6 +11,9 @@ import '../../domain/usecases/get_product_by_id_usecase.dart';
 import '../../domain/usecases/update_product_stock_usecase.dart';
 import '../../domain/usecases/delete_product_usecase.dart';
 
+// Import del tema elegante
+import '../../../../app/core/theme/elegant_light_theme.dart';
+
 /// Controller para manejar la pantalla de detalles del producto
 ///
 /// Responsabilidades:
@@ -393,52 +396,129 @@ class ProductDetailController extends GetxController
     stockController.clear();
 
     Get.dialog(
-      AlertDialog(
-        title: const Text('Actualizar Stock'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Producto: $productName',
-              style: const TextStyle(fontWeight: FontWeight.w500),
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.cardGradient,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: ElegantLightTheme.elevatedShadow,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.inventory, color: ElegantLightTheme.primaryBlue, size: 28),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Actualizar Stock',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: ElegantLightTheme.primaryBlue,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Producto: $productName',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Stock actual: ${currentStock.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: ElegantLightTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: stockController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Cantidad',
+                    labelStyle: TextStyle(color: ElegantLightTheme.primaryBlue),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: ElegantLightTheme.primaryBlue),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: ElegantLightTheme.primaryBlue, width: 2),
+                    ),
+                    hintText: 'Ingrese la cantidad',
+                    prefixIcon: Icon(Icons.numbers, color: ElegantLightTheme.primaryBlue),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: ElegantLightTheme.textTertiary, width: 2),
+                        color: Colors.white,
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => Get.back(),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.close, color: ElegantLightTheme.textSecondary, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Cancelar',
+                                  style: TextStyle(
+                                    color: ElegantLightTheme.textSecondary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElegantButton(
+                      text: 'Restar',
+                      icon: Icons.remove,
+                      gradient: ElegantLightTheme.warningGradient,
+                      onPressed: () => _handleStockUpdate('subtract'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElegantButton(
+                      text: 'Sumar',
+                      icon: Icons.add,
+                      gradient: ElegantLightTheme.successGradient,
+                      onPressed: () => _handleStockUpdate('add'),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Stock actual: ${currentStock.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: stockController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Cantidad',
-                border: OutlineInputBorder(),
-                hintText: 'Ingrese la cantidad',
-                prefixIcon: Icon(Icons.numbers),
-              ),
-            ),
-          ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => _handleStockUpdate('subtract'),
-            style: TextButton.styleFrom(foregroundColor: Colors.orange),
-            child: const Text('Restar'),
-          ),
-          TextButton(
-            onPressed: () => _handleStockUpdate('add'),
-            style: TextButton.styleFrom(foregroundColor: Colors.green),
-            child: const Text('Sumar'),
-          ),
-        ],
       ),
     );
   }
@@ -473,42 +553,127 @@ class ProductDetailController extends GetxController
     }
 
     Get.dialog(
-      AlertDialog(
-        title: const Text('Eliminar Producto'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '¿Estás seguro que deseas eliminar el producto "$productName"?',
-              style: const TextStyle(fontSize: 16),
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.cardGradient,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: ElegantLightTheme.elevatedShadow,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.red.shade600, size: 28),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Eliminar Producto',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  '¿Estás seguro que deseas eliminar el producto "$productName"?',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Esta acción no se puede deshacer.',
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'SKU: $productSku',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: ElegantLightTheme.textTertiary, width: 2),
+                        color: Colors.white,
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => Get.back(),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.close, color: ElegantLightTheme.textSecondary, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Cancelar',
+                                  style: TextStyle(
+                                    color: ElegantLightTheme.textSecondary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElegantButton(
+                      text: 'Eliminar',
+                      icon: Icons.delete,
+                      gradient: ElegantLightTheme.errorGradient,
+                      onPressed: () {
+                        Get.back();
+                        deleteProduct();
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Esta acción no se puede deshacer.',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'SKU: $productSku',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-            ),
-          ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Get.back();
-              deleteProduct();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Eliminar'),
-          ),
-        ],
       ),
     );
   }
@@ -521,34 +686,109 @@ class ProductDetailController extends GetxController
     }
 
     Get.dialog(
-      AlertDialog(
-        title: const Text('Cambiar Estado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Estado actual: ${isActive ? "Activo" : "Inactivo"}'),
-            const SizedBox(height: 16),
-            Text(
-              '¿Deseas ${isActive ? "desactivar" : "activar"} este producto?',
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.cardGradient,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: ElegantLightTheme.elevatedShadow,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      isActive ? Icons.toggle_on : Icons.toggle_off,
+                      color: ElegantLightTheme.primaryBlue,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Cambiar Estado',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: ElegantLightTheme.primaryBlue,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Estado actual: ${isActive ? "Activo" : "Inactivo"}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '¿Deseas ${isActive ? "desactivar" : "activar"} este producto?',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: ElegantLightTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: ElegantLightTheme.textTertiary, width: 2),
+                        color: Colors.white,
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => Get.back(),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.close, color: ElegantLightTheme.textSecondary, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Cancelar',
+                                  style: TextStyle(
+                                    color: ElegantLightTheme.textSecondary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElegantButton(
+                      text: isActive ? 'Desactivar' : 'Activar',
+                      icon: isActive ? Icons.toggle_off : Icons.toggle_on,
+                      gradient: isActive ? ElegantLightTheme.warningGradient : ElegantLightTheme.successGradient,
+                      onPressed: () {
+                        Get.back();
+                        _showInfo(
+                          'Funcionalidad pendiente',
+                          'Cambio de estado pendiente de implementar',
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Get.back();
-              _showInfo(
-                'Funcionalidad pendiente',
-                'Cambio de estado pendiente de implementar',
-              );
-            },
-            child: Text(isActive ? 'Desactivar' : 'Activar'),
-          ),
-        ],
       ),
     );
   }

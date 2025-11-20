@@ -13,24 +13,28 @@ import '../widgets/custom_receive_dialog.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
 
-class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailController> {
+class FuturisticPurchaseOrderDetailScreen
+    extends GetView<PurchaseOrderDetailController> {
   const FuturisticPurchaseOrderDetailScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() => controller.isLoading.value
-        ? _buildLoadingState()
-        : controller.error.value.isNotEmpty
-            ? _buildErrorState()
-            : controller.hasPurchaseOrder
-                ? MainLayout(
-                    title: controller.displayTitle,
-                    showBackButton: true,
-                    showDrawer: false,
-                    actions: _buildAppBarActions(context),
-                    body: _buildFuturisticContent(context),
-                  )
-                : _buildNotFoundState());
+    return Obx(
+      () =>
+          controller.isLoading.value
+              ? _buildLoadingState()
+              : controller.error.value.isNotEmpty
+              ? _buildErrorState()
+              : controller.hasPurchaseOrder
+              ? MainLayout(
+                title: controller.displayTitle,
+                showBackButton: true,
+                showDrawer: false,
+                actions: _buildAppBarActions(context),
+                body: _buildFuturisticContent(context),
+              )
+              : _buildNotFoundState(),
+    );
   }
 
   List<Widget> _buildAppBarActions(BuildContext context) {
@@ -50,10 +54,7 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF0F172A),
-            Color(0xFF1E293B),
-          ],
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
         ),
       ),
       child: Center(
@@ -117,21 +118,21 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
             // Header con información clave
             _buildFuturisticHeader(),
             const SizedBox(height: 24),
-            
+
             // Workflow inteligente
             SmartWorkflowWidget(
               order: controller.purchaseOrder.value!,
               onAction: _handleWorkflowAction,
             ),
             const SizedBox(height: 24),
-            
+
             // Tabs futuristas
             _buildFuturisticTabs(),
             const SizedBox(height: 24),
-            
+
             // Contenido del tab seleccionado
             Obx(() => _buildFuturisticTabContent()),
-            
+
             // Espacio adicional al final
             const SizedBox(height: 100),
           ],
@@ -139,7 +140,6 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
       ),
     );
   }
-
 
   Widget _buildFuturisticHeader() {
     return FuturisticContainer(
@@ -198,7 +198,7 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
                 final screenWidth = constraints.maxWidth;
                 int crossAxisCount;
                 double childAspectRatio;
-                
+
                 if (screenWidth >= 1200) {
                   // Desktop: 4 columnas
                   crossAxisCount = 4;
@@ -212,7 +212,7 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
                   crossAxisCount = 2;
                   childAspectRatio = 1.4;
                 }
-                
+
                 return GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -259,13 +259,19 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
     );
   }
 
-  Widget _buildMetricCard(String label, String value, IconData icon, Color color, double screenWidth) {
+  Widget _buildMetricCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    double screenWidth,
+  ) {
     // Tamaños responsivos
     double iconSize;
     double valueFontSize;
     double labelFontSize;
     double spacing;
-    
+
     if (screenWidth >= 1200) {
       // Desktop
       iconSize = 24;
@@ -285,24 +291,17 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
       labelFontSize = 8;
       spacing = 4;
     }
-    
+
     return Container(
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: iconSize,
-          ),
+          Icon(icon, color: color, size: iconSize),
           SizedBox(height: spacing),
           Text(
             value,
@@ -333,26 +332,28 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
   }
 
   Widget _buildFuturisticTabs() {
-    return Obx(() => FuturisticContainer(
-      child: Column(
-        children: [
-          // Tab headers
-          Row(
-            children: [
-              _buildTabHeader('General', 0, Icons.info),
-              _buildTabHeader('Items', 1, Icons.inventory),
-              _buildTabHeader('Cronología', 2, Icons.timeline),
-              _buildTabHeader('Análisis', 3, Icons.analytics),
-            ],
-          ),
-        ],
+    return Obx(
+      () => FuturisticContainer(
+        child: Column(
+          children: [
+            // Tab headers
+            Row(
+              children: [
+                _buildTabHeader('General', 0, Icons.info),
+                _buildTabHeader('Items', 1, Icons.inventory),
+                _buildTabHeader('Cronología', 2, Icons.timeline),
+                _buildTabHeader('Análisis', 3, Icons.analytics),
+              ],
+            ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 
   Widget _buildTabHeader(String title, int index, IconData icon) {
     final isSelected = controller.selectedTab.value == index;
-    
+
     return Expanded(
       child: GestureDetector(
         onTap: () => controller.switchTab(index),
@@ -368,14 +369,18 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
             children: [
               Icon(
                 icon,
-                color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+                color:
+                    isSelected ? Colors.white : ElegantLightTheme.textSecondary,
                 size: 20,
               ),
               const SizedBox(height: 4),
               Text(
                 title,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+                  color:
+                      isSelected
+                          ? Colors.white
+                          : ElegantLightTheme.textSecondary,
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),
@@ -419,16 +424,20 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
               ),
             ),
             const SizedBox(height: 20),
-            ...controller.purchaseOrderSummary.map((item) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _buildInfoRow(
-                item['label'],
-                item['value'],
-                item['icon'],
-                item['color'],
-                item['action'],
-              ),
-            )).toList(),
+            ...controller.purchaseOrderSummary
+                .map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _buildInfoRow(
+                      item['label'],
+                      item['value'],
+                      item['icon'],
+                      item['color'],
+                      item['action'],
+                    ),
+                  ),
+                )
+                .toList(),
           ],
         );
       }),
@@ -448,32 +457,42 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
           ),
         ),
         const SizedBox(height: 20),
-        Obx(() => Column(
-          children: controller.purchaseOrder.value!.items
-              .map((item) => FuturisticItemCard(
-                    item: item,
-                    onTap: null, // Quitar navegación al kardex
-                  ))
-              .toList(),
-        )),
+        Obx(
+          () => Column(
+            children:
+                controller.purchaseOrder.value!.items
+                    .map(
+                      (item) => FuturisticItemCard(
+                        item: item,
+                        onTap: null, // Quitar navegación al kardex
+                      ),
+                    )
+                    .toList(),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildTimelineTab() {
-    return Obx(() => FuturisticWorkflowTimeline(
-      order: controller.purchaseOrder.value!,
-    ));
+    return Obx(
+      () => FuturisticWorkflowTimeline(order: controller.purchaseOrder.value!),
+    );
   }
 
   Widget _buildStatsTab() {
-    return Obx(() => AdvancedStatsWidget(
-      order: controller.purchaseOrder.value!,
-    ));
+    return Obx(
+      () => AdvancedStatsWidget(order: controller.purchaseOrder.value!),
+    );
   }
 
-
-  Widget _buildInfoRow(String label, String value, IconData icon, Color? color, VoidCallback? action) {
+  Widget _buildInfoRow(
+    String label,
+    String value,
+    IconData icon,
+    Color? color,
+    VoidCallback? action,
+  ) {
     return GestureDetector(
       onTap: action,
       child: Container(
@@ -566,14 +585,16 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
               ),
             ),
             const SizedBox(height: 8),
-            Obx(() => Text(
-              controller.error.value,
-              style: TextStyle(
-                color: ElegantLightTheme.textSecondary,
-                fontSize: 14,
+            Obx(
+              () => Text(
+                controller.error.value,
+                style: TextStyle(
+                  color: ElegantLightTheme.textSecondary,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            )),
+            ),
             const SizedBox(height: 20),
             FuturisticButton(
               text: 'Reintentar',
@@ -675,12 +696,12 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
       'Procesando Orden',
       'Aprobando y enviando automáticamente...',
     );
-    
+
     // Aprobar primero
     await controller.approvePurchaseOrder();
     // Luego enviar
     await controller.sendPurchaseOrder();
-    
+
     FuturisticNotifications.showSuccess(
       '¡Acción Completada!',
       'La orden ha sido aprobada y enviada al proveedor exitosamente',
@@ -713,39 +734,55 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => FuturisticContainer(
-        margin: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (controller.canDelete)
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Eliminar orden', style: TextStyle(color: ElegantLightTheme.textPrimary)),
-                onTap: () {
-                  Navigator.pop(context);
-                  controller.deletePurchaseOrder();
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.share, color: ElegantLightTheme.textSecondary),
-              title: const Text('Compartir', style: TextStyle(color: ElegantLightTheme.textPrimary)),
-              onTap: () {
-                Navigator.pop(context);
-                // Implementar compartir
-              },
+      builder:
+          (context) => FuturisticContainer(
+            margin: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (controller.canDelete)
+                  ListTile(
+                    leading: const Icon(Icons.delete, color: Colors.red),
+                    title: const Text(
+                      'Eliminar orden',
+                      style: TextStyle(color: ElegantLightTheme.textPrimary),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      controller.deletePurchaseOrder();
+                    },
+                  ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.share,
+                    color: ElegantLightTheme.textSecondary,
+                  ),
+                  title: const Text(
+                    'Compartir',
+                    style: TextStyle(color: ElegantLightTheme.textPrimary),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Implementar compartir
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.print,
+                    color: ElegantLightTheme.textSecondary,
+                  ),
+                  title: const Text(
+                    'Imprimir',
+                    style: TextStyle(color: ElegantLightTheme.textPrimary),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Implementar imprimir
+                  },
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.print, color: ElegantLightTheme.textSecondary),
-              title: const Text('Imprimir', style: TextStyle(color: ElegantLightTheme.textPrimary)),
-              onTap: () {
-                Navigator.pop(context);
-                // Implementar imprimir
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -771,40 +808,47 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
     for (var entry in quantities.entries) {
       final itemId = entry.key;
       final quantity = entry.value;
-      
+
       // Encontrar el item en receivingItems
       final receivingItemIndex = controller.receivingItems.indexWhere(
-        (item) => item.itemId == itemId
+        (item) => item.itemId == itemId,
       );
-      
+
       if (receivingItemIndex != -1) {
         final currentItem = controller.receivingItems[receivingItemIndex];
         // Crear nueva instancia con cantidades personalizadas incluyendo trazabilidad
         final customNotes = [
           quantity.notes,
-          quantity.damagedQuantity > 0 ? 'Dañados: ${quantity.damagedQuantity}' : null,
-          quantity.missingQuantity > 0 ? 'Faltantes: ${quantity.missingQuantity}' : null,
+          quantity.damagedQuantity > 0
+              ? 'Dañados: ${quantity.damagedQuantity}'
+              : null,
+          quantity.missingQuantity > 0
+              ? 'Faltantes: ${quantity.missingQuantity}'
+              : null,
         ].where((note) => note != null && note.isNotEmpty).join(' | ');
 
-        controller.receivingItems[receivingItemIndex] = ReceivePurchaseOrderItemParams(
-          itemId: itemId, // Este es el ID del PurchaseOrderItem
-          receivedQuantity: quantity.receivedQuantity, // Solo los recibidos en buen estado
-          damagedQuantity: quantity.damagedQuantity,
-          missingQuantity: quantity.missingQuantity,
-          actualUnitCost: currentItem.actualUnitCost,
-          supplierLotNumber: quantity.supplierLotNumber,
-          expirationDate: quantity.expirationDate?.toIso8601String(),
-          notes: customNotes.isNotEmpty ? customNotes : null,
-        );
+        controller.receivingItems[receivingItemIndex] =
+            ReceivePurchaseOrderItemParams(
+              itemId: itemId, // Este es el ID del PurchaseOrderItem
+              receivedQuantity:
+                  quantity
+                      .receivedQuantity, // Solo los recibidos en buen estado
+              damagedQuantity: quantity.damagedQuantity,
+              missingQuantity: quantity.missingQuantity,
+              actualUnitCost: currentItem.actualUnitCost,
+              supplierLotNumber: quantity.supplierLotNumber,
+              expirationDate: quantity.expirationDate?.toIso8601String(),
+              notes: customNotes.isNotEmpty ? customNotes : null,
+            );
       }
     }
-    
+
     // Proceder con la recepción usando las cantidades personalizadas
     FuturisticNotifications.showProcessing(
       'Procesando Recepción',
       'Recibiendo mercancía con cantidades personalizadas...',
     );
-    
+
     controller.receivePurchaseOrder();
   }
 
@@ -823,7 +867,7 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
       Get.snackbar(
         'Sin Almacenes',
         'No se encontraron almacenes disponibles',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -848,8 +892,20 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text(subtitle, style: TextStyle(fontSize: 14, color: ElegantLightTheme.textSecondary)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: ElegantLightTheme.textSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -865,23 +921,38 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: ElegantLightTheme.primaryBlue.withOpacity(0.3)),
+                  border: Border.all(
+                    color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+                  ),
                 ),
                 child: Column(
-                  children: controller.availableWarehouses.map((warehouse) => 
-                    Obx(() => RadioListTile<String>(
-                      title: Text(warehouse.name, style: const TextStyle(fontWeight: FontWeight.w500)),
-                      subtitle: Text('${warehouse.code} - ${warehouse.description ?? 'Sin descripción'}'),
-                      value: warehouse.id,
-                      groupValue: controller.selectedWarehouse.value?.id,
-                      onChanged: (value) {
-                        if (value != null) {
-                          controller.selectWarehouse(warehouse);
-                        }
-                      },
-                      activeColor: ElegantLightTheme.primaryBlue,
-                    )),
-                  ).toList(),
+                  children:
+                      controller.availableWarehouses
+                          .map(
+                            (warehouse) => Obx(
+                              () => RadioListTile<String>(
+                                title: Text(
+                                  warehouse.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '${warehouse.code} - ${warehouse.description ?? 'Sin descripción'}',
+                                ),
+                                value: warehouse.id,
+                                groupValue:
+                                    controller.selectedWarehouse.value?.id,
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    controller.selectWarehouse(warehouse);
+                                  }
+                                },
+                                activeColor: ElegantLightTheme.primaryBlue,
+                              ),
+                            ),
+                          )
+                          .toList(),
                 ),
               ),
               if (controller.selectedWarehouse.value != null) ...[
@@ -894,12 +965,19 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.check_circle, color: ElegantLightTheme.primaryBlue, size: 20),
+                      Icon(
+                        Icons.check_circle,
+                        color: ElegantLightTheme.primaryBlue,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Almacén seleccionado: ${controller.selectedWarehouse.value!.name}',
-                          style: TextStyle(color: ElegantLightTheme.primaryBlue, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            color: ElegantLightTheme.primaryBlue,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -912,21 +990,27 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: Text('Cancelar', style: TextStyle(color: ElegantLightTheme.textSecondary)),
-          ),
-          Obx(() => ElevatedButton(
-            onPressed: controller.selectedWarehouse.value != null
-                ? () {
-                    Get.back();
-                    onWarehouseSelected();
-                  }
-                : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: ElegantLightTheme.primaryBlue,
-              foregroundColor: Colors.white,
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: ElegantLightTheme.textSecondary),
             ),
-            child: const Text('Continuar'),
-          )),
+          ),
+          Obx(
+            () => ElevatedButton(
+              onPressed:
+                  controller.selectedWarehouse.value != null
+                      ? () {
+                        Get.back();
+                        onWarehouseSelected();
+                      }
+                      : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ElegantLightTheme.primaryBlue,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Continuar'),
+            ),
+          ),
         ],
       ),
       barrierDismissible: false,
@@ -938,9 +1022,10 @@ class FuturisticPurchaseOrderDetailScreen extends GetView<PurchaseOrderDetailCon
 class ParticlesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = ElegantLightTheme.textSecondary.withOpacity(0.1)
-      ..style = PaintingStyle.fill;
+    final paint =
+        Paint()
+          ..color = ElegantLightTheme.textSecondary.withOpacity(0.1)
+          ..style = PaintingStyle.fill;
 
     // Dibujar partículas flotantes
     for (int i = 0; i < 20; i++) {

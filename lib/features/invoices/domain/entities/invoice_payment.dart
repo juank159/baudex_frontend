@@ -6,13 +6,15 @@ class InvoicePayment extends Equatable {
   final String id;
   final double amount;
   final PaymentMethod paymentMethod;
-  final DateTime? paymentDate;
+  final DateTime paymentDate;
   final String? reference;
   final String? notes;
 
   // Relaciones
   final String invoiceId;
   final Invoice? invoice;
+  final String createdById;
+  final String organizationId;
 
   // Timestamps
   final DateTime createdAt;
@@ -22,11 +24,13 @@ class InvoicePayment extends Equatable {
     required this.id,
     required this.amount,
     required this.paymentMethod,
-    this.paymentDate,
+    required this.paymentDate,
     this.reference,
     this.notes,
     required this.invoiceId,
     this.invoice,
+    required this.createdById,
+    required this.organizationId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -41,13 +45,15 @@ class InvoicePayment extends Equatable {
     notes,
     invoiceId,
     invoice,
+    createdById,
+    organizationId,
     createdAt,
     updatedAt,
   ];
 
   String get paymentMethodDisplayName => paymentMethod.displayName;
 
-  DateTime get effectivePaymentDate => paymentDate ?? createdAt;
+  DateTime get effectivePaymentDate => paymentDate;
 
   InvoicePayment copyWith({
     String? id,
@@ -58,6 +64,8 @@ class InvoicePayment extends Equatable {
     String? notes,
     String? invoiceId,
     Invoice? invoice,
+    String? createdById,
+    String? organizationId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -70,6 +78,8 @@ class InvoicePayment extends Equatable {
       notes: notes ?? this.notes,
       invoiceId: invoiceId ?? this.invoiceId,
       invoice: invoice ?? this.invoice,
+      createdById: createdById ?? this.createdById,
+      organizationId: organizationId ?? this.organizationId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -80,7 +90,10 @@ class InvoicePayment extends Equatable {
       id: '',
       amount: 0,
       paymentMethod: PaymentMethod.cash,
+      paymentDate: DateTime.now(),
       invoiceId: invoiceId,
+      createdById: '',
+      organizationId: '',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );

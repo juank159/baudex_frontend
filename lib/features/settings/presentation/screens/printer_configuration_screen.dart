@@ -1,11 +1,11 @@
 // lib/features/settings/presentation/screens/printer_configuration_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/shared/widgets/app_scaffold.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
-import '../../../../app/config/routes/app_routes.dart';
 import '../controllers/settings_controller.dart';
 import '../bindings/settings_binding.dart';
 import '../../domain/entities/printer_settings.dart';
@@ -17,7 +17,8 @@ class PrinterConfigurationScreen extends StatefulWidget {
   State<PrinterConfigurationScreen> createState() => _PrinterConfigurationScreenState();
 }
 
-class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen> {
+class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
+    with TickerProviderStateMixin {
   late SettingsController settingsController;
   
   // Form controllers
@@ -36,9 +37,27 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
   PrinterSettings? _editingPrinter;
   bool _isEditMode = false;
 
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: ElegantLightTheme.normalAnimation,
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _animationController, curve: ElegantLightTheme.elasticCurve),
+    );
+    _animationController.forward();
     _initializeController();
   }
 
@@ -58,6 +77,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
 
   @override
   void dispose() {
+    _animationController.dispose();
     _nameController.dispose();
     _ipController.dispose();
     _portController.dispose();
@@ -65,43 +85,74 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     super.dispose();
   }
 
+  String _getResponsiveTitle(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    if (screenWidth < 600) {
+      return 'Impresoras';
+    } else if (screenWidth < 800) {
+      return 'Config. Impresoras';
+    } else {
+      return 'Configuración de Impresoras';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
-      currentRoute: AppRoutes.settingsPrinter,
-      appBar: AppBar(
-        title: const Text('Configuración de Impresoras'),
-        backgroundColor: Colors.blue.shade600,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            onPressed: _clearForm,
-            icon: const Icon(Icons.add),
-            tooltip: 'Agregar nueva impresora',
-          ),
-        ],
-      ),
-      body: Obx(() {
-        if (settingsController.isLoadingPrinterSettings) {
-          return const Center(child: LoadingWidget());
-        }
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: MainLayout(
+          title: _getResponsiveTitle(context),
+          showBackButton: true,
+          showDrawer: false,
+          actions: [
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: ElegantLightTheme.elevatedShadow,
+              ),
+              child: IconButton(
+                onPressed: _clearForm,
+                icon: const Icon(Icons.add, color: Colors.white),
+                tooltip: 'Agregar nueva impresora',
+              ),
+            ),
+          ],
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  ElegantLightTheme.backgroundColor,
+                  ElegantLightTheme.backgroundColor.withValues(alpha: 0.95),
+                ],
+              ),
+            ),
+            child: Obx(() {
+              if (settingsController.isLoadingPrinterSettings) {
+                return const Center(child: LoadingWidget());
+              }
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            // Mejorar responsive: Usar ancho real en lugar de breakpoints fijos
-            if (constraints.maxWidth < 600) {
-              // Móvil: < 600px
-              return _buildMobileLayout(context, settingsController);
-            } else if (constraints.maxWidth < 1200) {
-              // Tablet/Desktop pequeño: 600px - 1200px
-              return _buildTabletLayout(context, settingsController);
-            } else {
-              // Desktop grande: > 1200px
-              return _buildDesktopLayout(context, settingsController);
-            }
-          },
-        );
-      }),
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 600) {
+                    return _buildMobileLayout(context, settingsController);
+                  } else if (constraints.maxWidth < 1200) {
+                    return _buildTabletLayout(context, settingsController);
+                  } else {
+                    return _buildDesktopLayout(context, settingsController);
+                  }
+                },
+              );
+            }),
+          ),
+        ),
+      ),
     );
   }
 
@@ -163,8 +214,8 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
   }
 
   Widget _buildPrinterForm(BuildContext context, SettingsController controller) {
-    return Card(
-      elevation: 4,
+    return FuturisticContainer(
+      hasGlow: true,
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -172,13 +223,24 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
           children: [
             Row(
               children: [
-                Icon(Icons.print, color: Colors.blue.shade600),
-                const SizedBox(width: 8),
-                Text(
-                  _isEditMode ? 'Editar Impresora' : 'Agregar Nueva Impresora',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: ElegantLightTheme.glowShadow,
+                  ),
+                  child: const Icon(Icons.print, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    _isEditMode ? 'Editar Impresora' : 'Agregar Nueva Impresora',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: ElegantLightTheme.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -401,10 +463,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
             ),
             const SizedBox(height: 16),
             
-            // Switches
-            SwitchListTile(
-              title: const Text('Corte Automático'),
-              subtitle: const Text('Cortar papel automáticamente después de imprimir'),
+            // Switches futurísticos
+            _buildFuturisticSwitchTile(
+              title: 'Corte Automático',
+              subtitle: 'Cortar papel automáticamente después de imprimir',
               value: _autoCut,
               onChanged: (value) {
                 setState(() {
@@ -412,9 +474,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                 });
               },
             ),
-            SwitchListTile(
-              title: const Text('Apertura de Caja'),
-              subtitle: const Text('Abrir caja registradora al imprimir'),
+            const SizedBox(height: 12),
+            _buildFuturisticSwitchTile(
+              title: 'Apertura de Caja',
+              subtitle: 'Abrir caja registradora al imprimir',
               value: _cashDrawer,
               onChanged: (value) {
                 setState(() {
@@ -422,9 +485,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                 });
               },
             ),
-            SwitchListTile(
-              title: const Text('Impresora por Defecto'),
-              subtitle: const Text('Usar como impresora principal'),
+            const SizedBox(height: 12),
+            _buildFuturisticSwitchTile(
+              title: 'Impresora por Defecto',
+              subtitle: 'Usar como impresora principal',
               value: _isDefault,
               onChanged: (value) {
                 setState(() {
@@ -443,37 +507,41 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_isEditMode) ...[
-                        CustomButton(
+                        _buildFuturisticButton(
                           text: 'Cancelar',
-                          type: ButtonType.outline,
+                          icon: Icons.cancel,
                           onPressed: _clearForm,
+                          gradient: ElegantLightTheme.warningGradient,
                         ),
                         const SizedBox(height: 12),
                       ],
-                      CustomButton(
+                      _buildFuturisticButton(
                         text: 'Probar Conexión',
                         icon: Icons.wifi_find,
                         onPressed: controller.isTestingConnection 
                             ? null 
                             : () => _testConnection(controller),
+                        gradient: ElegantLightTheme.infoGradient,
                         isLoading: controller.isTestingConnection,
                       ),
                       const SizedBox(height: 12),
-                      CustomButton(
+                      _buildFuturisticButton(
                         text: 'Página de Prueba',
                         icon: Icons.print_outlined,
                         onPressed: controller.isTestingConnection 
                             ? null 
                             : () => _printTestPage(controller),
+                        gradient: ElegantLightTheme.successGradient,
                         isLoading: controller.isTestingConnection,
                       ),
                       const SizedBox(height: 12),
-                      CustomButton(
+                      _buildFuturisticButton(
                         text: _isEditMode ? 'Actualizar' : 'Agregar',
                         icon: _isEditMode ? Icons.update : Icons.add,
                         onPressed: controller.isSaving 
                             ? null 
                             : () => _savePrinter(controller),
+                        gradient: ElegantLightTheme.primaryGradient,
                         isLoading: controller.isSaving,
                       ),
                     ],
@@ -484,43 +552,47 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                     children: [
                       if (_isEditMode) ...[
                         Expanded(
-                          child: CustomButton(
+                          child: _buildFuturisticButton(
                             text: 'Cancelar',
-                            type: ButtonType.outline,
+                            icon: Icons.cancel,
                             onPressed: _clearForm,
+                            gradient: ElegantLightTheme.warningGradient,
                           ),
                         ),
                         const SizedBox(width: 16),
                       ],
                       Expanded(
-                        child: CustomButton(
+                        child: _buildFuturisticButton(
                           text: 'Probar Conexión',
                           icon: Icons.wifi_find,
                           onPressed: controller.isTestingConnection 
                               ? null 
                               : () => _testConnection(controller),
+                          gradient: ElegantLightTheme.infoGradient,
                           isLoading: controller.isTestingConnection,
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: CustomButton(
+                        child: _buildFuturisticButton(
                           text: 'Página de Prueba',
                           icon: Icons.print_outlined,
                           onPressed: controller.isTestingConnection 
                               ? null 
                               : () => _printTestPage(controller),
+                          gradient: ElegantLightTheme.successGradient,
                           isLoading: controller.isTestingConnection,
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: CustomButton(
+                        child: _buildFuturisticButton(
                           text: _isEditMode ? 'Actualizar' : 'Agregar',
                           icon: _isEditMode ? Icons.update : Icons.add,
                           onPressed: controller.isSaving 
                               ? null 
                               : () => _savePrinter(controller),
+                          gradient: ElegantLightTheme.primaryGradient,
                           isLoading: controller.isSaving,
                         ),
                       ),
@@ -536,8 +608,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
   }
 
   Widget _buildPrintersList(BuildContext context, SettingsController controller) {
-    return Card(
-      elevation: 4,
+    return FuturisticContainer(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -545,20 +616,37 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
           children: [
             Row(
               children: [
-                Icon(Icons.list, color: Colors.blue.shade600),
-                const SizedBox(width: 8),
-                const Text(
-                  'Impresoras Configuradas',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.infoGradient,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: ElegantLightTheme.glowShadow,
+                  ),
+                  child: const Icon(Icons.list, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Impresoras Configuradas',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: ElegantLightTheme.textPrimary,
+                    ),
                   ),
                 ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => controller.loadPrinterSettings(),
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Actualizar lista',
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.successGradient,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: ElegantLightTheme.elevatedShadow,
+                  ),
+                  child: IconButton(
+                    onPressed: () => controller.loadPrinterSettings(),
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    tooltip: 'Actualizar lista',
+                  ),
                 ),
               ],
             ),
@@ -613,25 +701,44 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
+        gradient: printer.isDefault 
+            ? LinearGradient(
+                colors: [
+                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+                ],
+              )
+            : ElegantLightTheme.glassGradient,
         border: Border.all(
           color: printer.isDefault 
-              ? Colors.blue.shade300 
-              : Colors.grey.shade300,
+              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+              : ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
           width: printer.isDefault ? 2 : 1,
         ),
-        borderRadius: BorderRadius.circular(12),
-        color: printer.isDefault 
-            ? Colors.blue.shade50 
-            : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: printer.isDefault 
+            ? ElegantLightTheme.glowShadow
+            : ElegantLightTheme.elevatedShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
-                printer.isNetworkPrinter ? Icons.router : Icons.usb,
-                color: printer.isDefault ? Colors.blue.shade600 : Colors.grey.shade600,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: printer.isDefault 
+                      ? ElegantLightTheme.primaryGradient 
+                      : ElegantLightTheme.warningGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: ElegantLightTheme.elevatedShadow,
+                ),
+                child: Icon(
+                  printer.isNetworkPrinter ? Icons.router : Icons.usb,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -643,24 +750,26 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                         Text(
                           printer.name,
                           style: const TextStyle(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w700,
                             fontSize: 16,
+                            color: ElegantLightTheme.textPrimary,
                           ),
                         ),
                         if (printer.isDefault) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade600,
-                              borderRadius: BorderRadius.circular(12),
+                              gradient: ElegantLightTheme.primaryGradient,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: ElegantLightTheme.glowShadow,
                             ),
                             child: const Text(
                               'Por Defecto',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
@@ -757,22 +866,31 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
 
   Widget _buildInfoChip(String label, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.blue.shade100,
-        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          colors: [
+            ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+            ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.blue.shade700),
+          Icon(icon, size: 14, color: ElegantLightTheme.primaryBlue),
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
-              color: Colors.blue.shade700,
-              fontWeight: FontWeight.w500,
+              color: ElegantLightTheme.primaryBlue,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -931,22 +1049,240 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
   void _showDeleteConfirmation(SettingsController controller, PrinterSettings printer) {
     Get.dialog(
       AlertDialog(
-        title: const Text('Eliminar Impresora'),
-        content: Text('¿Estás seguro de que quieres eliminar "${printer.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: ElegantLightTheme.backgroundColor,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.errorGradient,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: ElegantLightTheme.glowShadow,
+              ),
+              child: const Icon(Icons.delete, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Eliminar Impresora',
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '¿Estás seguro de que quieres eliminar "${printer.name}"?',
+          style: const TextStyle(
+            color: ElegantLightTheme.textSecondary,
+            fontSize: 14,
           ),
-          TextButton(
+        ),
+        actions: [
+          _buildFuturisticButton(
+            text: 'Cancelar',
+            icon: Icons.cancel,
+            onPressed: () => Get.back(),
+            gradient: ElegantLightTheme.glassGradient,
+          ),
+          const SizedBox(width: 8),
+          _buildFuturisticButton(
+            text: 'Eliminar',
+            icon: Icons.delete,
             onPressed: () {
               Get.back();
               controller.deletePrinterSettings(printer.id);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Eliminar'),
+            gradient: ElegantLightTheme.errorGradient,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFuturisticSwitchTile({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: value 
+            ? LinearGradient(
+                colors: [
+                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+                ],
+              )
+            : ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: value
+              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+              : ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+          width: value ? 2 : 1,
+        ),
+        boxShadow: value 
+            ? ElegantLightTheme.glowShadow 
+            : ElegantLightTheme.elevatedShadow,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => onChanged(!value),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: value 
+                              ? ElegantLightTheme.primaryBlue 
+                              : ElegantLightTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _buildFuturisticSwitch(
+                  value: value,
+                  onChanged: onChanged,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFuturisticSwitch({
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: ElegantLightTheme.normalAnimation,
+        width: 56,
+        height: 32,
+        decoration: BoxDecoration(
+          gradient: value 
+              ? ElegantLightTheme.primaryGradient 
+              : LinearGradient(
+                  colors: [Colors.grey.shade300, Colors.grey.shade400],
+                ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: value 
+              ? ElegantLightTheme.glowShadow 
+              : ElegantLightTheme.elevatedShadow,
+        ),
+        child: AnimatedAlign(
+          duration: ElegantLightTheme.normalAnimation,
+          curve: ElegantLightTheme.elasticCurve,
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 28,
+            height: 28,
+            margin: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  offset: const Offset(0, 2),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            child: value
+                ? Icon(
+                    Icons.check,
+                    color: ElegantLightTheme.primaryBlue,
+                    size: 16,
+                  )
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFuturisticButton({
+    required String text,
+    required IconData icon,
+    required VoidCallback? onPressed,
+    required LinearGradient gradient,
+    bool isLoading = false,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: onPressed != null ? gradient : LinearGradient(
+          colors: [Colors.grey.shade400, Colors.grey.shade500],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: onPressed != null ? ElegantLightTheme.elevatedShadow : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isLoading)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                else
+                  Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                const SizedBox(width: 8),
+                Text(
+                  text,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

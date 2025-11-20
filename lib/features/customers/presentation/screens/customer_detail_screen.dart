@@ -3,6 +3,7 @@ import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
@@ -37,78 +38,194 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
+
     return AppBar(
-      title: Obx(
-        () => Text(
-          controller.hasCustomer
-              ? controller.customer!.displayName
-              : 'Detalles del Cliente',
+      backgroundColor: Colors.transparent,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      centerTitle: false,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
         ),
       ),
-      elevation: 0,
+      title: Obx(
+        () => Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.person,
+                size: isMobile ? 18 : 20,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                controller.hasCustomer
+                    ? controller.customer!.displayName
+                    : 'Detalles del Cliente',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: isMobile ? 16 : 18,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () {
-          // Navega directamente al dashboard y elimina el historial
           Get.offAllNamed(AppRoutes.customers);
         },
       ),
       actions: [
-        // Acciones rápidas
-        if (controller.hasCustomer) ...[
+        // Editar
+        if (controller.hasCustomer)
           IconButton(
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit, size: 20),
             onPressed: controller.goToEditCustomer,
             tooltip: 'Editar cliente',
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.1),
+              foregroundColor: Colors.white,
+            ),
           ),
+
+        // Menú de opciones
+        if (controller.hasCustomer)
           PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 20, color: Colors.white),
             onSelected: (value) => _handleMenuAction(value, context),
-            itemBuilder:
-                (context) => [
-                  const PopupMenuItem(
-                    value: 'status',
-                    child: Row(
-                      children: [
-                        Icon(Icons.toggle_on),
-                        SizedBox(width: 8),
-                        Text('Cambiar Estado'),
-                      ],
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.1),
+              foregroundColor: Colors.white,
+            ),
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'status',
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.infoGradient,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(
+                        Icons.toggle_on,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'purchase',
-                    child: Row(
-                      children: [
-                        Icon(Icons.credit_card),
-                        SizedBox(width: 8),
-                        Text('Verificar Compra'),
-                      ],
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Cambiar Estado',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'refresh',
-                    child: Row(
-                      children: [
-                        Icon(Icons.refresh),
-                        SizedBox(width: 8),
-                        Text('Actualizar'),
-                      ],
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'purchase',
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.successGradient,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(
+                        Icons.credit_card,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Eliminar', style: TextStyle(color: Colors.red)),
-                      ],
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Verificar Compra',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: ElegantLightTheme.primaryBlue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(
+                        Icons.refresh,
+                        size: 18,
+                        color: ElegantLightTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Actualizar',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.errorGradient,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(
+                        Icons.delete,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Eliminar',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
       ],
     );
   }
@@ -222,35 +339,39 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
           children: [
             Row(
               children: [
-                // Avatar del cliente
+                // Avatar del cliente con gradiente
                 Container(
                   width: context.isMobile ? 80 : 100,
                   height: context.isMobile ? 80 : 100,
                   decoration: BoxDecoration(
-                    color:
-                        customer.isActive
-                            ? Theme.of(context).primaryColor.withOpacity(0.1)
-                            : Colors.grey.shade200,
+                    gradient: customer.isActive
+                        ? ElegantLightTheme.primaryGradient
+                        : LinearGradient(
+                            colors: [
+                              Colors.grey.shade400,
+                              Colors.grey.shade300,
+                            ],
+                          ),
                     borderRadius: BorderRadius.circular(
                       context.isMobile ? 40 : 50,
                     ),
-                    border: Border.all(
-                      color:
-                          customer.isActive
-                              ? Theme.of(context).primaryColor.withOpacity(0.3)
-                              : Colors.grey.shade300,
-                      width: 3,
-                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (customer.isActive
+                                ? ElegantLightTheme.primaryBlue
+                                : Colors.grey)
+                            .withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     customer.companyName != null
                         ? Icons.business
                         : Icons.person,
                     size: context.isMobile ? 40 : 50,
-                    color:
-                        customer.isActive
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey.shade500,
+                    color: Colors.white,
                   ),
                 ),
 
@@ -271,7 +392,7 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
                             desktop: 32,
                           ),
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: ElegantLightTheme.textPrimary,
                         ),
                       ),
 
@@ -287,7 +408,7 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
                               tablet: 18,
                               desktop: 20,
                             ),
-                            color: Colors.grey.shade600,
+                            color: ElegantLightTheme.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -297,35 +418,40 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
                         customer.email,
                         style: TextStyle(
                           fontSize: Responsive.getFontSize(context),
-                          color: Colors.grey.shade600,
+                          color: ElegantLightTheme.textSecondary,
                         ),
                       ),
 
                       const SizedBox(height: 8),
 
-                      // Estado del cliente
+                      // Estado del cliente con gradiente
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(
-                            customer.status,
-                          ).withOpacity(0.1),
+                          gradient: _getStatusGradient(customer.status).scale(0.3),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: _getStatusColor(
-                              customer.status,
-                            ).withOpacity(0.3),
+                            color: _getStatusColor(customer.status)
+                                .withValues(alpha: 0.4),
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _getStatusColor(customer.status)
+                                  .withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Text(
                           _getStatusLabel(customer.status),
                           style: TextStyle(
                             color: _getStatusColor(customer.status),
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -390,13 +516,30 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
     IconData icon,
     Color color,
   ) {
+    final gradient = color == ElegantLightTheme.primaryBlue ||
+            color == Theme.of(context).primaryColor
+        ? ElegantLightTheme.primaryGradient
+        : color == ElegantLightTheme.accentOrange || color == Colors.orange
+            ? ElegantLightTheme.warningGradient
+            : ElegantLightTheme.successGradient;
+
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            gradient: gradient.scale(0.2),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: color.withValues(alpha: 0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Icon(icon, color: color, size: 24),
         ),
@@ -411,7 +554,10 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
         ),
         Text(
           label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: const TextStyle(
+            fontSize: 12,
+            color: ElegantLightTheme.textSecondary,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
@@ -426,18 +572,35 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Información Personal',
-              style: TextStyle(
-                fontSize: Responsive.getFontSize(
-                  context,
-                  mobile: 18,
-                  tablet: 20,
-                  desktop: 22,
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient.scale(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: ElegantLightTheme.primaryBlue,
+                    size: 20,
+                  ),
                 ),
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-              ),
+                const SizedBox(width: 12),
+                Text(
+                  'Información Personal',
+                  style: TextStyle(
+                    fontSize: Responsive.getFontSize(
+                      context,
+                      mobile: 18,
+                      tablet: 20,
+                      desktop: 22,
+                    ),
+                    fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 20),
@@ -879,11 +1042,22 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
   Color _getStatusColor(CustomerStatus status) {
     switch (status) {
       case CustomerStatus.active:
-        return Colors.green;
+        return Colors.green.shade600;
       case CustomerStatus.inactive:
-        return Colors.orange;
+        return ElegantLightTheme.accentOrange;
       case CustomerStatus.suspended:
-        return Colors.red;
+        return Colors.red.shade600;
+    }
+  }
+
+  LinearGradient _getStatusGradient(CustomerStatus status) {
+    switch (status) {
+      case CustomerStatus.active:
+        return ElegantLightTheme.successGradient;
+      case CustomerStatus.inactive:
+        return ElegantLightTheme.warningGradient;
+      case CustomerStatus.suspended:
+        return ElegantLightTheme.errorGradient;
     }
   }
 

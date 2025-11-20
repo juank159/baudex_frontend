@@ -17,9 +17,7 @@ class KardexMultiProductScreen extends GetView<ReportsController> {
       body: Column(
         children: [
           _buildControlsSection(),
-          Expanded(
-            child: _buildContentSection(),
-          ),
+          Expanded(child: _buildContentSection()),
         ],
       ),
     );
@@ -68,13 +66,9 @@ class KardexMultiProductScreen extends GetView<ReportsController> {
                 ),
               ),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildProductSelector(),
-              ),
+              Expanded(child: _buildProductSelector()),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildCategoryDropdown(),
-              ),
+              Expanded(child: _buildCategoryDropdown()),
             ],
           ),
         ],
@@ -134,10 +128,7 @@ class KardexMultiProductScreen extends GetView<ReportsController> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Colors.blue.withOpacity(0.1),
-            Colors.blue.withOpacity(0.05),
-          ],
+          colors: [Colors.blue.withOpacity(0.1), Colors.blue.withOpacity(0.05)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -375,52 +366,54 @@ class KardexMultiProductScreen extends GetView<ReportsController> {
                 DataColumn(label: Text('Producto C')),
                 DataColumn(label: Text('Total')),
               ],
-              rows: movements.map((movement) {
-                final productA = movement['productA'] as int;
-                final productB = movement['productB'] as int;
-                final productC = movement['productC'] as int;
-                final total = productA + productB + productC;
-                final isInbound = movement['type'] == 'Entrada';
+              rows:
+                  movements.map((movement) {
+                    final productA = movement['productA'] as int;
+                    final productB = movement['productB'] as int;
+                    final productC = movement['productC'] as int;
+                    final total = productA + productB + productC;
+                    final isInbound = movement['type'] == 'Entrada';
 
-                return DataRow(
-                  cells: [
-                    DataCell(Text(movement['date'] as String)),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isInbound 
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          movement['type'] as String,
-                          style: TextStyle(
-                            color: isInbound ? Colors.green : Colors.red,
-                            fontWeight: FontWeight.w500,
+                    return DataRow(
+                      cells: [
+                        DataCell(Text(movement['date'] as String)),
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  isInbound
+                                      ? Colors.green.withOpacity(0.1)
+                                      : Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              movement['type'] as String,
+                              style: TextStyle(
+                                color: isInbound ? Colors.green : Colors.red,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    DataCell(_buildMovementCell(productA)),
-                    DataCell(_buildMovementCell(productB)),
-                    DataCell(_buildMovementCell(productC)),
-                    DataCell(
-                      Text(
-                        total.toString(),
-                        style: Get.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: total >= 0 ? Colors.green : Colors.red,
+                        DataCell(_buildMovementCell(productA)),
+                        DataCell(_buildMovementCell(productB)),
+                        DataCell(_buildMovementCell(productC)),
+                        DataCell(
+                          Text(
+                            total.toString(),
+                            style: Get.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: total >= 0 ? Colors.green : Colors.red,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+                      ],
+                    );
+                  }).toList(),
             ),
           ),
         ),
@@ -465,7 +458,9 @@ class KardexMultiProductScreen extends GetView<ReportsController> {
                   itemBuilder: (context, index) {
                     return CheckboxListTile(
                       title: Text('Producto ${index + 1}'),
-                      subtitle: Text('SKU${(index + 1).toString().padLeft(3, '0')}'),
+                      subtitle: Text(
+                        'SKU${(index + 1).toString().padLeft(3, '0')}',
+                      ),
                       value: false,
                       onChanged: (value) {
                         // TODO: Handle selection
@@ -502,7 +497,7 @@ class KardexMultiProductScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Exportar',
       'Generando reporte de Kardex multi-producto...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
     );
@@ -512,7 +507,7 @@ class KardexMultiProductScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Actualizar',
       'Actualizando datos del Kardex...',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.green.shade100,
       colorText: Colors.green.shade800,
     );
@@ -522,7 +517,7 @@ class KardexMultiProductScreen extends GetView<ReportsController> {
     Get.snackbar(
       'Filtros',
       'Filtros limpiados',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 

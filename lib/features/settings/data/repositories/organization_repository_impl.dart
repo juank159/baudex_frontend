@@ -60,4 +60,18 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
       return const Left(ConnectionFailure('Sin conexión a internet'));
     }
   }
+
+  @override
+  Future<Either<Failure, bool>> updateProfitMargin(double marginPercentage) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final result = await remoteDataSource.updateProfitMargin(marginPercentage);
+        return Right(result);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
+      }
+    } else {
+      return const Left(ConnectionFailure('Sin conexión a internet'));
+    }
+  }
 }

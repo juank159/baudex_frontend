@@ -77,6 +77,9 @@ class Organization extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   
+  // ✅ NUEVO: Margen de ganancia para productos temporales
+  final double? defaultProfitMarginPercentage;
+  
   // Campos de suscripción
   final DateTime? subscriptionStartDate;
   final DateTime? subscriptionEndDate;
@@ -102,6 +105,7 @@ class Organization extends Equatable {
     required this.timezone,
     required this.createdAt,
     required this.updatedAt,
+    this.defaultProfitMarginPercentage,
     this.subscriptionStartDate,
     this.subscriptionEndDate,
     this.trialStartDate,
@@ -114,6 +118,9 @@ class Organization extends Equatable {
 
   // Computed properties
   bool get isTrialPlan => subscriptionPlan == SubscriptionPlan.trial;
+
+  // ✅ NUEVO: Obtener margen de ganancia (por defecto 20% si no está configurado)
+  double get profitMargin => defaultProfitMarginPercentage ?? 20.0;
   
   double get subscriptionProgress {
     if (subscriptionPlan == SubscriptionPlan.trial) {
@@ -164,6 +171,7 @@ class Organization extends Equatable {
     String? timezone,
     DateTime? createdAt,
     DateTime? updatedAt,
+    double? defaultProfitMarginPercentage,
     DateTime? subscriptionStartDate,
     DateTime? subscriptionEndDate,
     DateTime? trialStartDate,
@@ -188,6 +196,7 @@ class Organization extends Equatable {
       timezone: timezone ?? this.timezone,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      defaultProfitMarginPercentage: defaultProfitMarginPercentage ?? this.defaultProfitMarginPercentage,
       subscriptionStartDate: subscriptionStartDate ?? this.subscriptionStartDate,
       subscriptionEndDate: subscriptionEndDate ?? this.subscriptionEndDate,
       trialStartDate: trialStartDate ?? this.trialStartDate,
@@ -215,6 +224,7 @@ class Organization extends Equatable {
         timezone,
         createdAt,
         updatedAt,
+        defaultProfitMarginPercentage,
         subscriptionStartDate,
         subscriptionEndDate,
         trialStartDate,

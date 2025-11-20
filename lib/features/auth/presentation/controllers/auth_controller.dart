@@ -7,9 +7,11 @@ import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/entities/auth_result.dart';
 import '../../domain/usecases/login_usecase.dart' show LoginParams;
-import '../../domain/usecases/register_usecase.dart' show RegisterParams;  
-import '../../domain/usecases/register_with_onboarding_usecase.dart' show RegisterWithOnboardingParams;
-import '../../domain/usecases/change_password_usecase.dart' show ChangePasswordParams;
+import '../../domain/usecases/register_usecase.dart' show RegisterParams;
+import '../../domain/usecases/register_with_onboarding_usecase.dart'
+    show RegisterWithOnboardingParams;
+import '../../domain/usecases/change_password_usecase.dart'
+    show ChangePasswordParams;
 import '../../../../core/storage/tenant_storage.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 // ✅ IMPORT PARA LIMPIAR CACHE DE CATEGORÍAS AL LOGOUT
@@ -19,7 +21,8 @@ class AuthController extends GetxController {
   // Dependencies
   final UseCase<AuthResult, LoginParams> _loginUseCase;
   final UseCase<AuthResult, RegisterParams> _registerUseCase;
-  final UseCase<AuthResult, RegisterWithOnboardingParams> _registerWithOnboardingUseCase;
+  final UseCase<AuthResult, RegisterWithOnboardingParams>
+  _registerWithOnboardingUseCase;
   final UseCase<User, NoParams> _getProfileUseCase;
   final UseCase<Unit, NoParams> _logoutUseCase;
   final UseCase<Unit, ChangePasswordParams> _changePasswordUseCase;
@@ -30,7 +33,8 @@ class AuthController extends GetxController {
   AuthController({
     required UseCase<AuthResult, LoginParams> loginUseCase,
     required UseCase<AuthResult, RegisterParams> registerUseCase,
-    required UseCase<AuthResult, RegisterWithOnboardingParams> registerWithOnboardingUseCase,
+    required UseCase<AuthResult, RegisterWithOnboardingParams>
+    registerWithOnboardingUseCase,
     required UseCase<User, NoParams> getProfileUseCase,
     required UseCase<Unit, NoParams> logoutUseCase,
     required UseCase<Unit, ChangePasswordParams> changePasswordUseCase,
@@ -119,31 +123,35 @@ class AuthController extends GetxController {
     _loadSavedEmails();
     _setupEmailListener();
   }
-  
+
   /// Inicializar el tenant basado en la sesión del usuario autenticado
   Future<void> _initializeTenant() async {
     try {
       // Verificar si ya hay un tenant establecido
       final existingTenant = await _tenantStorage.getTenantSlug();
-      
+
       if (existingTenant != null && existingTenant.isNotEmpty) {
         print('🏢 Tenant existente encontrado: $existingTenant');
         return;
       }
-      
+
       // Si no hay tenant y hay un usuario autenticado, obtener su organización
       final isAuthenticated = await _isAuthenticatedUseCase.call(NoParams());
-      
+
       await isAuthenticated.fold(
         (failure) async {
-          print('🏢 Usuario no autenticado, esperando login para establecer tenant');
+          print(
+            '🏢 Usuario no autenticado, esperando login para establecer tenant',
+          );
         },
         (authenticated) async {
           if (authenticated) {
             // Usuario autenticado pero sin tenant, obtener organización
             await _setTenantFromCurrentUser();
           } else {
-            print('🏢 Usuario no autenticado, esperando login para establecer tenant');
+            print(
+              '🏢 Usuario no autenticado, esperando login para establecer tenant',
+            );
           }
         },
       );
@@ -151,27 +159,31 @@ class AuthController extends GetxController {
       print('❌ Error inicializando tenant: $e');
     }
   }
-  
+
   /// Establecer el tenant basado en la organización del usuario actual
   Future<void> _setTenantFromCurrentUser() async {
     try {
       final profileResult = await _getProfileUseCase.call(NoParams());
-      
+
       await profileResult.fold(
         (failure) async {
-          print('❌ No se pudo obtener perfil del usuario para establecer tenant');
+          print(
+            '❌ No se pudo obtener perfil del usuario para establecer tenant',
+          );
         },
         (user) async {
           // Usar directamente el organizationSlug del usuario
           await _tenantStorage.setTenantSlug(user.organizationSlug);
-          print('🏢 Tenant establecido desde perfil de usuario: ${user.organizationSlug}');
+          print(
+            '🏢 Tenant establecido desde perfil de usuario: ${user.organizationSlug}',
+          );
         },
       );
     } catch (e) {
       print('❌ Error estableciendo tenant desde usuario: $e');
     }
   }
-  
+
   /// Generar tenant slug temporal basado en el dominio del email
   /// NOTA: Esto es temporal hasta que implementemos organizationSlug en el User
   String _generateTenantSlugFromEmail(String emailDomain) {
@@ -181,24 +193,27 @@ class AuthController extends GetxController {
         .replaceAll(RegExp(r'[^a-z0-9]'), '')
         .substring(0, emailDomain.length > 20 ? 20 : emailDomain.length);
   }
-  
+
   /// Establecer el tenant correcto después de un login exitoso
   Future<void> _setTenantAfterLogin(User user) async {
     try {
       // Usar directamente el organizationSlug del usuario
       await _tenantStorage.setTenantSlug(user.organizationSlug);
-      print('🏢 Tenant establecido después del login: ${user.organizationSlug} para usuario ${user.email}');
-      
+      print(
+        '🏢 Tenant establecido después del login: ${user.organizationSlug} para usuario ${user.email}',
+      );
+
       // Verificar que se estableció correctamente
       final verifyTenant = await _tenantStorage.getTenantSlug();
       print('🏢 Tenant verificado después del login: $verifyTenant');
-      
     } catch (e) {
       print('❌ Error estableciendo tenant después del login: $e');
       // En caso crítico de error, usar organizationSlug del usuario
       try {
         await _tenantStorage.setTenantSlug(user.organizationSlug);
-        print('🏢 Tenant establecido usando organizationSlug del usuario: ${user.organizationSlug}');
+        print(
+          '🏢 Tenant establecido usando organizationSlug del usuario: ${user.organizationSlug}',
+        );
       } catch (fallbackError) {
         print('💥 Error crítico estableciendo tenant: $fallbackError');
       }
@@ -265,7 +280,9 @@ class AuthController extends GetxController {
           await _setTenantAfterLogin(authResult.user);
 
           // Guardar el correo para recordarlo en futuros logins
-          await _saveEmailAfterSuccessfulLogin(loginEmailController.text.trim());
+          await _saveEmailAfterSuccessfulLogin(
+            loginEmailController.text.trim(),
+          );
 
           _clearLoginForm();
 
@@ -304,7 +321,9 @@ class AuthController extends GetxController {
     if (!registerFormKey.currentState!.validate()) return;
 
     _isRegisterLoading.value = true;
-    print('🏗️ AuthController: Iniciando registro con onboarding automático...');
+    print(
+      '🏗️ AuthController: Iniciando registro con onboarding automático...',
+    );
 
     try {
       final result = await _registerWithOnboardingUseCase(
@@ -314,7 +333,8 @@ class AuthController extends GetxController {
           email: registerEmailController.text.trim(),
           password: registerPasswordController.text,
           confirmPassword: registerConfirmPasswordController.text,
-          organizationName: null, // El RegisterRequestModel se encargará de generar el nombre
+          organizationName:
+              null, // El RegisterRequestModel se encargará de generar el nombre
         ),
       );
 
@@ -322,7 +342,9 @@ class AuthController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ AuthController: Error en registro con onboarding - ${failure.message}');
+          print(
+            '❌ AuthController: Error en registro con onboarding - ${failure.message}',
+          );
           Get.snackbar(
             'Error de Registro',
             failure.message,
@@ -363,7 +385,9 @@ class AuthController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 AuthController: Excepción no manejada en registro con onboarding - $e');
+      print(
+        '💥 AuthController: Excepción no manejada en registro con onboarding - $e',
+      );
       Get.snackbar(
         'Error Inesperado',
         'Ocurrió un error inesperado: $e',
@@ -430,9 +454,13 @@ class AuthController extends GetxController {
           // ✅ LIMPIAR CACHE DE CATEGORÍAS AL CERRAR SESIÓN
           try {
             ProductFormController.clearCategoriesCache();
-            print('🗑️ AuthController: Cache de categorías limpiado al cerrar sesión');
+            print(
+              '🗑️ AuthController: Cache de categorías limpiado al cerrar sesión',
+            );
           } catch (e) {
-            print('⚠️ AuthController: Error al limpiar cache de categorías: $e');
+            print(
+              '⚠️ AuthController: Error al limpiar cache de categorías: $e',
+            );
           }
 
           _clearAllForms();
@@ -626,7 +654,7 @@ class AuthController extends GetxController {
     try {
       final emails = await _secureStorageService.getSavedEmails();
       _savedEmails.assignAll(emails);
-      
+
       // Cargar el último email usado si está disponible
       final lastEmail = await _secureStorageService.getLastEmail();
       if (lastEmail != null && lastEmail.isNotEmpty) {
@@ -647,8 +675,9 @@ class AuthController extends GetxController {
       }
 
       // Mostrar sugerencias solo si hay texto y hay correos guardados que coincidan
-      final hasMatches = _savedEmails.any((email) => 
-        email.toLowerCase().contains(text));
+      final hasMatches = _savedEmails.any(
+        (email) => email.toLowerCase().contains(text),
+      );
       _showEmailSuggestions.value = hasMatches;
     });
   }
@@ -667,10 +696,11 @@ class AuthController extends GetxController {
   /// Obtener correos filtrados para autocompletado
   List<String> getFilteredEmails(String query) {
     if (query.isEmpty) return _savedEmails;
-    
+
     final lowerQuery = query.toLowerCase();
-    return _savedEmails.where((email) => 
-      email.toLowerCase().contains(lowerQuery)).toList();
+    return _savedEmails
+        .where((email) => email.toLowerCase().contains(lowerQuery))
+        .toList();
   }
 
   /// Seleccionar un correo de las sugerencias
@@ -679,7 +709,8 @@ class AuthController extends GetxController {
     _showEmailSuggestions.value = false;
     // Mover el cursor al final
     loginEmailController.selection = TextSelection.fromPosition(
-      TextPosition(offset: email.length));
+      TextPosition(offset: email.length),
+    );
   }
 
   /// Eliminar un correo guardado
@@ -690,7 +721,7 @@ class AuthController extends GetxController {
       Get.snackbar(
         'Correo eliminado',
         'El correo ha sido eliminado de los guardados',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.blue.shade100,
         colorText: Colors.blue.shade800,
         duration: const Duration(seconds: 2),

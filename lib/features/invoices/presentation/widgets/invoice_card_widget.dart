@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../widgets/invoice_status_widget.dart';
 import '../../domain/entities/invoice.dart';
 
@@ -36,27 +37,34 @@ class InvoiceCardWidget extends StatelessWidget {
 
   Widget _buildMobileCard(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 2),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color:
-            isSelected
-                ? Theme.of(context).primaryColor.withOpacity(0.08)
-                : Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        gradient: isSelected 
+          ? LinearGradient(
+              colors: [
+                ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.15),
+                ElegantLightTheme.primaryGradient.colors.last.withValues(alpha: 0.05),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            )
+          : ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color:
-              isSelected
-                  ? Theme.of(context).primaryColor
-                  : Colors.grey.shade200,
+          color: isSelected
+            ? ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.5)
+            : ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
           width: isSelected ? 2 : 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        boxShadow: isSelected 
+          ? [
+              BoxShadow(
+                color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ]
+          : ElegantLightTheme.elevatedShadow,
       ),
       child: Material(
         color: Colors.transparent,
@@ -120,36 +128,46 @@ class InvoiceCardWidget extends StatelessWidget {
                 // Cliente con icono elegante
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
+                    horizontal: 8,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.grey.shade200),
+                    gradient: ElegantLightTheme.glassGradient,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(3),
+                        padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(4),
+                          gradient: ElegantLightTheme.infoGradient,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.person_outline,
-                          size: 10,
-                          color: Colors.blue.shade600,
+                          size: 12,
+                          color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           invoice.customerName,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            fontSize: 10,
-                            color: Colors.grey.shade800,
+                            fontSize: 12,
+                            color: ElegantLightTheme.textPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1030,27 +1048,50 @@ class InvoiceCardWidget extends StatelessWidget {
     Color color,
     VoidCallback onPressed,
   ) {
+    final gradient = LinearGradient(
+      colors: [color, color.withValues(alpha: 0.8)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
     return InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.3)),
+          gradient: ElegantLightTheme.glassGradient,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color.withValues(alpha: 0.4),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                gradient: gradient,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(icon, size: 12, color: Colors.white),
+            ),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 color: color,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -1060,66 +1101,257 @@ class InvoiceCardWidget extends StatelessWidget {
   }
 
   Widget _buildActionMenu(BuildContext context) {
-    return PopupMenuButton<String>(
-      onSelected: (value) => onActionTap?.call(value),
-      icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
-      itemBuilder:
-          (context) => [
-            if (invoice.canBeEdited)
-              const PopupMenuItem(
-                value: 'edit',
+    return Container(
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.2),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: PopupMenuButton<String>(
+        onSelected: (value) => onActionTap?.call(value),
+        icon: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.primaryGradient,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.more_vert, 
+            color: Colors.white,
+            size: 16,
+          ),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: Colors.transparent,
+        elevation: 0,
+        itemBuilder: (context) => [
+          if (invoice.canBeEdited)
+            PopupMenuItem(
+              value: 'edit',
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.glassGradient,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.blue.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.edit, size: 16),
-                    SizedBox(width: 8),
-                    Text('Editar'),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.blue, Colors.blue.withValues(alpha: 0.8)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.edit, size: 14, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Editar',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
-            const PopupMenuItem(
-              value: 'print',
+            ),
+          PopupMenuItem(
+            value: 'print',
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.glassGradient,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
               child: Row(
                 children: [
-                  Icon(Icons.print, size: 16),
-                  SizedBox(width: 8),
-                  Text('Imprimir'),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.grey.shade600, Colors.grey.shade500],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.print, size: 14, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Imprimir',
+                    style: TextStyle(
+                      color: ElegantLightTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),
-            if (invoice.status == InvoiceStatus.draft)
-              const PopupMenuItem(
-                value: 'confirm',
+          ),
+          if (invoice.status == InvoiceStatus.draft)
+            PopupMenuItem(
+              value: 'confirm',
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.glassGradient,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.green.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle, color: Colors.green, size: 16),
-                    SizedBox(width: 8),
-                    Text('Confirmar'),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.successGradient,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.check_circle, size: 14, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Confirmar',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
-            if (invoice.canBeCancelled)
-              const PopupMenuItem(
-                value: 'cancel',
+            ),
+          if (invoice.canBeCancelled)
+            PopupMenuItem(
+              value: 'cancel',
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.glassGradient,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.orange.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.cancel, color: Colors.orange, size: 16),
-                    SizedBox(width: 8),
-                    Text('Cancelar'),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.warningGradient,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.cancel, size: 14, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Cancelar',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
-            if (invoice.canBeEdited)
-              const PopupMenuItem(
-                value: 'delete',
+            ),
+          if (invoice.canBeEdited)
+            PopupMenuItem(
+              value: 'delete',
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.glassGradient,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.red.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.delete, color: Colors.red, size: 16),
-                    SizedBox(width: 8),
-                    Text('Eliminar'),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.errorGradient,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.delete, size: 14, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Eliminar',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
-          ],
+            ),
+        ],
+      ),
     );
   }
 
@@ -1164,23 +1396,44 @@ class InvoiceCardWidget extends StatelessWidget {
   // Nueva función ultra-compacta
   Widget _buildCompactInfoChip(String text, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 8, color: color),
-          const SizedBox(width: 2),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color, color.withValues(alpha: 0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 10, color: Colors.white),
+          ),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 8,
+                fontWeight: FontWeight.w700,
+                fontSize: 10,
                 color: color,
               ),
               maxLines: 1,

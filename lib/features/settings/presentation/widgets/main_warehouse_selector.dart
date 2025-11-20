@@ -6,14 +6,37 @@ import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../inventory/domain/entities/warehouse.dart';
 import '../../../inventory/presentation/controllers/warehouses_controller.dart';
+import '../../../inventory/presentation/bindings/inventory_binding.dart';
 
-class MainWarehouseSelector extends StatelessWidget {
+class MainWarehouseSelector extends StatefulWidget {
   const MainWarehouseSelector({super.key});
 
   @override
+  State<MainWarehouseSelector> createState() => _MainWarehouseSelectorState();
+}
+
+class _MainWarehouseSelectorState extends State<MainWarehouseSelector> {
+  bool _isInitializing = false;
+  bool _hasError = false;
+  String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureWarehousesController();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isInitializing) {
+      return _buildLoadingCard();
+    }
+    
+    if (_hasError) {
+      return _buildErrorCard();
+    }
+    
     return GetBuilder<WarehousesController>(
-      init: Get.find<WarehousesController>(),
       builder: (controller) {
         return Card(
           elevation: 2,
@@ -143,6 +166,186 @@ class MainWarehouseSelector extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  /// Ensures WarehousesController is available
+  Future<void> _ensureWarehousesController() async {
+    if (!mounted) return;
+    
+    try {
+      // Check if controller is already registered
+      if (Get.isRegistered<WarehousesController>()) {
+        // Controller already available, just update UI if mounted
+        if (mounted) {
+          setState(() {
+            _isInitializing = false;
+            _hasError = false;
+          });
+        }
+        return;
+      }
+      
+      // Set loading state
+      if (mounted) {
+        setState(() {
+          _isInitializing = true;
+          _hasError = false;
+        });
+      }
+      
+      // If not registered, initialize inventory dependencies
+      debugPrint('🏭 WarehousesController not found, initializing inventory dependencies...');
+      final inventoryBinding = InventoryBinding();
+      inventoryBinding.dependencies();
+      
+      // Wait a moment for dependencies to register
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Get the controller
+      final controller = Get.find<WarehousesController>();
+      
+      // Load warehouses data
+      await controller.loadWarehouses();
+      
+      // Update state if widget is still mounted
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+          _hasError = false;
+        });
+      }
+      
+    } catch (e) {
+      debugPrint('❌ Error ensuring WarehousesController: $e');
+      
+      // Update error state if widget is still mounted
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+          _hasError = true;
+          _errorMessage = e.toString();
+        });
+      }
+    }
+  }
+
+  Widget _buildLoadingCard() {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.warehouse, color: AppColors.primary, size: 24),
+                const SizedBox(width: AppDimensions.spacingSmall),
+                Text(
+                  'Almacén Principal',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimensions.spacingLarge),
+            const Center(
+              child: Column(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Cargando almacenes...'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorCard() {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.warehouse, color: AppColors.primary, size: 24),
+                const SizedBox(width: AppDimensions.spacingSmall),
+                Text(
+                  'Almacén Principal',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimensions.spacingLarge),
+            Container(
+              padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[300]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.error, color: Colors.red[700]),
+                      const SizedBox(width: AppDimensions.spacingSmall),
+                      const Expanded(
+                        child: Text(
+                          'Error al cargar la información de almacenes.',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_errorMessage.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _errorMessage,
+                      style: TextStyle(
+                        color: Colors.red[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _ensureWarehousesController(),
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Reintentar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[600],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

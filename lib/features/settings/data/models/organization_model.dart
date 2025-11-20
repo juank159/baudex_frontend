@@ -17,6 +17,7 @@ class OrganizationModel extends Organization {
     required super.timezone,
     required super.createdAt,
     required super.updatedAt,
+    super.defaultProfitMarginPercentage,
     super.subscriptionStartDate,
     super.subscriptionEndDate,
     super.trialStartDate,
@@ -49,6 +50,11 @@ class OrganizationModel extends Organization {
       updatedAt: json['updatedAt'] != null 
         ? DateTime.parse(json['updatedAt'])
         : DateTime.now(),
+      // ✅ NUEVO: Extraer margen de ganancia desde settings
+      defaultProfitMarginPercentage: json['settings'] != null && 
+        json['settings']['defaultProfitMarginPercentage'] != null
+        ? (json['settings']['defaultProfitMarginPercentage'] as num).toDouble()
+        : null,
       subscriptionStartDate: json['subscriptionStartDate'] != null 
         ? DateTime.parse(json['subscriptionStartDate'])
         : null,

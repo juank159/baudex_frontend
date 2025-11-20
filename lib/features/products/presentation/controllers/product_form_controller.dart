@@ -11,6 +11,7 @@ import '../../domain/usecases/get_product_by_id_usecase.dart';
 // ✅ NUEVOS IMPORTS PARA CATEGORÍAS
 import '../../../categories/domain/entities/category.dart';
 import '../../../categories/domain/usecases/get_categories_usecase.dart';
+import '../../../categories/domain/usecases/create_category_usecase.dart';
 // ✅ IMPORT PARA CALCULADORA DE PRECIOS
 import '../widgets/price_calculator_dialog.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -24,6 +25,8 @@ import 'product_detail_controller.dart';
 import '../widgets/unit_selector_widget.dart';
 // ✅ IMPORT PARA SECURE STORAGE
 import '../../../../app/core/storage/secure_storage_service.dart';
+// ✅ IMPORT PARA FACTURACIÓN ELECTRÓNICA
+import '../../domain/entities/tax_enums.dart';
 
 class ProductFormController extends GetxController {
   // Dependencies
@@ -31,6 +34,7 @@ class ProductFormController extends GetxController {
   final UpdateProductUseCase _updateProductUseCase;
   final GetProductByIdUseCase _getProductByIdUseCase;
   final GetCategoriesUseCase _getCategoriesUseCase;
+  final CreateCategoryUseCase _createCategoryUseCase;
   final SecureStorageService _secureStorageService;
 
   // ✅ CONSTRUCTOR CORREGIDO
@@ -39,11 +43,13 @@ class ProductFormController extends GetxController {
     required UpdateProductUseCase updateProductUseCase,
     required GetProductByIdUseCase getProductByIdUseCase,
     required GetCategoriesUseCase getCategoriesUseCase,
+    required CreateCategoryUseCase createCategoryUseCase,
     required SecureStorageService secureStorageService,
   }) : _createProductUseCase = createProductUseCase,
        _updateProductUseCase = updateProductUseCase,
        _getProductByIdUseCase = getProductByIdUseCase,
        _getCategoriesUseCase = getCategoriesUseCase,
+       _createCategoryUseCase = createCategoryUseCase,
        _secureStorageService = secureStorageService {
     print('🎮 ProductFormController: Instancia creada correctamente');
   }
@@ -68,6 +74,13 @@ class ProductFormController extends GetxController {
 
   // ✅ NUEVO: Lista de categorías disponibles
   final _availableCategories = <Category>[].obs;
+
+  // ========== FACTURACIÓN ELECTRÓNICA ==========
+  final _selectedTaxCategory = TaxCategory.iva.obs;
+  final _isTaxable = true.obs;
+  final _hasRetention = false.obs;
+  final _selectedRetentionCategory = Rxn<RetentionCategory>();
+  // ========== FIN FACTURACIÓN ELECTRÓNICA ==========
 
   // Form Key
   final formKey = GlobalKey<FormState>();
@@ -94,6 +107,11 @@ class ProductFormController extends GetxController {
   late final TextEditingController specialPriceController;
   late final TextEditingController costPriceController;
 
+  // Text Controllers - Facturación electrónica
+  late final TextEditingController taxRateController;
+  late final TextEditingController taxDescriptionController;
+  late final TextEditingController retentionRateController;
+
   // ==================== GETTERS ====================
 
   bool get isLoading => _isLoading.value;
@@ -109,6 +127,12 @@ class ProductFormController extends GetxController {
   ProductStatus get productStatus => _productStatus.value;
   List<Category> get availableCategories => _availableCategories; // ✅ NUEVO
   MeasurementUnit? get selectedUnit => _selectedUnit.value; // ✅ NUEVO
+
+  // Getters para facturación electrónica
+  TaxCategory get selectedTaxCategory => _selectedTaxCategory.value;
+  bool get isTaxable => _isTaxable.value;
+  bool get hasRetention => _hasRetention.value;
+  RetentionCategory? get selectedRetentionCategory => _selectedRetentionCategory.value;
 
   String get productId => Get.parameters['id'] ?? '';
   bool get isEditMode => productId.isNotEmpty;
@@ -210,6 +234,11 @@ class ProductFormController extends GetxController {
     specialPriceController = TextEditingController();
     costPriceController = TextEditingController();
 
+    // Controladores de facturación electrónica
+    taxRateController = TextEditingController(text: '19');
+    taxDescriptionController = TextEditingController();
+    retentionRateController = TextEditingController(text: '0');
+
     print('✅ ProductFormController: Controladores inicializados');
   }
 
@@ -226,7 +255,9 @@ class ProductFormController extends GetxController {
     if (tenantSlug != null) {
       _categoriesCache.remove(tenantSlug);
       _cacheTimeMap.remove(tenantSlug);
-      print('🗑️ ProductFormController: Cache de categorías limpiado para tenant: $tenantSlug');
+      print(
+        '🗑️ ProductFormController: Cache de categorías limpiado para tenant: $tenantSlug',
+      );
     } else {
       _categoriesCache.clear();
       _cacheTimeMap.clear();
@@ -256,16 +287,20 @@ class ProductFormController extends GetxController {
     // ✅ Verificar cache específico por tenant
     final cachedCategories = _categoriesCache[tenantSlug];
     final cacheTime = _cacheTimeMap[tenantSlug];
-    
+
     if (cachedCategories != null &&
         cacheTime != null &&
         DateTime.now().difference(cacheTime) < _cacheExpiry) {
-      print('📂 ProductFormController: Usando categorías desde cache para tenant: $tenantSlug');
+      print(
+        '📂 ProductFormController: Usando categorías desde cache para tenant: $tenantSlug',
+      );
       _availableCategories.value = cachedCategories;
       return;
     }
 
-    print('📂 ProductFormController: Cargando categorías desde API para tenant: $tenantSlug...');
+    print(
+      '📂 ProductFormController: Cargando categorías desde API para tenant: $tenantSlug...',
+    );
     _isLoadingCategories.value = true;
 
     try {
@@ -290,14 +325,24 @@ class ProductFormController extends GetxController {
             'No se pudieron cargar las categorías disponibles',
           );
         },
-        (paginatedResult) {
-          _availableCategories.value = paginatedResult.data;
-          // ✅ Actualizar cache específico por tenant
-          _categoriesCache[tenantSlug] = paginatedResult.data;
-          _cacheTimeMap[tenantSlug] = DateTime.now();
-          print(
-            '✅ ProductFormController: ${paginatedResult.data.length} categorías cargadas y almacenadas en cache para tenant: $tenantSlug',
-          );
+        (paginatedResult) async {
+          // ✅ NUEVA LÓGICA: Si no hay categorías, crear categoría "General"
+          if (paginatedResult.data.isEmpty) {
+            print(
+              '📂 ProductFormController: No se encontraron categorías para tenant: $tenantSlug',
+            );
+            print('🆕 ProductFormController: Creando categoría "General" automáticamente...');
+
+            await _createDefaultCategory(tenantSlug);
+          } else {
+            _availableCategories.value = paginatedResult.data;
+            // ✅ Actualizar cache específico por tenant
+            _categoriesCache[tenantSlug] = paginatedResult.data;
+            _cacheTimeMap[tenantSlug] = DateTime.now();
+            print(
+              '✅ ProductFormController: ${paginatedResult.data.length} categorías cargadas y almacenadas en cache para tenant: $tenantSlug',
+            );
+          }
         },
       );
     } catch (e) {
@@ -310,6 +355,61 @@ class ProductFormController extends GetxController {
       );
     } finally {
       _isLoadingCategories.value = false;
+    }
+  }
+
+  /// Crear categoría "General" por defecto cuando no hay categorías
+  Future<void> _createDefaultCategory(String tenantSlug) async {
+    try {
+      print('🔄 ProductFormController: Iniciando creación de categoría "General"...');
+
+      final result = await _createCategoryUseCase(
+        CreateCategoryParams(
+          name: 'General',
+          description: 'Categoría general creada automáticamente',
+          slug: 'general',
+          status: CategoryStatus.active,
+          sortOrder: 0,
+        ),
+      );
+
+      result.fold(
+        (failure) {
+          print(
+            '❌ ProductFormController: Error al crear categoría "General" - ${failure.message}',
+          );
+          _showError(
+            'Error al crear categoría',
+            'No se pudo crear la categoría por defecto: ${failure.message}',
+          );
+        },
+        (category) async {
+          print(
+            '✅ ProductFormController: Categoría "General" creada exitosamente - ID: ${category.id}',
+          );
+
+          // Limpiar cache para este tenant
+          _categoriesCache.remove(tenantSlug);
+          _cacheTimeMap.remove(tenantSlug);
+
+          // Recargar categorías para mostrar la recién creada
+          print('🔄 ProductFormController: Recargando categorías...');
+          await _loadAvailableCategories();
+
+          _showInfo(
+            'Categoría creada',
+            'Se ha creado la categoría "General" automáticamente',
+          );
+        },
+      );
+    } catch (e) {
+      print(
+        '💥 ProductFormController: Error inesperado al crear categoría "General" - $e',
+      );
+      _showError(
+        'Error inesperado',
+        'No se pudo crear la categoría por defecto: $e',
+      );
     }
   }
 
@@ -462,6 +562,50 @@ class ProductFormController extends GetxController {
     update(['status_selector']); // ✅ Actualizar específicamente el selector
   }
 
+  // ==================== MÉTODOS PARA FACTURACIÓN ELECTRÓNICA ====================
+
+  /// Cambiar categoría de impuesto
+  void setTaxCategory(TaxCategory category) {
+    _selectedTaxCategory.value = category;
+    // Auto-actualizar la tasa según la categoría
+    taxRateController.text = category.defaultRate.toString();
+    print('💰 ProductFormController: Categoría de impuesto - ${category.displayName}');
+    print('💰 ProductFormController: Tasa por defecto - ${category.defaultRate}%');
+    update(['tax_selector']);
+  }
+
+  /// Cambiar estado gravable
+  void setTaxable(bool value) {
+    _isTaxable.value = value;
+    print('💰 ProductFormController: Producto gravable - $value');
+    update(['tax_section']);
+  }
+
+  /// Cambiar estado de retención
+  void setHasRetention(bool value) {
+    _hasRetention.value = value;
+    if (!value) {
+      // Si desactiva la retención, limpiar la categoría
+      _selectedRetentionCategory.value = null;
+      retentionRateController.text = '0';
+    }
+    print('💰 ProductFormController: Tiene retención - $value');
+    update(['retention_section']);
+  }
+
+  /// Cambiar categoría de retención
+  void setRetentionCategory(RetentionCategory? category) {
+    _selectedRetentionCategory.value = category;
+    if (category != null) {
+      // Auto-actualizar la tasa según la categoría
+      retentionRateController.text = category.defaultRate.toString();
+      _hasRetention.value = true;
+      print('💰 ProductFormController: Categoría de retención - ${category.displayName}');
+      print('💰 ProductFormController: Tasa por defecto - ${category.defaultRate}%');
+    }
+    update(['retention_selector']);
+  }
+
   /// Generar SKU automático
   void generateSku() {
     if (nameController.text.isNotEmpty) {
@@ -563,7 +707,7 @@ class ProductFormController extends GetxController {
           Get.snackbar(
             'Éxito',
             'Precios calculados y aplicados correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -653,6 +797,20 @@ class ProductFormController extends GetxController {
         height: AppFormatters.parseNumber(heightController.text),
         categoryId: _selectedCategoryId.value!,
         prices: prices,
+        // Campos de facturación electrónica
+        taxCategory: _selectedTaxCategory.value,
+        taxRate: AppFormatters.parseNumber(taxRateController.text) ?? 19.0,
+        isTaxable: _isTaxable.value,
+        taxDescription:
+            taxDescriptionController.text.trim().isEmpty
+                ? null
+                : taxDescriptionController.text.trim(),
+        retentionCategory: _selectedRetentionCategory.value,
+        retentionRate:
+            _hasRetention.value
+                ? AppFormatters.parseNumber(retentionRateController.text) ?? 0
+                : null,
+        hasRetention: _hasRetention.value,
       ),
     );
 
@@ -745,7 +903,7 @@ class ProductFormController extends GetxController {
         );
       }
 
-      // ✅ PASO 3: Crear el request con TODOS los campos incluyendo prices
+      // ✅ PASO 3: Crear el request con TODOS los campos incluyendo prices y tax fields
       final result = await _updateProductUseCase(
         UpdateProductParams(
           id: productId,
@@ -770,6 +928,20 @@ class ProductFormController extends GetxController {
           height: AppFormatters.parseNumber(heightController.text),
           categoryId: _selectedCategoryId.value!,
           prices: prices, // ✅ CRÍTICO: Incluir precios procesados
+          // Campos de facturación electrónica
+          taxCategory: _selectedTaxCategory.value,
+          taxRate: AppFormatters.parseNumber(taxRateController.text) ?? 19.0,
+          isTaxable: _isTaxable.value,
+          taxDescription:
+              taxDescriptionController.text.trim().isEmpty
+                  ? null
+                  : taxDescriptionController.text.trim(),
+          retentionCategory: _selectedRetentionCategory.value,
+          retentionRate:
+              _hasRetention.value
+                  ? AppFormatters.parseNumber(retentionRateController.text) ?? 0
+                  : null,
+          hasRetention: _hasRetention.value,
         ),
       );
 
@@ -847,10 +1019,20 @@ class ProductFormController extends GetxController {
       return false;
     }
 
+    // ✅ NUEVO: Auto-seleccionar categoría si solo hay una disponible
     if (_selectedCategoryId.value == null) {
-      print('❌ ProductFormController: Categoría no seleccionada');
-      _showError('Error de validación', 'Selecciona una categoría');
-      return false;
+      if (_availableCategories.length == 1) {
+        final onlyCategory = _availableCategories.first;
+        _selectedCategoryId.value = onlyCategory.id;
+        _selectedCategoryName.value = onlyCategory.name;
+        print(
+          '✅ ProductFormController: Auto-seleccionada única categoría disponible: ${onlyCategory.name}',
+        );
+      } else {
+        print('❌ ProductFormController: Categoría no seleccionada');
+        _showError('Error de validación', 'Selecciona una categoría');
+        return false;
+      }
     }
 
     if (skuController.text.trim().isEmpty) {
@@ -930,7 +1112,22 @@ class ProductFormController extends GetxController {
       }
     }
 
+    // ✅ NUEVO: Poblar campos de facturación electrónica
+    _selectedTaxCategory.value = product.taxCategory;
+    taxRateController.text = product.taxRate.toString();
+    _isTaxable.value = product.isTaxable;
+    taxDescriptionController.text = product.taxDescription ?? '';
+    _selectedRetentionCategory.value = product.retentionCategory;
+    retentionRateController.text = product.retentionRate?.toString() ?? '0';
+    _hasRetention.value = product.hasRetention;
+
     print('✅ ProductFormController: Formulario poblado exitosamente');
+    print('💰 Impuestos cargados: ${product.taxCategory.displayName} (${product.taxRate}%)');
+    if (product.hasRetention && product.retentionCategory != null) {
+      print(
+        '💰 Retención cargada: ${product.retentionCategory!.displayName} (${product.retentionRate}%)',
+      );
+    }
   }
 
   /// Construir lista de precios
@@ -1321,6 +1518,17 @@ class ProductFormController extends GetxController {
     price3Controller.clear();
     specialPriceController.clear();
     costPriceController.clear();
+
+    // Limpiar controladores de facturación electrónica
+    taxRateController.text = '19';
+    taxDescriptionController.clear();
+    retentionRateController.text = '0';
+
+    // Restablecer valores por defecto
+    _selectedTaxCategory.value = TaxCategory.iva;
+    _isTaxable.value = true;
+    _hasRetention.value = false;
+    _selectedRetentionCategory.value = null;
   }
 
   /// Flag para controlar disposal múltiple
@@ -1329,10 +1537,12 @@ class ProductFormController extends GetxController {
   /// Disponer controladores de forma segura
   void _disposeControllers() {
     if (_controllersDisposed) {
-      print('⚠️ ProductFormController: Controladores ya liberados, omitiendo...');
+      print(
+        '⚠️ ProductFormController: Controladores ya liberados, omitiendo...',
+      );
       return;
     }
-    
+
     try {
       _controllersDisposed = true;
       final controllers = [
@@ -1352,12 +1562,17 @@ class ProductFormController extends GetxController {
         price3Controller,
         specialPriceController,
         costPriceController,
+        // Controladores de facturación electrónica
+        taxRateController,
+        taxDescriptionController,
+        retentionRateController,
       ];
 
       for (final controller in controllers) {
         try {
           // ✅ CORREGIDO: Verificación segura usando acceso a propiedades
-          final _ = controller.text; // Esto lanzará excepción si ya está dispuesto
+          final _ =
+              controller.text; // Esto lanzará excepción si ya está dispuesto
           controller.dispose();
         } catch (e) {
           // Si el controller ya está dispuesto o hay otro error, simplemente continuar

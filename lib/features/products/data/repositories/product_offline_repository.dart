@@ -1,4 +1,5 @@
 // lib/features/products/data/repositories/product_offline_repository.dart
+import 'package:baudex_desktop/features/products/domain/entities/tax_enums.dart';
 import 'package:dartz/dartz.dart';
 // import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
@@ -14,7 +15,7 @@ import '../../domain/repositories/product_repository.dart';
 // import '../models/isar/isar_product.dart';
 
 /// Implementación stub del repositorio de productos
-/// 
+///
 /// Esta es una implementación temporal que compila sin errores
 /// mientras se resuelven los problemas de generación de código ISAR
 class ProductOfflineRepository implements ProductRepository {
@@ -103,7 +104,6 @@ class ProductOfflineRepository implements ProductRepository {
     }
   }
 
-
   // ==================== WRITE OPERATIONS ====================
 
   @override
@@ -125,6 +125,14 @@ class ProductOfflineRepository implements ProductRepository {
     Map<String, dynamic>? metadata,
     required String categoryId,
     List<CreateProductPriceParams>? prices,
+    // Campos de facturación electrónica
+    TaxCategory? taxCategory,
+    double? taxRate,
+    bool? isTaxable,
+    String? taxDescription,
+    RetentionCategory? retentionCategory,
+    double? retentionRate,
+    bool? hasRetention,
   }) async {
     return Left(ServerFailure('Stub implementation - Create not supported'));
   }
@@ -149,6 +157,14 @@ class ProductOfflineRepository implements ProductRepository {
     Map<String, dynamic>? metadata,
     String? categoryId,
     List<CreateProductPriceParams>? prices,
+    // Campos de facturación electrónica
+    TaxCategory? taxCategory,
+    double? taxRate,
+    bool? isTaxable,
+    String? taxDescription,
+    RetentionCategory? retentionCategory,
+    double? retentionRate,
+    bool? hasRetention,
   }) async {
     return Left(ServerFailure('Stub implementation - Update not supported'));
   }
@@ -213,7 +229,9 @@ class ProductOfflineRepository implements ProductRepository {
     required String productId,
     required double quantity,
   }) async {
-    return Left(ServerFailure('Stub implementation - Stock reduction not supported'));
+    return Left(
+      ServerFailure('Stub implementation - Stock reduction not supported'),
+    );
   }
 
   // ==================== SEARCH OPERATIONS ====================
@@ -230,7 +248,6 @@ class ProductOfflineRepository implements ProductRepository {
     }
   }
 
-
   // ==================== STATISTICS OPERATIONS ====================
 
   @override
@@ -246,17 +263,12 @@ class ProductOfflineRepository implements ProductRepository {
         totalValue: 0.0,
         averagePrice: 0.0,
       );
-      
+
       return Right(stats);
     } catch (e) {
       return Left(CacheFailure('Stub implementation: ${e.toString()}'));
     }
   }
-
-
-
-
-
 
   // ==================== CACHE OPERATIONS ====================
 

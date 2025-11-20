@@ -54,7 +54,7 @@ class InvoiceInventoryService extends GetxService {
         Get.snackbar(
           'Inventario Actualizado',
           'Stock descontado automáticamente según configuración FIFO',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       } else {
         print('⚠️ Algunos items no pudieron ser procesados en inventario');
@@ -63,7 +63,7 @@ class InvoiceInventoryService extends GetxService {
         Get.snackbar(
           'Inventario Parcialmente Procesado',
           'Algunos productos no pudieron ser descontados del stock',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
         );
       }
 
@@ -75,7 +75,7 @@ class InvoiceInventoryService extends GetxService {
       Get.snackbar(
         'Error en Inventario',
         'No se pudo procesar el descuento de inventario: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
       );
 
       return false;

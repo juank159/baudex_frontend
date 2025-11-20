@@ -34,8 +34,11 @@ class ApiInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
+    // Verificar si se debe saltar el interceptor de auth para esta request
+    final skipAuthInterceptor = err.requestOptions.extra['skip_auth_interceptor'] == true;
+    
     // Manejo específico para token expirado (401)
-    if (err.response?.statusCode == 401) {
+    if (err.response?.statusCode == 401 && !skipAuthInterceptor) {
       final refreshToken = await _storageService.getRefreshToken();
 
       if (refreshToken != null) {

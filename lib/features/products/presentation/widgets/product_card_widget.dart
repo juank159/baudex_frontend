@@ -1,9 +1,7 @@
 // lib/features/products/presentation/widgets/product_card_widget.dart
 import 'package:flutter/material.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
-import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
-import '../../../../app/shared/widgets/custom_button.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
 

@@ -1,6 +1,5 @@
 // lib/features/products/presentation/widgets/product_stats_widget.dart
 import 'package:flutter/material.dart';
-import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../domain/entities/product_stats.dart';
 

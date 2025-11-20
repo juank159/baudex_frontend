@@ -43,7 +43,7 @@ class SupplierDetailController extends GetxController {
     // Obtener el ID del proveedor desde los argumentos o parámetros de ruta
     final args = Get.arguments as Map<String, dynamic>?;
     final paramId = Get.parameters['id'];
-    
+
     if (args != null && args.containsKey('supplierId')) {
       supplierId.value = args['supplierId'] as String;
     } else if (paramId != null) {
@@ -72,7 +72,7 @@ class SupplierDetailController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -86,7 +86,7 @@ class SupplierDetailController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -107,9 +107,10 @@ class SupplierDetailController extends GetxController {
     try {
       isUpdatingStatus.value = true;
 
-      final newStatus = supplier.value!.status == SupplierStatus.active
-          ? SupplierStatus.inactive
-          : SupplierStatus.active;
+      final newStatus =
+          supplier.value!.status == SupplierStatus.active
+              ? SupplierStatus.inactive
+              : SupplierStatus.active;
 
       final params = UpdateSupplierParams(
         id: supplier.value!.id,
@@ -123,22 +124,23 @@ class SupplierDetailController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
         },
         (updatedSupplier) {
           supplier.value = updatedSupplier;
-          
-          final statusText = updatedSupplier.status == SupplierStatus.active 
-              ? 'activado' 
-              : 'desactivado';
-          
+
+          final statusText =
+              updatedSupplier.status == SupplierStatus.active
+                  ? 'activado'
+                  : 'desactivado';
+
           Get.snackbar(
             'Éxito',
             'Proveedor $statusText correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -148,7 +150,7 @@ class SupplierDetailController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -187,7 +189,7 @@ class SupplierDetailController extends GetxController {
 
       if (result == true) {
         isDeleting.value = true;
-        
+
         final deleteResult = await deleteSupplierUseCase(supplier.value!.id);
 
         deleteResult.fold(
@@ -195,7 +197,7 @@ class SupplierDetailController extends GetxController {
             Get.snackbar(
               'Error',
               failure.message,
-              snackPosition: SnackPosition.BOTTOM,
+              snackPosition: SnackPosition.TOP,
               backgroundColor: Colors.red.shade100,
               colorText: Colors.red.shade800,
             );
@@ -204,11 +206,11 @@ class SupplierDetailController extends GetxController {
             Get.snackbar(
               'Éxito',
               'Proveedor eliminado correctamente',
-              snackPosition: SnackPosition.BOTTOM,
+              snackPosition: SnackPosition.TOP,
               backgroundColor: Colors.green.shade100,
               colorText: Colors.green.shade800,
             );
-            
+
             // Volver a la lista
             Get.back(result: true);
           },
@@ -218,7 +220,7 @@ class SupplierDetailController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -301,7 +303,7 @@ class SupplierDetailController extends GetxController {
 
   String getDocumentTypeText(DocumentType? type) {
     if (type == null) return 'Sin documento';
-    
+
     switch (type) {
       case DocumentType.nit:
         return 'NIT';
@@ -341,7 +343,7 @@ class SupplierDetailController extends GetxController {
     Get.snackbar(
       'Función no disponible',
       'La función de llamadas será implementada próximamente',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -350,7 +352,7 @@ class SupplierDetailController extends GetxController {
     Get.snackbar(
       'Función no disponible',
       'La función de email será implementada próximamente',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -359,7 +361,7 @@ class SupplierDetailController extends GetxController {
     Get.snackbar(
       'Función no disponible',
       'La función de navegador será implementada próximamente',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -368,7 +370,7 @@ class SupplierDetailController extends GetxController {
     Get.snackbar(
       'Copiado',
       'Texto copiado al portapapeles',
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
     );
@@ -382,20 +384,24 @@ class SupplierDetailController extends GetxController {
 
   bool get canDelete => hasSupplier && !isLoading.value && !isDeleting.value;
 
-  bool get canToggleStatus => hasSupplier && !isLoading.value && !isUpdatingStatus.value;
+  bool get canToggleStatus =>
+      hasSupplier && !isLoading.value && !isUpdatingStatus.value;
 
-  bool get hasContactInfo => hasSupplier && 
-      (supplier.value!.hasEmail || 
-       supplier.value!.hasPhone || 
-       supplier.value!.hasMobile ||
-       supplier.value!.hasAddress);
+  bool get hasContactInfo =>
+      hasSupplier &&
+      (supplier.value!.hasEmail ||
+          supplier.value!.hasPhone ||
+          supplier.value!.hasMobile ||
+          supplier.value!.hasAddress);
 
-  bool get hasCommercialInfo => hasSupplier && 
-      (supplier.value!.hasCreditLimit || 
-       supplier.value!.hasDiscount ||
-       supplier.value!.paymentTermsDays != 30);
+  bool get hasCommercialInfo =>
+      hasSupplier &&
+      (supplier.value!.hasCreditLimit ||
+          supplier.value!.hasDiscount ||
+          supplier.value!.paymentTermsDays != 30);
 
-  String get displayTitle => hasSupplier ? supplier.value!.displayName : 'Proveedor';
+  String get displayTitle =>
+      hasSupplier ? supplier.value!.displayName : 'Proveedor';
 
   List<Map<String, dynamic>> get supplierSummary {
     if (!hasSupplier) return [];
@@ -407,7 +413,8 @@ class SupplierDetailController extends GetxController {
         'color': getStatusColor(supplier.value!.status),
         'icon': getStatusIcon(supplier.value!.status),
       },
-      if (supplier.value!.documentType != null && supplier.value!.documentNumber != null)
+      if (supplier.value!.documentType != null &&
+          supplier.value!.documentNumber != null)
         {
           'label': getDocumentTypeText(supplier.value!.documentType),
           'value': supplier.value!.documentNumber,

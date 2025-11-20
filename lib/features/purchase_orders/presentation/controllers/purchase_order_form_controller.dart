@@ -12,7 +12,8 @@ import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 import 'purchase_orders_controller.dart';
 
-class PurchaseOrderFormController extends GetxController with GetSingleTickerProviderStateMixin {
+class PurchaseOrderFormController extends GetxController
+    with GetSingleTickerProviderStateMixin {
   final CreatePurchaseOrderUseCase createPurchaseOrderUseCase;
   final UpdatePurchaseOrderUseCase updatePurchaseOrderUseCase;
   final GetPurchaseOrderByIdUseCase getPurchaseOrderByIdUseCase;
@@ -59,7 +60,8 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
   final Rx<Supplier?> selectedSupplier = Rx<Supplier?>(null);
   final Rx<PurchaseOrderPriority> priority = PurchaseOrderPriority.medium.obs;
   final Rx<DateTime> orderDate = DateTime.now().obs;
-  final Rx<DateTime> expectedDeliveryDate = DateTime.now().add(const Duration(days: 7)).obs;
+  final Rx<DateTime> expectedDeliveryDate =
+      DateTime.now().add(const Duration(days: 7)).obs;
 
   // Items management
   final RxList<PurchaseOrderItemForm> items = <PurchaseOrderItemForm>[].obs;
@@ -89,7 +91,7 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
       final uniqueId = 'PurchaseOrderForm_${timestamp}_${hashCode.toString()}';
       formKey = GlobalKey<FormState>(debugLabel: uniqueId);
       print('🔑 FormKey único generado: $uniqueId');
-      
+
       _initializeForm();
       _setupFormValidation();
       print('✅ PurchaseOrderFormController inicializado correctamente');
@@ -101,29 +103,31 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
 
   @override
   void onClose() {
-    print('🗑️ PurchaseOrderFormController: Iniciando dispose de controladores...');
-    
+    print(
+      '🗑️ PurchaseOrderFormController: Iniciando dispose de controladores...',
+    );
+
     try {
       // Dispose form key and clear form state
       if (formKey.currentState != null) {
         formKey.currentState?.reset();
       }
       print('🔑 FormKey limpiado');
-      
+
       // Clear all reactive variables
       isLoading.value = false;
       isSaving.value = false;
       error.value = '';
       items.clear();
-      
+
       // Dispose all text controllers
       _disposeControllers();
-      
+
       print('✅ PurchaseOrderFormController: Dispose completado exitosamente');
     } catch (e) {
       print('❌ Error durante dispose: $e');
     }
-    
+
     super.onClose();
   }
 
@@ -133,7 +137,9 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
     // Valores por defecto
     currencyController.text = 'COP';
     orderDateController.text = _formatDate(orderDate.value);
-    expectedDeliveryDateController.text = _formatDate(expectedDeliveryDate.value);
+    expectedDeliveryDateController.text = _formatDate(
+      expectedDeliveryDate.value,
+    );
 
     // Verificar si viene un supplierId preseleccionado
     final args = Get.arguments as Map<String, dynamic>?;
@@ -157,7 +163,7 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
     supplierController.addListener(_validateForm);
     orderDateController.addListener(_validateForm);
     expectedDeliveryDateController.addListener(_validateForm);
-    
+
     // Escuchar cambios en items
     ever(items, (_) => _validateForm());
   }
@@ -167,7 +173,10 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
       // Dispose each controller only if it hasn't been disposed already
       _safeDispose(supplierController, 'supplierController');
       _safeDispose(orderDateController, 'orderDateController');
-      _safeDispose(expectedDeliveryDateController, 'expectedDeliveryDateController');
+      _safeDispose(
+        expectedDeliveryDateController,
+        'expectedDeliveryDateController',
+      );
       _safeDispose(currencyController, 'currencyController');
       _safeDispose(notesController, 'notesController');
       _safeDispose(internalNotesController, 'internalNotesController');
@@ -210,7 +219,7 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -225,7 +234,7 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -239,7 +248,7 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
     selectedSupplierId.value = order.supplierId ?? '';
     selectedSupplierName.value = order.supplierName ?? '';
     supplierController.text = order.supplierName ?? '';
-    
+
     // Crear objeto Supplier básico si tenemos la información
     if (order.supplierId != null && order.supplierName != null) {
       selectedSupplier.value = Supplier(
@@ -256,41 +265,50 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
-      print('📝 Proveedor básico creado para edición: ${order.supplierName!} (${order.supplierId!})');
+      print(
+        '📝 Proveedor básico creado para edición: ${order.supplierName!} (${order.supplierId!})',
+      );
     }
-    
+
     // Poblar prioridad (puede venir del campo priority o metadata)
     priority.value = order.priority ?? PurchaseOrderPriority.medium;
     print('📝 Prioridad cargada: ${priority.value}');
     orderDate.value = order.orderDate ?? DateTime.now();
     expectedDeliveryDate.value = order.expectedDeliveryDate ?? DateTime.now();
     orderDateController.text = _formatDate(order.orderDate ?? DateTime.now());
-    expectedDeliveryDateController.text = _formatDate(order.expectedDeliveryDate ?? DateTime.now());
-    
+    expectedDeliveryDateController.text = _formatDate(
+      order.expectedDeliveryDate ?? DateTime.now(),
+    );
+
     currencyController.text = order.currency ?? 'COP';
     notesController.text = order.notes ?? '';
     internalNotesController.text = order.internalNotes ?? '';
-    
+
     deliveryAddressController.text = order.deliveryAddress ?? '';
     contactPersonController.text = order.contactPerson ?? '';
     contactPhoneController.text = order.contactPhone ?? '';
     contactEmailController.text = order.contactEmail ?? '';
-    
+
     showDeliveryInfo.value = order.hasDeliveryInfo;
-    
+
     // Cargar items
-    items.value = order.items.map((item) => PurchaseOrderItemForm.fromEntity(item)).toList();
+    items.value =
+        order.items
+            .map((item) => PurchaseOrderItemForm.fromEntity(item))
+            .toList();
     print('📝 Items cargados: ${items.length}');
-    
+
     // Calcular totales y validar formulario
     calculateTotals();
     _validateForm();
-    
+
     // Forzar actualización de la UI
     update();
-    
+
     print('✅ Formulario poblado exitosamente para edición:');
-    print('   - Proveedor: ${selectedSupplier.value?.name ?? "No asignado"} (${selectedSupplierId.value})');
+    print(
+      '   - Proveedor: ${selectedSupplier.value?.name ?? "No asignado"} (${selectedSupplierId.value})',
+    );
     print('   - Prioridad: ${priority.value}');
     print('   - Items: ${items.length}');
     print('   - Total: ${totalAmount.value}');
@@ -303,16 +321,17 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
     final hasSupplier = selectedSupplierId.value.isNotEmpty;
     final hasValidDate = orderDate.value.isBefore(expectedDeliveryDate.value);
     final hasItems = items.isNotEmpty && items.any((item) => item.isValid);
-    
+
     isFormValid.value = hasSupplier && hasValidDate && hasItems;
-    
+
     // Validar step actual
     switch (currentStep.value) {
       case 0: // Información básica
         isStepValid.value = hasSupplier && hasValidDate;
         break;
       case 1: // Items
-        isStepValid.value = items.isNotEmpty && items.every((item) => item.isValid);
+        isStepValid.value =
+            items.isNotEmpty && items.every((item) => item.isValid);
         break;
       case 2: // Información adicional
         isStepValid.value = true; // Información adicional es opcional
@@ -374,7 +393,8 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
 
   bool _validateAdditionalInfo() {
     // Validar email si está presente
-    if (contactEmailController.text.isNotEmpty && !GetUtils.isEmail(contactEmailController.text)) {
+    if (contactEmailController.text.isNotEmpty &&
+        !GetUtils.isEmail(contactEmailController.text)) {
       return false;
     }
 
@@ -395,7 +415,12 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
     }
   }
 
-  void updateItemProduct(int index, String productId, String productName, double unitPrice) {
+  void updateItemProduct(
+    int index,
+    String productId,
+    String productName,
+    double unitPrice,
+  ) {
     if (index < items.length) {
       items[index] = items[index].copyWith(
         productId: productId,
@@ -415,7 +440,9 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
       print('🔢 Item actualizado: quantity=${items[index].quantity}');
       calculateTotals();
     } else {
-      print('🔢 ERROR: Index $index fuera de rango (items.length=${items.length})');
+      print(
+        '🔢 ERROR: Index $index fuera de rango (items.length=${items.length})',
+      );
     }
   }
 
@@ -428,7 +455,9 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
 
   void updateItemDiscount(int index, double discountPercentage) {
     if (index < items.length) {
-      items[index] = items[index].copyWith(discountPercentage: discountPercentage);
+      items[index] = items[index].copyWith(
+        discountPercentage: discountPercentage,
+      );
       calculateTotals();
     }
   }
@@ -448,9 +477,11 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
     for (final item in items) {
       if (item.isValid) {
         final itemSubtotal = item.quantity * item.unitPrice;
-        final itemDiscountAmount = itemSubtotal * (item.discountPercentage / 100);
+        final itemDiscountAmount =
+            itemSubtotal * (item.discountPercentage / 100);
         final itemSubtotalAfterDiscount = itemSubtotal - itemDiscountAmount;
-        final itemTaxAmount = itemSubtotalAfterDiscount * (item.taxPercentage / 100);
+        final itemTaxAmount =
+            itemSubtotalAfterDiscount * (item.taxPercentage / 100);
 
         calculatedSubtotal += itemSubtotal;
         calculatedDiscountAmount += itemDiscountAmount;
@@ -461,7 +492,8 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
     subtotal.value = calculatedSubtotal;
     discountAmount.value = calculatedDiscountAmount;
     taxAmount.value = calculatedTaxAmount;
-    totalAmount.value = calculatedSubtotal - calculatedDiscountAmount + calculatedTaxAmount;
+    totalAmount.value =
+        calculatedSubtotal - calculatedDiscountAmount + calculatedTaxAmount;
   }
 
   // ==================== FORM SUBMISSION ====================
@@ -472,13 +504,13 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
     print('📋 formKey valid: ${formKey.currentState?.validate()}');
     print('📋 selectedSupplierId: ${selectedSupplierId.value}');
     print('📋 items count: ${items.length}');
-    
+
     if (!isFormValid.value || !formKey.currentState!.validate()) {
       print('❌ Formulario no válido');
       Get.snackbar(
         'Error',
         'Por favor complete los campos requeridos',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.orange.shade100,
         colorText: Colors.orange.shade800,
       );
@@ -502,7 +534,7 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -513,78 +545,98 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
 
   Future<void> _createPurchaseOrder() async {
     print('🏗️ Construyendo parámetros para crear orden de compra...');
-    
+
     // Debug información del proveedor
     print('🏢 DEBUG PROVEEDOR:');
     print('🏢 selectedSupplierId: "${selectedSupplierId.value}"');
     print('🏢 selectedSupplierName: "${selectedSupplierName.value}"');
-    print('🏢 selectedSupplier: ${selectedSupplier.value?.toString() ?? "null"}');
+    print(
+      '🏢 selectedSupplier: ${selectedSupplier.value?.toString() ?? "null"}',
+    );
     print('🏢 supplierController.text: "${supplierController.text}"');
-    
+
     print('📋 Items totales en la lista: ${items.length}');
-    
+
     // Debug: Mostrar todos los items antes del filtrado
     for (int i = 0; i < items.length; i++) {
       final item = items[i];
-      print('📋 Item $i: productId=${item.productId}, productName=${item.productName}, quantity=${item.quantity}, unitPrice=${item.unitPrice}, isValid=${item.isValid}');
+      print(
+        '📋 Item $i: productId=${item.productId}, productName=${item.productName}, quantity=${item.quantity}, unitPrice=${item.unitPrice}, isValid=${item.isValid}',
+      );
     }
-    
+
     final validItems = items.where((item) => item.isValid).toList();
     print('📋 Items válidos después del filtrado: ${validItems.length}');
-    
+
     // Debug: Mostrar items válidos
     for (int i = 0; i < validItems.length; i++) {
       final item = validItems[i];
-      print('📋 Valid Item $i: productId=${item.productId}, productName=${item.productName}, quantity=${item.quantity}, unitPrice=${item.unitPrice}');
+      print(
+        '📋 Valid Item $i: productId=${item.productId}, productName=${item.productName}, quantity=${item.quantity}, unitPrice=${item.unitPrice}',
+      );
     }
-    
+
     final params = CreatePurchaseOrderParams(
       supplierId: selectedSupplierId.value,
       priority: priority.value,
       orderDate: orderDate.value,
       expectedDeliveryDate: expectedDeliveryDate.value,
-      currency: currencyController.text.trim().isNotEmpty 
-          ? currencyController.text.trim() 
-          : 'COP',
-      items: validItems.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
-        print('📋 Mapeando item $index: productId=${item.productId}, lineNumber=${index + 1}');
-        return item.toCreateParams(lineNumber: index + 1);
-      }).toList(),
-      notes: notesController.text.trim().isNotEmpty 
-          ? notesController.text.trim() 
-          : null,
-      internalNotes: internalNotesController.text.trim().isNotEmpty 
-          ? internalNotesController.text.trim() 
-          : null,
-      deliveryAddress: deliveryAddressController.text.trim().isNotEmpty 
-          ? deliveryAddressController.text.trim() 
-          : null,
-      contactPerson: contactPersonController.text.trim().isNotEmpty 
-          ? contactPersonController.text.trim() 
-          : null,
-      contactPhone: contactPhoneController.text.trim().isNotEmpty 
-          ? contactPhoneController.text.trim() 
-          : null,
-      contactEmail: contactEmailController.text.trim().isNotEmpty 
-          ? contactEmailController.text.trim() 
-          : null,
+      currency:
+          currencyController.text.trim().isNotEmpty
+              ? currencyController.text.trim()
+              : 'COP',
+      items:
+          validItems.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            print(
+              '📋 Mapeando item $index: productId=${item.productId}, lineNumber=${index + 1}',
+            );
+            return item.toCreateParams(lineNumber: index + 1);
+          }).toList(),
+      notes:
+          notesController.text.trim().isNotEmpty
+              ? notesController.text.trim()
+              : null,
+      internalNotes:
+          internalNotesController.text.trim().isNotEmpty
+              ? internalNotesController.text.trim()
+              : null,
+      deliveryAddress:
+          deliveryAddressController.text.trim().isNotEmpty
+              ? deliveryAddressController.text.trim()
+              : null,
+      contactPerson:
+          contactPersonController.text.trim().isNotEmpty
+              ? contactPersonController.text.trim()
+              : null,
+      contactPhone:
+          contactPhoneController.text.trim().isNotEmpty
+              ? contactPhoneController.text.trim()
+              : null,
+      contactEmail:
+          contactEmailController.text.trim().isNotEmpty
+              ? contactEmailController.text.trim()
+              : null,
     );
 
     print('📤 Enviando datos al use case...');
-    print('📋 Params: supplierId=${params.supplierId}, items=${params.items.length}');
-    
+    print(
+      '📋 Params: supplierId=${params.supplierId}, items=${params.items.length}',
+    );
+
     // Debug: Mostrar parámetros finales
     for (int i = 0; i < params.items.length; i++) {
       final item = params.items[i];
-      print('📋 Final Param Item $i: productId=${item.productId}, quantity=${item.quantity}, lineNumber=${item.lineNumber}');
+      print(
+        '📋 Final Param Item $i: productId=${item.productId}, quantity=${item.quantity}, lineNumber=${item.lineNumber}',
+      );
     }
-    
+
     final result = await createPurchaseOrderUseCase(params);
 
     print('🔄 Use case completado, procesando resultado...');
-    
+
     result.fold(
       (failure) {
         print('❌ Error del use case: ${failure.message}');
@@ -592,21 +644,23 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.red.shade100,
           colorText: Colors.red.shade800,
         );
       },
-(createdPurchaseOrder) {
-        print('✅ Orden de compra creada exitosamente: ${createdPurchaseOrder.id}');
+      (createdPurchaseOrder) {
+        print(
+          '✅ Orden de compra creada exitosamente: ${createdPurchaseOrder.id}',
+        );
         Get.snackbar(
           'Éxito',
           'Orden de compra creada correctamente',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.green.shade100,
           colorText: Colors.green.shade800,
         );
-        
+
         // Navegar y actualizar la lista de órdenes de compra
         _navigateToListAndRefresh(createdPurchaseOrder);
       },
@@ -622,28 +676,39 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
       priority: priority.value,
       orderDate: orderDate.value,
       expectedDeliveryDate: expectedDeliveryDate.value,
-      currency: currencyController.text.trim().isNotEmpty 
-          ? currencyController.text.trim() 
-          : 'COP',
-      items: items.where((item) => item.isValid).map((item) => item.toUpdateParams()).toList(),
-      notes: notesController.text.trim().isNotEmpty 
-          ? notesController.text.trim() 
-          : null,
-      internalNotes: internalNotesController.text.trim().isNotEmpty 
-          ? internalNotesController.text.trim() 
-          : null,
-      deliveryAddress: deliveryAddressController.text.trim().isNotEmpty 
-          ? deliveryAddressController.text.trim() 
-          : null,
-      contactPerson: contactPersonController.text.trim().isNotEmpty 
-          ? contactPersonController.text.trim() 
-          : null,
-      contactPhone: contactPhoneController.text.trim().isNotEmpty 
-          ? contactPhoneController.text.trim() 
-          : null,
-      contactEmail: contactEmailController.text.trim().isNotEmpty 
-          ? contactEmailController.text.trim() 
-          : null,
+      currency:
+          currencyController.text.trim().isNotEmpty
+              ? currencyController.text.trim()
+              : 'COP',
+      items:
+          items
+              .where((item) => item.isValid)
+              .map((item) => item.toUpdateParams())
+              .toList(),
+      notes:
+          notesController.text.trim().isNotEmpty
+              ? notesController.text.trim()
+              : null,
+      internalNotes:
+          internalNotesController.text.trim().isNotEmpty
+              ? internalNotesController.text.trim()
+              : null,
+      deliveryAddress:
+          deliveryAddressController.text.trim().isNotEmpty
+              ? deliveryAddressController.text.trim()
+              : null,
+      contactPerson:
+          contactPersonController.text.trim().isNotEmpty
+              ? contactPersonController.text.trim()
+              : null,
+      contactPhone:
+          contactPhoneController.text.trim().isNotEmpty
+              ? contactPhoneController.text.trim()
+              : null,
+      contactEmail:
+          contactEmailController.text.trim().isNotEmpty
+              ? contactEmailController.text.trim()
+              : null,
     );
 
     final result = await updatePurchaseOrderUseCase(params);
@@ -654,7 +719,7 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
         Get.snackbar(
           'Error',
           failure.message,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.red.shade100,
           colorText: Colors.red.shade800,
         );
@@ -663,11 +728,11 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
         Get.snackbar(
           'Éxito',
           'Orden de compra actualizada correctamente',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.green.shade100,
           colorText: Colors.green.shade800,
         );
-        
+
         // Navegar y actualizar la lista de órdenes de compra
         _navigateToListAndRefresh(updatedPurchaseOrder);
       },
@@ -677,32 +742,39 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
   /// Navega a la lista de órdenes de compra y la actualiza para mostrar la nueva orden
   Future<void> _navigateToListAndRefresh(PurchaseOrder createdOrder) async {
     try {
-      print('🔄 Navegando a lista y actualizando con nueva orden: ${createdOrder.id}');
-      
+      print(
+        '🔄 Navegando a lista y actualizando con nueva orden: ${createdOrder.id}',
+      );
+
       // Navegar a la lista con parámetro para indicar que hay una nueva orden
-      Get.offAllNamed('/purchase-orders', parameters: {
-        'newOrderId': createdOrder.id,
-        'action': isEditMode.value ? 'updated' : 'created'
-      });
-      
+      Get.offAllNamed(
+        '/purchase-orders',
+        parameters: {
+          'newOrderId': createdOrder.id,
+          'action': isEditMode.value ? 'updated' : 'created',
+        },
+      );
+
       // Esperar un momento para que la navegación complete
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       // Buscar el controlador de la lista y actualizarla
       if (Get.isRegistered<PurchaseOrdersController>()) {
         final listController = Get.find<PurchaseOrdersController>();
         print('✅ Controlador de lista encontrado, actualizando...');
-        
+
         // Usar el método especializado para actualización después de cambios
         await listController.refreshAfterOrderChange(
-          createdOrder.id, 
-          isUpdate: isEditMode.value
+          createdOrder.id,
+          isUpdate: isEditMode.value,
         );
-        
+
         // Mostrar notificación de éxito personalizada
         _showSuccessNotification(createdOrder);
       } else {
-        print('⚠️ Controlador de lista no encontrado, la lista se actualizará al cargar');
+        print(
+          '⚠️ Controlador de lista no encontrado, la lista se actualizará al cargar',
+        );
         // Como backup, mostrar notificación y la lista se cargará automáticamente
         _showSuccessNotification(createdOrder);
       }
@@ -715,19 +787,22 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.blue.shade50,
         colorText: Colors.blue.shade800,
-        icon: Icon(isEditMode.value ? Icons.edit_note : Icons.add_task, color: Colors.blue),
+        icon: Icon(
+          isEditMode.value ? Icons.edit_note : Icons.add_task,
+          color: Colors.blue,
+        ),
         duration: const Duration(seconds: 4),
       );
     }
   }
-  
+
   /// Muestra una notificación de éxito personalizada
   void _showSuccessNotification(PurchaseOrder order) {
     final isUpdate = isEditMode.value;
     final actionText = isUpdate ? 'actualizada' : 'creada';
     final icon = isUpdate ? Icons.edit_note : Icons.add_task;
     final title = isUpdate ? '📝 Orden Actualizada' : '🎉 ¡Nueva Orden Creada!';
-    
+
     Future.delayed(const Duration(milliseconds: 700), () {
       Get.snackbar(
         title,
@@ -810,32 +885,34 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
 
   void clearForm() {
     formKey.currentState?.reset();
-    
+
     selectedSupplierId.value = '';
     selectedSupplierName.value = '';
     supplierController.clear();
-    
+
     priority.value = PurchaseOrderPriority.medium;
     orderDate.value = DateTime.now();
     expectedDeliveryDate.value = DateTime.now().add(const Duration(days: 7));
     orderDateController.text = _formatDate(orderDate.value);
-    expectedDeliveryDateController.text = _formatDate(expectedDeliveryDate.value);
-    
+    expectedDeliveryDateController.text = _formatDate(
+      expectedDeliveryDate.value,
+    );
+
     currencyController.text = 'COP';
     notesController.clear();
     internalNotesController.clear();
-    
+
     deliveryAddressController.clear();
     contactPersonController.clear();
     contactPhoneController.clear();
     contactEmailController.clear();
-    
+
     items.clear();
     addEmptyItem();
-    
+
     showDeliveryInfo.value = false;
     currentStep.value = 0;
-    
+
     supplierError.value = false;
     orderDateError.value = false;
     expectedDeliveryDateError.value = false;
@@ -862,16 +939,18 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
   // ==================== COMPUTED PROPERTIES ====================
 
   bool get canProceed => isStepValid.value;
-  
-  bool get isLastStep => currentStep.value == 2;
-  
-  bool get isFirstStep => currentStep.value == 0;
-  
-  String get saveButtonText => isEditMode.value ? 'Actualizar' : 'Crear';
-  
-  String get titleText => isEditMode.value ? 'Editar Orden de Compra' : 'Nueva Orden de Compra';
 
-  String get formattedTotal => 'Total: \$${totalAmount.value.toStringAsFixed(2)}';
+  bool get isLastStep => currentStep.value == 2;
+
+  bool get isFirstStep => currentStep.value == 0;
+
+  String get saveButtonText => isEditMode.value ? 'Actualizar' : 'Crear';
+
+  String get titleText =>
+      isEditMode.value ? 'Editar Orden de Compra' : 'Nueva Orden de Compra';
+
+  String get formattedTotal =>
+      'Total: \$${totalAmount.value.toStringAsFixed(2)}';
 
   // ==================== SEARCH METHODS ====================
 
@@ -879,14 +958,11 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
     try {
       final params = SearchSuppliersParams(searchTerm: query, limit: 10);
       final result = await searchSuppliersUseCase(params);
-      
-      return result.fold(
-        (failure) {
-          print('❌ Error buscando proveedores: ${failure.message}');
-          return <Supplier>[];
-        },
-        (suppliers) => suppliers,
-      );
+
+      return result.fold((failure) {
+        print('❌ Error buscando proveedores: ${failure.message}');
+        return <Supplier>[];
+      }, (suppliers) => suppliers);
     } catch (e) {
       print('❌ Error inesperado buscando proveedores: $e');
       return <Supplier>[];
@@ -897,14 +973,11 @@ class PurchaseOrderFormController extends GetxController with GetSingleTickerPro
     try {
       final params = SearchProductsParams(searchTerm: query, limit: 10);
       final result = await searchProductsUseCase(params);
-      
-      return result.fold(
-        (failure) {
-          print('❌ Error buscando productos: ${failure.message}');
-          return <Product>[];
-        },
-        (products) => products,
-      );
+
+      return result.fold((failure) {
+        print('❌ Error buscando productos: ${failure.message}');
+        return <Product>[];
+      }, (products) => products);
     } catch (e) {
       print('❌ Error inesperado buscando productos: $e');
       return <Product>[];

@@ -313,6 +313,7 @@
 
 // lib/features/products/data/models/product_model.dart
 import '../../domain/entities/product.dart';
+import '../../domain/entities/tax_enums.dart';
 import 'product_price_model.dart';
 
 class ProductModel {
@@ -340,6 +341,16 @@ class ProductModel {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // ========== CAMPOS PARA FACTURACIÓN ELECTRÓNICA ==========
+  final String taxCategory;
+  final double taxRate;
+  final bool isTaxable;
+  final String? taxDescription;
+  final String? retentionCategory;
+  final double? retentionRate;
+  final bool hasRetention;
+  // ========== FIN CAMPOS FACTURACIÓN ELECTRÓNICA ==========
+
   const ProductModel({
     required this.id,
     required this.name,
@@ -364,6 +375,13 @@ class ProductModel {
     this.createdBy,
     required this.createdAt,
     required this.updatedAt,
+    this.taxCategory = 'IVA',
+    this.taxRate = 19.0,
+    this.isTaxable = true,
+    this.taxDescription,
+    this.retentionCategory,
+    this.retentionRate,
+    this.hasRetention = false,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -429,6 +447,15 @@ class ProductModel {
             json['updatedAt'] != null
                 ? DateTime.parse(json['updatedAt'] as String)
                 : DateTime.now(),
+        // ✅ CAMPOS DE FACTURACIÓN ELECTRÓNICA
+        taxCategory: json['taxCategory'] as String? ?? 'IVA',
+        taxRate: json['taxRate'] != null ? _parseDouble(json['taxRate']) : 19.0,
+        isTaxable: json['isTaxable'] as bool? ?? true,
+        taxDescription: json['taxDescription'] as String?,
+        retentionCategory: json['retentionCategory'] as String?,
+        retentionRate:
+            json['retentionRate'] != null ? _parseDouble(json['retentionRate']) : null,
+        hasRetention: json['hasRetention'] as bool? ?? false,
       );
     } catch (e, stackTrace) {
       print('❌ Error en ProductModel.fromJson: $e');
@@ -475,6 +502,14 @@ class ProductModel {
       'createdBy': createdBy?.toJson(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      // Campos de facturación electrónica
+      'taxCategory': taxCategory,
+      'taxRate': taxRate,
+      'isTaxable': isTaxable,
+      'taxDescription': taxDescription,
+      'retentionCategory': retentionCategory,
+      'retentionRate': retentionRate,
+      'hasRetention': hasRetention,
     };
   }
 
@@ -504,6 +539,14 @@ class ProductModel {
       createdBy: createdBy?.toEntity(),
       createdAt: createdAt,
       updatedAt: updatedAt,
+      // Mapear campos de facturación electrónica
+      taxCategory: TaxCategory.fromString(taxCategory),
+      taxRate: taxRate,
+      isTaxable: isTaxable,
+      taxDescription: taxDescription,
+      retentionCategory: RetentionCategory.fromString(retentionCategory),
+      retentionRate: retentionRate,
+      hasRetention: hasRetention,
     );
   }
 
@@ -542,6 +585,14 @@ class ProductModel {
               : null,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      // Mapear campos de facturación electrónica desde enum a string
+      taxCategory: product.taxCategory.value,
+      taxRate: product.taxRate,
+      isTaxable: product.isTaxable,
+      taxDescription: product.taxDescription,
+      retentionCategory: product.retentionCategory?.value,
+      retentionRate: product.retentionRate,
+      hasRetention: product.hasRetention,
     );
   }
 

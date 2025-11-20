@@ -78,6 +78,13 @@ class CustomerFormController extends GetxController {
   String? _lastValidatedDocument;
   DocumentType? _lastValidatedDocumentType;
 
+  // ==================== COLLAPSIBLE SECTIONS ====================
+  // Variables para controlar secciones colapsables
+  final showAdditionalInfo = false.obs;
+  final showAdditionalContact = false.obs;
+  final showConfiguration = false.obs;
+  final showFinancial = false.obs;
+
   // ==================== GETTERS ====================
   bool get isLoading => _isLoading.value;
   bool get isLoadingCustomer => _isLoadingCustomer.value;

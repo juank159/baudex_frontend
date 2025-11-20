@@ -1,7 +1,6 @@
 // lib/features/customers/presentation/widgets/customer_filter_widget.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../../domain/entities/customer.dart';

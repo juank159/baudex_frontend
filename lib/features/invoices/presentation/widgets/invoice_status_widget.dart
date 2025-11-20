@@ -20,9 +20,9 @@ class InvoiceStatusWidget extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(isCompact ? 4.0 : 12.0),
       decoration: BoxDecoration(
-        color: _getStatusColor().withOpacity(0.1),
+        color: _getStatusColor().withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _getStatusColor().withOpacity(0.3)),
+        border: Border.all(color: _getStatusColor().withValues(alpha: 0.3)),
       ),
       child:
           isCompact
@@ -92,49 +92,60 @@ class InvoiceStatusWidget extends StatelessWidget {
   Widget _buildFullContent(BuildContext context) {
     return Column(
       children: [
-        Row(
-          children: [
-            Icon(
-              _getStatusIcon(),
-              color: _getStatusColor(),
-              size: isCompact ? 20 : 24,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    invoice.statusDisplayName,
-                    style: TextStyle(
-                      color: _getStatusColor(),
-                      fontWeight: FontWeight.bold,
-                      fontSize: Responsive.getFontSize(
-                        context,
-                        mobile: 16,
-                        tablet: 18,
-                      ),
-                    ),
-                  ),
-                  if (showDescription) ...[
-                    const SizedBox(height: 4),
+        IntrinsicWidth(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _getStatusIcon(),
+                color: _getStatusColor(),
+                size: isCompact ? 20 : 24,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      _getStatusDescription(),
+                      invoice.statusDisplayName,
                       style: TextStyle(
-                        color: _getStatusColor().withOpacity(0.8),
+                        color: _getStatusColor(),
+                        fontWeight: FontWeight.bold,
                         fontSize: Responsive.getFontSize(
                           context,
-                          mobile: 12,
-                          tablet: 14,
+                          mobile: 16,
+                          tablet: 18,
                         ),
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    if (showDescription) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _getStatusDescription(),
+                        style: TextStyle(
+                          color: _getStatusColor().withValues(alpha: 0.8),
+                          fontSize: Responsive.getFontSize(
+                            context,
+                            mobile: 12,
+                            tablet: 14,
+                          ),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            if (invoice.isOverdue) _buildOverdueBadge(context),
-          ],
+              if (invoice.isOverdue) ...[
+                const SizedBox(width: 8),
+                _buildOverdueBadge(context),
+              ],
+            ],
+          ),
         ),
 
         if (invoice.isPartiallyPaid && !isCompact) ...[
@@ -172,13 +183,17 @@ class InvoiceStatusWidget extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisSize: MainAxisSize.max,
           children: [
-            Text(
-              'Progreso de Pago',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                'Progreso de Pago',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             Text(
@@ -200,14 +215,22 @@ class InvoiceStatusWidget extends StatelessWidget {
         const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisSize: MainAxisSize.max,
           children: [
-            Text(
-              'Pagado: \$${invoice.paidAmount.toStringAsFixed(2)}',
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+            Flexible(
+              child: Text(
+                'Pagado: \$${invoice.paidAmount.toStringAsFixed(2)}',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            Text(
-              'Pendiente: \$${invoice.balanceDue.toStringAsFixed(2)}',
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+            Flexible(
+              child: Text(
+                'Pendiente: \$${invoice.balanceDue.toStringAsFixed(2)}',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+              ),
             ),
           ],
         ),

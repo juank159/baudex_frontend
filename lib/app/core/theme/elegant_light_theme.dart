@@ -6,7 +6,10 @@ class ElegantLightTheme {
   static const Color primaryBlue = Color(0xFF2563EB); // Blue 600
   static const Color primaryBlueLight = Color(0xFF3B82F6); // Blue 500
   static const Color primaryBlueDark = Color(0xFF1D4ED8); // Blue 700
-  
+
+  // Colores de acento
+  static const Color accentOrange = Color(0xFFF59E0B); // Amber 500
+
   // Colores de fondo claros
   static const Color backgroundColor = Color(0xFFF8FAFC); // Slate 50
   static const Color surfaceColor = Color(0xFFFFFFFF); // White
@@ -194,7 +197,7 @@ class _ElegantContainerState extends State<ElegantContainer>
                 width: widget.width,
                 height: widget.height,
                 margin: widget.margin,
-                padding: widget.padding ?? const EdgeInsets.all(16),
+                padding: widget.padding ?? const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   gradient: widget.gradient ?? ElegantLightTheme.cardGradient,
                   borderRadius: BorderRadius.circular(16),

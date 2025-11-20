@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class CompactTextField extends StatefulWidget {
   final TextEditingController controller;
@@ -117,8 +118,8 @@ class _CompactTextFieldState extends State<CompactTextField>
                           _isFocused
                               ? primaryColor
                               : widget.enabled
-                              ? Colors.grey.shade700
-                              : Colors.grey.shade400,
+                              ? ElegantLightTheme.textPrimary
+                              : ElegantLightTheme.textTertiary,
                     ),
                     child: Text(widget.label),
                   ),
@@ -183,14 +184,14 @@ class _CompactTextFieldState extends State<CompactTextField>
                   fontWeight: FontWeight.w500,
                   color:
                       widget.enabled
-                          ? Colors.grey.shade800
-                          : Colors.grey.shade400,
+                          ? ElegantLightTheme.textPrimary
+                          : ElegantLightTheme.textTertiary,
                 ),
                 decoration: InputDecoration(
                   hintText: widget.hint,
                   hintStyle: TextStyle(
                     fontSize: isMobile ? 14 : 15,
-                    color: Colors.grey.shade400,
+                    color: ElegantLightTheme.textTertiary,
                     fontWeight: FontWeight.normal,
                   ),
                   border: InputBorder.none,
@@ -206,7 +207,7 @@ class _CompactTextFieldState extends State<CompactTextField>
                               color:
                                   _isFocused || hasValue
                                       ? primaryColor
-                                      : Colors.grey.shade400,
+                                      : ElegantLightTheme.textTertiary,
                             )
                           : null,
                   suffixIcon:
@@ -219,7 +220,7 @@ class _CompactTextFieldState extends State<CompactTextField>
                               color:
                                   _isFocused
                                       ? primaryColor
-                                      : Colors.grey.shade400,
+                                      : ElegantLightTheme.textTertiary,
                             ),
                             style: IconButton.styleFrom(
                               backgroundColor: Colors.transparent,

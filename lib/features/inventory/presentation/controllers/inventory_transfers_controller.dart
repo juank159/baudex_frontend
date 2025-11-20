@@ -70,14 +70,14 @@ class InventoryTransfersController extends GetxController {
     loadTransfers();
     loadWarehouses();
   }
-  
+
   @override
   void onReady() {
     super.onReady();
     // Refresh data when coming back to this controller
     refreshData();
   }
-  
+
   // Public method to refresh data - useful when navigating from creation
   Future<void> refreshData() async {
     await loadTransfers();
@@ -148,10 +148,16 @@ class InventoryTransfersController extends GetxController {
       transfers.value = allTransfers;
 
       // DEBUG: Información detallada de conteo
-      final transferOutCount = allTransfers.where((t) => t.type == InventoryMovementType.transferOut).length;
-      final transferInCount = allTransfers.where((t) => t.type == InventoryMovementType.transferIn).length;
+      final transferOutCount =
+          allTransfers
+              .where((t) => t.type == InventoryMovementType.transferOut)
+              .length;
+      final transferInCount =
+          allTransfers
+              .where((t) => t.type == InventoryMovementType.transferIn)
+              .length;
       final grouped = _groupRelatedTransfers(allTransfers);
-      
+
       print('✅ TRANSFERENCIAS CARGADAS:');
       print('   • Total raw: ${allTransfers.length}');
       print('   • TransferOut: $transferOutCount');
@@ -165,7 +171,7 @@ class InventoryTransfersController extends GetxController {
       Get.snackbar(
         'Error al cargar transferencias',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -206,12 +212,16 @@ class InventoryTransfersController extends GetxController {
     try {
       isCreating.value = true;
 
-      print('🔍 DEBUG: Creando transferencia con ${transferItems.length} productos:');
+      print(
+        '🔍 DEBUG: Creando transferencia con ${transferItems.length} productos:',
+      );
       for (int i = 0; i < transferItems.length; i++) {
         final item = transferItems[i];
-        print('   ${i + 1}. Producto ID: ${item.productId}, Cantidad: ${item.quantity}');
+        print(
+          '   ${i + 1}. Producto ID: ${item.productId}, Cantidad: ${item.quantity}',
+        );
       }
-      
+
       final request = CreateInventoryTransferParams(
         items: transferItems.toList(),
         fromWarehouseId: selectedFromWarehouseId.value,
@@ -229,7 +239,7 @@ class InventoryTransfersController extends GetxController {
           Get.snackbar(
             'Error al crear transferencia',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -238,10 +248,10 @@ class InventoryTransfersController extends GetxController {
           final productCount = transferItems.length;
           Get.snackbar(
             'Transferencia creada',
-            productCount == 1 
-              ? 'La transferencia fue creada exitosamente'
-              : 'Se crearon $productCount transferencias exitosamente (una por producto)',
-            snackPosition: SnackPosition.BOTTOM,
+            productCount == 1
+                ? 'La transferencia fue creada exitosamente'
+                : 'Se crearon $productCount transferencias exitosamente (una por producto)',
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -253,7 +263,7 @@ class InventoryTransfersController extends GetxController {
       Get.snackbar(
         'Error al crear transferencia',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -271,7 +281,7 @@ class InventoryTransfersController extends GetxController {
           Get.snackbar(
             'Error al confirmar transferencia',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -280,7 +290,7 @@ class InventoryTransfersController extends GetxController {
           Get.snackbar(
             'Transferencia confirmada',
             'La transferencia fue confirmada exitosamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -291,7 +301,7 @@ class InventoryTransfersController extends GetxController {
       Get.snackbar(
         'Error al confirmar transferencia',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -323,7 +333,7 @@ class InventoryTransfersController extends GetxController {
       Get.snackbar(
         'Producto actualizado',
         'Cantidad actualizada para este producto',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.blue.shade100,
         colorText: Colors.blue.shade800,
       );
@@ -340,7 +350,7 @@ class InventoryTransfersController extends GetxController {
       Get.snackbar(
         'Producto agregado',
         'Producto agregado a la transferencia',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
       );
@@ -356,7 +366,7 @@ class InventoryTransfersController extends GetxController {
       Get.snackbar(
         'Producto eliminado',
         'Producto eliminado de la transferencia',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.orange.shade100,
         colorText: Colors.orange.shade800,
       );
@@ -486,7 +496,7 @@ class InventoryTransfersController extends GetxController {
           Get.snackbar(
             'Error',
             failure.message,
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.red.shade100,
             colorText: Colors.red.shade800,
           );
@@ -495,7 +505,7 @@ class InventoryTransfersController extends GetxController {
           Get.snackbar(
             'Éxito',
             'Transferencia cancelada correctamente',
-            snackPosition: SnackPosition.BOTTOM,
+            snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
@@ -508,7 +518,7 @@ class InventoryTransfersController extends GetxController {
       Get.snackbar(
         'Error',
         'Error inesperado: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -555,7 +565,7 @@ class InventoryTransfersController extends GetxController {
 
   bool get hasTransfers => transfers.isNotEmpty;
   bool get hasError => error.value.isNotEmpty;
-  
+
   // CONTADORES CORREGIDOS: usar datos agrupados para consistencia con las cards
   int get totalTransfers {
     if (transfers.isEmpty) return 0;
@@ -591,7 +601,8 @@ class InventoryTransfersController extends GetxController {
   int get todayTransfers {
     if (transfers.isEmpty) return 0;
     try {
-      final todayTransfersList = transfers.where((t) => _isToday(t.createdAt)).toList();
+      final todayTransfersList =
+          transfers.where((t) => _isToday(t.createdAt)).toList();
       final grouped = _groupRelatedTransfers(todayTransfersList);
       return grouped.length;
     } catch (e) {
@@ -605,24 +616,35 @@ class InventoryTransfersController extends GetxController {
     try {
       final now = DateTime.now();
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-      final weekTransfersList = transfers.where((t) => t.createdAt.isAfter(startOfWeekDay)).toList();
+      final startOfWeekDay = DateTime(
+        startOfWeek.year,
+        startOfWeek.month,
+        startOfWeek.day,
+      );
+      final weekTransfersList =
+          transfers.where((t) => t.createdAt.isAfter(startOfWeekDay)).toList();
       final grouped = _groupRelatedTransfers(weekTransfersList);
-      
+
       print('📋 TRANSFERENCIAS SCREEN - Esta semana:');
       print('   • Desde: ${startOfWeekDay.toIso8601String()}');
       print('   • Hasta: ${now.toIso8601String()}');
       print('   • Transfers raw: ${transfers.length}');
       print('   • Week transfers raw: ${weekTransfersList.length}');
       print('   • Grupos únicos: ${grouped.length}');
-      
+
       return grouped.length;
     } catch (e) {
       print('❌ Error en weekTransfers: $e');
       final now = DateTime.now();
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-      return transfers.where((t) => t.createdAt.isAfter(startOfWeekDay)).length; // Fallback
+      final startOfWeekDay = DateTime(
+        startOfWeek.year,
+        startOfWeek.month,
+        startOfWeek.day,
+      );
+      return transfers
+          .where((t) => t.createdAt.isAfter(startOfWeekDay))
+          .length; // Fallback
     }
   }
 
@@ -631,85 +653,112 @@ class InventoryTransfersController extends GetxController {
     try {
       final now = DateTime.now();
       final startOfMonth = DateTime(now.year, now.month, 1);
-      final monthTransfersList = transfers.where((t) => t.createdAt.isAfter(startOfMonth)).toList();
+      final monthTransfersList =
+          transfers.where((t) => t.createdAt.isAfter(startOfMonth)).toList();
       final grouped = _groupRelatedTransfers(monthTransfersList);
       return grouped.length;
     } catch (e) {
       print('❌ Error en monthTransfers: $e');
       final now = DateTime.now();
       final startOfMonth = DateTime(now.year, now.month, 1);
-      return transfers.where((t) => t.createdAt.isAfter(startOfMonth)).length; // Fallback
+      return transfers
+          .where((t) => t.createdAt.isAfter(startOfMonth))
+          .length; // Fallback
     }
   }
 
   List<dynamic> get filteredTransfers {
     List<InventoryMovement> filtered = transfers;
-    
+
     // Aplicar filtro por rango de fechas
     switch (currentFilter.value) {
       case 'today':
         final today = DateTime.now();
         final startOfDay = DateTime(today.year, today.month, today.day);
-        final endOfDay = DateTime(today.year, today.month, today.day, 23, 59, 59);
-        filtered = transfers.where((t) => 
-          t.createdAt.isAfter(startOfDay) && t.createdAt.isBefore(endOfDay)
-        ).toList();
+        final endOfDay = DateTime(
+          today.year,
+          today.month,
+          today.day,
+          23,
+          59,
+          59,
+        );
+        filtered =
+            transfers
+                .where(
+                  (t) =>
+                      t.createdAt.isAfter(startOfDay) &&
+                      t.createdAt.isBefore(endOfDay),
+                )
+                .toList();
         break;
       case 'week':
         final now = DateTime.now();
         final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-        filtered = transfers.where((t) => t.createdAt.isAfter(startOfWeekDay)).toList();
+        final startOfWeekDay = DateTime(
+          startOfWeek.year,
+          startOfWeek.month,
+          startOfWeek.day,
+        );
+        filtered =
+            transfers
+                .where((t) => t.createdAt.isAfter(startOfWeekDay))
+                .toList();
         break;
       case 'month':
         final now = DateTime.now();
         final startOfMonth = DateTime(now.year, now.month, 1);
-        filtered = transfers.where((t) => t.createdAt.isAfter(startOfMonth)).toList();
+        filtered =
+            transfers.where((t) => t.createdAt.isAfter(startOfMonth)).toList();
         break;
       case 'all':
       default:
         filtered = transfers;
         break;
     }
-    
+
     // Agrupar transferencias relacionadas (múltiples productos)
     return _groupRelatedTransfers(filtered);
   }
-  
+
   List<dynamic> _groupRelatedTransfers(List<InventoryMovement> transfers) {
     // FILTRAR SOLO TRANSFER_OUT para evitar duplicar cantidades
-    final outTransfers = transfers.where((t) => 
-      t.type == InventoryMovementType.transferOut
-    ).toList();
-    
+    final outTransfers =
+        transfers
+            .where((t) => t.type == InventoryMovementType.transferOut)
+            .toList();
+
     final Map<String, List<InventoryMovement>> groupedTransfers = {};
-    
+
     for (final transfer in outTransfers) {
       // Crear clave de agrupación basada en almacenes, fecha y notas
       final groupKey = _generateTransferGroupKey(transfer);
-      
+
       if (!groupedTransfers.containsKey(groupKey)) {
         groupedTransfers[groupKey] = [];
       }
       groupedTransfers[groupKey]!.add(transfer);
     }
-    
+
     // Convertir grupos a formato para la vista
     return groupedTransfers.entries.map((entry) {
       final groupTransfers = entry.value;
-      final mainTransfer = groupTransfers.first; // Usar el primer transfer como principal
-      
+      final mainTransfer =
+          groupTransfers.first; // Usar el primer transfer como principal
+
       // Calcular totales del grupo
       final totalQuantity = groupTransfers.fold<int>(
-        0, (sum, t) => sum + t.quantity,
+        0,
+        (sum, t) => sum + t.quantity,
       );
-      
+
       // Recopilar y unificar detalles de productos (agrupar productos iguales)
       final Map<String, Map<String, dynamic>> unifiedProducts = {};
-      
+
       for (final transfer in groupTransfers) {
-        final productKey = '${transfer.productId}_${transfer.productSku}'; // Clave única por producto
-        
+        final productKey =
+            '${transfer.productId}_${transfer.productSku}'; // Clave única por producto
+
         if (unifiedProducts.containsKey(productKey)) {
           // Producto ya existe, sumar cantidad
           unifiedProducts[productKey]!['quantity'] += transfer.quantity;
@@ -724,9 +773,9 @@ class InventoryTransfersController extends GetxController {
           };
         }
       }
-      
+
       final productDetails = unifiedProducts.values.toList();
-      
+
       // Debug log para verificar unificación
       print('🔍 AGRUPAMIENTO DEBUG:');
       print('   • Transfer_out agrupados: ${groupTransfers.length}');
@@ -735,15 +784,20 @@ class InventoryTransfersController extends GetxController {
       for (final product in productDetails) {
         print('   • ${product['name']}: ${product['quantity']} unidades');
       }
-      
+
       return {
         'id': mainTransfer.id,
         'groupKey': entry.key, // Para identificar el grupo
         'status': mainTransfer.status.name,
         'createdAt': mainTransfer.createdAt.toIso8601String(),
-        'fromWarehouse': {'name': _getWarehouseNameFromTransfer(mainTransfer, isOrigin: true)},
-        'toWarehouse': {'name': _getWarehouseNameFromTransfer(mainTransfer, isOrigin: false)},
-        'totalProducts': unifiedProducts.length, // Número real de productos únicos
+        'fromWarehouse': {
+          'name': _getWarehouseNameFromTransfer(mainTransfer, isOrigin: true),
+        },
+        'toWarehouse': {
+          'name': _getWarehouseNameFromTransfer(mainTransfer, isOrigin: false),
+        },
+        'totalProducts':
+            unifiedProducts.length, // Número real de productos únicos
         'totalQuantity': totalQuantity, // Suma de todas las cantidades
         'productDetails': productDetails, // Lista de todos los productos
         'notes': mainTransfer.notes,
@@ -751,16 +805,25 @@ class InventoryTransfersController extends GetxController {
       };
     }).toList();
   }
-  
+
   String _generateTransferGroupKey(InventoryMovement transfer) {
     // Agrupar por: almacenes + ventana de tiempo (mismo minuto) + notas similares
-    final fromWarehouse = _getWarehouseNameFromTransfer(transfer, isOrigin: true);
-    final toWarehouse = _getWarehouseNameFromTransfer(transfer, isOrigin: false);
-    final timeWindow = transfer.createdAt.millisecondsSinceEpoch ~/ 60000; // Ventana de 1 minuto
-    final notesKey = transfer.notes?.contains('Transfer between warehouses') == true
-        ? 'batch_transfer' // Agrupar transferencias automáticas
-        : transfer.notes ?? 'no_notes';
-    
+    final fromWarehouse = _getWarehouseNameFromTransfer(
+      transfer,
+      isOrigin: true,
+    );
+    final toWarehouse = _getWarehouseNameFromTransfer(
+      transfer,
+      isOrigin: false,
+    );
+    final timeWindow =
+        transfer.createdAt.millisecondsSinceEpoch ~/
+        60000; // Ventana de 1 minuto
+    final notesKey =
+        transfer.notes?.contains('Transfer between warehouses') == true
+            ? 'batch_transfer' // Agrupar transferencias automáticas
+            : transfer.notes ?? 'no_notes';
+
     return '${fromWarehouse}_${toWarehouse}_${timeWindow}_${notesKey}';
   }
 
@@ -771,10 +834,15 @@ class InventoryTransfersController extends GetxController {
     update();
   }
 
-  String _getWarehouseNameFromTransfer(InventoryMovement transfer, {required bool isOrigin}) {
+  String _getWarehouseNameFromTransfer(
+    InventoryMovement transfer, {
+    required bool isOrigin,
+  }) {
     try {
       // Primero intentar usar el warehouseName directo si está disponible
-      if (isOrigin && transfer.warehouseName != null && transfer.warehouseName!.isNotEmpty) {
+      if (isOrigin &&
+          transfer.warehouseName != null &&
+          transfer.warehouseName!.isNotEmpty) {
         return transfer.warehouseName!;
       }
 
@@ -795,7 +863,9 @@ class InventoryTransfersController extends GetxController {
 
       // Buscar en la lista de almacenes
       if (warehouseId != null && warehouses.isNotEmpty) {
-        final warehouse = warehouses.firstWhereOrNull((w) => w.id == warehouseId);
+        final warehouse = warehouses.firstWhereOrNull(
+          (w) => w.id == warehouseId,
+        );
         if (warehouse != null) {
           return warehouse.name;
         }
@@ -821,9 +891,12 @@ class InventoryTransfersController extends GetxController {
   Future<void> exportTransfersToExcel() async {
     try {
       final filteredData = _getFilteredTransfersForExport();
-      
+
       if (filteredData.isEmpty) {
-        Get.snackbar('Sin datos', 'No hay transferencias para compartir con el filtro aplicado');
+        Get.snackbar(
+          'Sin datos',
+          'No hay transferencias para compartir con el filtro aplicado',
+        );
         return;
       }
 
@@ -840,14 +913,20 @@ class InventoryTransfersController extends GetxController {
   Future<void> downloadTransfersToExcel() async {
     try {
       final filteredData = _getFilteredTransfersForExport();
-      
+
       if (filteredData.isEmpty) {
-        Get.snackbar('Sin datos', 'No hay transferencias para descargar con el filtro aplicado');
+        Get.snackbar(
+          'Sin datos',
+          'No hay transferencias para descargar con el filtro aplicado',
+        );
         return;
       }
 
       isLoading.value = true;
-      final filePath = await InventoryExportService.downloadMovementsToExcel(filteredData, warehouses: warehouses);
+      final filePath = await InventoryExportService.downloadMovementsToExcel(
+        filteredData,
+        warehouses: warehouses,
+      );
 
       final fileName = filePath.split('/').last;
       Get.snackbar(
@@ -878,9 +957,12 @@ class InventoryTransfersController extends GetxController {
   Future<void> exportTransfersToPdf() async {
     try {
       final filteredData = _getFilteredTransfersForExport();
-      
+
       if (filteredData.isEmpty) {
-        Get.snackbar('Sin datos', 'No hay transferencias para compartir con el filtro aplicado');
+        Get.snackbar(
+          'Sin datos',
+          'No hay transferencias para compartir con el filtro aplicado',
+        );
         return;
       }
 
@@ -897,14 +979,20 @@ class InventoryTransfersController extends GetxController {
   Future<void> downloadTransfersToPdf() async {
     try {
       final filteredData = _getFilteredTransfersForExport();
-      
+
       if (filteredData.isEmpty) {
-        Get.snackbar('Sin datos', 'No hay transferencias para descargar con el filtro aplicado');
+        Get.snackbar(
+          'Sin datos',
+          'No hay transferencias para descargar con el filtro aplicado',
+        );
         return;
       }
 
       isLoading.value = true;
-      final filePath = await InventoryExportService.downloadMovementsToPDF(filteredData, warehouses: warehouses);
+      final filePath = await InventoryExportService.downloadMovementsToPDF(
+        filteredData,
+        warehouses: warehouses,
+      );
 
       final fileName = filePath.split('/').last;
       Get.snackbar(
@@ -934,34 +1022,54 @@ class InventoryTransfersController extends GetxController {
 
   List<InventoryMovement> _getFilteredTransfersForExport() {
     List<InventoryMovement> filtered = transfers;
-    
+
     // Aplicar filtro por rango de fechas
     switch (currentFilter.value) {
       case 'today':
         final today = DateTime.now();
         final startOfDay = DateTime(today.year, today.month, today.day);
-        final endOfDay = DateTime(today.year, today.month, today.day, 23, 59, 59);
-        filtered = transfers.where((t) => 
-          t.createdAt.isAfter(startOfDay) && t.createdAt.isBefore(endOfDay)
-        ).toList();
+        final endOfDay = DateTime(
+          today.year,
+          today.month,
+          today.day,
+          23,
+          59,
+          59,
+        );
+        filtered =
+            transfers
+                .where(
+                  (t) =>
+                      t.createdAt.isAfter(startOfDay) &&
+                      t.createdAt.isBefore(endOfDay),
+                )
+                .toList();
         break;
       case 'week':
         final now = DateTime.now();
         final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-        filtered = transfers.where((t) => t.createdAt.isAfter(startOfWeekDay)).toList();
+        final startOfWeekDay = DateTime(
+          startOfWeek.year,
+          startOfWeek.month,
+          startOfWeek.day,
+        );
+        filtered =
+            transfers
+                .where((t) => t.createdAt.isAfter(startOfWeekDay))
+                .toList();
         break;
       case 'month':
         final now = DateTime.now();
         final startOfMonth = DateTime(now.year, now.month, 1);
-        filtered = transfers.where((t) => t.createdAt.isAfter(startOfMonth)).toList();
+        filtered =
+            transfers.where((t) => t.createdAt.isAfter(startOfMonth)).toList();
         break;
       case 'all':
       default:
         filtered = transfers;
         break;
     }
-    
+
     return filtered;
   }
 
