@@ -206,7 +206,7 @@ class UpdateProductPriceRequestModel {
 
   Map<String, dynamic> toJson() {
     print(
-      '🔄 UpdateProductPriceRequestModel.toJson(): Procesando precio ${type}',
+      '🔄 UpdateProductPriceRequestModel.toJson(): Procesando precio $type',
     );
 
     final json = <String, dynamic>{'type': type, 'amount': amount};
@@ -220,8 +220,9 @@ class UpdateProductPriceRequestModel {
 
     if (name != null) json['name'] = name;
     if (currency != null) json['currency'] = currency;
-    if (discountPercentage != null)
+    if (discountPercentage != null) {
       json['discountPercentage'] = discountPercentage;
+    }
     if (discountAmount != null) json['discountAmount'] = discountAmount;
     if (minQuantity != null) json['minQuantity'] = minQuantity;
     if (notes != null) json['notes'] = notes;
@@ -387,7 +388,8 @@ class UpdateProductRequestModel {
     if (taxRate != null) json['taxRate'] = taxRate;
     if (isTaxable != null) json['isTaxable'] = isTaxable;
     if (taxDescription != null) json['taxDescription'] = taxDescription;
-    if (retentionCategory != null) json['retentionCategory'] = retentionCategory;
+    if (retentionCategory != null)
+      json['retentionCategory'] = retentionCategory;
     if (retentionRate != null) json['retentionRate'] = retentionRate;
     if (hasRetention != null) json['hasRetention'] = hasRetention;
 

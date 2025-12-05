@@ -424,20 +424,18 @@ class FuturisticPurchaseOrderDetailScreen
               ),
             ),
             const SizedBox(height: 20),
-            ...controller.purchaseOrderSummary
-                .map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _buildInfoRow(
-                      item['label'],
-                      item['value'],
-                      item['icon'],
-                      item['color'],
-                      item['action'],
-                    ),
-                  ),
-                )
-                .toList(),
+            ...controller.purchaseOrderSummary.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildInfoRow(
+                  item['label'],
+                  item['value'],
+                  item['icon'],
+                  item['color'],
+                  item['action'],
+                ),
+              ),
+            ),
           ],
         );
       }),

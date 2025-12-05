@@ -3,7 +3,6 @@ import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:printing/printing.dart';
-import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
@@ -12,7 +11,6 @@ import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/invoice_print_controller.dart';
 import '../controllers/invoice_detail_controller.dart';
 import '../bindings/invoice_binding.dart';
-import '../../domain/entities/invoice.dart';
 
 class InvoicePrintScreen extends StatelessWidget {
   const InvoicePrintScreen({super.key});

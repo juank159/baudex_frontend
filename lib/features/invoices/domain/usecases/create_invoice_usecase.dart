@@ -25,6 +25,7 @@ class CreateInvoiceUseCase implements UseCase<Invoice, CreateInvoiceParams> {
       notes: params.notes,
       terms: params.terms,
       metadata: params.metadata,
+      bankAccountId: params.bankAccountId,
     );
   }
 }
@@ -43,6 +44,7 @@ class CreateInvoiceParams {
   final String? notes;
   final String? terms;
   final Map<String, dynamic>? metadata;
+  final String? bankAccountId; // 🏦 ID de la cuenta bancaria para registrar el pago
 
   const CreateInvoiceParams({
     required this.customerId,
@@ -58,5 +60,6 @@ class CreateInvoiceParams {
     this.notes,
     this.terms,
     this.metadata,
+    this.bankAccountId,
   });
 }

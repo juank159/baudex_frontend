@@ -37,18 +37,28 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final remoteMovements = await remoteDataSource.getMovements(params);
         // Cache successful result
         await localDataSource.cacheMovements(params, remoteMovements);
-        return Right(core.PaginatedResult(
-          data: remoteMovements.data.map((model) => model.toEntity()).toList(),
-          meta: remoteMovements.meta,
-        ));
+        return Right(
+          core.PaginatedResult(
+            data:
+                remoteMovements.data.map((model) => model.toEntity()).toList(),
+            meta: remoteMovements.meta,
+          ),
+        );
       } else {
         // Try to get from cache when offline
-        final cachedMovements = await localDataSource.getCachedMovements(params);
+        final cachedMovements = await localDataSource.getCachedMovements(
+          params,
+        );
         if (cachedMovements != null) {
-          return Right(core.PaginatedResult(
-            data: cachedMovements.data.map((model) => model.toEntity()).toList(),
-            meta: cachedMovements.meta,
-          ));
+          return Right(
+            core.PaginatedResult(
+              data:
+                  cachedMovements.data
+                      .map((model) => model.toEntity())
+                      .toList(),
+              meta: cachedMovements.meta,
+            ),
+          );
         }
         return Left(NetworkFailure('Sin conexión y sin datos en cache'));
       }
@@ -56,12 +66,17 @@ class InventoryRepositoryImpl implements InventoryRepository {
       // Try cache as fallback
       final cachedMovements = await localDataSource.getCachedMovements(params);
       if (cachedMovements != null) {
-        return Right(core.PaginatedResult(
-          data: cachedMovements.data.map((model) => model.toEntity()).toList(),
-          meta: cachedMovements.meta,
-        ));
+        return Right(
+          core.PaginatedResult(
+            data:
+                cachedMovements.data.map((model) => model.toEntity()).toList(),
+            meta: cachedMovements.meta,
+          ),
+        );
       }
-      return Left(ServerFailure('Error al obtener movimientos: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al obtener movimientos: ${e.toString()}'),
+      );
     }
   }
 
@@ -87,7 +102,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
       if (cachedMovement != null) {
         return Right(cachedMovement.toEntity());
       }
-      return Left(ServerFailure('Error al obtener movimiento: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al obtener movimiento: ${e.toString()}'),
+      );
     }
   }
 
@@ -96,19 +113,21 @@ class InventoryRepositoryImpl implements InventoryRepository {
     CreateInventoryMovementParams params,
   ) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para crear movimientos'));
+      return Left(
+        NetworkFailure('Se requiere conexión para crear movimientos'),
+      );
     }
 
     try {
       final request = CreateInventoryMovementRequest.fromParams(params);
       final movement = await remoteDataSource.createMovement(request);
-      
+
       // Cache the new movement
       await localDataSource.cacheMovement(movement);
-      
+
       // Clear movements cache to force refresh on next fetch
       await localDataSource.clearMovementsCache();
-      
+
       return Right(movement.toEntity());
     } catch (e) {
       return Left(ServerFailure('Error al crear movimiento: ${e.toString()}'));
@@ -120,83 +139,102 @@ class InventoryRepositoryImpl implements InventoryRepository {
     UpdateInventoryMovementParams params,
   ) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para actualizar movimientos'));
+      return Left(
+        NetworkFailure('Se requiere conexión para actualizar movimientos'),
+      );
     }
 
     try {
       final request = UpdateInventoryMovementRequest.fromParams(params);
-      final movement = await remoteDataSource.updateMovement(params.id, request);
-      
+      final movement = await remoteDataSource.updateMovement(
+        params.id,
+        request,
+      );
+
       // Cache the updated movement
       await localDataSource.cacheMovement(movement);
-      
+
       // Clear movements cache to force refresh on next fetch
       await localDataSource.clearMovementsCache();
-      
+
       return Right(movement.toEntity());
     } catch (e) {
-      return Left(ServerFailure('Error al actualizar movimiento: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al actualizar movimiento: ${e.toString()}'),
+      );
     }
   }
 
   @override
   Future<Either<Failure, void>> deleteMovement(String id) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para eliminar movimientos'));
+      return Left(
+        NetworkFailure('Se requiere conexión para eliminar movimientos'),
+      );
     }
 
     try {
       await remoteDataSource.deleteMovement(id);
-      
+
       // Clear related caches
       await localDataSource.clearMovementsCache();
-      
+
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure('Error al eliminar movimiento: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al eliminar movimiento: ${e.toString()}'),
+      );
     }
   }
 
   @override
   Future<Either<Failure, InventoryMovement>> confirmMovement(String id) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para confirmar movimientos'));
+      return Left(
+        NetworkFailure('Se requiere conexión para confirmar movimientos'),
+      );
     }
 
     try {
       final movement = await remoteDataSource.confirmMovement(id);
-      
+
       // Cache the confirmed movement
       await localDataSource.cacheMovement(movement);
-      
+
       // Clear caches to force refresh
       await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
-      
+
       return Right(movement.toEntity());
     } catch (e) {
-      return Left(ServerFailure('Error al confirmar movimiento: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al confirmar movimiento: ${e.toString()}'),
+      );
     }
   }
 
   @override
   Future<Either<Failure, InventoryMovement>> cancelMovement(String id) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para cancelar movimientos'));
+      return Left(
+        NetworkFailure('Se requiere conexión para cancelar movimientos'),
+      );
     }
 
     try {
       final movement = await remoteDataSource.cancelMovement(id);
-      
+
       // Cache the cancelled movement
       await localDataSource.cacheMovement(movement);
-      
+
       // Clear movements cache to force refresh
       await localDataSource.clearMovementsCache();
-      
+
       return Right(movement.toEntity());
     } catch (e) {
-      return Left(ServerFailure('Error al cancelar movimiento: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al cancelar movimiento: ${e.toString()}'),
+      );
     }
   }
 
@@ -210,12 +248,16 @@ class InventoryRepositoryImpl implements InventoryRepository {
         return Right(remoteMovements.map((model) => model.toEntity()).toList());
       } else {
         // Try to get from cache when offline
-        final cachedMovements = await localDataSource.searchCachedMovements(params);
+        final cachedMovements = await localDataSource.searchCachedMovements(
+          params,
+        );
         return Right(cachedMovements.map((model) => model.toEntity()).toList());
       }
     } catch (e) {
       // Try cache as fallback
-      final cachedMovements = await localDataSource.searchCachedMovements(params);
+      final cachedMovements = await localDataSource.searchCachedMovements(
+        params,
+      );
       return Right(cachedMovements.map((model) => model.toEntity()).toList());
     }
   }
@@ -229,18 +271,23 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final remoteBalances = await remoteDataSource.getBalances(params);
         // Cache successful result
         await localDataSource.cacheBalances(params, remoteBalances);
-        return Right(core.PaginatedResult(
-          data: remoteBalances.data.map((model) => model.toEntity()).toList(),
-          meta: remoteBalances.meta,
-        ));
+        return Right(
+          core.PaginatedResult(
+            data: remoteBalances.data.map((model) => model.toEntity()).toList(),
+            meta: remoteBalances.meta,
+          ),
+        );
       } else {
         // Try to get from cache when offline
         final cachedBalances = await localDataSource.getCachedBalances(params);
         if (cachedBalances != null) {
-          return Right(core.PaginatedResult(
-            data: cachedBalances.data.map((model) => model.toEntity()).toList(),
-            meta: cachedBalances.meta,
-          ));
+          return Right(
+            core.PaginatedResult(
+              data:
+                  cachedBalances.data.map((model) => model.toEntity()).toList(),
+              meta: cachedBalances.meta,
+            ),
+          );
         }
         return Left(NetworkFailure('Sin conexión y sin datos en cache'));
       }
@@ -248,10 +295,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
       // Try cache as fallback
       final cachedBalances = await localDataSource.getCachedBalances(params);
       if (cachedBalances != null) {
-        return Right(core.PaginatedResult(
-          data: cachedBalances.data.map((model) => model.toEntity()).toList(),
-          meta: cachedBalances.meta,
-        ));
+        return Right(
+          core.PaginatedResult(
+            data: cachedBalances.data.map((model) => model.toEntity()).toList(),
+            meta: cachedBalances.meta,
+          ),
+        );
       }
       return Left(ServerFailure('Error al obtener balances: ${e.toString()}'));
     }
@@ -265,7 +314,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
     try {
       if (await networkInfo.isConnected) {
         final remoteBalance = await remoteDataSource.getBalanceByProduct(
-          productId, 
+          productId,
           warehouseId: warehouseId,
         );
         // Cache successful result
@@ -274,7 +323,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
       } else {
         // Try to get from cache when offline
         final cachedBalance = await localDataSource.getCachedBalanceByProduct(
-          productId, 
+          productId,
           warehouseId: warehouseId,
         );
         if (cachedBalance != null) {
@@ -285,13 +334,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       // Try cache as fallback
       final cachedBalance = await localDataSource.getCachedBalanceByProduct(
-        productId, 
+        productId,
         warehouseId: warehouseId,
       );
       if (cachedBalance != null) {
         return Right(cachedBalance.toEntity());
       }
-      return Left(ServerFailure('Error al obtener balance del producto: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al obtener balance del producto: ${e.toString()}'),
+      );
     }
   }
 
@@ -306,7 +357,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
         );
         // Cache successful result
         await localDataSource.cacheLowStockProducts(
-          remoteBalances, 
+          remoteBalances,
           warehouseId: warehouseId,
         );
         return Right(remoteBalances.map((model) => model.toEntity()).toList());
@@ -333,18 +384,25 @@ class InventoryRepositoryImpl implements InventoryRepository {
     String? warehouseId,
   }) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para calcular consumo FIFO'));
+      return Left(
+        NetworkFailure('Se requiere conexión para calcular consumo FIFO'),
+      );
     }
 
     try {
-      final remoteConsumptions = await remoteDataSource.calculateFifoConsumption(
-        productId,
-        quantity,
-        warehouseId: warehouseId,
+      final remoteConsumptions = await remoteDataSource
+          .calculateFifoConsumption(
+            productId,
+            quantity,
+            warehouseId: warehouseId,
+          );
+      return Right(
+        remoteConsumptions.map((model) => model.toEntity()).toList(),
       );
-      return Right(remoteConsumptions.map((model) => model.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure('Error al calcular consumo FIFO: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al calcular consumo FIFO: ${e.toString()}'),
+      );
     }
   }
 
@@ -354,8 +412,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
   ) async {
     try {
       if (await networkInfo.isConnected) {
-        print('🔍 REPOSITORY DEBUG: About to call remoteDataSource.getInventoryStats');
-        print('🔍 REPOSITORY DEBUG: remoteDataSource type: ${remoteDataSource.runtimeType}');
+        print(
+          '🔍 REPOSITORY DEBUG: About to call remoteDataSource.getInventoryStats',
+        );
+        print(
+          '🔍 REPOSITORY DEBUG: remoteDataSource type: ${remoteDataSource.runtimeType}',
+        );
         final remoteStats = await remoteDataSource.getInventoryStats(params);
         // Cache successful result
         await localDataSource.cacheStats(params, remoteStats);
@@ -373,13 +435,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
       print('❌ REPOSITORY DEBUG: Exception type: ${e.runtimeType}');
       print('❌ REPOSITORY DEBUG: Exception details: $e');
       print('❌ REPOSITORY DEBUG: Exception toString: ${e.toString()}');
-      
+
       // Try cache as fallback
       final cachedStats = await localDataSource.getCachedStats(params);
       if (cachedStats != null) {
         return Right(cachedStats.toEntity());
       }
-      return Left(ServerFailure('Error al obtener estadísticas: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al obtener estadísticas: ${e.toString()}'),
+      );
     }
   }
 
@@ -420,7 +484,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
       );
       return Right(remoteBalances.map((model) => model.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure('Error al obtener productos sin stock: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al obtener productos sin stock: ${e.toString()}'),
+      );
     }
   }
 
@@ -438,7 +504,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
       );
       return Right(remoteBalances.map((model) => model.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure('Error al obtener productos vencidos: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al obtener productos vencidos: ${e.toString()}'),
+      );
     }
   }
 
@@ -458,7 +526,11 @@ class InventoryRepositoryImpl implements InventoryRepository {
       );
       return Right(remoteBalances.map((model) => model.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure('Error al obtener productos próximos a vencer: ${e.toString()}'));
+      return Left(
+        ServerFailure(
+          'Error al obtener productos próximos a vencer: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -467,7 +539,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
     ProcessFifoMovementParams params,
   ) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para procesar movimientos FIFO'));
+      return Left(
+        NetworkFailure('Se requiere conexión para procesar movimientos FIFO'),
+      );
     }
 
     try {
@@ -482,47 +556,65 @@ class InventoryRepositoryImpl implements InventoryRepository {
         'movementDate': params.movementDate?.toIso8601String(),
       };
 
-      final movement = await remoteDataSource.processOutboundMovementFifo(request);
-      
+      final movement = await remoteDataSource.processOutboundMovementFifo(
+        request,
+      );
+
       // Clear caches to force refresh
       await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
-      
+
       return Right(movement.toEntity());
     } catch (e) {
-      return Left(ServerFailure('Error al procesar movimiento FIFO: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al procesar movimiento FIFO: ${e.toString()}'),
+      );
     }
   }
 
   @override
-  Future<Either<Failure, List<InventoryMovement>>> processBulkOutboundMovementFifo(
+  Future<Either<Failure, List<InventoryMovement>>>
+  processBulkOutboundMovementFifo(
     List<ProcessFifoMovementParams> movementsList,
   ) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para procesar movimientos FIFO'));
+      return Left(
+        NetworkFailure('Se requiere conexión para procesar movimientos FIFO'),
+      );
     }
 
     try {
-      final requestsList = movementsList.map((params) => {
-        'productId': params.productId,
-        'quantity': params.quantity,
-        'reason': params.reason.name,
-        'warehouseId': params.warehouseId,
-        'referenceId': params.referenceId,
-        'referenceType': params.referenceType,
-        'notes': params.notes,
-        'movementDate': params.movementDate?.toIso8601String(),
-      }).toList();
+      final requestsList =
+          movementsList
+              .map(
+                (params) => {
+                  'productId': params.productId,
+                  'quantity': params.quantity,
+                  'reason': params.reason.name,
+                  'warehouseId': params.warehouseId,
+                  'referenceId': params.referenceId,
+                  'referenceType': params.referenceType,
+                  'notes': params.notes,
+                  'movementDate': params.movementDate?.toIso8601String(),
+                },
+              )
+              .toList();
 
-      final movements = await remoteDataSource.processBulkOutboundMovementFifo(requestsList);
-      
+      final movements = await remoteDataSource.processBulkOutboundMovementFifo(
+        requestsList,
+      );
+
       // Clear caches to force refresh
       await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
-      
+
       return Right(movements.map((model) => model.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure('Error al procesar movimientos FIFO masivos: ${e.toString()}'));
+      return Left(
+        ServerFailure(
+          'Error al procesar movimientos FIFO masivos: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -536,14 +628,16 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
     try {
       final movement = await remoteDataSource.createStockAdjustment(request);
-      
+
       // Clear caches to force refresh
       await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
-      
+
       return Right(movement.toEntity());
     } catch (e) {
-      return Left(ServerFailure('Error al crear ajuste de stock: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al crear ajuste de stock: ${e.toString()}'),
+      );
     }
   }
 
@@ -556,25 +650,34 @@ class InventoryRepositoryImpl implements InventoryRepository {
     }
 
     try {
-      final requestsList = adjustmentsList.map((params) => {
-        'productId': params.productId,
-        'adjustmentQuantity': params.adjustmentQuantity,
-        'reason': params.reason.name,
-        'warehouseId': params.warehouseId,
-        'notes': params.notes,
-        'movementDate': params.movementDate?.toIso8601String(),
-        'unitCost': params.unitCost ?? 0.0,
-      }).toList();
+      final requestsList =
+          adjustmentsList
+              .map(
+                (params) => {
+                  'productId': params.productId,
+                  'adjustmentQuantity': params.adjustmentQuantity,
+                  'reason': params.reason.name,
+                  'warehouseId': params.warehouseId,
+                  'notes': params.notes,
+                  'movementDate': params.movementDate?.toIso8601String(),
+                  'unitCost': params.unitCost ?? 0.0,
+                },
+              )
+              .toList();
 
-      final movements = await remoteDataSource.createBulkStockAdjustments(requestsList);
-      
+      final movements = await remoteDataSource.createBulkStockAdjustments(
+        requestsList,
+      );
+
       // Clear caches to force refresh
       await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
-      
+
       return Right(movements.map((model) => model.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure('Error al crear ajustes masivos: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al crear ajustes masivos: ${e.toString()}'),
+      );
     }
   }
 
@@ -583,16 +686,23 @@ class InventoryRepositoryImpl implements InventoryRepository {
     CreateInventoryTransferParams params,
   ) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para crear transferencias'));
+      return Left(
+        NetworkFailure('Se requiere conexión para crear transferencias'),
+      );
     }
 
     try {
       final request = {
-        'items': params.items.map((item) => {
-          'productId': item.productId,
-          'quantity': item.quantity,
-          'notes': item.notes,
-        }).toList(),
+        'items':
+            params.items
+                .map(
+                  (item) => {
+                    'productId': item.productId,
+                    'quantity': item.quantity,
+                    'notes': item.notes,
+                  },
+                )
+                .toList(),
         'fromWarehouseId': params.fromWarehouseId,
         'toWarehouseId': params.toWarehouseId,
         'notes': params.notes,
@@ -600,33 +710,41 @@ class InventoryRepositoryImpl implements InventoryRepository {
       };
 
       final movement = await remoteDataSource.createTransfer(request);
-      
+
       // Clear caches to force refresh
       await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
-      
+
       return Right(movement.toEntity());
     } catch (e) {
-      return Left(ServerFailure('Error al crear transferencia: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al crear transferencia: ${e.toString()}'),
+      );
     }
   }
 
   @override
-  Future<Either<Failure, InventoryMovement>> confirmTransfer(String transferId) async {
+  Future<Either<Failure, InventoryMovement>> confirmTransfer(
+    String transferId,
+  ) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para confirmar transferencias'));
+      return Left(
+        NetworkFailure('Se requiere conexión para confirmar transferencias'),
+      );
     }
 
     try {
       final movement = await remoteDataSource.confirmTransfer(transferId);
-      
+
       // Clear caches to force refresh
       await localDataSource.clearMovementsCache();
       await localDataSource.clearBalancesCache();
-      
+
       return Right(movement.toEntity());
     } catch (e) {
-      return Left(ServerFailure('Error al confirmar transferencia: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al confirmar transferencia: ${e.toString()}'),
+      );
     }
   }
 
@@ -636,7 +754,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
     DateTime? asOfDate,
   }) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para obtener valoración'));
+      return Left(
+        NetworkFailure('Se requiere conexión para obtener valoración'),
+      );
     }
 
     try {
@@ -646,7 +766,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
       );
       return Right(valuation);
     } catch (e) {
-      return Left(ServerFailure('Error al obtener valoración: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al obtener valoración: ${e.toString()}'),
+      );
     }
   }
 
@@ -655,14 +777,18 @@ class InventoryRepositoryImpl implements InventoryRepository {
     KardexReportParams params,
   ) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para generar reporte kardex'));
+      return Left(
+        NetworkFailure('Se requiere conexión para generar reporte kardex'),
+      );
     }
 
     try {
       final kardexReportModel = await remoteDataSource.getKardexReport(params);
       return Right(kardexReportModel.toEntity());
     } catch (e) {
-      return Left(ServerFailure('Error al generar reporte kardex: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al generar reporte kardex: ${e.toString()}'),
+      );
     }
   }
 
@@ -671,7 +797,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
     String? warehouseId,
   }) async {
     if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión para obtener antigüedad'));
+      return Left(
+        NetworkFailure('Se requiere conexión para obtener antigüedad'),
+      );
     }
 
     try {
@@ -680,7 +808,11 @@ class InventoryRepositoryImpl implements InventoryRepository {
       );
       return Right(aging);
     } catch (e) {
-      return Left(ServerFailure('Error al obtener antigüedad de inventario: ${e.toString()}'));
+      return Left(
+        ServerFailure(
+          'Error al obtener antigüedad de inventario: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -703,22 +835,23 @@ class InventoryRepositoryImpl implements InventoryRepository {
           page: params.page,
           limit: params.limit,
         );
-        
-        final batches = batchMaps
-            .map((map) => InventoryBatchModel.fromJson(map).toEntity())
-            .toList();
-            
+
+        final batches =
+            batchMaps
+                .map((map) => InventoryBatchModel.fromJson(map).toEntity())
+                .toList();
+
         // Apply frontend sorting as fallback if backend doesn't sort
         _sortBatchesIfNeeded(batches, params.sortBy, params.sortOrder);
-        
+
         // Apply frontend search as fallback if backend doesn't filter
         if (params.search != null && params.search!.isNotEmpty) {
           _filterBatchesBySearch(batches, params.search!);
         }
-        
+
         // Apply frontend filters as fallback if backend doesn't filter
         _applySpecialFilters(batches, params);
-        
+
         // Create pagination meta from response headers or calculate
         final meta = PaginationMeta(
           page: params.page,
@@ -728,11 +861,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
           hasNextPage: batches.length >= params.limit,
           hasPreviousPage: params.page > 1,
         );
-        
-        return Right(core.PaginatedResult<InventoryBatch>(
-          data: batches,
-          meta: meta,
-        ));
+
+        return Right(
+          core.PaginatedResult<InventoryBatch>(data: batches, meta: meta),
+        );
       } else {
         return Left(NetworkFailure('Se requiere conexión para obtener lotes'));
       }
@@ -761,11 +893,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
     try {
       if (await networkInfo.isConnected) {
         final warehouseModels = await remoteDataSource.getWarehouses();
-        final warehouses = warehouseModels.map((model) => model.toEntity()).toList();
-        
+        final warehouses =
+            warehouseModels.map((model) => model.toEntity()).toList();
+
         // Cache en local storage si es necesario
         // await localDataSource.cacheWarehouses(warehouseModels);
-        
+
         return Right(warehouses);
       } else {
         // Intentar obtener desde cache local si no hay conexión
@@ -773,7 +906,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
         // if (cachedWarehouses.isNotEmpty) {
         //   return Right(cachedWarehouses.map((model) => model.toEntity()).toList());
         // }
-        return Left(NetworkFailure('Se requiere conexión para obtener almacenes'));
+        return Left(
+          NetworkFailure('Se requiere conexión para obtener almacenes'),
+        );
       }
     } catch (e) {
       return Left(ServerFailure('Error al obtener almacenes: ${e.toString()}'));
@@ -781,7 +916,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
-  Future<Either<Failure, Warehouse>> createWarehouse(CreateWarehouseParams params) async {
+  Future<Either<Failure, Warehouse>> createWarehouse(
+    CreateWarehouseParams params,
+  ) async {
     try {
       if (await networkInfo.isConnected) {
         final warehouseModel = await remoteDataSource.createWarehouse(params);
@@ -795,16 +932,26 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
-  Future<Either<Failure, Warehouse>> updateWarehouse(String id, UpdateWarehouseParams params) async {
+  Future<Either<Failure, Warehouse>> updateWarehouse(
+    String id,
+    UpdateWarehouseParams params,
+  ) async {
     try {
       if (await networkInfo.isConnected) {
-        final warehouseModel = await remoteDataSource.updateWarehouse(id, params);
+        final warehouseModel = await remoteDataSource.updateWarehouse(
+          id,
+          params,
+        );
         return Right(warehouseModel.toEntity());
       } else {
-        return Left(NetworkFailure('Se requiere conexión para actualizar almacén'));
+        return Left(
+          NetworkFailure('Se requiere conexión para actualizar almacén'),
+        );
       }
     } catch (e) {
-      return Left(ServerFailure('Error al actualizar almacén: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al actualizar almacén: ${e.toString()}'),
+      );
     }
   }
 
@@ -815,7 +962,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final result = await remoteDataSource.deleteWarehouse(id);
         return Right(result);
       } else {
-        return Left(NetworkFailure('Se requiere conexión para eliminar almacén'));
+        return Left(
+          NetworkFailure('Se requiere conexión para eliminar almacén'),
+        );
       }
     } catch (e) {
       return Left(ServerFailure('Error al eliminar almacén: ${e.toString()}'));
@@ -829,7 +978,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final warehouseModel = await remoteDataSource.getWarehouseById(id);
         return Right(warehouseModel.toEntity());
       } else {
-        return Left(NetworkFailure('Se requiere conexión para obtener almacén'));
+        return Left(
+          NetworkFailure('Se requiere conexión para obtener almacén'),
+        );
       }
     } catch (e) {
       return Left(ServerFailure('Error al obtener almacén: ${e.toString()}'));
@@ -837,13 +988,21 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
-  Future<Either<Failure, bool>> checkWarehouseCodeExists(String code, {String? excludeId}) async {
+  Future<Either<Failure, bool>> checkWarehouseCodeExists(
+    String code, {
+    String? excludeId,
+  }) async {
     try {
       if (await networkInfo.isConnected) {
-        final exists = await remoteDataSource.checkWarehouseCodeExists(code, excludeId: excludeId);
+        final exists = await remoteDataSource.checkWarehouseCodeExists(
+          code,
+          excludeId: excludeId,
+        );
         return Right(exists);
       } else {
-        return Left(NetworkFailure('Se requiere conexión para verificar código'));
+        return Left(
+          NetworkFailure('Se requiere conexión para verificar código'),
+        );
       }
     } catch (e) {
       return Left(ServerFailure('Error al verificar código: ${e.toString()}'));
@@ -851,49 +1010,71 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
-  Future<Either<Failure, bool>> checkWarehouseHasMovements(String warehouseId) async {
+  Future<Either<Failure, bool>> checkWarehouseHasMovements(
+    String warehouseId,
+  ) async {
     try {
       if (await networkInfo.isConnected) {
-        final hasMovements = await remoteDataSource.checkWarehouseHasMovements(warehouseId);
+        final hasMovements = await remoteDataSource.checkWarehouseHasMovements(
+          warehouseId,
+        );
         return Right(hasMovements);
       } else {
-        return Left(NetworkFailure('Se requiere conexión para verificar movimientos'));
+        return Left(
+          NetworkFailure('Se requiere conexión para verificar movimientos'),
+        );
       }
     } catch (e) {
-      return Left(ServerFailure('Error al verificar movimientos: ${e.toString()}'));
+      return Left(
+        ServerFailure('Error al verificar movimientos: ${e.toString()}'),
+      );
     }
   }
 
   @override
-  Future<Either<Failure, core.PaginatedResult<InventoryMovement>>> getWarehouseMovements(
-    String warehouseId, 
+  Future<Either<Failure, core.PaginatedResult<InventoryMovement>>>
+  getWarehouseMovements(
+    String warehouseId,
     InventoryMovementQueryParams params,
   ) async {
     try {
       if (await networkInfo.isConnected) {
-        final result = await remoteDataSource.getWarehouseMovements(warehouseId, params);
-        
+        final result = await remoteDataSource.getWarehouseMovements(
+          warehouseId,
+          params,
+        );
+
         final movements = result.data.map((model) => model.toEntity()).toList();
-        
-        return Right(core.PaginatedResult<InventoryMovement>(
-          data: movements,
-          meta: result.meta,
-        ));
+
+        return Right(
+          core.PaginatedResult<InventoryMovement>(
+            data: movements,
+            meta: result.meta,
+          ),
+        );
       } else {
         // Try to get from local cache if available
         final cachedResult = await localDataSource.getCachedMovements(params);
-        final filteredMovements = cachedResult?.data
-            ?.where((model) => model.warehouseId == warehouseId)
-            .map((model) => model.toEntity())
-            .toList() ?? <InventoryMovement>[];
-        
-        return Right(core.PaginatedResult<InventoryMovement>(
-          data: filteredMovements,
-          meta: null,
-        ));
+        final filteredMovements =
+            cachedResult?.data
+                .where((model) => model.warehouseId == warehouseId)
+                .map((model) => model.toEntity())
+                .toList() ??
+            <InventoryMovement>[];
+
+        return Right(
+          core.PaginatedResult<InventoryMovement>(
+            data: filteredMovements,
+            meta: null,
+          ),
+        );
       }
     } catch (e) {
-      return Left(ServerFailure('Error al obtener movimientos del almacén: ${e.toString()}'));
+      return Left(
+        ServerFailure(
+          'Error al obtener movimientos del almacén: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -904,7 +1085,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final count = await remoteDataSource.getActiveWarehousesCount();
         return Right(count);
       } else {
-        return Left(NetworkFailure('Se requiere conexión para contar almacenes'));
+        return Left(
+          NetworkFailure('Se requiere conexión para contar almacenes'),
+        );
       }
     } catch (e) {
       return Left(ServerFailure('Error al contar almacenes: ${e.toString()}'));
@@ -912,25 +1095,39 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
-  Future<Either<Failure, WarehouseStats>> getWarehouseStats(String warehouseId) async {
+  Future<Either<Failure, WarehouseStats>> getWarehouseStats(
+    String warehouseId,
+  ) async {
     try {
       if (await networkInfo.isConnected) {
         final stats = await remoteDataSource.getWarehouseStats(warehouseId);
         return Right(stats);
       } else {
-        return Left(NetworkFailure('Se requiere conexión para obtener estadísticas del almacén'));
+        return Left(
+          NetworkFailure(
+            'Se requiere conexión para obtener estadísticas del almacén',
+          ),
+        );
       }
     } catch (e) {
-      return Left(ServerFailure('Error al obtener estadísticas del almacén: ${e.toString()}'));
+      return Left(
+        ServerFailure(
+          'Error al obtener estadísticas del almacén: ${e.toString()}',
+        ),
+      );
     }
   }
 
-  void _sortBatchesIfNeeded(List<InventoryBatch> batches, String sortBy, String sortOrder) {
+  void _sortBatchesIfNeeded(
+    List<InventoryBatch> batches,
+    String sortBy,
+    String sortOrder,
+  ) {
     if (batches.isEmpty) return;
-    
+
     batches.sort((a, b) {
       int comparison = 0;
-      
+
       switch (sortBy) {
         case 'purchaseDate':
           comparison = a.entryDate.compareTo(b.entryDate);
@@ -962,45 +1159,60 @@ class InventoryRepositoryImpl implements InventoryRepository {
         default:
           comparison = a.entryDate.compareTo(b.entryDate);
       }
-      
+
       // Apply sort order
       return sortOrder == 'asc' ? comparison : -comparison;
     });
   }
 
-  void _filterBatchesBySearch(List<InventoryBatch> batches, String searchQuery) {
+  void _filterBatchesBySearch(
+    List<InventoryBatch> batches,
+    String searchQuery,
+  ) {
     if (searchQuery.isEmpty) return;
-    
+
     final query = searchQuery.toLowerCase();
     batches.removeWhere((batch) {
       final batchNumber = batch.batchNumber.toLowerCase();
       final supplierName = (batch.supplierName ?? '').toLowerCase();
-      final purchaseOrderNumber = (batch.purchaseOrderNumber ?? '').toLowerCase();
+      final purchaseOrderNumber =
+          (batch.purchaseOrderNumber ?? '').toLowerCase();
       final notes = (batch.notes ?? '').toLowerCase();
-      
+
       return !batchNumber.contains(query) &&
-             !supplierName.contains(query) &&
-             !purchaseOrderNumber.contains(query) &&
-             !notes.contains(query);
+          !supplierName.contains(query) &&
+          !purchaseOrderNumber.contains(query) &&
+          !notes.contains(query);
     });
-    
-    print('🔍 SEARCH FALLBACK: Filtrado ${batches.length} lotes con query: "$searchQuery"');
+
+    print(
+      '🔍 SEARCH FALLBACK: Filtrado ${batches.length} lotes con query: "$searchQuery"',
+    );
   }
 
-  void _applySpecialFilters(List<InventoryBatch> batches, InventoryBatchQueryParams params) {
+  void _applySpecialFilters(
+    List<InventoryBatch> batches,
+    InventoryBatchQueryParams params,
+  ) {
     if (params.activeOnly == true) {
       batches.removeWhere((batch) => !batch.isActive);
-      print('🔍 FILTER FALLBACK: Filtro Solo Activos aplicado - ${batches.length} lotes');
+      print(
+        '🔍 FILTER FALLBACK: Filtro Solo Activos aplicado - ${batches.length} lotes',
+      );
     }
-    
+
     if (params.expiredOnly == true) {
       batches.removeWhere((batch) => !batch.isExpiredByDate);
-      print('🔍 FILTER FALLBACK: Filtro Solo Vencidos aplicado - ${batches.length} lotes');
+      print(
+        '🔍 FILTER FALLBACK: Filtro Solo Vencidos aplicado - ${batches.length} lotes',
+      );
     }
-    
+
     if (params.nearExpiryOnly == true) {
       batches.removeWhere((batch) => !batch.isNearExpiry);
-      print('🔍 FILTER FALLBACK: Filtro Por Vencer aplicado - ${batches.length} lotes');
+      print(
+        '🔍 FILTER FALLBACK: Filtro Por Vencer aplicado - ${batches.length} lotes',
+      );
     }
   }
 }

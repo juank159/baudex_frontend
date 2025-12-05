@@ -7,7 +7,7 @@ import '../../../../app/shared/widgets/custom_button.dart';
 import '../controllers/auth_controller.dart';
 
 class ChangePasswordDialog extends GetView<AuthController> {
-  const ChangePasswordDialog({Key? key}) : super(key: key);
+  const ChangePasswordDialog({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +19,7 @@ class ChangePasswordDialog extends GetView<AuthController> {
           const Text('Cambiar Contraseña'),
         ],
       ),
-      content: Container(
+      content: SizedBox(
         width: context.isMobile ? double.maxFinite : 400,
         child: SingleChildScrollView(
           child: Form(

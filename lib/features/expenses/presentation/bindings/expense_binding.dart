@@ -20,6 +20,8 @@ import '../../domain/usecases/get_expense_categories_usecase.dart';
 import '../../domain/usecases/create_expense_category_usecase.dart';
 import '../../domain/usecases/update_expense_category_usecase.dart';
 import '../../domain/usecases/delete_expense_category_usecase.dart';
+import '../../domain/usecases/upload_attachments_usecase.dart';
+import '../../domain/usecases/delete_attachment_usecase.dart';
 import '../controllers/expenses_controller.dart';
 import '../controllers/enhanced_expenses_controller.dart';
 import '../controllers/expense_form_controller.dart';
@@ -125,6 +127,16 @@ class ExpenseBinding extends Bindings {
       fenix: true,
     );
 
+    Get.lazyPut<UploadAttachmentsUseCase>(
+      () => UploadAttachmentsUseCase(Get.find<ExpenseRepository>()),
+      fenix: true,
+    );
+
+    Get.lazyPut<DeleteAttachmentUseCase>(
+      () => DeleteAttachmentUseCase(Get.find<ExpenseRepository>()),
+      fenix: true,
+    );
+
     // ==================== CONTROLLERS ====================
 
     // ✅ Usar EnhancedExpensesController como controlador principal
@@ -158,6 +170,9 @@ class ExpenseBinding extends Bindings {
         getExpenseByIdUseCase: Get.find<GetExpenseByIdUseCase>(),
         getExpenseCategoriesUseCase: Get.find<GetExpenseCategoriesUseCase>(),
         createExpenseCategoryUseCase: Get.find<CreateExpenseCategoryUseCase>(),
+        updateExpenseCategoryUseCase: Get.find<UpdateExpenseCategoryUseCase>(),
+        uploadAttachmentsUseCase: Get.find<UploadAttachmentsUseCase>(),
+        deleteAttachmentUseCase: Get.find<DeleteAttachmentUseCase>(),
         fileService: Get.find<FileService>(),
       ),
       fenix: true,

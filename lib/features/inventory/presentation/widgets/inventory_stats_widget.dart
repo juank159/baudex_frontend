@@ -8,10 +8,7 @@ import '../../domain/entities/inventory_stats.dart';
 class InventoryStatsWidget extends StatelessWidget {
   final InventoryStats stats;
 
-  const InventoryStatsWidget({
-    super.key,
-    required this.stats,
-  });
+  const InventoryStatsWidget({super.key, required this.stats});
 
   @override
   Widget build(BuildContext context) {
@@ -20,9 +17,9 @@ class InventoryStatsWidget extends StatelessWidget {
       children: [
         // General stats
         _buildGeneralStats(),
-        
+
         const SizedBox(height: 24),
-        
+
         // Movement stats
         _buildMovementStats(),
       ],
@@ -55,7 +52,7 @@ class InventoryStatsWidget extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            
+
             // Stats Grid
             GridView.count(
               shrinkWrap: true,
@@ -122,10 +119,10 @@ class InventoryStatsWidget extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Movement types
-            ...stats.movementsByType.entries.map((entry) => 
-              Padding(
+            ...stats.movementsByType.entries.map(
+              (entry) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   children: [
@@ -153,7 +150,7 @@ class InventoryStatsWidget extends StatelessWidget {
                   ],
                 ),
               ),
-            ).toList(),
+            ),
           ],
         ),
       ),
@@ -171,10 +168,7 @@ class InventoryStatsWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,11 +176,7 @@ class InventoryStatsWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                icon,
-                color: color,
-                size: 24,
-              ),
+              Icon(icon, color: color, size: 24),
               const Spacer(),
               Text(
                 value,

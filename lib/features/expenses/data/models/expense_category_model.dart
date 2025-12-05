@@ -14,6 +14,8 @@ class ExpenseCategoryModel extends ExpenseCategory {
     required super.createdAt,
     required super.updatedAt,
     super.deletedAt,
+    super.monthlySpent,
+    super.budgetUtilization,
   });
 
   factory ExpenseCategoryModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,8 @@ class ExpenseCategoryModel extends ExpenseCategory {
       deletedAt: json['deletedAt'] != null
           ? DateTime.parse(json['deletedAt'] as String)
           : null,
+      monthlySpent: _parseDouble(json['monthlySpent']),
+      budgetUtilization: _parseDouble(json['budgetUtilization']),
     );
   }
 
@@ -76,6 +80,8 @@ class ExpenseCategoryModel extends ExpenseCategory {
     createdAt: createdAt,
     updatedAt: updatedAt,
     deletedAt: deletedAt,
+    monthlySpent: monthlySpent,
+    budgetUtilization: budgetUtilization,
   );
 
   factory ExpenseCategoryModel.fromEntity(ExpenseCategory category) {
@@ -91,6 +97,8 @@ class ExpenseCategoryModel extends ExpenseCategory {
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
       deletedAt: category.deletedAt,
+      monthlySpent: category.monthlySpent,
+      budgetUtilization: category.budgetUtilization,
     );
   }
 

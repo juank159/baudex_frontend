@@ -52,7 +52,6 @@
 
 // lib/features/customers/data/models/customer_response_model.dart
 import '../../../../app/core/models/pagination_meta.dart';
-import '../../domain/repositories/customer_repository.dart';
 import 'customer_model.dart';
 
 class CustomerResponseModel {

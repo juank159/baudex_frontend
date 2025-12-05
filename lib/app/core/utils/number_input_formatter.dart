@@ -34,7 +34,7 @@ class NumberInputFormatter extends TextInputFormatter {
 
     // Parsear el número removiendo formateo existente
     String numericOnly = _cleanNumericString(filtered);
-    
+
     if (numericOnly.isEmpty) {
       return const TextEditingValue(
         text: '',
@@ -49,7 +49,7 @@ class NumberInputFormatter extends TextInputFormatter {
         // Más de una coma, mantener solo la primera
         numericOnly = '${parts[0]},${parts.sublist(1).join('')}';
       }
-      
+
       // Limitar decimales
       if (parts.length == 2 && parts[1].length > maxDecimalPlaces) {
         parts[1] = parts[1].substring(0, maxDecimalPlaces);
@@ -60,12 +60,13 @@ class NumberInputFormatter extends TextInputFormatter {
     // Formatear el número
     String formattedText = _formatNumber(numericOnly);
 
-    // Calcular nueva posición del cursor
-    int newCursorPosition = _calculateCursorPosition(
+    // Calcular nueva posición del cursor de forma mejorada
+    int newCursorPosition = _calculateCursorPositionImproved(
       oldValue.text,
+      oldValue.selection.baseOffset,
       newValue.text,
-      formattedText,
       newValue.selection.baseOffset,
+      formattedText,
     );
 
     return TextEditingValue(
@@ -115,30 +116,74 @@ class NumberInputFormatter extends TextInputFormatter {
   }
 
   /// Calcula la nueva posición del cursor considerando los separadores agregados
-  int _calculateCursorPosition(
+  /// Versión mejorada que maneja correctamente backspace y borrado
+  int _calculateCursorPositionImproved(
     String oldText,
+    int oldCursorPos,
     String newText,
+    int newCursorPos,
     String formattedText,
-    int currentCursorPos,
   ) {
-    // Si el texto formateado es más corto que la posición actual, ajustar
-    if (currentCursorPos > formattedText.length) {
+    // Caso especial: Si el texto está vacío o solo tiene un carácter
+    if (formattedText.isEmpty) return 0;
+    if (formattedText.length == 1) return 1;
+
+    // Si está al final del texto, mantener al final
+    if (newCursorPos >= newText.length) {
       return formattedText.length;
     }
 
-    // Contar cuántos separadores se agregaron antes de la posición del cursor
-    int separatorsBeforeCursor = 0;
-    int actualPosition = 0;
-    
-    for (int i = 0; i < formattedText.length && actualPosition < currentCursorPos; i++) {
-      if (formattedText[i] == '.') {
-        separatorsBeforeCursor++;
-      } else {
-        actualPosition++;
+    // Detectar si fue un borrado (backspace o delete)
+    bool isDeletion = newText.length < oldText.length;
+
+    // Obtener los dígitos antes del cursor en el texto sin formato
+    String digitsBeforeCursor = _getDigitsOnly(newText.substring(0, newCursorPos));
+    int targetDigitCount = digitsBeforeCursor.length;
+
+    // Si no hay dígitos antes del cursor, posición 0
+    if (targetDigitCount == 0) {
+      return 0;
+    }
+
+    // Encontrar la posición en el texto formateado que corresponde
+    // a esa cantidad de dígitos
+    int digitCount = 0;
+    int position = 0;
+
+    for (int i = 0; i < formattedText.length; i++) {
+      String currentChar = formattedText[i];
+
+      // Si es un dígito, incrementar contador
+      if (currentChar != '.' && currentChar != ',') {
+        digitCount++;
+
+        // Si alcanzamos el número objetivo de dígitos
+        if (digitCount == targetDigitCount) {
+          // Posicionar DESPUÉS de este dígito
+          position = i + 1;
+
+          // Si fue un borrado y hay separadores después del cursor, saltarlos
+          if (isDeletion) {
+            while (position < formattedText.length &&
+                   (formattedText[position] == '.' || formattedText[position] == ',')) {
+              // Solo saltar UN separador después de borrar
+              position++;
+              break;
+            }
+          }
+
+          break;
+        }
       }
     }
 
-    return currentCursorPos + separatorsBeforeCursor;
+    // Asegurar que la posición esté dentro del rango válido
+    return position.clamp(0, formattedText.length);
+  }
+
+  /// Obtiene solo los dígitos de un string (sin separadores)
+  String _getDigitsOnly(String text) {
+    return text.replaceAll(RegExp(r'[^\d]'), '');
   }
 
   /// Método estático para obtener el valor numérico limpio del texto formateado

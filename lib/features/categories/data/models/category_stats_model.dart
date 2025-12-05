@@ -24,6 +24,7 @@ class CategoryStatsModel extends CategoryStats {
     );
   }
 
+  @override
   Map<String, dynamic> toJson() {
     return {
       'total': total,

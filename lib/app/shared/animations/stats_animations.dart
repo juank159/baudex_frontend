@@ -6,7 +6,7 @@ class StatsAnimations {
   static const Duration shortDuration = Duration(milliseconds: 800);
   static const Duration mediumDuration = Duration(milliseconds: 1200);
   static const Duration longDuration = Duration(milliseconds: 1500);
-  
+
   static const Curve elasticCurve = Curves.elasticOut;
   static const Curve smoothCurve = Curves.easeInOutCubic;
   static const Curve bounceCurve = Curves.bounceOut;
@@ -121,7 +121,9 @@ class StatsAnimations {
         child: TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0.0, end: value),
           duration: duration,
-          curve: Curves.easeOutExpo, // Curva que se llena rápido al inicio y se ralentiza
+          curve:
+              Curves
+                  .easeOutExpo, // Curva que se llena rápido al inicio y se ralentiza
           builder: (context, animatedValue, child) {
             return Stack(
               children: [
@@ -176,10 +178,7 @@ class StatsAnimations {
             beginOffset.dx * (1 - value) * 50,
             beginOffset.dy * (1 - value) * 50,
           ),
-          child: Opacity(
-            opacity: value,
-            child: child,
-          ),
+          child: Opacity(opacity: value, child: child),
         );
       },
       child: child,
@@ -198,10 +197,7 @@ class StatsAnimations {
       duration: duration,
       curve: Curves.easeInOut,
       builder: (context, value, child) {
-        return Transform.scale(
-          scale: value,
-          child: child,
-        );
+        return Transform.scale(scale: value, child: child);
       },
       onEnd: () {
         // This creates a continuous pulse effect
@@ -224,14 +220,13 @@ class StatsAnimations {
       curve: curve,
       builder: (context, animatedValue, child) {
         // Format with thousands separator
-        final formattedValue = animatedValue.toStringAsFixed(0).replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]},',
-        );
-        return Text(
-          '$symbol$formattedValue',
-          style: style,
-        );
+        final formattedValue = animatedValue
+            .toStringAsFixed(0)
+            .replaceAllMapped(
+              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+              (Match m) => '${m[1]},',
+            );
+        return Text('$symbol$formattedValue', style: style);
       },
     );
   }
@@ -435,22 +430,22 @@ class _AnimatedDonutChartState extends State<_AnimatedDonutChart>
   @override
   void initState() {
     super.initState();
-    
+
     // Controladores para cada segmento con animación escalonada
     _segmentControllers = List.generate(
       widget.segments.length,
-      (index) => AnimationController(
-        duration: widget.duration,
-        vsync: this,
-      ),
+      (index) => AnimationController(duration: widget.duration, vsync: this),
     );
 
     // Animaciones de segmento con curvas elásticas
-    _segmentAnimations = _segmentControllers
-        .map((controller) => Tween<double>(begin: 0.0, end: 1.0).animate(
-              CurvedAnimation(parent: controller, curve: Curves.elasticOut),
-            ))
-        .toList();
+    _segmentAnimations =
+        _segmentControllers
+            .map(
+              (controller) => Tween<double>(begin: 0.0, end: 1.0).animate(
+                CurvedAnimation(parent: controller, curve: Curves.elasticOut),
+              ),
+            )
+            .toList();
 
     // Animación de pulso para el centro
     _pulseController = AnimationController(
@@ -472,7 +467,7 @@ class _AnimatedDonutChartState extends State<_AnimatedDonutChart>
 
     // Iniciar animaciones escalonadas
     _startStaggeredAnimations();
-    
+
     // Iniciar animaciones continuas
     _pulseController.repeat(reverse: true);
     _glowController.repeat(reverse: true);
@@ -480,7 +475,9 @@ class _AnimatedDonutChartState extends State<_AnimatedDonutChart>
 
   void _startStaggeredAnimations() async {
     for (int i = 0; i < _segmentControllers.length; i++) {
-      await Future.delayed(Duration(milliseconds: widget.staggerDelay.inMilliseconds * i));
+      await Future.delayed(
+        Duration(milliseconds: widget.staggerDelay.inMilliseconds * i),
+      );
       if (mounted) {
         _segmentControllers[i].forward();
       }
@@ -499,7 +496,7 @@ class _AnimatedDonutChartState extends State<_AnimatedDonutChart>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: widget.size,
       height: widget.size,
       child: Stack(
@@ -573,7 +570,7 @@ class _AnimatedDonutChartState extends State<_AnimatedDonutChart>
     return List.generate(6, (index) {
       final angle = (index * 2 * 3.14159) / 6;
       final radius = widget.size * 0.4;
-      
+
       return Positioned(
         left: widget.size / 2 + radius * _cos(angle) - 4,
         top: widget.size / 2 + radius * _sin(angle) - 4,
@@ -589,7 +586,8 @@ class _AnimatedDonutChartState extends State<_AnimatedDonutChart>
               color: widget.segments[index % widget.segments.length].color,
               boxShadow: [
                 BoxShadow(
-                  color: widget.segments[index % widget.segments.length].color.withOpacity(0.6),
+                  color: widget.segments[index % widget.segments.length].color
+                      .withOpacity(0.6),
                   blurRadius: 6,
                   spreadRadius: 1,
                 ),
@@ -616,28 +614,54 @@ class _SpectacularDonutPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 40;
-    
+
     double startAngle = -3.14159 / 2;
-    double totalValue = segments.fold(0.0, (sum, segment) => sum + segment.value);
+    double totalValue = segments.fold(
+      0.0,
+      (sum, segment) => sum + segment.value,
+    );
 
     for (int i = 0; i < segments.length; i++) {
       final segment = segments[i];
       final animation = segmentAnimations[i];
-      final sweepAngle = (segment.value / totalValue) * 2 * 3.14159 * animation.value;
+      final sweepAngle =
+          (segment.value / totalValue) * 2 * 3.14159 * animation.value;
 
       if (sweepAngle > 0) {
         // Sombra del segmento
-        _drawSegmentShadow(canvas, center, radius, startAngle, sweepAngle, segment);
-        
+        _drawSegmentShadow(
+          canvas,
+          center,
+          radius,
+          startAngle,
+          sweepAngle,
+          segment,
+        );
+
         // Segmento principal con gradiente
-        _drawSegmentWithGradient(canvas, center, radius, startAngle, sweepAngle, segment);
-        
+        _drawSegmentWithGradient(
+          canvas,
+          center,
+          radius,
+          startAngle,
+          sweepAngle,
+          segment,
+        );
+
         // Efecto de brillo
-        _drawSegmentGlow(canvas, center, radius, startAngle, sweepAngle, segment, animation.value);
-        
+        _drawSegmentGlow(
+          canvas,
+          center,
+          radius,
+          startAngle,
+          sweepAngle,
+          segment,
+          animation.value,
+        );
+
         // Líneas de separación elegantes
         _drawSeparatorLines(canvas, center, radius, startAngle, segment);
-        
+
         startAngle += sweepAngle;
       }
     }
@@ -645,13 +669,20 @@ class _SpectacularDonutPainter extends CustomPainter {
     // Sin anillo interior
   }
 
-  void _drawSegmentShadow(Canvas canvas, Offset center, double radius, 
-                         double startAngle, double sweepAngle, DonutSegment segment) {
-    final shadowPaint = Paint()
-      ..color = segment.color.withOpacity(0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = segment.strokeWidth + 2
-      ..strokeCap = StrokeCap.round;
+  void _drawSegmentShadow(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    double startAngle,
+    double sweepAngle,
+    DonutSegment segment,
+  ) {
+    final shadowPaint =
+        Paint()
+          ..color = segment.color.withOpacity(0.3)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = segment.strokeWidth + 2
+          ..strokeCap = StrokeCap.round;
 
     canvas.drawArc(
       Rect.fromCircle(center: center.translate(2, 4), radius: radius),
@@ -662,17 +693,26 @@ class _SpectacularDonutPainter extends CustomPainter {
     );
   }
 
-  void _drawSegmentWithGradient(Canvas canvas, Offset center, double radius,
-                               double startAngle, double sweepAngle, DonutSegment segment) {
-    final gradient = segment.gradient ?? LinearGradient(
-      colors: [segment.color, segment.color.withOpacity(0.7)],
-    );
+  void _drawSegmentWithGradient(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    double startAngle,
+    double sweepAngle,
+    DonutSegment segment,
+  ) {
+    final gradient =
+        segment.gradient ??
+        LinearGradient(colors: [segment.color, segment.color.withOpacity(0.7)]);
 
-    final paint = Paint()
-      ..shader = gradient.createShader(Rect.fromCircle(center: center, radius: radius))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = segment.strokeWidth
-      ..strokeCap = StrokeCap.round;
+    final paint =
+        Paint()
+          ..shader = gradient.createShader(
+            Rect.fromCircle(center: center, radius: radius),
+          )
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = segment.strokeWidth
+          ..strokeCap = StrokeCap.round;
 
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
@@ -683,14 +723,22 @@ class _SpectacularDonutPainter extends CustomPainter {
     );
   }
 
-  void _drawSegmentGlow(Canvas canvas, Offset center, double radius,
-                       double startAngle, double sweepAngle, DonutSegment segment, double animationValue) {
-    final glowPaint = Paint()
-      ..color = segment.color.withOpacity(0.4 * animationValue)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = segment.strokeWidth + 8
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+  void _drawSegmentGlow(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    double startAngle,
+    double sweepAngle,
+    DonutSegment segment,
+    double animationValue,
+  ) {
+    final glowPaint =
+        Paint()
+          ..color = segment.color.withOpacity(0.4 * animationValue)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = segment.strokeWidth + 8
+          ..strokeCap = StrokeCap.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
@@ -701,11 +749,18 @@ class _SpectacularDonutPainter extends CustomPainter {
     );
   }
 
-  void _drawSeparatorLines(Canvas canvas, Offset center, double radius, double startAngle, DonutSegment segment) {
-    final separatorPaint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+  void _drawSeparatorLines(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    double startAngle,
+    DonutSegment segment,
+  ) {
+    final separatorPaint =
+        Paint()
+          ..color = Colors.white.withOpacity(0.3)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1;
 
     final outerRadius = radius + segment.strokeWidth / 2;
     final innerRadius = radius - segment.strokeWidth / 2;
@@ -716,27 +771,30 @@ class _SpectacularDonutPainter extends CustomPainter {
     final startX2 = center.dx + outerRadius * _cos(startAngle);
     final startY2 = center.dy + outerRadius * _sin(startAngle);
 
-    canvas.drawLine(Offset(startX1, startY1), Offset(startX2, startY2), separatorPaint);
+    canvas.drawLine(
+      Offset(startX1, startY1),
+      Offset(startX2, startY2),
+      separatorPaint,
+    );
   }
 
   void _drawInnerRing(Canvas canvas, Offset center, double radius) {
-    final glassPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+    final glassPaint =
+        Paint()
+          ..color = Colors.white.withOpacity(0.1)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2;
 
     canvas.drawCircle(center, radius, glassPaint);
-    
+
     // Reflejo de vidrio
-    final reflectionPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.3),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    final reflectionPaint =
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white.withOpacity(0.3), Colors.transparent],
+          ).createShader(Rect.fromCircle(center: center, radius: radius));
 
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
@@ -778,7 +836,7 @@ class _FloatingParticleState extends State<_FloatingParticle>
   void initState() {
     super.initState();
     _controller = AnimationController(duration: widget.duration, vsync: this);
-    
+
     _offsetAnimation = TweenSequence<Offset>([
       TweenSequenceItem(
         tween: Tween<Offset>(
@@ -864,9 +922,10 @@ class _GlowingBorderState extends State<_GlowingBorder>
   void initState() {
     super.initState();
     _controller = AnimationController(duration: widget.duration, vsync: this);
-    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     _controller.repeat(reverse: true);
   }
 
@@ -926,9 +985,10 @@ class _OrbitingParticlesState extends State<_OrbitingParticles>
   void initState() {
     super.initState();
     _controller = AnimationController(duration: widget.duration, vsync: this);
-    _animation = Tween<double>(begin: 0.0, end: 2 * 3.14159).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.linear),
-    );
+    _animation = Tween<double>(
+      begin: 0.0,
+      end: 2 * 3.14159,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.linear));
     _controller.repeat();
   }
 
@@ -948,19 +1008,21 @@ class _OrbitingParticlesState extends State<_OrbitingParticles>
           children: [
             widget.child,
             ...List.generate(widget.particleCount, (index) {
-              final angle = _animation.value + (index * 2 * 3.14159 / widget.particleCount);
+              final angle =
+                  _animation.value +
+                  (index * 2 * 3.14159 / widget.particleCount);
               final x = widget.radius * _cos(angle);
               final y = widget.radius * _sin(angle);
-              
+
               // Colores espectaculares: Verde, Azul, Naranja
               final colors = [
                 [Color(0xFF10B981), Color(0xFF34D399)], // Verde esmeralda
                 [Color(0xFF3B82F6), Color(0xFF60A5FA)], // Azul brillante
                 [Color(0xFFF59E0B), Color(0xFFFBBF24)], // Naranja dorado
               ];
-              
+
               final particleColors = colors[index % colors.length];
-              
+
               return Positioned(
                 left: x,
                 top: y,
@@ -1040,7 +1102,7 @@ class _ParticleLifeCycleState extends State<_ParticleLifeCycle>
   late List<Animation<double>> _scaleAnimations;
   late List<Animation<double>> _opacityAnimations;
   late List<Animation<Offset>> _positionAnimations;
-  
+
   // Colores para las partículas que coinciden con el gráfico de dona
   final List<List<Color>> particleColors = [
     [Color(0xFF10B981), Color(0xFF34D399)], // Verde esmeralda - Recibidos
@@ -1058,104 +1120,115 @@ class _ParticleLifeCycleState extends State<_ParticleLifeCycle>
   void _setupAnimations() {
     _controllers = List.generate(
       widget.particleCount,
-      (index) => AnimationController(
-        duration: widget.cycleDuration,
-        vsync: this,
-      ),
+      (index) =>
+          AnimationController(duration: widget.cycleDuration, vsync: this),
     );
 
-    _scaleAnimations = _controllers.map((controller) {
-      return TweenSequence<double>([
-        // Nacimiento: crece suavemente
-        TweenSequenceItem(
-          tween: Tween<double>(begin: 0.0, end: 1.0)
-              .chain(CurveTween(curve: Curves.easeOutCubic)),
-          weight: 25.0,
-        ),
-        // Vida: tamaño estable con pulso más sutil
-        TweenSequenceItem(
-          tween: Tween<double>(begin: 1.0, end: 1.02)
-              .chain(CurveTween(curve: Curves.easeInOutSine)),
-          weight: 30.0,
-        ),
-        TweenSequenceItem(
-          tween: Tween<double>(begin: 1.02, end: 1.0)
-              .chain(CurveTween(curve: Curves.easeInOutSine)),
-          weight: 25.0,
-        ),
-        // Muerte: desaparece muy gradualmente
-        TweenSequenceItem(
-          tween: Tween<double>(begin: 1.0, end: 0.0)
-              .chain(CurveTween(curve: Curves.easeInCubic)),
-          weight: 20.0,
-        ),
-      ]).animate(controller);
-    }).toList();
+    _scaleAnimations =
+        _controllers.map((controller) {
+          return TweenSequence<double>([
+            // Nacimiento: crece suavemente
+            TweenSequenceItem(
+              tween: Tween<double>(
+                begin: 0.0,
+                end: 1.0,
+              ).chain(CurveTween(curve: Curves.easeOutCubic)),
+              weight: 25.0,
+            ),
+            // Vida: tamaño estable con pulso más sutil
+            TweenSequenceItem(
+              tween: Tween<double>(
+                begin: 1.0,
+                end: 1.02,
+              ).chain(CurveTween(curve: Curves.easeInOutSine)),
+              weight: 30.0,
+            ),
+            TweenSequenceItem(
+              tween: Tween<double>(
+                begin: 1.02,
+                end: 1.0,
+              ).chain(CurveTween(curve: Curves.easeInOutSine)),
+              weight: 25.0,
+            ),
+            // Muerte: desaparece muy gradualmente
+            TweenSequenceItem(
+              tween: Tween<double>(
+                begin: 1.0,
+                end: 0.0,
+              ).chain(CurveTween(curve: Curves.easeInCubic)),
+              weight: 20.0,
+            ),
+          ]).animate(controller);
+        }).toList();
 
-    _opacityAnimations = _controllers.map((controller) {
-      return TweenSequence<double>([
-        // Aparición gradual
-        TweenSequenceItem(
-          tween: Tween<double>(begin: 0.0, end: 1.0),
-          weight: 15.0,
-        ),
-        // Vida plena
-        TweenSequenceItem(
-          tween: Tween<double>(begin: 1.0, end: 1.0),
-          weight: 60.0,
-        ),
-        // Desvanecimiento
-        TweenSequenceItem(
-          tween: Tween<double>(begin: 1.0, end: 0.0),
-          weight: 25.0,
-        ),
-      ]).animate(controller);
-    }).toList();
+    _opacityAnimations =
+        _controllers.map((controller) {
+          return TweenSequence<double>([
+            // Aparición gradual
+            TweenSequenceItem(
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              weight: 15.0,
+            ),
+            // Vida plena
+            TweenSequenceItem(
+              tween: Tween<double>(begin: 1.0, end: 1.0),
+              weight: 60.0,
+            ),
+            // Desvanecimiento
+            TweenSequenceItem(
+              tween: Tween<double>(begin: 1.0, end: 0.0),
+              weight: 25.0,
+            ),
+          ]).animate(controller);
+        }).toList();
 
-    _positionAnimations = _controllers.asMap().entries.map((entry) {
-      final index = entry.key;
-      final controller = entry.value;
-      
-      // Movimiento circular simple alrededor de la dona
-      final paths = [
-        // Movimiento circular suave alrededor del centro
-        [
-          Offset(0.5, 0.2), // Arriba
-          Offset(0.75, 0.35), // Arriba derecha
-          Offset(0.8, 0.5), // Derecha
-          Offset(0.75, 0.65), // Abajo derecha
-          Offset(0.5, 0.8), // Abajo
-          Offset(0.25, 0.65), // Abajo izquierda
-          Offset(0.2, 0.5), // Izquierda
-          Offset(0.25, 0.35), // Arriba izquierda
-        ],
-      ];
-      
-      final pathPoints = paths[index % paths.length];
-      final numPoints = pathPoints.length;
-      final weightPerSegment = 100.0 / numPoints;
-      
-      // Crear segmentos dinámicos basados en el número de puntos
-      final List<TweenSequenceItem<Offset>> segments = [];
-      
-      for (int i = 0; i < numPoints; i++) {
-        final startPoint = pathPoints[i];
-        final endPoint = pathPoints[(i + 1) % numPoints];
-        
-        // Movimiento circular ultra suave
-        Curve segmentCurve = Curves.easeInOutSine;
-        
-        segments.add(
-          TweenSequenceItem(
-            tween: Tween<Offset>(begin: startPoint, end: endPoint)
-                .chain(CurveTween(curve: segmentCurve)),
-            weight: weightPerSegment,
-          ),
-        );
-      }
-      
-      return TweenSequence<Offset>(segments).animate(controller);
-    }).toList();
+    _positionAnimations =
+        _controllers.asMap().entries.map((entry) {
+          final index = entry.key;
+          final controller = entry.value;
+
+          // Movimiento circular simple alrededor de la dona
+          final paths = [
+            // Movimiento circular suave alrededor del centro
+            [
+              Offset(0.5, 0.2), // Arriba
+              Offset(0.75, 0.35), // Arriba derecha
+              Offset(0.8, 0.5), // Derecha
+              Offset(0.75, 0.65), // Abajo derecha
+              Offset(0.5, 0.8), // Abajo
+              Offset(0.25, 0.65), // Abajo izquierda
+              Offset(0.2, 0.5), // Izquierda
+              Offset(0.25, 0.35), // Arriba izquierda
+            ],
+          ];
+
+          final pathPoints = paths[index % paths.length];
+          final numPoints = pathPoints.length;
+          final weightPerSegment = 100.0 / numPoints;
+
+          // Crear segmentos dinámicos basados en el número de puntos
+          final List<TweenSequenceItem<Offset>> segments = [];
+
+          for (int i = 0; i < numPoints; i++) {
+            final startPoint = pathPoints[i];
+            final endPoint = pathPoints[(i + 1) % numPoints];
+
+            // Movimiento circular ultra suave
+            Curve segmentCurve = Curves.easeInOutSine;
+
+            segments.add(
+              TweenSequenceItem(
+                tween: Tween<Offset>(
+                  begin: startPoint,
+                  end: endPoint,
+                ).chain(CurveTween(curve: segmentCurve)),
+                weight: weightPerSegment,
+              ),
+            );
+          }
+
+          return TweenSequence<Offset>(segments).animate(controller);
+        }).toList();
   }
 
   void _startLifeCycle() async {
@@ -1178,17 +1251,19 @@ class _ParticleLifeCycleState extends State<_ParticleLifeCycle>
   @override
   Widget build(BuildContext context) {
     // Asegurar que las dimensiones sean válidas
-    final safeWidth = widget.width.isFinite && widget.width > 0 ? widget.width : 300.0;
-    final safeHeight = widget.height.isFinite && widget.height > 0 ? widget.height : 200.0;
-    
-    return Container(
+    final safeWidth =
+        widget.width.isFinite && widget.width > 0 ? widget.width : 300.0;
+    final safeHeight =
+        widget.height.isFinite && widget.height > 0 ? widget.height : 200.0;
+
+    return SizedBox(
       width: safeWidth,
       height: safeHeight,
       child: Stack(
         children: [
           // Contenido principal
           widget.child,
-          
+
           // Partículas con ciclo de vida
           ...List.generate(widget.particleCount, (index) {
             return AnimatedBuilder(
@@ -1199,22 +1274,28 @@ class _ParticleLifeCycleState extends State<_ParticleLifeCycle>
               ]),
               builder: (context, child) {
                 // Usar el primer color de la paleta (dorado/amarillo) para la única partícula
-                final colors = [Color(0xFFFFD700), Color(0xFFFFA500)]; // Dorado brillante
+                final colors = [
+                  Color(0xFFFFD700),
+                  Color(0xFFFFA500),
+                ]; // Dorado brillante
                 final position = _positionAnimations[index].value;
                 final scale = _scaleAnimations[index].value;
                 final opacity = _opacityAnimations[index].value;
-                
+
                 // Validar que todos los valores sean finitos
                 final safeDx = position.dx.isFinite ? position.dx : 0.5;
                 final safeDy = position.dy.isFinite ? position.dy : 0.5;
                 final safeScale = scale.isFinite && scale > 0 ? scale : 0.0;
-                final safeOpacity = opacity.isFinite && opacity >= 0 && opacity <= 1 ? opacity : 0.0;
-                
+                final safeOpacity =
+                    opacity.isFinite && opacity >= 0 && opacity <= 1
+                        ? opacity
+                        : 0.0;
+
                 // Si la escala o opacidad son 0, no renderizar
                 if (safeScale == 0.0 || safeOpacity == 0.0) {
                   return const SizedBox.shrink();
                 }
-                
+
                 return Positioned(
                   left: (safeDx * safeWidth - 30).clamp(-30.0, safeWidth),
                   top: (safeDy * safeHeight - 30).clamp(-30.0, safeHeight),
@@ -1238,17 +1319,23 @@ class _ParticleLifeCycleState extends State<_ParticleLifeCycle>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: colors[0].withOpacity((0.6 * safeOpacity).clamp(0.0, 1.0)),
+                              color: colors[0].withOpacity(
+                                (0.6 * safeOpacity).clamp(0.0, 1.0),
+                              ),
                               blurRadius: (25 * safeScale).clamp(0.0, 50.0),
                               spreadRadius: (5 * safeScale).clamp(0.0, 10.0),
                             ),
                             BoxShadow(
-                              color: colors[1].withOpacity((0.8 * safeOpacity).clamp(0.0, 1.0)),
+                              color: colors[1].withOpacity(
+                                (0.8 * safeOpacity).clamp(0.0, 1.0),
+                              ),
                               blurRadius: (15 * safeScale).clamp(0.0, 30.0),
                               spreadRadius: (2 * safeScale).clamp(0.0, 5.0),
                             ),
                             BoxShadow(
-                              color: Colors.white.withOpacity((0.4 * safeOpacity).clamp(0.0, 1.0)),
+                              color: Colors.white.withOpacity(
+                                (0.4 * safeOpacity).clamp(0.0, 1.0),
+                              ),
                               blurRadius: (10 * safeScale).clamp(0.0, 20.0),
                               spreadRadius: (1 * safeScale).clamp(0.0, 3.0),
                             ),
@@ -1259,8 +1346,12 @@ class _ParticleLifeCycleState extends State<_ParticleLifeCycle>
                             shape: BoxShape.circle,
                             gradient: RadialGradient(
                               colors: [
-                                Colors.white.withOpacity((0.8 * safeOpacity).clamp(0.0, 1.0)),
-                                colors[1].withOpacity((0.1 * safeOpacity).clamp(0.0, 1.0)),
+                                Colors.white.withOpacity(
+                                  (0.8 * safeOpacity).clamp(0.0, 1.0),
+                                ),
+                                colors[1].withOpacity(
+                                  (0.1 * safeOpacity).clamp(0.0, 1.0),
+                                ),
                                 Colors.transparent,
                               ],
                               stops: [0.0, 0.4, 1.0],

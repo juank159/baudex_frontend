@@ -43,6 +43,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,
+    String? bankAccountId,
+    String? bankAccountName,
     DateTime? startDate,
     DateTime? endDate,
     double? minAmount,
@@ -62,6 +64,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         paymentMethod: paymentMethod,
         customerId: customerId,
         createdById: createdById,
+        bankAccountId: bankAccountId,
+        bankAccountName: bankAccountName,
         startDate: startDate,
         endDate: endDate,
         minAmount: minAmount,
@@ -404,6 +408,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     String? notes,
     String? terms,
     Map<String, dynamic>? metadata,
+    String? bankAccountId, // 🏦 ID de la cuenta bancaria para registrar el pago
   }) async {
     if (!(await networkInfo.isConnected)) {
       return const Left(
@@ -415,6 +420,9 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
     try {
       print('📄 InvoiceRepository: Creando factura...');
+      if (bankAccountId != null) {
+        print('🏦 Cuenta bancaria seleccionada: $bankAccountId');
+      }
 
       // Convertir parámetros a request model
       final request = CreateInvoiceRequestModel(
@@ -434,6 +442,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         notes: notes,
         terms: terms,
         metadata: metadata,
+        bankAccountId: bankAccountId,
       );
 
       final createdInvoice = await remoteDataSource.createInvoice(request);
@@ -573,6 +582,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     required String invoiceId,
     required double amount,
     required PaymentMethod paymentMethod,
+    String? bankAccountId,
     DateTime? paymentDate,
     String? reference,
     String? notes,
@@ -587,6 +597,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       final request = AddPaymentRequestModel(
         amount: amount,
         paymentMethod: paymentMethod.value,
+        bankAccountId: bankAccountId,
         paymentDate: paymentDate?.toIso8601String(),
         reference: reference,
         notes: notes,
@@ -606,6 +617,61 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
       return Right(updatedInvoice);
     } catch (e) {
+      return Left(_mapExceptionToFailure(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, MultiplePaymentsResult>> addMultiplePayments({
+    required String invoiceId,
+    required List<PaymentItemData> payments,
+    DateTime? paymentDate,
+    bool createCreditForRemaining = false,
+    String? generalNotes,
+  }) async {
+    if (!(await networkInfo.isConnected)) {
+      return const Left(
+        ConnectionFailure('Se requiere conexión a internet para agregar pagos'),
+      );
+    }
+
+    try {
+      print('💳 InvoiceRepository: Agregando ${payments.length} pagos a factura: $invoiceId');
+
+      // Convertir PaymentItemData a PaymentItemModel
+      final paymentModels = payments.map((p) => PaymentItemModel(
+        amount: p.amount,
+        paymentMethod: p.paymentMethod.value,
+        bankAccountId: p.bankAccountId,
+        reference: p.reference,
+        notes: p.notes,
+      )).toList();
+
+      final request = AddMultiplePaymentsRequestModel(
+        payments: paymentModels,
+        paymentDate: paymentDate?.toIso8601String(),
+        createCreditForRemaining: createCreditForRemaining,
+        generalNotes: generalNotes,
+      );
+
+      final result = await remoteDataSource.addMultiplePayments(invoiceId, request);
+
+      // Actualizar cache con la factura actualizada
+      try {
+        await localDataSource.cacheInvoice(result.invoice);
+        print('💾 Factura actualizada en cache después de pagos múltiples');
+      } catch (e) {
+        print('⚠️ Error al actualizar factura en cache: $e');
+      }
+
+      return Right(MultiplePaymentsResult(
+        invoice: result.invoice,
+        paymentsCreated: result.paymentCount,
+        remainingBalance: result.remainingBalance,
+        creditCreated: result.creditCreated,
+      ));
+    } catch (e) {
+      print('❌ Error al agregar pagos múltiples: $e');
       return Left(_mapExceptionToFailure(e));
     }
   }
@@ -764,6 +830,22 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       return CacheFailure(exception.message);
     } else {
       return ServerFailure('Error inesperado: ${exception.toString()}');
+    }
+  }
+
+  /// ✅ NUEVO: Descargar PDF de factura
+  @override
+  Future<Either<Failure, List<int>>> downloadInvoicePdf(String id) async {
+    try {
+      print('📄 InvoiceRepositoryImpl: Descargando PDF de factura $id');
+
+      final pdfBytes = await remoteDataSource.downloadInvoicePdf(id);
+
+      print('✅ PDF descargado: ${pdfBytes.length} bytes');
+      return Right(pdfBytes);
+    } catch (exception) {
+      print('❌ Error al descargar PDF: $exception');
+      return Left(_mapExceptionToFailure(exception));
     }
   }
 }

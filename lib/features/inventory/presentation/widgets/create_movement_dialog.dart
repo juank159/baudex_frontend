@@ -9,9 +9,7 @@ import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../controllers/inventory_movements_controller.dart';
 import '../../domain/entities/inventory_movement.dart';
-import '../../domain/entities/inventory_balance.dart';
 import 'product_search_widget.dart';
-import 'fifo_consumption_widget.dart';
 
 class CreateMovementDialog extends GetView<InventoryMovementsController> {
   const CreateMovementDialog({super.key});
@@ -32,10 +30,7 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
             // Header
             Row(
               children: [
-                Icon(
-                  Icons.add_box,
-                  color: AppColors.primary,
-                ),
+                Icon(Icons.add_box, color: AppColors.primary),
                 const SizedBox(width: AppDimensions.paddingSmall),
                 Expanded(
                   child: Text(
@@ -52,7 +47,7 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
               ],
             ),
             const SizedBox(height: AppDimensions.paddingMedium),
-            
+
             // Content
             Flexible(
               child: SingleChildScrollView(
@@ -62,19 +57,19 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                     // Product selector
                     _buildProductSelector(),
                     const SizedBox(height: AppDimensions.paddingMedium),
-                    
+
                     // Type and reason
                     _buildTypeAndReason(),
                     const SizedBox(height: AppDimensions.paddingMedium),
-                    
+
                     // Quantity and cost (conditional)
                     _buildQuantityAndCost(),
                     const SizedBox(height: AppDimensions.paddingMedium),
-                    
+
                     // FIFO Preview (for outbound movements)
                     _buildFifoPreview(),
                     const SizedBox(height: AppDimensions.paddingMedium),
-                    
+
                     // Notes
                     CustomTextField(
                       controller: controller.notesController,
@@ -86,9 +81,9 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: AppDimensions.paddingLarge),
-            
+
             // Buttons
             Row(
               children: [
@@ -101,14 +96,17 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                 ),
                 const SizedBox(width: AppDimensions.paddingMedium),
                 Expanded(
-                  child: Obx(() => CustomButton(
-                    text: 'Crear Movimiento',
-                    onPressed: controller.isFormValid 
-                        ? controller.createMovement 
-                        : null,
-                    isLoading: controller.isCreating.value,
-                    icon: Icons.add,
-                  )),
+                  child: Obx(
+                    () => CustomButton(
+                      text: 'Crear Movimiento',
+                      onPressed:
+                          controller.isFormValid
+                              ? controller.createMovement
+                              : null,
+                      isLoading: controller.isCreating.value,
+                      icon: Icons.add,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -138,24 +136,18 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
           if (controller.selectedProductName.value.isEmpty) {
             return const SizedBox.shrink();
           }
-          
+
           return Container(
             margin: const EdgeInsets.only(top: AppDimensions.paddingSmall),
             padding: const EdgeInsets.all(AppDimensions.paddingMedium),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.3),
-              ),
+              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.inventory_2,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
+                Icon(Icons.inventory_2, color: AppColors.primary, size: 20),
                 const SizedBox(width: AppDimensions.paddingSmall),
                 Expanded(
                   child: Text(
@@ -188,46 +180,55 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                 ),
               ),
               const SizedBox(height: AppDimensions.paddingSmall),
-              Obx(() => DropdownButtonFormField<InventoryMovementType>(
-                value: controller.selectedType.value,
-                isExpanded: true, // Prevent overflow
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppDimensions.paddingMedium,
-                    vertical: AppDimensions.paddingSmall,
-                  ),
-                ),
-                items: InventoryMovementType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min, // Prevent row from taking too much space
-                      children: [
-                        Icon(
-                          _getTypeIcon(type),
-                          size: 16,
-                          color: _getTypeColor(type),
-                        ),
-                        const SizedBox(width: AppDimensions.paddingSmall),
-                        Flexible(
-                          child: Text(
-                            type.displayType,
-                            overflow: TextOverflow.ellipsis, // Prevent text overflow
-                          ),
-                        ),
-                      ],
+              Obx(
+                () => DropdownButtonFormField<InventoryMovementType>(
+                  value: controller.selectedType.value,
+                  isExpanded: true, // Prevent overflow
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusSmall,
+                      ),
                     ),
-                  );
-                }).toList(),
-                onChanged: (type) {
-                  if (type != null) {
-                    controller.selectedType.value = type;
-                  }
-                },
-              )),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppDimensions.paddingMedium,
+                      vertical: AppDimensions.paddingSmall,
+                    ),
+                  ),
+                  items:
+                      InventoryMovementType.values.map((type) {
+                        return DropdownMenuItem(
+                          value: type,
+                          child: Row(
+                            mainAxisSize:
+                                MainAxisSize
+                                    .min, // Prevent row from taking too much space
+                            children: [
+                              Icon(
+                                _getTypeIcon(type),
+                                size: 16,
+                                color: _getTypeColor(type),
+                              ),
+                              const SizedBox(width: AppDimensions.paddingSmall),
+                              Flexible(
+                                child: Text(
+                                  type.displayType,
+                                  overflow:
+                                      TextOverflow
+                                          .ellipsis, // Prevent text overflow
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                  onChanged: (type) {
+                    if (type != null) {
+                      controller.selectedType.value = type;
+                    }
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -243,33 +244,39 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                 ),
               ),
               const SizedBox(height: AppDimensions.paddingSmall),
-              Obx(() => DropdownButtonFormField<InventoryMovementReason>(
-                value: controller.selectedReason.value,
-                isExpanded: true, // Prevent overflow
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppDimensions.paddingMedium,
-                    vertical: AppDimensions.paddingSmall,
-                  ),
-                ),
-                items: InventoryMovementReason.values.map((reason) {
-                  return DropdownMenuItem(
-                    value: reason,
-                    child: Text(
-                      reason.displayReason,
-                      overflow: TextOverflow.ellipsis, // Prevent text overflow
+              Obx(
+                () => DropdownButtonFormField<InventoryMovementReason>(
+                  value: controller.selectedReason.value,
+                  isExpanded: true, // Prevent overflow
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusSmall,
+                      ),
                     ),
-                  );
-                }).toList(),
-                onChanged: (reason) {
-                  if (reason != null) {
-                    controller.selectedReason.value = reason;
-                  }
-                },
-              )),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppDimensions.paddingMedium,
+                      vertical: AppDimensions.paddingSmall,
+                    ),
+                  ),
+                  items:
+                      InventoryMovementReason.values.map((reason) {
+                        return DropdownMenuItem(
+                          value: reason,
+                          child: Text(
+                            reason.displayReason,
+                            overflow:
+                                TextOverflow.ellipsis, // Prevent text overflow
+                          ),
+                        );
+                      }).toList(),
+                  onChanged: (reason) {
+                    if (reason != null) {
+                      controller.selectedReason.value = reason;
+                    }
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -280,7 +287,7 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
   Widget _buildQuantityAndCost() {
     return Obx(() {
       final shouldShowUnitCost = _shouldShowUnitCost();
-      
+
       return Row(
         children: [
           Expanded(
@@ -297,7 +304,9 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                 KeyboardSafeTextFormField(
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusSmall,
+                      ),
                     ),
                     hintText: 'Cantidad',
                     contentPadding: const EdgeInsets.symmetric(
@@ -306,9 +315,7 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                     ),
                   ),
                   keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (value) {
                     controller.quantity.value = int.tryParse(value) ?? 1;
                   },
@@ -333,7 +340,9 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                   KeyboardSafeTextFormField(
                     decoration: InputDecoration(
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                        borderRadius: BorderRadius.circular(
+                          AppDimensions.radiusSmall,
+                        ),
                       ),
                       hintText: _getUnitCostHint(),
                       prefixIcon: const Icon(Icons.attach_money),
@@ -349,9 +358,10 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                     onChanged: (value) {
                       controller.unitCost.value = double.tryParse(value) ?? 0.0;
                     },
-                    initialValue: controller.unitCost.value > 0 
-                        ? controller.unitCost.value.toString() 
-                        : '',
+                    initialValue:
+                        controller.unitCost.value > 0
+                            ? controller.unitCost.value.toString()
+                            : '',
                   ),
                 ],
               ),
@@ -372,13 +382,13 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
       case InventoryMovementType.transferIn:
         // For inbound movements, show cost for purchases and some adjustments
         return reason == InventoryMovementReason.purchase ||
-               reason == InventoryMovementReason.return_ ||
-               reason == InventoryMovementReason.adjustment;
-               
+            reason == InventoryMovementReason.return_ ||
+            reason == InventoryMovementReason.adjustment;
+
       case InventoryMovementType.adjustment:
         // For adjustments, only show cost for positive adjustments (increases)
         return true; // Let user decide if they want to set a cost
-        
+
       case InventoryMovementType.outbound:
       case InventoryMovementType.transfer:
       case InventoryMovementType.transferOut:
@@ -392,10 +402,12 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
     final type = controller.selectedType.value;
     final reason = controller.selectedReason.value;
 
-    if ((type == InventoryMovementType.inbound || type == InventoryMovementType.transferIn) && reason == InventoryMovementReason.purchase) {
+    if ((type == InventoryMovementType.inbound ||
+            type == InventoryMovementType.transferIn) &&
+        reason == InventoryMovementReason.purchase) {
       return 'Costo de Compra *';
     }
-    
+
     return 'Costo Unitario';
   }
 
@@ -404,10 +416,12 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
     final type = controller.selectedType.value;
     final reason = controller.selectedReason.value;
 
-    if ((type == InventoryMovementType.inbound || type == InventoryMovementType.transferIn) && reason == InventoryMovementReason.purchase) {
+    if ((type == InventoryMovementType.inbound ||
+            type == InventoryMovementType.transferIn) &&
+        reason == InventoryMovementReason.purchase) {
       return 'Precio pagado por unidad';
     }
-    
+
     return 'Costo por unidad';
   }
 
@@ -464,7 +478,9 @@ class CreateMovementDialog extends GetView<InventoryMovementsController> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                    borderRadius: BorderRadius.circular(
+                      AppDimensions.radiusSmall,
+                    ),
                     border: Border.all(
                       color: AppColors.primary.withOpacity(0.3),
                     ),

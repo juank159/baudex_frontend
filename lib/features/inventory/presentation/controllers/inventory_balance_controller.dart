@@ -885,9 +885,9 @@ class InventoryBalanceController extends GetxController {
 
     // Filtro de categoría seleccionado
     String filterName = 'Todos los productos';
-    if (selectedAlertCard.value == 1)
+    if (selectedAlertCard.value == 1) {
       filterName = 'Con Stock';
-    else if (selectedAlertCard.value == 2)
+    } else if (selectedAlertCard.value == 2)
       filterName = 'Stock Bajo';
     else if (selectedAlertCard.value == 3)
       filterName = 'Sin Stock';

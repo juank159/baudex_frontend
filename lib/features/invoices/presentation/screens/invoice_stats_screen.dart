@@ -1,13 +1,15 @@
 // lib/features/invoices/presentation/screens/invoice_stats_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/animated_charts.dart';
 import '../controllers/invoice_stats_controller.dart';
-import '../widgets/invoice_stats_widget.dart';
+import '../controllers/invoice_list_controller.dart';
 import '../../domain/entities/invoice.dart';
+import '../../domain/services/invoice_stats_calculator.dart';
 
 class InvoiceStatsScreen extends StatelessWidget {
   const InvoiceStatsScreen({super.key});
@@ -37,64 +39,80 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  // ==================== COMPACT APP BAR ====================
-  
+  // ==================== ELEGANT APP BAR ====================
+
   PreferredSizeWidget _buildCompactAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: Theme.of(context).primaryColor,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+        ),
+      ),
+      backgroundColor: Colors.transparent,
       foregroundColor: Colors.white,
       elevation: 0,
       title: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(6),
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
             ),
-            child: const Icon(Icons.analytics_outlined, size: 16, color: Colors.white),
+            child: const Icon(
+              Icons.analytics_outlined,
+              size: 18,
+              color: Colors.white,
+            ),
           ),
-          const SizedBox(width: 8),
-          const Flexible(
-            child: Text(
-              'Estadísticas', 
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-              overflow: TextOverflow.ellipsis,
+          const SizedBox(width: 10),
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Colors.white, Color(0xFFE0E7FF)],
+            ).createShader(bounds),
+            child: const Text(
+              'Estadísticas',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.white,
+              ),
             ),
           ),
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, size: 18),
-          onPressed: () => Get.find<InvoiceStatsController>().refreshAllData(),
-          padding: const EdgeInsets.all(8),
-        ),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, size: 18),
-          onSelected: (value) => _handleMenuAction(value, context),
-          padding: const EdgeInsets.all(8),
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'export',
-              child: Row(children: [Icon(Icons.download, size: 16), SizedBox(width: 8), Text('Exportar')]),
-            ),
-            const PopupMenuItem(
-              value: 'settings',
-              child: Row(children: [Icon(Icons.settings, size: 16), SizedBox(width: 8), Text('Configurar')]),
-            ),
-          ],
+        Container(
+          margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.refresh, size: 20),
+            onPressed:
+                () => Get.find<InvoiceStatsController>().refreshAllData(
+                  showSuccessMessage: true,
+                ),
+            padding: const EdgeInsets.all(8),
+            tooltip: 'Actualizar datos',
+          ),
         ),
       ],
     );
   }
 
-
   // ==================== ULTRA COMPACT LAYOUTS ====================
 
-  Widget _buildMobileLayout(BuildContext context, InvoiceStatsController controller) {
+  Widget _buildMobileLayout(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
     return RefreshIndicator(
-      onRefresh: controller.refreshAllData,
+      onRefresh: () => controller.refreshAllData(showSuccessMessage: true),
       child: CustomScrollView(
         slivers: [
           // Period Selector elegante
@@ -104,7 +122,7 @@ class InvoiceStatsScreen extends StatelessWidget {
               child: _buildElegantPeriodSelector(context, controller),
             ),
           ),
-          
+
           // KPI Cards compactas
           SliverToBoxAdapter(
             child: Container(
@@ -112,7 +130,7 @@ class InvoiceStatsScreen extends StatelessWidget {
               child: _buildCompactKPIGrid(context, controller),
             ),
           ),
-          
+
           // Quick Stats Bar
           SliverToBoxAdapter(
             child: Container(
@@ -120,7 +138,7 @@ class InvoiceStatsScreen extends StatelessWidget {
               child: _buildQuickStatsBar(context, controller),
             ),
           ),
-          
+
           // Charts Section
           SliverToBoxAdapter(
             child: Container(
@@ -128,7 +146,7 @@ class InvoiceStatsScreen extends StatelessWidget {
               child: _buildCompactChartsSection(context, controller),
             ),
           ),
-          
+
           // Health & Actions
           SliverToBoxAdapter(
             child: Container(
@@ -136,7 +154,7 @@ class InvoiceStatsScreen extends StatelessWidget {
               child: _buildHealthActionsSection(context, controller),
             ),
           ),
-          
+
           // Overdue (if any)
           if (controller.hasOverdueInvoices)
             SliverToBoxAdapter(
@@ -145,7 +163,7 @@ class InvoiceStatsScreen extends StatelessWidget {
                 child: _buildCompactOverdueSection(context, controller),
               ),
             ),
-          
+
           // Bottom spacing
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
@@ -153,9 +171,12 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTabletLayout(BuildContext context, InvoiceStatsController controller) {
+  Widget _buildTabletLayout(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
     return RefreshIndicator(
-      onRefresh: controller.refreshAllData,
+      onRefresh: () => controller.refreshAllData(showSuccessMessage: true),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -169,14 +190,12 @@ class InvoiceStatsScreen extends StatelessWidget {
                   child: _buildCompactKPIGrid(context, controller),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _buildHealthCard(context, controller),
-                ),
+                Expanded(child: _buildHealthCard(context, controller)),
               ],
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             // Charts Row
             Row(
               children: [
@@ -185,9 +204,9 @@ class InvoiceStatsScreen extends StatelessWidget {
                 Expanded(child: _buildAmountBarChart(context, controller)),
               ],
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             // Bottom Row: Quick Actions + Overdue
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,7 +214,9 @@ class InvoiceStatsScreen extends StatelessWidget {
                 Expanded(child: _buildQuickActionsCard(context, controller)),
                 if (controller.hasOverdueInvoices) ...[
                   const SizedBox(width: 12),
-                  Expanded(child: _buildCompactOverdueSection(context, controller)),
+                  Expanded(
+                    child: _buildCompactOverdueSection(context, controller),
+                  ),
                 ],
               ],
             ),
@@ -205,48 +226,44 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDesktopLayout(BuildContext context, InvoiceStatsController controller) {
+  Widget _buildDesktopLayout(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    // Calcular estadísticas locales para consistencia
+    final localStats = _calculateLocalStats();
+
     return Row(
       children: [
-        // Enhanced Sidebar
+        // Enhanced Sidebar con tema elegant - ancho reducido
         Container(
-          width: 320,
+          width: 280,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.grey.shade50,
-                Colors.grey.shade100,
+                ElegantLightTheme.backgroundColor,
+                ElegantLightTheme.cardColor,
               ],
             ),
-            border: Border(right: BorderSide(color: Colors.grey.shade300)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(2, 0),
+            border: Border(
+              right: BorderSide(
+                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
               ),
-            ],
+            ),
+            boxShadow: ElegantLightTheme.elevatedShadow,
           ),
           child: Column(
             children: [
-              // Enhanced Sidebar Header
+              // Enhanced Sidebar Header con gradient elegant - más compacto
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Theme.of(context).primaryColor,
-                      Theme.of(context).primaryColor.withOpacity(0.8),
-                      Theme.of(context).primaryColor.withOpacity(0.9),
-                    ],
-                  ),
+                  gradient: ElegantLightTheme.primaryGradient,
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(context).primaryColor.withOpacity(0.3),
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -259,30 +276,37 @@ class InvoiceStatsScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withOpacity(0.3)),
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                            ),
                           ),
-                          child: const Icon(Icons.analytics_outlined, color: Colors.white, size: 24),
+                          child: const Icon(
+                            Icons.analytics_outlined,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 'Analytics',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 18,
+                                  fontSize: 16,
                                 ),
                               ),
                               Text(
-                                'Dashboard',
+                                'Dashboard de Facturas',
                                 style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
@@ -290,30 +314,33 @@ class InvoiceStatsScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     // Period Selector in Desktop Sidebar
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
                       ),
                       child: _buildDesktopPeriodSelector(context, controller),
                     ),
                   ],
                 ),
               ),
-              
-              // Enhanced Sidebar Content
+
+              // Enhanced Sidebar Content - más compacto
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     children: [
-                      _buildEnhancedSidebarKPIs(context, controller),
-                      const SizedBox(height: 20),
+                      _buildEnhancedSidebarKPIs(context, controller, localStats),
+                      const SizedBox(height: 14),
                       _buildEnhancedHealthCard(context, controller),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 14),
                       _buildEnhancedQuickActionsCard(context, controller),
                     ],
                   ),
@@ -322,40 +349,75 @@ class InvoiceStatsScreen extends StatelessWidget {
             ],
           ),
         ),
-        
-        // Main Content
+
+        // Main Content - Layout optimizado para llenar el espacio
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: controller.refreshAllData,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  // Top Charts Row
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: _buildStatusDonutChart(context, controller),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        child: _buildAmountBarChart(context, controller),
+          child: Container(
+            color: ElegantLightTheme.backgroundColor,
+            child: Column(
+              children: [
+                // Header con KPIs compactos en la parte superior
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Performance Analytics
-                  _buildPerformanceAnalytics(context, controller),
-                  
-                  if (controller.hasOverdueInvoices) ...[
-                    const SizedBox(height: 24),
-                    _buildCompactOverdueSection(context, controller),
-                  ],
-                ],
-              ),
+                  child: _buildTopKPIBar(controller, localStats),
+                ),
+
+                // Contenido principal scrolleable
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh:
+                        () => controller.refreshAllData(showSuccessMessage: true),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          // Gráficos en Row
+                          IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: _buildStatusDonutChart(context, controller),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildAmountBarChart(context, controller),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Performance Analytics
+                          _buildPerformanceAnalytics(context, controller, localStats),
+
+                          const SizedBox(height: 16),
+
+                          // Resumen de ventas adicional
+                          _buildSalesSummaryCard(controller),
+
+                          // Solo mostrar si hay vencidas según lógica local
+                          if (localStats['overdue']! > 0) ...[
+                            const SizedBox(height: 16),
+                            _buildCompactOverdueSection(context, controller),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -363,21 +425,401 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  // ==================== MODERN COMPACT WIDGETS ====================
+  // ==================== ELEGANT COMPACT WIDGETS ====================
 
-  Widget _buildCompactKPIGrid(BuildContext context, InvoiceStatsController controller) {
+  /// Barra de KPIs en la parte superior del área principal
+  Widget _buildTopKPIBar(InvoiceStatsController controller, Map<String, int> localStats) {
+    final amounts = _calculateLocalAmounts();
+    final totalSales = amounts['totalSales']!;
+    final paidAmount = amounts['paidAmount']!;
+    final pendingAmount = amounts['pendingAmount']!;
+    // Calcular tasa de cobro local
+    final collectionRate = totalSales > 0 ? (paidAmount / totalSales * 100) : 0.0;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildTopKPIItem(
+            'Total Facturas',
+            localStats['total'].toString(),
+            Icons.receipt_long,
+            ElegantLightTheme.primaryBlue,
+          ),
+        ),
+        Container(
+          width: 1,
+          height: 40,
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        Expanded(
+          child: _buildTopKPIItem(
+            'Ventas Totales',
+            AppFormatters.formatCurrency(totalSales),
+            Icons.attach_money,
+            const Color(0xFF10B981),
+          ),
+        ),
+        Container(
+          width: 1,
+          height: 40,
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        Expanded(
+          child: _buildTopKPIItem(
+            'Tasa de Cobro',
+            '${collectionRate.toStringAsFixed(1)}%',
+            Icons.trending_up,
+            collectionRate >= 85 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          ),
+        ),
+        Container(
+          width: 1,
+          height: 40,
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        Expanded(
+          child: _buildTopKPIItem(
+            'Pendiente',
+            AppFormatters.formatCurrency(pendingAmount),
+            Icons.hourglass_empty,
+            const Color(0xFFF59E0B),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopKPIItem(String label, String value, IconData icon, Color color) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: ElegantLightTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  /// Calcula los montos usando el servicio centralizado InvoiceStatsCalculator
+  /// Wrapper para compatibilidad - retorna Map<String, double>
+  Map<String, double> _calculateLocalAmounts() {
+    return _getStatsForCurrentPeriod().toAmountsMap();
+  }
+
+  /// Card de resumen de ventas adicional
+  Widget _buildSalesSummaryCard(InvoiceStatsController controller) {
+    final amounts = _calculateLocalAmounts();
+    final pendingAmount = amounts['pendingAmount']!;
+    final overdueAmount = amounts['overdueAmount']!;
+    final paidAmount = amounts['paidAmount']!;
+    final totalSales = amounts['totalSales']!;
+
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Resumen de Cartera',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Total: ${AppFormatters.formatCurrency(totalSales)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Barras de progreso horizontales
+          _buildSalesProgressBar('Cobrado', paidAmount, totalSales, const Color(0xFF10B981)),
+          const SizedBox(height: 12),
+          _buildSalesProgressBar('Pendiente', pendingAmount, totalSales, const Color(0xFFF59E0B)),
+          const SizedBox(height: 12),
+          _buildSalesProgressBar('Vencido', overdueAmount, totalSales, const Color(0xFFEF4444)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSalesProgressBar(String label, double value, double total, Color color) {
+    final percentage = total > 0 ? (value / total * 100) : 0.0;
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [color, color.withValues(alpha: 0.7)],
+                    ),
+                    borderRadius: BorderRadius.circular(3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Text(
+                  AppFormatters.formatCurrency(value),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${percentage.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        _buildAnimatedProgressBarWithShimmer(
+          percentage: percentage / 100,
+          color: color,
+          height: 10,
+        ),
+      ],
+    );
+  }
+
+  /// Barra de progreso animada con efecto shimmer
+  Widget _buildAnimatedProgressBarWithShimmer({
+    required double percentage,
+    required Color color,
+    double height = 8,
+  }) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.textSecondary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(height / 2),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0.0, end: percentage.clamp(0.0, 1.0)),
+        duration: const Duration(milliseconds: 1200),
+        curve: Curves.easeOutExpo,
+        builder: (context, animatedValue, child) {
+          return Row(
+            children: [
+              if (animatedValue > 0)
+                Flexible(
+                  flex: (animatedValue * 100).round().clamp(1, 100),
+                  child: Container(
+                    height: height - 2,
+                    margin: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          color.withValues(alpha: 0.85),
+                          color,
+                          color.withValues(alpha: 0.9),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular((height - 2) / 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.4),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular((height - 2) / 2),
+                      child: Stack(
+                        children: [
+                          if (animatedValue >= percentage * 0.9 && percentage > 0.05)
+                            ProgressShimmerEffect(
+                              borderRadius: (height - 2) / 2,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              if (animatedValue < 1.0)
+                Flexible(
+                  flex: ((1.0 - animatedValue) * 100).round().clamp(1, 100),
+                  child: Container(),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// Calcula las estadísticas usando el servicio centralizado InvoiceStatsCalculator
+  /// Garantiza consistencia con la pantalla de lista de facturas usando invoice.isOverdue
+  InvoiceStatsResult _getStatsForCurrentPeriod() {
+    final statsController = Get.find<InvoiceStatsController>();
+    final dateRange = statsController.currentPeriodRange;
+
+    // Intentar obtener las facturas del InvoiceListController si está disponible
+    if (Get.isRegistered<InvoiceListController>()) {
+      final listController = Get.find<InvoiceListController>();
+      final allInvoices = listController.invoices;
+
+      if (allInvoices.isNotEmpty) {
+        // Usar el servicio centralizado para calcular estadísticas
+        return InvoiceStatsCalculator.calculateForPeriod(
+          allInvoices,
+          startDate: dateRange.start,
+          endDate: dateRange.end,
+          useInvoiceDate: true,
+        );
+      }
+    }
+
+    // Si no hay facturas locales, crear resultado desde el controlador de stats
+    // Nota: El backend puede tener discrepancias, pero al menos mostramos algo
+    return InvoiceStatsResult(
+      total: statsController.totalInvoices,
+      paid: statsController.paidInvoices,
+      pending: statsController.pendingInvoices,
+      overdue: statsController.overdueCount,
+      partiallyPaid: statsController.partiallyPaidInvoices,
+      draft: statsController.draftInvoices,
+      cancelled: statsController.cancelledInvoices,
+      totalSales: statsController.totalSales,
+      paidAmount: statsController.totalSales - statsController.pendingAmount,
+      pendingAmount: statsController.pendingAmount - statsController.overdueAmount,
+      overdueAmount: statsController.overdueAmount,
+    );
+  }
+
+  /// Wrapper para compatibilidad - retorna Map<String, int>
+  Map<String, int> _calculateLocalStats() {
+    return _getStatsForCurrentPeriod().toStatsMap();
+  }
+
+  Widget _buildCompactKPIGrid(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    // Calcular estadísticas localmente para consistencia
+    final localStats = _calculateLocalStats();
+
+    return FuturisticContainer(
+      padding: EdgeInsets.zero,
       child: GridView.count(
         crossAxisCount: context.isMobile ? 2 : 4,
         shrinkWrap: true,
@@ -386,47 +828,97 @@ class InvoiceStatsScreen extends StatelessWidget {
         mainAxisSpacing: 1,
         crossAxisSpacing: 1,
         children: [
-          _buildMiniKPI('Total', controller.totalInvoices.toString(), Icons.receipt_long, Colors.blue),
-          _buildMiniKPI('Pagadas', controller.paidInvoices.toString(), Icons.check_circle, Colors.green),
-          _buildMiniKPI('Pendientes', controller.pendingInvoices.toString(), Icons.schedule, Colors.orange),
-          _buildMiniKPI('Vencidas', controller.overdueCount.toString(), Icons.warning, Colors.red),
+          _buildMiniKPI(
+            'Total',
+            localStats['total']!,
+            Icons.receipt_long,
+            ElegantLightTheme.primaryBlue,
+          ),
+          _buildMiniKPI(
+            'Pagadas',
+            localStats['paid']!,
+            Icons.check_circle,
+            const Color(0xFF10B981), // Verde elegante
+          ),
+          _buildMiniKPI(
+            'Pendientes',
+            localStats['pending']!,
+            Icons.schedule,
+            const Color(0xFFF59E0B), // Naranja elegante
+          ),
+          _buildMiniKPI(
+            'Vencidas',
+            localStats['overdue']!,
+            Icons.warning,
+            const Color(0xFFEF4444), // Rojo elegante
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMiniKPI(String label, String value, IconData icon, Color color) {
+  Widget _buildMiniKPI(String label, int value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: ElegantLightTheme.textTertiary.withValues(alpha: 0.15)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.05),
+            color.withValues(alpha: 0.02),
+          ],
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withValues(alpha: 0.2),
+                  color.withValues(alpha: 0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Icon(icon, color: color, size: 18),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-              color: color,
-            ),
+          const SizedBox(height: 8),
+          // Contador animado
+          TweenAnimationBuilder<int>(
+            tween: IntTween(begin: 0, end: value),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+            builder: (context, animatedValue, child) {
+              return Text(
+                animatedValue.toString(),
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  color: color,
+                ),
+              );
+            },
           ),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
+              fontSize: 11,
+              color: ElegantLightTheme.textSecondary,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -434,18 +926,19 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickStatsBar(BuildContext context, InvoiceStatsController controller) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).primaryColor.withOpacity(0.1),
-            Theme.of(context).primaryColor.withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+  Widget _buildQuickStatsBar(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(14),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
+          ElegantLightTheme.primaryBlue.withValues(alpha: 0.03),
+        ],
       ),
       child: Row(
         children: [
@@ -453,23 +946,56 @@ class InvoiceStatsScreen extends StatelessWidget {
             child: _buildQuickStat(
               'Ventas',
               AppFormatters.formatCurrency(controller.totalSales),
-              Colors.green,
+              const Color(0xFF10B981), // Verde elegante
+              Icons.trending_up,
             ),
           ),
-          Container(width: 1, height: 24, color: Colors.grey.shade300),
+          Container(
+            width: 1,
+            height: 32,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  ElegantLightTheme.textTertiary.withValues(alpha: 0.1),
+                  ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+                  ElegantLightTheme.textTertiary.withValues(alpha: 0.1),
+                ],
+              ),
+            ),
+          ),
           Expanded(
             child: _buildQuickStat(
               'Cobro',
               '${controller.collectionRate.toStringAsFixed(1)}%',
-              controller.collectionRate >= 85 ? Colors.green : Colors.red,
+              controller.collectionRate >= 85
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFFEF4444),
+              Icons.percent,
             ),
           ),
-          Container(width: 1, height: 24, color: Colors.grey.shade300),
+          Container(
+            width: 1,
+            height: 32,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  ElegantLightTheme.textTertiary.withValues(alpha: 0.1),
+                  ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+                  ElegantLightTheme.textTertiary.withValues(alpha: 0.1),
+                ],
+              ),
+            ),
+          ),
           Expanded(
             child: _buildQuickStat(
               'Pendiente',
               AppFormatters.formatCurrency(controller.pendingAmount),
-              Colors.orange,
+              const Color(0xFFF59E0B), // Naranja elegante
+              Icons.hourglass_empty,
             ),
           ),
         ],
@@ -477,29 +1003,45 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickStat(String label, String value, Color color) {
+  Widget _buildQuickStat(String label, String value, Color color, IconData icon) {
     return Column(
       children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
-            color: color,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color.withValues(alpha: 0.7)),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: color,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
+        const SizedBox(height: 2),
         Text(
           label,
           style: TextStyle(
             fontSize: 10,
-            color: Colors.grey.shade600,
+            color: ElegantLightTheme.textSecondary,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildCompactChartsSection(BuildContext context, InvoiceStatsController controller) {
+  Widget _buildCompactChartsSection(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
     return Column(
       children: [
         _buildStatusDonutChart(context, controller),
@@ -509,189 +1051,16 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusDonutChart(BuildContext context, InvoiceStatsController controller) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(Icons.pie_chart, size: 16, color: Colors.blue),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Estados de Facturas',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600, 
-                  fontSize: 14,
-                  color: Colors.grey.shade800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 180, // Aumentado para igualar con barras
-            child: Row(
-              children: [
-                Expanded(
-                  child: PieChart(
-                    PieChartData(
-                      sections: _buildPieChartSections(controller),
-                      centerSpaceRadius: 35,
-                      sectionsSpace: 3,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(child: _buildLegend(controller.getStatusChartData())),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildStatusDonutChart(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    // Obtener datos locales filtrados por período
+    final localStats = _calculateLocalStats();
+    final segments = _buildDonutSegments(localStats);
 
-  Widget _buildAmountBarChart(BuildContext context, InvoiceStatsController controller) {
-    return Container(
+    return FuturisticContainer(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(Icons.bar_chart, size: 16, color: Colors.green),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Análisis de Montos',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600, 
-                  fontSize: 14,
-                  color: Colors.grey.shade800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 180, // Igualado con gráfico circular
-            child: BarChart(
-              BarChartData(
-                barGroups: _buildBarGroups(controller),
-                titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        const titles = ['Cobrado', 'Pendiente', 'Vencido'];
-                        if (value.toInt() < titles.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              titles[value.toInt()],
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.grey.shade700,
-                              ),
-                            ),
-                          );
-                        }
-                        return const Text('');
-                      },
-                    ),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                gridData: FlGridData(
-                  show: true,
-                  drawHorizontalLine: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 50000,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: Colors.grey.shade300,
-                    strokeWidth: 1,
-                  ),
-                ),
-                barTouchData: BarTouchData(
-                  enabled: true,
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (group) => Colors.grey.shade800,
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      const titles = ['Cobrado', 'Pendiente', 'Vencido'];
-                      return BarTooltipItem(
-                        '${titles[group.x]}\n${AppFormatters.formatCurrency(rod.toY)}',
-                        const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHealthCard(BuildContext context, InvoiceStatsController controller) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -700,12 +1069,350 @@ class InvoiceStatsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: controller.getHealthColor().withOpacity(0.1),
+                  gradient: ElegantLightTheme.infoGradient,
                   borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.pie_chart,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Estados de Facturas',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 220,
+            child: Animated3DDonutChart(
+              segments: segments,
+              size: 160,
+              showLegend: true,
+              animationDuration: const Duration(milliseconds: 1200),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Construye los segmentos para el gráfico de dona 3D
+  List<ChartSegment> _buildDonutSegments(Map<String, int> localStats) {
+    final segments = <ChartSegment>[];
+
+    final pending = localStats['pending'] ?? 0;
+    final paid = localStats['paid'] ?? 0;
+    final overdue = localStats['overdue'] ?? 0;
+    final total = localStats['total'] ?? 0;
+    final partial = total - paid - pending - overdue;
+
+    if (pending > 0) {
+      segments.add(ChartSegment(
+        label: 'Pendientes',
+        value: pending.toDouble(),
+        color: Colors.orange,
+        icon: Icons.schedule,
+      ));
+    }
+
+    if (paid > 0) {
+      segments.add(ChartSegment(
+        label: 'Pagadas',
+        value: paid.toDouble(),
+        color: const Color(0xFF10B981),
+        icon: Icons.check_circle,
+      ));
+    }
+
+    if (overdue > 0) {
+      segments.add(ChartSegment(
+        label: 'Vencidas',
+        value: overdue.toDouble(),
+        color: const Color(0xFFEF4444),
+        icon: Icons.warning_amber,
+      ));
+    }
+
+    if (partial > 0) {
+      segments.add(ChartSegment(
+        label: 'Pago Parcial',
+        value: partial.toDouble(),
+        color: const Color(0xFF3B82F6),
+        icon: Icons.pie_chart,
+      ));
+    }
+
+    return segments;
+  }
+
+  Widget _buildAmountBarChart(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    // Obtener valores filtrados por período
+    final amounts = _calculateLocalAmounts();
+    final pendingAmount = amounts['pendingAmount']!;
+    final overdueAmount = amounts['overdueAmount']!;
+    final paidAmount = amounts['paidAmount']!;
+
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.successGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.bar_chart,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Análisis de Montos',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Barras verticales animadas con efecto shimmer
+          _buildAnimatedAmountBars(paidAmount, pendingAmount, overdueAmount),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnimatedAmountBars(
+    double paidAmount,
+    double pendingAmount,
+    double overdueAmount,
+  ) {
+    final maxValue = [paidAmount, pendingAmount, overdueAmount]
+        .reduce((a, b) => a > b ? a : b);
+    final effectiveMax = maxValue > 0 ? maxValue : 100000.0;
+
+    return Column(
+      children: [
+        // Barras verticales con etiquetas
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: _buildAnimatedBarWithLabel(
+                label: 'Cobrado',
+                value: paidAmount,
+                maxValue: effectiveMax,
+                color: const Color(0xFF10B981),
+                gradient: const LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xFF059669), Color(0xFF10B981), Color(0xFF34D399)],
+                ),
+              ),
+            ),
+            Expanded(
+              child: _buildAnimatedBarWithLabel(
+                label: 'Pendiente',
+                value: pendingAmount,
+                maxValue: effectiveMax,
+                color: const Color(0xFFF59E0B),
+                gradient: const LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xFFD97706), Color(0xFFF59E0B), Color(0xFFFBBF24)],
+                ),
+              ),
+            ),
+            Expanded(
+              child: _buildAnimatedBarWithLabel(
+                label: 'Vencido',
+                value: overdueAmount,
+                maxValue: effectiveMax,
+                color: const Color(0xFFEF4444),
+                gradient: const LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xFFDC2626), Color(0xFFEF4444), Color(0xFFF87171)],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnimatedBarWithLabel({
+    required String label,
+    required double value,
+    required double maxValue,
+    required Color color,
+    LinearGradient? gradient,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Barra animada con forma de píldora
+        AnimatedVerticalBar(
+          label: '',
+          value: value,
+          maxValue: maxValue,
+          color: color,
+          gradient: gradient,
+          width: 50,
+          height: 130,
+          minFilledHeight: 50, // Altura mínima para mantener forma de píldora
+          animationDuration: const Duration(milliseconds: 1400),
+        ),
+        const SizedBox(height: 8),
+        // Etiqueta
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: ElegantLightTheme.textSecondary,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        // Monto con badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: value > 0 ? color.withValues(alpha: 0.12) : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: value > 0 ? color.withValues(alpha: 0.2) : ElegantLightTheme.textSecondary.withValues(alpha: 0.15),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            AppFormatters.formatCurrency(value),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: value > 0 ? color : ElegantLightTheme.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHealthCard(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    // Usar datos locales filtrados por período
+    final localStats = _calculateLocalStats();
+    final amounts = _calculateLocalAmounts();
+
+    final totalInvoices = localStats['total']!;
+    final overdueCount = localStats['overdue']!;
+    final totalSales = amounts['totalSales']!;
+    final paidAmount = amounts['paidAmount']!;
+
+    // Calcular porcentajes locales
+    final collectionRate = totalSales > 0 ? (paidAmount / totalSales * 100) : 100.0;
+    final overduePercentage = totalInvoices > 0 ? (overdueCount / totalInvoices * 100) : 0.0;
+
+    // Determinar estado de salud basado en datos locales
+    final isHealthy = collectionRate >= 85 && overduePercentage <= 5;
+    final hasIssues = collectionRate < 70 || overduePercentage > 15;
+
+    final healthColor = isHealthy
+        ? Colors.green
+        : hasIssues
+            ? Colors.red
+            : Colors.orange;
+
+    final healthIcon = isHealthy
+        ? Icons.check_circle
+        : hasIssues
+            ? Icons.error
+            : Icons.warning_amber;
+
+    final healthMessage = isHealthy
+        ? 'Estado financiero saludable'
+        : hasIssues
+            ? 'Requiere atención urgente'
+            : 'Estado financiero aceptable';
+
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(16),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          healthColor.withValues(alpha: 0.08),
+          healthColor.withValues(alpha: 0.03),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      healthColor.withValues(alpha: 0.3),
+                      healthColor.withValues(alpha: 0.15),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: healthColor.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Icon(
-                  controller.getHealthIcon(),
-                  color: controller.getHealthColor(),
+                  healthIcon,
+                  color: healthColor,
                   size: 20,
                 ),
               ),
@@ -714,15 +1421,20 @@ class InvoiceStatsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Salud Financiera',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: ElegantLightTheme.textPrimary,
+                      ),
                     ),
                     Text(
-                      controller.getHealthMessage(),
+                      healthMessage,
                       style: TextStyle(
-                        color: controller.getHealthColor(),
+                        color: healthColor,
                         fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -733,8 +1445,8 @@ class InvoiceStatsScreen extends StatelessWidget {
           const SizedBox(height: 16),
           _buildProgressIndicator(
             'Tasa de Cobro',
-            controller.collectionRate,
-            85,
+            collectionRate,
+            100,
             '%',
           ),
         ],
@@ -742,39 +1454,61 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressIndicator(String label, double value, double target, String unit) {
+  Widget _buildProgressIndicator(
+    String label,
+    double value,
+    double target,
+    String unit,
+  ) {
     final progress = (value / target).clamp(0.0, 1.0);
     final isGood = value >= target;
-    
+    final color = isGood ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 12)),
             Text(
-              '${value.toStringAsFixed(1)}$unit',
+              label,
               style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: isGood ? Colors.green : Colors.red,
+                fontSize: 12,
+                color: ElegantLightTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${value.toStringAsFixed(1)}$unit',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: color,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        LinearProgressIndicator(
-          value: progress,
-          backgroundColor: Colors.grey.shade200,
-          valueColor: AlwaysStoppedAnimation<Color>(
-            isGood ? Colors.green : Colors.red,
-          ),
+        const SizedBox(height: 8),
+        _buildAnimatedProgressBarWithShimmer(
+          percentage: progress,
+          color: color,
+          height: 8,
         ),
       ],
     );
   }
 
-  Widget _buildHealthActionsSection(BuildContext context, InvoiceStatsController controller) {
+  Widget _buildHealthActionsSection(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
     return Row(
       children: [
         Expanded(child: _buildHealthCard(context, controller)),
@@ -784,62 +1518,75 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickActionsCard(BuildContext context, InvoiceStatsController controller) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+  Widget _buildQuickActionsCard(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    final localStats = _calculateLocalStats();
+    final overdueCount = localStats['overdue']!;
+
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Acciones',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.flash_on,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Acciones',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          _buildActionButton(
-            'Nueva Factura',
-            Icons.add,
-            Theme.of(context).primaryColor,
-            controller.goToCreateInvoice,
+          _buildQuickActionButton(
+            label: 'Nueva Factura',
+            icon: Icons.add_circle_outline,
+            color: ElegantLightTheme.primaryBlue,
+            onTap: controller.goToCreateInvoice,
+            isPrimary: true,
           ),
           const SizedBox(height: 8),
-          _buildActionButton(
-            'Ver Facturas',
-            Icons.list,
-            Colors.grey.shade600,
-            () => controller.goToInvoiceList(),
+          _buildQuickActionButton(
+            label: 'Vencidas',
+            icon: Icons.warning_amber_rounded,
+            color: const Color(0xFFEF4444),
+            onTap: () => controller.goToOverdueInvoices(),
+            badge: overdueCount > 0 ? overdueCount.toString() : null,
+          ),
+          const SizedBox(height: 8),
+          _buildQuickActionButton(
+            label: 'Ver Todas',
+            icon: Icons.list_alt,
+            color: ElegantLightTheme.textSecondary,
+            onTap: () => controller.goToInvoiceList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionButton(String text, IconData icon, Color color, VoidCallback onPressed) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 16, color: color),
-        label: Text(text, style: TextStyle(color: color, fontSize: 12)),
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: color.withOpacity(0.3)),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSidebarKPIs(BuildContext context, InvoiceStatsController controller) {
+  Widget _buildSidebarKPIs(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
     return Column(
       children: [
         _buildSidebarKPI(
@@ -866,13 +1613,18 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSidebarKPI(String label, String value, IconData icon, Color color) {
+  Widget _buildSidebarKPI(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -894,7 +1646,7 @@ class InvoiceStatsScreen extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade600,
+                    color: ElegantLightTheme.textSecondary,
                   ),
                 ),
               ],
@@ -905,26 +1657,53 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPerformanceAnalytics(BuildContext context, InvoiceStatsController controller) {
-    return Container(
+  Widget _buildPerformanceAnalytics(
+    BuildContext context,
+    InvoiceStatsController controller,
+    Map<String, int> localStats,
+  ) {
+    final total = localStats['total']!;
+    final paid = localStats['paid']!;
+    final overdue = localStats['overdue']!;
+    final paidPercent = total > 0 ? (paid / total * 100) : 0.0;
+    final overduePercent = total > 0 ? (overdue / total * 100) : 0.0;
+
+    return FuturisticContainer(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Análisis de Rendimiento',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.speed,
+                  size: 18,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Análisis de Rendimiento',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           Row(
@@ -942,7 +1721,7 @@ class InvoiceStatsScreen extends StatelessWidget {
               Expanded(
                 child: _buildPerformanceCard(
                   'Facturas Pagadas',
-                  controller.paidPercentage,
+                  paidPercent,
                   '%',
                   80,
                   Icons.check_circle,
@@ -952,7 +1731,7 @@ class InvoiceStatsScreen extends StatelessWidget {
               Expanded(
                 child: _buildPerformanceCard(
                   'Facturas Vencidas',
-                  controller.overduePercentage,
+                  overduePercent,
                   '%',
                   5,
                   Icons.warning,
@@ -975,41 +1754,93 @@ class InvoiceStatsScreen extends StatelessWidget {
     bool isInverted = false,
   }) {
     final isGood = isInverted ? value <= target : value >= target;
-    final color = isGood ? Colors.green : Colors.red;
-    
+    final color = isGood ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.1),
+            color.withValues(alpha: 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            '${value.toStringAsFixed(1)}$unit',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 20,
-              color: color,
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withValues(alpha: 0.25),
+                  color.withValues(alpha: 0.15),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
+            child: Icon(icon, color: color, size: 22),
           ),
+          const SizedBox(height: 10),
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: value),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+            builder: (context, animatedValue, child) {
+              return Text(
+                '${animatedValue.toStringAsFixed(1)}$unit',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 22,
+                  color: color,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 4),
           Text(
             title,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey.shade600,
+              color: ElegantLightTheme.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          Text(
-            'Meta: ${isInverted ? "≤" : "≥"} $target$unit',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey.shade500,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              'Meta: ${isInverted ? "≤" : "≥"} ${target.toInt()}$unit',
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -1017,18 +1848,18 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCompactOverdueSection(BuildContext context, InvoiceStatsController controller) {
-    return Container(
+  Widget _buildCompactOverdueSection(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    return FuturisticContainer(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          const Color(0xFFEF4444).withValues(alpha: 0.06),
+          const Color(0xFFEF4444).withValues(alpha: 0.02),
         ],
       ),
       child: Column(
@@ -1037,17 +1868,28 @@ class InvoiceStatsScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
+                  gradient: ElegantLightTheme.errorGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.warning, size: 16, color: Colors.red),
+                child: const Icon(Icons.warning, size: 16, color: Colors.white),
               ),
-              const SizedBox(width: 8),
-              const Text(
+              const SizedBox(width: 10),
+              Text(
                 'Facturas Vencidas',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: ElegantLightTheme.textPrimary,
+                ),
               ),
               const Spacer(),
               TextButton(
@@ -1068,7 +1910,10 @@ class InvoiceStatsScreen extends StatelessWidget {
                 children: [
                   Icon(Icons.check_circle, color: Colors.green, size: 16),
                   SizedBox(width: 8),
-                  Text('¡No hay facturas vencidas!', style: TextStyle(fontSize: 12)),
+                  Text(
+                    '¡No hay facturas vencidas!',
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ],
               ),
             )
@@ -1088,16 +1933,25 @@ class InvoiceStatsScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           '${controller.overdueInvoices.length} facturas por ${AppFormatters.formatCurrency(controller.overdueAmount)}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
-                ...controller.overdueInvoices.take(3).map(
-                  (invoice) => _buildCompactOverdueItem(context, invoice, controller),
-                ),
+                ...controller.overdueInvoices
+                    .take(3)
+                    .map(
+                      (invoice) => _buildCompactOverdueItem(
+                        context,
+                        invoice,
+                        controller,
+                      ),
+                    ),
               ],
             ),
         ],
@@ -1105,7 +1959,11 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCompactOverdueItem(BuildContext context, Invoice invoice, InvoiceStatsController controller) {
+  Widget _buildCompactOverdueItem(
+    BuildContext context,
+    Invoice invoice,
+    InvoiceStatsController controller,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(8),
@@ -1123,7 +1981,10 @@ class InvoiceStatsScreen extends StatelessWidget {
                 children: [
                   Text(
                     invoice.number,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
                   ),
                   Text(
                     invoice.customerName,
@@ -1137,7 +1998,11 @@ class InvoiceStatsScreen extends StatelessWidget {
               children: [
                 Text(
                   AppFormatters.formatCurrency(invoice.total),
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: Colors.red),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                    color: Colors.red,
+                  ),
                 ),
                 Text(
                   '${invoice.daysOverdue}d',
@@ -1151,52 +2016,10 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLegend(List<ChartData> data) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: data.map((item) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: item.color,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade800,
-                    ),
-                  ),
-                  Text(
-                    '${item.value.toInt()} facturas',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      )).toList(),
-    );
-  }
-
-  Widget _buildErrorState(BuildContext context, InvoiceStatsController controller) {
+  Widget _buildErrorState(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1209,7 +2032,8 @@ class InvoiceStatsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: controller.refreshAllData,
+            onPressed:
+                () => controller.refreshAllData(showSuccessMessage: true),
             child: const Text('Reintentar'),
           ),
         ],
@@ -1219,229 +2043,385 @@ class InvoiceStatsScreen extends StatelessWidget {
 
   Widget? _buildCompactFAB(BuildContext context) {
     if (!context.isMobile) return null;
-    
+
     return FloatingActionButton(
       onPressed: () => Get.find<InvoiceStatsController>().goToCreateInvoice(),
       child: const Icon(Icons.add),
     );
   }
 
-  // ==================== CHART HELPERS ====================
-
-  List<PieChartSectionData> _buildPieChartSections(InvoiceStatsController controller) {
-    final data = controller.getStatusChartData();
-    return data.map((item) => PieChartSectionData(
-      value: item.value,
-      title: item.value > 0 ? item.value.toInt().toString() : '',
-      color: item.color,
-      radius: 30,
-      titleStyle: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-        color: Colors.grey.shade800, // Cambiado de blanco a gris oscuro
-        shadows: [
-          Shadow(
-            color: Colors.white,
-            offset: const Offset(1, 1),
-            blurRadius: 2,
-          ),
-        ],
-      ),
-    )).toList();
-  }
-
-  List<BarChartGroupData> _buildBarGroups(InvoiceStatsController controller) {
-    final data = controller.getAmountChartData();
-    return data.asMap().entries.map((entry) => BarChartGroupData(
-      x: entry.key,
-      barRods: [
-        BarChartRodData(
-          toY: entry.value.value,
-          color: entry.value.color,
-          width: 16,
-          borderRadius: BorderRadius.circular(4),
-        ),
-      ],
-    )).toList();
-  }
-
   // ==================== ELEGANT PERIOD SELECTOR ====================
 
-  Widget _buildElegantPeriodSelector(BuildContext context, InvoiceStatsController controller) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+  Widget _buildElegantPeriodSelector(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    return GetBuilder<InvoiceStatsController>(
+      builder: (ctrl) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.12),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header compacto
+            Row(
               children: [
-                Icon(
-                  Icons.date_range,
-                  size: 16,
-                  color: Theme.of(context).primaryColor,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.calendar_month,
+                    size: 16,
+                    color: Colors.white,
+                  ),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  'Período:',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade700,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Período',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: ElegantLightTheme.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        '${ctrl.selectedPeriod.displayName} • ${ctrl.selectedPeriod.getDateRangeDescription()}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: ElegantLightTheme.primaryBlue,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: GetBuilder<InvoiceStatsController>(
-                builder: (controller) => Row(
-                  children: StatsPeriod.values.map((period) {
-                    final isSelected = controller.selectedPeriod == period;
-                    return Container(
-                      margin: const EdgeInsets.only(right: 4),
-                      child: GestureDetector(
-                        onTap: () => controller.changePeriod(period),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isSelected 
-                                ? Theme.of(context).primaryColor 
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                            border: isSelected 
-                                ? null 
-                                : Border.all(color: Colors.grey.shade400),
-                          ),
-                          child: Text(
-                            period.displayName,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                              color: isSelected 
-                                  ? Colors.white 
-                                  : Colors.grey.shade700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
+            const SizedBox(height: 12),
+
+            // Grid de períodos 3x2 con tamaño uniforme
+            Row(
+              children: [
+                Expanded(child: _buildPeriodButton(ctrl, StatsPeriod.today)),
+                const SizedBox(width: 8),
+                Expanded(child: _buildPeriodButton(ctrl, StatsPeriod.thisWeek)),
+                const SizedBox(width: 8),
+                Expanded(child: _buildPeriodButton(ctrl, StatsPeriod.thisMonth)),
+              ],
             ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _buildPeriodButton(ctrl, StatsPeriod.thisQuarter)),
+                const SizedBox(width: 8),
+                Expanded(child: _buildPeriodButton(ctrl, StatsPeriod.thisYear)),
+                const SizedBox(width: 8),
+                Expanded(child: _buildPeriodButton(ctrl, StatsPeriod.allTime)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeriodButton(InvoiceStatsController ctrl, StatsPeriod period) {
+    final isSelected = ctrl.selectedPeriod == period;
+
+    return GestureDetector(
+      onTap: () => ctrl.changePeriod(period),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          gradient: isSelected ? ElegantLightTheme.primaryGradient : null,
+          color: isSelected ? null : ElegantLightTheme.backgroundColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? Colors.transparent
+                : ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+            width: 1,
           ),
-        ],
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              period.icon,
+              size: 18,
+              color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              period.shortName,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   // ==================== ENHANCED DESKTOP COMPONENTS ====================
 
-  Widget _buildDesktopPeriodSelector(BuildContext context, InvoiceStatsController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Período de Análisis',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 4,
-          runSpacing: 4,
-          children: StatsPeriod.values.map((period) {
-            final isSelected = controller.selectedPeriod == period;
-            return GestureDetector(
-              onTap: () {
-                controller.changePeriod(period);
-                controller.update(); // Forzar actualización visual
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isSelected 
-                      ? Colors.white.withOpacity(0.3) 
-                      : Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: isSelected 
-                        ? Colors.white.withOpacity(0.6)
-                        : Colors.white.withOpacity(0.2),
-                  ),
-                ),
+  Widget _buildDesktopPeriodSelector(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    return GetBuilder<InvoiceStatsController>(
+      builder: (ctrl) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header con indicador de período actual
+          Row(
+            children: [
+              const Icon(
+                Icons.calendar_month,
+                size: 14,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
                 child: Text(
-                  period.displayName,
+                  'Período de Análisis',
                   style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                     color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            );
-          }).toList(),
-        ),
-      ],
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // Descripción del rango actual
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  ctrl.selectedPeriod.icon,
+                  size: 14,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  ctrl.selectedPeriod.displayName,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '• ${ctrl.selectedPeriod.getDateRangeDescription()}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Grid de períodos 3x2 con tamaño uniforme
+          Row(
+            children: [
+              Expanded(child: _buildDesktopPeriodButton(ctrl, StatsPeriod.today)),
+              const SizedBox(width: 6),
+              Expanded(child: _buildDesktopPeriodButton(ctrl, StatsPeriod.thisWeek)),
+              const SizedBox(width: 6),
+              Expanded(child: _buildDesktopPeriodButton(ctrl, StatsPeriod.thisMonth)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(child: _buildDesktopPeriodButton(ctrl, StatsPeriod.thisQuarter)),
+              const SizedBox(width: 6),
+              Expanded(child: _buildDesktopPeriodButton(ctrl, StatsPeriod.thisYear)),
+              const SizedBox(width: 6),
+              Expanded(child: _buildDesktopPeriodButton(ctrl, StatsPeriod.allTime)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildEnhancedSidebarKPIs(BuildContext context, InvoiceStatsController controller) {
+  Widget _buildDesktopPeriodButton(InvoiceStatsController ctrl, StatsPeriod period) {
+    final isSelected = ctrl.selectedPeriod == period;
+
+    return GestureDetector(
+      onTap: () => ctrl.changePeriod(period),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.25),
+            width: 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              period.icon,
+              size: 14,
+              color: isSelected
+                  ? ElegantLightTheme.primaryBlue
+                  : Colors.white.withValues(alpha: 0.9),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              period.shortName,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected
+                    ? ElegantLightTheme.primaryBlue
+                    : Colors.white,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnhancedSidebarKPIs(
+    BuildContext context,
+    InvoiceStatsController controller,
+    Map<String, int> localStats,
+  ) {
+    final total = localStats['total']!;
+    final pending = localStats['pending']!;
+    final overdue = localStats['overdue']!;
+    final pendingPercent = total > 0 ? (pending / total * 100) : 0.0;
+    final overduePercent = total > 0 ? (overdue / total * 100) : 0.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'KPIs Principales',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey.shade800,
-          ),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.infoGradient,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(
+                Icons.insights,
+                size: 14,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'KPIs Principales',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: ElegantLightTheme.textPrimary,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _buildEnhancedKPICard(
           'Total Facturas',
-          controller.totalInvoices.toString(),
+          total.toString(),
           Icons.receipt_long,
-          Colors.blue,
+          ElegantLightTheme.primaryBlue,
           context,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _buildEnhancedKPICard(
           'Ventas Totales',
           AppFormatters.formatCurrency(controller.totalSales),
           Icons.attach_money,
-          Colors.green,
+          const Color(0xFF10B981),
           context,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _buildEnhancedKPICard(
           'Pendientes',
-          '${controller.pendingInvoices} (${controller.pendingPercentage.toStringAsFixed(1)}%)',
+          '$pending (${pendingPercent.toStringAsFixed(1)}%)',
           Icons.schedule,
-          Colors.orange,
+          const Color(0xFFF59E0B),
           context,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _buildEnhancedKPICard(
           'Vencidas',
-          '${controller.overdueCount} (${controller.overduePercentage.toStringAsFixed(1)}%)',
+          '$overdue (${overduePercent.toStringAsFixed(1)}%)',
           Icons.warning,
-          Colors.red,
+          const Color(0xFFEF4444),
           context,
         ),
       ],
@@ -1456,22 +2436,22 @@ class InvoiceStatsScreen extends StatelessWidget {
     BuildContext context,
   ) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            color.withOpacity(0.1),
-            color.withOpacity(0.05),
+            color.withValues(alpha: 0.1),
+            color.withValues(alpha: 0.04),
           ],
         ),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
+            color: color.withValues(alpha: 0.1),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -1479,14 +2459,28 @@ class InvoiceStatsScreen extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withValues(alpha: 0.25),
+                  color.withValues(alpha: 0.15),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Icon(icon, color: color, size: 16),
+            child: Icon(icon, color: color, size: 18),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1495,15 +2489,15 @@ class InvoiceStatsScreen extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade600,
+                    color: ElegantLightTheme.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   value,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: color,
                   ),
@@ -1516,7 +2510,45 @@ class InvoiceStatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEnhancedHealthCard(BuildContext context, InvoiceStatsController controller) {
+  Widget _buildEnhancedHealthCard(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    // Usar datos locales filtrados por período
+    final localStats = _calculateLocalStats();
+    final amounts = _calculateLocalAmounts();
+
+    final totalInvoices = localStats['total']!;
+    final overdueCount = localStats['overdue']!;
+    final totalSales = amounts['totalSales']!;
+    final paidAmount = amounts['paidAmount']!;
+
+    // Calcular porcentajes locales
+    final collectionRate = totalSales > 0 ? (paidAmount / totalSales * 100) : 100.0;
+    final overduePercentage = totalInvoices > 0 ? (overdueCount / totalInvoices * 100) : 0.0;
+
+    // Determinar estado de salud basado en datos locales
+    final isHealthy = collectionRate >= 85 && overduePercentage <= 5;
+    final hasIssues = collectionRate < 70 || overduePercentage > 15;
+
+    final healthColor = isHealthy
+        ? Colors.green
+        : hasIssues
+            ? Colors.red
+            : Colors.orange;
+
+    final healthIcon = isHealthy
+        ? Icons.check_circle
+        : hasIssues
+            ? Icons.error
+            : Icons.warning_amber;
+
+    final healthMessage = isHealthy
+        ? 'Estado financiero saludable'
+        : hasIssues
+            ? 'Requiere atención urgente'
+            : 'Estado financiero aceptable';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1524,17 +2556,17 @@ class InvoiceStatsScreen extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            controller.getHealthColor().withOpacity(0.1),
-            controller.getHealthColor().withOpacity(0.05),
+            healthColor.withValues(alpha: 0.12),
+            healthColor.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: controller.getHealthColor().withOpacity(0.3)),
+        border: Border.all(color: healthColor.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: healthColor.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -1544,14 +2576,28 @@ class InvoiceStatsScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: controller.getHealthColor().withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      healthColor.withValues(alpha: 0.3),
+                      healthColor.withValues(alpha: 0.15),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: healthColor.withValues(alpha: 0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Icon(
-                  controller.getHealthIcon(),
-                  color: controller.getHealthColor(),
+                  healthIcon,
+                  color: healthColor,
                   size: 20,
                 ),
               ),
@@ -1560,19 +2606,20 @@ class InvoiceStatsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Estado Financiero',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
+                        color: ElegantLightTheme.textPrimary,
                       ),
                     ),
                     Text(
-                      controller.getHealthMessage(),
+                      healthMessage,
                       style: TextStyle(
                         fontSize: 11,
-                        color: controller.getHealthColor(),
-                        fontWeight: FontWeight.w500,
+                        color: healthColor,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -1583,18 +2630,18 @@ class InvoiceStatsScreen extends StatelessWidget {
           const SizedBox(height: 16),
           _buildEnhancedIndicator(
             'Tasa de Cobro',
-            controller.collectionRate,
+            collectionRate,
             '%',
-            85,
-            controller.collectionRate >= 85,
+            100,
+            collectionRate >= 85,
           ),
           const SizedBox(height: 12),
           _buildEnhancedIndicator(
             'Facturas Vencidas',
-            controller.overduePercentage,
+            overduePercentage,
             '%',
-            5,
-            controller.overduePercentage <= 5,
+            100,
+            overduePercentage <= 5,
             isInverted: true,
           ),
         ],
@@ -1610,9 +2657,12 @@ class InvoiceStatsScreen extends StatelessWidget {
     bool isGood, {
     bool isInverted = false,
   }) {
-    final progress = isInverted
-        ? (target - value).clamp(0, target) / target
-        : (value / target).clamp(0, 1);
+    final progress =
+        isInverted
+            ? (target - value).clamp(0, target) / target
+            : (value / target).clamp(0, 1);
+
+    final color = isGood ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1624,46 +2674,53 @@ class InvoiceStatsScreen extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 11,
-                color: Colors.grey.shade600,
+                color: ElegantLightTheme.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            Text(
-              '${value.toStringAsFixed(1)}$unit',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: isGood ? Colors.green.shade600 : Colors.red.shade600,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${value.toStringAsFixed(1)}$unit',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: progress.toDouble(),
-            backgroundColor: Colors.grey.shade300,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              isGood ? Colors.green.shade600 : Colors.red.shade600,
-            ),
-            minHeight: 6,
-          ),
+        _buildAnimatedProgressBarWithShimmer(
+          percentage: progress.toDouble(),
+          color: color,
+          height: 8,
         ),
       ],
     );
   }
 
-  Widget _buildEnhancedQuickActionsCard(BuildContext context, InvoiceStatsController controller) {
+  Widget _buildEnhancedQuickActionsCard(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
+    final localStats = _calculateLocalStats();
+    final overdueCount = localStats['overdue']!;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: ElegantLightTheme.textTertiary.withValues(alpha: 0.15)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1672,116 +2729,196 @@ class InvoiceStatsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Acciones Rápidas',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.flash_on,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Acciones Rápidas',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          _buildEnhancedActionButton(
-            'Nueva Factura',
-            Icons.add_circle_outline,
-            Colors.blue,
-            () => controller.goToCreateInvoice(),
+          const SizedBox(height: 14),
+
+          // Botón principal: Nueva Factura
+          _buildQuickActionButton(
+            label: 'Nueva Factura',
+            icon: Icons.add_circle_outline,
+            color: ElegantLightTheme.primaryBlue,
+            onTap: () => controller.goToCreateInvoice(),
+            isPrimary: true,
           ),
           const SizedBox(height: 8),
-          _buildEnhancedActionButton(
-            'Facturas Vencidas',
-            Icons.warning_amber_outlined,
-            Colors.red,
-            () => controller.goToOverdueInvoices(),
+
+          // Facturas Vencidas con badge de cantidad
+          _buildQuickActionButton(
+            label: 'Facturas Vencidas',
+            icon: Icons.warning_amber_rounded,
+            color: const Color(0xFFEF4444),
+            onTap: () => controller.goToOverdueInvoices(),
+            badge: overdueCount > 0 ? overdueCount.toString() : null,
           ),
           const SizedBox(height: 8),
-          _buildEnhancedActionButton(
-            'Ver Todas',
-            Icons.receipt_long_outlined,
-            Colors.grey.shade600,
-            () => controller.goToInvoiceList(),
+
+          // Ver Todas las Facturas
+          _buildQuickActionButton(
+            label: 'Ver Todas',
+            icon: Icons.receipt_long_outlined,
+            color: ElegantLightTheme.textSecondary,
+            onTap: () => controller.goToInvoiceList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEnhancedActionButton(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: color,
+  Widget _buildQuickActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    bool isPrimary = false,
+    String? badge,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        splashColor: color.withValues(alpha: 0.1),
+        highlightColor: color.withValues(alpha: 0.05),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+          decoration: BoxDecoration(
+            gradient: isPrimary ? ElegantLightTheme.primaryGradient : null,
+            color: isPrimary ? null : color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: isPrimary
+                ? null
+                : Border.all(color: color.withValues(alpha: 0.15)),
+            boxShadow: isPrimary
+                ? [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: isPrimary
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  icon,
+                  color: isPrimary ? Colors.white : color,
+                  size: 16,
                 ),
               ),
-            ),
-            Icon(Icons.arrow_forward_ios, color: color, size: 12),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isPrimary ? Colors.white : color,
+                  ),
+                ),
+              ),
+              if (badge != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isPrimary
+                        ? Colors.white.withValues(alpha: 0.25)
+                        : color,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    badge,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isPrimary ? Colors.white : Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Icon(
+                Icons.chevron_right,
+                color: isPrimary
+                    ? Colors.white.withValues(alpha: 0.8)
+                    : color.withValues(alpha: 0.6),
+                size: 18,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ==================== EVENT HANDLERS ====================
-
-  void _handleMenuAction(String action, BuildContext context) {
-    switch (action) {
-      case 'export':
-        _showInfo('Próximamente', 'Función de exportación en desarrollo');
-        break;
-      case 'settings':
-        Get.toNamed('/settings/invoices');
-        break;
-    }
-  }
-
-  void _showPeriodSelector(BuildContext context, InvoiceStatsController controller) {
+  void _showPeriodSelector(
+    BuildContext context,
+    InvoiceStatsController controller,
+  ) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Seleccionar Período',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      builder:
+          (context) => Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Seleccionar Período',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  children:
+                      StatsPeriod.values
+                          .map(
+                            (period) => ChoiceChip(
+                              label: Text(period.displayName),
+                              selected: controller.selectedPeriod == period,
+                              onSelected: (_) {
+                                controller.changePeriod(period);
+                                Navigator.pop(context);
+                              },
+                            ),
+                          )
+                          .toList(),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              children: StatsPeriod.values.map((period) => ChoiceChip(
-                label: Text(period.displayName),
-                selected: controller.selectedPeriod == period,
-                onSelected: (_) {
-                  controller.changePeriod(period);
-                  Navigator.pop(context);
-                },
-              )).toList(),
-            ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 

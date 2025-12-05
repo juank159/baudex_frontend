@@ -112,11 +112,12 @@ class OrganizationController extends GetxController {
   }
 
   /// Refrescar datos
+  @override
   Future<void> refresh() async {
     await loadCurrentOrganization();
     // Actualizar el valor temporal del slider con el valor cargado
     _tempProfitMargin.value = profitMarginPercentage;
-    print('🔄 Datos refrescados - Margen actual: ${profitMarginPercentage}%');
+    print('🔄 Datos refrescados - Margen actual: $profitMarginPercentage%');
   }
 
   /// Limpiar error
@@ -199,7 +200,7 @@ class OrganizationController extends GetxController {
     loadCurrentOrganization().then((_) {
       _tempProfitMargin.value = profitMarginPercentage;
       print(
-        '🏢 Margen de ganancia cargado desde backend: ${profitMarginPercentage}%',
+        '🏢 Margen de ganancia cargado desde backend: $profitMarginPercentage%',
       );
     });
   }

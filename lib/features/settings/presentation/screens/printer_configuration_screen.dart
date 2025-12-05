@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
-import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/settings_controller.dart';
@@ -14,26 +13,29 @@ class PrinterConfigurationScreen extends StatefulWidget {
   const PrinterConfigurationScreen({super.key});
 
   @override
-  State<PrinterConfigurationScreen> createState() => _PrinterConfigurationScreenState();
+  State<PrinterConfigurationScreen> createState() =>
+      _PrinterConfigurationScreenState();
 }
 
 class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     with TickerProviderStateMixin {
   late SettingsController settingsController;
-  
+
   // Form controllers
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ipController = TextEditingController();
-  final TextEditingController _portController = TextEditingController(text: '9100');
+  final TextEditingController _portController = TextEditingController(
+    text: '9100',
+  );
   final TextEditingController _usbPathController = TextEditingController();
-  
+
   // Form state
   PrinterConnectionType _connectionType = PrinterConnectionType.network;
   PaperSize _paperSize = PaperSize.mm80;
   bool _autoCut = true;
   bool _cashDrawer = false;
   bool _isDefault = false;
-  
+
   PrinterSettings? _editingPrinter;
   bool _isEditMode = false;
 
@@ -55,7 +57,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
       begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(
-      CurvedAnimation(parent: _animationController, curve: ElegantLightTheme.elasticCurve),
+      CurvedAnimation(
+        parent: _animationController,
+        curve: ElegantLightTheme.elasticCurve,
+      ),
     );
     _animationController.forward();
     _initializeController();
@@ -66,9 +71,9 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     if (!Get.isRegistered<SettingsController>()) {
       SettingsBinding().dependencies();
     }
-    
+
     settingsController = Get.find<SettingsController>();
-    
+
     // Cargar configuraciones si no están cargadas
     if (settingsController.printerSettings.isEmpty) {
       await settingsController.loadPrinterSettings();
@@ -87,7 +92,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
 
   String _getResponsiveTitle(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     if (screenWidth < 600) {
       return 'Impresoras';
     } else if (screenWidth < 800) {
@@ -156,7 +161,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     );
   }
 
-  Widget _buildMobileLayout(BuildContext context, SettingsController controller) {
+  Widget _buildMobileLayout(
+    BuildContext context,
+    SettingsController controller,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -169,7 +177,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     );
   }
 
-  Widget _buildTabletLayout(BuildContext context, SettingsController controller) {
+  Widget _buildTabletLayout(
+    BuildContext context,
+    SettingsController controller,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -182,14 +193,17 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     );
   }
 
-  Widget _buildDesktopLayout(BuildContext context, SettingsController controller) {
+  Widget _buildDesktopLayout(
+    BuildContext context,
+    SettingsController controller,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         // Adaptar padding y layout según el ancho disponible
         final isLargeDesktop = constraints.maxWidth > 1400;
         final padding = isLargeDesktop ? 32.0 : 16.0;
         final spacing = isLargeDesktop ? 32.0 : 16.0;
-        
+
         return SingleChildScrollView(
           padding: EdgeInsets.all(padding),
           child: Row(
@@ -213,7 +227,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     );
   }
 
-  Widget _buildPrinterForm(BuildContext context, SettingsController controller) {
+  Widget _buildPrinterForm(
+    BuildContext context,
+    SettingsController controller,
+  ) {
     return FuturisticContainer(
       hasGlow: true,
       child: Padding(
@@ -235,7 +252,9 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    _isEditMode ? 'Editar Impresora' : 'Agregar Nueva Impresora',
+                    _isEditMode
+                        ? 'Editar Impresora'
+                        : 'Agregar Nueva Impresora',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -246,7 +265,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
               ],
             ),
             const SizedBox(height: 24),
-            
+
             // Nombre de la impresora
             CustomTextField(
               controller: _nameController,
@@ -261,7 +280,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Tipo de conexión
             Text(
               'Tipo de Conexión',
@@ -337,7 +356,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Configuración específica por tipo
             if (_connectionType == PrinterConnectionType.network) ...[
               LayoutBuilder(
@@ -418,7 +437,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
               ),
             ],
             const SizedBox(height: 24),
-            
+
             // Configuraciones adicionales
             Text(
               'Configuraciones Adicionales',
@@ -428,7 +447,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Tamaño de papel
             Row(
               children: [
@@ -444,12 +463,15 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.receipt),
                         ),
-                        items: PaperSize.values.map((size) {
-                          return DropdownMenuItem(
-                            value: size,
-                            child: Text(size == PaperSize.mm58 ? '58mm' : '80mm'),
-                          );
-                        }).toList(),
+                        items:
+                            PaperSize.values.map((size) {
+                              return DropdownMenuItem(
+                                value: size,
+                                child: Text(
+                                  size == PaperSize.mm58 ? '58mm' : '80mm',
+                                ),
+                              );
+                            }).toList(),
                         onChanged: (value) {
                           setState(() {
                             _paperSize = value!;
@@ -462,7 +484,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Switches futurísticos
             _buildFuturisticSwitchTile(
               title: 'Corte Automático',
@@ -497,7 +519,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
               },
             ),
             const SizedBox(height: 24),
-            
+
             // Botones de acción - Responsive
             LayoutBuilder(
               builder: (context, constraints) {
@@ -518,9 +540,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                       _buildFuturisticButton(
                         text: 'Probar Conexión',
                         icon: Icons.wifi_find,
-                        onPressed: controller.isTestingConnection 
-                            ? null 
-                            : () => _testConnection(controller),
+                        onPressed:
+                            controller.isTestingConnection
+                                ? null
+                                : () => _testConnection(controller),
                         gradient: ElegantLightTheme.infoGradient,
                         isLoading: controller.isTestingConnection,
                       ),
@@ -528,9 +551,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                       _buildFuturisticButton(
                         text: 'Página de Prueba',
                         icon: Icons.print_outlined,
-                        onPressed: controller.isTestingConnection 
-                            ? null 
-                            : () => _printTestPage(controller),
+                        onPressed:
+                            controller.isTestingConnection
+                                ? null
+                                : () => _printTestPage(controller),
                         gradient: ElegantLightTheme.successGradient,
                         isLoading: controller.isTestingConnection,
                       ),
@@ -538,9 +562,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                       _buildFuturisticButton(
                         text: _isEditMode ? 'Actualizar' : 'Agregar',
                         icon: _isEditMode ? Icons.update : Icons.add,
-                        onPressed: controller.isSaving 
-                            ? null 
-                            : () => _savePrinter(controller),
+                        onPressed:
+                            controller.isSaving
+                                ? null
+                                : () => _savePrinter(controller),
                         gradient: ElegantLightTheme.primaryGradient,
                         isLoading: controller.isSaving,
                       ),
@@ -565,9 +590,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                         child: _buildFuturisticButton(
                           text: 'Probar Conexión',
                           icon: Icons.wifi_find,
-                          onPressed: controller.isTestingConnection 
-                              ? null 
-                              : () => _testConnection(controller),
+                          onPressed:
+                              controller.isTestingConnection
+                                  ? null
+                                  : () => _testConnection(controller),
                           gradient: ElegantLightTheme.infoGradient,
                           isLoading: controller.isTestingConnection,
                         ),
@@ -577,9 +603,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                         child: _buildFuturisticButton(
                           text: 'Página de Prueba',
                           icon: Icons.print_outlined,
-                          onPressed: controller.isTestingConnection 
-                              ? null 
-                              : () => _printTestPage(controller),
+                          onPressed:
+                              controller.isTestingConnection
+                                  ? null
+                                  : () => _printTestPage(controller),
                           gradient: ElegantLightTheme.successGradient,
                           isLoading: controller.isTestingConnection,
                         ),
@@ -589,9 +616,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                         child: _buildFuturisticButton(
                           text: _isEditMode ? 'Actualizar' : 'Agregar',
                           icon: _isEditMode ? Icons.update : Icons.add,
-                          onPressed: controller.isSaving 
-                              ? null 
-                              : () => _savePrinter(controller),
+                          onPressed:
+                              controller.isSaving
+                                  ? null
+                                  : () => _savePrinter(controller),
                           gradient: ElegantLightTheme.primaryGradient,
                           isLoading: controller.isSaving,
                         ),
@@ -607,7 +635,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     );
   }
 
-  Widget _buildPrintersList(BuildContext context, SettingsController controller) {
+  Widget _buildPrintersList(
+    BuildContext context,
+    SettingsController controller,
+  ) {
     return FuturisticContainer(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -651,7 +682,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
               ],
             ),
             const SizedBox(height: 16),
-            
+
             if (controller.printerSettings.isEmpty) ...[
               Center(
                 child: Column(
@@ -672,9 +703,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                     const SizedBox(height: 8),
                     Text(
                       'Agrega tu primera impresora usando el formulario',
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                      ),
+                      style: TextStyle(color: Colors.grey.shade500),
                     ),
                   ],
                 ),
@@ -684,7 +713,8 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: controller.printerSettings.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder:
+                    (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final printer = controller.printerSettings[index];
                   return _buildPrinterCard(context, controller, printer);
@@ -697,28 +727,35 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     );
   }
 
-  Widget _buildPrinterCard(BuildContext context, SettingsController controller, PrinterSettings printer) {
+  Widget _buildPrinterCard(
+    BuildContext context,
+    SettingsController controller,
+    PrinterSettings printer,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: printer.isDefault 
-            ? LinearGradient(
-                colors: [
-                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
-                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
-                ],
-              )
-            : ElegantLightTheme.glassGradient,
+        gradient:
+            printer.isDefault
+                ? LinearGradient(
+                  colors: [
+                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+                  ],
+                )
+                : ElegantLightTheme.glassGradient,
         border: Border.all(
-          color: printer.isDefault 
-              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
-              : ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+          color:
+              printer.isDefault
+                  ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
           width: printer.isDefault ? 2 : 1,
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: printer.isDefault 
-            ? ElegantLightTheme.glowShadow
-            : ElegantLightTheme.elevatedShadow,
+        boxShadow:
+            printer.isDefault
+                ? ElegantLightTheme.glowShadow
+                : ElegantLightTheme.elevatedShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -728,9 +765,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: printer.isDefault 
-                      ? ElegantLightTheme.primaryGradient 
-                      : ElegantLightTheme.warningGradient,
+                  gradient:
+                      printer.isDefault
+                          ? ElegantLightTheme.primaryGradient
+                          : ElegantLightTheme.warningGradient,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: ElegantLightTheme.elevatedShadow,
                 ),
@@ -758,7 +796,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                         if (printer.isDefault) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               gradient: ElegantLightTheme.primaryGradient,
                               borderRadius: BorderRadius.circular(16),
@@ -788,60 +829,65 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                 ),
               ),
               PopupMenuButton<String>(
-                onSelected: (value) => _handlePrinterAction(controller, printer, value),
-                itemBuilder: (context) => [
-                  if (!printer.isDefault)
-                    const PopupMenuItem(
-                      value: 'setDefault',
-                      child: Row(
-                        children: [
-                          Icon(Icons.star, size: 18),
-                          SizedBox(width: 8),
-                          Text('Establecer por defecto'),
-                        ],
+                onSelected:
+                    (value) => _handlePrinterAction(controller, printer, value),
+                itemBuilder:
+                    (context) => [
+                      if (!printer.isDefault)
+                        const PopupMenuItem(
+                          value: 'setDefault',
+                          child: Row(
+                            children: [
+                              Icon(Icons.star, size: 18),
+                              SizedBox(width: 8),
+                              Text('Establecer por defecto'),
+                            ],
+                          ),
+                        ),
+                      const PopupMenuItem(
+                        value: 'test',
+                        child: Row(
+                          children: [
+                            Icon(Icons.print, size: 18),
+                            SizedBox(width: 8),
+                            Text('Probar conexión'),
+                          ],
+                        ),
                       ),
-                    ),
-                  const PopupMenuItem(
-                    value: 'test',
-                    child: Row(
-                      children: [
-                        Icon(Icons.print, size: 18),
-                        SizedBox(width: 8),
-                        Text('Probar conexión'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'printTest',
-                    child: Row(
-                      children: [
-                        Icon(Icons.print_outlined, size: 18),
-                        SizedBox(width: 8),
-                        Text('Imprimir página de prueba'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 18),
-                        SizedBox(width: 8),
-                        Text('Editar'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, size: 18, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Eliminar', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
+                      const PopupMenuItem(
+                        value: 'printTest',
+                        child: Row(
+                          children: [
+                            Icon(Icons.print_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Text('Imprimir página de prueba'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 18),
+                            SizedBox(width: 8),
+                            Text('Editar'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 18, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text(
+                              'Eliminar',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
               ),
             ],
           ),
@@ -920,14 +966,14 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
       _isEditMode = true;
       _nameController.text = printer.name;
       _connectionType = printer.connectionType;
-      
+
       if (printer.isNetworkPrinter) {
         _ipController.text = printer.ipAddress ?? '';
         _portController.text = printer.port?.toString() ?? '9100';
       } else {
         _usbPathController.text = printer.usbPath ?? '';
       }
-      
+
       _paperSize = printer.paperSize;
       _autoCut = printer.autoCut;
       _cashDrawer = printer.cashDrawer;
@@ -941,12 +987,14 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
       return;
     }
 
-    if (_connectionType == PrinterConnectionType.network && _ipController.text.isEmpty) {
+    if (_connectionType == PrinterConnectionType.network &&
+        _ipController.text.isEmpty) {
       Get.snackbar('Error', 'La dirección IP es requerida');
       return;
     }
 
-    if (_connectionType == PrinterConnectionType.usb && _usbPathController.text.isEmpty) {
+    if (_connectionType == PrinterConnectionType.usb &&
+        _usbPathController.text.isEmpty) {
       Get.snackbar('Error', 'La ruta USB es requerida');
       return;
     }
@@ -961,12 +1009,14 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
       return;
     }
 
-    if (_connectionType == PrinterConnectionType.network && _ipController.text.isEmpty) {
+    if (_connectionType == PrinterConnectionType.network &&
+        _ipController.text.isEmpty) {
       Get.snackbar('Error', 'La dirección IP es requerida');
       return;
     }
 
-    if (_connectionType == PrinterConnectionType.usb && _usbPathController.text.isEmpty) {
+    if (_connectionType == PrinterConnectionType.usb &&
+        _usbPathController.text.isEmpty) {
       Get.snackbar('Error', 'La ruta USB es requerida');
       return;
     }
@@ -981,27 +1031,30 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
       return;
     }
 
-    if (_connectionType == PrinterConnectionType.network && _ipController.text.isEmpty) {
+    if (_connectionType == PrinterConnectionType.network &&
+        _ipController.text.isEmpty) {
       Get.snackbar('Error', 'La dirección IP es requerida');
       return;
     }
 
-    if (_connectionType == PrinterConnectionType.usb && _usbPathController.text.isEmpty) {
+    if (_connectionType == PrinterConnectionType.usb &&
+        _usbPathController.text.isEmpty) {
       Get.snackbar('Error', 'La ruta USB es requerida');
       return;
     }
 
     final printer = _createPrinterFromForm();
     await controller.savePrinterSettings(printer);
-    
+
     if (!controller.isSaving) {
       _clearForm();
     }
   }
 
   PrinterSettings _createPrinterFromForm() {
-    final id = _editingPrinter?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
-    
+    final id =
+        _editingPrinter?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+
     if (_connectionType == PrinterConnectionType.network) {
       return PrinterSettings.networkPrinter(
         id: id,
@@ -1026,7 +1079,11 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     }
   }
 
-  void _handlePrinterAction(SettingsController controller, PrinterSettings printer, String action) {
+  void _handlePrinterAction(
+    SettingsController controller,
+    PrinterSettings printer,
+    String action,
+  ) {
     switch (action) {
       case 'setDefault':
         controller.setDefaultPrinter(printer.id);
@@ -1046,7 +1103,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
     }
   }
 
-  void _showDeleteConfirmation(SettingsController controller, PrinterSettings printer) {
+  void _showDeleteConfirmation(
+    SettingsController controller,
+    PrinterSettings printer,
+  ) {
     Get.dialog(
       AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -1110,24 +1170,27 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        gradient: value 
-            ? LinearGradient(
-                colors: [
-                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
-                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
-                ],
-              )
-            : ElegantLightTheme.glassGradient,
+        gradient:
+            value
+                ? LinearGradient(
+                  colors: [
+                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+                  ],
+                )
+                : ElegantLightTheme.glassGradient,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: value
-              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
-              : ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+          color:
+              value
+                  ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
           width: value ? 2 : 1,
         ),
-        boxShadow: value 
-            ? ElegantLightTheme.glowShadow 
-            : ElegantLightTheme.elevatedShadow,
+        boxShadow:
+            value
+                ? ElegantLightTheme.glowShadow
+                : ElegantLightTheme.elevatedShadow,
       ),
       child: Material(
         color: Colors.transparent,
@@ -1147,9 +1210,10 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: value 
-                              ? ElegantLightTheme.primaryBlue 
-                              : ElegantLightTheme.textPrimary,
+                          color:
+                              value
+                                  ? ElegantLightTheme.primaryBlue
+                                  : ElegantLightTheme.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1164,10 +1228,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                   ),
                 ),
                 const SizedBox(width: 10),
-                _buildFuturisticSwitch(
-                  value: value,
-                  onChanged: onChanged,
-                ),
+                _buildFuturisticSwitch(value: value, onChanged: onChanged),
               ],
             ),
           ),
@@ -1187,15 +1248,17 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
         width: 56,
         height: 32,
         decoration: BoxDecoration(
-          gradient: value 
-              ? ElegantLightTheme.primaryGradient 
-              : LinearGradient(
-                  colors: [Colors.grey.shade300, Colors.grey.shade400],
-                ),
+          gradient:
+              value
+                  ? ElegantLightTheme.primaryGradient
+                  : LinearGradient(
+                    colors: [Colors.grey.shade300, Colors.grey.shade400],
+                  ),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: value 
-              ? ElegantLightTheme.glowShadow 
-              : ElegantLightTheme.elevatedShadow,
+          boxShadow:
+              value
+                  ? ElegantLightTheme.glowShadow
+                  : ElegantLightTheme.elevatedShadow,
         ),
         child: AnimatedAlign(
           duration: ElegantLightTheme.normalAnimation,
@@ -1216,13 +1279,14 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                 ),
               ],
             ),
-            child: value
-                ? Icon(
-                    Icons.check,
-                    color: ElegantLightTheme.primaryBlue,
-                    size: 16,
-                  )
-                : null,
+            child:
+                value
+                    ? Icon(
+                      Icons.check,
+                      color: ElegantLightTheme.primaryBlue,
+                      size: 16,
+                    )
+                    : null,
           ),
         ),
       ),
@@ -1238,9 +1302,12 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        gradient: onPressed != null ? gradient : LinearGradient(
-          colors: [Colors.grey.shade400, Colors.grey.shade500],
-        ),
+        gradient:
+            onPressed != null
+                ? gradient
+                : LinearGradient(
+                  colors: [Colors.grey.shade400, Colors.grey.shade500],
+                ),
         borderRadius: BorderRadius.circular(12),
         boxShadow: onPressed != null ? ElegantLightTheme.elevatedShadow : null,
       ),
@@ -1265,11 +1332,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                     ),
                   )
                 else
-                  Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 18,
-                  ),
+                  Icon(icon, color: Colors.white, size: 18),
                 const SizedBox(width: 8),
                 Text(
                   text,

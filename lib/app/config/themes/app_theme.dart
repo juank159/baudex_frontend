@@ -14,12 +14,10 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.surface,
-        background: AppColors.background,
         error: AppColors.error,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: AppColors.textPrimary,
-        onBackground: AppColors.textPrimary,
         onError: Colors.white,
       ),
 
@@ -131,13 +129,13 @@ class AppTheme {
 
       // Configuración de checkbox
       checkboxTheme: CheckboxThemeData(
-        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
             return AppColors.primary;
           }
           return Colors.transparent;
         }),
-        checkColor: MaterialStateProperty.all(Colors.white),
+        checkColor: WidgetStateProperty.all(Colors.white),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
 
@@ -178,12 +176,10 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.darkSurface,
-        background: AppColors.darkBackground,
         error: AppColors.error,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: AppColors.darkTextPrimary,
-        onBackground: AppColors.darkTextPrimary,
         onError: Colors.white,
       ),
 
@@ -288,13 +284,13 @@ class AppTheme {
       ),
 
       checkboxTheme: CheckboxThemeData(
-        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
             return AppColors.primary;
           }
           return Colors.transparent;
         }),
-        checkColor: MaterialStateProperty.all(Colors.white),
+        checkColor: WidgetStateProperty.all(Colors.white),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
 

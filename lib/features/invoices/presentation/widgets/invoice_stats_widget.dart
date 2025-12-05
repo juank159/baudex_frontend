@@ -135,7 +135,7 @@ class InvoiceStatsWidget extends StatelessWidget {
         const Spacer(),
         IconButton(
           icon: const Icon(Icons.refresh),
-          onPressed: controller.refreshAllData,
+          onPressed: () => controller.refreshAllData(showSuccessMessage: true),
           tooltip: 'Actualizar',
         ),
       ],
@@ -678,7 +678,7 @@ class InvoiceStatsWidget extends StatelessWidget {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed:
-                  () => Get.find<InvoiceStatsController>().refreshAllData(),
+                  () => Get.find<InvoiceStatsController>().refreshAllData(showSuccessMessage: true),
               child: const Text('Reintentar'),
             ),
           ],

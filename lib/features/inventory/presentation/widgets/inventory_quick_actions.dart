@@ -81,9 +81,7 @@ class InventoryQuickActions extends StatelessWidget {
     return Container(
       height: 400, // Altura fija para todas las pantallas tablet/desktop
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, Colors.grey.shade50],
-        ),
+        gradient: LinearGradient(colors: [Colors.white, Colors.grey.shade50]),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -96,16 +94,21 @@ class InventoryQuickActions extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          children: quickActions.map((action) => Expanded(
-            child: _buildActionTile(
-              context: context,
-              title: action['title'] as String,
-              subtitle: action['subtitle'] as String,
-              icon: action['icon'] as IconData,
-              color: action['color'] as Color,
-              onTap: action['onTap'] as VoidCallback,
-            ),
-          )).toList(),
+          children:
+              quickActions
+                  .map(
+                    (action) => Expanded(
+                      child: _buildActionTile(
+                        context: context,
+                        title: action['title'] as String,
+                        subtitle: action['subtitle'] as String,
+                        icon: action['icon'] as IconData,
+                        color: action['color'] as Color,
+                        onTap: action['onTap'] as VoidCallback,
+                      ),
+                    ),
+                  )
+                  .toList(),
         ),
       ),
     );
@@ -142,11 +145,7 @@ class InventoryQuickActions extends StatelessWidget {
                     color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 18,
-                  ),
+                  child: Icon(icon, color: color, size: 18),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -159,7 +158,9 @@ class InventoryQuickActions extends StatelessWidget {
                         style: Get.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
-                          fontSize: UnifiedTypography.getListItemTitleSize(MediaQuery.of(context).size.width),
+                          fontSize: UnifiedTypography.getListItemTitleSize(
+                            MediaQuery.of(context).size.width,
+                          ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -168,7 +169,9 @@ class InventoryQuickActions extends StatelessWidget {
                         subtitle,
                         style: Get.textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
-                          fontSize: UnifiedTypography.getListItemSubtitleSize(MediaQuery.of(context).size.width),
+                          fontSize: UnifiedTypography.getListItemSubtitleSize(
+                            MediaQuery.of(context).size.width,
+                          ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -214,11 +217,7 @@ class InventoryQuickActions extends StatelessWidget {
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 22,
-                ),
+                child: Icon(icon, color: color, size: 22),
               ),
               const SizedBox(height: 8),
               Text(
@@ -226,7 +225,9 @@ class InventoryQuickActions extends StatelessWidget {
                 style: Get.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
-                  fontSize: UnifiedTypography.getListItemTitleSize(MediaQuery.of(context).size.width),
+                  fontSize: UnifiedTypography.getListItemTitleSize(
+                    MediaQuery.of(context).size.width,
+                  ),
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -237,7 +238,9 @@ class InventoryQuickActions extends StatelessWidget {
                 subtitle,
                 style: Get.textTheme.bodySmall?.copyWith(
                   color: AppColors.textSecondary,
-                  fontSize: UnifiedTypography.getListItemSubtitleSize(MediaQuery.of(context).size.width),
+                  fontSize: UnifiedTypography.getListItemSubtitleSize(
+                    MediaQuery.of(context).size.width,
+                  ),
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -255,8 +258,10 @@ class InventoryQuickActions extends StatelessWidget {
       Dialog(
         backgroundColor: Colors.transparent,
         child: Container(
-          width: MediaQuery.of(Get.context!).size.width > 600 ? 520 : 
-                MediaQuery.of(Get.context!).size.width * 0.95,
+          width:
+              MediaQuery.of(Get.context!).size.width > 600
+                  ? 520
+                  : MediaQuery.of(Get.context!).size.width * 0.95,
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(Get.context!).size.height * 0.8,
           ),
@@ -275,7 +280,6 @@ class InventoryQuickActions extends StatelessWidget {
       barrierDismissible: true,
     );
   }
-
 }
 
 class _ProductSearchWidget extends StatefulWidget {
@@ -301,7 +305,7 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 600;
     final padding = isDesktop ? 24.0 : 16.0;
-    
+
     return Container(
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.cardGradient,
@@ -334,8 +338,8 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
                     ),
                   ),
                   child: const Icon(
-                    Icons.search, 
-                    color: Colors.white, 
+                    Icons.search,
+                    color: Colors.white,
                     size: 24,
                   ),
                 ),
@@ -377,7 +381,7 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
               ],
             ),
           ),
-          
+
           // Contenido principal
           Expanded(
             child: Padding(
@@ -412,7 +416,9 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
                       decoration: InputDecoration(
                         hintText: 'Nombre, SKU o código del producto...',
                         hintStyle: TextStyle(
-                          color: ElegantLightTheme.textSecondary.withOpacity(0.6),
+                          color: ElegantLightTheme.textSecondary.withOpacity(
+                            0.6,
+                          ),
                         ),
                         prefixIcon: Container(
                           margin: const EdgeInsets.all(12),
@@ -422,26 +428,24 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
-                            Icons.inventory_2, 
-                            color: Colors.white, 
+                            Icons.inventory_2,
+                            color: Colors.white,
                             size: 18,
                           ),
                         ),
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16, 
+                          horizontal: 16,
                           vertical: isDesktop ? 16 : 14,
                         ),
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Resultados
-                  Expanded(
-                    child: Obx(() => _buildSearchResults()),
-                  ),
+                  Expanded(child: Obx(() => _buildSearchResults())),
                 ],
               ),
             ),
@@ -455,15 +459,15 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
     if (searchQuery.value.isEmpty) {
       return _buildEmptyState();
     }
-    
+
     if (isLoading.value) {
       return _buildLoadingState();
     }
-    
+
     if (searchResults.isEmpty) {
       return _buildNoResultsState();
     }
-    
+
     return _buildResultsList();
   }
 
@@ -552,17 +556,22 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: ElegantLightTheme.warningGradient.colors.first.withOpacity(0.1),
+              color: ElegantLightTheme.warningGradient.colors.first.withOpacity(
+                0.1,
+              ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: ElegantLightTheme.warningGradient.colors.first.withOpacity(0.2),
+                color: ElegantLightTheme.warningGradient.colors.first
+                    .withOpacity(0.2),
                 width: 1,
               ),
             ),
             child: Icon(
               Icons.search_off,
               size: 56,
-              color: ElegantLightTheme.warningGradient.colors.first.withOpacity(0.7),
+              color: ElegantLightTheme.warningGradient.colors.first.withOpacity(
+                0.7,
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -601,12 +610,27 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
-    
+
     // Responsive padding and spacing
-    final cardPadding = isMobile ? 16.0 : isTablet ? 18.0 : 20.0;
-    final iconSize = isMobile ? 48.0 : isTablet ? 52.0 : 56.0;
-    final borderRadius = isMobile ? 12.0 : isTablet ? 14.0 : 16.0;
-    
+    final cardPadding =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 18.0
+            : 20.0;
+    final iconSize =
+        isMobile
+            ? 48.0
+            : isTablet
+            ? 52.0
+            : 56.0;
+    final borderRadius =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 14.0
+            : 16.0;
+
     return Container(
       margin: EdgeInsets.only(bottom: isMobile ? 10 : 12),
       decoration: BoxDecoration(
@@ -631,7 +655,13 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
                   height: iconSize,
                   decoration: BoxDecoration(
                     gradient: ElegantLightTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(isMobile ? 12 : isTablet ? 14 : 16),
+                    borderRadius: BorderRadius.circular(
+                      isMobile
+                          ? 12
+                          : isTablet
+                          ? 14
+                          : 16,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
@@ -643,7 +673,12 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
                   child: Icon(
                     Icons.inventory_2,
                     color: Colors.white,
-                    size: isMobile ? 24 : isTablet ? 26 : 28,
+                    size:
+                        isMobile
+                            ? 24
+                            : isTablet
+                            ? 26
+                            : 28,
                   ),
                 ),
                 SizedBox(width: isMobile ? 12 : 16),
@@ -656,56 +691,77 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
                         style: Get.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: ElegantLightTheme.textPrimary,
-                          fontSize: isMobile ? 14 : isTablet ? 15 : 16,
+                          fontSize:
+                              isMobile
+                                  ? 14
+                                  : isTablet
+                                  ? 15
+                                  : 16,
                         ),
                         maxLines: isMobile ? 2 : 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       SizedBox(height: isMobile ? 6 : 8),
-                      if (product.stock != null)
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isMobile ? 10 : 12, 
-                            vertical: isMobile ? 5 : 6,
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 10 : 12,
+                          vertical: isMobile ? 5 : 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: ElegantLightTheme.successGradient.colors.first
+                              .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(
+                            isMobile ? 8 : 10,
                           ),
-                          decoration: BoxDecoration(
-                            color: ElegantLightTheme.successGradient.colors.first.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(isMobile ? 8 : 10),
-                            border: Border.all(
-                              color: ElegantLightTheme.successGradient.colors.first.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.inventory_2,
-                                size: isMobile ? 12 : 14,
-                                color: ElegantLightTheme.successGradient.colors.first,
-                              ),
-                              SizedBox(width: isMobile ? 4 : 6),
-                              Text(
-                                'Stock: ${product.stock}',
-                                style: Get.textTheme.bodySmall?.copyWith(
-                                  color: ElegantLightTheme.successGradient.colors.first,
-                                  fontSize: isMobile ? 11 : 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                          border: Border.all(
+                            color: ElegantLightTheme
+                                .successGradient
+                                .colors
+                                .first
+                                .withOpacity(0.3),
+                            width: 1,
                           ),
                         ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.inventory_2,
+                              size: isMobile ? 12 : 14,
+                              color:
+                                  ElegantLightTheme
+                                      .successGradient
+                                      .colors
+                                      .first,
+                            ),
+                            SizedBox(width: isMobile ? 4 : 6),
+                            Text(
+                              'Stock: ${product.stock}',
+                              style: Get.textTheme.bodySmall?.copyWith(
+                                color:
+                                    ElegantLightTheme
+                                        .successGradient
+                                        .colors
+                                        .first,
+                                fontSize: isMobile ? 11 : 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
-            
+
             SizedBox(height: isMobile ? 16 : 20),
-            
+
             // Action buttons - layout adaptable
-            isMobile ? _buildMobileActionButtons(product) : _buildDesktopActionButtons(product),
+            isMobile
+                ? _buildMobileActionButtons(product)
+                : _buildDesktopActionButtons(product),
           ],
         ),
       ),
@@ -838,7 +894,7 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
     final fontSize = isMobile ? 10.0 : 11.0;
     final verticalPadding = isMobile ? 10.0 : 12.0;
     final horizontalPadding = isMobile ? 6.0 : 8.0;
-    
+
     Widget buttonContent = Container(
       width: fullWidth ? double.infinity : null,
       decoration: BoxDecoration(
@@ -859,7 +915,7 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
           borderRadius: BorderRadius.circular(buttonRadius),
           child: Padding(
             padding: EdgeInsets.symmetric(
-              vertical: verticalPadding, 
+              vertical: verticalPadding,
               horizontal: horizontalPadding,
             ),
             child: Column(
@@ -884,35 +940,35 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
         ),
       ),
     );
-    
+
     return fullWidth ? buttonContent : buttonContent;
   }
 
   void _onSearchChanged(String value) {
     searchQuery.value = value;
-    
+
     if (value.isEmpty) {
       searchResults.clear();
       return;
     }
-    
+
     if (value.length < 2) {
       return;
     }
-    
+
     _searchProducts(value);
   }
 
   void _searchProducts(String query) async {
     isLoading.value = true;
-    
+
     try {
       // Simular delay de búsqueda
       await Future.delayed(const Duration(milliseconds: 300));
-      
+
       // Realizar búsqueda real de productos
       final results = await _searchProductsReal(query);
-      
+
       searchResults.value = results;
     } catch (e) {
       print('Error searching products: $e');
@@ -926,23 +982,17 @@ class _ProductSearchWidgetState extends State<_ProductSearchWidget> {
     try {
       // Usar el SearchProductsUseCase real
       final searchUseCase = Get.find<SearchProductsUseCase>();
-      
+
       // Crear parámetros de búsqueda
-      final params = SearchProductsParams(
-        searchTerm: query,
-        limit: 10,
-      );
-      
+      final params = SearchProductsParams(searchTerm: query, limit: 10);
+
       // Realizar búsqueda real
       final result = await searchUseCase(params);
-      
-      return result.fold(
-        (failure) {
-          print('Error searching products: ${failure.message}');
-          return <Product>[];
-        },
-        (products) => products,
-      );
+
+      return result.fold((failure) {
+        print('Error searching products: ${failure.message}');
+        return <Product>[];
+      }, (products) => products);
     } catch (e) {
       print('Error finding SearchProductsUseCase: $e');
       return <Product>[];

@@ -1,6 +1,5 @@
 // lib/features/purchase_orders/data/models/purchase_order_response_model.dart
 import 'package:json_annotation/json_annotation.dart';
-import '../../../../app/core/models/pagination_meta.dart';
 import 'purchase_order_model.dart';
 
 part 'purchase_order_response_model.g.dart';
@@ -30,10 +29,7 @@ class PurchaseOrderListData {
   final List<PurchaseOrderModel> data;
   final int total;
 
-  const PurchaseOrderListData({
-    required this.data,
-    required this.total,
-  });
+  const PurchaseOrderListData({required this.data, required this.total});
 
   factory PurchaseOrderListData.fromJson(Map<String, dynamic> json) =>
       _$PurchaseOrderListDataFromJson(json);
@@ -78,5 +74,6 @@ class PurchaseOrderStatsResponseModel {
   factory PurchaseOrderStatsResponseModel.fromJson(Map<String, dynamic> json) =>
       _$PurchaseOrderStatsResponseModelFromJson(json);
 
-  Map<String, dynamic> toJson() => _$PurchaseOrderStatsResponseModelToJson(this);
+  Map<String, dynamic> toJson() =>
+      _$PurchaseOrderStatsResponseModelToJson(this);
 }

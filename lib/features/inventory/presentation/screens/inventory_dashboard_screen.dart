@@ -98,7 +98,12 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   Widget _buildResponsiveHeader(double screenWidth) {
     final isDesktop = screenWidth >= 1200;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
-    final padding = isDesktop ? 32.0 : isTablet ? 24.0 : 16.0;
+    final padding =
+        isDesktop
+            ? 32.0
+            : isTablet
+            ? 24.0
+            : 16.0;
 
     return Container(
       margin: EdgeInsets.symmetric(
@@ -125,7 +130,12 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                 ),
                 child: Icon(
                   Icons.inventory_2,
-                  size: isDesktop ? 32 : isTablet ? 28 : 24,
+                  size:
+                      isDesktop
+                          ? 32
+                          : isTablet
+                          ? 28
+                          : 24,
                   color: Colors.white,
                 ),
               ),
@@ -146,7 +156,10 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                         _getResponsiveSubtitle(screenWidth),
                         style: Get.textTheme.bodyMedium?.copyWith(
                           color: ElegantLightTheme.textSecondary,
-                          fontSize: _getResponsiveFontSize(screenWidth, base: 14),
+                          fontSize: _getResponsiveFontSize(
+                            screenWidth,
+                            base: 14,
+                          ),
                         ),
                         maxLines: screenWidth < 600 ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
@@ -165,7 +178,12 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   Widget _buildResponsiveAlerts(double screenWidth) {
     final isDesktop = screenWidth >= 1200;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
-    final padding = isDesktop ? 32.0 : isTablet ? 24.0 : 16.0;
+    final padding =
+        isDesktop
+            ? 32.0
+            : isTablet
+            ? 24.0
+            : 16.0;
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: padding),
@@ -282,7 +300,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
 
   Widget _buildTabletLayout(double screenWidth) {
     final isLargeTablet = screenWidth >= 900;
-    
+
     return Column(
       children: [
         Row(
@@ -359,7 +377,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
         final isCompact = availableWidth < 300;
-        
+
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -369,7 +387,9 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                 style: Get.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: ElegantLightTheme.textPrimary,
-                  fontSize: UnifiedTypography.getSectionTitleSize(MediaQuery.of(context).size.width), // Sistema unificado
+                  fontSize: UnifiedTypography.getSectionTitleSize(
+                    MediaQuery.of(context).size.width,
+                  ), // Sistema unificado
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -393,9 +413,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                   ),
                   child: Text(
                     isCompact ? 'Ver' : 'Ver todos',
-                    style: TextStyle(
-                      fontSize: isCompact ? 12 : 14,
-                    ),
+                    style: TextStyle(fontSize: isCompact ? 12 : 14),
                   ),
                 ),
               ),
@@ -479,22 +497,23 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     final weekAgo = now.subtract(const Duration(days: 7));
 
     // Filtrar movimientos de la última semana
-    final weeklyMovements = controller.recentMovements.where((movement) {
-      return movement.movementDate.isAfter(weekAgo);
-    }).toList();
+    final weeklyMovements =
+        controller.recentMovements.where((movement) {
+          return movement.movementDate.isAfter(weekAgo);
+        }).toList();
 
     // USAR TODOS LOS CONTEOS CORRECTOS desde el controlador
     final transfers = controller.weeklyTransfersCount.value;
     final adjustments = controller.weeklyAdjustmentsCount.value;
     final uniqueProductsAdded = controller.weeklyNewProductsCount.value;
-    
+
     // Total de movimientos recientes (solo para display general)
     final totalMovements = weeklyMovements.length;
 
     // Calcular valor total movido (suma de todos los costos totales de la semana)
     final totalValueMoved = weeklyMovements.fold<double>(
       0.0,
-      (sum, movement) => sum + (movement.totalCost?.abs() ?? 0.0),
+      (sum, movement) => sum + (movement.totalCost.abs() ?? 0.0),
     );
 
     return {
@@ -506,22 +525,50 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     };
   }
 
-  Widget _buildSummaryItem(String title, String value, Color color, IconData icon, bool isDesktop) {
+  Widget _buildSummaryItem(
+    String title,
+    String value,
+    Color color,
+    IconData icon,
+    bool isDesktop,
+  ) {
     return Builder(
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 1200;
-        
+
         // Alturas responsivas: desktop ligeramente reducido para balancear columnas
-        final height = isMobile ? 60.0 : isTablet ? 70.0 : 68.0; // Reducción mínima: 72 a 68
-        final padding = isMobile ? 12.0 : isTablet ? 16.0 : 16.0; // Reducción mínima: 18 a 16
-        final iconSize = isMobile ? 16.0 : isTablet ? 17.0 : 16.0; // Reducción mínima: 17 a 16
-        final spacing = isMobile ? 8.0 : isTablet ? 10.0 : 9.0; // Reducción mínima: 10 a 9
-        
+        final height =
+            isMobile
+                ? 60.0
+                : isTablet
+                ? 70.0
+                : 68.0; // Reducción mínima: 72 a 68
+        final padding =
+            isMobile
+                ? 12.0
+                : isTablet
+                ? 16.0
+                : 16.0; // Reducción mínima: 18 a 16
+        final iconSize =
+            isMobile
+                ? 16.0
+                : isTablet
+                ? 17.0
+                : 16.0; // Reducción mínima: 17 a 16
+        final spacing =
+            isMobile
+                ? 8.0
+                : isTablet
+                ? 10.0
+                : 9.0; // Reducción mínima: 10 a 9
+
         return Container(
           height: height,
-          margin: EdgeInsets.only(bottom: isMobile ? 4 : 6), // Reducido margen inferior card valor total
+          margin: EdgeInsets.only(
+            bottom: isMobile ? 4 : 6,
+          ), // Reducido margen inferior card valor total
           padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
             gradient: ElegantLightTheme.glassGradient,
@@ -538,7 +585,12 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                   style: Get.textTheme.bodyMedium?.copyWith(
                     color: ElegantLightTheme.textSecondary,
                     fontWeight: FontWeight.w500,
-                    fontSize: isMobile ? 12 : isTablet ? 13 : 13, // Reducido desktop a 13
+                    fontSize:
+                        isMobile
+                            ? 12
+                            : isTablet
+                            ? 13
+                            : 13, // Reducido desktop a 13
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -549,7 +601,12 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                 style: Get.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: color,
-                  fontSize: isMobile ? 12 : isTablet ? 13 : 13, // Reducido desktop a 13
+                  fontSize:
+                      isMobile
+                          ? 12
+                          : isTablet
+                          ? 13
+                          : 13, // Reducido desktop a 13
                 ),
               ),
             ],
@@ -673,14 +730,20 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: EdgeInsets.all(screenWidth >= 600 ? 6 : 14), // ULTRA REDUCIDO: desktop/tablet 10→6
+            padding: EdgeInsets.all(
+              screenWidth >= 600 ? 6 : 14,
+            ), // ULTRA REDUCIDO: desktop/tablet 10→6
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.all(screenWidth >= 600 ? 4 : 8), // ULTRA REDUCIDO: desktop/tablet 6→4
+                  padding: EdgeInsets.all(
+                    screenWidth >= 600 ? 4 : 8,
+                  ), // ULTRA REDUCIDO: desktop/tablet 6→4
                   decoration: BoxDecoration(
                     gradient: gradient,
-                    borderRadius: BorderRadius.circular(10), // Reducido de 12 a 10
+                    borderRadius: BorderRadius.circular(
+                      10,
+                    ), // Reducido de 12 a 10
                     boxShadow: [
                       BoxShadow(
                         color: gradient.colors.first.withValues(alpha: 0.3),
@@ -690,9 +753,15 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                       ),
                     ],
                   ),
-                  child: Icon(icon, color: Colors.white, size: screenWidth >= 600 ? 12 : 20), // ULTRA REDUCIDO: desktop/tablet 16→12
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: screenWidth >= 600 ? 12 : 20,
+                  ), // ULTRA REDUCIDO: desktop/tablet 16→12
                 ),
-                SizedBox(width: screenWidth >= 600 ? 6 : 12), // ULTRA REDUCIDO: desktop/tablet 8→6
+                SizedBox(
+                  width: screenWidth >= 600 ? 6 : 12,
+                ), // ULTRA REDUCIDO: desktop/tablet 8→6
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -700,20 +769,27 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                     children: [
                       Text(
                         title,
-                        style: Get.textTheme.titleSmall?.copyWith( // Cambiado de titleMedium a titleSmall
+                        style: Get.textTheme.titleSmall?.copyWith(
+                          // Cambiado de titleMedium a titleSmall
                           fontWeight: FontWeight.w600,
                           color: ElegantLightTheme.textPrimary,
-                          fontSize: UnifiedTypography.getModuleTitleSize(screenWidth), // Sistema unificado
+                          fontSize: UnifiedTypography.getModuleTitleSize(
+                            screenWidth,
+                          ), // Sistema unificado
                         ),
                         maxLines: screenWidth < 250 ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: screenWidth >= 600 ? 0 : 2), // ULTRA REDUCIDO: desktop/tablet 1→0 (sin espacio)
+                      SizedBox(
+                        height: screenWidth >= 600 ? 0 : 2,
+                      ), // ULTRA REDUCIDO: desktop/tablet 1→0 (sin espacio)
                       Text(
                         subtitle,
                         style: Get.textTheme.bodySmall?.copyWith(
                           color: ElegantLightTheme.textSecondary,
-                          fontSize: UnifiedTypography.getModuleDescriptionSize(screenWidth), // Sistema unificado
+                          fontSize: UnifiedTypography.getModuleDescriptionSize(
+                            screenWidth,
+                          ), // Sistema unificado
                         ),
                         maxLines: screenWidth < 250 ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
@@ -760,28 +836,29 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               break;
           }
         },
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            value: 'download',
-            child: Row(
-              children: [
-                Icon(Icons.download, color: ElegantLightTheme.primaryBlue),
-                const SizedBox(width: 8),
-                const Text('Descargar'),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'share',
-            child: Row(
-              children: [
-                Icon(Icons.share, color: ElegantLightTheme.primaryBlue),
-                const SizedBox(width: 8),
-                const Text('Compartir'),
-              ],
-            ),
-          ),
-        ],
+        itemBuilder:
+            (context) => [
+              PopupMenuItem(
+                value: 'download',
+                child: Row(
+                  children: [
+                    Icon(Icons.download, color: ElegantLightTheme.primaryBlue),
+                    const SizedBox(width: 8),
+                    const Text('Descargar'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'share',
+                child: Row(
+                  children: [
+                    Icon(Icons.share, color: ElegantLightTheme.primaryBlue),
+                    const SizedBox(width: 8),
+                    const Text('Compartir'),
+                  ],
+                ),
+              ),
+            ],
       ),
       const SizedBox(width: AppDimensions.paddingSmall),
     ];
@@ -904,7 +981,11 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                     gradient: ElegantLightTheme.infoGradient,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.download, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.download,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -924,7 +1005,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             _buildDownloadOption(
               'Balances Excel',
               'Archivo .xlsx con todos los balances actuales',
@@ -1004,7 +1085,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             _buildDownloadOption(
               'Compartir Balances Excel',
               'Enviar archivo .xlsx por WhatsApp, Email, etc.',
@@ -1054,10 +1135,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withValues(alpha: 0.2),
-          width: 1,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
       ),
       child: Material(
         color: Colors.transparent,
@@ -1075,11 +1153,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                     color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 24,
-                  ),
+                  child: Icon(icon, color: color, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -1117,7 +1191,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   }
 
   // ==================== MÉTODOS DE DESCARGA (con picker) ====================
-  
+
   void _downloadBalancesToExcel() async {
     try {
       // Mostrar loading
@@ -1125,12 +1199,13 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
-      
+
       // Obtener datos con filtros aplicados (si el controller tiene filtros)
-      final balances = controller.filteredBalances.isNotEmpty 
-          ? controller.filteredBalances 
-          : controller.balances;
-      
+      final balances =
+          controller.filteredBalances.isNotEmpty
+              ? controller.filteredBalances
+              : controller.balances;
+
       if (balances.isEmpty) {
         Get.back(); // Cerrar loading
         Get.snackbar(
@@ -1142,10 +1217,12 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         );
         return;
       }
-      
+
       // Usar método download que abre picker
-      final filePath = await InventoryExportService.downloadBalancesToExcel(balances);
-      
+      final filePath = await InventoryExportService.downloadBalancesToExcel(
+        balances,
+      );
+
       Get.back(); // Cerrar loading
       Get.snackbar(
         'Descarga exitosa',
@@ -1156,7 +1233,6 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         icon: const Icon(Icons.check_circle, color: Colors.white),
         duration: const Duration(seconds: 4),
       );
-      
     } catch (e) {
       Get.back(); // Cerrar loading
       Get.snackbar(
@@ -1176,12 +1252,13 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
-      
+
       // Obtener datos con filtros aplicados
-      final balances = controller.filteredBalances.isNotEmpty 
-          ? controller.filteredBalances 
-          : controller.balances;
-      
+      final balances =
+          controller.filteredBalances.isNotEmpty
+              ? controller.filteredBalances
+              : controller.balances;
+
       if (balances.isEmpty) {
         Get.back(); // Cerrar loading
         Get.snackbar(
@@ -1193,10 +1270,12 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         );
         return;
       }
-      
+
       // Usar método download que abre picker
-      final filePath = await InventoryExportService.downloadBalancesToPDF(balances);
-      
+      final filePath = await InventoryExportService.downloadBalancesToPDF(
+        balances,
+      );
+
       Get.back(); // Cerrar loading
       Get.snackbar(
         'Descarga exitosa',
@@ -1207,7 +1286,6 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         icon: const Icon(Icons.check_circle, color: Colors.white),
         duration: const Duration(seconds: 4),
       );
-      
     } catch (e) {
       Get.back(); // Cerrar loading
       Get.snackbar(
@@ -1227,10 +1305,10 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
-      
+
       // Obtener movimientos (aplicar filtros de fecha si es necesario)
       final movements = controller.recentMovements;
-      
+
       if (movements.isEmpty) {
         Get.back(); // Cerrar loading
         Get.snackbar(
@@ -1242,10 +1320,10 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         );
         return;
       }
-      
+
       // Crear un archivo temporal para compartir
       await InventoryExportService.exportMovementsToExcel(movements);
-      
+
       Get.back(); // Cerrar loading
       Get.snackbar(
         'Descarga exitosa',
@@ -1255,7 +1333,6 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         colorText: Colors.white,
         icon: const Icon(Icons.check_circle, color: Colors.white),
       );
-      
     } catch (e) {
       Get.back(); // Cerrar loading
       Get.snackbar(
@@ -1277,12 +1354,13 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
-      
+
       // Obtener datos con filtros aplicados
-      final balances = controller.filteredBalances.isNotEmpty 
-          ? controller.filteredBalances 
-          : controller.balances;
-      
+      final balances =
+          controller.filteredBalances.isNotEmpty
+              ? controller.filteredBalances
+              : controller.balances;
+
       if (balances.isEmpty) {
         Get.back(); // Cerrar loading
         Get.snackbar(
@@ -1294,10 +1372,10 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         );
         return;
       }
-      
+
       // Usar método de compartir
       await InventoryExportService.exportBalancesToExcel(balances);
-      
+
       Get.back(); // Cerrar loading
       Get.snackbar(
         'Listo para compartir',
@@ -1307,7 +1385,6 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         colorText: Colors.white,
         icon: const Icon(Icons.share, color: Colors.white),
       );
-      
     } catch (e) {
       Get.back(); // Cerrar loading
       Get.snackbar(
@@ -1327,12 +1404,13 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
-      
+
       // Obtener datos con filtros aplicados
-      final balances = controller.filteredBalances.isNotEmpty 
-          ? controller.filteredBalances 
-          : controller.balances;
-      
+      final balances =
+          controller.filteredBalances.isNotEmpty
+              ? controller.filteredBalances
+              : controller.balances;
+
       if (balances.isEmpty) {
         Get.back(); // Cerrar loading
         Get.snackbar(
@@ -1344,10 +1422,10 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         );
         return;
       }
-      
+
       // Usar método de compartir
       await InventoryExportService.exportBalancesToPDF(balances);
-      
+
       Get.back(); // Cerrar loading
       Get.snackbar(
         'Listo para compartir',
@@ -1357,7 +1435,6 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         colorText: Colors.white,
         icon: const Icon(Icons.share, color: Colors.white),
       );
-      
     } catch (e) {
       Get.back(); // Cerrar loading
       Get.snackbar(
@@ -1377,10 +1454,10 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
-      
+
       // Obtener movimientos
       final movements = controller.recentMovements;
-      
+
       if (movements.isEmpty) {
         Get.back(); // Cerrar loading
         Get.snackbar(
@@ -1392,10 +1469,10 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         );
         return;
       }
-      
+
       // Usar método de compartir
       await InventoryExportService.exportMovementsToExcel(movements);
-      
+
       Get.back(); // Cerrar loading
       Get.snackbar(
         'Listo para compartir',
@@ -1405,7 +1482,6 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         colorText: Colors.white,
         icon: const Icon(Icons.share, color: Colors.white),
       );
-      
     } catch (e) {
       Get.back(); // Cerrar loading
       Get.snackbar(
@@ -1524,28 +1600,32 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     if (screenWidth >= 1400) {
       return {
         'crossAxisCount': 3,
-        'childAspectRatio': 7.0, // ULTRA REDUCIDO - cards súper planas en desktop 
+        'childAspectRatio':
+            7.0, // ULTRA REDUCIDO - cards súper planas en desktop
         'crossAxisSpacing': 24.0,
         'mainAxisSpacing': 8.0, // Spacing mínimo
       };
     } else if (screenWidth >= 1200) {
       return {
         'crossAxisCount': 3,
-        'childAspectRatio': 6.0, // ULTRA REDUCIDO - cards súper planas en desktop
+        'childAspectRatio':
+            6.0, // ULTRA REDUCIDO - cards súper planas en desktop
         'crossAxisSpacing': 20.0,
         'mainAxisSpacing': 8.0, // Spacing mínimo
       };
     } else if (screenWidth >= 900) {
       return {
         'crossAxisCount': 2,
-        'childAspectRatio': 5.5, // ULTRA REDUCIDO - cards súper planas en tablets
+        'childAspectRatio':
+            5.5, // ULTRA REDUCIDO - cards súper planas en tablets
         'crossAxisSpacing': 20.0,
         'mainAxisSpacing': 8.0, // Spacing mínimo
       };
     } else if (screenWidth >= 600) {
       return {
         'crossAxisCount': 2,
-        'childAspectRatio': 4.5, // ULTRA REDUCIDO - cards súper planas en tablets
+        'childAspectRatio':
+            4.5, // ULTRA REDUCIDO - cards súper planas en tablets
         'crossAxisSpacing': 16.0,
         'mainAxisSpacing': 8.0, // Spacing mínimo
       };
@@ -1560,22 +1640,50 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   }
 
   /// Widget para las 4 cards básicas del resumen (ligeramente más pequeñas en desktop)
-  Widget _buildBasicSummaryItem(String title, String value, Color color, IconData icon, bool isDesktop) {
+  Widget _buildBasicSummaryItem(
+    String title,
+    String value,
+    Color color,
+    IconData icon,
+    bool isDesktop,
+  ) {
     return Builder(
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 1200;
-        
+
         // Reducción mínima solo para las cards básicas en desktop
-        final height = isMobile ? 60.0 : isTablet ? 70.0 : 64.0; // Más pequeñas: 68 a 64
-        final padding = isMobile ? 12.0 : isTablet ? 16.0 : 14.0; // Más pequeñas: 16 a 14
-        final iconSize = isMobile ? 16.0 : isTablet ? 17.0 : 15.0; // Más pequeñas: 16 a 15
-        final spacing = isMobile ? 8.0 : isTablet ? 10.0 : 8.0; // Más pequeñas: 9 a 8
-        
+        final height =
+            isMobile
+                ? 60.0
+                : isTablet
+                ? 70.0
+                : 64.0; // Más pequeñas: 68 a 64
+        final padding =
+            isMobile
+                ? 12.0
+                : isTablet
+                ? 16.0
+                : 14.0; // Más pequeñas: 16 a 14
+        final iconSize =
+            isMobile
+                ? 16.0
+                : isTablet
+                ? 17.0
+                : 15.0; // Más pequeñas: 16 a 15
+        final spacing =
+            isMobile
+                ? 8.0
+                : isTablet
+                ? 10.0
+                : 8.0; // Más pequeñas: 9 a 8
+
         return Container(
           height: height,
-          margin: EdgeInsets.only(bottom: isMobile ? 4 : 6), // Reducido margen inferior cards básicas
+          margin: EdgeInsets.only(
+            bottom: isMobile ? 4 : 6,
+          ), // Reducido margen inferior cards básicas
           padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
             gradient: ElegantLightTheme.glassGradient,
@@ -1592,7 +1700,12 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                   style: Get.textTheme.bodyMedium?.copyWith(
                     color: ElegantLightTheme.textSecondary,
                     fontWeight: FontWeight.w500,
-                    fontSize: isMobile ? 12 : isTablet ? 13 : 11, // Más pequeña: 12 a 11
+                    fontSize:
+                        isMobile
+                            ? 12
+                            : isTablet
+                            ? 13
+                            : 11, // Más pequeña: 12 a 11
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1603,7 +1716,12 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                 style: Get.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: color,
-                  fontSize: isMobile ? 12 : isTablet ? 13 : 11, // Más pequeña: 12 a 11
+                  fontSize:
+                      isMobile
+                          ? 12
+                          : isTablet
+                          ? 13
+                          : 11, // Más pequeña: 12 a 11
                 ),
               ),
             ],
@@ -1618,8 +1736,6 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     final formatter = NumberFormat('#,##0', 'es_CO');
     return formatter.format(number);
   }
-
-
 }
 
 // ===== SISTEMA UNIFICADO DE TIPOGRAFÍA =====
@@ -1629,75 +1745,77 @@ class UnifiedTypography {
   // Títulos principales de secciones
   static double getSectionTitleSize(double screenWidth) {
     if (screenWidth >= 1200) return 18.0; // Desktop
-    if (screenWidth >= 600) return 16.0;  // Tablet
+    if (screenWidth >= 600) return 16.0; // Tablet
     return 15.0; // Mobile
   }
 
   // Títulos de cards grandes (estadísticas principales) - AUMENTADOS
   static double getCardTitleSize(double screenWidth) {
     if (screenWidth >= 1200) return 13.0; // Desktop - más legible
-    if (screenWidth >= 600) return 11.0;  // Tablet
+    if (screenWidth >= 600) return 11.0; // Tablet
     return 12.0; // Mobile
   }
 
   // Valores principales (números importantes) - AUMENTADOS
   static double getValueSize(double screenWidth) {
     if (screenWidth >= 1200) return 18.0; // Desktop - mucho más legible
-    if (screenWidth >= 600) return 16.0;  // Tablet
+    if (screenWidth >= 600) return 16.0; // Tablet
     return 18.0; // Mobile - más grande
   }
 
   // Alias para compatibilidad con inventory_overview_cards
-  static double getCardValueSize(double screenWidth) => getValueSize(screenWidth);
+  static double getCardValueSize(double screenWidth) =>
+      getValueSize(screenWidth);
 
   // Subtítulos/descripciones de cards - AUMENTADOS
   static double getSubtitleSize(double screenWidth) {
     if (screenWidth >= 1200) return 11.0; // Desktop - más legible
-    if (screenWidth >= 600) return 10.0;  // Tablet
+    if (screenWidth >= 600) return 10.0; // Tablet
     return 11.0; // Mobile
   }
 
   // Alias para compatibilidad con inventory_overview_cards
-  static double getCardSubtitleSize(double screenWidth) => getSubtitleSize(screenWidth);
+  static double getCardSubtitleSize(double screenWidth) =>
+      getSubtitleSize(screenWidth);
 
   // Títulos de módulos/navegación - AUMENTADOS para mejor visibilidad
   static double getModuleTitleSize(double screenWidth) {
     if (screenWidth >= 1200) return 14.0; // Desktop - más legible
-    if (screenWidth >= 600) return 13.0;  // Tablet - más legible
+    if (screenWidth >= 600) return 13.0; // Tablet - más legible
     return 13.0; // Mobile
   }
 
-  // Descripciones de módulos - AUMENTADAS para mejor visibilidad  
+  // Descripciones de módulos - AUMENTADAS para mejor visibilidad
   static double getModuleDescriptionSize(double screenWidth) {
     if (screenWidth >= 1200) return 11.0; // Desktop - mucho más legible
-    if (screenWidth >= 600) return 10.0;  // Tablet - más legible
+    if (screenWidth >= 600) return 10.0; // Tablet - más legible
     return 10.0; // Mobile
   }
 
   // Texto en listas/actividades
   static double getListItemTitleSize(double screenWidth) {
     if (screenWidth >= 1200) return 12.0; // Desktop
-    if (screenWidth >= 600) return 12.0;  // Tablet
+    if (screenWidth >= 600) return 12.0; // Tablet
     return 12.0; // Mobile - consistente
   }
 
   static double getListItemSubtitleSize(double screenWidth) {
     if (screenWidth >= 1200) return 10.0; // Desktop
-    if (screenWidth >= 600) return 10.0;  // Tablet
+    if (screenWidth >= 600) return 10.0; // Tablet
     return 10.0; // Mobile - consistente
   }
 
   // Texto de botones
   static double getButtonTextSize(double screenWidth) {
     if (screenWidth >= 1200) return 13.0; // Desktop
-    if (screenWidth >= 600) return 13.0;  // Tablet
+    if (screenWidth >= 600) return 13.0; // Tablet
     return 12.0; // Mobile
   }
 
   // Texto de tags pequeños (cantidades, etc.)
   static double getQuantityTagSize(double screenWidth) {
-    if (screenWidth >= 1200) return 8.0;  // Desktop - muy pequeño
-    if (screenWidth >= 600) return 9.0;   // Tablet
+    if (screenWidth >= 1200) return 8.0; // Desktop - muy pequeño
+    if (screenWidth >= 600) return 9.0; // Tablet
     return 9.0; // Mobile
   }
 }

@@ -18,7 +18,8 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
           _buildHeaderSection(),
           Expanded(
             child: Obx(() {
-              if (controller.isLoading.value && controller.valuationData.isEmpty) {
+              if (controller.isLoading.value &&
+                  controller.valuationData.isEmpty) {
                 return const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -31,7 +32,8 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
                 );
               }
 
-              if (controller.error.value.isNotEmpty && controller.valuationData.isEmpty) {
+              if (controller.error.value.isNotEmpty &&
+                  controller.valuationData.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -84,28 +86,29 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
                 break;
             }
           },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'refresh',
-              child: Row(
-                children: [
-                  Icon(Icons.refresh),
-                  SizedBox(width: 8),
-                  Text('Actualizar'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'filter',
-              child: Row(
-                children: [
-                  Icon(Icons.filter_list),
-                  SizedBox(width: 8),
-                  Text('Filtros'),
-                ],
-              ),
-            ),
-          ],
+          itemBuilder:
+              (context) => [
+                const PopupMenuItem(
+                  value: 'refresh',
+                  child: Row(
+                    children: [
+                      Icon(Icons.refresh),
+                      SizedBox(width: 8),
+                      Text('Actualizar'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'filter',
+                  child: Row(
+                    children: [
+                      Icon(Icons.filter_list),
+                      SizedBox(width: 8),
+                      Text('Filtros'),
+                    ],
+                  ),
+                ),
+              ],
         ),
       ],
     );
@@ -123,15 +126,19 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
               Expanded(
                 child: _buildSummaryCard(
                   title: 'Valor Total',
-                  value: Obx(() => Text(
-                    controller.valuationData['totalValue'] != null
-                        ? AppFormatters.formatCurrency(controller.valuationData['totalValue']!)
-                        : '\$0.00',
-                    style: Get.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
+                  value: Obx(
+                    () => Text(
+                      controller.valuationData['totalValue'] != null
+                          ? AppFormatters.formatCurrency(
+                            controller.valuationData['totalValue']!,
+                          )
+                          : '\$0.00',
+                      style: Get.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
                     ),
-                  )),
+                  ),
                   icon: Icons.monetization_on,
                   color: AppColors.primary,
                 ),
@@ -140,13 +147,18 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
               Expanded(
                 child: _buildSummaryCard(
                   title: 'Productos',
-                  value: Obx(() => Text(
-                    controller.valuationData['totalProducts']?.toInt().toString() ?? '0',
-                    style: Get.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                  value: Obx(
+                    () => Text(
+                      controller.valuationData['totalProducts']
+                              ?.toInt()
+                              .toString() ??
+                          '0',
+                      style: Get.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
                     ),
-                  )),
+                  ),
                   icon: Icons.inventory,
                   color: Colors.blue,
                 ),
@@ -155,32 +167,33 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
               Expanded(
                 child: _buildSummaryCard(
                   title: 'Unidades',
-                  value: Obx(() => Text(
-                    controller.valuationData['totalUnits']?.toInt().toString() ?? '0',
-                    style: Get.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
+                  value: Obx(
+                    () => Text(
+                      controller.valuationData['totalUnits']
+                              ?.toInt()
+                              .toString() ??
+                          '0',
+                      style: Get.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
                     ),
-                  )),
+                  ),
                   icon: Icons.inventory_2,
                   color: Colors.green,
                 ),
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Date and warehouse filters
           Row(
             children: [
-              Expanded(
-                child: _buildDateSelector(),
-              ),
+              Expanded(child: _buildDateSelector()),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildWarehouseFilter(),
-              ),
+              Expanded(child: _buildWarehouseFilter()),
             ],
           ),
         ],
@@ -226,10 +239,7 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
             ],
           ),
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: value,
-          ),
+          Align(alignment: Alignment.centerLeft, child: value),
         ],
       ),
     );
@@ -258,12 +268,16 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
               Icon(Icons.calendar_today, color: AppColors.primary, size: 20),
               const SizedBox(width: 12),
               Expanded(
-                child: Obx(() => Text(
-                  controller.selectedDate.value != null
-                      ? AppFormatters.formatDate(controller.selectedDate.value!)
-                      : 'Seleccionar fecha',
-                  style: Get.textTheme.bodyMedium,
-                )),
+                child: Obx(
+                  () => Text(
+                    controller.selectedDate.value != null
+                        ? AppFormatters.formatDate(
+                          controller.selectedDate.value!,
+                        )
+                        : 'Seleccionar fecha',
+                    style: Get.textTheme.bodyMedium,
+                  ),
+                ),
               ),
               Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
             ],
@@ -296,12 +310,14 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
               Icon(Icons.warehouse, color: AppColors.primary, size: 20),
               const SizedBox(width: 12),
               Expanded(
-                child: Obx(() => Text(
-                  controller.selectedWarehouse.value.isNotEmpty
-                      ? controller.selectedWarehouse.value
-                      : 'Todos los almacenes',
-                  style: Get.textTheme.bodyMedium,
-                )),
+                child: Obx(
+                  () => Text(
+                    controller.selectedWarehouse.value.isNotEmpty
+                        ? controller.selectedWarehouse.value
+                        : 'Todos los almacenes',
+                    style: Get.textTheme.bodyMedium,
+                  ),
+                ),
               ),
               Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
             ],
@@ -318,9 +334,9 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
         children: [
           // Valuation method selector
           _buildValuationMethodSelector(),
-          
+
           const SizedBox(height: 16),
-          
+
           // Results section
           Expanded(
             child: Container(
@@ -350,16 +366,18 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
                           ),
                         ),
                         const Spacer(),
-                        Obx(() => Text(
-                          'Actualizado: ${controller.lastUpdated.value != null ? AppFormatters.formatDateTime(controller.lastUpdated.value!) : 'N/A'}',
-                          style: Get.textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
+                        Obx(
+                          () => Text(
+                            'Actualizado: ${controller.lastUpdated.value != null ? AppFormatters.formatDateTime(controller.lastUpdated.value!) : 'N/A'}',
+                            style: Get.textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                        )),
+                        ),
                       ],
                     ),
                   ),
-                  
+
                   // Results content
                   Expanded(
                     child: Obx(() {
@@ -368,7 +386,11 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.inventory, size: 64, color: Colors.grey),
+                              Icon(
+                                Icons.inventory,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
                               SizedBox(height: 16),
                               Text(
                                 'No hay datos de valoración disponibles',
@@ -378,7 +400,7 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
                           ),
                         );
                       }
-                      
+
                       return _buildValuationDetails();
                     }),
                   ),
@@ -444,10 +466,15 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
     );
   }
 
-  Widget _buildMethodOption(String title, String description, String method, IconData icon) {
+  Widget _buildMethodOption(
+    String title,
+    String description,
+    String method,
+    IconData icon,
+  ) {
     return Obx(() {
       final isSelected = controller.selectedValuationMethod.value == method;
-      
+
       return GestureDetector(
         onTap: () {
           controller.selectedValuationMethod.value = method;
@@ -456,7 +483,10 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+            color:
+                isSelected
+                    ? AppColors.primary.withOpacity(0.1)
+                    : Colors.transparent,
             border: Border.all(
               color: isSelected ? AppColors.primary : AppColors.borderLight,
               width: isSelected ? 2 : 1,
@@ -500,14 +530,14 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
       children: [
         // Breakdown by categories
         _buildCategoryBreakdown(),
-        
+
         const SizedBox(height: 24),
-        
+
         // Breakdown by warehouses
         _buildWarehouseBreakdown(),
-        
+
         const SizedBox(height: 24),
-        
+
         // Movement impact
         _buildMovementImpact(),
       ],
@@ -525,16 +555,16 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
           ),
         ),
         const SizedBox(height: 12),
-        
+
         // Mock category data
-        ...['Electrónicos', 'Ropa', 'Hogar', 'Deportes'].map((category) => 
-          _buildValuationRow(
+        ...['Electrónicos', 'Ropa', 'Hogar', 'Deportes'].map(
+          (category) => _buildValuationRow(
             category,
             '\$${(1000 + (category.hashCode % 5000)).toStringAsFixed(2)}',
             '${10 + (category.hashCode % 50)} productos',
             Icons.category,
           ),
-        ).toList(),
+        ),
       ],
     );
   }
@@ -550,16 +580,16 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
           ),
         ),
         const SizedBox(height: 12),
-        
+
         // Mock warehouse data
-        ...['Almacén Principal', 'Almacén Secundario', 'Almacén Frío'].map((warehouse) => 
-          _buildValuationRow(
+        ...['Almacén Principal', 'Almacén Secundario', 'Almacén Frío'].map(
+          (warehouse) => _buildValuationRow(
             warehouse,
             '\$${(2000 + (warehouse.hashCode % 8000)).toStringAsFixed(2)}',
             '${20 + (warehouse.hashCode % 80)} productos',
             Icons.warehouse,
           ),
-        ).toList(),
+        ),
       ],
     );
   }
@@ -575,7 +605,7 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
           ),
         ),
         const SizedBox(height: 12),
-        
+
         Row(
           children: [
             Expanded(
@@ -613,7 +643,12 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
     );
   }
 
-  Widget _buildValuationRow(String title, String value, String subtitle, IconData icon) {
+  Widget _buildValuationRow(
+    String title,
+    String value,
+    String subtitle,
+    IconData icon,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -664,7 +699,13 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
     );
   }
 
-  Widget _buildImpactCard(String title, String value, String subtitle, Color color, IconData icon) {
+  Widget _buildImpactCard(
+    String title,
+    String value,
+    String subtitle,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -809,7 +850,7 @@ class InventoryValuationScreen extends GetView<InventoryBalanceController> {
   void _showValueRangeFilter() {
     final minController = TextEditingController();
     final maxController = TextEditingController();
-    
+
     Get.dialog(
       AlertDialog(
         title: const Text('Rango de Valores'),

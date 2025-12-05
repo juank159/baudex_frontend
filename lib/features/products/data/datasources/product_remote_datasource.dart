@@ -440,7 +440,7 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       print('🔍 StackTrace: $stackTrace');
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
-        throw e; // Re-throw with original statusCode
+        rethrow; // Re-throw with original statusCode
       }
       throw ServerException('Error inesperado al crear producto: $e');
     }
@@ -558,7 +558,7 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       print('🔍 StackTrace: $stackTrace');
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
-        throw e; // Re-throw with original statusCode
+        rethrow; // Re-throw with original statusCode
       }
       throw ServerException('Error inesperado al actualizar producto: $e');
     }

@@ -15,10 +15,10 @@ class TenantInterceptor extends Interceptor {
   ) async {
     print('🏢 ==================== TENANT INTERCEPTOR ====================');
     print('🔍 Processing request: ${options.method} ${options.path}');
-    
+
     // 1. Intentar obtener el tenant desde el storage
     final tenantSlug = await _secureStorage.getTenantSlug();
-    
+
     // DEBUG: Log detallado del tenant
     print('🔍 TENANT DEBUG: Storage tenant slug: $tenantSlug');
 
@@ -53,7 +53,9 @@ class TenantInterceptor extends Interceptor {
     // 3. Agregar header de identificación para debugging
     if (options.headers['X-Tenant-Slug'] != null) {
       options.headers['X-Client-Type'] = 'flutter-app';
-      print('✅ TENANT: Final tenant header: ${options.headers['X-Tenant-Slug']}');
+      print(
+        '✅ TENANT: Final tenant header: ${options.headers['X-Tenant-Slug']}',
+      );
     } else {
       print('❌ TENANT: No tenant header will be sent!');
     }
@@ -63,7 +65,9 @@ class TenantInterceptor extends Interceptor {
     options.headers.forEach((key, value) {
       print('   $key: $value');
     });
-    print('🏢 ==================== END TENANT INTERCEPTOR ====================');
+    print(
+      '🏢 ==================== END TENANT INTERCEPTOR ====================',
+    );
 
     super.onRequest(options, handler);
   }
@@ -87,7 +91,7 @@ class TenantInterceptor extends Interceptor {
       if (errorMessage.contains('Organización no encontrada') ||
           errorMessage.contains('Organization not found')) {
         // Error específico de tenant no válido
-        print('❌ Tenant Error: ${errorMessage}');
+        print('❌ Tenant Error: $errorMessage');
         // Podrías emitir un evento para cambiar de tenant o mostrar selector
       }
     }
@@ -116,17 +120,17 @@ class TenantInterceptor extends Interceptor {
     if (ipv4Regex.hasMatch(host)) {
       return true;
     }
-    
+
     // Verificar IPv6 (contiene ':')
     if (host.contains(':')) {
       return true;
     }
-    
+
     // También considerar localhost como IP para este contexto
     if (host == 'localhost' || host == '127.0.0.1') {
       return true;
     }
-    
+
     return false;
   }
 }

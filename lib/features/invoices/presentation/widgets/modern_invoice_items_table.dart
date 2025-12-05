@@ -1,11 +1,11 @@
 // lib/features/invoices/presentation/widgets/modern_invoice_items_table.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:baudex_desktop/app/core/theme/elegant_light_theme.dart';
 import 'package:baudex_desktop/app/core/utils/responsive.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import '../controllers/invoice_form_controller.dart';
 import '../../data/models/invoice_form_models.dart';
-import '../../../products/domain/entities/product.dart';
 import 'price_selector_widget.dart';
 
 class ModernInvoiceItemsTable extends StatefulWidget {
@@ -25,13 +25,14 @@ class ModernInvoiceItemsTable extends StatefulWidget {
   });
 
   @override
-  State<ModernInvoiceItemsTable> createState() => _ModernInvoiceItemsTableState();
+  State<ModernInvoiceItemsTable> createState() =>
+      _ModernInvoiceItemsTableState();
 }
 
 class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
   late final ScrollController _scrollController;
   late final bool _shouldDisposeController;
-  
+
   @override
   void initState() {
     super.initState();
@@ -44,7 +45,7 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
       _shouldDisposeController = true;
     }
   }
-  
+
   @override
   void dispose() {
     // Solo dispose si creamos el controller nosotros
@@ -59,16 +60,12 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
     return Container(
       height: widget.height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withOpacity(0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Obx(() {
         if (widget.controller.invoiceItems.isEmpty) {
@@ -78,10 +75,11 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
         return Column(
           children: [
             _buildTableHeader(context),
-            const Divider(height: 1),
-            Expanded(
-              child: _buildTableBody(context),
+            Divider(
+              height: 1,
+              color: ElegantLightTheme.textTertiary.withOpacity(0.15),
             ),
+            Expanded(child: _buildTableBody(context)),
           ],
         );
       }),
@@ -93,26 +91,36 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.shopping_cart_outlined,
-            size: context.isMobile ? 28 : 36,
-            color: Colors.grey.shade400,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.glassGradient,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: ElegantLightTheme.textTertiary.withOpacity(0.2),
+              ),
+            ),
+            child: Icon(
+              Icons.shopping_cart_outlined,
+              size: context.isMobile ? 28 : 36,
+              color: ElegantLightTheme.textTertiary,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             'Sin productos',
             style: TextStyle(
-              fontSize: context.isMobile ? 11 : 13,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
+              fontSize: context.isMobile ? 12 : 14,
+              color: ElegantLightTheme.textSecondary,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Busca y agrega productos',
             style: TextStyle(
-              fontSize: context.isMobile ? 9 : 11,
-              color: Colors.grey.shade500,
+              fontSize: context.isMobile ? 10 : 12,
+              color: ElegantLightTheme.textTertiary,
             ),
           ),
         ],
@@ -122,55 +130,59 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
 
   Widget _buildTableHeader(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(context.isMobile ? 4 : 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.isMobile ? 8 : 12,
+        vertical: context.isMobile ? 8 : 10,
+      ),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        gradient: ElegantLightTheme.glassGradient,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(12),
           topRight: Radius.circular(12),
         ),
       ),
-      child: context.isMobile 
-        ? _buildMobileHeader(context)
-        : _buildDesktopHeader(context),
+      child:
+          context.isMobile
+              ? _buildMobileHeader(context)
+              : _buildDesktopHeader(context),
     );
   }
 
   Widget _buildMobileHeader(BuildContext context) {
     return Row(
       children: [
-        Expanded(
+        const Expanded(
           flex: 4,
           child: Text(
             'Producto',
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: ElegantLightTheme.textPrimary,
             ),
           ),
         ),
-        Expanded(
-          flex: 2,
+        const Expanded(
+          flex: 3,
           child: Text(
             'Cant.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: ElegantLightTheme.textPrimary,
             ),
           ),
         ),
-        Expanded(
-          flex: 3,
+        const Expanded(
+          flex: 2,
           child: Text(
             'Total',
             textAlign: TextAlign.right,
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: ElegantLightTheme.textPrimary,
             ),
           ),
         ),
@@ -181,50 +193,50 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
   Widget _buildDesktopHeader(BuildContext context) {
     return Row(
       children: [
-        Expanded(
+        const Expanded(
           flex: 4,
           child: Text(
             'Producto',
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: ElegantLightTheme.textPrimary,
             ),
           ),
         ),
-        Expanded(
+        const Expanded(
           flex: 2,
           child: Text(
             'Cantidad',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: ElegantLightTheme.textPrimary,
             ),
           ),
         ),
-        Expanded(
+        const Expanded(
           flex: 2,
           child: Text(
             'Precio Unit.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: ElegantLightTheme.textPrimary,
             ),
           ),
         ),
-        Expanded(
+        const Expanded(
           flex: 2,
           child: Text(
             'Subtotal',
             textAlign: TextAlign.right,
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: ElegantLightTheme.textPrimary,
             ),
           ),
         ),
@@ -240,7 +252,7 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
       itemBuilder: (context, index) {
         final item = widget.controller.invoiceItems[index];
         final isSelected = widget.selectedIndex == index;
-        
+
         return _buildTableRow(context, item, index, isSelected);
       },
     );
@@ -254,9 +266,10 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
   ) {
     return Obx(() {
       // ✅ NUEVO: Detectar si este item fue recientemente actualizado
-      final isRecentlyUpdated = widget.controller.lastUpdatedItemIndex == index && 
-                               widget.controller.shouldHighlightUpdatedItem;
-      
+      final isRecentlyUpdated =
+          widget.controller.lastUpdatedItemIndex == index &&
+          widget.controller.shouldHighlightUpdatedItem;
+
       return AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -265,25 +278,49 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
           child: Container(
             padding: EdgeInsets.all(context.isMobile ? 1 : 2),
             decoration: BoxDecoration(
-              color: _getRowBackgroundColor(context, isSelected, isRecentlyUpdated),
+              color: _getRowBackgroundColor(
+                context,
+                isSelected,
+                isRecentlyUpdated,
+              ),
               border: Border(
                 left: BorderSide(
                   width: 3,
-                  color: _getRowBorderColor(context, isSelected, isRecentlyUpdated),
+                  color: _getRowBorderColor(
+                    context,
+                    isSelected,
+                    isRecentlyUpdated,
+                  ),
                 ),
               ),
               // ✅ NUEVO: Sombra adicional para productos recientemente actualizados
-              boxShadow: isRecentlyUpdated ? [
-                BoxShadow(
-                  color: Colors.green.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ] : null,
+              boxShadow:
+                  isRecentlyUpdated
+                      ? [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                      : null,
             ),
-            child: context.isMobile 
-              ? _buildMobileRow(context, item, index, isSelected, isRecentlyUpdated)
-              : _buildDesktopRow(context, item, index, isSelected, isRecentlyUpdated),
+            child:
+                context.isMobile
+                    ? _buildMobileRow(
+                      context,
+                      item,
+                      index,
+                      isSelected,
+                      isRecentlyUpdated,
+                    )
+                    : _buildDesktopRow(
+                      context,
+                      item,
+                      index,
+                      isSelected,
+                      isRecentlyUpdated,
+                    ),
           ),
         ),
       );
@@ -291,21 +328,29 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
   }
 
   // ✅ NUEVO: Método para determinar el color de fondo
-  Color? _getRowBackgroundColor(BuildContext context, bool isSelected, bool isRecentlyUpdated) {
+  Color? _getRowBackgroundColor(
+    BuildContext context,
+    bool isSelected,
+    bool isRecentlyUpdated,
+  ) {
     if (isRecentlyUpdated) {
-      return Colors.green.withOpacity(0.1); // Verde claro para actualizaciones
+      return const Color(0xFF10B981).withOpacity(0.08); // Verde claro para actualizaciones
     } else if (isSelected) {
-      return Theme.of(context).primaryColor.withOpacity(0.05);
+      return ElegantLightTheme.primaryBlue.withOpacity(0.05);
     }
     return null;
   }
 
   // ✅ NUEVO: Método para determinar el color del borde
-  Color _getRowBorderColor(BuildContext context, bool isSelected, bool isRecentlyUpdated) {
+  Color _getRowBorderColor(
+    BuildContext context,
+    bool isSelected,
+    bool isRecentlyUpdated,
+  ) {
     if (isRecentlyUpdated) {
-      return Colors.green; // Verde para actualizaciones
+      return const Color(0xFF10B981); // Verde para actualizaciones
     } else if (isSelected) {
-      return Theme.of(context).primaryColor;
+      return ElegantLightTheme.primaryBlue;
     }
     return Colors.transparent;
   }
@@ -317,115 +362,185 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
     bool isSelected,
     bool isRecentlyUpdated,
   ) {
-    return Column(
+    return Row(
       children: [
-        // Fila principal
-        Row(
-          children: [
-            // Información del producto
-            Expanded(
-              flex: 4,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected 
-                        ? Theme.of(context).primaryColor
-                        : Colors.black87,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    '${AppFormatters.formatCurrency(item.unitPrice)} c/u',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Cantidad
-            Expanded(
-              flex: 2,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isRecentlyUpdated 
-                    ? Colors.green.withOpacity(0.2)
-                    : Theme.of(context).primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: isRecentlyUpdated ? Border.all(
-                    color: Colors.green,
-                    width: 1.5,
-                  ) : null,
+        // Información del producto (nombre + precio editable)
+        Expanded(
+          flex: 3,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.description,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected
+                      ? ElegantLightTheme.primaryBlue
+                      : ElegantLightTheme.textPrimary,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isRecentlyUpdated) ...[
-                      Icon(
-                        Icons.trending_up,
-                        size: 12,
-                        color: Colors.green.shade700,
-                      ),
-                      const SizedBox(width: 2),
-                    ],
-                    Flexible(
-                      child: Text(
-                        AppFormatters.formatStock(item.quantity),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              // Precio unitario editable (como en desktop)
+              GestureDetector(
+                onTap: () => _showPriceEditDialog(context, item, index),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: ElegantLightTheme.primaryBlue.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: ElegantLightTheme.primaryBlue.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        AppFormatters.formatCurrency(item.unitPrice),
+                        style: const TextStyle(
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: isRecentlyUpdated 
-                            ? Colors.green.shade700
-                            : Theme.of(context).primaryColor,
+                          color: ElegantLightTheme.primaryBlue,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 3),
+                      const Icon(
+                        Icons.edit,
+                        size: 10,
+                        color: ElegantLightTheme.primaryBlue,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            
-            const SizedBox(width: 8),
-            
-            // Subtotal
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    AppFormatters.formatCurrency(item.subtotal),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        
-        // Acciones (solo cuando está seleccionado)
-        if (isSelected) ...[
-          const SizedBox(height: 2),
-          _buildMobileActions(context, item, index),
-        ],
+
+        // Cantidad con botones +/-
+        Expanded(
+          flex: 3,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Botón decrementar (-)
+              _buildMiniQuantityButton(
+                icon: Icons.remove,
+                onTap: () => _decrementQuantity(index, 1),
+                isDecrease: true,
+              ),
+              // Cantidad
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isRecentlyUpdated
+                      ? const Color(0xFF10B981).withOpacity(0.15)
+                      : ElegantLightTheme.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isRecentlyUpdated
+                        ? const Color(0xFF10B981)
+                        : ElegantLightTheme.primaryBlue.withOpacity(0.3),
+                    width: isRecentlyUpdated ? 2 : 1,
+                  ),
+                ),
+                child: Text(
+                  AppFormatters.formatStock(item.quantity),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isRecentlyUpdated
+                        ? const Color(0xFF10B981)
+                        : ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+              ),
+              // Botón incrementar (+)
+              _buildMiniQuantityButton(
+                icon: Icons.add,
+                onTap: () => _incrementQuantity(index, 1),
+                isDecrease: false,
+              ),
+            ],
+          ),
+        ),
+
+        // Subtotal
+        Expanded(
+          flex: 2,
+          child: Text(
+            AppFormatters.formatCurrency(item.subtotal),
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: ElegantLightTheme.primaryBlue,
+            ),
+          ),
+        ),
+
+        // Botón eliminar
+        const SizedBox(width: 6),
+        _buildMiniDeleteButton(index),
       ],
+    );
+  }
+
+  // Botón mini para cantidad (+/-)
+  Widget _buildMiniQuantityButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool isDecrease,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            gradient: isDecrease
+                ? ElegantLightTheme.warningGradient
+                : ElegantLightTheme.successGradient,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            icon,
+            size: 14,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Botón mini eliminar
+  Widget _buildMiniDeleteButton(int index) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _removeItem(index),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.errorGradient,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Icon(
+            Icons.delete_outline,
+            size: 14,
+            color: Colors.white,
+          ),
+        ),
+      ),
     );
   }
 
@@ -449,9 +564,10 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: isSelected 
-                    ? Theme.of(context).primaryColor
-                    : Colors.black87,
+                  color:
+                      isSelected
+                          ? ElegantLightTheme.primaryBlue
+                          : ElegantLightTheme.textPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -460,9 +576,9 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
                 const SizedBox(height: 1),
                 Text(
                   item.notes!,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 10,
-                    color: Colors.grey.shade600,
+                    color: ElegantLightTheme.textSecondary,
                     fontStyle: FontStyle.italic,
                   ),
                   maxLines: 1,
@@ -472,53 +588,75 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
             ],
           ),
         ),
-        
-        // Cantidad
+
+        // Cantidad con botones de +/-
         Expanded(
           flex: 2,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: isRecentlyUpdated 
-                ? Colors.green.withOpacity(0.2)
-                : Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: isRecentlyUpdated ? Border.all(
-                color: Colors.green,
-                width: 2,
-              ) : null,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isRecentlyUpdated) ...[
-                  Icon(
-                    Icons.trending_up,
-                    size: 14,
-                    color: Colors.green.shade700,
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                Flexible(
-                  child: Text(
-                    AppFormatters.formatStock(item.quantity),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isRecentlyUpdated 
-                        ? Colors.green.shade700
-                        : Theme.of(context).primaryColor,
-                    ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Botón decrementar (-)
+              _buildQuantityButton(
+                context,
+                icon: Icons.remove,
+                onTap: () => _decrementQuantity(index, 1),
+                isDecrease: true,
+              ),
+
+              // Cantidad
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isRecentlyUpdated
+                      ? const Color(0xFF10B981).withOpacity(0.15)
+                      : ElegantLightTheme.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isRecentlyUpdated
+                        ? const Color(0xFF10B981)
+                        : ElegantLightTheme.primaryBlue.withOpacity(0.3),
+                    width: isRecentlyUpdated ? 2 : 1,
                   ),
                 ),
-              ],
-            ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isRecentlyUpdated) ...[
+                      const Icon(
+                        Icons.trending_up,
+                        size: 12,
+                        color: Color(0xFF10B981),
+                      ),
+                      const SizedBox(width: 3),
+                    ],
+                    Text(
+                      AppFormatters.formatStock(item.quantity),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isRecentlyUpdated
+                            ? const Color(0xFF10B981)
+                            : ElegantLightTheme.primaryBlue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Botón incrementar (+)
+              _buildQuantityButton(
+                context,
+                icon: Icons.add,
+                onTap: () => _incrementQuantity(index, 1),
+                isDecrease: false,
+              ),
+            ],
           ),
         ),
-        
+
         // Precio unitario
         Expanded(
           flex: 2,
@@ -529,11 +667,16 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
                 child: GestureDetector(
                   onTap: () => _showPriceEditDialog(context, item, index),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.grey.shade200),
+                      gradient: ElegantLightTheme.glassGradient,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: ElegantLightTheme.textTertiary.withOpacity(0.2),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -544,16 +687,16 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              color: ElegantLightTheme.textPrimary,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 2),
-                        Icon(
+                        const SizedBox(width: 3),
+                        const Icon(
                           Icons.edit,
                           size: 10,
-                          color: Colors.grey.shade600,
+                          color: ElegantLightTheme.textSecondary,
                         ),
                       ],
                     ),
@@ -563,163 +706,96 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
             ],
           ),
         ),
-        
+
         // Subtotal
         Expanded(
           flex: 2,
           child: Text(
             AppFormatters.formatCurrency(item.subtotal),
             textAlign: TextAlign.right,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: Theme.of(context).primaryColor,
+              color: ElegantLightTheme.primaryBlue,
             ),
           ),
         ),
-        
-        // Acciones
+
+        // Botón eliminar (reemplaza los 3 puntos)
         SizedBox(
           width: 50,
-          child: _buildDesktopActions(context, item, index),
+          child: _buildDeleteButton(context, index),
         ),
       ],
     );
   }
 
-
-  Widget _buildMobileActions(
-    BuildContext context,
-    InvoiceItemFormData item,
-    int index,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildActionButton(
-          context,
-          icon: Icons.edit,
-          label: 'Precio',
-          onTap: () => _showPriceEditDialog(context, item, index),
-        ),
-        _buildActionButton(
-          context,
-          icon: Icons.add,
-          label: '+1',
-          onTap: () => _incrementQuantity(index, 1),
-        ),
-        _buildActionButton(
-          context,
-          icon: Icons.remove,
-          label: '-1',
-          onTap: () => _decrementQuantity(index, 1),
-        ),
-        _buildActionButton(
-          context,
-          icon: Icons.delete,
-          label: 'Eliminar',
-          color: Colors.red,
-          onTap: () => _removeItem(index),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDesktopActions(
-    BuildContext context,
-    InvoiceItemFormData item,
-    int index,
-  ) {
-    return PopupMenuButton<String>(
-      icon: Icon(
-        Icons.more_vert,
-        size: 18,
-        color: Colors.grey.shade600,
-      ),
-      padding: EdgeInsets.zero,
-      onSelected: (value) {
-        switch (value) {
-          case 'increment':
-            _incrementQuantity(index, 1);
-            break;
-          case 'decrement':
-            _decrementQuantity(index, 1);
-            break;
-          case 'delete':
-            _removeItem(index);
-            break;
-        }
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'increment',
-          child: Row(
-            children: [
-              Icon(Icons.add, size: 16),
-              SizedBox(width: 8),
-              Text('Incrementar'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'decrement',
-          child: Row(
-            children: [
-              Icon(Icons.remove, size: 16),
-              SizedBox(width: 8),
-              Text('Decrementar'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete, size: 16, color: Colors.red),
-              SizedBox(width: 8),
-              Text('Eliminar', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton(
+  // Botón de cantidad (+/-)
+  Widget _buildQuantityButton(
     BuildContext context, {
     required IconData icon,
-    required String label,
     required VoidCallback onTap,
-    Color? color,
+    required bool isDecrease,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: (color ?? Theme.of(context).primaryColor).withOpacity(0.3),
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: color ?? Theme.of(context).primaryColor,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                color: color ?? Theme.of(context).primaryColor,
-                fontWeight: FontWeight.w500,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            gradient: isDecrease
+                ? ElegantLightTheme.warningGradient
+                : ElegantLightTheme.successGradient,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: isDecrease
+                    ? ElegantLightTheme.accentOrange.withOpacity(0.3)
+                    : const Color(0xFF10B981).withOpacity(0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            size: 14,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Botón eliminar elegante
+  Widget _buildDeleteButton(BuildContext context, int index) {
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _removeItem(index),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.errorGradient,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFEF4444).withOpacity(0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ],
+            child: const Icon(
+              Icons.delete_outline,
+              size: 16,
+              color: Colors.white,
+            ),
+          ),
         ),
       ),
     );
@@ -738,18 +814,19 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
 
     showDialog(
       context: context,
-      builder: (dialogContext) => PriceSelectorWidget(
-        product: product,
-        currentPrice: item.unitPrice,
-        onPriceChanged: (newPrice) {
-          final updatedItem = item.copyWith(unitPrice: newPrice);
-          widget.controller.updateItem(index, updatedItem);
-          // Use the dialog context specifically to close only the dialog
-          if (Navigator.of(dialogContext).canPop()) {
-            Navigator.of(dialogContext).pop();
-          }
-        },
-      ),
+      builder:
+          (dialogContext) => PriceSelectorWidget(
+            product: product,
+            currentPrice: item.unitPrice,
+            onPriceChanged: (newPrice) {
+              final updatedItem = item.copyWith(unitPrice: newPrice);
+              widget.controller.updateItem(index, updatedItem);
+              // Use the dialog context specifically to close only the dialog
+              if (Navigator.of(dialogContext).canPop()) {
+                Navigator.of(dialogContext).pop();
+              }
+            },
+          ),
     );
   }
 
@@ -762,7 +839,7 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
   void _decrementQuantity(int index, double decrement) {
     final item = widget.controller.invoiceItems[index];
     final newQuantity = (item.quantity - decrement).clamp(1.0, double.infinity);
-    
+
     if (newQuantity < 1) {
       _removeItem(index);
       return;
@@ -774,12 +851,13 @@ class _ModernInvoiceItemsTableState extends State<ModernInvoiceItemsTable> {
 
   void _removeItem(int index) {
     widget.controller.removeItem(index);
-    
+
     // Ajustar selección si es necesario
-    if (widget.selectedIndex >= widget.controller.invoiceItems.length) {
-      widget.onSelectionChanged(
-        (widget.controller.invoiceItems.length - 1).clamp(0, double.infinity.toInt())
-      );
+    final itemsLength = widget.controller.invoiceItems.length;
+    if (widget.selectedIndex >= itemsLength) {
+      // Si no quedan items, seleccionar -1 (ninguno), sino el último
+      final newIndex = itemsLength > 0 ? itemsLength - 1 : -1;
+      widget.onSelectionChanged(newIndex);
     }
   }
 }

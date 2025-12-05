@@ -9,7 +9,7 @@ import '../controllers/auth_controller.dart';
 import '../widgets/auth_header_widget.dart';
 
 class RegisterScreen extends GetView<AuthController> {
-  const RegisterScreen({Key? key}) : super(key: key);
+  const RegisterScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -6,7 +6,7 @@ import '../../core/utils/responsive.dart';
 import '../../shared/widgets/custom_button.dart';
 
 class NotFoundScreen extends StatefulWidget {
-  const NotFoundScreen({Key? key}) : super(key: key);
+  const NotFoundScreen({super.key});
 
   @override
   State<NotFoundScreen> createState() => _NotFoundScreenState();
@@ -412,7 +412,7 @@ class _NotFoundScreenState extends State<NotFoundScreen>
 
 // Extensión para crear una página 404 más simple
 class Simple404Screen extends StatelessWidget {
-  const Simple404Screen({Key? key}) : super(key: key);
+  const Simple404Screen({super.key});
 
   @override
   Widget build(BuildContext context) {

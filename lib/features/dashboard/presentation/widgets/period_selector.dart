@@ -119,25 +119,20 @@ class PeriodSelector extends StatelessWidget {
           position: Tween<Offset>(
             begin: const Offset(0, -1),
             end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutBack,
-          )),
-          child: FadeTransition(
-            opacity: animation,
-            child: child,
+          ).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
           ),
+          child: FadeTransition(opacity: animation, child: child),
         );
       },
     );
   }
-
 }
 
 // Dialog espectacular con animaciones avanzadas
 class _PeriodSelectionDialog extends StatefulWidget {
   final Animation<double> animation;
-  
+
   const _PeriodSelectionDialog({required this.animation});
 
   @override
@@ -151,7 +146,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
   late List<Animation<double>> _itemAnimations;
   late AnimationController _glowController;
   late Animation<double> _glowAnimation;
-  
+
   bool _showCustomDatePicker = false;
   DateTime? _selectedStartDate;
   DateTime? _selectedEndDate;
@@ -159,55 +154,52 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
   @override
   void initState() {
     super.initState();
-    
+
     // Controlador para animación escalonada de items
     _staggerController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    
+
     // Controlador para efecto glow
     _glowController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    
-    _glowAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _glowController,
-      curve: Curves.easeInOut,
-    ));
-    
+
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    );
+
     // Controladores individuales para cada item (1 header + 4 periods + 1 custom = 6)
-    _itemControllers = List.generate(6, (index) => 
-      AnimationController(
+    _itemControllers = List.generate(
+      6,
+      (index) => AnimationController(
         duration: const Duration(milliseconds: 300),
         vsync: this,
       ),
     );
-    
+
     // Animaciones individuales con delay escalonado
-    _itemAnimations = _itemControllers.map((controller) => 
-      Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(
-          parent: controller,
-          curve: Curves.easeOutBack,
-        ),
-      ),
-    ).toList();
-    
+    _itemAnimations =
+        _itemControllers
+            .map(
+              (controller) => Tween<double>(begin: 0.0, end: 1.0).animate(
+                CurvedAnimation(parent: controller, curve: Curves.easeOutBack),
+              ),
+            )
+            .toList();
+
     // Iniciar animaciones con delay
     _startStaggeredAnimations();
   }
-  
+
   void _startStaggeredAnimations() {
     // Iniciar glow primero
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) _glowController.forward();
     });
-    
+
     // Iniciar items con delay escalonado
     for (int i = 0; i < _itemControllers.length; i++) {
       Future.delayed(Duration(milliseconds: 300 + (i * 100)), () {
@@ -231,12 +223,16 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
     final isTablet = screenSize.width >= 600 && screenSize.width < 1024;
-    
+
     // Dimensiones responsivas
-    final maxWidth = isMobile ? screenSize.width - 32 : (isTablet ? 450.0 : 500.0);
-    final maxHeight = isMobile ? screenSize.height * 0.85 : (isTablet ? screenSize.height * 0.8 : 600.0);
+    final maxWidth =
+        isMobile ? screenSize.width - 32 : (isTablet ? 450.0 : 500.0);
+    final maxHeight =
+        isMobile
+            ? screenSize.height * 0.85
+            : (isTablet ? screenSize.height * 0.8 : 600.0);
     final horizontalMargin = isMobile ? 16.0 : 20.0;
-    
+
     return Center(
       child: Material(
         type: MaterialType.transparency,
@@ -251,10 +247,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                Colors.white.withOpacity(0.95),
-              ],
+              colors: [Colors.white, Colors.white.withOpacity(0.95)],
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
@@ -277,7 +270,9 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: AppColors.primary.withOpacity(0.2 * _glowAnimation.value),
+                    color: AppColors.primary.withOpacity(
+                      0.2 * _glowAnimation.value,
+                    ),
                     width: 2,
                   ),
                 ),
@@ -294,14 +289,16 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
                               gradient: RadialGradient(
                                 center: Alignment.topCenter,
                                 colors: [
-                                  AppColors.primary.withOpacity(0.05 * _glowAnimation.value),
+                                  AppColors.primary.withOpacity(
+                                    0.05 * _glowAnimation.value,
+                                  ),
                                   Colors.transparent,
                                 ],
                               ),
                             ),
                           ),
                         ),
-                      
+
                       // Contenido principal con scroll para evitar overflow
                       Positioned.fill(
                         child: SingleChildScrollView(
@@ -334,11 +331,11 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
       ),
     );
   }
-  
+
   Widget _buildHeader(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
-    
+
     return AnimatedBuilder(
       animation: _itemAnimations[0],
       builder: (context, child) {
@@ -403,58 +400,91 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
       },
     );
   }
-  
+
   Widget _buildPeriodOptions(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
-    
+
     final periods = [
-      {'key': 'hoy', 'label': 'Hoy', 'icon': Icons.today, 'subtitle': 'Solo el día de hoy'},
-      {'key': 'esta_semana', 'label': 'Esta Semana', 'icon': Icons.view_week, 'subtitle': 'Últimos 7 días'},
-      {'key': 'este_mes', 'label': 'Este Mes', 'icon': Icons.calendar_month, 'subtitle': 'Todo el mes actual'},
-      {'key': 'ultimos_3_meses', 'label': 'Últimos 3 Meses', 'icon': Icons.date_range, 'subtitle': 'Últimos 3 meses de datos'},
+      {
+        'key': 'hoy',
+        'label': 'Hoy',
+        'icon': Icons.today,
+        'subtitle': 'Solo el día de hoy',
+      },
+      {
+        'key': 'esta_semana',
+        'label': 'Esta Semana',
+        'icon': Icons.view_week,
+        'subtitle': 'Últimos 7 días',
+      },
+      {
+        'key': 'este_mes',
+        'label': 'Este Mes',
+        'icon': Icons.calendar_month,
+        'subtitle': 'Todo el mes actual',
+      },
+      {
+        'key': 'ultimos_3_meses',
+        'label': 'Últimos 3 Meses',
+        'icon': Icons.date_range,
+        'subtitle': 'Últimos 3 meses de datos',
+      },
     ];
-    
+
     return GetBuilder<DashboardController>(
       builder: (controller) {
         return Column(
-          children: periods.asMap().entries.map((entry) {
-            final index = entry.key;
-            final period = entry.value;
-            
-            return AnimatedBuilder(
-              animation: _itemAnimations[index + 1],
-              builder: (context, child) {
-                return Transform.translate(
-                  offset: Offset(0, 50 * (1 - _itemAnimations[index + 1].value)),
-                  child: Opacity(
-                    opacity: _itemAnimations[index + 1].value.clamp(0.0, 1.0),
-                    child: Container(
-                      margin: EdgeInsets.only(bottom: isMobile ? 8 : 12),
-                      child: _buildPeriodOption(
-                        period['key'] as String,
-                        period['label'] as String,
-                        period['icon'] as IconData,
-                        period['subtitle'] as String,
-                        controller.selectedPeriod == period['key'],
+          children:
+              periods.asMap().entries.map((entry) {
+                final index = entry.key;
+                final period = entry.value;
+
+                return AnimatedBuilder(
+                  animation: _itemAnimations[index + 1],
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(
+                        0,
+                        50 * (1 - _itemAnimations[index + 1].value),
                       ),
-                    ),
-                  ),
+                      child: Opacity(
+                        opacity: _itemAnimations[index + 1].value.clamp(
+                          0.0,
+                          1.0,
+                        ),
+                        child: Container(
+                          margin: EdgeInsets.only(bottom: isMobile ? 8 : 12),
+                          child: _buildPeriodOption(
+                            period['key'] as String,
+                            period['label'] as String,
+                            period['icon'] as IconData,
+                            period['subtitle'] as String,
+                            controller.selectedPeriod == period['key'],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
-              },
-            );
-          }).toList(),
+              }).toList(),
         );
       },
     );
   }
-  
-  Widget _buildPeriodOption(String key, String label, IconData icon, String subtitle, bool isSelected) {
+
+  Widget _buildPeriodOption(
+    String key,
+    String label,
+    IconData icon,
+    String subtitle,
+    bool isSelected,
+  ) {
     return Builder(
       builder: (context) {
         final screenSize = MediaQuery.of(context).size;
         final isMobile = screenSize.width < 600;
-        
+
         return Material(
           color: Colors.transparent,
           child: InkWell(
@@ -463,93 +493,102 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: EdgeInsets.all(isMobile ? 12 : 16),
-          decoration: BoxDecoration(
-            gradient: isSelected 
-              ? LinearGradient(
-                  colors: [
-                    AppColors.primary.withOpacity(0.15),
-                    AppColors.primary.withOpacity(0.05),
-                  ],
-                )
-              : null,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected 
-                ? AppColors.primary.withOpacity(0.3)
-                : AppColors.textSecondary.withOpacity(0.1),
-              width: isSelected ? 2 : 1,
-            ),
-            boxShadow: isSelected 
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+              decoration: BoxDecoration(
+                gradient:
+                    isSelected
+                        ? LinearGradient(
+                          colors: [
+                            AppColors.primary.withOpacity(0.15),
+                            AppColors.primary.withOpacity(0.05),
+                          ],
+                        )
+                        : null,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color:
+                      isSelected
+                          ? AppColors.primary.withOpacity(0.3)
+                          : AppColors.textSecondary.withOpacity(0.1),
+                  width: isSelected ? 2 : 1,
+                ),
+                boxShadow:
+                    isSelected
+                        ? [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                        : null,
+              ),
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color:
+                          isSelected
+                              ? AppColors.primary
+                              : AppColors.textSecondary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      icon,
+                      color:
+                          isSelected ? Colors.white : AppColors.textSecondary,
+                      size: 20,
+                    ),
                   ),
-                ]
-              : null,
-          ),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: isSelected 
-                    ? AppColors.primary
-                    : AppColors.textSecondary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  color: isSelected ? Colors.white : AppColors.textSecondary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 200),
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                        fontSize: isMobile ? 14 : 16,
-                      ),
-                      child: Text(label),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 200),
+                          style: AppTextStyles.bodyLarge.copyWith(
+                            color:
+                                isSelected
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w600,
+                            fontSize: isMobile ? 14 : 16,
+                          ),
+                          child: Text(label),
+                        ),
+                        SizedBox(height: isMobile ? 1 : 2),
+                        Text(
+                          subtitle,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textSecondary,
+                            fontSize: isMobile ? 10 : 12,
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: isMobile ? 1 : 2),
-                    Text(
-                      subtitle,
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: isMobile ? 10 : 12,
-                      ),
+                  ),
+                  if (isSelected)
+                    Icon(
+                      Icons.check_circle,
+                      color: AppColors.primary,
+                      size: 20,
                     ),
-                  ],
-                ),
+                ],
               ),
-              if (isSelected)
-                Icon(
-                  Icons.check_circle,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
+        );
       },
     );
   }
-  
+
   Widget _buildCustomDateSection(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
-    
+
     return AnimatedBuilder(
       animation: _itemAnimations[5],
       builder: (context, child) {
@@ -562,13 +601,16 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.secondary?.withOpacity(0.1) ?? AppColors.primary.withOpacity(0.05),
+                    AppColors.secondary.withOpacity(0.1) ??
+                        AppColors.primary.withOpacity(0.05),
                     Colors.transparent,
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppColors.secondary?.withOpacity(0.2) ?? AppColors.primary.withOpacity(0.1),
+                  color:
+                      AppColors.secondary.withOpacity(0.2) ??
+                      AppColors.primary.withOpacity(0.1),
                   width: 1,
                 ),
               ),
@@ -628,11 +670,11 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
       },
     );
   }
-  
+
   Widget _buildActionButtons(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
-    
+
     if (_showCustomDatePicker) {
       return Row(
         children: [
@@ -647,7 +689,9 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textSecondary,
-                side: BorderSide(color: AppColors.textSecondary.withOpacity(0.3)),
+                side: BorderSide(
+                  color: AppColors.textSecondary.withOpacity(0.3),
+                ),
                 padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -659,9 +703,10 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
           const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
-              onPressed: _selectedStartDate != null && _selectedEndDate != null 
-                ? () => _applyCustomDateRange(context)
-                : null,
+              onPressed:
+                  _selectedStartDate != null && _selectedEndDate != null
+                      ? () => _applyCustomDateRange(context)
+                      : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -677,7 +722,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
         ],
       );
     }
-    
+
     return Row(
       children: [
         Expanded(
@@ -713,11 +758,11 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
       ],
     );
   }
-  
+
   Widget _buildCustomDatePickerSection(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -739,11 +784,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.date_range,
-                color: AppColors.primary,
-                size: 24,
-              ),
+              Icon(Icons.date_range, color: AppColors.primary, size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -772,7 +813,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
           ),
         ),
         SizedBox(height: isMobile ? 16 : 20),
-        
+
         // Selectores de fecha
         Row(
           children: [
@@ -786,7 +827,8 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
                   setState(() {
                     _selectedStartDate = date;
                     // Si la fecha de fin es anterior a la de inicio, la reseteamos
-                    if (_selectedEndDate != null && _selectedEndDate!.isBefore(date)) {
+                    if (_selectedEndDate != null &&
+                        _selectedEndDate!.isBefore(date)) {
                       _selectedEndDate = null;
                     }
                   });
@@ -810,7 +852,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
             ),
           ],
         ),
-        
+
         if (_selectedStartDate != null && _selectedEndDate != null) ...[
           SizedBox(height: isMobile ? 12 : 16),
           Container(
@@ -825,11 +867,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.check_circle,
-                  color: AppColors.success,
-                  size: 20,
-                ),
+                Icon(Icons.check_circle, color: AppColors.success, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -859,23 +897,26 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
   }) {
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
-    
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _selectDate(context, selectedDate, onDateSelected, minDate),
+        onTap:
+            () => _selectDate(context, selectedDate, onDateSelected, minDate),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: EdgeInsets.all(isMobile ? 12 : 16),
           decoration: BoxDecoration(
-            color: selectedDate != null 
-              ? AppColors.primary.withOpacity(0.1)
-              : Colors.grey.withOpacity(0.05),
+            color:
+                selectedDate != null
+                    ? AppColors.primary.withOpacity(0.1)
+                    : Colors.grey.withOpacity(0.05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selectedDate != null 
-                ? AppColors.primary.withOpacity(0.3)
-                : Colors.grey.withOpacity(0.2),
+              color:
+                  selectedDate != null
+                      ? AppColors.primary.withOpacity(0.3)
+                      : Colors.grey.withOpacity(0.2),
               width: 1,
             ),
           ),
@@ -886,18 +927,20 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
                 children: [
                   Icon(
                     icon,
-                    color: selectedDate != null 
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
+                    color:
+                        selectedDate != null
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     label,
                     style: TextStyle(
-                      color: selectedDate != null 
-                        ? AppColors.primary
-                        : AppColors.textSecondary,
+                      color:
+                          selectedDate != null
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
                       fontWeight: FontWeight.w600,
                       fontSize: isMobile ? 12 : 14,
                     ),
@@ -906,16 +949,16 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
               ),
               SizedBox(height: isMobile ? 6 : 8),
               Text(
-                selectedDate != null 
-                  ? _formatDate(selectedDate)
-                  : 'Seleccionar fecha',
+                selectedDate != null
+                    ? _formatDate(selectedDate)
+                    : 'Seleccionar fecha',
                 style: TextStyle(
-                  color: selectedDate != null 
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
-                  fontWeight: selectedDate != null 
-                    ? FontWeight.w600
-                    : FontWeight.w400,
+                  color:
+                      selectedDate != null
+                          ? AppColors.textPrimary
+                          : AppColors.textSecondary,
+                  fontWeight:
+                      selectedDate != null ? FontWeight.w600 : FontWeight.w400,
                   fontSize: isMobile ? 13 : 15,
                 ),
               ),
@@ -934,7 +977,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
   ) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: currentDate ?? today,
@@ -979,9 +1022,8 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
   void _selectPeriod(BuildContext context, String period) {
     final controller = Get.find<DashboardController>();
     controller.setPredefinedPeriod(period);
-    
+
     // Cerrar el dialog automáticamente después de seleccionar
     Navigator.of(context).pop();
   }
-  
 }

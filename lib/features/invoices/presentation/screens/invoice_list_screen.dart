@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../../../app/shared/widgets/custom_text_field_safe.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
@@ -11,10 +10,122 @@ import '../controllers/invoice_list_controller.dart';
 import '../controllers/invoice_stats_controller.dart';
 import '../bindings/invoice_binding.dart';
 import '../widgets/invoice_card_widget.dart';
+import '../widgets/invoice_filter_widget.dart';
+import '../widgets/invoice_skeleton_widget.dart'; // ✅ Skeleton loading para facturas
 import '../../domain/entities/invoice.dart';
+import '../../domain/usecases/get_invoice_stats_usecase.dart';
+import '../../domain/usecases/get_overdue_invoices_usecase.dart';
 
-class InvoiceListScreen extends GetView<InvoiceListController> {
+/// Helper para asegurar que InvoiceStatsController esté registrado
+void _ensureStatsControllerRegistered() {
+  if (!Get.isRegistered<InvoiceStatsController>()) {
+    try {
+      // Verificar que los use cases estén disponibles
+      if (Get.isRegistered<GetInvoiceStatsUseCase>() &&
+          Get.isRegistered<GetOverdueInvoicesUseCase>()) {
+        Get.put(
+          InvoiceStatsController(
+            getInvoiceStatsUseCase: Get.find<GetInvoiceStatsUseCase>(),
+            getOverdueInvoicesUseCase: Get.find<GetOverdueInvoicesUseCase>(),
+          ),
+          permanent: true,
+        );
+        // print('✅ InvoiceStatsController registrado dinámicamente');
+      } else {
+        // print('⚠️ Use cases no disponibles para InvoiceStatsController');
+      }
+    } catch (e) {
+      // print('❌ Error registrando InvoiceStatsController: $e');
+    }
+  }
+}
+
+/// ✅ AUTO-REFRESH: Convertido a StatefulWidget para manejar lifecycle
+class InvoiceListScreen extends StatefulWidget {
   const InvoiceListScreen({super.key});
+
+  @override
+  State<InvoiceListScreen> createState() => _InvoiceListScreenState();
+}
+
+class _InvoiceListScreenState extends State<InvoiceListScreen>
+    with WidgetsBindingObserver {
+  InvoiceListController? _controller;
+
+  // ✅ SOLUCIÓN: ScrollController manejado por el StatefulWidget
+  // Esto garantiza un lifecycle correcto y evita el error de múltiples posiciones
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    // ✅ Crear ScrollController fresco para esta instancia del widget
+    _scrollController = ScrollController();
+    // ✅ AUTO-REFRESH: Registrar observer del ciclo de vida de la app
+    WidgetsBinding.instance.addObserver(this);
+    _initializeController();
+  }
+
+  @override
+  void dispose() {
+    // ✅ CRÍTICO: Disponer el ScrollController antes de cerrar
+    _scrollController.dispose();
+    // ✅ AUTO-REFRESH: Remover observer
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// ✅ AUTO-REFRESH: Detectar cuando la app/pantalla vuelve a primer plano
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // Solo verificar refresh, NO recrear ScrollController agresivamente
+      _controller?.checkAndRefreshIfNeeded();
+    }
+  }
+
+  /// ✅ AUTO-REFRESH: Detectar cuando volvemos a esta ruta específica
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Solo verificar refresh al volver, NO recrear ScrollController
+    if (mounted && _controller != null) {
+      _controller!.checkAndRefreshIfNeeded();
+    }
+  }
+
+  Future<void> _initializeController() async {
+    final controller = await _ensureControllerRegistration();
+    if (mounted) {
+      setState(() {
+        _controller = controller;
+      });
+      // ✅ Configurar listener de scroll para paginación
+      _setupScrollListener(controller);
+    }
+  }
+
+  /// ✅ Configurar listener de scroll para paginación infinita
+  void _setupScrollListener(InvoiceListController controller) {
+    _scrollController.addListener(() {
+      if (!mounted) return;
+
+      // Solo proceder si tiene una posición válida
+      if (!_scrollController.hasClients) return;
+
+      final position = _scrollController.position;
+      final threshold = position.maxScrollExtent - 300;
+
+      // Verificar si debemos cargar más
+      if (position.pixels >= threshold &&
+          controller.hasNextPage &&
+          !controller.isLoadingMore &&
+          !controller.isLoading) {
+        controller.loadMoreInvoices();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +155,10 @@ class InvoiceListScreen extends GetView<InvoiceListController> {
   Future<InvoiceListController> _ensureControllerRegistration() async {
     try {
       if (Get.isRegistered<InvoiceListController>()) {
-        return Get.find<InvoiceListController>();
+        final controller = Get.find<InvoiceListController>();
+        // NO recrear ScrollController aquí - solo si hay problema real
+        // El getter mainScrollController ya maneja la lógica de reparación
+        return controller;
       }
 
       final binding = InvoiceBinding();
@@ -149,8 +263,8 @@ class InvoiceListScreen extends GetView<InvoiceListController> {
               )
             : const Icon(Icons.refresh, color: Colors.white),
           onPressed: controller.isLoading ? null : () async {
-            await controller.refreshAllData();
-            _showRefreshSuccess();
+            // ✅ Refresh manual del usuario - mostrar mensaje de éxito
+            await controller.refreshAllData(showSuccessMessage: true);
           },
           tooltip: controller.isLoading ? 'Actualizando...' : 'Actualizar facturas',
         )),
@@ -230,28 +344,114 @@ class InvoiceListScreen extends GetView<InvoiceListController> {
       return const SizedBox.shrink();
     }
 
+    // ✅ MOBILE: Botón circular con diseño elegante
     if (ResponsiveHelper.isMobile(context)) {
-      return FloatingActionButton(
-        onPressed: () => controller.goToCreateInvoice(),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
+      return Container(
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+            ...ElegantLightTheme.glowShadow,
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            onTap: () => controller.goToCreateInvoice(),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.receipt_long_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
+        ),
       );
     }
 
-    return FloatingActionButton.extended(
-      onPressed: () => controller.goToCreateInvoice(),
-      icon: const Icon(Icons.add),
-      label: const Text('Nueva factura'),
-      backgroundColor: Theme.of(context).primaryColor,
-      foregroundColor: Colors.white,
+    // ✅ TABLET: Botón extendido con diseño elegante
+    return Container(
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.4),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+          ...ElegantLightTheme.glowShadow,
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(28),
+        child: InkWell(
+          onTap: () => controller.goToCreateInvoice(),
+          borderRadius: BorderRadius.circular(28),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Nueva Factura',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildDesktopLayout(BuildContext context, InvoiceListController controller) {
     return Obx(() {
-      if (controller.isLoading) {
-        return const LoadingWidget(message: 'Cargando facturas...');
+      // ✅ Usar skeleton loading para carga inicial
+      if (controller.isLoading && controller.filteredInvoices.isEmpty) {
+        return Row(
+          children: [
+            _DesktopSidebar(controller: controller),
+            Expanded(
+              child: Column(
+                children: [
+                  _DesktopToolbar(controller: controller),
+                  const Expanded(child: InvoiceSkeletonList(itemCount: 8)),
+                ],
+              ),
+            ),
+          ],
+        );
       }
 
       return Row(
@@ -296,8 +496,9 @@ class InvoiceListScreen extends GetView<InvoiceListController> {
 
   Widget _buildInvoicesList(InvoiceListController controller) {
     return Obx(() {
-      if (controller.isLoading) {
-        return const LoadingWidget(message: 'Cargando facturas...');
+      // ✅ Skeleton loading para carga inicial (sin datos previos)
+      if (controller.isLoading && controller.filteredInvoices.isEmpty) {
+        return const InvoiceSkeletonList(itemCount: 8);
       }
 
       final invoiceList = controller.filteredInvoices;
@@ -307,33 +508,33 @@ class InvoiceListScreen extends GetView<InvoiceListController> {
       }
 
       return RefreshIndicator(
-        onRefresh: controller.refreshAllData,
+        onRefresh: () => controller.refreshAllData(showSuccessMessage: true),
         child: Column(
           children: [
             if (controller.totalPages > 1) _PaginationInfo(controller: controller),
 
             Expanded(
               child: ListView.builder(
-                controller: controller.mainScrollController,
+                controller: _scrollController, // ✅ Usar ScrollController local del StatefulWidget
                 padding: const EdgeInsets.all(16),
-                itemCount: invoiceList.length,
+                cacheExtent: 500, // ✅ Pre-cargar items fuera de pantalla
+                itemCount: invoiceList.length + (controller.hasNextPage ? 1 : 0),
                 itemBuilder: (context, index) {
+                  // ✅ Indicador de carga al final
+                  if (index >= invoiceList.length) {
+                    return _LoadMoreIndicator(controller: controller);
+                  }
+
                   final invoice = invoiceList[index];
 
-                  return Column(
-                    children: [
-                      InvoiceCardWidget(
-                        invoice: invoice,
-                        isSelected: controller.selectedInvoices.contains(invoice.id),
-                        isMultiSelectMode: controller.isMultiSelectMode,
-                        onTap: () => _handleInvoiceTap(invoice, controller),
-                        onLongPress: () => _handleInvoiceLongPress(invoice, controller),
-                        onActionTap: (action) => _handleInvoiceAction(action, invoice, controller),
-                      ),
-
-                      if (index == invoiceList.length - 1 && controller.hasNextPage)
-                        _LoadMoreButton(controller: controller),
-                    ],
+                  return InvoiceCardWidget(
+                    key: ValueKey(invoice.id), // ✅ Key para optimizar rebuild
+                    invoice: invoice,
+                    isSelected: controller.selectedInvoices.contains(invoice.id),
+                    isMultiSelectMode: controller.isMultiSelectMode,
+                    onTap: () => _handleInvoiceTap(invoice, controller),
+                    onLongPress: () => _handleInvoiceLongPress(invoice, controller),
+                    onActionTap: (action) => _handleInvoiceAction(action, invoice, controller),
                   );
                 },
               ),
@@ -382,22 +583,41 @@ class InvoiceListScreen extends GetView<InvoiceListController> {
   void _showMobileSearch(BuildContext context, InvoiceListController controller) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Búsqueda de Facturas',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
+      isScrollControlled: true, // ✅ Permite que el sheet use más espacio
+      builder: (context) => SafeArea(
+        // ✅ Respeta el Safe Area (notch, barra de estado, etc.)
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16, // ✅ Respeta el teclado
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ✅ Indicador visual de que es un bottom sheet
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            _SearchField(controller: controller),
-          ],
+              Text(
+                'Búsqueda de Facturas',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _SearchField(controller: controller),
+            ],
+          ),
         ),
       ),
     );
@@ -406,40 +626,23 @@ class InvoiceListScreen extends GetView<InvoiceListController> {
   void _showFilters(BuildContext context, InvoiceListController controller) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Filtros de Facturas',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _FilterSection(controller: controller),
-          ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: InvoiceFilterWidget(controller: controller),
         ),
       ),
     );
   }
 
-  void _showRefreshSuccess() {
-    Get.snackbar(
-      'Actualizado',
-      'Las facturas se han actualizado correctamente',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.green.withValues(alpha: 0.1),
-      colorText: Colors.green.shade800,
-      icon: const Icon(Icons.check_circle, color: Colors.green),
-      duration: const Duration(seconds: 2),
-      margin: const EdgeInsets.all(16),
-      borderRadius: 12,
-    );
-  }
 
   void _showCancelConfirmation(Invoice invoice, InvoiceListController controller) {
     Get.dialog(
@@ -600,44 +803,82 @@ class _SidebarHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 80,
+      height: 90,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Theme.of(context).primaryColor.withValues(alpha: 0.1),
-            Theme.of(context).primaryColor.withValues(alpha: 0.05),
+            ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.15),
+            ElegantLightTheme.primaryGradient.colors.last.withValues(alpha: 0.05),
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border(
+          bottom: BorderSide(
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+          ),
         ),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.receipt_long, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Facturas',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
+              gradient: ElegantLightTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
-              ),
-              Text(
-                'Gestión y búsqueda',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ],
+              ],
+            ),
+            child: const Icon(Icons.receipt_long, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ShaderMask(
+                  shaderCallback: (bounds) => ElegantLightTheme.primaryGradient.createShader(bounds),
+                  child: const Text(
+                    'Facturas',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.successGradient,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Gestión y búsqueda',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: ElegantLightTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -693,8 +934,25 @@ class _StatsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Usar Obx para reactividad con la lista de facturas del controlador
     return Obx(() {
-      final statsController = Get.find<InvoiceStatsController>();
+      // Calcular estadísticas localmente usando la misma lógica de isOverdue
+      // que usa la UI, garantizando consistencia entre contador y visualización
+      final invoices = controller.invoices;
+
+      // Contadores calculados localmente
+      final totalCount = invoices.length;
+      final paidCount = invoices.where((inv) =>
+        inv.status == InvoiceStatus.paid || inv.balanceDue <= 0
+      ).length;
+      final pendingCount = invoices.where((inv) =>
+        (inv.status == InvoiceStatus.pending ||
+         inv.status == InvoiceStatus.partiallyPaid) &&
+        !inv.isOverdue &&
+        inv.balanceDue > 0
+      ).length;
+      // Usar la lógica de isOverdue de la entidad Invoice para consistencia
+      final overdueCount = invoices.where((inv) => inv.isOverdue).length;
 
       return FuturisticContainer(
         hasGlow: true,
@@ -730,30 +988,30 @@ class _StatsSection extends StatelessWidget {
             const SizedBox(height: 16),
             _StatRow(
               label: 'Total',
-              value: statsController.totalInvoices.toString(),
+              value: totalCount.toString(),
               icon: Icons.receipt_long,
-              color: Colors.blue,
+              color: ElegantLightTheme.primaryBlue,
             ),
             const SizedBox(height: 8),
             _StatRow(
               label: 'Pagadas',
-              value: statsController.paidInvoices.toString(),
+              value: paidCount.toString(),
               icon: Icons.check_circle,
               color: Colors.green,
             ),
             const SizedBox(height: 8),
             _StatRow(
               label: 'Pendientes',
-              value: statsController.pendingInvoices.toString(),
+              value: pendingCount.toString(),
               icon: Icons.schedule,
-              color: statsController.pendingInvoices > 0 ? Colors.orange : Colors.grey,
+              color: pendingCount > 0 ? Colors.orange : Colors.grey,
             ),
             const SizedBox(height: 8),
             _StatRow(
               label: 'Vencidas',
-              value: statsController.overdueCount.toString(),
+              value: overdueCount.toString(),
               icon: Icons.warning,
-              color: statsController.overdueCount > 0 ? Colors.red : Colors.grey,
+              color: overdueCount > 0 ? Colors.red : Colors.grey,
             ),
           ],
         ),
@@ -762,6 +1020,7 @@ class _StatsSection extends StatelessWidget {
   }
 }
 
+/// Widget de fila de estadística con contador animado profesional
 class _StatRow extends StatelessWidget {
   final String label;
   final String value;
@@ -783,64 +1042,118 @@ class _StatRow extends StatelessWidget {
       end: Alignment.bottomRight,
     );
 
+    final numericValue = int.tryParse(value) ?? 0;
+    final hasValue = numericValue > 0;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: color.withValues(alpha: 0.3),
+          color: color.withValues(alpha: hasValue ? 0.4 : 0.2),
+          width: hasValue ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.2),
-            blurRadius: 8,
+            color: color.withValues(alpha: hasValue ? 0.15 : 0.08),
+            blurRadius: hasValue ? 10 : 6,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         children: [
+          // Icono con gradiente y efecto glow
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               gradient: gradient,
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: color.withValues(alpha: 0.3),
-                  blurRadius: 6,
+                  color: color.withValues(alpha: 0.4),
+                  blurRadius: 8,
                   offset: const Offset(0, 3),
                 ),
               ],
             ),
             child: Icon(icon, size: 18, color: Colors.white),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
+          // Label con estilo mejorado
           Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: ElegantLightTheme.textSecondary,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: ElegantLightTheme.textPrimary,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      hasValue ? 'Activo' : 'Sin registros',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: hasValue
+                            ? color.withValues(alpha: 0.8)
+                            : ElegantLightTheme.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
+          // Contador con badge animado
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: numericValue.toDouble()),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+            builder: (context, animatedValue, child) {
+              return Container(
+                constraints: const BoxConstraints(minWidth: 48),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: hasValue ? gradient : null,
+                  color: hasValue ? null : ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: hasValue ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ] : null,
+                ),
+                child: Text(
+                  animatedValue.round().toString(),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: hasValue ? Colors.white : ElegantLightTheme.textTertiary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -1016,11 +1329,15 @@ class _DesktopToolbar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        border: Border(
+          bottom: BorderSide(
+            color: ElegantLightTheme.textTertiary.withValues(alpha: 0.15),
+          ),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.03),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -1033,36 +1350,100 @@ class _DesktopToolbar extends StatelessWidget {
               final count = controller.filteredInvoices.length;
               final label = searchMode ? 'Resultados' : 'Facturas';
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+              return Row(
                 children: [
-                  Text(
-                    '$label ($count)',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                  // Icono decorativo
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.glassGradient,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Icon(
+                      searchMode ? Icons.search : Icons.receipt_long,
+                      size: 20,
+                      color: ElegantLightTheme.primaryBlue,
                     ),
                   ),
-                  if (controller.totalPages > 1)
-                    Text(
-                      controller.paginationInfo,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w500,
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: ElegantLightTheme.textPrimary,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: ElegantLightTheme.primaryGradient,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              count.toString(),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  if (searchMode && controller.searchQuery.isNotEmpty)
-                    Text(
-                      'Búsqueda: "${controller.searchQuery}"',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                      const SizedBox(height: 4),
+                      if (controller.totalPages > 1)
+                        Text(
+                          controller.paginationInfo,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: ElegantLightTheme.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      if (searchMode && controller.searchQuery.isNotEmpty)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.filter_alt,
+                              size: 12,
+                              color: ElegantLightTheme.primaryBlue,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '"${controller.searchQuery}"',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: ElegantLightTheme.primaryBlue,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ],
               );
             }),
@@ -1072,12 +1453,15 @@ class _DesktopToolbar extends StatelessWidget {
               return Container(
                 margin: const EdgeInsets.only(right: 16),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+                  horizontal: 14,
+                  vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                  gradient: ElegantLightTheme.glassGradient,
                   borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1088,7 +1472,7 @@ class _DesktopToolbar extends StatelessWidget {
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          Theme.of(context).primaryColor,
+                          ElegantLightTheme.primaryBlue,
                         ),
                       ),
                     ),
@@ -1097,8 +1481,8 @@ class _DesktopToolbar extends StatelessWidget {
                       'Buscando...',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.w500,
+                        color: ElegantLightTheme.primaryBlue,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -1112,25 +1496,47 @@ class _DesktopToolbar extends StatelessWidget {
             children: [
               PopupMenuButton<String>(
                 onSelected: (value) => _handleDesktopAction(value, context, controller),
-                itemBuilder: (context) => const [
+                itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'export',
                     child: Row(
                       children: [
-                        Icon(Icons.download, size: 18),
-                        SizedBox(width: 12),
-                        Text('Exportar Lista'),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            Icons.download,
+                            size: 16,
+                            color: ElegantLightTheme.infoGradient.colors.first,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text('Exportar Lista'),
                       ],
                     ),
                   ),
-                  PopupMenuDivider(),
+                  const PopupMenuDivider(),
                   PopupMenuItem(
                     value: 'stats',
                     child: Row(
                       children: [
-                        Icon(Icons.analytics, size: 18),
-                        SizedBox(width: 12),
-                        Text('Estadísticas'),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            Icons.analytics,
+                            size: 16,
+                            color: ElegantLightTheme.primaryBlue,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text('Estadísticas'),
                       ],
                     ),
                   ),
@@ -1144,33 +1550,81 @@ class _DesktopToolbar extends StatelessWidget {
                     gradient: ElegantLightTheme.glassGradient,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.more_horiz, size: 18),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_drop_down, size: 16),
+                      Icon(
+                        Icons.more_horiz,
+                        size: 18,
+                        color: ElegantLightTheme.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_drop_down,
+                        size: 16,
+                        color: ElegantLightTheme.textSecondary,
+                      ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: () => controller.goToCreateInvoice(),
-                icon: const Icon(Icons.add_circle_outline, size: 20),
-                label: const Text('Nueva Factura'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // Botón Nueva Factura con tema elegante
+              Container(
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                    ...ElegantLightTheme.glowShadow,
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    onTap: () => controller.goToCreateInvoice(),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.add_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Nueva Factura',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1294,6 +1748,90 @@ class _LoadMoreButton extends StatelessWidget {
         );
       }),
     );
+  }
+}
+
+/// ✅ Indicador de carga automática al final de la lista
+class _LoadMoreIndicator extends StatefulWidget {
+  final InvoiceListController controller;
+
+  const _LoadMoreIndicator({required this.controller});
+
+  @override
+  State<_LoadMoreIndicator> createState() => _LoadMoreIndicatorState();
+}
+
+class _LoadMoreIndicatorState extends State<_LoadMoreIndicator> {
+  @override
+  void initState() {
+    super.initState();
+    // Cargar automáticamente cuando el indicador se hace visible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.controller.canLoadMore && !widget.controller.isLoadingMore) {
+        widget.controller.loadMoreInvoices();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (widget.controller.isLoadingMore) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Cargando más facturas...',
+                style: TextStyle(
+                  color: ElegantLightTheme.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // Si ya no hay más páginas pero el widget está visible
+      if (!widget.controller.hasNextPage) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                size: 16,
+                color: ElegantLightTheme.textTertiary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Has visto todas las facturas',
+                style: TextStyle(
+                  color: ElegantLightTheme.textTertiary,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return const SizedBox(height: 24);
+    });
   }
 }
 

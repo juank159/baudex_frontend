@@ -1,12 +1,27 @@
 // lib/features/invoices/presentation/widgets/invoice_filter_widget.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/core/utils/responsive.dart';
-import '../../../../app/shared/widgets/custom_button.dart';
-import '../../../../app/shared/widgets/custom_text_field_safe.dart';
-import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/shared/widgets/custom_card.dart';
 import '../controllers/invoice_list_controller.dart';
 import '../../domain/entities/invoice.dart';
+import '../../../bank_accounts/domain/entities/bank_account.dart';
+import '../../../bank_accounts/domain/repositories/bank_account_repository.dart';
+
+/// Modelo para representar un tipo de método de pago único
+class PaymentMethodFilter {
+  final String name;
+  final BankAccountType type;
+  final IconData icon;
+  final int count; // Cantidad de cuentas de este tipo
+
+  const PaymentMethodFilter({
+    required this.name,
+    required this.type,
+    required this.icon,
+    required this.count,
+  });
+}
 
 class InvoiceFilterWidget extends StatefulWidget {
   final InvoiceListController controller;
@@ -18,157 +33,322 @@ class InvoiceFilterWidget extends StatefulWidget {
 }
 
 class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
-  // Controladores para los filtros
-  late InvoiceStatus? _selectedStatus;
-  late PaymentMethod? _selectedPaymentMethod;
-  late DateTime? _startDate;
-  late DateTime? _endDate;
-  late double? _minAmount;
-  late double? _maxAmount;
+  // Estados de filtros
+  InvoiceStatus? _selectedStatus;
+  String? _selectedPaymentMethodName; // Cambiado: ahora es el NOMBRE del método de pago
+  DateTime? _startDate;
+  DateTime? _endDate;
 
-  final SafeTextEditingController _minAmountController = SafeTextEditingController(debugLabel: 'FilterMinAmount');
-  final SafeTextEditingController _maxAmountController = SafeTextEditingController(debugLabel: 'FilterMaxAmount');
+  // Filtro rápido seleccionado (para mostrar visualmente cuál está activo)
+  int? _selectedQuickFilter; // 0=Hoy, 7=Esta semana, 30=Este mes, 90=Últimos 3 meses
+
+  // Métodos de pago agrupados por nombre (Nequi, Bancolombia, Efectivo, etc.)
+  List<PaymentMethodFilter> _paymentMethods = [];
+  bool _isLoadingPaymentMethods = true;
 
   @override
   void initState() {
     super.initState();
     _initializeFilters();
-  }
-
-  @override
-  void dispose() {
-    _minAmountController.dispose();
-    _maxAmountController.dispose();
-    super.dispose();
+    _loadPaymentMethods();
   }
 
   void _initializeFilters() {
     _selectedStatus = widget.controller.selectedStatus;
-    _selectedPaymentMethod = widget.controller.selectedPaymentMethod;
+    _selectedPaymentMethodName = widget.controller.selectedBankAccountName;
     _startDate = widget.controller.startDate;
     _endDate = widget.controller.endDate;
-    _minAmount = widget.controller.minAmount;
-    _maxAmount = widget.controller.maxAmount;
 
-    _minAmountController.text = _minAmount?.toString() ?? '';
-    _maxAmountController.text = _maxAmount?.toString() ?? '';
+    // Detectar si hay un filtro rápido aplicado basado en las fechas
+    _selectedQuickFilter = _detectQuickFilter();
+  }
+
+  /// Detecta qué filtro rápido está aplicado basándose en las fechas
+  int? _detectQuickFilter() {
+    if (_startDate == null || _endDate == null) return null;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Normalizar las fechas para comparar solo día/mes/año
+    final startDay = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+    final endDay = DateTime(_endDate!.year, _endDate!.month, _endDate!.day);
+
+    // Verificar si es "Hoy" (startDate y endDate son hoy)
+    if (startDay == today && endDay == today) {
+      return 0;
+    }
+
+    // Verificar los otros rangos
+    final daysDifference = endDay.difference(startDay).inDays;
+
+    // Esta semana (7 días)
+    if (daysDifference == 7 && endDay == today) {
+      return 7;
+    }
+
+    // Este mes (30 días)
+    if (daysDifference == 30 && endDay == today) {
+      return 30;
+    }
+
+    // Últimos 3 meses (90 días)
+    if (daysDifference == 90 && endDay == today) {
+      return 90;
+    }
+
+    // No coincide con ningún filtro rápido (fecha manual)
+    return null;
+  }
+
+  /// Cargar y agrupar métodos de pago por nombre único (case-insensitive)
+  Future<void> _loadPaymentMethods() async {
+    try {
+      final repository = Get.find<BankAccountRepository>();
+      final result = await repository.getActiveBankAccounts();
+
+      result.fold(
+        (failure) {
+          print('⚠️ Error al cargar métodos de pago: ${failure.message}');
+          setState(() => _isLoadingPaymentMethods = false);
+        },
+        (accounts) {
+          // Agrupar cuentas por nombre NORMALIZADO (case-insensitive)
+          // Ej: "Nequi", "nequi", "NEQUI" -> todas agrupadas bajo "Nequi"
+          final Map<String, List<BankAccount>> groupedAccounts = {};
+          final Map<String, String> normalizedToDisplayName = {};
+
+          for (final account in accounts) {
+            // Normalizar el nombre a minúsculas para agrupar
+            final normalizedName = account.name.toLowerCase().trim();
+
+            if (!groupedAccounts.containsKey(normalizedName)) {
+              groupedAccounts[normalizedName] = [];
+              // Guardar el nombre con formato capitalizado para mostrar
+              normalizedToDisplayName[normalizedName] = _capitalizeFirst(account.name.trim());
+            }
+            groupedAccounts[normalizedName]!.add(account);
+          }
+
+          // Convertir a lista de PaymentMethodFilter
+          final methods = groupedAccounts.entries.map((entry) {
+            final firstAccount = entry.value.first;
+            final displayName = normalizedToDisplayName[entry.key]!;
+            return PaymentMethodFilter(
+              name: displayName, // Nombre formateado para mostrar
+              type: firstAccount.type,
+              icon: firstAccount.typeIcon,
+              count: entry.value.length,
+            );
+          }).toList();
+
+          // Ordenar: primero por tipo, luego por nombre
+          methods.sort((a, b) {
+            final typeCompare = a.type.index.compareTo(b.type.index);
+            if (typeCompare != 0) return typeCompare;
+            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          });
+
+          setState(() {
+            _paymentMethods = methods;
+            _isLoadingPaymentMethods = false;
+          });
+        },
+      );
+    } catch (e) {
+      print('⚠️ Error al cargar métodos de pago: $e');
+      setState(() => _isLoadingPaymentMethods = false);
+    }
+  }
+
+  /// Capitaliza la primera letra de un string
+  String _capitalizeFirst(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1).toLowerCase();
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.backgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildHeader(context),
-          const SizedBox(height: 20),
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.filter_list_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Filtros',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: ElegantLightTheme.textPrimary,
+                            ),
+                          ),
+                          if (_hasActiveFilters())
+                            Text(
+                              '${_countActiveFilters()} filtro${_countActiveFilters() > 1 ? 's' : ''} activo${_countActiveFilters() > 1 ? 's' : ''}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: ElegantLightTheme.primaryBlue,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (_hasActiveFilters())
+                      TextButton.icon(
+                        onPressed: _clearAllFilters,
+                        icon: Icon(
+                          Icons.clear_all_rounded,
+                          size: 18,
+                          color: ElegantLightTheme.accentOrange,
+                        ),
+                        label: Text(
+                          'Limpiar',
+                          style: TextStyle(
+                            color: ElegantLightTheme.accentOrange,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                // Resumen de filtros activos
+                if (_hasActiveFilters()) ...[
+                  const SizedBox(height: 12),
+                  _buildActiveFiltersChips(),
+                ],
+              ],
+            ),
+          ),
+          // Content
           Expanded(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildStatusFilter(context),
-                  const SizedBox(height: 20),
-                  _buildPaymentMethodFilter(context),
-                  const SizedBox(height: 20),
-                  _buildDateRangeFilter(context),
-                  const SizedBox(height: 20),
-                  _buildAmountRangeFilter(context),
-                  const SizedBox(height: 20),
-                  _buildQuickFilters(context),
+                  _buildStatusSection(),
+                  const SizedBox(height: 24),
+                  _buildBankAccountSection(),
+                  const SizedBox(height: 24),
+                  _buildDateRangeSection(),
+                  const SizedBox(height: 24),
+                  _buildQuickFiltersSection(),
+                  const SizedBox(height: 100), // Space for button
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          _buildActions(context),
+          // Apply button
+          _buildApplyButton(),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildSectionTitle(String title, IconData icon) {
     return Row(
       children: [
         Icon(
-          Icons.filter_list,
-          color: Theme.of(context).primaryColor,
-          size: 24,
+          icon,
+          size: 18,
+          color: ElegantLightTheme.primaryBlue,
         ),
         const SizedBox(width: 8),
         Text(
-          'Filtros de Facturas',
+          title,
           style: TextStyle(
-            fontSize: Responsive.getFontSize(context, mobile: 18, tablet: 20),
-            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: ElegantLightTheme.textPrimary,
+            letterSpacing: 0.5,
           ),
         ),
-        const Spacer(),
-        IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
       ],
     );
   }
 
-  Widget _buildStatusFilter(BuildContext context) {
+  Widget _buildStatusSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Estado de la Factura'),
+        _buildSectionTitle('Estado', Icons.flag_rounded),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
             _buildFilterChip(
-              'Todos',
-              _selectedStatus == null,
-              () => setState(() => _selectedStatus = null),
+              label: 'Todos',
+              isSelected: _selectedStatus == null,
+              onTap: () => setState(() => _selectedStatus = null),
+              color: ElegantLightTheme.textSecondary,
             ),
-            ...InvoiceStatus.values.map(
-              (status) => _buildFilterChip(
-                status.displayName,
-                _selectedStatus == status,
-                () => setState(() => _selectedStatus = status),
-                color: _getStatusColor(status),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPaymentMethodFilter(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Método de Pago'),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
             _buildFilterChip(
-              'Todos',
-              _selectedPaymentMethod == null,
-              () => setState(() => _selectedPaymentMethod = null),
+              label: 'Pagadas',
+              isSelected: _selectedStatus == InvoiceStatus.paid,
+              onTap: () => setState(() => _selectedStatus = InvoiceStatus.paid),
+              color: const Color(0xFF10B981),
+              icon: Icons.check_circle_outline_rounded,
             ),
-            ...PaymentMethod.values.map(
-              (method) => _buildFilterChip(
-                method.displayName,
-                _selectedPaymentMethod == method,
-                () => setState(() => _selectedPaymentMethod = method),
-                icon: _getPaymentMethodIcon(method),
-              ),
+            _buildFilterChip(
+              label: 'Pendientes',
+              isSelected: _selectedStatus == InvoiceStatus.pending,
+              onTap: () => setState(() => _selectedStatus = InvoiceStatus.pending),
+              color: ElegantLightTheme.accentOrange,
+              icon: Icons.schedule_rounded,
+            ),
+            _buildFilterChip(
+              label: 'Vencidas',
+              isSelected: _selectedStatus == InvoiceStatus.overdue,
+              onTap: () => setState(() => _selectedStatus = InvoiceStatus.overdue),
+              color: const Color(0xFFEF4444),
+              icon: Icons.warning_amber_rounded,
+            ),
+            _buildFilterChip(
+              label: 'Canceladas',
+              isSelected: _selectedStatus == InvoiceStatus.cancelled,
+              onTap: () => setState(() => _selectedStatus = InvoiceStatus.cancelled),
+              color: const Color(0xFF6B7280),
+              icon: Icons.cancel_outlined,
             ),
           ],
         ),
@@ -176,213 +356,107 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
     );
   }
 
-  Widget _buildDateRangeFilter(BuildContext context) {
+  Widget _buildBankAccountSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Rango de Fechas'),
+        _buildSectionTitle('Método de Pago', Icons.account_balance_wallet_rounded),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDateSelector(
-                context,
-                'Fecha Inicio',
-                _startDate,
-                (date) => setState(() => _startDate = date),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildDateSelector(
-                context,
-                'Fecha Fin',
-                _endDate,
-                (date) => setState(() => _endDate = date),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            _buildQuickDateButton('Hoy', () => _setDateRange(0)),
-            _buildQuickDateButton('Esta Semana', () => _setDateRange(7)),
-            _buildQuickDateButton('Este Mes', () => _setDateRange(30)),
-            _buildQuickDateButton('Últimos 3 Meses', () => _setDateRange(90)),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAmountRangeFilter(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Rango de Montos'),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: CustomTextFieldSafe(
-                controller: _minAmountController,
-                label: 'Monto Mínimo',
-                hint: '0.00',
-                prefixIcon: Icons.attach_money,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+        if (_isLoadingPaymentMethods)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(ElegantLightTheme.primaryBlue),
                 ),
-                debugLabel: 'FilterMinAmount',
-                onChanged: (value) {
-                  _minAmount = double.tryParse(value);
-                },
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: CustomTextFieldSafe(
-                controller: _maxAmountController,
-                label: 'Monto Máximo',
-                hint: '999999.99',
-                prefixIcon: Icons.money_off,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                debugLabel: 'FilterMaxAmount',
-                onChanged: (value) {
-                  _maxAmount = double.tryParse(value);
-                },
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            _buildQuickAmountButton(
-              '< \$100',
-              () => _setAmountRange(null, 100),
-            ),
-            _buildQuickAmountButton(
-              '\$100 - \$500',
-              () => _setAmountRange(100, 500),
-            ),
-            _buildQuickAmountButton(
-              '\$500 - \$1000',
-              () => _setAmountRange(500, 1000),
-            ),
-            _buildQuickAmountButton(
-              '> \$1000',
-              () => _setAmountRange(1000, null),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickFilters(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Filtros Rápidos'),
-        const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: context.isMobile ? 3 : 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 4,
-          mainAxisSpacing: 4,
-          childAspectRatio: context.isMobile ? 2.5 : 3,
-          children: [
-            _buildQuickFilterCard(
-              'Vencidas',
-              Icons.error,
-              Colors.red,
-              () => _applyQuickFilter(InvoiceStatus.overdue),
-            ),
-            _buildQuickFilterCard(
-              'Pendientes',
-              Icons.schedule,
-              Colors.orange,
-              () => _applyQuickFilter(InvoiceStatus.pending), // Incluye parcialmente pagadas
-            ),
-            _buildQuickFilterCard(
-              'Pagadas',
-              Icons.check_circle,
-              Colors.green,
-              () => _applyQuickFilter(InvoiceStatus.paid),
-            ),
-            _buildQuickFilterCard(
-              'Borradores',
-              Icons.edit,
-              Colors.grey,
-              () => _applyQuickFilter(InvoiceStatus.draft),
-            ),
-            _buildQuickFilterCard(
-              'Este Mes',
-              Icons.calendar_month,
-              Colors.blue,
-              () => _setDateRange(30),
-            ),
-            _buildQuickFilterCard(
-              'Efectivo',
-              Icons.money,
-              Colors.purple,
-              () => _applyPaymentMethodFilter(PaymentMethod.cash),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActions(BuildContext context) {
-    return Column(
-      children: [
-        if (_hasActiveFilters()) ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.shade200),
-            ),
+          )
+        else if (_paymentMethods.isEmpty)
+          CustomCard(
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Icon(Icons.info, color: Colors.blue.shade600, size: 16),
-                const SizedBox(width: 8),
+                Icon(
+                  Icons.info_outline_rounded,
+                  color: ElegantLightTheme.textTertiary,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    _getActiveFiltersText(),
-                    style: TextStyle(fontSize: 12, color: Colors.blue.shade800),
+                    'No hay métodos de pago registrados',
+                    style: TextStyle(
+                      color: ElegantLightTheme.textSecondary,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],
             ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildFilterChip(
+                label: 'Todos',
+                isSelected: _selectedPaymentMethodName == null,
+                onTap: () => setState(() => _selectedPaymentMethodName = null),
+                color: ElegantLightTheme.textSecondary,
+              ),
+              ..._paymentMethods.map((method) => _buildFilterChip(
+                label: method.name,
+                isSelected: _selectedPaymentMethodName == method.name,
+                onTap: () => setState(() => _selectedPaymentMethodName = method.name),
+                color: _getBankAccountColor(method.type),
+                icon: method.icon,
+              )),
+            ],
           ),
-          const SizedBox(height: 16),
-        ],
+      ],
+    );
+  }
 
+  Widget _buildDateRangeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Rango de Fechas', Icons.date_range_rounded),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
-              child: CustomButton(
-                text: 'Limpiar Filtros',
-                type: ButtonType.outline,
-                onPressed: _clearAllFilters,
+              child: _buildDateButton(
+                label: _startDate != null
+                    ? '${_startDate!.day}/${_startDate!.month}/${_startDate!.year}'
+                    : 'Desde',
+                icon: Icons.calendar_today_rounded,
+                onTap: () => _selectDate(true),
+                hasValue: _startDate != null,
               ),
             ),
-            const SizedBox(width: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Icon(
+                Icons.arrow_forward_rounded,
+                color: ElegantLightTheme.textTertiary,
+                size: 20,
+              ),
+            ),
             Expanded(
-              flex: 2,
-              child: CustomButton(
-                text: 'Aplicar Filtros',
-                icon: Icons.filter_alt,
-                onPressed: _applyFilters,
+              child: _buildDateButton(
+                label: _endDate != null
+                    ? '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}'
+                    : 'Hasta',
+                icon: Icons.calendar_today_rounded,
+                onTap: () => _selectDate(false),
+                hasValue: _endDate != null,
               ),
             ),
           ],
@@ -391,104 +465,49 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 16,
-        color: Colors.black87,
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(
-    String label,
-    bool isSelected,
-    VoidCallback onTap, {
-    Color? color,
-    IconData? icon,
+  Widget _buildDateButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool hasValue,
   }) {
-    return FilterChip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: hasValue
+              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.1)
+              : ElegantLightTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasValue
+                ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+                : ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Row(
+          children: [
             Icon(
               icon,
-              size: 16,
-              color:
-                  isSelected ? Colors.white : (color ?? Colors.grey.shade600),
+              size: 18,
+              color: hasValue
+                  ? ElegantLightTheme.primaryBlue
+                  : ElegantLightTheme.textTertiary,
             ),
-            const SizedBox(width: 4),
-          ],
-          Text(label),
-        ],
-      ),
-      selected: isSelected,
-      onSelected: (_) => onTap(),
-      selectedColor: color ?? Theme.of(context).primaryColor,
-      checkmarkColor: Colors.white,
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.grey.shade700,
-        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-      ),
-    );
-  }
-
-  Widget _buildDateSelector(
-    BuildContext context,
-    String label,
-    DateTime? selectedDate,
-    Function(DateTime?) onChanged,
-  ) {
-    return InkWell(
-      onTap: () => _showDatePicker(context, selectedDate, onChanged),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today,
-                  size: 16,
-                  color: Colors.grey.shade600,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: hasValue
+                      ? ElegantLightTheme.primaryBlue
+                      : ElegantLightTheme.textTertiary,
+                  fontWeight: hasValue ? FontWeight.w600 : FontWeight.normal,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    selectedDate != null
-                        ? _formatDate(selectedDate)
-                        : 'Seleccionar fecha',
-                    style: TextStyle(
-                      color:
-                          selectedDate != null
-                              ? Colors.black87
-                              : Colors.grey.shade500,
-                    ),
-                  ),
-                ),
-                if (selectedDate != null)
-                  GestureDetector(
-                    onTap: () => onChanged(null),
-                    child: Icon(
-                      Icons.clear,
-                      size: 16,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-              ],
+              ),
             ),
           ],
         ),
@@ -496,59 +515,237 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
     );
   }
 
-  Widget _buildQuickDateButton(String label, VoidCallback onPressed) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        minimumSize: Size.zero,
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 12)),
-    );
-  }
-
-  Widget _buildQuickAmountButton(String label, VoidCallback onPressed) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        minimumSize: Size.zero,
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 12)),
-    );
-  }
-
-  Widget _buildQuickFilterCard(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onPressed,
-  ) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildQuickFiltersSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Filtros Rápidos', Icons.flash_on_rounded),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Icon(icon, color: color, size: 14),
-            const SizedBox(height: 2),
+            _buildQuickFilterChip(
+              label: 'Hoy',
+              icon: Icons.today_rounded,
+              isSelected: _selectedQuickFilter == 0,
+              onTap: () => _setDateRange(0),
+            ),
+            _buildQuickFilterChip(
+              label: 'Esta semana',
+              icon: Icons.view_week_rounded,
+              isSelected: _selectedQuickFilter == 7,
+              onTap: () => _setDateRange(7),
+            ),
+            _buildQuickFilterChip(
+              label: 'Este mes',
+              icon: Icons.calendar_month_rounded,
+              isSelected: _selectedQuickFilter == 30,
+              onTap: () => _setDateRange(30),
+            ),
+            _buildQuickFilterChip(
+              label: 'Últimos 3 meses',
+              icon: Icons.date_range_rounded,
+              isSelected: _selectedQuickFilter == 90,
+              onTap: () => _setDateRange(90),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color color,
+    IconData? icon,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.15) : ElegantLightTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? color : ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? color : ElegantLightTheme.textSecondary,
+              ),
+              const SizedBox(width: 6),
+            ],
             Text(
               label,
               style: TextStyle(
-                fontSize: 9,
-                color: color,
-                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? color : ElegantLightTheme.textSecondary,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 6),
+              Icon(
+                Icons.check_rounded,
+                size: 14,
+                color: color,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickFilterChip({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    bool isSelected = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.15)
+              : ElegantLightTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? ElegantLightTheme.primaryBlue
+                : ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: ElegantLightTheme.primaryBlue,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: ElegantLightTheme.primaryBlue,
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 6),
+              Icon(
+                Icons.check_rounded,
+                size: 14,
+                color: ElegantLightTheme.primaryBlue,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildApplyButton() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.surfaceColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: BorderSide(color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Cancelar',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _applyFilters,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ElegantLightTheme.primaryBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.check_rounded, size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Aplicar Filtros',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -556,141 +753,266 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
     );
   }
 
-  // Helper methods
+  Color _getBankAccountColor(BankAccountType type) {
+    switch (type) {
+      case BankAccountType.digitalWallet:
+        return const Color(0xFF8B5CF6); // Purple
+      case BankAccountType.savings:
+        return ElegantLightTheme.primaryBlue;
+      case BankAccountType.checking:
+        return const Color(0xFF0891B2); // Cyan
+      case BankAccountType.cash:
+        return const Color(0xFF10B981); // Green
+      case BankAccountType.creditCard:
+        return ElegantLightTheme.accentOrange;
+      case BankAccountType.debitCard:
+        return const Color(0xFF6366F1); // Indigo
+      default:
+        return ElegantLightTheme.textSecondary;
+    }
+  }
+
   void _setDateRange(int days) {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
     setState(() {
-      _endDate = now;
-      _startDate = now.subtract(Duration(days: days));
+      _selectedQuickFilter = days;
+      _endDate = endOfDay;
+
+      if (days == 0) {
+        // Hoy: desde las 00:00 de hoy hasta las 23:59 de hoy
+        _startDate = today;
+      } else {
+        // Otros: desde hace X días hasta hoy
+        _startDate = today.subtract(Duration(days: days));
+      }
     });
   }
 
-  void _setAmountRange(double? min, double? max) {
-    setState(() {
-      _minAmount = min;
-      _maxAmount = max;
-      _minAmountController.safeSetText(min?.toString() ?? '');
-      _maxAmountController.safeSetText(max?.toString() ?? '');
-    });
-  }
+  Future<void> _selectDate(bool isStartDate) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: (isStartDate ? _startDate : _endDate) ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: ElegantLightTheme.primaryBlue,
+              onPrimary: Colors.white,
+              surface: ElegantLightTheme.surfaceColor,
+              onSurface: ElegantLightTheme.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
 
-  void _applyQuickFilter(InvoiceStatus status) {
-    setState(() {
-      _selectedStatus = status;
-    });
-  }
+    if (picked != null) {
+      setState(() {
+        // Limpiar filtro rápido cuando se selecciona fecha manualmente
+        _selectedQuickFilter = null;
 
-  void _applyPaymentMethodFilter(PaymentMethod method) {
-    setState(() {
-      _selectedPaymentMethod = method;
-    });
-  }
-
-  void _clearAllFilters() {
-    setState(() {
-      _selectedStatus = null;
-      _selectedPaymentMethod = null;
-      _startDate = null;
-      _endDate = null;
-      _minAmount = null;
-      _maxAmount = null;
-      _minAmountController.safeClear();
-      _maxAmountController.safeClear();
-    });
-  }
-
-  void _applyFilters() {
-    // Aplicar filtros en el controlador
-    widget.controller.filterByStatus(_selectedStatus);
-    widget.controller.filterByPaymentMethod(_selectedPaymentMethod);
-    widget.controller.filterByDateRange(_startDate, _endDate);
-    widget.controller.filterByAmountRange(_minAmount, _maxAmount);
-
-    Navigator.of(context).pop();
+        if (isStartDate) {
+          _startDate = DateTime(picked.year, picked.month, picked.day);
+        } else {
+          // Para fecha fin, usar el final del día
+          _endDate = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+        }
+      });
+    }
   }
 
   bool _hasActiveFilters() {
     return _selectedStatus != null ||
-        _selectedPaymentMethod != null ||
+        _selectedPaymentMethodName != null ||
         _startDate != null ||
-        _endDate != null ||
-        _minAmount != null ||
-        _maxAmount != null;
+        _endDate != null;
   }
 
-  String _getActiveFiltersText() {
-    final filters = <String>[];
-
-    if (_selectedStatus != null) {
-      filters.add('Estado: ${_selectedStatus!.displayName}');
-    }
-    if (_selectedPaymentMethod != null) {
-      filters.add('Pago: ${_selectedPaymentMethod!.displayName}');
-    }
-    if (_startDate != null || _endDate != null) {
-      filters.add('Fechas seleccionadas');
-    }
-    if (_minAmount != null || _maxAmount != null) {
-      filters.add('Montos filtrados');
-    }
-
-    return '${filters.length} filtro${filters.length != 1 ? 's' : ''} activo${filters.length != 1 ? 's' : ''}';
+  int _countActiveFilters() {
+    int count = 0;
+    if (_selectedStatus != null) count++;
+    if (_selectedPaymentMethodName != null) count++;
+    if (_startDate != null || _endDate != null) count++; // Fechas cuentan como 1
+    return count;
   }
 
-  Future<void> _showDatePicker(
-    BuildContext context,
-    DateTime? selectedDate,
-    Function(DateTime?) onChanged,
-  ) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+  Widget _buildActiveFiltersChips() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        // Chip de estado
+        if (_selectedStatus != null)
+          _buildActiveFilterChip(
+            label: _selectedStatus!.displayName,
+            icon: _getStatusIcon(_selectedStatus!),
+            color: _getStatusColor(_selectedStatus!),
+            onRemove: () => setState(() => _selectedStatus = null),
+          ),
+
+        // Chip de método de pago
+        if (_selectedPaymentMethodName != null)
+          _buildActiveFilterChip(
+            label: _selectedPaymentMethodName!,
+            icon: Icons.account_balance_wallet_rounded,
+            color: ElegantLightTheme.primaryBlue,
+            onRemove: () => setState(() => _selectedPaymentMethodName = null),
+          ),
+
+        // Chip de fechas
+        if (_startDate != null || _endDate != null)
+          _buildActiveFilterChip(
+            label: _getDateRangeLabel(),
+            icon: Icons.date_range_rounded,
+            color: const Color(0xFF8B5CF6), // Purple
+            onRemove: () => setState(() {
+              _startDate = null;
+              _endDate = null;
+              _selectedQuickFilter = null;
+            }),
+          ),
+      ],
     );
+  }
 
-    if (picked != null) {
-      onChanged(picked);
+  Widget _buildActiveFilterChip({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onRemove,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: onRemove,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.close_rounded, size: 12, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getDateRangeLabel() {
+    if (_selectedQuickFilter != null) {
+      switch (_selectedQuickFilter) {
+        case 0:
+          return 'Hoy';
+        case 7:
+          return 'Esta semana';
+        case 30:
+          return 'Este mes';
+        case 90:
+          return 'Últimos 3 meses';
+      }
+    }
+
+    // Formato de fecha personalizada
+    if (_startDate != null && _endDate != null) {
+      final startStr = '${_startDate!.day}/${_startDate!.month}';
+      final endStr = '${_endDate!.day}/${_endDate!.month}';
+      return '$startStr - $endStr';
+    } else if (_startDate != null) {
+      return 'Desde ${_startDate!.day}/${_startDate!.month}';
+    } else if (_endDate != null) {
+      return 'Hasta ${_endDate!.day}/${_endDate!.month}';
+    }
+
+    return 'Fechas';
+  }
+
+  IconData _getStatusIcon(InvoiceStatus status) {
+    switch (status) {
+      case InvoiceStatus.draft:
+        return Icons.edit_note_rounded;
+      case InvoiceStatus.pending:
+        return Icons.pending_rounded;
+      case InvoiceStatus.paid:
+        return Icons.check_circle_rounded;
+      case InvoiceStatus.partiallyPaid:
+        return Icons.pie_chart_rounded;
+      case InvoiceStatus.overdue:
+        return Icons.warning_rounded;
+      case InvoiceStatus.cancelled:
+        return Icons.cancel_rounded;
+      case InvoiceStatus.credited:
+        return Icons.credit_card_rounded;
+      case InvoiceStatus.partiallyCredited:
+        return Icons.credit_score_rounded;
     }
   }
 
   Color _getStatusColor(InvoiceStatus status) {
     switch (status) {
       case InvoiceStatus.draft:
-        return Colors.grey;
+        return ElegantLightTheme.textSecondary;
       case InvoiceStatus.pending:
-        return Colors.orange;
+        return ElegantLightTheme.accentOrange;
       case InvoiceStatus.paid:
-        return Colors.green;
-      case InvoiceStatus.overdue:
-        return Colors.red;
-      case InvoiceStatus.cancelled:
-        return Colors.grey;
+        return const Color(0xFF10B981); // Green
       case InvoiceStatus.partiallyPaid:
-        return Colors.blue;
+        return ElegantLightTheme.primaryBlue;
+      case InvoiceStatus.overdue:
+        return const Color(0xFFEF4444); // Red
+      case InvoiceStatus.cancelled:
+        return ElegantLightTheme.textTertiary;
+      case InvoiceStatus.credited:
+        return const Color(0xFF8B5CF6); // Purple
+      case InvoiceStatus.partiallyCredited:
+        return const Color(0xFFA78BFA); // Light Purple
     }
   }
 
-  IconData _getPaymentMethodIcon(PaymentMethod method) {
-    switch (method) {
-      case PaymentMethod.cash:
-        return Icons.money;
-      case PaymentMethod.creditCard:
-        return Icons.credit_card;
-      case PaymentMethod.debitCard:
-        return Icons.credit_card;
-      case PaymentMethod.bankTransfer:
-        return Icons.account_balance;
-      case PaymentMethod.check:
-        return Icons.receipt;
-      case PaymentMethod.credit:
-        return Icons.account_balance_wallet;
-      case PaymentMethod.other:
-        return Icons.more_horiz;
-    }
+  void _clearAllFilters() {
+    setState(() {
+      _selectedStatus = null;
+      _selectedPaymentMethodName = null;
+      _selectedQuickFilter = null;
+      _startDate = null;
+      _endDate = null;
+    });
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  void _applyFilters() {
+    // Usar el método optimizado que hace UNA sola llamada al servidor
+    widget.controller.applyFilters(
+      status: _selectedStatus,
+      bankAccountName: _selectedPaymentMethodName,
+      startDate: _startDate,
+      endDate: _endDate,
+    );
+    Navigator.of(context).pop();
   }
 }

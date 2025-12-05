@@ -125,11 +125,8 @@ class Responsive {
   }) {
     final device = getDeviceType(context);
     final baseStyle = _getBaseTextStyle(type, device);
-    
-    return baseStyle.copyWith(
-      color: color,
-      fontWeight: fontWeight,
-    );
+
+    return baseStyle.copyWith(color: color, fontWeight: fontWeight);
   }
 
   static TextStyle _getBaseTextStyle(TextStyleType type, DeviceType device) {
@@ -284,18 +281,31 @@ extension ResponsiveExtension on BuildContext {
   double get horizontalSpacing => Responsive.getHorizontalSpacing(this);
 
   // Typography Extensions
-  TextStyle responsiveTextStyle(TextStyleType type, {Color? color, FontWeight? fontWeight}) =>
+  TextStyle responsiveTextStyle(
+    TextStyleType type, {
+    Color? color,
+    FontWeight? fontWeight,
+  }) =>
       Responsive.getTextStyle(this, type, color: color, fontWeight: fontWeight);
-      
-  TextStyle get displayLarge => Responsive.getTextStyle(this, TextStyleType.displayLarge);
-  TextStyle get displayMedium => Responsive.getTextStyle(this, TextStyleType.displayMedium);
-  TextStyle get titleLarge => Responsive.getTextStyle(this, TextStyleType.titleLarge);
-  TextStyle get titleMedium => Responsive.getTextStyle(this, TextStyleType.titleMedium);
-  TextStyle get bodyLarge => Responsive.getTextStyle(this, TextStyleType.bodyLarge);
-  TextStyle get bodyMedium => Responsive.getTextStyle(this, TextStyleType.bodyMedium);
-  TextStyle get bodySmall => Responsive.getTextStyle(this, TextStyleType.bodySmall);
-  TextStyle get labelMedium => Responsive.getTextStyle(this, TextStyleType.labelMedium);
-  TextStyle get labelSmall => Responsive.getTextStyle(this, TextStyleType.labelSmall);
+
+  TextStyle get displayLarge =>
+      Responsive.getTextStyle(this, TextStyleType.displayLarge);
+  TextStyle get displayMedium =>
+      Responsive.getTextStyle(this, TextStyleType.displayMedium);
+  TextStyle get titleLarge =>
+      Responsive.getTextStyle(this, TextStyleType.titleLarge);
+  TextStyle get titleMedium =>
+      Responsive.getTextStyle(this, TextStyleType.titleMedium);
+  TextStyle get bodyLarge =>
+      Responsive.getTextStyle(this, TextStyleType.bodyLarge);
+  TextStyle get bodyMedium =>
+      Responsive.getTextStyle(this, TextStyleType.bodyMedium);
+  TextStyle get bodySmall =>
+      Responsive.getTextStyle(this, TextStyleType.bodySmall);
+  TextStyle get labelMedium =>
+      Responsive.getTextStyle(this, TextStyleType.labelMedium);
+  TextStyle get labelSmall =>
+      Responsive.getTextStyle(this, TextStyleType.labelSmall);
 }
 
 /// Widget helper para layouts responsivos
@@ -305,11 +315,11 @@ class ResponsiveLayout extends StatelessWidget {
   final Widget? desktop;
 
   const ResponsiveLayout({
-    Key? key,
+    super.key,
     required this.mobile,
     this.tablet,
     this.desktop,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -330,12 +340,12 @@ class AdaptiveContainer extends StatelessWidget {
   final Color? backgroundColor;
 
   const AdaptiveContainer({
-    Key? key,
+    super.key,
     required this.child,
     this.maxWidth,
     this.padding,
     this.backgroundColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

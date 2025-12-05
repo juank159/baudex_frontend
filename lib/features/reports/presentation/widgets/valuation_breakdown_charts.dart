@@ -8,13 +8,11 @@ import '../../domain/entities/inventory_valuation_report.dart';
 class ValuationBreakdownCharts extends StatefulWidget {
   final InventoryValuationSummary summary;
 
-  const ValuationBreakdownCharts({
-    super.key,
-    required this.summary,
-  });
+  const ValuationBreakdownCharts({super.key, required this.summary});
 
   @override
-  State<ValuationBreakdownCharts> createState() => _ValuationBreakdownChartsState();
+  State<ValuationBreakdownCharts> createState() =>
+      _ValuationBreakdownChartsState();
 }
 
 class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
@@ -24,18 +22,16 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: _getTabCount(),
-      vsync: this,
-    );
+    _tabController = TabController(length: _getTabCount(), vsync: this);
   }
 
   int _getTabCount() {
     int count = 1; // Always have overview
-    if (widget.summary.categoryBreakdown != null && widget.summary.categoryBreakdown!.isNotEmpty) {
+    if (widget.summary.categoryBreakdown != null &&
+        widget.summary.categoryBreakdown!.isNotEmpty) {
       count++;
     }
-    if (widget.summary.warehouseBreakdown != null && widget.summary.warehouseBreakdown!.isNotEmpty) {
+    if (widget.summary.warehouseBreakdown.isNotEmpty) {
       count++;
     }
     return count;
@@ -66,10 +62,7 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
               Container(
                 decoration: BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(
-                      color: AppColors.borderColor,
-                      width: 1,
-                    ),
+                    bottom: BorderSide(color: AppColors.borderColor, width: 1),
                   ),
                 ),
                 child: TabBar(
@@ -80,7 +73,7 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
                   tabs: _buildTabs(),
                 ),
               ),
-              
+
               // Chart Content
               SizedBox(
                 height: 400,
@@ -97,15 +90,14 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
   }
 
   List<Tab> _buildTabs() {
-    final tabs = <Tab>[
-      const Tab(text: 'Resumen General'),
-    ];
+    final tabs = <Tab>[const Tab(text: 'Resumen General')];
 
-    if (widget.summary.categoryBreakdown != null && widget.summary.categoryBreakdown!.isNotEmpty) {
+    if (widget.summary.categoryBreakdown != null &&
+        widget.summary.categoryBreakdown!.isNotEmpty) {
       tabs.add(const Tab(text: 'Por Categorías'));
     }
 
-    if (widget.summary.warehouseBreakdown != null && widget.summary.warehouseBreakdown!.isNotEmpty) {
+    if (widget.summary.warehouseBreakdown.isNotEmpty) {
       tabs.add(const Tab(text: 'Por Almacenes'));
     }
 
@@ -113,15 +105,14 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
   }
 
   List<Widget> _buildTabViews() {
-    final views = <Widget>[
-      _buildOverviewChart(),
-    ];
+    final views = <Widget>[_buildOverviewChart()];
 
-    if (widget.summary.categoryBreakdown != null && widget.summary.categoryBreakdown!.isNotEmpty) {
+    if (widget.summary.categoryBreakdown != null &&
+        widget.summary.categoryBreakdown!.isNotEmpty) {
       views.add(_buildCategoryChart());
     }
 
-    if (widget.summary.warehouseBreakdown != null && widget.summary.warehouseBreakdown!.isNotEmpty) {
+    if (widget.summary.warehouseBreakdown.isNotEmpty) {
       views.add(_buildWarehouseChart());
     }
 
@@ -141,21 +132,15 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           Expanded(
             child: Row(
               children: [
                 // Pie chart representation
-                Expanded(
-                  flex: 2,
-                  child: _buildSimplePieChart(),
-                ),
-                
+                Expanded(flex: 2, child: _buildSimplePieChart()),
+
                 // Metrics
-                Expanded(
-                  flex: 3,
-                  child: _buildOverviewMetrics(),
-                ),
+                Expanded(flex: 3, child: _buildOverviewMetrics()),
               ],
             ),
           ),
@@ -165,7 +150,8 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
   }
 
   Widget _buildCategoryChart() {
-    if (widget.summary.categoryBreakdown == null || widget.summary.categoryBreakdown!.isEmpty) {
+    if (widget.summary.categoryBreakdown == null ||
+        widget.summary.categoryBreakdown!.isEmpty) {
       return const Center(child: Text('No hay datos de categorías'));
     }
 
@@ -181,17 +167,15 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
             ),
           ),
           const SizedBox(height: 16),
-          
-          Expanded(
-            child: _buildCategoryBars(),
-          ),
+
+          Expanded(child: _buildCategoryBars()),
         ],
       ),
     );
   }
 
   Widget _buildWarehouseChart() {
-    if (widget.summary.warehouseBreakdown == null || widget.summary.warehouseBreakdown!.isEmpty) {
+    if (widget.summary.warehouseBreakdown.isEmpty) {
       return const Center(child: Text('No hay datos de almacenes'));
     }
 
@@ -207,10 +191,8 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
             ),
           ),
           const SizedBox(height: 16),
-          
-          Expanded(
-            child: _buildWarehouseBars(),
-          ),
+
+          Expanded(child: _buildWarehouseBars()),
         ],
       ),
     );
@@ -219,7 +201,7 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
   Widget _buildSimplePieChart() {
     final total = widget.summary.totalInventoryValue;
     final categories = widget.summary.categoryBreakdown ?? [];
-    
+
     if (categories.isEmpty) {
       return Center(
         child: Container(
@@ -228,10 +210,7 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: AppColors.primary.withOpacity(0.1),
-            border: Border.all(
-              color: AppColors.primary,
-              width: 8,
-            ),
+            border: Border.all(color: AppColors.primary, width: 8),
           ),
           child: Center(
             child: Column(
@@ -298,7 +277,7 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
             ],
           ),
         ),
-        
+
         // Legend
         const SizedBox(height: 16),
         _buildLegend(categories.take(5).toList()),
@@ -308,32 +287,33 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
 
   Widget _buildLegend(List<CategoryValuationBreakdown> categories) {
     return Column(
-      children: categories.map((category) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: _getCategoryColor(category.categoryId),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      children:
+          categories.map((category) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: _getCategoryColor(category.categoryId),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      category.categoryName,
+                      style: Get.textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  category.categoryName,
-                  style: Get.textTheme.bodySmall,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 
@@ -379,7 +359,12 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
     );
   }
 
-  Widget _buildMetricRow(String label, String value, IconData icon, Color color) {
+  Widget _buildMetricRow(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Row(
       children: [
         Container(
@@ -388,11 +373,7 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
             color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 16,
-          ),
+          child: Icon(icon, color: color, size: 16),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -421,15 +402,19 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
 
   Widget _buildCategoryBars() {
     final categories = widget.summary.categoryBreakdown!;
-    final maxValue = categories.isNotEmpty 
-        ? categories.map((c) => c.totalValue).reduce((a, b) => a > b ? a : b)
-        : 0.0;
+    final maxValue =
+        categories.isNotEmpty
+            ? categories
+                .map((c) => c.totalValue)
+                .reduce((a, b) => a > b ? a : b)
+            : 0.0;
 
     return ListView.builder(
       itemCount: categories.length,
       itemBuilder: (context, index) {
         final category = categories[index];
-        final percentage = maxValue > 0 ? (category.totalValue / maxValue) : 0.0;
+        final percentage =
+            maxValue > 0 ? (category.totalValue / maxValue) : 0.0;
         final color = _getCategoryColor(category.categoryId);
 
         return Padding(
@@ -513,16 +498,20 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
   }
 
   Widget _buildWarehouseBars() {
-    final warehouses = widget.summary.warehouseBreakdown!;
-    final maxValue = warehouses.isNotEmpty 
-        ? warehouses.map((w) => w.totalValue).reduce((a, b) => a > b ? a : b)
-        : 0.0;
+    final warehouses = widget.summary.warehouseBreakdown;
+    final maxValue =
+        warehouses.isNotEmpty
+            ? warehouses
+                .map((w) => w.totalValue)
+                .reduce((a, b) => a > b ? a : b)
+            : 0.0;
 
     return ListView.builder(
       itemCount: warehouses.length,
       itemBuilder: (context, index) {
         final warehouse = warehouses[index];
-        final percentage = maxValue > 0 ? (warehouse.totalValue / maxValue) : 0.0;
+        final percentage =
+            maxValue > 0 ? (warehouse.totalValue / maxValue) : 0.0;
         final color = _getWarehouseColor(warehouse.warehouseId);
 
         return Padding(
@@ -532,11 +521,7 @@ class _ValuationBreakdownChartsState extends State<ValuationBreakdownCharts>
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.warehouse,
-                    color: color,
-                    size: 16,
-                  ),
+                  Icon(Icons.warehouse, color: color, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(

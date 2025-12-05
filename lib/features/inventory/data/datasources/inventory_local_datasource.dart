@@ -13,16 +13,16 @@ abstract class InventoryLocalDataSource {
   Future<PaginatedResult<InventoryMovementModel>?> getCachedMovements(
     InventoryMovementQueryParams params,
   );
-  
+
   Future<void> cacheMovements(
     InventoryMovementQueryParams params,
     PaginatedResult<InventoryMovementModel> movements,
   );
-  
+
   Future<InventoryMovementModel?> getCachedMovementById(String id);
-  
+
   Future<void> cacheMovement(InventoryMovementModel movement);
-  
+
   Future<List<InventoryMovementModel>> searchCachedMovements(
     SearchInventoryMovementsParams params,
   );
@@ -31,23 +31,23 @@ abstract class InventoryLocalDataSource {
   Future<PaginatedResult<InventoryBalanceModel>?> getCachedBalances(
     InventoryBalanceQueryParams params,
   );
-  
+
   Future<void> cacheBalances(
     InventoryBalanceQueryParams params,
     PaginatedResult<InventoryBalanceModel> balances,
   );
-  
+
   Future<InventoryBalanceModel?> getCachedBalanceByProduct(
     String productId, {
     String? warehouseId,
   });
-  
+
   Future<void> cacheBalance(InventoryBalanceModel balance);
-  
+
   Future<List<InventoryBalanceModel>> getCachedLowStockProducts({
     String? warehouseId,
   });
-  
+
   Future<void> cacheLowStockProducts(
     List<InventoryBalanceModel> balances, {
     String? warehouseId,
@@ -55,7 +55,7 @@ abstract class InventoryLocalDataSource {
 
   // Stats cache
   Future<InventoryStatsModel?> getCachedStats(InventoryStatsParams params);
-  
+
   Future<void> cacheStats(
     InventoryStatsParams params,
     InventoryStatsModel stats,
@@ -81,7 +81,7 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
   ) async {
     try {
       final cacheKey = _generateMovementsCacheKey(params);
-      
+
       if (!await isCacheValid(cacheKey)) {
         return null;
       }
@@ -90,13 +90,15 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
       if (cachedData == null) return null;
 
       final json = jsonDecode(cachedData);
-      final data = (json['data'] as List)
-          .map((item) => InventoryMovementModel.fromJson(item))
-          .toList();
+      final data =
+          (json['data'] as List)
+              .map((item) => InventoryMovementModel.fromJson(item))
+              .toList();
 
-      final meta = json['meta'] != null 
-          ? PaginationMeta.fromJson(json['meta'])
-          : PaginationMeta.empty();
+      final meta =
+          json['meta'] != null
+              ? PaginationMeta.fromJson(json['meta'])
+              : PaginationMeta.empty();
 
       return PaginatedResult(data: data, meta: meta);
     } catch (e) {
@@ -113,14 +115,11 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
       final cacheKey = _generateMovementsCacheKey(params);
       final cacheData = {
         'data': movements.data.map((movement) => movement.toJson()).toList(),
-        'meta': movements.meta?.toJson(),
+        'meta': movements.meta.toJson(),
         'timestamp': DateTime.now().toIso8601String(),
       };
 
-      await secureStorage.write(
-        key: cacheKey,
-        value: jsonEncode(cacheData),
-      );
+      await secureStorage.write(key: cacheKey, value: jsonEncode(cacheData));
     } catch (e) {
       // Fallar silenciosamente en caso de error de cache
     }
@@ -130,7 +129,7 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
   Future<InventoryMovementModel?> getCachedMovementById(String id) async {
     try {
       final cacheKey = '${ApiConstants.inventoryMovementsCacheKey}_detail_$id';
-      
+
       if (!await isCacheValid(cacheKey)) {
         return null;
       }
@@ -148,16 +147,14 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
   @override
   Future<void> cacheMovement(InventoryMovementModel movement) async {
     try {
-      final cacheKey = '${ApiConstants.inventoryMovementsCacheKey}_detail_${movement.id}';
+      final cacheKey =
+          '${ApiConstants.inventoryMovementsCacheKey}_detail_${movement.id}';
       final cacheData = {
         'data': movement.toJson(),
         'timestamp': DateTime.now().toIso8601String(),
       };
 
-      await secureStorage.write(
-        key: cacheKey,
-        value: jsonEncode(cacheData),
-      );
+      await secureStorage.write(key: cacheKey, value: jsonEncode(cacheData));
     } catch (e) {
       // Fallar silenciosamente en caso de error de cache
     }
@@ -168,8 +165,9 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
     SearchInventoryMovementsParams params,
   ) async {
     try {
-      final cacheKey = '${ApiConstants.inventoryMovementsCacheKey}_search_${params.searchTerm.toLowerCase().replaceAll(' ', '_')}';
-      
+      final cacheKey =
+          '${ApiConstants.inventoryMovementsCacheKey}_search_${params.searchTerm.toLowerCase().replaceAll(' ', '_')}';
+
       if (!await isCacheValid(cacheKey)) {
         return [];
       }
@@ -192,7 +190,7 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
   ) async {
     try {
       final cacheKey = _generateBalancesCacheKey(params);
-      
+
       if (!await isCacheValid(cacheKey)) {
         return null;
       }
@@ -201,13 +199,15 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
       if (cachedData == null) return null;
 
       final json = jsonDecode(cachedData);
-      final data = (json['data'] as List)
-          .map((item) => InventoryBalanceModel.fromJson(item))
-          .toList();
+      final data =
+          (json['data'] as List)
+              .map((item) => InventoryBalanceModel.fromJson(item))
+              .toList();
 
-      final meta = json['meta'] != null 
-          ? PaginationMeta.fromJson(json['meta'])
-          : PaginationMeta.empty();
+      final meta =
+          json['meta'] != null
+              ? PaginationMeta.fromJson(json['meta'])
+              : PaginationMeta.empty();
 
       return PaginatedResult(data: data, meta: meta);
     } catch (e) {
@@ -224,14 +224,11 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
       final cacheKey = _generateBalancesCacheKey(params);
       final cacheData = {
         'data': balances.data.map((balance) => balance.toJson()).toList(),
-        'meta': balances.meta?.toJson(),
+        'meta': balances.meta.toJson(),
         'timestamp': DateTime.now().toIso8601String(),
       };
 
-      await secureStorage.write(
-        key: cacheKey,
-        value: jsonEncode(cacheData),
-      );
+      await secureStorage.write(key: cacheKey, value: jsonEncode(cacheData));
     } catch (e) {
       // Fallar silenciosamente en caso de error de cache
     }
@@ -243,8 +240,9 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
     String? warehouseId,
   }) async {
     try {
-      final cacheKey = '${ApiConstants.inventoryBalancesCacheKey}_product_${productId}_${warehouseId ?? 'all'}';
-      
+      final cacheKey =
+          '${ApiConstants.inventoryBalancesCacheKey}_product_${productId}_${warehouseId ?? 'all'}';
+
       if (!await isCacheValid(cacheKey)) {
         return null;
       }
@@ -262,16 +260,14 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
   @override
   Future<void> cacheBalance(InventoryBalanceModel balance) async {
     try {
-      final cacheKey = '${ApiConstants.inventoryBalancesCacheKey}_product_${balance.productId}_${balance.warehouseId ?? 'all'}';
+      final cacheKey =
+          '${ApiConstants.inventoryBalancesCacheKey}_product_${balance.productId}_${balance.warehouseId ?? 'all'}';
       final cacheData = {
         'data': balance.toJson(),
         'timestamp': DateTime.now().toIso8601String(),
       };
 
-      await secureStorage.write(
-        key: cacheKey,
-        value: jsonEncode(cacheData),
-      );
+      await secureStorage.write(key: cacheKey, value: jsonEncode(cacheData));
     } catch (e) {
       // Fallar silenciosamente en caso de error de cache
     }
@@ -282,8 +278,9 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
     String? warehouseId,
   }) async {
     try {
-      final cacheKey = '${ApiConstants.inventoryBalancesCacheKey}_low_stock_${warehouseId ?? 'all'}';
-      
+      final cacheKey =
+          '${ApiConstants.inventoryBalancesCacheKey}_low_stock_${warehouseId ?? 'all'}';
+
       if (!await isCacheValid(cacheKey)) {
         return [];
       }
@@ -306,26 +303,26 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
     String? warehouseId,
   }) async {
     try {
-      final cacheKey = '${ApiConstants.inventoryBalancesCacheKey}_low_stock_${warehouseId ?? 'all'}';
+      final cacheKey =
+          '${ApiConstants.inventoryBalancesCacheKey}_low_stock_${warehouseId ?? 'all'}';
       final cacheData = {
         'data': balances.map((balance) => balance.toJson()).toList(),
         'timestamp': DateTime.now().toIso8601String(),
       };
 
-      await secureStorage.write(
-        key: cacheKey,
-        value: jsonEncode(cacheData),
-      );
+      await secureStorage.write(key: cacheKey, value: jsonEncode(cacheData));
     } catch (e) {
       // Fallar silenciosamente en caso de error de cache
     }
   }
 
   @override
-  Future<InventoryStatsModel?> getCachedStats(InventoryStatsParams params) async {
+  Future<InventoryStatsModel?> getCachedStats(
+    InventoryStatsParams params,
+  ) async {
     try {
       final cacheKey = _generateStatsCacheKey(params);
-      
+
       if (!await isCacheValid(cacheKey)) {
         return null;
       }
@@ -352,10 +349,7 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
         'timestamp': DateTime.now().toIso8601String(),
       };
 
-      await secureStorage.write(
-        key: cacheKey,
-        value: jsonEncode(cacheData),
-      );
+      await secureStorage.write(key: cacheKey, value: jsonEncode(cacheData));
     } catch (e) {
       // Fallar silenciosamente en caso de error de cache
     }
@@ -365,9 +359,13 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
   Future<void> clearMovementsCache() async {
     try {
       final allKeys = await secureStorage.readAll();
-      final movementKeys = allKeys.keys
-          .where((key) => key.startsWith(ApiConstants.inventoryMovementsCacheKey))
-          .toList();
+      final movementKeys =
+          allKeys.keys
+              .where(
+                (key) =>
+                    key.startsWith(ApiConstants.inventoryMovementsCacheKey),
+              )
+              .toList();
 
       for (final key in movementKeys) {
         await secureStorage.delete(key: key);
@@ -381,9 +379,12 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
   Future<void> clearBalancesCache() async {
     try {
       final allKeys = await secureStorage.readAll();
-      final balanceKeys = allKeys.keys
-          .where((key) => key.startsWith(ApiConstants.inventoryBalancesCacheKey))
-          .toList();
+      final balanceKeys =
+          allKeys.keys
+              .where(
+                (key) => key.startsWith(ApiConstants.inventoryBalancesCacheKey),
+              )
+              .toList();
 
       for (final key in balanceKeys) {
         await secureStorage.delete(key: key);
@@ -397,9 +398,12 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
   Future<void> clearStatsCache() async {
     try {
       final allKeys = await secureStorage.readAll();
-      final statsKeys = allKeys.keys
-          .where((key) => key.startsWith(ApiConstants.inventoryStatsCacheKey))
-          .toList();
+      final statsKeys =
+          allKeys.keys
+              .where(
+                (key) => key.startsWith(ApiConstants.inventoryStatsCacheKey),
+              )
+              .toList();
 
       for (final key in statsKeys) {
         await secureStorage.delete(key: key);
@@ -446,15 +450,22 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
     ];
 
     if (params.search != null && params.search!.isNotEmpty) {
-      keyParts.add('search_${params.search!.toLowerCase().replaceAll(' ', '_')}');
+      keyParts.add(
+        'search_${params.search!.toLowerCase().replaceAll(' ', '_')}',
+      );
     }
     if (params.productId != null) keyParts.add('product_${params.productId}');
     if (params.type != null) keyParts.add('type_${params.type!.name}');
     if (params.status != null) keyParts.add('status_${params.status!.name}');
     if (params.reason != null) keyParts.add('reason_${params.reason!.name}');
-    if (params.warehouseId != null) keyParts.add('warehouse_${params.warehouseId}');
-    if (params.startDate != null) keyParts.add('start_${params.startDate!.toIso8601String().split('T')[0]}');
-    if (params.endDate != null) keyParts.add('end_${params.endDate!.toIso8601String().split('T')[0]}');
+    if (params.warehouseId != null)
+      keyParts.add('warehouse_${params.warehouseId}');
+    if (params.startDate != null)
+      keyParts.add(
+        'start_${params.startDate!.toIso8601String().split('T')[0]}',
+      );
+    if (params.endDate != null)
+      keyParts.add('end_${params.endDate!.toIso8601String().split('T')[0]}');
 
     return keyParts.join('_');
   }
@@ -468,10 +479,14 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
     ];
 
     if (params.search != null && params.search!.isNotEmpty) {
-      keyParts.add('search_${params.search!.toLowerCase().replaceAll(' ', '_')}');
+      keyParts.add(
+        'search_${params.search!.toLowerCase().replaceAll(' ', '_')}',
+      );
     }
-    if (params.categoryId != null) keyParts.add('category_${params.categoryId}');
-    if (params.warehouseId != null) keyParts.add('warehouse_${params.warehouseId}');
+    if (params.categoryId != null)
+      keyParts.add('category_${params.categoryId}');
+    if (params.warehouseId != null)
+      keyParts.add('warehouse_${params.warehouseId}');
     if (params.lowStock == true) keyParts.add('low_stock');
     if (params.outOfStock == true) keyParts.add('out_of_stock');
     if (params.nearExpiry == true) keyParts.add('near_expiry');
@@ -484,7 +499,9 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
     final keyParts = [ApiConstants.inventoryStatsCacheKey];
 
     if (params.startDate != null) {
-      keyParts.add('start_${params.startDate!.toIso8601String().split('T')[0]}');
+      keyParts.add(
+        'start_${params.startDate!.toIso8601String().split('T')[0]}',
+      );
     }
     if (params.endDate != null) {
       keyParts.add('end_${params.endDate!.toIso8601String().split('T')[0]}');

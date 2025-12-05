@@ -1178,7 +1178,7 @@ class PurchaseOrderDetailController extends GetxController {
       },
       {
         'label': 'Cantidad Recibida',
-        'value': '${totalQuantityReceived} unidades',
+        'value': '$totalQuantityReceived unidades',
         'icon': Icons.check_circle,
         'color':
             totalQuantityReceived == order.totalQuantity

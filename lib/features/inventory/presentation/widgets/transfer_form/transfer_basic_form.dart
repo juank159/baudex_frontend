@@ -16,8 +16,9 @@ class TransferBasicForm extends StatefulWidget {
 }
 
 class _TransferBasicFormState extends State<TransferBasicForm> {
-  CreateTransferController get controller => Get.find<CreateTransferController>();
-  
+  CreateTransferController get controller =>
+      Get.find<CreateTransferController>();
+
   // Map to store TextEditingController for each product quantity
   final Map<String, TextEditingController> _quantityControllers = {};
 
@@ -33,16 +34,17 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
 
   void _cleanupRemovedControllers() {
     // Remove controllers for products that are no longer in the transfer
-    final currentProductIds = controller.transferItems.map((item) => item.productId).toSet();
+    final currentProductIds =
+        controller.transferItems.map((item) => item.productId).toSet();
     final controllersToRemove = <String>[];
-    
+
     for (final productId in _quantityControllers.keys) {
       if (!currentProductIds.contains(productId)) {
         _quantityControllers[productId]?.dispose();
         controllersToRemove.add(productId);
       }
     }
-    
+
     for (final productId in controllersToRemove) {
       _quantityControllers.remove(productId);
     }
@@ -50,7 +52,9 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
 
   TextEditingController _getQuantityController(String productId, int quantity) {
     if (!_quantityControllers.containsKey(productId)) {
-      _quantityControllers[productId] = TextEditingController(text: quantity.toString());
+      _quantityControllers[productId] = TextEditingController(
+        text: quantity.toString(),
+      );
     }
     // Update the controller text if quantity changed
     if (_quantityControllers[productId]!.text != quantity.toString()) {
@@ -61,7 +65,7 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
 
   void _updateQuantityFromText(String value, UITransferItem item) {
     final newQuantity = int.tryParse(value) ?? item.quantity;
-    
+
     if (newQuantity > 0 && newQuantity <= item.availableStock) {
       // Actualizar el valor en el controlador
       controller.updateProductQuantity(item.productId, newQuantity);
@@ -94,7 +98,7 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
       children: [
         _buildSectionTitle('Buscar Productos'),
         const SizedBox(height: AppDimensions.paddingSmall),
-        
+
         // Product search field
         Container(
           decoration: BoxDecoration(
@@ -104,65 +108,79 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
           ),
           child: Stack(
             children: [
-              Obx(() => TextFormField(
-                controller: controller.productController,
-                decoration: InputDecoration(
-                  hintText: (controller.selectedFromWarehouseId.value.isEmpty || controller.selectedToWarehouseId.value.isEmpty)
-                      ? 'Selecciona ambos almacenes primero' 
-                      : 'Buscar productos...',
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: ElegantLightTheme.textSecondary,
+              Obx(
+                () => TextFormField(
+                  controller: controller.productController,
+                  decoration: InputDecoration(
+                    hintText:
+                        (controller.selectedFromWarehouseId.value.isEmpty ||
+                                controller.selectedToWarehouseId.value.isEmpty)
+                            ? 'Selecciona ambos almacenes primero'
+                            : 'Buscar productos...',
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: ElegantLightTheme.textSecondary,
+                    ),
+                    suffixIcon:
+                        controller.productController.text.isNotEmpty
+                            ? IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                color: Colors.grey.shade600,
+                              ),
+                              onPressed: () {
+                                controller.productController.clear();
+                                controller.searchResults.clear();
+                              },
+                              tooltip: 'Limpiar búsqueda',
+                            )
+                            : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.transparent,
+                    contentPadding: const EdgeInsets.all(16),
                   ),
-                  suffixIcon: controller.productController.text.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(Icons.clear, color: Colors.grey.shade600),
-                          onPressed: () {
-                            controller.productController.clear();
-                            controller.searchResults.clear();
-                          },
-                          tooltip: 'Limpiar búsqueda',
-                        )
-                      : null,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                  filled: true,
-                  fillColor: Colors.transparent,
-                  contentPadding: const EdgeInsets.all(16),
+                  onChanged: (value) {
+                    // Buscar productos si hay texto
+                    if (value.trim().isNotEmpty) {
+                      controller.searchProducts(value);
+                    } else {
+                      controller.searchResults.clear();
+                    }
+                  },
+                  enabled:
+                      controller.selectedFromWarehouseId.value.isNotEmpty &&
+                      controller.selectedToWarehouseId.value.isNotEmpty,
                 ),
-                onChanged: (value) {
-                  // Buscar productos si hay texto
-                  if (value.trim().isNotEmpty) {
-                    controller.searchProducts(value);
-                  } else {
-                    controller.searchResults.clear();
-                  }
-                },
-                enabled: controller.selectedFromWarehouseId.value.isNotEmpty && controller.selectedToWarehouseId.value.isNotEmpty,
-              )),
-              
+              ),
+
               // Loading indicator
-              Obx(() => controller.isLoading.value
-                  ? Positioned(
-                      right: 50,
-                      top: 12,
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(ElegantLightTheme.primaryBlue),
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink()),
+              Obx(
+                () =>
+                    controller.isLoading.value
+                        ? Positioned(
+                          right: 50,
+                          top: 12,
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(
+                                ElegantLightTheme.primaryBlue,
+                              ),
+                            ),
+                          ),
+                        )
+                        : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
-        
-        
+
         // Search results
         Obx(() => _buildSearchResults()),
       ],
@@ -195,7 +213,7 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
 
   Widget _buildProductItem(Product product) {
     final availableStock = controller.getProductStock(product.id);
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -229,11 +247,7 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
             ),
             subtitle: Row(
               children: [
-                Icon(
-                  Icons.warehouse,
-                  size: 14,
-                  color: Colors.blue.shade600,
-                ),
+                Icon(Icons.warehouse, size: 14, color: Colors.blue.shade600),
                 const SizedBox(width: 4),
                 Text(
                   'Stock: ${AppFormatters.formatNumber(availableStock)} unidades',
@@ -253,7 +267,7 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
               });
             },
           ),
-          
+
           // Indicador de disponibilidad - punto verde en esquina superior derecha
           if (availableStock > 0)
             Positioned(
@@ -275,7 +289,7 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
                 ),
               ),
             ),
-          
+
           // Indicador de sin stock - punto rojo en esquina superior derecha
           if (availableStock <= 0)
             Positioned(
@@ -302,20 +316,20 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
     );
   }
 
-
-
-
   Widget _buildTransferItemsList() {
     return Obx(() {
       // Clean up controllers for removed products
       _cleanupRemovedControllers();
-      
+
       if (controller.transferItems.isEmpty) {
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.grey.shade100, Colors.grey.shade200.withValues(alpha: 0.5)],
+              colors: [
+                Colors.grey.shade100,
+                Colors.grey.shade200.withValues(alpha: 0.5),
+              ],
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade300),
@@ -353,12 +367,13 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionTitle('Productos Seleccionados (${controller.transferItems.length})'),
+          _buildSectionTitle(
+            'Productos Seleccionados (${controller.transferItems.length})',
+          ),
           const SizedBox(height: AppDimensions.paddingSmall),
-          
+
           // Lista de productos
-          ...controller.transferItems.map((item) => _buildTransferItem(item)).toList(),
-          
+          ...controller.transferItems.map((item) => _buildTransferItem(item)),
         ],
       );
     });
@@ -391,7 +406,7 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
               ),
             ),
             const SizedBox(width: 12),
-            
+
             // Detalles del producto
             Expanded(
               child: Column(
@@ -415,17 +430,18 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
                 ],
               ),
             ),
-            
+
             // Contador de cantidad profesional
             _buildQuantityCounter(item),
-            
+
             const SizedBox(width: 8),
-            
+
             // Botón eliminar
             Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => controller.removeProductFromTransfer(item.productId),
+                onTap:
+                    () => controller.removeProductFromTransfer(item.productId),
                 borderRadius: BorderRadius.circular(4),
                 child: Container(
                   padding: const EdgeInsets.all(4),
@@ -444,8 +460,11 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
   }
 
   Widget _buildQuantityCounter(UITransferItem item) {
-    final quantityController = _getQuantityController(item.productId, item.quantity);
-    
+    final quantityController = _getQuantityController(
+      item.productId,
+      item.quantity,
+    );
+
     return Container(
       width: 120,
       height: 36,
@@ -460,9 +479,15 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: item.quantity > 1 ? () {
-                controller.updateProductQuantity(item.productId, item.quantity - 1);
-              } : null,
+              onTap:
+                  item.quantity > 1
+                      ? () {
+                        controller.updateProductQuantity(
+                          item.productId,
+                          item.quantity - 1,
+                        );
+                      }
+                      : null,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(4),
                 bottomLeft: Radius.circular(4),
@@ -471,21 +496,20 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
                 width: 28,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: item.quantity > 1 ? Colors.blue.shade600 : Colors.grey.shade300,
+                  color:
+                      item.quantity > 1
+                          ? Colors.blue.shade600
+                          : Colors.grey.shade300,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(4),
                     bottomLeft: Radius.circular(4),
                   ),
                 ),
-                child: const Icon(
-                  Icons.remove,
-                  size: 16,
-                  color: Colors.white,
-                ),
+                child: const Icon(Icons.remove, size: 16, color: Colors.white),
               ),
             ),
           ),
-          
+
           // Input de cantidad - editable sin contenedor feo
           Expanded(
             child: TextFormField(
@@ -518,14 +542,20 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
               },
             ),
           ),
-          
+
           // Botón incrementar
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: item.quantity < item.availableStock ? () {
-                controller.updateProductQuantity(item.productId, item.quantity + 1);
-              } : null,
+              onTap:
+                  item.quantity < item.availableStock
+                      ? () {
+                        controller.updateProductQuantity(
+                          item.productId,
+                          item.quantity + 1,
+                        );
+                      }
+                      : null,
               borderRadius: const BorderRadius.only(
                 topRight: Radius.circular(4),
                 bottomRight: Radius.circular(4),
@@ -534,17 +564,16 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
                 width: 28,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: item.quantity < item.availableStock ? Colors.blue.shade600 : Colors.grey.shade300,
+                  color:
+                      item.quantity < item.availableStock
+                          ? Colors.blue.shade600
+                          : Colors.grey.shade300,
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(4),
                     bottomRight: Radius.circular(4),
                   ),
                 ),
-                child: const Icon(
-                  Icons.add,
-                  size: 16,
-                  color: Colors.white,
-                ),
+                child: const Icon(Icons.add, size: 16, color: Colors.white),
               ),
             ),
           ),
@@ -552,7 +581,6 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
       ),
     );
   }
-
 
   Widget _buildSectionTitle(String title) {
     return Text(
@@ -563,5 +591,4 @@ class _TransferBasicFormState extends State<TransferBasicForm> {
       ),
     );
   }
-
 }

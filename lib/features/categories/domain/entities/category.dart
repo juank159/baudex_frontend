@@ -5,6 +5,7 @@ import '../../../../app/data/local/base_offline_repository.dart';
 enum CategoryStatus { active, inactive }
 
 class Category extends Equatable implements SyncableEntity {
+  @override
   final String id;
   final String name;
   final String? description;
@@ -16,10 +17,15 @@ class Category extends Equatable implements SyncableEntity {
   final Category? parent;
   final List<Category>? children;
   final int? productsCount;
+  @override
   final DateTime createdAt;
+  @override
   final DateTime updatedAt;
+  @override
   final DateTime? deletedAt;
+  @override
   final bool isSynced;
+  @override
   final DateTime? lastSyncAt;
 
   const Category({

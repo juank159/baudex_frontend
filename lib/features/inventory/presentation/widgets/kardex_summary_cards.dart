@@ -1,7 +1,6 @@
 // lib/features/inventory/presentation/widgets/kardex_summary_cards.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/kardex_controller.dart';
 
@@ -17,12 +16,12 @@ class KardexSummaryCards extends GetView<KardexController> {
 
       final cards = controller.summaryCards;
       final screenWidth = MediaQuery.of(context).size.width;
-      
+
       // Responsive design: más columnas en pantallas más grandes
       int crossAxisCount;
       double aspectRatio;
       double spacing;
-      
+
       if (screenWidth > 1200) {
         // Desktop grande - más compacto
         crossAxisCount = 4;
@@ -49,7 +48,7 @@ class KardexSummaryCards extends GetView<KardexController> {
         aspectRatio = 1.5;
         spacing = 8;
       }
-      
+
       return LayoutBuilder(
         builder: (context, constraints) {
           return GridView.builder(
@@ -89,16 +88,13 @@ class KardexSummaryCards extends GetView<KardexController> {
   }) {
     // Convertir color a gradiente elegante
     final LinearGradient gradient = _getElegantGradientForColor(color);
-    
+
     return Container(
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(isLarge ? 16 : 12),
         boxShadow: ElegantLightTheme.elevatedShadow,
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.2), width: 1),
       ),
       child: Padding(
         padding: EdgeInsets.all(isLarge ? 16 : 12),
@@ -143,9 +139,9 @@ class KardexSummaryCards extends GetView<KardexController> {
                 ),
               ],
             ),
-            
+
             SizedBox(height: isLarge ? 12 : 8),
-            
+
             // Valor principal elegante
             FittedBox(
               fit: BoxFit.scaleDown,
@@ -159,9 +155,9 @@ class KardexSummaryCards extends GetView<KardexController> {
                 ),
               ),
             ),
-            
+
             SizedBox(height: isLarge ? 8 : 4),
-            
+
             // Subtítulo con estilo elegante
             Container(
               padding: EdgeInsets.symmetric(

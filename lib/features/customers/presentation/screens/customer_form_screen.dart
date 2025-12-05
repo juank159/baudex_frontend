@@ -1,13 +1,12 @@
-
-
 // lib/features/customers/presentation/screens/customer_form_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/number_input_formatter.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/custom_text_field_safe.dart';
-import '../../../../app/shared/widgets/custom_button.dart';
-import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/customer_form_controller.dart';
 import '../../domain/entities/customer.dart';
@@ -17,3147 +16,1555 @@ class CustomerFormScreen extends GetView<CustomerFormController> {
 
   @override
   Widget build(BuildContext context) {
-    print('🖼️ CustomerFormScreen: Construyendo pantalla...');
-
     return Scaffold(
       appBar: _buildAppBar(context),
       body: SafeArea(
         child: GetBuilder<CustomerFormController>(
-          builder: (controller) {
-            print(
-              '🔄 CustomerFormScreen: Reconstruyendo body - isLoadingCustomer: ${controller.isLoadingCustomer}',
-            );
-
-            if (controller.isLoadingCustomer) {
+          builder: (ctrl) {
+            if (ctrl.isLoadingCustomer) {
               return const LoadingWidget(message: 'Cargando cliente...');
             }
-
-            return ResponsiveLayout(
-              mobile: _buildMobileLayout(context),
-              tablet: _buildTabletLayout(context),
-              desktop: _buildDesktopLayout(context),
-            );
+            return _buildBody(context);
           },
         ),
       ),
     );
   }
 
+  // ==================== APP BAR ====================
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
-
     return AppBar(
       backgroundColor: Colors.transparent,
       foregroundColor: Colors.white,
       elevation: 0,
-      centerTitle: false,
       flexibleSpace: Container(
         decoration: BoxDecoration(
           gradient: ElegantLightTheme.primaryGradient,
-          boxShadow: ElegantLightTheme.elevatedShadow,
         ),
       ),
       title: GetBuilder<CustomerFormController>(
-        builder: (controller) => Row(
+        builder: (ctrl) => Text(
+          ctrl.formTitle,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+      ),
+      actions: [
+        // Botón Guardar en AppBar para mobile
+        if (Responsive.isMobile(context))
+          GetBuilder<CustomerFormController>(
+            builder: (ctrl) => TextButton.icon(
+              onPressed: ctrl.isSaving ? null : () => _submitForm(),
+              icon: ctrl.isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.save, color: Colors.white),
+              label: Text(
+                ctrl.isSaving ? 'Guardando...' : 'Guardar',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ==================== BODY ====================
+  Widget _buildBody(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
+    final isTablet = Responsive.isTablet(context);
+    final isDesktop = !isMobile && !isTablet;
+
+    // Desktop: dos columnas (formulario + sidebar)
+    if (isDesktop) {
+      return _buildDesktopLayout(context);
+    }
+
+    // Mobile/Tablet: solo formulario
+    return _buildFormContent(context, isMobile: isMobile, isTablet: isTablet);
+  }
+
+  // ==================== DESKTOP LAYOUT ====================
+  Widget _buildDesktopLayout(BuildContext context) {
+    return Form(
+      key: controller.formKey,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Columna principal - Formulario
+          Expanded(
+            flex: 3,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSection(
+                    context,
+                    title: 'Información Personal',
+                    icon: Icons.person,
+                    children: _buildPersonalInfoFields(context),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildSection(
+                    context,
+                    title: 'Documento de Identidad',
+                    icon: Icons.badge,
+                    children: _buildDocumentFields(context),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildSection(
+                    context,
+                    title: 'Información de Contacto',
+                    icon: Icons.contact_phone,
+                    children: _buildContactFields(context),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildSection(
+                    context,
+                    title: 'Dirección',
+                    icon: Icons.location_on,
+                    children: _buildAddressFields(context),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildSection(
+                    context,
+                    title: 'Configuración',
+                    icon: Icons.settings,
+                    children: _buildConfigFields(context),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildSection(
+                    context,
+                    title: 'Notas Adicionales',
+                    icon: Icons.note,
+                    children: _buildNotesFields(context),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+
+          // Sidebar derecho
+          Container(
+            width: 320,
+            height: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              border: Border(
+                left: BorderSide(
+                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+                ),
+              ),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _buildSidebarHeader(),
+                  const SizedBox(height: 20),
+                  _buildFormStatusCard(),
+                  const SizedBox(height: 16),
+                  _buildQuickActionsCard(context),
+                  const SizedBox(height: 16),
+                  _buildTipsCard(),
+                  const SizedBox(height: 20),
+                  _buildSidebarActionButtons(context),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== FORM CONTENT (Mobile/Tablet) ====================
+  Widget _buildFormContent(BuildContext context, {required bool isMobile, required bool isTablet}) {
+    return Form(
+      key: controller.formKey,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isMobile ? double.infinity : 700,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSection(
+                  context,
+                  title: 'Información Personal',
+                  icon: Icons.person,
+                  children: _buildPersonalInfoFields(context),
+                ),
+                const SizedBox(height: 24),
+                _buildSection(
+                  context,
+                  title: 'Documento de Identidad',
+                  icon: Icons.badge,
+                  children: _buildDocumentFields(context),
+                ),
+                const SizedBox(height: 24),
+                _buildSection(
+                  context,
+                  title: 'Información de Contacto',
+                  icon: Icons.contact_phone,
+                  children: _buildContactFields(context),
+                ),
+                const SizedBox(height: 24),
+                _buildSection(
+                  context,
+                  title: 'Dirección',
+                  icon: Icons.location_on,
+                  children: _buildAddressFields(context),
+                ),
+                const SizedBox(height: 24),
+                _buildSection(
+                  context,
+                  title: 'Configuración',
+                  icon: Icons.settings,
+                  children: _buildConfigFields(context),
+                ),
+                const SizedBox(height: 24),
+                _buildSection(
+                  context,
+                  title: 'Notas Adicionales',
+                  icon: Icons.note,
+                  children: _buildNotesFields(context),
+                ),
+                const SizedBox(height: 32),
+                if (!isMobile) _buildActionButtons(context),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== SIDEBAR COMPONENTS ====================
+  Widget _buildSidebarHeader() {
+    return GetBuilder<CustomerFormController>(
+      builder: (ctrl) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                controller.isEditMode ? Icons.edit : Icons.person_add,
-                size: isMobile ? 18 : 20,
+                ctrl.isEditMode ? Icons.edit : Icons.person_add,
                 color: Colors.white,
+                size: 24,
               ),
             ),
             const SizedBox(width: 12),
-            Flexible(
-              child: Text(
-                controller.formTitle,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: isMobile ? 16 : 18,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: _handleBackPress,
-      ),
-      actions: [
-        // Menú de opciones
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, size: 20, color: Colors.white),
-          onSelected: (value) => _handleMenuAction(value, context),
-          tooltip: 'Opciones',
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.white.withValues(alpha: 0.15),
-            foregroundColor: Colors.white,
-          ),
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 8,
-          itemBuilder: (context) => [
-            if (controller.isEditMode) ...[
-              PopupMenuItem(
-                value: 'reset',
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.refresh,
-                        size: 18,
-                        color: ElegantLightTheme.primaryBlue,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Restablecer',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'duplicate',
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.successGradient,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.copy,
-                        size: 18,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Duplicar Cliente',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-            ],
-            PopupMenuItem(
-              value: 'validate',
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.infoGradient,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.check_circle,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Validar Formulario',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'clear',
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.warningGradient,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.clear_all,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Limpiar Todo',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileLayout(BuildContext context) {
-    return Column(
-      children: [
-        // Progress indicator
-        _buildProgressIndicator(context),
-
-        Expanded(
-          child: SingleChildScrollView(
-            padding: context.responsivePadding,
-            child: _buildForm(context),
-          ),
-        ),
-
-        // Bottom actions
-        _buildBottomActions(context),
-      ],
-    );
-  }
-
-  Widget _buildTabletLayout(BuildContext context) {
-    return SingleChildScrollView(
-      child: AdaptiveContainer(
-        maxWidth: 700,
-        child: Column(
-          children: [
-            SizedBox(height: context.verticalSpacing),
-
-            // Progress indicator
-            _buildProgressIndicator(context),
-
-            SizedBox(height: context.verticalSpacing),
-
-            // Form in card
-            CustomCard(child: _buildForm(context)),
-
-            SizedBox(height: context.verticalSpacing),
-
-            // Actions
-            _buildActions(context),
-
-            SizedBox(height: context.verticalSpacing),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDesktopLayout(BuildContext context) {
-    return Row(
-      children: [
-        // Main form area
-        Expanded(
-          flex: 3,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header con progress
-                _buildFormHeader(context),
-
-                const SizedBox(height: 32),
-
-                // Personal Information Section
-                CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionHeader(
-                        context,
-                        'Información Personal',
-                        Icons.person,
-                        '1 de 4',
-                      ),
-                      const SizedBox(height: 24),
-                      _buildPersonalFields(context),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Contact Information Section
-                CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionHeader(
-                        context,
-                        'Información de Contacto',
-                        Icons.contact_phone,
-                        '2 de 4',
-                      ),
-                      const SizedBox(height: 24),
-                      _buildContactFields(context),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // Sidebar
-        Container(
-          width: 380,
-          padding: const EdgeInsets.fromLTRB(0, 32, 32, 32),
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.cardGradient,
-            border: Border(
-              left: BorderSide(
-                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-              ),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(-2, 0),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                // Form Status Card
-                _buildFormStatusCard(context),
-
-                const SizedBox(height: 24),
-
-                // Configuration Section
-                CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionHeader(
-                        context,
-                        'Configuración',
-                        Icons.settings,
-                        '3 de 4',
-                      ),
-                      const SizedBox(height: 16),
-                      _buildConfigurationFields(context),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Financial Information Section
-                CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionHeader(
-                        context,
-                        'Información Financiera',
-                        Icons.account_balance,
-                        '4 de 4',
-                      ),
-                      const SizedBox(height: 16),
-                      _buildFinancialFields(context),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Quick Actions
-                _buildQuickActionsCard(context),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProgressIndicator(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(context.responsivePadding.left),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(
-            color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-          ),
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              GetBuilder<CustomerFormController>(
-                builder:
-                    (controller) => Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.primaryGradient.scale(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        controller.isEditMode ? Icons.edit : Icons.person_add,
-                        color: ElegantLightTheme.primaryBlue,
-                        size: 18,
-                      ),
-                    ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GetBuilder<CustomerFormController>(
-                      builder:
-                          (controller) => Text(
-                            controller.formTitle,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: ElegantLightTheme.textPrimary,
-                            ),
-                          ),
-                    ),
-                    GetBuilder<CustomerFormController>(
-                      builder: (controller) {
-                        if (controller.isEditMode && controller.hasCustomer) {
-                          return Text(
-                            'Editando: ${controller.currentCustomer!.displayName}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: ElegantLightTheme.textSecondary,
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              if (!context.isMobile) ...[
-                GetBuilder<CustomerFormController>(
-                  builder:
-                      (controller) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          gradient: ElegantLightTheme.cardGradient,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Text(
-                          _getFormCompletionText(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: ElegantLightTheme.primaryBlue,
-                          ),
-                        ),
-                      ),
-                ),
-              ],
-            ],
-          ),
-
-          if (!context.isMobile) ...[
-            const SizedBox(height: 12),
-            GetBuilder<CustomerFormController>(
-              builder:
-                  (controller) => ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: _calculateFormCompletion(),
-                      backgroundColor: ElegantLightTheme.textTertiary.withValues(alpha: 0.15),
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        ElegantLightTheme.primaryBlue,
-                      ),
-                      minHeight: 6,
-                    ),
-                  ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFormHeader(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.primaryGradient.scale(0.15),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: GetBuilder<CustomerFormController>(
-            builder:
-                (controller) => Icon(
-                  controller.isEditMode ? Icons.edit : Icons.person_add,
-                  color: ElegantLightTheme.primaryBlue,
-                  size: 32,
-                ),
-          ),
-        ),
-
-        const SizedBox(width: 20),
-
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GetBuilder<CustomerFormController>(
-                builder:
-                    (controller) => Text(
-                      controller.formTitle,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: ElegantLightTheme.textPrimary,
-                      ),
-                    ),
-              ),
-              const SizedBox(height: 8),
-              GetBuilder<CustomerFormController>(
-                builder: (controller) {
-                  if (controller.isEditMode && controller.hasCustomer) {
-                    return Text(
-                      'Modificando información de ${controller.currentCustomer!.displayName}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: ElegantLightTheme.textSecondary,
-                      ),
-                    );
-                  } else {
-                    return Text(
-                      'Complete la información para registrar un nuevo cliente',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: ElegantLightTheme.textSecondary,
-                      ),
-                    );
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(
-    BuildContext context,
-    String title,
-    IconData icon,
-    String step,
-  ) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: ElegantLightTheme.glowShadow,
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: Responsive.getFontSize(context, mobile: 16, tablet: 17, desktop: 18),
-              fontWeight: FontWeight.bold,
-              color: ElegantLightTheme.textPrimary,
-            ),
-          ),
-        ),
-        if (!context.isMobile)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.cardGradient,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Text(
-              step,
-              style: TextStyle(
-                fontSize: 12,
-                color: ElegantLightTheme.primaryBlue,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildFormStatusCard(BuildContext context) {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.infoGradient,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: ElegantLightTheme.glowShadow,
-                ),
-                child: const Icon(
-                  Icons.assessment,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Estado del Formulario',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: ElegantLightTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Completion progress
-          GetBuilder<CustomerFormController>(
-            builder: (controller) {
-              final completion = _calculateFormCompletion();
-              final completionText = _getFormCompletionText();
-
-              return Column(
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Progreso',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: ElegantLightTheme.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        completionText,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: ElegantLightTheme.primaryBlue,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    ctrl.isEditMode ? 'Editar Cliente' : 'Nuevo Cliente',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: completion,
-                      backgroundColor: ElegantLightTheme.textTertiary.withValues(alpha: 0.15),
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        ElegantLightTheme.primaryBlue,
-                      ),
-                      minHeight: 6,
+                  const SizedBox(height: 2),
+                  Text(
+                    ctrl.isEditMode
+                        ? 'Modifica los datos del cliente'
+                        : 'Completa el formulario',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
                     ),
                   ),
                 ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 16),
-
-          // Validation status
-          GetBuilder<CustomerFormController>(
-            builder:
-                (controller) {
-                  final email = controller.emailController.text.trim();
-                  final isEmailFormatValid = email.isEmpty || _isValidEmail(email);
-                  final phone = controller.phoneController.text.trim();
-                  final isPhoneValid = phone.isEmpty || phone.length >= 7;
-
-                  return Column(
-                    children: [
-                      _buildValidationItem(
-                        'Email formato válido',
-                        isEmailFormatValid,
-                        false,
-                      ),
-                      _buildValidationItem(
-                        'Email disponible',
-                        controller.emailAvailable,
-                        controller.isValidatingEmail,
-                      ),
-                      _buildValidationItem(
-                        'Teléfono válido',
-                        isPhoneValid,
-                        false,
-                      ),
-                      _buildValidationItem(
-                        'Documento disponible',
-                        controller.documentAvailable,
-                        controller.isValidatingDocument,
-                      ),
-                      _buildValidationItem(
-                        'Campos obligatorios completos',
-                        _areRequiredFieldsFilled(),
-                        false,
-                      ),
-                      _buildValidationItem(
-                        'Formulario válido',
-                        _isFormValid(),
-                        false,
-                      ),
-                    ],
-                  );
-                },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildValidationItem(String label, bool isValid, bool isValidating) {
-    IconData icon;
-    LinearGradient gradient;
-    Color iconColor;
-
-    if (isValidating) {
-      icon = Icons.sync;
-      gradient = ElegantLightTheme.warningGradient;
-      iconColor = ElegantLightTheme.accentOrange;
-    } else if (isValid) {
-      icon = Icons.check_circle;
-      gradient = ElegantLightTheme.successGradient;
-      iconColor = Colors.green.shade600;
-    } else {
-      icon = Icons.cancel;
-      gradient = ElegantLightTheme.errorGradient;
-      iconColor = Colors.red.shade600;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        gradient: gradient.scale(0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: iconColor.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Row(
-        children: [
-          if (isValidating)
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(iconColor),
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                gradient: gradient,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: Colors.white, size: 12),
-            ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: ElegantLightTheme.textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActionsCard(BuildContext context) {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: ElegantLightTheme.glowShadow,
-                ),
-                child: const Icon(
-                  Icons.flash_on,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Acciones Rápidas',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: ElegantLightTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Botón Validar Datos
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.infoGradient,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: ElegantLightTheme.elevatedShadow,
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _validateForm,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Validar Datos',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Botón Limpiar Formulario
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.warningGradient,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: ElegantLightTheme.elevatedShadow,
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _showClearConfirmation,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.clear_all, color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Limpiar Formulario',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          GetBuilder<CustomerFormController>(
-            builder: (controller) {
-              if (controller.isEditMode) {
-                return Column(
-                  children: [
-                    const SizedBox(height: 12),
-                    // Botón Restablecer
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.primaryGradient.scale(0.8),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: ElegantLightTheme.elevatedShadow,
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _resetForm,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.refresh, color: Colors.white, size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Restablecer',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-
-          const SizedBox(height: 20),
-          Divider(color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2)),
-          const SizedBox(height: 16),
-
-          // Botón Ver Todos los Clientes
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: ElegantLightTheme.primaryBlue,
-                width: 2,
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => Get.offAllNamed('/customers'),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.people, color: ElegantLightTheme.primaryBlue, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Ver Todos los Clientes',
-                        style: TextStyle(
-                          color: ElegantLightTheme.primaryBlue,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildForm(BuildContext context) {
-    return Form(
-      key: controller.formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!Responsive.isDesktop(context)) ...[
-            // Ahora todo está integrado en _buildPersonalSection con secciones colapsables
-            _buildPersonalSection(context),
-          ] else
-            _buildPersonalFields(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPersonalSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header de sección principal
-        _buildSectionHeader(
-          context,
-          'Información Básica',
-          Icons.person,
-          '1 de 4',
-        ),
-        const SizedBox(height: 16),
-
-        // CAMPOS OBLIGATORIOS SIEMPRE VISIBLES
-        Row(
-          children: [
-            Expanded(
-              child: CustomTextFieldSafe(
-                controller: controller.firstNameController,
-                label: 'Nombre *',
-                hint: 'Ej: Juan',
-                prefixIcon: Icons.person,
-                validator: controller.validateFirstName,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: CustomTextFieldSafe(
-                controller: controller.lastNameController,
-                label: 'Apellido *',
-                hint: 'Ej: Pérez',
-                prefixIcon: Icons.person_outline,
-                validator: controller.validateLastName,
               ),
             ),
           ],
         ),
-
-        const SizedBox(height: 16),
-
-        CustomTextFieldSafe(
-          controller: controller.emailController,
-          label: 'Email *',
-          hint: 'correo@ejemplo.com',
-          prefixIcon: Icons.email,
-          keyboardType: TextInputType.emailAddress,
-          validator: controller.validateEmail,
-          onChanged: controller.onEmailChanged,
-          helperText: 'Dirección de correo electrónico principal',
-        ),
-
-        // Indicador de disponibilidad del email
-        GetBuilder<CustomerFormController>(
-          builder: (controller) {
-            if (controller.isValidatingEmail) {
-              return Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.infoGradient.scale(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          ElegantLightTheme.primaryBlue,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Verificando disponibilidad...',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: ElegantLightTheme.primaryBlue,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            if (!controller.emailAvailable) {
-              return Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.red.shade50,
-                      Colors.red.shade100,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.errorGradient,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.error,
-                        color: Colors.white,
-                        size: 14,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Email ya registrado',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-
-        const SizedBox(height: 16),
-
-        CustomTextFieldSafe(
-          controller: controller.phoneController,
-          label: 'Teléfono *',
-          hint: '+51 999 999 999',
-          prefixIcon: Icons.phone,
-          keyboardType: TextInputType.phone,
-          helperText: 'Teléfono de contacto principal',
-        ),
-
-        const SizedBox(height: 16),
-
-        // DOCUMENTO - CAMPO OBLIGATORIO
-        if (context.isMobile) ...[
-          GetBuilder<CustomerFormController>(
-            builder: (controller) => Container(
-              decoration: BoxDecoration(
-                gradient: ElegantLightTheme.glassGradient,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: DropdownButtonFormField<DocumentType>(
-                value: controller.selectedDocumentType,
-                decoration: InputDecoration(
-                  prefixIcon: Container(
-                    margin: const EdgeInsets.all(8),
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.badge, color: Colors.white, size: 18),
-                  ),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  isDense: true,
-                ),
-                isExpanded: true,
-                selectedItemBuilder: (BuildContext context) {
-                  return DocumentType.values.map((type) {
-                    return Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Tipo de Documento *',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: ElegantLightTheme.textPrimary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    );
-                  }).toList();
-                },
-                items: DocumentType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(
-                      _getDocumentTypeLabel(type, context),
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (DocumentType? value) {
-                  if (value != null) {
-                    controller.changeDocumentType(value);
-                  }
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          CustomTextFieldSafe(
-            controller: controller.documentNumberController,
-            label: 'Número de Documento *',
-            hint: 'Ej: 12345678',
-            prefixIcon: Icons.numbers,
-            validator: controller.validateDocumentNumber,
-            onChanged: controller.onDocumentNumberChanged,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-          ),
-        ] else ...[
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: GetBuilder<CustomerFormController>(
-                  builder: (controller) => Container(
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.glassGradient,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: DropdownButtonFormField<DocumentType>(
-                      value: controller.selectedDocumentType,
-                      decoration: InputDecoration(
-                        prefixIcon: Container(
-                          margin: const EdgeInsets.all(8),
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            gradient: ElegantLightTheme.primaryGradient,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.badge, color: Colors.white, size: 18),
-                        ),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        isDense: true,
-                      ),
-                      isExpanded: true,
-                      selectedItemBuilder: (BuildContext context) {
-                        // ✅ Siempre mostrar "Tipo de Documento *" sin importar la selección
-                        return DocumentType.values.map((type) {
-                          return Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Tipo de Documento *',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: ElegantLightTheme.textPrimary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        }).toList();
-                      },
-                      items: DocumentType.values.map((type) {
-                        return DropdownMenuItem(
-                          value: type,
-                          child: Text(
-                            _getDocumentTypeLabel(type, context),
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (DocumentType? value) {
-                        if (value != null) {
-                          controller.changeDocumentType(value);
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 2,
-                child: CustomTextFieldSafe(
-                  controller: controller.documentNumberController,
-                  label: 'Número de Documento *',
-                  hint: 'Ej: 12345678',
-                  prefixIcon: Icons.numbers,
-                  validator: controller.validateDocumentNumber,
-                  onChanged: controller.onDocumentNumberChanged,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-
-        // Indicador de disponibilidad del documento
-        GetBuilder<CustomerFormController>(
-          builder: (controller) {
-            if (controller.isValidatingDocument) {
-              return Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.infoGradient.scale(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          ElegantLightTheme.primaryBlue,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Verificando disponibilidad...',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: ElegantLightTheme.primaryBlue,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            if (!controller.documentAvailable) {
-              return Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.red.shade50,
-                      Colors.red.shade100,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.errorGradient,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.error,
-                        color: Colors.white,
-                        size: 14,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Documento ya registrado',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-
-        const SizedBox(height: 24),
-
-        // SECCIÓN COLAPSABLE: Información Adicional
-        Obx(() => _buildCollapsibleSection(
-          context: context,
-          title: 'Información Adicional',
-          icon: Icons.info_outline,
-          isExpanded: controller.showAdditionalInfo.value,
-          onToggle: () => controller.showAdditionalInfo.toggle(),
-          badge: 'Opcional',
-          child: Column(
-            children: [
-              CustomTextFieldSafe(
-                controller: controller.companyNameController,
-                label: 'Nombre de la Empresa',
-                hint: 'Ej: Acme Corporation',
-                prefixIcon: Icons.business,
-                helperText: 'Solo si el cliente representa una empresa',
-              ),
-              const SizedBox(height: 16),
-
-              // Fecha de Nacimiento - ESTILO MEJORADO
-              GetBuilder<CustomerFormController>(
-                builder: (controller) => Container(
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.glassGradient,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _selectBirthDate(context),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            // Icono decorado
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: ElegantLightTheme.infoGradient,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: ElegantLightTheme.glowShadow,
-                              ),
-                              child: const Icon(
-                                Icons.calendar_today,
-                                size: 20,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-
-                            // Contenido
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Fecha de Nacimiento',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: ElegantLightTheme.textSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    controller.birthDate != null
-                                        ? _formatDate(controller.birthDate!)
-                                        : 'Seleccionar fecha',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: controller.birthDate != null
-                                          ? ElegantLightTheme.textPrimary
-                                          : ElegantLightTheme.textTertiary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // Botón limpiar (si hay fecha seleccionada)
-                            if (controller.birthDate != null)
-                              IconButton(
-                                icon: Icon(
-                                  Icons.clear,
-                                  color: Colors.red.shade600,
-                                ),
-                                onPressed: () => controller.changeBirthDate(null),
-                                tooltip: 'Limpiar fecha',
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.red.shade50,
-                                ),
-                              )
-                            else
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Icon(
-                                  Icons.arrow_drop_down,
-                                  color: ElegantLightTheme.primaryBlue,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        )),
-
-        const SizedBox(height: 16),
-
-        // SECCIÓN COLAPSABLE: Contacto Adicional
-        Obx(() => _buildCollapsibleSection(
-          context: context,
-          title: 'Información de Contacto Adicional',
-          icon: Icons.contact_phone,
-          isExpanded: controller.showAdditionalContact.value,
-          onToggle: () => controller.showAdditionalContact.toggle(),
-          badge: 'Opcional',
-          child: Column(
-            children: [
-              CustomTextFieldSafe(
-                controller: controller.mobileController,
-                label: 'Teléfono Móvil',
-                hint: '+51 999 999 999',
-                prefixIcon: Icons.smartphone,
-                keyboardType: TextInputType.phone,
-                helperText: 'Teléfono móvil adicional',
-              ),
-              const SizedBox(height: 16),
-              CustomTextFieldSafe(
-                controller: controller.addressController,
-                label: 'Dirección',
-                hint: 'Calle, número, distrito',
-                prefixIcon: Icons.location_on,
-                maxLines: 2,
-                helperText: 'Dirección física completa',
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomTextFieldSafe(
-                      controller: controller.cityController,
-                      label: 'Ciudad',
-                      hint: 'Lima',
-                      prefixIcon: Icons.location_city,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: CustomTextFieldSafe(
-                      controller: controller.stateController,
-                      label: 'Provincia/Estado',
-                      hint: 'Lima',
-                      prefixIcon: Icons.map,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              CustomTextFieldSafe(
-                controller: controller.zipCodeController,
-                label: 'Código Postal',
-                hint: '15001',
-                prefixIcon: Icons.pin_drop,
-                keyboardType: TextInputType.number,
-                helperText: 'Código postal de la ciudad',
-              ),
-            ],
-          ),
-        )),
-
-        const SizedBox(height: 16),
-
-        // SECCIÓN COLAPSABLE: Configuración
-        Obx(() => _buildCollapsibleSection(
-          context: context,
-          title: 'Configuración del Cliente',
-          icon: Icons.settings,
-          isExpanded: controller.showConfiguration.value,
-          onToggle: () => controller.showConfiguration.toggle(),
-          badge: 'Opcional',
-          child: _buildConfigurationFields(context),
-        )),
-
-        const SizedBox(height: 16),
-
-        // SECCIÓN COLAPSABLE: Información Financiera
-        Obx(() => _buildCollapsibleSection(
-          context: context,
-          title: 'Información Financiera',
-          icon: Icons.account_balance_wallet,
-          isExpanded: controller.showFinancial.value,
-          onToggle: () => controller.showFinancial.toggle(),
-          badge: 'Opcional',
-          child: _buildFinancialFields(context),
-        )),
-      ],
+      ),
     );
   }
 
-  Widget _buildCollapsibleSection({
-    required BuildContext context,
-    required String title,
-    required IconData icon,
-    required bool isExpanded,
-    required VoidCallback onToggle,
-    required Widget child,
-    String? badge,
-  }) {
+  Widget _buildFormStatusCard() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 0),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
         ),
-        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header clickeable
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onToggle,
-              borderRadius: BorderRadius.vertical(
-                top: const Radius.circular(12),
-                bottom: isExpanded ? Radius.zero : const Radius.circular(12),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    // Icono decorado
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.primaryGradient.scale(0.3),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: ElegantLightTheme.glowShadow,
-                      ),
-                      child: Icon(icon, size: 20, color: Colors.white),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // Título
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: ElegantLightTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-
-                    // Badge opcional
-                    if (badge != null) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Text(
-                          badge,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: ElegantLightTheme.primaryBlue,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-
-                    // Icono expand/collapse
-                    AnimatedRotation(
-                      turns: isExpanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        Icons.keyboard_arrow_down,
-                        color: ElegantLightTheme.primaryBlue,
-                      ),
-                    ),
-                  ],
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
                 ),
+                child: Icon(
+                  Icons.checklist,
+                  size: 16,
+                  color: ElegantLightTheme.primaryBlue,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Estado del Formulario',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Campos obligatorios con validación en tiempo real
+          _buildLiveStatusItem(
+            'Nombre',
+            Icons.person,
+            () => controller.firstNameController.text.trim().length >= 2,
+            controller.firstNameController,
+          ),
+          _buildLiveStatusItem(
+            'Apellido',
+            Icons.person_outline,
+            () => controller.lastNameController.text.trim().length >= 2,
+            controller.lastNameController,
+          ),
+          _buildLiveStatusItem(
+            'Tipo de Documento',
+            Icons.badge,
+            () => true, // Siempre tiene valor por defecto
+            null,
+            alwaysValid: true,
+          ),
+          // Número de documento con validación de duplicado
+          _buildDocumentStatusItem(),
+          // Email con validación de duplicado
+          _buildEmailStatusItem(),
+          _buildLiveStatusItem(
+            'Teléfono',
+            Icons.phone,
+            () => controller.phoneController.text.trim().length >= 7,
+            controller.phoneController,
+          ),
+          const SizedBox(height: 8),
+          // Barra de progreso
+          _buildProgressBar(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveStatusItem(
+    String label,
+    IconData icon,
+    bool Function() isValid,
+    TextEditingController? textController, {
+    bool alwaysValid = false,
+  }) {
+    if (alwaysValid) {
+      return _buildStatusRow(label, icon, ValidationStatus.valid);
+    }
+
+    return AnimatedBuilder(
+      animation: textController!,
+      builder: (context, child) {
+        final valid = isValid();
+        return _buildStatusRow(
+          label,
+          icon,
+          valid ? ValidationStatus.valid : ValidationStatus.pending,
+        );
+      },
+    );
+  }
+
+  // Validación especial para documento (incluye verificación de duplicado)
+  Widget _buildDocumentStatusItem() {
+    return _DebouncedStatusItem(
+      controller: controller,
+      textController: controller.documentNumberController,
+      label: 'Número de Documento',
+      icon: Icons.numbers,
+      minLength: 3,
+      isValidating: () => controller.isValidatingDocument,
+      isAvailable: () => controller.documentAvailable,
+      duplicateLabel: 'Documento ya registrado',
+      validatingLabel: 'Verificando documento...',
+    );
+  }
+
+  // Validación especial para email (incluye verificación de duplicado)
+  Widget _buildEmailStatusItem() {
+    return _DebouncedStatusItem(
+      controller: controller,
+      textController: controller.emailController,
+      label: 'Email',
+      icon: Icons.email,
+      minLength: 0,
+      customValidator: (text) => GetUtils.isEmail(text),
+      isValidating: () => controller.isValidatingEmail,
+      isAvailable: () => controller.emailAvailable,
+      duplicateLabel: 'Email ya registrado',
+      validatingLabel: 'Verificando email...',
+    );
+  }
+
+  Widget _buildStatusRow(String label, IconData icon, ValidationStatus status) {
+    Color iconColor;
+    Color textColor;
+    FontWeight fontWeight;
+    IconData statusIcon;
+    Color statusColor;
+
+    switch (status) {
+      case ValidationStatus.pending:
+        iconColor = ElegantLightTheme.textTertiary;
+        textColor = ElegantLightTheme.textSecondary;
+        fontWeight = FontWeight.normal;
+        statusIcon = Icons.radio_button_unchecked;
+        statusColor = Colors.grey.shade400;
+        break;
+      case ValidationStatus.validating:
+        iconColor = ElegantLightTheme.primaryBlue;
+        textColor = ElegantLightTheme.primaryBlue;
+        fontWeight = FontWeight.w500;
+        statusIcon = Icons.hourglass_empty;
+        statusColor = ElegantLightTheme.primaryBlue;
+        break;
+      case ValidationStatus.valid:
+        iconColor = ElegantLightTheme.primaryBlue;
+        textColor = ElegantLightTheme.textPrimary;
+        fontWeight = FontWeight.w500;
+        statusIcon = Icons.check_circle;
+        statusColor = Colors.green.shade500;
+        break;
+      case ValidationStatus.duplicate:
+        iconColor = Colors.red.shade400;
+        textColor = Colors.red.shade600;
+        fontWeight = FontWeight.w500;
+        statusIcon = Icons.cancel;
+        statusColor = Colors.red.shade500;
+        break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: iconColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: textColor,
+                fontWeight: fontWeight,
               ),
             ),
           ),
-
-          // Contenido colapsable
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child: isExpanded
-                ? Container(
-                    padding: const EdgeInsets.all(16),
-                    child: child,
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: status == ValidationStatus.validating
+                ? SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(statusColor),
+                    ),
                   )
-                : const SizedBox.shrink(),
+                : Icon(
+                    statusIcon,
+                    key: ValueKey(status),
+                    size: 16,
+                    color: statusColor,
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildContactSection(BuildContext context) {
-    // Esta sección ya no se usa en mobile/tablet porque se integró en _buildPersonalSection
-    // Solo se mantiene para retrocompatibilidad con desktop si es necesario
-    return const SizedBox.shrink();
-  }
+  Widget _buildProgressBar() {
+    return GetBuilder<CustomerFormController>(
+      builder: (ctrl) {
+        return AnimatedBuilder(
+          animation: Listenable.merge([
+            ctrl.firstNameController,
+            ctrl.lastNameController,
+            ctrl.documentNumberController,
+            ctrl.emailController,
+            ctrl.phoneController,
+          ]),
+          builder: (context, child) {
+            int completed = 0;
+            bool hasErrors = false;
+            const total = 6; // Total de campos obligatorios
 
-  Widget _buildConfigurationSection(BuildContext context) {
-    // Esta sección ya no se usa en mobile/tablet porque se integró en _buildPersonalSection
-    return const SizedBox.shrink();
-  }
+            // Verificar cada campo
+            if (ctrl.firstNameController.text.trim().length >= 2) completed++;
+            if (ctrl.lastNameController.text.trim().length >= 2) completed++;
+            if (true) completed++; // Tipo de documento siempre válido
 
-  Widget _buildFinancialSection(BuildContext context) {
-    // Esta sección ya no se usa en mobile/tablet porque se integró en _buildPersonalSection
-    return const SizedBox.shrink();
-  }
+            // Documento: válido solo si tiene contenido Y está disponible
+            final docText = ctrl.documentNumberController.text.trim();
+            if (docText.length >= 3 && ctrl.documentAvailable && !ctrl.isValidatingDocument) {
+              completed++;
+            } else if (!ctrl.documentAvailable) {
+              hasErrors = true;
+            }
 
-  Widget _buildPersonalFields(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Nombres
-        Row(
-          children: [
-            Expanded(
-              child: CustomTextFieldSafe(
-                controller: controller.firstNameController,
-                label: 'Nombre *',
-                hint: 'Ej: Juan',
-                prefixIcon: Icons.person,
-                validator: controller.validateFirstName,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: CustomTextFieldSafe(
-                controller: controller.lastNameController,
-                label: 'Apellido *',
-                hint: 'Ej: Pérez',
-                prefixIcon: Icons.person_outline,
-                validator: controller.validateLastName,
-              ),
-            ),
-          ],
-        ),
+            // Email: válido solo si tiene formato correcto Y está disponible
+            final emailText = ctrl.emailController.text.trim();
+            if (GetUtils.isEmail(emailText) && ctrl.emailAvailable && !ctrl.isValidatingEmail) {
+              completed++;
+            } else if (!ctrl.emailAvailable) {
+              hasErrors = true;
+            }
 
-        SizedBox(height: context.verticalSpacing),
+            if (ctrl.phoneController.text.trim().length >= 7) completed++;
 
-        // Nombre de empresa (opcional)
-        CustomTextFieldSafe(
-          controller: controller.companyNameController,
-          label: 'Nombre de la Empresa',
-          hint: 'Ej: Acme Corporation (opcional)',
-          prefixIcon: Icons.business,
-          helperText: 'Solo si el cliente representa una empresa',
-        ),
+            final progress = completed / total;
+            final percentage = (progress * 100).toInt();
 
-        SizedBox(height: context.verticalSpacing),
+            // Determinar color basado en errores
+            Color progressColor;
+            if (hasErrors) {
+              progressColor = Colors.red;
+            } else if (progress == 1.0) {
+              progressColor = Colors.green;
+            } else {
+              progressColor = ElegantLightTheme.primaryBlue;
+            }
 
-        // Tipo y número de documento
-        if (context.isMobile) ...[
-          GetBuilder<CustomerFormController>(
-            builder:
-                (controller) => Container(
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.glassGradient,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Progreso',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: ElegantLightTheme.textSecondary,
                       ),
-                    ],
+                    ),
+                    Text(
+                      '$percentage%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: progressColor,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                    minHeight: 6,
                   ),
-                  child: DropdownButtonFormField<DocumentType>(
-                    value: controller.selectedDocumentType,
-                    decoration: InputDecoration(
-                      prefixIcon: Container(
-                        margin: const EdgeInsets.all(8),
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          gradient: ElegantLightTheme.primaryGradient,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.badge, color: Colors.white, size: 18),
-                      ),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      isDense: true,
-                    ),
-                    isExpanded: true,
-                    selectedItemBuilder: (BuildContext context) {
-                      return DocumentType.values.map((type) {
-                        return Align(
-                          alignment: Alignment.centerLeft,
+                ),
+                if (hasErrors)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning, size: 14, color: Colors.red.shade500),
+                        const SizedBox(width: 4),
+                        Expanded(
                           child: Text(
-                            'Tipo de Documento *',
+                            'Hay datos duplicados, por favor corrígelos',
                             style: TextStyle(
-                              fontSize: 14,
-                              color: ElegantLightTheme.textPrimary,
+                              fontSize: 11,
+                              color: Colors.red.shade600,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                        );
-                      }).toList();
-                    },
-                    items:
-                        DocumentType.values.map((type) {
-                          return DropdownMenuItem(
-                            value: type,
-                            child: Text(
-                              _getDocumentTypeLabel(type, context),
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          );
-                        }).toList(),
-                    onChanged: (DocumentType? value) {
-                      if (value != null) {
-                        controller.changeDocumentType(value);
-                      }
-                    },
+                        ),
+                      ],
+                    ),
+                  )
+                else if (progress == 1.0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, size: 14, color: Colors.green.shade500),
+                        const SizedBox(width: 4),
+                        Text(
+                          '¡Formulario completo!',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.green.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-          ),
-          SizedBox(height: context.verticalSpacing),
-          CustomTextFieldSafe(
-            controller: controller.documentNumberController,
-            label: 'Número de Documento *',
-            hint: 'Ej: 12345678',
-            prefixIcon: Icons.numbers,
-            validator: controller.validateDocumentNumber,
-            onChanged: controller.onDocumentNumberChanged,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-          ),
-        ] else ...[
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildQuickActionsCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             children: [
-              Expanded(
-                flex: 3,
-                child: GetBuilder<CustomerFormController>(
-                  builder:
-                      (controller) => Container(
-                        decoration: BoxDecoration(
-                          gradient: ElegantLightTheme.glassGradient,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: DropdownButtonFormField<DocumentType>(
-                          value: controller.selectedDocumentType,
-                          decoration: InputDecoration(
-                            prefixIcon: Container(
-                              margin: const EdgeInsets.all(8),
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                gradient: ElegantLightTheme.primaryGradient,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.badge, color: Colors.white, size: 18),
-                            ),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            isDense: true,
-                          ),
-                          isExpanded: true,
-                          selectedItemBuilder: (BuildContext context) {
-                            return DocumentType.values.map((type) {
-                              return Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  'Tipo de Documento *',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: ElegantLightTheme.textPrimary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              );
-                            }).toList();
-                          },
-                          items:
-                              DocumentType.values.map((type) {
-                                return DropdownMenuItem(
-                                  value: type,
-                                  child: Text(
-                                    _getDocumentTypeLabel(type, context),
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                );
-                              }).toList(),
-                          onChanged: (DocumentType? value) {
-                            if (value != null) {
-                              controller.changeDocumentType(value);
-                            }
-                          },
-                        ),
-                      ),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.flash_on,
+                  size: 16,
+                  color: Colors.orange,
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 2,
-                child: CustomTextFieldSafe(
-                  controller: controller.documentNumberController,
-                  label: 'Número de Documento *',
-                  hint: 'Ej: 12345678',
-                  prefixIcon: Icons.numbers,
-                  validator: controller.validateDocumentNumber,
-                  onChanged: controller.onDocumentNumberChanged,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+              const SizedBox(width: 8),
+              const Text(
+                'Acciones Rápidas',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          _buildQuickActionButton(
+            'Limpiar formulario',
+            Icons.refresh,
+            Colors.orange,
+            () => _showClearConfirmation(context),
+          ),
+          const SizedBox(height: 8),
+          _buildQuickActionButton(
+            'Ver todos los clientes',
+            Icons.people,
+            ElegantLightTheme.primaryBlue,
+            () => Get.back(),
           ),
         ],
+      ),
+    );
+  }
 
-        // Indicador de disponibilidad del documento
-        GetBuilder<CustomerFormController>(
-          builder: (controller) {
-            if (controller.isValidatingDocument) {
-              return Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.infoGradient.scale(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          ElegantLightTheme.primaryBlue,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Verificando disponibilidad...',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: ElegantLightTheme.primaryBlue,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            if (!controller.documentAvailable) {
-              return Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.red.shade50,
-                      Colors.red.shade100,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.errorGradient,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.error,
-                        color: Colors.white,
-                        size: 14,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Documento ya registrado',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-
-        SizedBox(height: context.verticalSpacing),
-
-        // Fecha de nacimiento
-        Container(
+  Widget _buildQuickActionButton(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            gradient: ElegantLightTheme.glassGradient,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
+            color: color.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _selectBirthDate(context),
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.infoGradient,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.calendar_today,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipsCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.blue.shade50,
+            Colors.blue.shade100.withValues(alpha: 0.5),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.blue.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.lightbulb,
+                  size: 16,
+                  color: Colors.blue,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Consejos',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Colors.blue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '• Los campos con * son obligatorios\n'
+            '• El email y documento se verifican automáticamente\n'
+            '• Puedes agregar notas para información adicional',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.blue.shade700,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarActionButtons(BuildContext context) {
+    return GetBuilder<CustomerFormController>(
+      builder: (ctrl) => Column(
+        children: [
+          // Botón Guardar
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: ctrl.isSaving ? null : () => _submitForm(),
+              icon: ctrl.isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
                         color: Colors.white,
-                        size: 18,
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: GetBuilder<CustomerFormController>(
-                        builder:
-                            (controller) => Text(
-                              controller.birthDate != null
-                                  ? 'Fecha de Nacimiento: ${_formatDate(controller.birthDate!)}'
-                                  : 'Fecha de Nacimiento (opcional)',
-                              style: TextStyle(
-                                color:
-                                    controller.birthDate != null
-                                        ? ElegantLightTheme.textPrimary
-                                        : ElegantLightTheme.textSecondary,
-                                fontSize: 14,
-                                fontWeight: controller.birthDate != null
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
-                              ),
-                            ),
-                      ),
-                    ),
-                    GetBuilder<CustomerFormController>(
-                      builder: (controller) {
-                        if (controller.birthDate != null) {
-                          return IconButton(
-                            icon: const Icon(Icons.clear, size: 20),
-                            onPressed: () => controller.changeBirthDate(null),
-                            tooltip: 'Limpiar fecha',
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.red.withValues(alpha: 0.1),
-                              foregroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ],
+                    )
+                  : const Icon(Icons.save, size: 18),
+              label: Text(ctrl.submitButtonText),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ElegantLightTheme.primaryBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 10),
+          // Botón Cancelar
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Get.back(),
+              icon: const Icon(Icons.close, size: 18),
+              label: const Text('Cancelar'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildContactFields(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Email
-        CustomTextFieldSafe(
-          controller: controller.emailController,
-          label: 'Email *',
-          hint: 'ejemplo@correo.com',
-          prefixIcon: Icons.email,
-          validator: controller.validateEmail,
-          keyboardType: TextInputType.emailAddress,
-          onChanged: controller.onEmailChanged,
-          helperText: 'Dirección de correo electrónico principal',
-        ),
-
-        // Indicador de disponibilidad del email
-        GetBuilder<CustomerFormController>(
-          builder: (controller) {
-            if (controller.isValidatingEmail) {
-              return Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.infoGradient.scale(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          ElegantLightTheme.primaryBlue,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Verificando disponibilidad...',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: ElegantLightTheme.primaryBlue,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            if (!controller.emailAvailable) {
-              return Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.red.shade50,
-                      Colors.red.shade100,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.errorGradient,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.error,
-                        color: Colors.white,
-                        size: 14,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Email ya registrado',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-
-        SizedBox(height: context.verticalSpacing),
-
-        // Teléfonos
-        Row(
-          children: [
-            Expanded(
-              child: CustomTextFieldSafe(
-                controller: controller.phoneController,
-                label: 'Teléfono',
-                hint: '601234567',
-                prefixIcon: Icons.phone,
-                keyboardType: TextInputType.phone,
-                helperText: 'Teléfono fijo (opcional)',
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: CustomTextFieldSafe(
-                controller: controller.mobileController,
-                label: 'Móvil',
-                hint: '3001234567',
-                prefixIcon: Icons.phone_android,
-                keyboardType: TextInputType.phone,
-                helperText: 'Teléfono móvil (opcional)',
-              ),
-            ),
-          ],
-        ),
-
-        SizedBox(height: context.verticalSpacing),
-
-        // Dirección
-        CustomTextFieldSafe(
-          controller: controller.addressController,
-          label: 'Dirección',
-          hint: 'Calle 123 #45-67',
-          prefixIcon: Icons.location_on,
-          maxLines: 2,
-          helperText: 'Dirección física completa',
-        ),
-
-        SizedBox(height: context.verticalSpacing),
-
-        // Ciudad y Estado
-        Row(
-          children: [
-            Expanded(
-              child: CustomTextFieldSafe(
-                controller: controller.cityController,
-                label: 'Ciudad',
-                hint: 'Cúcuta',
-                prefixIcon: Icons.location_city,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: CustomTextFieldSafe(
-                controller: controller.stateController,
-                label: 'Departamento',
-                hint: 'Norte de Santander',
-                prefixIcon: Icons.map,
-              ),
-            ),
-          ],
-        ),
-
-        SizedBox(height: context.verticalSpacing),
-
-        // Código postal
-        CustomTextFieldSafe(
-          controller: controller.zipCodeController,
-          label: 'Código Postal',
-          hint: '540001',
-          prefixIcon: Icons.local_post_office,
-          helperText: 'Código postal de la ciudad',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildConfigurationFields(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Estado
-        Row(
+  void _showClearConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: ElegantLightTheme.warningGradient,
+                color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
-                Icons.toggle_on,
-                color: Colors.white,
-                size: 18,
-              ),
+              child: const Icon(Icons.warning, color: Colors.orange, size: 20),
             ),
             const SizedBox(width: 12),
-            Text(
-              'Estado del Cliente',
-              style: TextStyle(
-                fontSize: Responsive.getFontSize(context),
-                fontWeight: FontWeight.w700,
-                color: ElegantLightTheme.textPrimary,
-              ),
-            ),
+            const Text('Limpiar Formulario'),
           ],
         ),
-        const SizedBox(height: 16),
-        GetBuilder<CustomerFormController>(
-          builder:
-              (controller) => Column(
-                children:
-                    CustomerStatus.values.map((status) {
-                      final isSelected = controller.selectedStatus == status;
-                      final gradient = _getStatusGradient(status);
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          gradient: isSelected
-                              ? LinearGradient(
-                                  colors: [
-                                    gradient.colors[0].withValues(alpha: 0.15),
-                                    gradient.colors[1].withValues(alpha: 0.1),
-                                  ],
-                                )
-                              : ElegantLightTheme.glassGradient,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected
-                                ? gradient.colors[0].withValues(alpha: 0.5)
-                                : ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
-                            width: isSelected ? 2 : 1,
-                          ),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: gradient.colors[0].withValues(alpha: 0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: RadioListTile<CustomerStatus>(
-                            title: Text(
-                              _getStatusLabel(status),
-                              style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                            subtitle: Text(
-                              _getStatusDescription(status),
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            value: status,
-                            groupValue: controller.selectedStatus,
-                            onChanged: (CustomerStatus? value) {
-                              if (value != null) {
-                                controller.changeStatus(value);
-                              }
-                            },
-                            dense: true,
-                            activeColor: gradient.colors[0],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-              ),
+        content: const Text(
+          '¿Estás seguro de que deseas limpiar todos los campos del formulario?',
         ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Limpiar todos los campos y resetear valores por defecto
+              controller.clearAllFields();
+              Navigator.pop(ctx);
+              Get.snackbar(
+                'Formulario limpiado',
+                'Todos los campos han sido limpiados',
+                snackPosition: SnackPosition.BOTTOM,
+                backgroundColor: Colors.green,
+                colorText: Colors.white,
+                duration: const Duration(seconds: 2),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Limpiar'),
+          ),
+        ],
+      ),
     );
   }
 
-  LinearGradient _getStatusGradient(CustomerStatus status) {
-    switch (status) {
-      case CustomerStatus.active:
-        return ElegantLightTheme.successGradient;
-      case CustomerStatus.inactive:
-        return ElegantLightTheme.warningGradient;
-      case CustomerStatus.suspended:
-        return ElegantLightTheme.errorGradient;
-    }
+  // ==================== SECTION BUILDER ====================
+  Widget _buildSection(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
+                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.02),
+                ],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: children,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildFinancialFields(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Límite de crédito
+  // ==================== FIELD ROW BUILDER ====================
+  /// Crea una fila de campos que se adapta a mobile/tablet/desktop
+  Widget _buildFieldRow(BuildContext context, List<Widget> children) {
+    final isMobile = Responsive.isMobile(context);
+
+    if (isMobile) {
+      // En mobile, campos en columna
+      return Column(
+        children: children.map((child) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: child,
+          );
+        }).toList(),
+      );
+    }
+
+    // En tablet/desktop, campos en fila
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children.asMap().entries.map((entry) {
+          final index = entry.key;
+          final child = entry.value;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: index > 0 ? 8 : 0,
+                right: index < children.length - 1 ? 8 : 0,
+              ),
+              child: child,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ==================== PERSONAL INFO FIELDS ====================
+  List<Widget> _buildPersonalInfoFields(BuildContext context) {
+    return [
+      _buildFieldRow(context, [
+        CustomTextFieldSafe(
+          controller: controller.firstNameController,
+          label: 'Nombre *',
+          hint: 'Ingrese el nombre',
+          prefixIcon: Icons.person,
+          validator: controller.validateFirstName,
+        ),
+        CustomTextFieldSafe(
+          controller: controller.lastNameController,
+          label: 'Apellido *',
+          hint: 'Ingrese el apellido',
+          prefixIcon: Icons.person_outline,
+          validator: controller.validateLastName,
+        ),
+      ]),
+      _buildFieldRow(context, [
+        CustomTextFieldSafe(
+          controller: controller.companyNameController,
+          label: 'Empresa (Opcional)',
+          hint: 'Nombre de la empresa',
+          prefixIcon: Icons.business,
+        ),
+        _buildDateSelector(context),
+      ]),
+    ];
+  }
+
+  // ==================== DOCUMENT FIELDS ====================
+  List<Widget> _buildDocumentFields(BuildContext context) {
+    return [
+      _buildFieldRow(context, [
+        _buildDocumentTypeSelector(context),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CustomTextFieldSafe(
+              controller: controller.documentNumberController,
+              label: 'Número de Documento *',
+              hint: 'Ingrese el número',
+              prefixIcon: Icons.numbers,
+              validator: controller.validateDocumentNumber,
+              onChanged: controller.onDocumentNumberChanged,
+            ),
+            // Indicador de validación
+            GetBuilder<CustomerFormController>(
+              builder: (ctrl) {
+                if (ctrl.isValidatingDocument) {
+                  return _buildValidationIndicator(
+                    'Verificando...',
+                    ElegantLightTheme.primaryBlue,
+                    isLoading: true,
+                  );
+                }
+                if (!ctrl.documentAvailable) {
+                  return _buildValidationIndicator(
+                    'Documento ya registrado',
+                    Colors.red,
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
+        ),
+      ]),
+    ];
+  }
+
+  // ==================== CONTACT FIELDS ====================
+  List<Widget> _buildContactFields(BuildContext context) {
+    return [
+      _buildFieldRow(context, [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CustomTextFieldSafe(
+              controller: controller.emailController,
+              label: 'Email *',
+              hint: 'correo@ejemplo.com',
+              prefixIcon: Icons.email,
+              keyboardType: TextInputType.emailAddress,
+              validator: controller.validateEmail,
+              onChanged: controller.onEmailChanged,
+            ),
+            // Indicador de validación
+            GetBuilder<CustomerFormController>(
+              builder: (ctrl) {
+                if (ctrl.isValidatingEmail) {
+                  return _buildValidationIndicator(
+                    'Verificando...',
+                    ElegantLightTheme.primaryBlue,
+                    isLoading: true,
+                  );
+                }
+                if (!ctrl.emailAvailable) {
+                  return _buildValidationIndicator(
+                    'Email ya registrado',
+                    Colors.red,
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
+        ),
+        CustomTextFieldSafe(
+          controller: controller.phoneController,
+          label: 'Teléfono *',
+          hint: '+57 300 123 4567',
+          prefixIcon: Icons.phone,
+          keyboardType: TextInputType.phone,
+        ),
+      ]),
+      _buildFieldRow(context, [
+        CustomTextFieldSafe(
+          controller: controller.mobileController,
+          label: 'Celular (Opcional)',
+          hint: '+57 300 123 4567',
+          prefixIcon: Icons.smartphone,
+          keyboardType: TextInputType.phone,
+        ),
+      ]),
+    ];
+  }
+
+  // ==================== ADDRESS FIELDS ====================
+  List<Widget> _buildAddressFields(BuildContext context) {
+    return [
+      _buildFieldRow(context, [
+        CustomTextFieldSafe(
+          controller: controller.addressController,
+          label: 'Dirección',
+          hint: 'Calle, número, apartamento',
+          prefixIcon: Icons.home,
+          maxLines: 2,
+        ),
+      ]),
+      _buildFieldRow(context, [
+        CustomTextFieldSafe(
+          controller: controller.cityController,
+          label: 'Ciudad',
+          hint: 'Ciudad',
+          prefixIcon: Icons.location_city,
+        ),
+        CustomTextFieldSafe(
+          controller: controller.stateController,
+          label: 'Departamento/Estado',
+          hint: 'Departamento',
+          prefixIcon: Icons.map,
+        ),
+        CustomTextFieldSafe(
+          controller: controller.zipCodeController,
+          label: 'Código Postal',
+          hint: '000000',
+          prefixIcon: Icons.pin_drop,
+          keyboardType: TextInputType.number,
+        ),
+      ]),
+    ];
+  }
+
+  // ==================== CONFIG FIELDS ====================
+  List<Widget> _buildConfigFields(BuildContext context) {
+    return [
+      _buildFieldRow(context, [
+        _buildStatusSelector(context),
         CustomTextFieldSafe(
           controller: controller.creditLimitController,
           label: 'Límite de Crédito',
-          hint: '0',
-          prefixIcon: Icons.credit_card,
+          hint: '3.000.000',
+          prefixIcon: Icons.attach_money,
           keyboardType: TextInputType.number,
-          validator: controller.validateCreditLimit,
-          helperText: 'Monto máximo de crédito permitido',
+          inputFormatters: [
+            PriceInputFormatter(),
+          ],
         ),
-
-        SizedBox(height: context.verticalSpacing),
-
-        // Términos de pago
+      ]),
+      _buildFieldRow(context, [
         CustomTextFieldSafe(
           controller: controller.paymentTermsController,
           label: 'Términos de Pago (días)',
           hint: '30',
-          prefixIcon: Icons.schedule,
+          prefixIcon: Icons.calendar_today,
           keyboardType: TextInputType.number,
-          validator: controller.validatePaymentTerms,
-          helperText: 'Días para el pago de facturas',
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         ),
+      ]),
+    ];
+  }
 
-        SizedBox(height: context.verticalSpacing),
+  // ==================== NOTES FIELDS ====================
+  List<Widget> _buildNotesFields(BuildContext context) {
+    return [
+      CustomTextFieldSafe(
+        controller: controller.notesController,
+        label: 'Notas',
+        hint: 'Información adicional sobre el cliente...',
+        prefixIcon: Icons.note_add,
+        maxLines: 4,
+      ),
+    ];
+  }
 
-        // Notas
-        CustomTextFieldSafe(
-          controller: controller.notesController,
-          label: 'Notas',
-          hint: 'Información adicional...',
-          prefixIcon: Icons.note,
-          maxLines: 3,
-          helperText: 'Información adicional sobre el cliente',
+  // ==================== SELECTOR: DOCUMENT TYPE ====================
+  Widget _buildDocumentTypeSelector(BuildContext context) {
+    return Obx(() => _buildSelector(
+      context,
+      label: 'Tipo de Documento *',
+      value: _getDocumentTypeName(controller.selectedDocumentType),
+      icon: Icons.badge,
+      onTap: () => _showDocumentTypeSelector(context),
+    ));
+  }
+
+  // ==================== SELECTOR: STATUS ====================
+  Widget _buildStatusSelector(BuildContext context) {
+    return Obx(() => _buildSelector(
+      context,
+      label: 'Estado',
+      value: _getStatusName(controller.selectedStatus),
+      icon: Icons.toggle_on,
+      iconColor: _getStatusColor(controller.selectedStatus),
+      onTap: () => _showStatusSelector(context),
+    ));
+  }
+
+  // ==================== SELECTOR: DATE ====================
+  Widget _buildDateSelector(BuildContext context) {
+    return Obx(() => _buildSelector(
+      context,
+      label: 'Fecha de Nacimiento',
+      value: controller.birthDate != null
+          ? _formatDate(controller.birthDate!)
+          : 'Seleccionar fecha',
+      icon: Icons.calendar_today,
+      onTap: () => _selectDate(context),
+    ));
+  }
+
+  // ==================== GENERIC SELECTOR WIDGET ====================
+  Widget _buildSelector(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required IconData icon,
+    required VoidCallback onTap,
+    Color? iconColor,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon, color: iconColor ?? ElegantLightTheme.primaryBlue),
+            suffixIcon: const Icon(Icons.arrow_drop_down),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: Colors.grey.shade300,
+                width: 1.5,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              color: value.contains('Seleccionar')
+                  ? ElegantLightTheme.textTertiary
+                  : ElegantLightTheme.textPrimary,
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildActions(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
-
-    return GetBuilder<CustomerFormController>(
-      builder:
-          (controller) => Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: isMobile ? 44 : 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: ElegantLightTheme.primaryBlue,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _handleBackPress,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.close,
-                              color: ElegantLightTheme.primaryBlue,
-                              size: isMobile ? 18 : 20,
-                            ),
-                            SizedBox(width: isMobile ? 6 : 8),
-                            Text(
-                              'Cancelar',
-                              style: TextStyle(
-                                color: ElegantLightTheme.primaryBlue,
-                                fontWeight: FontWeight.w600,
-                                fontSize: isMobile ? 14 : 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+  // ==================== VALIDATION INDICATOR ====================
+  Widget _buildValidationIndicator(String text, Color color, {bool isLoading = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          if (isLoading)
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(color),
               ),
-              SizedBox(width: isMobile ? 12 : 16),
-              Expanded(
-                child: Container(
-                  height: isMobile ? 44 : 48,
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.successGradient,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: ElegantLightTheme.elevatedShadow,
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: controller.isSaving ? null : controller.saveCustomer,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Center(
-                        child: controller.isSaving
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.save,
-                                    color: Colors.white,
-                                    size: isMobile ? 18 : 20,
-                                  ),
-                                  SizedBox(width: isMobile ? 6 : 8),
-                                  Text(
-                                    controller.submitButtonText,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: isMobile ? 14 : 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Widget _buildBottomActions(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(context.responsivePadding.left),
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
-        border: Border(
-          top: BorderSide(
-            color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+            )
+          else
+            Icon(Icons.error, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(fontSize: 11, color: color),
           ),
         ],
       ),
-      child: SafeArea(child: _buildActions(context)),
     );
   }
 
-  // ==================== ACTION METHODS ====================
-
-  void _handleMenuAction(String action, BuildContext context) {
-    switch (action) {
-      case 'reset':
-        _resetForm();
-        break;
-      case 'duplicate':
-        _duplicateCustomer();
-        break;
-      case 'validate':
-        _validateForm();
-        break;
-      case 'clear':
-        _showClearConfirmation();
-        break;
-    }
+  // ==================== ACTION BUTTONS ====================
+  Widget _buildActionButtons(BuildContext context) {
+    return GetBuilder<CustomerFormController>(
+      builder: (ctrl) => Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => Get.back(),
+              icon: const Icon(Icons.close),
+              label: const Text('Cancelar'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed: ctrl.isSaving ? null : () => _submitForm(),
+              icon: ctrl.isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.save),
+              label: Text(ctrl.submitButtonText),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ElegantLightTheme.primaryBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _handleBackPress() {
-    if (_hasUnsavedChanges()) {
-      _showUnsavedChangesDialog();
-    } else {
-      controller.cancel();
-    }
+  // ==================== BOTTOM SHEET: DOCUMENT TYPE ====================
+  void _showDocumentTypeSelector(BuildContext context) {
+    _showOptionsBottomSheet(
+      context,
+      title: 'Tipo de Documento',
+      options: DocumentType.values.map((type) => _OptionItem(
+        value: type,
+        label: _getDocumentTypeName(type),
+        icon: Icons.badge,
+        isSelected: controller.selectedDocumentType == type,
+      )).toList(),
+      onSelected: (value) => controller.changeDocumentType(value as DocumentType),
+    );
   }
 
-  void _resetForm() {
-    if (controller.isEditMode && controller.hasCustomer) {
-      Get.dialog(
-        AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Container(
+  // ==================== BOTTOM SHEET: STATUS ====================
+  void _showStatusSelector(BuildContext context) {
+    _showOptionsBottomSheet(
+      context,
+      title: 'Estado del Cliente',
+      options: CustomerStatus.values.map((status) => _OptionItem(
+        value: status,
+        label: _getStatusName(status),
+        icon: _getStatusIcon(status),
+        iconColor: _getStatusColor(status),
+        isSelected: controller.selectedStatus == status,
+      )).toList(),
+      onSelected: (value) => controller.changeStatus(value as CustomerStatus),
+    );
+  }
+
+  // ==================== GENERIC BOTTOM SHEET ====================
+  void _showOptionsBottomSheet(
+    BuildContext context, {
+    required String title,
+    required List<_OptionItem> options,
+    required Function(dynamic) onSelected,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.list, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            // Options
+            ...options.map((option) => ListTile(
+              leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.primaryGradient,
+                  color: (option.iconColor ?? ElegantLightTheme.primaryBlue)
+                      .withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                child: Icon(
+                  option.icon,
+                  color: option.iconColor ?? ElegantLightTheme.primaryBlue,
+                  size: 20,
+                ),
               ),
-              const SizedBox(width: 12),
-              const Text(
-                'Restablecer Formulario',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          content: Text(
-            '¿Estás seguro que deseas restablecer el formulario a los valores originales?\n\n'
-            'Se perderán todos los cambios realizados.',
-            style: TextStyle(
-              color: ElegantLightTheme.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-          actions: [
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: ElegantLightTheme.textSecondary,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              ),
-              onPressed: () => Get.back(),
-              child: const Text('Cancelar', style: TextStyle(fontWeight: FontWeight.w600)),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: ElegantLightTheme.primaryBlue,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () {
-                Get.back();
-                controller.loadCustomer(controller.currentCustomer!.id);
-                _showSuccess('Formulario restablecido');
+              title: Text(option.label),
+              trailing: option.isSelected
+                  ? Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.primaryGradient,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.check, color: Colors.white, size: 16),
+                    )
+                  : null,
+              onTap: () {
+                onSelected(option.value);
+                Navigator.pop(ctx);
               },
-              child: const Text('Restablecer', style: TextStyle(fontWeight: FontWeight.w600)),
-            ),
+            )),
+            const SizedBox(height: 16),
           ],
         ),
-      );
-    }
-  }
-
-  void _duplicateCustomer() {
-    if (!controller.isEditMode || !controller.hasCustomer) return;
-
-    Get.dialog(
-      AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: ElegantLightTheme.successGradient,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.copy, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Duplicar Cliente',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Text(
-          '¿Deseas crear un nuevo cliente basado en la información actual?\n\n'
-          'Se abrirá un nuevo formulario con los datos copiados.',
-          style: TextStyle(
-            color: ElegantLightTheme.textSecondary,
-            fontSize: 14,
-          ),
-        ),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: ElegantLightTheme.textSecondary,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: ElegantLightTheme.primaryBlue,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              Get.back();
-              // TODO: Implementar duplicación
-              _showSuccess('Funcionalidad de duplicación próximamente');
-            },
-            child: const Text('Duplicar', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
       ),
     );
   }
 
-  void _validateForm() {
-    final isValid = controller.formKey.currentState?.validate() ?? false;
-    final emailValid = controller.emailAvailable;
-    final documentValid = controller.documentAvailable;
-
-    String message;
-    if (isValid && emailValid && documentValid) {
-      message = '✅ El formulario es válido y está listo para guardar';
-      _showSuccess(message);
-    } else {
-      List<String> errors = [];
-      if (!isValid) errors.add('Hay campos con errores');
-      if (!emailValid) errors.add('Email no disponible');
-      if (!documentValid) errors.add('Documento no disponible');
-
-      message = '❌ Errores encontrados:\n${errors.join('\n')}';
-      _showError('Formulario inválido', message);
-    }
-  }
-
-  void _showClearConfirmation() {
-    Get.dialog(
-      AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: ElegantLightTheme.warningGradient,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.clear_all, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Limpiar Formulario',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Text(
-          '¿Estás seguro que deseas limpiar todo el formulario?\n\n'
-          'Se perderá toda la información ingresada.',
-          style: TextStyle(
-            color: ElegantLightTheme.textSecondary,
-            fontSize: 14,
-          ),
-        ),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: ElegantLightTheme.textSecondary,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red.shade700,
-              backgroundColor: Colors.red.shade50,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              Get.back();
-              _clearForm();
-              _showSuccess('Formulario limpiado');
-            },
-            child: const Text('Limpiar', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showUnsavedChangesDialog() {
-    Get.dialog(
-      AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: ElegantLightTheme.warningGradient,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.warning, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Cambios sin Guardar',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Text(
-          'Hay cambios sin guardar en el formulario.\n\n'
-          '¿Qué deseas hacer?',
-          style: TextStyle(
-            color: ElegantLightTheme.textSecondary,
-            fontSize: 14,
-          ),
-        ),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: ElegantLightTheme.textSecondary,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            onPressed: () => Get.back(),
-            child: const Text('Continuar Editando', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red.shade700,
-              backgroundColor: Colors.red.shade50,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              Get.back();
-              controller.cancel();
-            },
-            child: const Text('Salir sin Guardar', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: ElegantLightTheme.primaryBlue,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              Get.back();
-              controller.saveCustomer();
-            },
-            child: const Text('Guardar y Salir', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _selectBirthDate(BuildContext context) async {
+  // ==================== DATE PICKER ====================
+  Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate:
-          controller.birthDate ??
-          DateTime.now().subtract(const Duration(days: 365 * 25)),
+      initialDate: controller.birthDate ?? DateTime(2000),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: ColorScheme.light(
-              primary: Theme.of(context).primaryColor,
+              primary: ElegantLightTheme.primaryBlue,
             ),
           ),
           child: child!,
         );
       },
     );
-
     if (picked != null) {
       controller.changeBirthDate(picked);
     }
   }
 
-  void _clearForm() {
-    controller.firstNameController.clear();
-    controller.lastNameController.clear();
-    controller.companyNameController.clear();
-    controller.emailController.clear();
-    controller.phoneController.clear();
-    controller.mobileController.clear();
-    controller.documentNumberController.clear();
-    controller.addressController.clear();
-    controller.cityController.clear();
-    controller.stateController.clear();
-    controller.zipCodeController.clear();
-    controller.creditLimitController.text = '0';
-    controller.paymentTermsController.text = '30';
-    controller.notesController.clear();
-
-    controller.changeStatus(CustomerStatus.active);
-    controller.changeDocumentType(DocumentType.cc);
-    controller.changeBirthDate(null);
+  // ==================== SUBMIT FORM ====================
+  void _submitForm() {
+    if (controller.formKey.currentState?.validate() ?? false) {
+      controller.saveCustomer();
+    }
   }
 
-  // ==================== HELPER METHODS ====================
-
-  bool _hasUnsavedChanges() {
-    // TODO: Implementar lógica para detectar cambios
-    return controller.firstNameController.text.isNotEmpty ||
-        controller.lastNameController.text.isNotEmpty ||
-        controller.emailController.text.isNotEmpty;
-  }
-
-  bool _isFormValid() {
-    return controller.firstNameController.text.isNotEmpty &&
-        controller.lastNameController.text.isNotEmpty &&
-        controller.emailController.text.isNotEmpty &&
-        controller.documentNumberController.text.isNotEmpty &&
-        controller.emailAvailable &&
-        controller.documentAvailable;
-  }
-
-  double _calculateFormCompletion() {
-    int totalFields = 0;
-    int completedFields = 0;
-
-    // ✅ CAMPOS OBLIGATORIOS (6 campos)
-    totalFields += 6;
-
-    // 1. Nombre
-    if (controller.firstNameController.text.trim().isNotEmpty) {
-      completedFields++;
-    }
-
-    // 2. Apellido
-    if (controller.lastNameController.text.trim().isNotEmpty) {
-      completedFields++;
-    }
-
-    // 3. Email (debe estar lleno Y tener formato válido)
-    final email = controller.emailController.text.trim();
-    if (email.isNotEmpty && _isValidEmail(email)) {
-      completedFields++;
-    }
-
-    // 4. Teléfono
-    if (controller.phoneController.text.trim().isNotEmpty) {
-      completedFields++;
-    }
-
-    // 5. Tipo de Documento
-    if (controller.selectedDocumentType != null) {
-      completedFields++;
-    }
-
-    // 6. Número de Documento (debe estar lleno Y disponible)
-    final docNumber = controller.documentNumberController.text.trim();
-    if (docNumber.isNotEmpty && controller.documentAvailable) {
-      completedFields++;
-    }
-
-    // ✅ CAMPOS OPCIONALES IMPORTANTES (peso menor)
-    // Agregar 0.5 puntos por cada campo opcional completado
-    double optionalPoints = 0;
-    int maxOptionalPoints = 4;
-
-    // Dirección
-    if (controller.addressController.text.trim().isNotEmpty) {
-      optionalPoints += 0.5;
-    }
-
-    // Ciudad
-    if (controller.cityController.text.trim().isNotEmpty) {
-      optionalPoints += 0.5;
-    }
-
-    // Teléfono móvil
-    if (controller.mobileController.text.trim().isNotEmpty) {
-      optionalPoints += 0.5;
-    }
-
-    // Fecha de nacimiento
-    if (controller.birthDate != null) {
-      optionalPoints += 0.5;
-    }
-
-    // Límite de crédito
-    if (controller.creditLimitController.text.trim().isNotEmpty) {
-      optionalPoints += 0.5;
-    }
-
-    // Términos de pago
-    if (controller.paymentTermsController.text.trim().isNotEmpty) {
-      optionalPoints += 0.5;
-    }
-
-    // Notas
-    if (controller.notesController.text.trim().isNotEmpty) {
-      optionalPoints += 0.5;
-    }
-
-    // Estado
-    if (controller.selectedStatus != null) {
-      optionalPoints += 0.5;
-    }
-
-    // Calcular porcentaje: campos obligatorios tienen más peso
-    double completion = (completedFields + optionalPoints) / (totalFields + maxOptionalPoints);
-
-    return completion.clamp(0.0, 1.0);
-  }
-
-  // ✅ Validación de email
-  bool _isValidEmail(String email) {
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    );
-    return emailRegex.hasMatch(email);
-  }
-
-  // ✅ Verificar si los campos obligatorios están llenos
-  bool _areRequiredFieldsFilled() {
-    return controller.firstNameController.text.trim().isNotEmpty &&
-        controller.lastNameController.text.trim().isNotEmpty &&
-        controller.emailController.text.trim().isNotEmpty &&
-        controller.phoneController.text.trim().isNotEmpty &&
-        controller.selectedDocumentType != null &&
-        controller.documentNumberController.text.trim().isNotEmpty;
-  }
-
-  String _getFormCompletionText() {
-    final completion = _calculateFormCompletion();
-    final percentage = (completion * 100).round();
-    return '$percentage% completado';
-  }
-
-  String _getDocumentTypeLabel(DocumentType type, BuildContext context) {
-    // En TODAS las pantallas, usar nombres cortos y claros
+  // ==================== HELPERS ====================
+  String _getDocumentTypeName(DocumentType type) {
     switch (type) {
       case DocumentType.cc:
-        return 'DNI';
-      case DocumentType.nit:
-        return 'RUC';
+        return 'Cédula de Ciudadanía';
       case DocumentType.ce:
-        return 'CE';
+        return 'Cédula de Extranjería';
       case DocumentType.passport:
         return 'Pasaporte';
+      case DocumentType.nit:
+        return 'NIT';
       case DocumentType.other:
         return 'Otro';
     }
   }
 
-  String _getStatusLabel(CustomerStatus status) {
+  String _getStatusName(CustomerStatus status) {
     switch (status) {
       case CustomerStatus.active:
         return 'Activo';
@@ -3168,63 +1575,295 @@ class CustomerFormScreen extends GetView<CustomerFormController> {
     }
   }
 
-  String _getStatusDescription(CustomerStatus status) {
+  Color _getStatusColor(CustomerStatus status) {
     switch (status) {
       case CustomerStatus.active:
-        return 'Cliente puede realizar transacciones';
+        return Colors.green;
       case CustomerStatus.inactive:
-        return 'Cliente temporalmente inactivo';
+        return Colors.orange;
       case CustomerStatus.suspended:
-        return 'Cliente suspendido por políticas';
+        return Colors.red;
+    }
+  }
+
+  IconData _getStatusIcon(CustomerStatus status) {
+    switch (status) {
+      case CustomerStatus.active:
+        return Icons.check_circle;
+      case CustomerStatus.inactive:
+        return Icons.pause_circle;
+      case CustomerStatus.suspended:
+        return Icons.cancel;
     }
   }
 
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
+}
 
-  void _showError(String title, String message) {
-    Get.snackbar(
-      title,
-      message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red.shade50,
-      colorText: Colors.red.shade900,
-      icon: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          gradient: ElegantLightTheme.errorGradient,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(Icons.error, color: Colors.white, size: 20),
-      ),
-      duration: const Duration(seconds: 4),
-      margin: const EdgeInsets.all(16),
-      borderRadius: 12,
-      boxShadows: ElegantLightTheme.elevatedShadow,
+// ==================== OPTION ITEM MODEL ====================
+class _OptionItem {
+  final dynamic value;
+  final String label;
+  final IconData icon;
+  final Color? iconColor;
+  final bool isSelected;
+
+  _OptionItem({
+    required this.value,
+    required this.label,
+    required this.icon,
+    this.iconColor,
+    this.isSelected = false,
+  });
+}
+
+// ==================== VALIDATION STATUS ENUM ====================
+enum ValidationStatus {
+  pending,    // Campo vacío o incompleto (gris)
+  validating, // Verificando en servidor (azul con spinner)
+  valid,      // Campo válido y disponible (verde)
+  duplicate,  // Dato ya registrado (rojo con X)
+}
+
+// ==================== DEBOUNCED STATUS ITEM WIDGET ====================
+class _DebouncedStatusItem extends StatefulWidget {
+  final CustomerFormController controller;
+  final TextEditingController textController;
+  final String label;
+  final IconData icon;
+  final int minLength;
+  final bool Function(String)? customValidator;
+  final bool Function() isValidating;
+  final bool Function() isAvailable;
+  final String duplicateLabel;
+  final String validatingLabel;
+
+  const _DebouncedStatusItem({
+    required this.controller,
+    required this.textController,
+    required this.label,
+    required this.icon,
+    required this.minLength,
+    required this.isValidating,
+    required this.isAvailable,
+    required this.duplicateLabel,
+    required this.validatingLabel,
+    this.customValidator,
+  });
+
+  @override
+  State<_DebouncedStatusItem> createState() => _DebouncedStatusItemState();
+}
+
+class _DebouncedStatusItemState extends State<_DebouncedStatusItem> {
+  ValidationStatus _status = ValidationStatus.pending;
+  String _displayLabel = '';
+  Timer? _debounceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayLabel = widget.label;
+    widget.textController.addListener(_onTextChanged);
+    // Verificar estado inicial
+    _updateStatus();
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    widget.textController.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    // Cancelar timer anterior
+    _debounceTimer?.cancel();
+
+    final text = widget.textController.text.trim();
+
+    // Si está vacío, mostrar pending inmediatamente
+    if (text.isEmpty) {
+      setState(() {
+        _status = ValidationStatus.pending;
+        _displayLabel = widget.label;
+      });
+      return;
+    }
+
+    // Si no cumple validación básica, mostrar pending
+    if (widget.customValidator != null) {
+      if (!widget.customValidator!(text)) {
+        setState(() {
+          _status = ValidationStatus.pending;
+          _displayLabel = widget.label;
+        });
+        return;
+      }
+    } else if (text.length < widget.minLength) {
+      setState(() {
+        _status = ValidationStatus.pending;
+        _displayLabel = widget.label;
+      });
+      return;
+    }
+
+    // Debounce de 500ms antes de actualizar el estado
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _updateStatus();
+    });
+  }
+
+  void _updateStatus() {
+    if (!mounted) return;
+
+    final text = widget.textController.text.trim();
+
+    // Verificar condiciones
+    if (text.isEmpty) {
+      setState(() {
+        _status = ValidationStatus.pending;
+        _displayLabel = widget.label;
+      });
+      return;
+    }
+
+    // Validación personalizada (ej: email)
+    if (widget.customValidator != null && !widget.customValidator!(text)) {
+      setState(() {
+        _status = ValidationStatus.pending;
+        _displayLabel = widget.label;
+      });
+      return;
+    }
+
+    // Validación de longitud mínima
+    if (widget.customValidator == null && text.length < widget.minLength) {
+      setState(() {
+        _status = ValidationStatus.pending;
+        _displayLabel = widget.label;
+      });
+      return;
+    }
+
+    // Verificar si está validando
+    if (widget.isValidating()) {
+      setState(() {
+        _status = ValidationStatus.validating;
+        _displayLabel = widget.validatingLabel;
+      });
+      // Seguir verificando hasta que termine
+      Future.delayed(const Duration(milliseconds: 200), _updateStatus);
+      return;
+    }
+
+    // Verificar si está disponible
+    if (!widget.isAvailable()) {
+      setState(() {
+        _status = ValidationStatus.duplicate;
+        _displayLabel = widget.duplicateLabel;
+      });
+      return;
+    }
+
+    // Todo OK
+    setState(() {
+      _status = ValidationStatus.valid;
+      _displayLabel = widget.label;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // También escuchar cambios del controlador GetX
+    return GetBuilder<CustomerFormController>(
+      builder: (ctrl) {
+        // Actualizar estado cuando GetBuilder se reconstruye
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _updateStatus();
+        });
+
+        return _buildRow();
+      },
     );
   }
 
-  void _showSuccess(String message) {
-    Get.snackbar(
-      'Éxito',
-      message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.green.shade50,
-      colorText: Colors.green.shade900,
-      icon: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          gradient: ElegantLightTheme.successGradient,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: ElegantLightTheme.glowShadow,
-        ),
-        child: const Icon(Icons.check_circle, color: Colors.white, size: 20),
+  Widget _buildRow() {
+    Color iconColor;
+    Color textColor;
+    FontWeight fontWeight;
+    IconData statusIcon;
+    Color statusColor;
+
+    switch (_status) {
+      case ValidationStatus.pending:
+        iconColor = ElegantLightTheme.textTertiary;
+        textColor = ElegantLightTheme.textSecondary;
+        fontWeight = FontWeight.normal;
+        statusIcon = Icons.radio_button_unchecked;
+        statusColor = Colors.grey.shade400;
+        break;
+      case ValidationStatus.validating:
+        iconColor = ElegantLightTheme.primaryBlue;
+        textColor = ElegantLightTheme.primaryBlue;
+        fontWeight = FontWeight.w500;
+        statusIcon = Icons.hourglass_empty;
+        statusColor = ElegantLightTheme.primaryBlue;
+        break;
+      case ValidationStatus.valid:
+        iconColor = ElegantLightTheme.primaryBlue;
+        textColor = ElegantLightTheme.textPrimary;
+        fontWeight = FontWeight.w500;
+        statusIcon = Icons.check_circle;
+        statusColor = Colors.green.shade500;
+        break;
+      case ValidationStatus.duplicate:
+        iconColor = Colors.red.shade400;
+        textColor = Colors.red.shade600;
+        fontWeight = FontWeight.w500;
+        statusIcon = Icons.cancel;
+        statusColor = Colors.red.shade500;
+        break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(widget.icon, size: 14, color: iconColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _displayLabel,
+              style: TextStyle(
+                fontSize: 12,
+                color: textColor,
+                fontWeight: fontWeight,
+              ),
+            ),
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _status == ValidationStatus.validating
+                ? SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(statusColor),
+                    ),
+                  )
+                : Icon(
+                    statusIcon,
+                    key: ValueKey(_status),
+                    size: 16,
+                    color: statusColor,
+                  ),
+          ),
+        ],
       ),
-      duration: const Duration(seconds: 3),
-      margin: const EdgeInsets.all(16),
-      borderRadius: 12,
-      boxShadows: ElegantLightTheme.elevatedShadow,
     );
   }
 }

@@ -2,13 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../../../app/shared/widgets/custom_text_field_safe.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/products_controller.dart';
 import '../widgets/product_card_widget.dart';
+import '../widgets/product_skeleton_widget.dart';
 import '../../domain/entities/product.dart';
 
 class ProductsListScreen extends StatefulWidget {
@@ -259,8 +259,16 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
 
   Widget _buildDesktopLayout(BuildContext context) {
     return Obx(() {
-      if (controller.isLoading) {
-        return const LoadingWidget(message: 'Cargando productos...');
+      // Mostrar skeleton en desktop también mientras carga
+      if (controller.isLoading && controller.products.isEmpty) {
+        return Row(
+          children: [
+            _DesktopSidebar(controller: controller),
+            const Expanded(
+              child: ProductSkeletonList(itemCount: 6),
+            ),
+          ],
+        );
       }
 
       return Row(
@@ -305,15 +313,16 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
 
   Widget _buildProductsList() {
     return Obx(() {
-      if (controller.isLoading) {
-        return const LoadingWidget(message: 'Cargando productos...');
+      // Mostrar skeleton mientras carga inicialmente
+      if (controller.isLoading && controller.products.isEmpty) {
+        return const ProductSkeletonList(itemCount: 8);
       }
 
       final productList = controller.isSearchMode
           ? controller.searchResults
           : controller.products;
 
-      if (productList.isEmpty) {
+      if (productList.isEmpty && !controller.isLoading) {
         return _EmptyState(isSearching: controller.isSearchMode);
       }
 
@@ -321,28 +330,38 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
         onRefresh: controller.refreshProducts,
         child: Column(
           children: [
+            // Indicador de carga sutil en la parte superior cuando refresca
+            if (controller.isLoading && controller.products.isNotEmpty)
+              const LinearProgressIndicator(
+                backgroundColor: Colors.transparent,
+                valueColor: AlwaysStoppedAnimation<Color>(ElegantLightTheme.primaryBlue),
+              ),
+
             if (controller.totalPages > 1) _PaginationInfo(controller: controller),
 
             Expanded(
               child: ListView.builder(
                 controller: controller.scrollController,
                 padding: const EdgeInsets.all(16),
-                itemCount: productList.length,
+                // Optimización: cache más elementos para scroll suave
+                cacheExtent: 500,
+                // Optimización: agregar key para mejor reconciliación
+                key: ValueKey('products_list_${productList.length}'),
+                itemCount: productList.length + (controller.hasNextPage ? 1 : 0),
                 itemBuilder: (context, index) {
+                  // Mostrar indicador de carga al final si hay más páginas
+                  if (index == productList.length) {
+                    return _LoadMoreIndicator(controller: controller);
+                  }
+
                   final product = productList[index];
 
-                  return Column(
-                    children: [
-                      ProductCardWidget(
-                        product: product,
-                        onTap: () => Get.toNamed('/products/detail/${product.id}'),
-                        onEdit: () => Get.toNamed('/products/edit/${product.id}'),
-                        onDelete: () => _showDeleteDialog(product),
-                      ),
-
-                      if (index == productList.length - 1 && controller.hasNextPage)
-                        _LoadMoreButton(controller: controller),
-                    ],
+                  return ProductCardWidget(
+                    key: ValueKey('product_${product.id}'),
+                    product: product,
+                    onTap: () => Get.toNamed('/products/detail/${product.id}'),
+                    onEdit: () => Get.toNamed('/products/edit/${product.id}'),
+                    onDelete: () => _showDeleteDialog(product),
                   );
                 },
               ),
@@ -1206,40 +1225,55 @@ class _PaginationInfo extends StatelessWidget {
   }
 }
 
-class _LoadMoreButton extends StatelessWidget {
+class _LoadMoreIndicator extends StatelessWidget {
   final ProductsController controller;
 
-  const _LoadMoreButton({required this.controller});
+  const _LoadMoreIndicator({required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Obx(() {
-        if (controller.isLoadingMore) {
-          return const Column(
+    return Obx(() {
+      if (controller.isLoadingMore) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 8),
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
               Text(
                 'Cargando más productos...',
                 style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
+                  color: ElegantLightTheme.textSecondary,
+                  fontSize: 13,
                 ),
               ),
             ],
-          );
-        }
-
-        return TextButton(
-          onPressed: controller.canLoadMore ? controller.loadMoreProducts : null,
-          child: Text(
-            controller.canLoadMore ? 'Cargar más productos' : 'No hay más productos',
           ),
         );
-      }),
-    );
+      }
+
+      // Auto-cargar cuando el usuario llega al final
+      if (controller.canLoadMore) {
+        // Trigger automático de carga
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (controller.canLoadMore) {
+            controller.loadMoreProducts();
+          }
+        });
+      }
+
+      return const SizedBox(height: 20);
+    });
   }
 }
 

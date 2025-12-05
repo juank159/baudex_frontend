@@ -8,11 +8,8 @@ import '../../../products/domain/entities/product_price.dart';
 class ProductWithStock {
   final Product product;
   final int availableStock;
-  
-  const ProductWithStock({
-    required this.product,
-    required this.availableStock,
-  });
+
+  const ProductWithStock({required this.product, required this.availableStock});
 }
 
 class FuturisticProductSearchWidget extends StatefulWidget {
@@ -22,26 +19,28 @@ class FuturisticProductSearchWidget extends StatefulWidget {
   final Future<int> Function(String productId)? getStockFunction;
 
   const FuturisticProductSearchWidget({
-    Key? key,
+    super.key,
     required this.hintText,
     required this.searchFunction,
     required this.onProductSelected,
     this.getStockFunction,
-  }) : super(key: key);
+  });
 
   @override
-  State<FuturisticProductSearchWidget> createState() => _FuturisticProductSearchWidgetState();
+  State<FuturisticProductSearchWidget> createState() =>
+      _FuturisticProductSearchWidgetState();
 }
 
-class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchWidget>
+class _FuturisticProductSearchWidgetState
+    extends State<FuturisticProductSearchWidget>
     with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  
+
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
-  
+
   List<ProductWithStock> _searchResults = [];
   bool _isSearching = false;
   bool _showResults = false;
@@ -54,21 +53,16 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
       duration: ElegantLightTheme.normalAnimation,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 0.95,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: ElegantLightTheme.elasticCurve,
-    ));
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: ElegantLightTheme.elasticCurve,
+      ),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
         _animationController.forward();
@@ -93,16 +87,36 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
         final screenWidth = constraints.maxWidth;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 1200;
-        
+
         // Responsive values
-        final iconSize = isMobile ? 14.0 : isTablet ? 15.0 : 16.0;
-        final textFontSize = isMobile ? 14.0 : isTablet ? 15.0 : 16.0;
-        final hintFontSize = isMobile ? 13.0 : isTablet ? 14.0 : 15.0;
+        final iconSize =
+            isMobile
+                ? 14.0
+                : isTablet
+                ? 15.0
+                : 16.0;
+        final textFontSize =
+            isMobile
+                ? 14.0
+                : isTablet
+                ? 15.0
+                : 16.0;
+        final hintFontSize =
+            isMobile
+                ? 13.0
+                : isTablet
+                ? 14.0
+                : 15.0;
         final borderRadius = isMobile ? 10.0 : 12.0;
         final paddingHorizontal = isMobile ? 14.0 : 16.0;
         final paddingVertical = isMobile ? 14.0 : 16.0;
-        final maxHeight = isMobile ? 250.0 : isTablet ? 280.0 : 300.0;
-        
+        final maxHeight =
+            isMobile
+                ? 250.0
+                : isTablet
+                ? 280.0
+                : 300.0;
+
         return Column(
           children: [
             AnimatedBuilder(
@@ -115,21 +129,27 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
                       gradient: ElegantLightTheme.glassGradient,
                       borderRadius: BorderRadius.circular(borderRadius),
                       border: Border.all(
-                        color: _selectedProduct != null
-                            ? ElegantLightTheme.successGradient.colors.first.withOpacity(0.5)
-                            : ElegantLightTheme.textSecondary.withOpacity(0.2),
+                        color:
+                            _selectedProduct != null
+                                ? ElegantLightTheme.successGradient.colors.first
+                                    .withOpacity(0.5)
+                                : ElegantLightTheme.textSecondary.withOpacity(
+                                  0.2,
+                                ),
                         width: _selectedProduct != null ? 2 : 1,
                       ),
-                      boxShadow: _focusNode.hasFocus
-                          ? [
-                              BoxShadow(
-                                color: ElegantLightTheme.primaryBlue.withOpacity(0.2),
-                                offset: const Offset(0, 4),
-                                blurRadius: 12,
-                                spreadRadius: 0,
-                              ),
-                            ]
-                          : null,
+                      boxShadow:
+                          _focusNode.hasFocus
+                              ? [
+                                BoxShadow(
+                                  color: ElegantLightTheme.primaryBlue
+                                      .withOpacity(0.2),
+                                  offset: const Offset(0, 4),
+                                  blurRadius: 12,
+                                  spreadRadius: 0,
+                                ),
+                              ]
+                              : null,
                     ),
                     child: TextFormField(
                       controller: _searchController,
@@ -142,7 +162,9 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
                       decoration: InputDecoration(
                         hintText: widget.hintText,
                         hintStyle: TextStyle(
-                          color: ElegantLightTheme.textSecondary.withOpacity(0.6),
+                          color: ElegantLightTheme.textSecondary.withOpacity(
+                            0.6,
+                          ),
                           fontWeight: FontWeight.normal,
                           fontSize: hintFontSize,
                         ),
@@ -150,44 +172,51 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
                           margin: EdgeInsets.all(isMobile ? 6 : 8),
                           padding: EdgeInsets.all(isMobile ? 6 : 8),
                           decoration: BoxDecoration(
-                            gradient: _selectedProduct != null
-                                ? ElegantLightTheme.successGradient
-                                : ElegantLightTheme.primaryGradient,
+                            gradient:
+                                _selectedProduct != null
+                                    ? ElegantLightTheme.successGradient
+                                    : ElegantLightTheme.primaryGradient,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
-                            _selectedProduct != null ? Icons.check : Icons.search,
+                            _selectedProduct != null
+                                ? Icons.check
+                                : Icons.search,
                             color: Colors.white,
                             size: iconSize,
                           ),
                         ),
-                        suffixIcon: _selectedProduct != null
-                            ? IconButton(
-                                onPressed: _clearSelection,
-                                icon: Icon(
-                                  Icons.clear, 
-                                  color: ElegantLightTheme.textSecondary,
-                                  size: iconSize + 2,
-                                ),
-                              )
-                            : _isSearching
+                        suffixIcon:
+                            _selectedProduct != null
+                                ? IconButton(
+                                  onPressed: _clearSelection,
+                                  icon: Icon(
+                                    Icons.clear,
+                                    color: ElegantLightTheme.textSecondary,
+                                    size: iconSize + 2,
+                                  ),
+                                )
+                                : _isSearching
                                 ? Container(
-                                    margin: EdgeInsets.all(isMobile ? 10 : 12),
-                                    width: isMobile ? 18 : 20,
-                                    height: isMobile ? 18 : 20,
-                                    child: const CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(ElegantLightTheme.primaryBlue),
+                                  margin: EdgeInsets.all(isMobile ? 10 : 12),
+                                  width: isMobile ? 18 : 20,
+                                  height: isMobile ? 18 : 20,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      ElegantLightTheme.primaryBlue,
                                     ),
-                                  )
+                                  ),
+                                )
                                 : null,
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(
-                          horizontal: paddingHorizontal, 
+                          horizontal: paddingHorizontal,
                           vertical: paddingVertical,
                         ),
                       ),
-                      onChanged: _selectedProduct == null ? _onSearchChanged : null,
+                      onChanged:
+                          _selectedProduct == null ? _onSearchChanged : null,
                       readOnly: _selectedProduct != null,
                     ),
                   ),
@@ -207,7 +236,9 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
                         gradient: ElegantLightTheme.cardGradient,
                         borderRadius: BorderRadius.circular(borderRadius),
                         border: Border.all(
-                          color: ElegantLightTheme.textSecondary.withOpacity(0.2),
+                          color: ElegantLightTheme.textSecondary.withOpacity(
+                            0.2,
+                          ),
                           width: 1,
                         ),
                         boxShadow: ElegantLightTheme.elevatedShadow,
@@ -215,13 +246,19 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
                       child: ListView.separated(
                         shrinkWrap: true,
                         itemCount: _searchResults.length,
-                        separatorBuilder: (context, index) => Divider(
-                          height: 1,
-                          color: ElegantLightTheme.textSecondary.withOpacity(0.1),
-                        ),
+                        separatorBuilder:
+                            (context, index) => Divider(
+                              height: 1,
+                              color: ElegantLightTheme.textSecondary
+                                  .withOpacity(0.1),
+                            ),
                         itemBuilder: (context, index) {
                           final productWithStock = _searchResults[index];
-                          return _buildProductOption(productWithStock, isMobile, isTablet);
+                          return _buildProductOption(
+                            productWithStock,
+                            isMobile,
+                            isTablet,
+                          );
                         },
                       ),
                     ),
@@ -234,13 +271,22 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
     );
   }
 
-  Widget _buildProductOption(ProductWithStock productWithStock, bool isMobile, bool isTablet) {
+  Widget _buildProductOption(
+    ProductWithStock productWithStock,
+    bool isMobile,
+    bool isTablet,
+  ) {
     final product = productWithStock.product;
     final stock = productWithStock.availableStock;
     final hasStock = stock > 0;
-    
+
     // Responsive values
-    final padding = isMobile ? 12.0 : isTablet ? 14.0 : 16.0;
+    final padding =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 14.0
+            : 16.0;
     final iconSize = isMobile ? 14.0 : 16.0;
     final iconPadding = isMobile ? 6.0 : 8.0;
     final spacing = isMobile ? 8.0 : 12.0;
@@ -249,7 +295,7 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
     final priceFontSize = isMobile ? 9.0 : 10.0;
     final pricePadding = isMobile ? 4.0 : 6.0;
     final arrowSize = isMobile ? 14.0 : 16.0;
-    
+
     return GestureDetector(
       onTap: hasStock ? () => _selectProduct(product) : null,
       child: Container(
@@ -257,19 +303,20 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
         decoration: BoxDecoration(
           color: hasStock ? Colors.transparent : Colors.red.withOpacity(0.05),
           borderRadius: BorderRadius.circular(8),
-          border: hasStock ? null : Border.all(
-            color: Colors.red.withOpacity(0.2),
-            width: 1,
-          ),
+          border:
+              hasStock
+                  ? null
+                  : Border.all(color: Colors.red.withOpacity(0.2), width: 1),
         ),
         child: Row(
           children: [
             Container(
               padding: EdgeInsets.all(iconPadding),
               decoration: BoxDecoration(
-                gradient: hasStock 
-                    ? ElegantLightTheme.infoGradient
-                    : ElegantLightTheme.errorGradient,
+                gradient:
+                    hasStock
+                        ? ElegantLightTheme.infoGradient
+                        : ElegantLightTheme.errorGradient,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -295,26 +342,115 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
                     softWrap: false,
                   ),
                   const SizedBox(height: 2),
-                  isMobile 
+                  isMobile
                       ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.inventory,
+                                size: subtitleFontSize,
+                                color:
+                                    stock > 0
+                                        ? ElegantLightTheme
+                                            .successGradient
+                                            .colors
+                                            .first
+                                        : ElegantLightTheme
+                                            .errorGradient
+                                            .colors
+                                            .first,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Stock: $stock unidades',
+                                style: TextStyle(
+                                  color:
+                                      stock > 0
+                                          ? ElegantLightTheme
+                                              .successGradient
+                                              .colors
+                                              .first
+                                          : ElegantLightTheme
+                                              .errorGradient
+                                              .colors
+                                              .first,
+                                  fontSize: subtitleFontSize,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: false,
+                              ),
+                            ],
+                          ),
+                          if (product.sellingPrice != null) ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: pricePadding,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: ElegantLightTheme
+                                    .successGradient
+                                    .colors
+                                    .first
+                                    .withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                AppFormatters.formatCurrency(
+                                  product.sellingPrice!,
+                                ),
+                                style: TextStyle(
+                                  color:
+                                      ElegantLightTheme
+                                          .successGradient
+                                          .colors
+                                          .first,
+                                  fontSize: priceFontSize,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      )
+                      : Row(
+                        children: [
+                          Expanded(
+                            child: Row(
                               children: [
                                 Icon(
                                   Icons.inventory,
                                   size: subtitleFontSize,
-                                  color: stock > 0 
-                                      ? ElegantLightTheme.successGradient.colors.first
-                                      : ElegantLightTheme.errorGradient.colors.first,
+                                  color:
+                                      stock > 0
+                                          ? ElegantLightTheme
+                                              .successGradient
+                                              .colors
+                                              .first
+                                          : ElegantLightTheme
+                                              .errorGradient
+                                              .colors
+                                              .first,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Stock: $stock unidades',
                                   style: TextStyle(
-                                    color: stock > 0 
-                                        ? ElegantLightTheme.successGradient.colors.first
-                                        : ElegantLightTheme.errorGradient.colors.first,
+                                    color:
+                                        stock > 0
+                                            ? ElegantLightTheme
+                                                .successGradient
+                                                .colors
+                                                .first
+                                            : ElegantLightTheme
+                                                .errorGradient
+                                                .colors
+                                                .first,
                                     fontSize: subtitleFontSize,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -324,75 +460,40 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
                                 ),
                               ],
                             ),
-                            if (product.sellingPrice != null) ...[
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: EdgeInsets.symmetric(horizontal: pricePadding, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: ElegantLightTheme.successGradient.colors.first.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  AppFormatters.formatCurrency(product.sellingPrice!),
-                                  style: TextStyle(
-                                    color: ElegantLightTheme.successGradient.colors.first,
-                                    fontSize: priceFontSize,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                          ),
+                          if (product.sellingPrice != null) ...[
+                            SizedBox(width: spacing),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: pricePadding,
+                                vertical: 2,
                               ),
-                            ],
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.inventory,
-                                    size: subtitleFontSize,
-                                    color: stock > 0 
-                                        ? ElegantLightTheme.successGradient.colors.first
-                                        : ElegantLightTheme.errorGradient.colors.first,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Stock: $stock unidades',
-                                    style: TextStyle(
-                                      color: stock > 0 
-                                          ? ElegantLightTheme.successGradient.colors.first
-                                          : ElegantLightTheme.errorGradient.colors.first,
-                                      fontSize: subtitleFontSize,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    softWrap: false,
-                                  ),
-                                ],
+                              decoration: BoxDecoration(
+                                color: ElegantLightTheme
+                                    .successGradient
+                                    .colors
+                                    .first
+                                    .withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                AppFormatters.formatCurrency(
+                                  product.sellingPrice!,
+                                ),
+                                style: TextStyle(
+                                  color:
+                                      ElegantLightTheme
+                                          .successGradient
+                                          .colors
+                                          .first,
+                                  fontSize: priceFontSize,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                            if (product.sellingPrice != null) ...[
-                              SizedBox(width: spacing),
-                              Container(
-                                padding: EdgeInsets.symmetric(horizontal: pricePadding, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: ElegantLightTheme.successGradient.colors.first.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  AppFormatters.formatCurrency(product.sellingPrice!),
-                                  style: TextStyle(
-                                    color: ElegantLightTheme.successGradient.colors.first,
-                                    fontSize: priceFontSize,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
                           ],
-                        ),
+                        ],
+                      ),
                 ],
               ),
             ),
@@ -425,26 +526,28 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
     try {
       // Use real search function provided by parent widget
       final products = await widget.searchFunction(value.trim());
-      
+
       // Get stock information for each product if the function is provided
       List<ProductWithStock> productsWithStock = [];
-      
+
       if (widget.getStockFunction != null) {
         for (final product in products) {
           final stock = await widget.getStockFunction!(product.id);
-          productsWithStock.add(ProductWithStock(
-            product: product,
-            availableStock: stock,
-          ));
+          productsWithStock.add(
+            ProductWithStock(product: product, availableStock: stock),
+          );
         }
       } else {
         // If no stock function provided, use 0 as stock
-        productsWithStock = products.map((product) => ProductWithStock(
-          product: product,
-          availableStock: 0,
-        )).toList();
+        productsWithStock =
+            products
+                .map(
+                  (product) =>
+                      ProductWithStock(product: product, availableStock: 0),
+                )
+                .toList();
       }
-      
+
       if (mounted) {
         setState(() {
           _isSearching = false;
@@ -470,14 +573,14 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
       _showResults = false;
       _searchResults = [];
     });
-    
+
     // Limpiar completamente el search para el siguiente producto
     _searchController.clear();
     _focusNode.unfocus();
-    
+
     // Ejecutar callback
     widget.onProductSelected(product);
-    
+
     print('🔍 Product selected and search cleared: ${product.name}');
   }
 
@@ -488,5 +591,4 @@ class _FuturisticProductSearchWidgetState extends State<FuturisticProductSearchW
     _searchController.clear();
     _focusNode.requestFocus();
   }
-
 }

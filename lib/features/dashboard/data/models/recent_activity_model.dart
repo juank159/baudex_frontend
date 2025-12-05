@@ -7,22 +7,14 @@ part 'recent_activity_model.g.dart';
 @JsonSerializable()
 class RecentActivityModel extends RecentActivity {
   const RecentActivityModel({
-    required String id,
-    required ActivityType type,
-    required String title,
-    required String description,
-    required DateTime timestamp,
-    String? relatedId,
-    Map<String, dynamic>? metadata,
-  }) : super(
-          id: id,
-          type: type,
-          title: title,
-          description: description,
-          timestamp: timestamp,
-          relatedId: relatedId,
-          metadata: metadata,
-        );
+    required super.id,
+    required super.type,
+    required super.title,
+    required super.description,
+    required super.timestamp,
+    super.relatedId,
+    super.metadata,
+  });
 
   factory RecentActivityModel.fromJson(Map<String, dynamic> json) {
     // Temporalmente sin generación automática

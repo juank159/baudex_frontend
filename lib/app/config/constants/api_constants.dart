@@ -197,7 +197,6 @@
 
 // lib/app/config/constants/api_constants.dart
 import 'package:baudex_desktop/app/config/env/env_config.dart';
-import 'package:flutter/foundation.dart';
 
 class ApiConstants {
   // ==================== CONFIGURACIÓN DINÁMICA ====================
@@ -648,6 +647,25 @@ class ApiConstants {
 
   // Cache Keys para reports
   static const String reportsCacheKey = 'reports_cache';
+
+  // ==================== BANK ACCOUNTS ENDPOINTS ====================
+
+  static const String bankAccountsBase = '/bank-accounts';
+
+  // Public endpoints
+  static const String bankAccounts = bankAccountsBase;
+  static const String bankAccountsActive = '$bankAccountsBase/active';
+  static const String bankAccountsDefault = '$bankAccountsBase/default';
+
+  // Individual bank account endpoints
+  static String bankAccountById(String id) => '$bankAccountsBase/$id';
+  static String setDefaultBankAccount(String id) =>
+      '$bankAccountsBase/$id/set-default';
+  static String toggleBankAccountActive(String id) =>
+      '$bankAccountsBase/$id/toggle-active';
+
+  // Cache Keys para bank accounts
+  static const String bankAccountsCacheKey = 'bank_accounts_cache';
 
   // ==================== MÉTODOS DE UTILIDAD ====================
 

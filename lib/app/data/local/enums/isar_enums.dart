@@ -95,6 +95,10 @@ enum IsarInvoiceStatus {
   cancelled,
   @Name('partiallyPaid')
   partiallyPaid,
+  @Name('credited')
+  credited,
+  @Name('partiallyCredited')
+  partiallyCredited,
 }
 
 @Name('PaymentMethod')
@@ -111,6 +115,8 @@ enum IsarPaymentMethod {
   bankTransfer,
   @Name('check')
   check,
+  @Name('clientBalance')
+  clientBalance,
   @Name('other')
   other,
 }

@@ -146,12 +146,15 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
     final hasSupplier = supplier != null;
 
     return GestureDetector(
-      onTap: widget.activateOnTextFieldTap ? () {
-        setState(() {
-          _showSearchField = true;
-        });
-        _focusNode.requestFocus();
-      } : null,
+      onTap:
+          widget.activateOnTextFieldTap
+              ? () {
+                setState(() {
+                  _showSearchField = true;
+                });
+                _focusNode.requestFocus();
+              }
+              : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
@@ -175,16 +178,18 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: hasSupplier
-                    ? Colors.green.shade100
-                    : Theme.of(context).primaryColor.withOpacity(0.1),
+                color:
+                    hasSupplier
+                        ? Colors.green.shade100
+                        : Theme.of(context).primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
                 Icons.business,
-                color: hasSupplier
-                    ? Colors.green.shade600
-                    : Theme.of(context).primaryColor,
+                color:
+                    hasSupplier
+                        ? Colors.green.shade600
+                        : Theme.of(context).primaryColor,
                 size: 16,
               ),
             ),
@@ -201,13 +206,14 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: hasSupplier ? Colors.black87 : Colors.grey.shade600,
+                      color:
+                          hasSupplier ? Colors.black87 : Colors.grey.shade600,
                     ),
                   ),
-                  if (hasSupplier && supplier.documentNumber != null) ...[
+                  if (hasSupplier) ...[
                     const SizedBox(height: 2),
                     Text(
-                      '${supplier.documentType?.name?.toUpperCase() ?? 'DOC'}: ${supplier.documentNumber}',
+                      '${supplier.documentType.name.toUpperCase() ?? 'DOC'}: ${supplier.documentNumber}',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -294,28 +300,31 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
           focusNode: _focusNode,
           style: const TextStyle(fontSize: 16),
           decoration: InputDecoration(
-            hintText: 'Buscar proveedor... (↑↓ para navegar, Enter para seleccionar)',
+            hintText:
+                'Buscar proveedor... (↑↓ para navegar, Enter para seleccionar)',
             hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-            prefixIcon: _isSearching
-                ? Container(
-                    padding: const EdgeInsets.all(12),
-                    child: const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : Icon(Icons.search, color: Colors.grey.shade500),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      _searchController.clear();
-                      _focusNode.requestFocus();
-                      _resetSelection();
-                    },
-                  )
-                : null,
+            prefixIcon:
+                _isSearching
+                    ? Container(
+                      padding: const EdgeInsets.all(12),
+                      child: const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                    : Icon(Icons.search, color: Colors.grey.shade500),
+            suffixIcon:
+                _searchController.text.isNotEmpty
+                    ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        _focusNode.requestFocus();
+                        _resetSelection();
+                      },
+                    )
+                    : null,
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -355,7 +364,11 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
     );
   }
 
-  Widget _buildSupplierTile(BuildContext context, Supplier supplier, bool isKeyboardSelected) {
+  Widget _buildSupplierTile(
+    BuildContext context,
+    Supplier supplier,
+    bool isKeyboardSelected,
+  ) {
     return Obx(() {
       final controller = _purchaseOrderController;
       if (controller == null) return const SizedBox.shrink();
@@ -369,9 +382,10 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isKeyboardSelected
-                  ? Theme.of(context).primaryColor.withOpacity(0.2)
-                  : isSelected
+              color:
+                  isKeyboardSelected
+                      ? Theme.of(context).primaryColor.withOpacity(0.2)
+                      : isSelected
                       ? Theme.of(context).primaryColor.withOpacity(0.1)
                       : Colors.transparent,
               border: Border(
@@ -406,24 +420,24 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
-                          color: isSelected
-                              ? Theme.of(context).primaryColor
-                              : Colors.black87,
+                          color:
+                              isSelected
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.black87,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
-                      if (supplier.documentNumber != null)
-                        Text(
-                          '${supplier.documentType?.name?.toUpperCase() ?? 'DOC'}: ${supplier.documentNumber}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        '${supplier.documentType?.name?.toUpperCase() ?? 'DOC'}: ${supplier.documentNumber}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       if (supplier.email != null)
                         Text(
                           supplier.email!,
@@ -477,7 +491,7 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
   }
 
   // ==================== NAVEGACIÓN CON TECLAS ====================
-  
+
   void _handleKeyEvent(KeyEvent event) {
     if (event is KeyDownEvent && _searchResults.isNotEmpty) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -486,9 +500,10 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
         });
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
         setState(() {
-          _selectedIndex = _selectedIndex <= 0 
-              ? _searchResults.length - 1 
-              : _selectedIndex - 1;
+          _selectedIndex =
+              _selectedIndex <= 0
+                  ? _searchResults.length - 1
+                  : _selectedIndex - 1;
         });
       } else if (event.logicalKey == LogicalKeyboardKey.enter) {
         _handleEnterKey();
@@ -497,7 +512,7 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
       }
     }
   }
-  
+
   void _handleEnterKey() {
     if (_searchResults.isNotEmpty) {
       if (_selectedIndex >= 0 && _selectedIndex < _searchResults.length) {
@@ -508,7 +523,7 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
       }
     }
   }
-  
+
   void _resetSelection() {
     setState(() {
       _selectedIndex = -1;
@@ -543,7 +558,9 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
 
   void _onSearchChanged() {
     if (!mounted) {
-      print('⚠️ SupplierSelectorWidget: Widget no montado, cancelando búsqueda');
+      print(
+        '⚠️ SupplierSelectorWidget: Widget no montado, cancelando búsqueda',
+      );
       return;
     }
 
@@ -589,7 +606,7 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
 
     try {
       _lastSearchTerm = query;
-      
+
       List<Supplier> results = [];
 
       if (_purchaseOrderController != null) {
@@ -601,7 +618,8 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
           _searchResults.clear();
           _searchResults.addAll(results.take(8));
           _isSearching = false;
-          _selectedIndex = _searchResults.isNotEmpty ? 0 : -1; // Auto-seleccionar el primero
+          _selectedIndex =
+              _searchResults.isNotEmpty ? 0 : -1; // Auto-seleccionar el primero
         });
       }
     } catch (e) {

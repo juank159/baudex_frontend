@@ -1,6 +1,5 @@
 // lib/features/purchase_orders/presentation/widgets/purchase_order_card_widget.dart
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/purchase_order.dart';
 
@@ -28,9 +27,9 @@ class PurchaseOrderCardWidget extends StatelessWidget {
     double minHeight;
     double maxHeight;
     double padding;
-    
+
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     if (screenWidth >= 1200) {
       // Desktop: reducir altura 40% para hacer cards más compactas
       minHeight = 30; // Reducción adicional del 40%
@@ -47,12 +46,9 @@ class PurchaseOrderCardWidget extends StatelessWidget {
       maxHeight = 60; // 100 * 0.6
       padding = 6;
     }
-    
+
     return Container(
-      constraints: BoxConstraints(
-        minHeight: minHeight,
-        maxHeight: maxHeight,
-      ),
+      constraints: BoxConstraints(minHeight: minHeight, maxHeight: maxHeight),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -86,9 +82,9 @@ class PurchaseOrderCardWidget extends StatelessWidget {
     double iconSize;
     double verticalSpacing;
     double horizontalSpacing;
-    
+
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     if (screenWidth >= 1200) {
       // Desktop: reducir texto 30% y espaciado vertical 40% adicional
       titleFontSize = 10; // 14 * 0.7
@@ -117,7 +113,7 @@ class PurchaseOrderCardWidget extends StatelessWidget {
       verticalSpacing = 2; // 4 * 0.5
       horizontalSpacing = 3; // 6 * 0.5
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -135,7 +131,7 @@ class PurchaseOrderCardWidget extends StatelessWidget {
               ),
             ),
             SizedBox(width: horizontalSpacing),
-            
+
             // Número de orden
             Expanded(
               child: Text(
@@ -149,7 +145,7 @@ class PurchaseOrderCardWidget extends StatelessWidget {
                 maxLines: 1,
               ),
             ),
-            
+
             // Estado
             Container(
               padding: EdgeInsets.symmetric(
@@ -171,9 +167,9 @@ class PurchaseOrderCardWidget extends StatelessWidget {
             ),
           ],
         ),
-        
+
         SizedBox(height: verticalSpacing),
-        
+
         // Fila inferior con proveedor, fecha y total
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -201,13 +197,17 @@ class PurchaseOrderCardWidget extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   SizedBox(height: (verticalSpacing - 1).clamp(1.0, 3.0)),
-                  
+
                   // Fecha
                   Row(
                     children: [
-                      Icon(Icons.calendar_today, size: iconSize, color: Colors.grey),
+                      Icon(
+                        Icons.calendar_today,
+                        size: iconSize,
+                        color: Colors.grey,
+                      ),
                       SizedBox(width: (horizontalSpacing - 1).clamp(1.0, 4.0)),
                       Expanded(
                         child: Text(
@@ -225,7 +225,7 @@ class PurchaseOrderCardWidget extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Total
             Text(
               AppFormatters.formatCurrency(purchaseOrder.totalAmount),

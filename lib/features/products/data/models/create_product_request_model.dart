@@ -137,14 +137,16 @@ class CreateProductRequestModel {
     if (height != null) json['height'] = height;
     if (images != null) json['images'] = images;
     if (metadata != null) json['metadata'] = metadata;
-    if (prices != null)
+    if (prices != null) {
       json['prices'] = prices!.map((p) => p.toJson()).toList();
+    }
     // Campos de facturación electrónica
     if (taxCategory != null) json['taxCategory'] = taxCategory;
     if (taxRate != null) json['taxRate'] = taxRate;
     if (isTaxable != null) json['isTaxable'] = isTaxable;
     if (taxDescription != null) json['taxDescription'] = taxDescription;
-    if (retentionCategory != null) json['retentionCategory'] = retentionCategory;
+    if (retentionCategory != null)
+      json['retentionCategory'] = retentionCategory;
     if (retentionRate != null) json['retentionRate'] = retentionRate;
     if (hasRetention != null) json['hasRetention'] = hasRetention;
 
@@ -196,8 +198,9 @@ class CreateProductPriceRequestModel {
 
     if (name != null) json['name'] = name;
     if (currency != null) json['currency'] = currency;
-    if (discountPercentage != null)
+    if (discountPercentage != null) {
       json['discountPercentage'] = discountPercentage;
+    }
     if (discountAmount != null) json['discountAmount'] = discountAmount;
     if (minQuantity != null) json['minQuantity'] = minQuantity;
     if (notes != null) json['notes'] = notes;

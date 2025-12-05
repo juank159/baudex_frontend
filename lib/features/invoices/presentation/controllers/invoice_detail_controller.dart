@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_detail_controller.dart
 import 'package:baudex_desktop/app/core/utils/responsive.dart';
+import 'package:baudex_desktop/app/core/utils/number_input_formatter.dart';
 import 'package:baudex_desktop/app/shared/widgets/custom_button.dart';
 import 'package:baudex_desktop/app/shared/widgets/custom_text_field.dart';
 import 'package:baudex_desktop/app/shared/widgets/safe_text_editing_controller.dart';
@@ -8,31 +9,45 @@ import 'package:get/get.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/usecases/get_invoice_by_id_usecase.dart';
 import '../../domain/usecases/add_payment_usecase.dart';
+import '../../domain/usecases/add_multiple_payments_usecase.dart';
 import '../../domain/usecases/confirm_invoice_usecase.dart';
 import '../../domain/usecases/cancel_invoice_usecase.dart';
 import '../../domain/usecases/delete_invoice_usecase.dart';
+import '../../domain/usecases/export_and_share_invoice_pdf_usecase.dart';
+import '../../data/models/add_payment_request_model.dart';
+import '../../data/datasources/invoice_remote_datasource.dart';
+import '../widgets/multi_payment_dialog.dart';
+import '../widgets/use_balance_dialog.dart';
+import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
+import 'package:share_plus/share_plus.dart';
 
 class InvoiceDetailController extends GetxController {
   // Dependencies
   final GetInvoiceByIdUseCase _getInvoiceByIdUseCase;
   final AddPaymentUseCase _addPaymentUseCase;
+  final AddMultiplePaymentsUseCase _addMultiplePaymentsUseCase;
   final ConfirmInvoiceUseCase _confirmInvoiceUseCase;
   final CancelInvoiceUseCase _cancelInvoiceUseCase;
   final DeleteInvoiceUseCase _deleteInvoiceUseCase;
+  final ExportAndShareInvoicePdfUseCase _exportAndShareInvoicePdfUseCase;
 
   InvoiceDetailController({
     required GetInvoiceByIdUseCase getInvoiceByIdUseCase,
     required AddPaymentUseCase addPaymentUseCase,
+    required AddMultiplePaymentsUseCase addMultiplePaymentsUseCase,
     required ConfirmInvoiceUseCase confirmInvoiceUseCase,
     required CancelInvoiceUseCase cancelInvoiceUseCase,
     required DeleteInvoiceUseCase deleteInvoiceUseCase,
+    required ExportAndShareInvoicePdfUseCase exportAndShareInvoicePdfUseCase,
   }) : _getInvoiceByIdUseCase = getInvoiceByIdUseCase,
        _addPaymentUseCase = addPaymentUseCase,
+       _addMultiplePaymentsUseCase = addMultiplePaymentsUseCase,
        _confirmInvoiceUseCase = confirmInvoiceUseCase,
        _cancelInvoiceUseCase = cancelInvoiceUseCase,
-       _deleteInvoiceUseCase = deleteInvoiceUseCase {
+       _deleteInvoiceUseCase = deleteInvoiceUseCase,
+       _exportAndShareInvoicePdfUseCase = exportAndShareInvoicePdfUseCase {
     print('🎮 InvoiceDetailController: Instancia creada correctamente');
   }
 
@@ -41,6 +56,7 @@ class InvoiceDetailController extends GetxController {
   // Estados
   final _isLoading = false.obs;
   final _isProcessing = false.obs;
+  final _isExportingPdf = false.obs;
 
   // Datos
   final Rxn<Invoice> _invoice = Rxn<Invoice>();
@@ -48,6 +64,7 @@ class InvoiceDetailController extends GetxController {
   // UI States
   final _showPaymentForm = false.obs;
   final _selectedPaymentMethod = PaymentMethod.cash.obs;
+  String? _selectedBankAccountId;
   
   // ✅ NUEVO: Tab system para organizar contenido
   final _selectedTab = 0.obs;
@@ -62,9 +79,16 @@ class InvoiceDetailController extends GetxController {
 
   bool get isLoading => _isLoading.value;
   bool get isProcessing => _isProcessing.value;
+  bool get isExportingPdf => _isExportingPdf.value;
   Invoice? get invoice => _invoice.value;
+
+  // Observable reactivo para usar con Obx
+  Rxn<Invoice> get invoiceRx => _invoice;
+
   bool get showPaymentForm => _showPaymentForm.value;
+  RxBool get showPaymentFormRx => _showPaymentForm;
   PaymentMethod get selectedPaymentMethod => _selectedPaymentMethod.value;
+  String? get selectedBankAccountId => _selectedBankAccountId;
   
   // ✅ NUEVO: Getters para sistema de tabs
   RxInt get selectedTab => _selectedTab;
@@ -225,7 +249,7 @@ class InvoiceDetailController extends GetxController {
           _showError('Error al confirmar factura', failure.message);
         },
         (updatedInvoice) {
-          _invoice.value = updatedInvoice;
+          _updateInvoiceAndRefreshUI(updatedInvoice);
           _showSuccess('Factura confirmada exitosamente');
         },
       );
@@ -288,14 +312,12 @@ class InvoiceDetailController extends GetxController {
             _showError('Error al confirmar pago', failure.message);
           }
         },
-        (updatedInvoice) {
-          _invoice.value = updatedInvoice;
-          print(
-            '✅ Factura actualizada - Nuevo status: ${updatedInvoice.status}',
-          );
+        (updatedInvoice) async {
+          print('✅ Pago completo confirmado exitosamente');
+          print('📊 Backend devolvió: pagos=${updatedInvoice.payments.length}, paidAmount=${updatedInvoice.paidAmount}');
 
-          update();
-          _invoice.refresh();
+          // 🔄 WORKAROUND: Recargar factura para obtener datos actualizados
+          await _reloadInvoiceAfterPayment();
 
           _showSuccess('Pago confirmado exitosamente');
         },
@@ -415,14 +437,12 @@ class InvoiceDetailController extends GetxController {
             _showError('Error al confirmar cheque', failure.message);
           }
         },
-        (updatedInvoice) {
-          _invoice.value = updatedInvoice;
-          print(
-            '✅ Factura actualizada - Nuevo status: ${updatedInvoice.status}',
-          );
+        (updatedInvoice) async {
+          print('✅ Cheque confirmado exitosamente');
+          print('📊 Backend devolvió: pagos=${updatedInvoice.payments.length}, paidAmount=${updatedInvoice.paidAmount}');
 
-          update();
-          _invoice.refresh();
+          // 🔄 WORKAROUND: Recargar factura para obtener datos actualizados
+          await _reloadInvoiceAfterPayment();
 
           _showSuccess('Cheque confirmado exitosamente');
         },
@@ -508,14 +528,12 @@ class InvoiceDetailController extends GetxController {
           }
           return false;
         },
-        (updatedInvoice) {
-          _invoice.value = updatedInvoice;
-          print(
-            '✅ Factura actualizada - Nuevo saldo: ${updatedInvoice.balanceDue}',
-          );
+        (updatedInvoice) async {
+          print('✅ Pago a crédito procesado exitosamente');
+          print('📊 Backend devolvió: pagos=${updatedInvoice.payments.length}, paidAmount=${updatedInvoice.paidAmount}');
 
-          update();
-          _invoice.refresh();
+          // 🔄 WORKAROUND: Recargar factura para obtener datos actualizados
+          await _reloadInvoiceAfterPayment();
 
           _showSuccess('Pago agregado exitosamente');
           return true;
@@ -639,7 +657,7 @@ class InvoiceDetailController extends GetxController {
           _showError('Error al cancelar factura', failure.message);
         },
         (updatedInvoice) {
-          _invoice.value = updatedInvoice;
+          _updateInvoiceAndRefreshUI(updatedInvoice);
           _showSuccess('Factura cancelada exitosamente');
         },
       );
@@ -694,7 +712,7 @@ class InvoiceDetailController extends GetxController {
 
   // ==================== PAYMENT METHODS ====================
 
-  /// Mostrar formulario de pago
+  /// Mostrar formulario de pago simple
   void togglePaymentForm() {
     if (!canAddPayment) {
       _showError(
@@ -709,10 +727,58 @@ class InvoiceDetailController extends GetxController {
     print('📝 Mostrando formulario de pago');
   }
 
+  /// Mostrar diálogo de pagos múltiples
+  /// Permite dividir el pago entre varios métodos (efectivo + Nequi, etc.)
+  /// y opcionalmente crear un crédito por el saldo restante
+  Future<void> showMultiplePaymentsDialog() async {
+    if (!canAddPayment) {
+      _showError(
+        'Acción no disponible',
+        'No se pueden agregar pagos a esta factura',
+      );
+      return;
+    }
+
+    if (invoice == null) {
+      _showError('Error', 'No hay factura cargada');
+      return;
+    }
+
+    print('💳 Mostrando diálogo de pagos múltiples');
+    print('💰 Saldo pendiente: \$$remainingBalance');
+
+    // Importar y mostrar el diálogo
+    final MultiPaymentDialog = await _showMultiPaymentDialogWidget();
+
+    // El resultado se maneja en el callback del diálogo
+  }
+
+  /// Widget helper para mostrar el diálogo de pagos múltiples
+  Future<void> _showMultiPaymentDialogWidget() async {
+    await Get.dialog(
+      _MultiPaymentDialogWrapper(
+        total: invoice!.total,
+        balanceDue: remainingBalance,
+        onConfirm: (payments, createCredit) async {
+          // Cerrar el diálogo
+          Get.back();
+
+          // Procesar los pagos
+          await addMultiplePayments(payments, createCreditForRemaining: createCredit);
+        },
+        onCancel: () {
+          Get.back();
+        },
+      ),
+      barrierDismissible: false,
+    );
+  }
+
   /// Ocultar formulario de pago
   void hidePaymentForm() {
     _showPaymentForm.value = false;
     _clearPaymentForm();
+    update(); // Forzar actualización de GetBuilder
     print('❌ Ocultando formulario de pago');
   }
 
@@ -720,6 +786,12 @@ class InvoiceDetailController extends GetxController {
   void setPaymentMethod(PaymentMethod method) {
     _selectedPaymentMethod.value = method;
     print('💳 Método de pago seleccionado: ${method.displayName}');
+  }
+
+  /// Establecer cuenta bancaria seleccionada
+  void setBankAccountId(String? bankAccountId) {
+    _selectedBankAccountId = bankAccountId;
+    print('🏦 Cuenta bancaria seleccionada: $bankAccountId');
   }
 
   Future<void> addPayment() async {
@@ -749,7 +821,8 @@ class InvoiceDetailController extends GetxController {
 
       print('💰 Agregando pago a factura: $invoiceId');
 
-      final amount = double.tryParse(paymentAmountController.text) ?? 0;
+      // Usar NumberInputFormatter para parsear el monto formateado (ej: "1.050,50" -> 1050.50)
+      final amount = NumberInputFormatter.getNumericValue(paymentAmountController.text) ?? 0;
 
       if (amount <= 0) {
         _showError('Error de validación', 'El monto debe ser mayor a cero');
@@ -766,6 +839,7 @@ class InvoiceDetailController extends GetxController {
           invoiceId: invoiceId,
           amount: amount,
           paymentMethod: _selectedPaymentMethod.value,
+          bankAccountId: _selectedBankAccountId,
           paymentDate: DateTime.now(),
           reference:
               paymentReferenceController.text.isNotEmpty
@@ -791,22 +865,142 @@ class InvoiceDetailController extends GetxController {
             _showError('Error al agregar pago', failure.message);
           }
         },
-        (updatedInvoice) {
-          _invoice.value = updatedInvoice;
-          print(
-            '✅ Factura actualizada - Nuevo saldo: ${updatedInvoice.balanceDue}',
-          );
+        (updatedInvoice) async {
+          print('✅ Pago agregado exitosamente');
+          print('📊 Backend devolvió: pagos=${updatedInvoice.payments.length}, paidAmount=${updatedInvoice.paidAmount}');
 
-          update();
-          _invoice.refresh();
+          // 1. Ocultar formulario primero
+          _showPaymentForm.value = false;
+          _clearPaymentForm();
 
-          hidePaymentForm();
+          // 🔄 WORKAROUND: El backend a veces devuelve datos desactualizados
+          // Forzar recarga de la factura para obtener datos frescos
+          print('🔄 Recargando factura para obtener datos actualizados...');
+          await _reloadInvoiceAfterPayment();
+
           _showSuccess('Pago agregado exitosamente');
         },
       );
     } catch (e) {
       print('💥 Error al agregar pago: $e');
       _showError('Error inesperado', 'No se pudo agregar el pago');
+    } finally {
+      _isProcessing.value = false;
+      update();
+    }
+  }
+
+  /// Agregar múltiples pagos a una factura (pagos divididos entre métodos)
+  ///
+  /// Permite que un cliente pague parte en efectivo, parte en Nequi, etc.
+  /// También permite crear un crédito por el saldo restante si el pago es parcial
+  Future<void> addMultiplePayments(
+    List<PaymentItemModel> payments, {
+    bool createCreditForRemaining = false,
+  }) async {
+    // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
+    if (!SubscriptionValidationService.canAddPayment()) {
+      print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO pagos múltiples');
+      return;
+    }
+
+    print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con pagos múltiples');
+
+    if (!canAddPayment) {
+      _showError(
+        'Acción no disponible',
+        'No se pueden agregar pagos a esta factura',
+      );
+      return;
+    }
+
+    if (payments.isEmpty) {
+      _showError('Error de validación', 'Debes agregar al menos un pago');
+      return;
+    }
+
+    // Validar que todos los pagos tengan monto válido
+    final invalidPayments = payments.where((p) => p.amount <= 0);
+    if (invalidPayments.isNotEmpty) {
+      _showError('Error de validación', 'Todos los pagos deben tener un monto mayor a cero');
+      return;
+    }
+
+    // Validar que el total no exceda el saldo pendiente
+    final totalPayment = payments.fold(0.0, (sum, p) => sum + p.amount);
+    if (totalPayment > remainingBalance) {
+      _showError('Error de validación', 'El total de pagos excede el saldo pendiente');
+      return;
+    }
+
+    try {
+      _isProcessing.value = true;
+      update();
+
+      print('💳 Agregando ${payments.length} pagos múltiples a factura: $invoiceId');
+      print('💰 Total a pagar: \$$totalPayment / Saldo: \$$remainingBalance');
+
+      // Convertir PaymentItemModel a PaymentItemParams para el UseCase
+      final paymentParams = payments.map((p) => PaymentItemParams(
+        amount: p.amount,
+        paymentMethod: PaymentMethod.fromString(p.paymentMethod),
+        bankAccountId: p.bankAccountId,
+        reference: p.reference,
+        notes: p.notes,
+      )).toList();
+
+      final result = await _addMultiplePaymentsUseCase(
+        AddMultiplePaymentsParams(
+          invoiceId: invoiceId,
+          payments: paymentParams,
+          paymentDate: DateTime.now(),
+          createCreditForRemaining: createCreditForRemaining,
+          generalNotes: createCreditForRemaining
+              ? 'Pago parcial con crédito por saldo restante'
+              : null,
+        ),
+      );
+
+      result.fold(
+        (failure) {
+          // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
+          final handled = SubscriptionErrorHandler.handleFailure(
+            failure,
+            context: 'procesar pagos múltiples',
+          );
+
+          if (!handled) {
+            _showError('Error al procesar pagos', failure.message);
+          }
+        },
+        (paymentResult) async {
+          print('✅ ${paymentResult.paymentsCreated} pagos procesados exitosamente');
+          print('📊 Backend devolvió: pagos=${paymentResult.invoice.payments.length}, paidAmount=${paymentResult.invoice.paidAmount}');
+
+          if (paymentResult.creditCreated) {
+            print('📋 Crédito creado: ${paymentResult.creditId}');
+          }
+
+          // 🔄 WORKAROUND: Recargar factura para obtener datos actualizados
+          await _reloadInvoiceAfterPayment();
+
+          // Mensaje personalizado según resultado
+          if (paymentResult.remainingBalance <= 0) {
+            _showSuccess('Factura pagada completamente con ${paymentResult.paymentsCreated} pagos');
+          } else if (paymentResult.creditCreated) {
+            _showSuccess(
+              'Pago parcial registrado. Crédito creado por \$${paymentResult.remainingBalance.toStringAsFixed(0)}'
+            );
+          } else {
+            _showSuccess(
+              '${paymentResult.paymentsCreated} pagos registrados. Saldo pendiente: \$${paymentResult.remainingBalance.toStringAsFixed(0)}'
+            );
+          }
+        },
+      );
+    } catch (e) {
+      print('💥 Error al procesar pagos múltiples: $e');
+      _showError('Error inesperado', 'No se pudieron procesar los pagos');
     } finally {
       _isProcessing.value = false;
       update();
@@ -847,10 +1041,58 @@ class InvoiceDetailController extends GetxController {
     }
   }
 
-  /// Compartir factura
-  void shareInvoice() {
-    // TODO: Implementar compartir factura
-    _showInfo('Próximamente', 'Función de compartir en desarrollo');
+  /// Exportar y compartir PDF de factura
+  Future<void> exportAndSharePdf({bool shareDirectly = true}) async {
+    if (invoice == null) {
+      _showError('Error', 'No hay factura para exportar');
+      return;
+    }
+
+    try {
+      _isExportingPdf.value = true;
+      print('📄 Exportando PDF de factura: ${invoice!.number}');
+
+      final result = await _exportAndShareInvoicePdfUseCase.call(
+        invoiceId: invoice!.id,
+        invoiceNumber: invoice!.number,
+        shareDirectly: shareDirectly,
+      );
+
+      result.fold(
+        (failure) {
+          print('❌ Error al exportar PDF: ${failure.message}');
+          _showError('Error al exportar PDF', failure.message);
+        },
+        (shareResult) {
+          if (shareDirectly && shareResult != null) {
+            print('✅ PDF compartido: ${shareResult.status}');
+            if (shareResult.status == ShareResultStatus.success) {
+              _showSuccess('PDF compartido exitosamente');
+            } else if (shareResult.status == ShareResultStatus.dismissed) {
+              _showInfo('Compartir cancelado', 'No se compartió el PDF');
+            }
+          } else {
+            print('✅ PDF descargado sin compartir');
+            _showSuccess('PDF descargado exitosamente');
+          }
+        },
+      );
+    } catch (e) {
+      print('💥 Error inesperado al exportar PDF: $e');
+      _showError('Error inesperado', 'No se pudo exportar el PDF');
+    } finally {
+      _isExportingPdf.value = false;
+    }
+  }
+
+  /// Descargar PDF sin compartir
+  Future<void> downloadPdf() async {
+    await exportAndSharePdf(shareDirectly: false);
+  }
+
+  /// Compartir factura (legacy - ahora usa PDF)
+  Future<void> shareInvoice() async {
+    await exportAndSharePdf(shareDirectly: true);
   }
 
   /// Duplicar factura
@@ -898,6 +1140,10 @@ class InvoiceDetailController extends GetxController {
         return Colors.grey;
       case InvoiceStatus.partiallyPaid:
         return isOverdue ? Colors.red : Colors.blue;
+      case InvoiceStatus.credited:
+        return Colors.purple;
+      case InvoiceStatus.partiallyCredited:
+        return Colors.deepPurple;
     }
   }
 
@@ -918,6 +1164,10 @@ class InvoiceDetailController extends GetxController {
         return Icons.cancel;
       case InvoiceStatus.partiallyPaid:
         return Icons.pie_chart;
+      case InvoiceStatus.credited:
+        return Icons.receipt_long;
+      case InvoiceStatus.partiallyCredited:
+        return Icons.receipt;
     }
   }
 
@@ -944,6 +1194,10 @@ class InvoiceDetailController extends GetxController {
           return 'Pago parcial, vencida hace $daysOverdue días';
         }
         return 'Pago parcial recibido';
+      case InvoiceStatus.credited:
+        return 'Factura anulada por nota de crédito';
+      case InvoiceStatus.partiallyCredited:
+        return 'Factura con nota de crédito parcial aplicada';
     }
   }
 
@@ -953,7 +1207,65 @@ class InvoiceDetailController extends GetxController {
     paymentReferenceController.clear();
     paymentNotesController.clear();
     _selectedPaymentMethod.value = PaymentMethod.cash;
+    _selectedBankAccountId = null;
     paymentFormKey.currentState?.reset();
+  }
+
+  /// ✅ MÉTODO HELPER: Actualizar factura de forma consistente
+  /// Garantiza que tanto GetBuilder como Obx detecten los cambios
+  void _updateInvoiceAndRefreshUI(Invoice updatedInvoice) {
+    print('🔄 _updateInvoiceAndRefreshUI: Actualizando UI...');
+    print('📊 Nuevo estado: ${updatedInvoice.status}');
+    print('💰 Pagado: ${updatedInvoice.paidAmount} | Saldo: ${updatedInvoice.balanceDue}');
+    print('📝 Pagos: ${updatedInvoice.payments.length}');
+
+    // 1. Asignar el nuevo valor directamente (sin null intermedio para evitar parpadeo)
+    _invoice.value = updatedInvoice;
+
+    // 2. Forzar refresh del observable para Obx
+    _invoice.refresh();
+
+    // 3. Forzar actualización de GetBuilder inmediatamente
+    update();
+
+    // 4. Programar actualización adicional en el siguiente frame para garantizar rebuild
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_invoice.value != null) {
+        update();
+        print('✅ _updateInvoiceAndRefreshUI: Segunda actualización ejecutada');
+      }
+    });
+
+    print('✅ _updateInvoiceAndRefreshUI: UI actualizada');
+  }
+
+  /// 🔄 WORKAROUND: Recargar factura después de un pago para obtener datos actualizados
+  /// El backend a veces devuelve la factura con datos desactualizados después de agregar un pago
+  Future<void> _reloadInvoiceAfterPayment() async {
+    try {
+      print('🔄 _reloadInvoiceAfterPayment: Recargando factura $invoiceId...');
+
+      final result = await _getInvoiceByIdUseCase(
+        GetInvoiceByIdParams(id: invoiceId),
+      );
+
+      result.fold(
+        (failure) {
+          print('⚠️ Error recargando factura: ${failure.message}');
+          // No mostrar error al usuario, ya se mostró el mensaje de éxito
+        },
+        (freshInvoice) {
+          print('✅ Factura recargada exitosamente');
+          print('📊 Datos frescos: pagos=${freshInvoice.payments.length}, paidAmount=${freshInvoice.paidAmount}, balanceDue=${freshInvoice.balanceDue}');
+
+          // Actualizar con datos frescos
+          _updateInvoiceAndRefreshUI(freshInvoice);
+        },
+      );
+    } catch (e) {
+      print('💥 Error inesperado recargando factura: $e');
+      // No propagar error, ya se mostró éxito al usuario
+    }
   }
 
   /// Liberar controladores de forma ultra-segura
@@ -1048,6 +1360,107 @@ class InvoiceDetailController extends GetxController {
       icon: const Icon(Icons.info, color: Colors.blue),
       duration: const Duration(seconds: 3),
     );
+  }
+
+  // ==================== SALDO A FAVOR ====================
+
+  /// Verifica si el cliente de la factura tiene saldo a favor disponible
+  /// Usa directamente el API para no depender del CustomerCreditController
+  Future<double> getClientAvailableBalance() async {
+    if (invoice?.customerId == null || invoice!.customerId.isEmpty) return 0;
+
+    try {
+      final dioClient = Get.find<DioClient>();
+      final response = await dioClient.get(
+        '/client-balance/customer/${invoice!.customerId}/available',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final responseData = response.data as Map<String, dynamic>;
+        // La respuesta viene envuelta en {success, data, timestamp}
+        final data = responseData['data'] as Map<String, dynamic>?;
+        if (data != null) {
+          final hasBalance = data['hasBalance'] as bool? ?? false;
+          if (hasBalance) {
+            return (data['amount'] as num?)?.toDouble() ?? 0;
+          }
+        }
+      }
+      return 0;
+    } catch (e) {
+      print('❌ Error al verificar saldo a favor: $e');
+      return 0;
+    }
+  }
+
+  /// Muestra el diálogo para usar saldo a favor del cliente
+  Future<void> showUseBalanceDialog() async {
+    if (invoice == null || invoice!.customerId.isEmpty) {
+      _showError('Error', 'No hay factura o cliente seleccionado');
+      return;
+    }
+
+    final availableBalance = await getClientAvailableBalance();
+    if (availableBalance <= 0) {
+      _showInfo('Sin saldo', 'El cliente no tiene saldo a favor disponible');
+      return;
+    }
+
+    if (invoice!.balanceDue <= 0) {
+      _showInfo('Factura pagada', 'Esta factura ya está completamente pagada');
+      return;
+    }
+
+    final customerName = invoice!.customer?.firstName != null
+        ? '${invoice!.customer!.firstName} ${invoice!.customer!.lastName ?? ''}'
+        : 'Cliente';
+
+    Get.dialog(
+      UseBalanceDialog(
+        invoice: invoice!,
+        availableBalance: availableBalance,
+        customerName: customerName,
+        onConfirm: (amountToUse) async {
+          Get.back(); // Cerrar dialog
+          await applyClientBalance(amountToUse);
+        },
+        onCancel: () => Get.back(),
+      ),
+    );
+  }
+
+  /// Aplica el saldo a favor del cliente a la factura actual
+  Future<void> applyClientBalance(double amount) async {
+    if (invoice == null) {
+      _showError('Error', 'No hay factura seleccionada');
+      return;
+    }
+
+    try {
+      _isProcessing.value = true;
+      update();
+
+      print('💰 Aplicando saldo a favor: \$${amount.toStringAsFixed(0)} a factura ${invoice!.number}');
+
+      final datasource = Get.find<InvoiceRemoteDataSource>();
+      final result = await datasource.applyClientBalance(invoice!.id, amount: amount);
+
+      // Actualizar factura con los nuevos datos
+      _invoice.value = result.invoice.toEntity();
+
+      _showSuccess('Se aplicaron \$${result.balanceUsed.toStringAsFixed(0)} de saldo a favor');
+
+      print('✅ Saldo aplicado correctamente:');
+      print('   - Usado: \$${result.balanceUsed}');
+      print('   - Saldo restante cliente: \$${result.remainingBalance}');
+      print('   - Deuda restante factura: \$${result.remainingDebt}');
+    } catch (e) {
+      print('❌ Error al aplicar saldo a favor: $e');
+      _showError('Error', 'No se pudo aplicar el saldo a favor: $e');
+    } finally {
+      _isProcessing.value = false;
+      update();
+    }
   }
 }
 
@@ -1308,32 +1721,20 @@ class _CreditPaymentDialogContentState
           }
           setState(() => isProcessing = false);
         },
-        (updatedInvoice) {
-          print(
-            '✅ Pago agregado exitosamente - Nuevo saldo: ${updatedInvoice.balanceDue}',
-          );
+        (updatedInvoice) async {
+          print('✅ Pago a crédito agregado exitosamente');
+          print('📊 Backend devolvió: pagos=${updatedInvoice.payments.length}, paidAmount=${updatedInvoice.paidAmount}');
 
-          // ✅ ACTUALIZAR CONTROLLER
-          widget.controller._invoice.value = updatedInvoice;
-          widget.controller.update();
-          widget.controller._invoice.refresh();
+          // 🔄 WORKAROUND: Recargar factura para obtener datos actualizados
+          await widget.controller._reloadInvoiceAfterPayment();
 
           // ✅ MOSTRAR MENSAJE DE ÉXITO
           widget.controller._showSuccess('Pago agregado exitosamente');
 
-          // ✅ CERRAR DIÁLOGO - MÚLTIPLES MÉTODOS PARA GARANTIZAR CIERRE
+          // ✅ CERRAR DIÁLOGO
           if (mounted) {
             setState(() => isProcessing = false);
-
-            // Método 1: Navigator directo
             Navigator.of(context).pop();
-
-            // Método 2: Get.back como fallback (después de un delay mínimo)
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (Get.isDialogOpen == true) {
-                Get.back();
-              }
-            });
           }
         },
       );
@@ -1408,6 +1809,32 @@ class _CreditPaymentDialogContentState
               : null,
       backgroundColor: isValid ? null : Colors.grey.shade200,
       textColor: isValid ? null : Colors.grey.shade500,
+    );
+  }
+}
+
+/// Wrapper para el diálogo de pagos múltiples
+/// Simplifica la integración con el controlador
+class _MultiPaymentDialogWrapper extends StatelessWidget {
+  final double total;
+  final double balanceDue;
+  final Function(List<PaymentItemModel> payments, bool createCredit) onConfirm;
+  final VoidCallback onCancel;
+
+  const _MultiPaymentDialogWrapper({
+    required this.total,
+    required this.balanceDue,
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiPaymentDialog(
+      total: total,
+      balanceDue: balanceDue,
+      onConfirm: onConfirm,
+      onCancel: onCancel,
     );
   }
 }

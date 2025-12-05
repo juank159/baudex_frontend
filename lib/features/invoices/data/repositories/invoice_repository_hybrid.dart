@@ -41,6 +41,8 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,
+    String? bankAccountId,
+    String? bankAccountName,
     DateTime? startDate,
     DateTime? endDate,
     double? minAmount,
@@ -62,6 +64,8 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
           paymentMethod: paymentMethod,
           customerId: customerId,
           createdById: createdById,
+          bankAccountId: bankAccountId,
+          bankAccountName: bankAccountName,
           startDate: startDate,
           endDate: endDate,
           minAmount: minAmount,
@@ -82,6 +86,8 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
               paymentMethod: paymentMethod,
               customerId: customerId,
               createdById: createdById,
+              bankAccountId: bankAccountId,
+              bankAccountName: bankAccountName,
               startDate: startDate,
               endDate: endDate,
               minAmount: minAmount,
@@ -108,6 +114,8 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
           paymentMethod: paymentMethod,
           customerId: customerId,
           createdById: createdById,
+          bankAccountId: bankAccountId,
+          bankAccountName: bankAccountName,
           startDate: startDate,
           endDate: endDate,
           minAmount: minAmount,
@@ -127,6 +135,8 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         paymentMethod: paymentMethod,
         customerId: customerId,
         createdById: createdById,
+        bankAccountId: bankAccountId,
+        bankAccountName: bankAccountName,
         startDate: startDate,
         endDate: endDate,
         minAmount: minAmount,
@@ -176,7 +186,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         _cacheInvoicesInIsar([invoice]);
 
         return Right(invoice);
-      } on ServerException catch (e) {
+      } on ServerException {
         return offlineRepository.getInvoiceById(id);
       } catch (e) {
         return offlineRepository.getInvoiceById(id);
@@ -197,7 +207,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         _cacheInvoicesInIsar([invoice]);
 
         return Right(invoice);
-      } on ServerException catch (e) {
+      } on ServerException {
         return offlineRepository.getInvoiceByNumber(number);
       } catch (e) {
         return offlineRepository.getInvoiceByNumber(number);
@@ -208,10 +218,14 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
   }
 
   @override
-  Future<Either<Failure, List<Invoice>>> searchInvoices(String searchTerm) async {
+  Future<Either<Failure, List<Invoice>>> searchInvoices(
+    String searchTerm,
+  ) async {
     if (await networkInfo.isConnected) {
       try {
-        final remoteInvoices = await remoteDataSource.searchInvoices(searchTerm);
+        final remoteInvoices = await remoteDataSource.searchInvoices(
+          searchTerm,
+        );
         final invoices =
             remoteInvoices.map((model) => model.toEntity()).toList();
 
@@ -219,7 +233,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         _cacheInvoicesInIsar(invoices);
 
         return Right(invoices);
-      } on ServerException catch (e) {
+      } on ServerException {
         return offlineRepository.searchInvoices(searchTerm);
       } catch (e) {
         return offlineRepository.searchInvoices(searchTerm);
@@ -270,26 +284,28 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
     String? notes,
     String? terms,
     Map<String, dynamic>? metadata,
+    String? bankAccountId, // 🏦 ID de la cuenta bancaria para registrar el pago
   }) async {
     if (await networkInfo.isConnected) {
       try {
         // Try remote creation
         final createRequest = CreateInvoiceRequestModel(
           customerId: customerId,
-          items: items
-              .map(
-                (item) => CreateInvoiceItemRequestModel(
-                  productId: item.productId,
-                  description: item.description,
-                  quantity: item.quantity,
-                  unitPrice: item.unitPrice,
-                  discountPercentage: item.discountPercentage,
-                  discountAmount: item.discountAmount,
-                  unit: item.unit,
-                  notes: item.notes,
-                ),
-              )
-              .toList(),
+          items:
+              items
+                  .map(
+                    (item) => CreateInvoiceItemRequestModel(
+                      productId: item.productId,
+                      description: item.description,
+                      quantity: item.quantity,
+                      unitPrice: item.unitPrice,
+                      discountPercentage: item.discountPercentage,
+                      discountAmount: item.discountAmount,
+                      unit: item.unit,
+                      notes: item.notes,
+                    ),
+                  )
+                  .toList(),
           number: number,
           date: date?.toIso8601String(),
           dueDate: dueDate?.toIso8601String(),
@@ -301,6 +317,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
           notes: notes,
           terms: terms,
           metadata: metadata,
+          bankAccountId: bankAccountId,
         );
 
         final remoteInvoice = await remoteDataSource.createInvoice(
@@ -329,6 +346,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
           notes: notes,
           terms: terms,
           metadata: metadata,
+          bankAccountId: bankAccountId,
         );
       }
     } else {
@@ -348,6 +366,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         notes: notes,
         terms: terms,
         metadata: metadata,
+        bankAccountId: bankAccountId,
       );
     }
   }
@@ -377,20 +396,21 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
           date: date?.toIso8601String(),
           dueDate: dueDate?.toIso8601String(),
           customerId: customerId,
-          items: items
-              ?.map(
-                (item) => CreateInvoiceItemRequestModel(
-                  productId: item.productId,
-                  description: item.description,
-                  quantity: item.quantity,
-                  unitPrice: item.unitPrice,
-                  discountPercentage: item.discountPercentage,
-                  discountAmount: item.discountAmount,
-                  unit: item.unit,
-                  notes: item.notes,
-                ),
-              )
-              .toList(),
+          items:
+              items
+                  ?.map(
+                    (item) => CreateInvoiceItemRequestModel(
+                      productId: item.productId,
+                      description: item.description,
+                      quantity: item.quantity,
+                      unitPrice: item.unitPrice,
+                      discountPercentage: item.discountPercentage,
+                      discountAmount: item.discountAmount,
+                      unit: item.unit,
+                      notes: item.notes,
+                    ),
+                  )
+                  .toList(),
           taxPercentage: taxPercentage,
           discountPercentage: discountPercentage,
           discountAmount: discountAmount,
@@ -498,14 +518,17 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
   ) async {
     if (await networkInfo.isConnected) {
       try {
-        final remoteInvoices = await remoteDataSource.getInvoicesByCustomer(customerId);
-        final invoices = remoteInvoices.map((model) => model.toEntity()).toList();
-        
+        final remoteInvoices = await remoteDataSource.getInvoicesByCustomer(
+          customerId,
+        );
+        final invoices =
+            remoteInvoices.map((model) => model.toEntity()).toList();
+
         // Cache in ISAR
         _cacheInvoicesInIsar(invoices);
-        
+
         return Right(invoices);
-      } on ServerException catch (e) {
+      } on ServerException {
         return offlineRepository.getInvoicesByCustomer(customerId);
       } catch (e) {
         return offlineRepository.getInvoicesByCustomer(customerId);
@@ -520,29 +543,31 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
     required String invoiceId,
     required double amount,
     required PaymentMethod paymentMethod,
+    String? bankAccountId,
     DateTime? paymentDate,
     String? reference,
     String? notes,
   }) async {
     if (await networkInfo.isConnected) {
       try {
-        final paymentRequest = AddPaymentRequestModel.fromParams(
+        final paymentRequest = AddPaymentRequestModel(
           amount: amount,
-          paymentMethod: paymentMethod,
-          paymentDate: paymentDate,
+          paymentMethod: paymentMethod.value,
+          bankAccountId: bankAccountId,
+          paymentDate: paymentDate?.toIso8601String(),
           reference: reference,
           notes: notes,
         );
-        
+
         final remoteInvoice = await remoteDataSource.addPayment(
           invoiceId,
           paymentRequest,
         );
         final invoice = remoteInvoice.toEntity();
-        
+
         // Cache in ISAR
         _cacheInvoicesInIsar([invoice]);
-        
+
         return Right(invoice);
       } on ServerException catch (e) {
         print('❌ Error al agregar pago en servidor, guardando offline: $e');
@@ -550,6 +575,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
           invoiceId: invoiceId,
           amount: amount,
           paymentMethod: paymentMethod,
+          bankAccountId: bankAccountId,
           paymentDate: paymentDate,
           reference: reference,
           notes: notes,
@@ -561,9 +587,71 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         invoiceId: invoiceId,
         amount: amount,
         paymentMethod: paymentMethod,
+        bankAccountId: bankAccountId,
         paymentDate: paymentDate,
         reference: reference,
         notes: notes,
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, MultiplePaymentsResult>> addMultiplePayments({
+    required String invoiceId,
+    required List<PaymentItemData> payments,
+    DateTime? paymentDate,
+    bool createCreditForRemaining = false,
+    String? generalNotes,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        print('💳 InvoiceRepositoryHybrid: Agregando ${payments.length} pagos a factura: $invoiceId');
+
+        // Convertir PaymentItemData a PaymentItemModel
+        final paymentModels = payments.map((p) => PaymentItemModel(
+          amount: p.amount,
+          paymentMethod: p.paymentMethod.value,
+          bankAccountId: p.bankAccountId,
+          reference: p.reference,
+          notes: p.notes,
+        )).toList();
+
+        final request = AddMultiplePaymentsRequestModel(
+          payments: paymentModels,
+          paymentDate: paymentDate?.toIso8601String(),
+          createCreditForRemaining: createCreditForRemaining,
+          generalNotes: generalNotes,
+        );
+
+        final result = await remoteDataSource.addMultiplePayments(invoiceId, request);
+
+        // Cache in ISAR
+        _cacheInvoicesInIsar([result.invoice.toEntity()]);
+
+        return Right(MultiplePaymentsResult(
+          invoice: result.invoice.toEntity(),
+          paymentsCreated: result.paymentCount,
+          remainingBalance: result.remainingBalance,
+          creditCreated: result.creditCreated,
+        ));
+      } on ServerException catch (e) {
+        print('❌ Error al agregar pagos múltiples en servidor, guardando offline: $e');
+        return offlineRepository.addMultiplePayments(
+          invoiceId: invoiceId,
+          payments: payments,
+          paymentDate: paymentDate,
+          createCreditForRemaining: createCreditForRemaining,
+          generalNotes: generalNotes,
+        );
+      }
+    } else {
+      print('📱 Sin conexión, agregando pagos múltiples offline...');
+      return offlineRepository.addMultiplePayments(
+        invoiceId: invoiceId,
+        payments: payments,
+        paymentDate: paymentDate,
+        createCreditForRemaining: createCreditForRemaining,
+        generalNotes: generalNotes,
       );
     }
   }
@@ -588,6 +676,8 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,
+    String? bankAccountId,
+    String? bankAccountName,
     DateTime? startDate,
     DateTime? endDate,
     double? minAmount,
@@ -604,6 +694,8 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         paymentMethod: paymentMethod,
         customerId: customerId,
         createdById: createdById,
+        bankAccountId: bankAccountId,
+        bankAccountName: bankAccountName,
         startDate: startDate,
         endDate: endDate,
         minAmount: minAmount,
@@ -611,7 +703,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
         sortBy: sortBy,
         sortOrder: sortOrder,
       );
-      
+
       final result = await remoteDataSource.getInvoices(queryParams);
 
       final invoices = result.data.map((model) => model.toEntity()).toList();
@@ -670,6 +762,22 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
       });
     } catch (e) {
       return Left(CacheFailure('Error en sincronización: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<int>>> downloadInvoicePdf(String id) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final pdfBytes = await remoteDataSource.downloadInvoicePdf(id);
+        return Right(pdfBytes);
+      } on ServerException catch (e) {
+        return Left(ServerFailure('Error downloading PDF: ${e.message}'));
+      } catch (e) {
+        return Left(ServerFailure('Error downloading PDF: $e'));
+      }
+    } else {
+      return Left(ConnectionFailure('Download PDF not available offline'));
     }
   }
 }

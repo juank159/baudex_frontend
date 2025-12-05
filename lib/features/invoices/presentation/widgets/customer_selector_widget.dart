@@ -1,6 +1,7 @@
 // lib/features/invoices/presentation/widgets/customer_selector_widget.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../controllers/invoice_form_controller.dart';
 
@@ -148,47 +149,47 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     );
   }
 
-  // ✅ NUEVO: Display simplificado del cliente
+  // ✅ NUEVO: Display simplificado del cliente con tema elegante
   Widget _buildSimpleCustomerDisplay(BuildContext context, Customer? customer) {
     final customerName = customer?.displayName ?? 'Consumidor Final';
     final isDefaultCustomer = customer != null && _isDefaultCustomer(customer);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color:
-              isDefaultCustomer ? Colors.orange.shade300 : Colors.grey.shade300,
+          color: isDefaultCustomer
+              ? ElegantLightTheme.accentOrange.withOpacity(0.4)
+              : ElegantLightTheme.textTertiary.withOpacity(0.2),
           width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Row(
         children: [
-          // Icono del cliente
+          // Icono del cliente con gradiente
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color:
-                  isDefaultCustomer
-                      ? Colors.orange.shade100
-                      : Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
+              gradient: isDefaultCustomer
+                  ? ElegantLightTheme.warningGradient
+                  : ElegantLightTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: isDefaultCustomer
+                  ? [
+                      BoxShadow(
+                        color: ElegantLightTheme.accentOrange.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : ElegantLightTheme.glowShadow,
             ),
             child: Icon(
               isDefaultCustomer ? Icons.storefront : Icons.person,
-              color:
-                  isDefaultCustomer
-                      ? Colors.orange.shade600
-                      : Theme.of(context).primaryColor,
+              color: Colors.white,
               size: 16,
             ),
           ),
@@ -202,10 +203,10 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
               children: [
                 Text(
                   customerName,
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: const TextStyle(
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: ElegantLightTheme.textPrimary,
                   ),
                 ),
                 if (isDefaultCustomer) ...[
@@ -213,8 +214,8 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
                   Text(
                     'Venta mostrador',
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.orange.shade600,
+                      fontSize: 11,
+                      color: ElegantLightTheme.accentOrange,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -223,7 +224,7 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
             ),
           ),
 
-          // Botón de búsqueda
+          // Botón de búsqueda con gradiente
           Material(
             color: Colors.transparent,
             child: InkWell(
@@ -232,8 +233,9 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor,
+                  gradient: ElegantLightTheme.primaryGradient,
                   borderRadius: BorderRadius.circular(8),
+                  boxShadow: ElegantLightTheme.glowShadow,
                 ),
                 child: Icon(
                   _showSearchField ? Icons.close : Icons.search,
@@ -260,8 +262,15 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade500,
+                    gradient: ElegantLightTheme.warningGradient,
                     borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: ElegantLightTheme.accentOrange.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     Icons.refresh,
@@ -280,24 +289,29 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
   Widget _buildSearchField(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _focusNode.hasFocus
+              ? ElegantLightTheme.primaryBlue.withOpacity(0.5)
+              : ElegantLightTheme.textTertiary.withOpacity(0.2),
+          width: _focusNode.hasFocus ? 2 : 1,
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: TextField(
         controller: _searchController,
         focusNode: _focusNode,
-        style: const TextStyle(fontSize: 16),
+        style: const TextStyle(
+          fontSize: 14,
+          color: ElegantLightTheme.textPrimary,
+        ),
         decoration: InputDecoration(
           hintText: 'Buscar cliente...',
-          hintStyle: TextStyle(color: Colors.grey.shade500),
+          hintStyle: const TextStyle(
+            color: ElegantLightTheme.textTertiary,
+            fontSize: 13,
+          ),
           prefixIcon:
               _isSearching
                   ? Container(
@@ -305,14 +319,25 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
                     child: const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          ElegantLightTheme.primaryBlue,
+                        ),
+                      ),
                     ),
                   )
-                  : Icon(Icons.search, color: Colors.grey.shade500),
+                  : const Icon(
+                      Icons.search,
+                      color: ElegantLightTheme.textSecondary,
+                    ),
           suffixIcon:
               _searchController.text.isNotEmpty
                   ? IconButton(
-                    icon: const Icon(Icons.clear),
+                    icon: const Icon(
+                      Icons.clear,
+                      color: ElegantLightTheme.textSecondary,
+                    ),
                     onPressed: () {
                       _searchController.clear();
                       _focusNode.requestFocus();
@@ -334,24 +359,23 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
     return Container(
       constraints: const BoxConstraints(maxHeight: 300),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withOpacity(0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
-      child: ListView.builder(
-        shrinkWrap: true,
-        itemCount: _searchResults.length,
-        itemBuilder: (context, index) {
-          final customer = _searchResults[index];
-          return _buildCustomerTile(context, customer);
-        },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: _searchResults.length,
+          itemBuilder: (context, index) {
+            final customer = _searchResults[index];
+            return _buildCustomerTile(context, customer);
+          },
+        ),
       ),
     );
   }
@@ -368,31 +392,42 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
         child: InkWell(
           onTap: () => _selectCustomer(customer),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color:
-                  isSelected
-                      ? Theme.of(context).primaryColor.withOpacity(0.1)
-                      : Colors.transparent,
+              color: isSelected
+                  ? ElegantLightTheme.primaryBlue.withOpacity(0.08)
+                  : Colors.transparent,
               border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+                bottom: BorderSide(
+                  color: ElegantLightTheme.textTertiary.withOpacity(0.15),
+                  width: 0.5,
+                ),
               ),
             ),
             child: Row(
               children: [
-                // Avatar
+                // Avatar con gradiente
                 Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(18),
+                    gradient: isSelected
+                        ? ElegantLightTheme.primaryGradient
+                        : ElegantLightTheme.glassGradient,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected
+                          ? ElegantLightTheme.primaryBlue.withOpacity(0.3)
+                          : ElegantLightTheme.textTertiary.withOpacity(0.2),
+                    ),
                   ),
                   child: Icon(
                     customer.companyName != null
                         ? Icons.business
                         : Icons.person,
-                    color: Theme.of(context).primaryColor,
+                    color: isSelected
+                        ? Colors.white
+                        : ElegantLightTheme.primaryBlue,
                     size: 18,
                   ),
                 ),
@@ -407,11 +442,10 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
                         customer.displayName,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          color:
-                              isSelected
-                                  ? Theme.of(context).primaryColor
-                                  : Colors.black87,
+                          fontSize: 14,
+                          color: isSelected
+                              ? ElegantLightTheme.primaryBlue
+                              : ElegantLightTheme.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -419,9 +453,9 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
                       const SizedBox(height: 2),
                       Text(
                         customer.email,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -430,12 +464,19 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
                   ),
                 ),
 
-                // Indicador de selección
+                // Indicador de selección con gradiente
                 if (isSelected)
-                  Icon(
-                    Icons.check_circle,
-                    color: Theme.of(context).primaryColor,
-                    size: 20,
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.successGradient,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 14,
+                    ),
                   ),
               ],
             ),
@@ -447,20 +488,42 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
 
   Widget _buildNoResultsMessage() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.shade200),
+        gradient: LinearGradient(
+          colors: [
+            ElegantLightTheme.accentOrange.withOpacity(0.1),
+            ElegantLightTheme.accentOrange.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.accentOrange.withOpacity(0.3),
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.search_off, color: Colors.orange.shade600, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.warningGradient,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.search_off,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
             child: Text(
               'No se encontraron clientes con ese criterio',
-              style: TextStyle(fontSize: 14, color: Colors.orange.shade800),
+              style: TextStyle(
+                fontSize: 13,
+                color: ElegantLightTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],

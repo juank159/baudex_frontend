@@ -41,9 +41,12 @@ class SmartNotificationModel extends SmartNotification {
       type: NotificationType.fromString(json['type'] as String),
       priority: NotificationPriority.fromString(json['priority'] as String),
       status: NotificationStatus.fromString(json['status'] as String),
-      channels: (json['channels'] as List<dynamic>)
-          .map((channel) => NotificationChannel.fromString(channel as String))
-          .toList(),
+      channels:
+          (json['channels'] as List<dynamic>)
+              .map(
+                (channel) => NotificationChannel.fromString(channel as String),
+              )
+              .toList(),
       title: json['title'] as String,
       message: json['message'] as String,
       richContent: json['richContent'] as String?,
@@ -53,27 +56,35 @@ class SmartNotificationModel extends SmartNotification {
       actionLabel: json['actionLabel'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
       icon: json['icon'] as String,
-      color: Color(int.parse(json['color'].toString().replaceFirst('#', '0xFF'))),
-      scheduledFor: json['scheduledFor'] != null 
-          ? DateTime.parse(json['scheduledFor'] as String)
-          : null,
-      expiresAt: json['expiresAt'] != null 
-          ? DateTime.parse(json['expiresAt'] as String)
-          : null,
+      color: Color(
+        int.parse(json['color'].toString().replaceFirst('#', '0xFF')),
+      ),
+      scheduledFor:
+          json['scheduledFor'] != null
+              ? DateTime.parse(json['scheduledFor'] as String)
+              : null,
+      expiresAt:
+          json['expiresAt'] != null
+              ? DateTime.parse(json['expiresAt'] as String)
+              : null,
       retryCount: json['retryCount'] as int? ?? 0,
       maxRetries: json['maxRetries'] as int? ?? 3,
-      sentAt: json['sentAt'] != null 
-          ? DateTime.parse(json['sentAt'] as String)
-          : null,
-      deliveredAt: json['deliveredAt'] != null 
-          ? DateTime.parse(json['deliveredAt'] as String)
-          : null,
-      readAt: json['readAt'] != null 
-          ? DateTime.parse(json['readAt'] as String)
-          : null,
-      archivedAt: json['archivedAt'] != null 
-          ? DateTime.parse(json['archivedAt'] as String)
-          : null,
+      sentAt:
+          json['sentAt'] != null
+              ? DateTime.parse(json['sentAt'] as String)
+              : null,
+      deliveredAt:
+          json['deliveredAt'] != null
+              ? DateTime.parse(json['deliveredAt'] as String)
+              : null,
+      readAt:
+          json['readAt'] != null
+              ? DateTime.parse(json['readAt'] as String)
+              : null,
+      archivedAt:
+          json['archivedAt'] != null
+              ? DateTime.parse(json['archivedAt'] as String)
+              : null,
       isGrouped: json['isGrouped'] as bool? ?? false,
       groupKey: json['groupKey'] as String?,
       userId: json['userId'] as String,
@@ -83,6 +94,7 @@ class SmartNotificationModel extends SmartNotification {
     );
   }
 
+  @override
   Map<String, dynamic> toJson() {
     return {
       'id': id,

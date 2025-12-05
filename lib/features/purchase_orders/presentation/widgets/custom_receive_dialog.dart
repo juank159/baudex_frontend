@@ -15,7 +15,7 @@ class CustomReceiveQuantities {
   String? supplierLotNumber;
   DateTime? expirationDate;
   bool isExpanded;
-  
+
   CustomReceiveQuantities({
     required this.itemId,
     required this.orderedQuantity,
@@ -30,7 +30,8 @@ class CustomReceiveQuantities {
 
   // Los faltantes no se "procesan", simplemente no llegaron
   int get totalProcessed => receivedQuantity + damagedQuantity;
-  int get totalAccounted => receivedQuantity + damagedQuantity + missingQuantity;
+  int get totalAccounted =>
+      receivedQuantity + damagedQuantity + missingQuantity;
   int get pendingQuantity => orderedQuantity - totalAccounted;
   bool get isValid => totalAccounted <= orderedQuantity;
   bool get isComplete => totalAccounted == orderedQuantity;
@@ -60,7 +61,7 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
     super.initState();
     quantities = {};
     receivedControllers = {};
-    
+
     for (var item in widget.items) {
       final quantity = CustomReceiveQuantities(
         itemId: item.id,
@@ -69,10 +70,10 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
         damagedQuantity: 0,
         missingQuantity: 0,
       );
-      
+
       // Calcular la cantidad recibida automáticamente
       _autoAdjustQuantities(quantity);
-      
+
       quantities[item.id] = quantity;
       receivedControllers[item.id] = TextEditingController(
         text: quantity.receivedQuantity.toString(),
@@ -84,17 +85,25 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
   void dispose() {
     _scrollController.dispose();
     // Dispose de todos los controllers
-    receivedControllers.values.forEach((controller) => controller.dispose());
+    for (var controller in receivedControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
   void _autoAdjustQuantities(CustomReceiveQuantities quantity) {
     // Cálculo automático: recibidos = total - dañados - faltantes
-    int calculatedReceived = quantity.orderedQuantity - quantity.damagedQuantity - quantity.missingQuantity;
-    
+    int calculatedReceived =
+        quantity.orderedQuantity -
+        quantity.damagedQuantity -
+        quantity.missingQuantity;
+
     // Asegurar que la cantidad recibida no sea negativa
-    quantity.receivedQuantity = calculatedReceived.clamp(0, quantity.orderedQuantity);
-    
+    quantity.receivedQuantity = calculatedReceived.clamp(
+      0,
+      quantity.orderedQuantity,
+    );
+
     // Actualizar el controlador de texto si existe
     final controller = receivedControllers[quantity.itemId];
     if (controller != null) {
@@ -137,9 +146,7 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildHeader(),
-            Flexible(
-              child: _buildContent(),
-            ),
+            Flexible(child: _buildContent()),
             _buildFooter(),
           ],
         ),
@@ -225,17 +232,22 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
 
   Widget _buildItemCard(PurchaseOrderItem item) {
     final quantity = quantities[item.id]!;
-    
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 8), // Reducido de 16 a 8 (50% menos)
+      margin: const EdgeInsets.only(
+        bottom: 8,
+      ), // Reducido de 16 a 8 (50% menos)
       padding: const EdgeInsets.all(12), // Reducido de 20 a 12 (40% menos)
       decoration: BoxDecoration(
         color: ElegantLightTheme.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: quantity.isValid 
-            ? (quantity.isComplete ? const Color(0xFF10B981) : ElegantLightTheme.primaryBlue)
-            : const Color(0xFFEF4444),
+          color:
+              quantity.isValid
+                  ? (quantity.isComplete
+                      ? const Color(0xFF10B981)
+                      : ElegantLightTheme.primaryBlue)
+                  : const Color(0xFFEF4444),
           width: quantity.isValid ? 1 : 2,
         ),
       ),
@@ -265,7 +277,7 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
                       ),
                       const SizedBox(height: 2),
                       // Vista colapsada: mostrar cantidades básicas
-                      if (!quantity.isExpanded) 
+                      if (!quantity.isExpanded)
                         Text(
                           'Pedido: ${item.quantity} • Recibido: ${quantity.receivedQuantity}',
                           style: TextStyle(
@@ -274,7 +286,7 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                      // Vista expandida: mostrar código del producto  
+                      // Vista expandida: mostrar código del producto
                       if (quantity.isExpanded)
                         Text(
                           'Código: ${item.productCode ?? 'N/A'}',
@@ -287,7 +299,10 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: ElegantLightTheme.primaryBlue.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),
@@ -310,92 +325,96 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
               ],
             ),
           ),
-          
+
           // Contenido expandible
           if (quantity.isExpanded) ...[
             const SizedBox(height: 8),
-          
-          // Campos de cantidad
-          Row(
-            children: [
-              Expanded(
-                child: _buildQuantityField(
-                  label: 'Recibido (Calculado)',
-                  value: quantity.receivedQuantity,
-                  color: const Color(0xFF10B981), // Verde éxito
-                  readOnly: true,
-                  controller: receivedControllers[item.id],
-                  onChanged: (value) {
-                    // No hacer nada, es de solo lectura
-                  },
+
+            // Campos de cantidad
+            Row(
+              children: [
+                Expanded(
+                  child: _buildQuantityField(
+                    label: 'Recibido (Calculado)',
+                    value: quantity.receivedQuantity,
+                    color: const Color(0xFF10B981), // Verde éxito
+                    readOnly: true,
+                    controller: receivedControllers[item.id],
+                    onChanged: (value) {
+                      // No hacer nada, es de solo lectura
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8), // Reducido de 12 a 8
-              Expanded(
-                child: _buildQuantityField(
-                  label: 'Dañado',
-                  value: quantity.damagedQuantity,
-                  color: const Color(0xFFF59E0B), // Naranja advertencia
-                  onChanged: (value) {
-                    setState(() {
-                      quantity.damagedQuantity = value;
-                      // Recalcular automáticamente para mantener coherencia
-                      _autoAdjustQuantities(quantity);
-                    });
-                  },
+                const SizedBox(width: 8), // Reducido de 12 a 8
+                Expanded(
+                  child: _buildQuantityField(
+                    label: 'Dañado',
+                    value: quantity.damagedQuantity,
+                    color: const Color(0xFFF59E0B), // Naranja advertencia
+                    onChanged: (value) {
+                      setState(() {
+                        quantity.damagedQuantity = value;
+                        // Recalcular automáticamente para mantener coherencia
+                        _autoAdjustQuantities(quantity);
+                      });
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8), // Reducido de 12 a 8
-              Expanded(
-                child: _buildQuantityField(
-                  label: 'Faltante',
-                  value: quantity.missingQuantity,
-                  color: const Color(0xFFEF4444), // Rojo error
-                  onChanged: (value) {
-                    setState(() {
-                      quantity.missingQuantity = value;
-                      // Recalcular automáticamente para mantener coherencia
-                      _autoAdjustQuantities(quantity);
-                    });
-                  },
+                const SizedBox(width: 8), // Reducido de 12 a 8
+                Expanded(
+                  child: _buildQuantityField(
+                    label: 'Faltante',
+                    value: quantity.missingQuantity,
+                    color: const Color(0xFFEF4444), // Rojo error
+                    onChanged: (value) {
+                      setState(() {
+                        quantity.missingQuantity = value;
+                        // Recalcular automáticamente para mantener coherencia
+                        _autoAdjustQuantities(quantity);
+                      });
+                    },
+                  ),
                 ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 6), // Reducido de 12 a 6
-          
-          // Status indicator
-          _buildStatusIndicator(quantity),
-          
-          const SizedBox(height: 8), // Reducido de 16 a 8
-          
-          // Campo de notas
-          TextField(
-            style: TextStyle(color: ElegantLightTheme.textPrimary),
-            decoration: InputDecoration(
-              labelText: 'Notas (opcional)',
-              labelStyle: TextStyle(color: ElegantLightTheme.textSecondary),
-              hintText: 'Ej: Producto dañado por transporte',
-              hintStyle: TextStyle(color: ElegantLightTheme.textSecondary.withOpacity(0.7)),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: ElegantLightTheme.textSecondary.withOpacity(0.3)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: ElegantLightTheme.textSecondary.withOpacity(0.3)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: ElegantLightTheme.primaryBlue),
-              ),
+              ],
             ),
-            maxLines: 1, // Reducido de 2 a 1 línea
-            onChanged: (value) {
-              quantity.notes = value.isEmpty ? null : value;
-            },
-          ),
+
+            const SizedBox(height: 6), // Reducido de 12 a 6
+            // Status indicator
+            _buildStatusIndicator(quantity),
+
+            const SizedBox(height: 8), // Reducido de 16 a 8
+            // Campo de notas
+            TextField(
+              style: TextStyle(color: ElegantLightTheme.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Notas (opcional)',
+                labelStyle: TextStyle(color: ElegantLightTheme.textSecondary),
+                hintText: 'Ej: Producto dañado por transporte',
+                hintStyle: TextStyle(
+                  color: ElegantLightTheme.textSecondary.withOpacity(0.7),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: ElegantLightTheme.textSecondary.withOpacity(0.3),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: ElegantLightTheme.textSecondary.withOpacity(0.3),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: ElegantLightTheme.primaryBlue),
+                ),
+              ),
+              maxLines: 1, // Reducido de 2 a 1 línea
+              onChanged: (value) {
+                quantity.notes = value.isEmpty ? null : value;
+              },
+            ),
           ], // Cierre del condicional if (quantity.isExpanded)
         ],
       ),
@@ -432,28 +451,35 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
             controller: controller,
             initialValue: controller == null ? value.toString() : null,
             style: TextStyle(
-              color: readOnly ? color.withOpacity(0.7) : color, 
+              color: readOnly ? color.withOpacity(0.7) : color,
               fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.center,
             keyboardType: readOnly ? TextInputType.none : TextInputType.number,
             readOnly: readOnly,
-            inputFormatters: readOnly ? [] : [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
+            inputFormatters:
+                readOnly ? [] : [FilteringTextInputFormatter.digitsOnly],
             decoration: InputDecoration(
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 8), // Reducido de 12 a 8
-              suffixIcon: readOnly ? Icon(
-                Icons.calculate,
-                color: color.withOpacity(0.5),
-                size: 16,
-              ) : null,
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 8,
+              ), // Reducido de 12 a 8
+              suffixIcon:
+                  readOnly
+                      ? Icon(
+                        Icons.calculate,
+                        color: color.withOpacity(0.5),
+                        size: 16,
+                      )
+                      : null,
             ),
-            onChanged: readOnly ? null : (text) {
-              final newValue = int.tryParse(text) ?? 0;
-              onChanged(newValue);
-            },
+            onChanged:
+                readOnly
+                    ? null
+                    : (text) {
+                      final newValue = int.tryParse(text) ?? 0;
+                      onChanged(newValue);
+                    },
           ),
         ),
       ],
@@ -507,10 +533,11 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
 
   Widget _buildFooter() {
     final isValid = quantities.values.every((q) => q.isValid);
-    final hasChanges = quantities.values.any((q) => 
-      q.receivedQuantity != q.orderedQuantity || 
-      q.damagedQuantity > 0 || 
-      q.missingQuantity > 0
+    final hasChanges = quantities.values.any(
+      (q) =>
+          q.receivedQuantity != q.orderedQuantity ||
+          q.damagedQuantity > 0 ||
+          q.missingQuantity > 0,
     );
 
     return Container(
@@ -542,12 +569,18 @@ class _CustomReceiveDialogState extends State<CustomReceiveDialog> {
           ),
           const SizedBox(width: 16),
           ElevatedButton(
-            onPressed: isValid ? () {
-              widget.onConfirm(quantities);
-              Navigator.of(context).pop();
-            } : null,
+            onPressed:
+                isValid
+                    ? () {
+                      widget.onConfirm(quantities);
+                      Navigator.of(context).pop();
+                    }
+                    : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: isValid ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary,
+              backgroundColor:
+                  isValid
+                      ? ElegantLightTheme.primaryBlue
+                      : ElegantLightTheme.textSecondary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(

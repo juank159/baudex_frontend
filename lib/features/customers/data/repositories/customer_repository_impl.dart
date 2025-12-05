@@ -88,6 +88,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
     }
   }
 
+  @override
   Future<Either<Failure, Customer?>> getDefaultCustomer(
     String customerId,
   ) async {

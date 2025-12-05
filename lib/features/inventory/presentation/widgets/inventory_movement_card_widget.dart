@@ -19,8 +19,13 @@ class InventoryMovementCardWidget extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
-    final cardPadding = isDesktop ? 16.0 : isTablet ? 14.0 : 12.0;
-    
+    final cardPadding =
+        isDesktop
+            ? 16.0
+            : isTablet
+            ? 14.0
+            : 12.0;
+
     return Card(
       margin: EdgeInsets.only(bottom: isDesktop ? 8 : 6),
       elevation: isDesktop ? 2 : 1,
@@ -42,7 +47,12 @@ class InventoryMovementCardWidget extends StatelessWidget {
                         movement.displayMovementType,
                         style: Get.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
+                          fontSize:
+                              isDesktop
+                                  ? 16
+                                  : isTablet
+                                  ? 15
+                                  : 14,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -51,7 +61,12 @@ class InventoryMovementCardWidget extends StatelessWidget {
                         movement.displayReason,
                         style: Get.textTheme.bodySmall?.copyWith(
                           color: Get.theme.colorScheme.onSurfaceVariant,
-                          fontSize: isDesktop ? 13 : isTablet ? 12 : 11,
+                          fontSize:
+                              isDesktop
+                                  ? 13
+                                  : isTablet
+                                  ? 12
+                                  : 11,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -62,9 +77,9 @@ class InventoryMovementCardWidget extends StatelessWidget {
                 _buildStatusBadge(isDesktop),
               ],
             ),
-            
+
             SizedBox(height: isDesktop ? 12 : 8),
-            
+
             // FILA 2: Información del producto y detalles principales
             Row(
               children: [
@@ -74,7 +89,8 @@ class InventoryMovementCardWidget extends StatelessWidget {
                   child: Container(
                     padding: EdgeInsets.all(isDesktop ? 8 : 6),
                     decoration: BoxDecoration(
-                      color: Get.theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                      color: Get.theme.colorScheme.surfaceContainerHighest
+                          .withOpacity(0.3),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
@@ -89,7 +105,12 @@ class InventoryMovementCardWidget extends StatelessWidget {
                                 movement.productName,
                                 style: Get.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
+                                  fontSize:
+                                      isDesktop
+                                          ? 14
+                                          : isTablet
+                                          ? 13
+                                          : 12,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -98,7 +119,8 @@ class InventoryMovementCardWidget extends StatelessWidget {
                                 Text(
                                   'SKU: ${movement.productSku}',
                                   style: Get.textTheme.bodySmall?.copyWith(
-                                    color: Get.theme.colorScheme.onSurfaceVariant,
+                                    color:
+                                        Get.theme.colorScheme.onSurfaceVariant,
                                     fontSize: isDesktop ? 11 : 10,
                                   ),
                                   maxLines: 1,
@@ -111,9 +133,9 @@ class InventoryMovementCardWidget extends StatelessWidget {
                     ),
                   ),
                 ),
-                
+
                 SizedBox(width: isDesktop ? 12 : 8),
-                
+
                 // Cantidad
                 Expanded(
                   flex: 2,
@@ -125,9 +147,9 @@ class InventoryMovementCardWidget extends StatelessWidget {
                     isCompact: !isDesktop,
                   ),
                 ),
-                
+
                 SizedBox(width: isDesktop ? 12 : 8),
-                
+
                 // Fecha
                 Expanded(
                   flex: 2,
@@ -141,9 +163,9 @@ class InventoryMovementCardWidget extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             SizedBox(height: isDesktop ? 10 : 8),
-            
+
             // FILA 3: Información adicional (costo, almacén, referencia, notas)
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -162,7 +184,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
                   ),
                   SizedBox(width: isDesktop ? 12 : 8),
                 ],
-                
+
                 // Almacén (si existe)
                 if (movement.warehouseName != null) ...[
                   Expanded(
@@ -177,13 +199,14 @@ class InventoryMovementCardWidget extends StatelessWidget {
                   ),
                   SizedBox(width: isDesktop ? 12 : 8),
                 ],
-                
+
                 // Referencia (si existe)
-                if (movement.referenceType != null && movement.referenceId != null) ...[
+                if (movement.referenceType != null &&
+                    movement.referenceId != null) ...[
                   _buildReferenceInfo(isDesktop),
                   SizedBox(width: isDesktop ? 12 : 8),
                 ],
-                
+
                 // Notas (si existen)
                 if (movement.notes != null && movement.notes!.isNotEmpty)
                   Expanded(
@@ -191,7 +214,8 @@ class InventoryMovementCardWidget extends StatelessWidget {
                     child: Container(
                       padding: EdgeInsets.all(isDesktop ? 6 : 4),
                       decoration: BoxDecoration(
-                        color: Get.theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                        color: Get.theme.colorScheme.surfaceContainerHighest
+                            .withOpacity(0.3),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
@@ -218,11 +242,12 @@ class InventoryMovementCardWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                
+
                 // Spacer si no hay elementos en la tercera fila
-                if (movement.unitCost <= 0 && 
-                    movement.warehouseName == null && 
-                    (movement.referenceType == null || movement.referenceId == null) &&
+                if (movement.unitCost <= 0 &&
+                    movement.warehouseName == null &&
+                    (movement.referenceType == null ||
+                        movement.referenceId == null) &&
                     (movement.notes == null || movement.notes!.isEmpty))
                   Expanded(child: SizedBox()),
               ],
@@ -260,7 +285,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
 
     final iconSize = isDesktop ? 20.0 : 18.0;
     final iconPadding = isDesktop ? 8.0 : 6.0;
-    
+
     return Container(
       padding: EdgeInsets.all(iconPadding),
       decoration: BoxDecoration(
@@ -294,10 +319,10 @@ class InventoryMovementCardWidget extends StatelessWidget {
     final fontSize = isDesktop ? 11.0 : 10.0;
     final horizontalPadding = isDesktop ? 8.0 : 6.0;
     final verticalPadding = isDesktop ? 4.0 : 3.0;
-    
+
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: horizontalPadding, 
+        horizontal: horizontalPadding,
         vertical: verticalPadding,
       ),
       decoration: BoxDecoration(
@@ -326,7 +351,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
     final iconSize = isCompact ? 14.0 : 16.0;
     final labelFontSize = isCompact ? 10.0 : 11.0;
     final valueFontSize = isCompact ? 12.0 : 13.0;
-    
+
     return Row(
       children: [
         Icon(icon, size: iconSize, color: color),
@@ -362,12 +387,14 @@ class InventoryMovementCardWidget extends StatelessWidget {
 
   String _formatQuantity() {
     String sign = '';
-    if (movement.type == InventoryMovementType.inbound || movement.type == InventoryMovementType.transferIn) {
+    if (movement.type == InventoryMovementType.inbound ||
+        movement.type == InventoryMovementType.transferIn) {
       sign = '+';
-    } else if (movement.type == InventoryMovementType.outbound || movement.type == InventoryMovementType.transferOut) {
+    } else if (movement.type == InventoryMovementType.outbound ||
+        movement.type == InventoryMovementType.transferOut) {
       sign = '-';
     }
-    
+
     return '$sign${movement.quantity}';
   }
 
@@ -389,21 +416,27 @@ class InventoryMovementCardWidget extends StatelessWidget {
   // Helper methods for price/cost display
   bool _shouldShowPrice() {
     // Show price for sales, cost for other movements
-    if (movement.reason == InventoryMovementReason.sale && movement.unitPrice != null && movement.unitPrice! > 0) {
+    if (movement.reason == InventoryMovementReason.sale &&
+        movement.unitPrice != null &&
+        movement.unitPrice! > 0) {
       return true;
     }
     return movement.unitCost > 0;
   }
 
   String _getPriceLabel() {
-    if (movement.reason == InventoryMovementReason.sale && movement.unitPrice != null && movement.unitPrice! > 0) {
+    if (movement.reason == InventoryMovementReason.sale &&
+        movement.unitPrice != null &&
+        movement.unitPrice! > 0) {
       return 'Precio venta';
     }
     return 'Costo';
   }
 
   double _getPriceValue() {
-    if (movement.reason == InventoryMovementReason.sale && movement.unitPrice != null && movement.unitPrice! > 0) {
+    if (movement.reason == InventoryMovementReason.sale &&
+        movement.unitPrice != null &&
+        movement.unitPrice! > 0) {
       return movement.unitPrice!;
     }
     return movement.unitCost;
@@ -413,7 +446,7 @@ class InventoryMovementCardWidget extends StatelessWidget {
     final iconSize = isDesktop ? 16.0 : 14.0;
     final textSize = isDesktop ? 12.0 : 11.0;
     final containerPadding = isDesktop ? 8.0 : 6.0;
-    
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -515,5 +548,4 @@ class InventoryMovementCardWidget extends StatelessWidget {
         break;
     }
   }
-
 }

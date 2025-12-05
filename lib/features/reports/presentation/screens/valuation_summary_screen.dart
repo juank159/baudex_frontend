@@ -295,7 +295,7 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
                 ),
                 const SizedBox(height: 8),
                 _buildStatChip(
-                  '${summary.totalQuantity.toStringAsFixed(0)}',
+                  summary.totalQuantity.toStringAsFixed(0),
                   'Unidades',
                   Icons.format_list_numbered,
                 ),
@@ -345,8 +345,7 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
   Widget _buildTopValuedProducts() {
     return Obx(() {
       final summary = controller.valuationSummary.value!;
-      if (summary.topValuedProducts == null ||
-          summary.topValuedProducts!.isEmpty) {
+      if (summary.topValuedProducts.isEmpty) {
         return const SizedBox.shrink();
       }
 
@@ -365,7 +364,7 @@ class ValuationSummaryScreen extends GetView<ReportsController> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children:
-                    summary.topValuedProducts!.take(10).map((product) {
+                    summary.topValuedProducts.take(10).map((product) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Row(

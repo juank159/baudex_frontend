@@ -23,6 +23,8 @@ class GetInvoicesUseCase
       paymentMethod: params.paymentMethod,
       customerId: params.customerId,
       createdById: params.createdById,
+      bankAccountId: params.bankAccountId,
+      bankAccountName: params.bankAccountName,
       startDate: params.startDate,
       endDate: params.endDate,
       minAmount: params.minAmount,
@@ -41,6 +43,8 @@ class GetInvoicesParams {
   final PaymentMethod? paymentMethod;
   final String? customerId;
   final String? createdById;
+  final String? bankAccountId; // Filtro por ID de cuenta bancaria (legacy)
+  final String? bankAccountName; // ✅ NUEVO: Filtro por nombre de método de pago (Nequi, Bancolombia, etc.)
   final DateTime? startDate;
   final DateTime? endDate;
   final double? minAmount;
@@ -56,6 +60,8 @@ class GetInvoicesParams {
     this.paymentMethod,
     this.customerId,
     this.createdById,
+    this.bankAccountId,
+    this.bankAccountName,
     this.startDate,
     this.endDate,
     this.minAmount,

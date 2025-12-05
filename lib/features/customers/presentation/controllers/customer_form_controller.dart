@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
+import '../../../../app/core/utils/number_input_formatter.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/repositories/customer_repository.dart';
 import '../../domain/usecases/create_customer_usecase.dart';
@@ -13,6 +14,16 @@ import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
 
 class CustomerFormController extends GetxController {
+  /// Deshabilitar logs de debug para producción
+  static const bool _enableDebugLogs = false;
+
+  void _log(String message) {
+    if (_enableDebugLogs) {
+      // ignore: avoid_print
+      _log(message);
+    }
+  }
+
   Timer? _emailValidationTimer;
   Timer? _documentValidationTimer;
 
@@ -31,7 +42,7 @@ class CustomerFormController extends GetxController {
        _updateCustomerUseCase = updateCustomerUseCase,
        _getCustomerByIdUseCase = getCustomerByIdUseCase,
        _customerRepository = customerRepository {
-    print('🎮 CustomerFormController: Instancia creada correctamente');
+    _log('🎮 CustomerFormController: Instancia creada correctamente');
   }
 
   // ==================== FORM KEY ====================
@@ -116,8 +127,8 @@ class CustomerFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    print('🚀 CustomerFormController: Inicializando...');
-    print(
+    _log('🚀 CustomerFormController: Inicializando...');
+    _log(
       '🔍 CustomerFormController: isEditMode = $isEditMode, customerId = "$customerId"',
     );
 
@@ -126,36 +137,36 @@ class CustomerFormController extends GetxController {
 
   @override
   void onClose() {
-    print('🔚 CustomerFormController: Liberando recursos...');
+    _log('🔚 CustomerFormController: Liberando recursos...');
     
     try {
-      print('⏹️ Cancelando timer de validación de email...');
+      _log('⏹️ Cancelando timer de validación de email...');
       _emailValidationTimer?.cancel();
       
-      print('⏹️ Cancelando timer de validación de documento...');
+      _log('⏹️ Cancelando timer de validación de documento...');
       _documentValidationTimer?.cancel();
 
-      print('🧹 Limpiando cache de validaciones...');
+      _log('🧹 Limpiando cache de validaciones...');
       // ✅ Limpiar cache de validaciones
       _lastValidatedEmail = null;
       _lastValidatedDocument = null;
       _lastValidatedDocumentType = null;
 
-      print('🎮 Llamando a _disposeControllers()...');
+      _log('🎮 Llamando a _disposeControllers()...');
       _disposeControllers();
       
-      print('🔚 Llamando a super.onClose()...');
+      _log('🔚 Llamando a super.onClose()...');
       super.onClose();
       
-      print('✅ CustomerFormController: Recursos liberados exitosamente');
+      _log('✅ CustomerFormController: Recursos liberados exitosamente');
     } catch (e) {
-      print('💥 CustomerFormController: Error durante onClose() - $e');
-      print('📍 Stack trace: ${StackTrace.current}');
+      _log('💥 CustomerFormController: Error durante onClose() - $e');
+      _log('📍 Stack trace: ${StackTrace.current}');
       // Intentar llamar super.onClose() aunque haya errores
       try {
         super.onClose();
       } catch (superError) {
-        print('💥 Error adicional en super.onClose() - $superError');
+        _log('💥 Error adicional en super.onClose() - $superError');
       }
     }
   }
@@ -163,39 +174,78 @@ class CustomerFormController extends GetxController {
   // ==================== PRIVATE INITIALIZATION ====================
 
   void _initializeForm() {
-    print('⚙️ CustomerFormController: Configurando formulario...');
+    _log('⚙️ CustomerFormController: Configurando formulario...');
 
     _setDefaultValues();
 
     if (isEditMode) {
-      print(
+      _log(
         '📝 CustomerFormController: Modo edición detectado, cargando cliente...',
       );
       Future.microtask(() => loadCustomer(customerId));
     }
 
-    print('✅ CustomerFormController: Inicialización completada');
+    _log('✅ CustomerFormController: Inicialización completada');
   }
 
+  // Valor por defecto para límite de crédito (3,000,000)
+  static const double defaultCreditLimit = 3000000;
+
   void _setDefaultValues() {
-    creditLimitController.text = '0';
+    // Usar formateo para valores numéricos
+    creditLimitController.text = NumberInputFormatter.formatValueForDisplay(defaultCreditLimit, allowDecimals: false);
     paymentTermsController.text = '30';
     _selectedStatus.value = CustomerStatus.active;
     _selectedDocumentType.value = DocumentType.cc;
 
-    print('✅ CustomerFormController: Valores por defecto configurados');
+    _log('✅ CustomerFormController: Valores por defecto configurados');
+  }
+
+  /// Resetea el límite de crédito al valor por defecto (3,000,000)
+  void resetCreditLimitToDefault() {
+    creditLimitController.text = NumberInputFormatter.formatValueForDisplay(
+      defaultCreditLimit,
+      allowDecimals: false,
+    );
+  }
+
+  /// Limpia todos los campos del formulario y resetea valores por defecto
+  void clearAllFields() {
+    firstNameController.clear();
+    lastNameController.clear();
+    companyNameController.clear();
+    emailController.clear();
+    phoneController.clear();
+    mobileController.clear();
+    documentNumberController.clear();
+    addressController.clear();
+    cityController.clear();
+    stateController.clear();
+    zipCodeController.clear();
+    notesController.clear();
+
+    // Resetear valores por defecto
+    _setDefaultValues();
+
+    // Limpiar errores de validación
+    _documentAvailable.value = true;
+    _emailAvailable.value = true;
+    _isValidatingDocument.value = false;
+    _isValidatingEmail.value = false;
+
+    update();
   }
 
   // ==================== PUBLIC METHODS ====================
 
   Future<void> loadCustomer(String customerId) async {
-    print(
+    _log(
       '📥 CustomerFormController: Iniciando carga de cliente para edición...',
     );
     _isLoadingCustomer.value = true;
 
     try {
-      print('📥 Cargando cliente: $customerId');
+      _log('📥 Cargando cliente: $customerId');
 
       final result = await _getCustomerByIdUseCase(
         GetCustomerByIdParams(id: customerId),
@@ -203,14 +253,14 @@ class CustomerFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print(
+          _log(
             '❌ CustomerFormController: Error al cargar cliente - ${failure.message}',
           );
           _showError('Error al cargar cliente', failure.message);
           Get.back();
         },
         (customer) {
-          print(
+          _log(
             '✅ CustomerFormController: Cliente cargado exitosamente - ${customer.displayName}',
           );
           _currentCustomer.value = customer;
@@ -218,19 +268,19 @@ class CustomerFormController extends GetxController {
         },
       );
     } catch (e) {
-      print(
+      _log(
         '💥 CustomerFormController: Error inesperado al cargar cliente - $e',
       );
       _showError('Error inesperado', 'No se pudo cargar el cliente: $e');
       Get.back();
     } finally {
       _isLoadingCustomer.value = false;
-      print('🏁 CustomerFormController: Carga de cliente finalizada');
+      _log('🏁 CustomerFormController: Carga de cliente finalizada');
     }
   }
 
   Future<void> saveCustomer() async {
-    print('💾 CustomerFormController: Iniciando guardado de cliente...');
+    _log('💾 CustomerFormController: Iniciando guardado de cliente...');
 
     // Cancelar timers pendientes para evitar conflictos
     _emailValidationTimer?.cancel();
@@ -240,30 +290,30 @@ class CustomerFormController extends GetxController {
     _isSaving.value = true;
 
     if (!await _validateFormAsync()) {
-      print('❌ CustomerFormController: Validación de formulario falló');
+      _log('❌ CustomerFormController: Validación de formulario falló');
       _isSaving.value = false; // Reset loading state on validation failure
       return;
     }
 
     try {
       if (isEditMode) {
-        print('🔄 CustomerFormController: Actualizando cliente existente...');
+        _log('🔄 CustomerFormController: Actualizando cliente existente...');
         await _updateCustomer();
       } else {
-        print('🆕 CustomerFormController: Creando nuevo cliente...');
+        _log('🆕 CustomerFormController: Creando nuevo cliente...');
         await _createCustomer();
       }
     } catch (e) {
-      print('💥 CustomerFormController: Error inesperado al guardar - $e');
+      _log('💥 CustomerFormController: Error inesperado al guardar - $e');
       _showError('Error inesperado', 'No se pudo guardar el cliente: $e');
     } finally {
       _isSaving.value = false;
-      print('🏁 CustomerFormController: Guardado finalizado');
+      _log('🏁 CustomerFormController: Guardado finalizado');
     }
   }
 
   Future<bool> _validateFormAsync() async {
-    print('🔍 Iniciando validación completa del formulario...');
+    _log('🔍 Iniciando validación completa del formulario...');
 
     // 1. Validar campos manualmente sin depender del formKey
     if (!_validateFieldsManually()) {
@@ -276,7 +326,7 @@ class CustomerFormController extends GetxController {
 
     // 3. Esperar a que terminen las validaciones en progreso (si las hay)
     if (_isValidatingEmail.value || _isValidatingDocument.value) {
-      print('⏳ Esperando validaciones en progreso...');
+      _log('⏳ Esperando validaciones en progreso...');
 
       // Esperar hasta que las validaciones terminen (máximo 10 segundos)
       int attempts = 0;
@@ -297,7 +347,7 @@ class CustomerFormController extends GetxController {
         return false;
       }
 
-      print('✅ Validaciones completadas, continuando...');
+      _log('✅ Validaciones completadas, continuando...');
     }
 
     // 4. Forzar validación de email si es necesario
@@ -306,10 +356,10 @@ class CustomerFormController extends GetxController {
       if (!_emailValidatedOnce.value ||
           (isEditMode && _currentCustomer.value?.email != email) ||
           !isEditMode) {
-        print('📧 Validando email antes de guardar...');
+        _log('📧 Validando email antes de guardar...');
         await validateEmailAvailability();
       } else {
-        print('✅ Email ya validado, saltando validación');
+        _log('✅ Email ya validado, saltando validación');
       }
     }
 
@@ -322,10 +372,10 @@ class CustomerFormController extends GetxController {
                   _currentCustomer.value?.documentType !=
                       _selectedDocumentType.value)) ||
           !isEditMode) {
-        print('📄 Validando documento antes de guardar...');
+        _log('📄 Validando documento antes de guardar...');
         await validateDocumentAvailability();
       } else {
-        print('✅ Documento ya validado, saltando validación');
+        _log('✅ Documento ya validado, saltando validación');
       }
     }
 
@@ -340,7 +390,7 @@ class CustomerFormController extends GetxController {
       return false;
     }
 
-    print('✅ Validación completa exitosa');
+    _log('✅ Validación completa exitosa');
     return true;
   }
 
@@ -349,12 +399,12 @@ class CustomerFormController extends GetxController {
   Future<void> _createCustomer() async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
     if (!SubscriptionValidationService.canCreateCustomer()) {
-      print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO creación de cliente');
+      _log('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO creación de cliente');
       return; // Bloquear operación
     }
     
-    print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con creación de cliente');
-    print('🆕 Creando nuevo cliente...');
+    _log('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con creación de cliente');
+    _log('🆕 Creando nuevo cliente...');
 
     final result = await _createCustomerUseCase(
       CreateCustomerParams(
@@ -393,7 +443,7 @@ class CustomerFormController extends GetxController {
         }
       },
       (customer) {
-        print(
+        _log(
           '✅ CustomerFormController: Cliente creado exitosamente - ${customer.displayName}',
         );
         _showSuccess('Cliente creado exitosamente');
@@ -410,12 +460,12 @@ class CustomerFormController extends GetxController {
   Future<void> _updateCustomer() async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
     if (!SubscriptionValidationService.canUpdateCustomer()) {
-      print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO actualización de cliente');
+      _log('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO actualización de cliente');
       return; // Bloquear operación
     }
     
-    print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con actualización de cliente');
-    print('📝 Actualizando cliente...');
+    _log('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con actualización de cliente');
+    _log('📝 Actualizando cliente...');
 
     final result = await _updateCustomerUseCase(
       UpdateCustomerParams(
@@ -455,7 +505,7 @@ class CustomerFormController extends GetxController {
         }
       },
       (customer) {
-        print(
+        _log(
           '✅ CustomerFormController: Cliente actualizado exitosamente - ${customer.displayName}',
         );
         _showSuccess('Cliente actualizado exitosamente');
@@ -575,7 +625,8 @@ class CustomerFormController extends GetxController {
 
   String? validateCreditLimit(String? value) {
     if (value != null && value.isNotEmpty) {
-      final parsed = double.tryParse(value);
+      // Usar NumberInputFormatter para parsear valores con separadores de miles
+      final parsed = NumberInputFormatter.getNumericValue(value);
       if (parsed == null || parsed < 0) {
         return 'Ingresa un límite de crédito válido';
       }
@@ -612,7 +663,7 @@ class CustomerFormController extends GetxController {
 
     // ✅ Cache: Si ya validamos este email, reutilizar resultado
     if (_lastValidatedEmail == email && _emailValidatedOnce.value) {
-      print('✅ [CACHE] Email ya validado previamente: $email');
+      _log('✅ [CACHE] Email ya validado previamente: $email');
       return;
     }
 
@@ -620,7 +671,7 @@ class CustomerFormController extends GetxController {
     _emailValidatedOnce.value = true;
 
     try {
-      print('🔍 [CONTROLLER] Validando disponibilidad de email: $email');
+      _log('🔍 [CONTROLLER] Validando disponibilidad de email: $email');
 
       final result = await _customerRepository.isEmailAvailable(
         email,
@@ -629,7 +680,7 @@ class CustomerFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print('⚠️ [CONTROLLER] Error al validar email: ${failure.message}');
+          _log('⚠️ [CONTROLLER] Error al validar email: ${failure.message}');
           _emailAvailable.value = false;
           _showError(
             'Error de validación',
@@ -637,7 +688,7 @@ class CustomerFormController extends GetxController {
           );
         },
         (available) {
-          print(
+          _log(
             '📧 [CONTROLLER] Email $email: ${available ? "DISPONIBLE" : "YA EXISTE"}',
           );
           _emailAvailable.value = available;
@@ -654,7 +705,7 @@ class CustomerFormController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 [CONTROLLER] Error inesperado al validar email: $e');
+      _log('💥 [CONTROLLER] Error inesperado al validar email: $e');
       _emailAvailable.value = false;
       _showError('Error de validación', 'Error al verificar email: $e');
     } finally {
@@ -684,7 +735,7 @@ class CustomerFormController extends GetxController {
     if (_lastValidatedDocument == documentNumber &&
         _lastValidatedDocumentType == _selectedDocumentType.value &&
         _documentValidatedOnce.value) {
-      print(
+      _log(
         '✅ [CACHE] Documento ya validado previamente: ${_selectedDocumentType.value}:$documentNumber',
       );
       return;
@@ -694,7 +745,7 @@ class CustomerFormController extends GetxController {
     _documentValidatedOnce.value = true;
 
     try {
-      print(
+      _log(
         '🔍 [CONTROLLER] Validando disponibilidad de documento: ${_selectedDocumentType.value.name}:$documentNumber',
       );
 
@@ -706,7 +757,7 @@ class CustomerFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print(
+          _log(
             '⚠️ [CONTROLLER] Error al validar documento: ${failure.message}',
           );
           _documentAvailable.value = false;
@@ -716,7 +767,7 @@ class CustomerFormController extends GetxController {
           );
         },
         (available) {
-          print(
+          _log(
             '📄 [CONTROLLER] Documento ${_selectedDocumentType.value.name}:$documentNumber: ${available ? "DISPONIBLE" : "YA EXISTE"}',
           );
           _documentAvailable.value = available;
@@ -737,7 +788,7 @@ class CustomerFormController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 [CONTROLLER] Error inesperado al validar documento: $e');
+      _log('💥 [CONTROLLER] Error inesperado al validar documento: $e');
       _documentAvailable.value = false;
       _showError('Error de validación', 'Error al verificar documento: $e');
     } finally {
@@ -747,51 +798,51 @@ class CustomerFormController extends GetxController {
 
   // ==================== MANUAL VALIDATION ====================
   bool _validateFieldsManually() {
-    print('🔍 Validando campos manualmente...');
+    _log('🔍 Validando campos manualmente...');
     
     // Validar nombre
     final firstNameError = validateFirstName(firstNameController.text);
     if (firstNameError != null) {
-      print('❌ Error en nombre: $firstNameError');
+      _log('❌ Error en nombre: $firstNameError');
       return false;
     }
     
     // Validar apellido
     final lastNameError = validateLastName(lastNameController.text);
     if (lastNameError != null) {
-      print('❌ Error en apellido: $lastNameError');
+      _log('❌ Error en apellido: $lastNameError');
       return false;
     }
     
     // Validar email
     final emailError = validateEmail(emailController.text);
     if (emailError != null) {
-      print('❌ Error en email: $emailError');
+      _log('❌ Error en email: $emailError');
       return false;
     }
     
     // Validar documento
     final documentError = validateDocumentNumber(documentNumberController.text);
     if (documentError != null) {
-      print('❌ Error en documento: $documentError');
+      _log('❌ Error en documento: $documentError');
       return false;
     }
     
     // Validar límite de crédito
     final creditLimitError = validateCreditLimit(creditLimitController.text);
     if (creditLimitError != null) {
-      print('❌ Error en límite de crédito: $creditLimitError');
+      _log('❌ Error en límite de crédito: $creditLimitError');
       return false;
     }
     
     // Validar términos de pago
     final paymentTermsError = validatePaymentTerms(paymentTermsController.text);
     if (paymentTermsError != null) {
-      print('❌ Error en términos de pago: $paymentTermsError');
+      _log('❌ Error en términos de pago: $paymentTermsError');
       return false;
     }
     
-    print('✅ Todos los campos son válidos');
+    _log('✅ Todos los campos son válidos');
     return true;
   }
 
@@ -801,16 +852,23 @@ class CustomerFormController extends GetxController {
     return text.isEmpty ? null : text;
   }
 
+  /// Parsea un string formateado (ej: "1.000.000") a double
+  /// Usa NumberInputFormatter para manejar separadores de miles
   double? _parseDouble(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return null;
-    return double.tryParse(trimmed);
+    // Usar NumberInputFormatter para manejar formatos con separadores de miles
+    return NumberInputFormatter.getNumericValue(trimmed);
   }
 
+  /// Parsea un string formateado (ej: "1.000") a int
+  /// Usa NumberInputFormatter para manejar separadores de miles
   int? _parseInt(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return null;
-    return int.tryParse(trimmed);
+    // Usar NumberInputFormatter para manejar formatos con separadores de miles
+    final doubleValue = NumberInputFormatter.getNumericValue(trimmed);
+    return doubleValue?.toInt();
   }
 
   void cancel() {
@@ -818,7 +876,7 @@ class CustomerFormController extends GetxController {
   }
 
   void _populateForm(Customer customer) {
-    print(
+    _log(
       '📝 CustomerFormController: Poblando formulario con datos del cliente...',
     );
 
@@ -833,7 +891,11 @@ class CustomerFormController extends GetxController {
     cityController.text = customer.city ?? '';
     stateController.text = customer.state ?? '';
     zipCodeController.text = customer.zipCode ?? '';
-    creditLimitController.text = customer.creditLimit.toString();
+    // Formatear valores numéricos para mostrar con separadores de miles
+    creditLimitController.text = NumberInputFormatter.formatValueForDisplay(
+      customer.creditLimit,
+      allowDecimals: false,
+    );
     paymentTermsController.text = customer.paymentTerms.toString();
     notesController.text = customer.notes ?? '';
 
@@ -847,59 +909,59 @@ class CustomerFormController extends GetxController {
     _emailValidatedOnce.value = true;
     _documentValidatedOnce.value = true;
 
-    print('✅ CustomerFormController: Formulario poblado exitosamente');
+    _log('✅ CustomerFormController: Formulario poblado exitosamente');
   }
 
   void _disposeControllers() {
-    print('🧹 CustomerFormController: Iniciando limpieza de controladores...');
+    _log('🧹 CustomerFormController: Iniciando limpieza de controladores...');
     
     try {
-      print('🧹 Disposing firstNameController...');
+      _log('🧹 Disposing firstNameController...');
       firstNameController.dispose();
       
-      print('🧹 Disposing lastNameController...');
+      _log('🧹 Disposing lastNameController...');
       lastNameController.dispose();
       
-      print('🧹 Disposing companyNameController...');
+      _log('🧹 Disposing companyNameController...');
       companyNameController.dispose();
       
-      print('🧹 Disposing emailController...');
+      _log('🧹 Disposing emailController...');
       emailController.dispose();
       
-      print('🧹 Disposing phoneController...');
+      _log('🧹 Disposing phoneController...');
       phoneController.dispose();
       
-      print('🧹 Disposing mobileController...');
+      _log('🧹 Disposing mobileController...');
       mobileController.dispose();
       
-      print('🧹 Disposing documentNumberController...');
+      _log('🧹 Disposing documentNumberController...');
       documentNumberController.dispose();
       
-      print('🧹 Disposing addressController...');
+      _log('🧹 Disposing addressController...');
       addressController.dispose();
       
-      print('🧹 Disposing cityController...');
+      _log('🧹 Disposing cityController...');
       cityController.dispose();
       
-      print('🧹 Disposing stateController...');
+      _log('🧹 Disposing stateController...');
       stateController.dispose();
       
-      print('🧹 Disposing zipCodeController...');
+      _log('🧹 Disposing zipCodeController...');
       zipCodeController.dispose();
       
-      print('🧹 Disposing creditLimitController...');
+      _log('🧹 Disposing creditLimitController...');
       creditLimitController.dispose();
       
-      print('🧹 Disposing paymentTermsController...');
+      _log('🧹 Disposing paymentTermsController...');
       paymentTermsController.dispose();
       
-      print('🧹 Disposing notesController...');
+      _log('🧹 Disposing notesController...');
       notesController.dispose();
       
-      print('✅ CustomerFormController: Todos los controladores limpiados exitosamente');
+      _log('✅ CustomerFormController: Todos los controladores limpiados exitosamente');
     } catch (e) {
-      print('💥 CustomerFormController: Error al limpiar controladores - $e');
-      print('📍 Stack trace: ${StackTrace.current}');
+      _log('💥 CustomerFormController: Error al limpiar controladores - $e');
+      _log('📍 Stack trace: ${StackTrace.current}');
     }
   }
 

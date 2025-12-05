@@ -16,7 +16,7 @@ class InventoryRecentActivity extends GetView<InventoryController> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 1200;
     const int maxItems = 4; // Mostrar solo 4 tarjetas para mejor balance
-    
+
     return Container(
       height: 400, // Altura fija igual a quick actions
       decoration: BoxDecoration(
@@ -26,7 +26,7 @@ class InventoryRecentActivity extends GetView<InventoryController> {
       ),
       child: Obx(() {
         if (controller.isLoading.value && controller.recentMovements.isEmpty) {
-          return Container(
+          return SizedBox(
             height: 200,
             child: const Center(child: LoadingWidget()),
           );
@@ -42,9 +42,14 @@ class InventoryRecentActivity extends GetView<InventoryController> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Lista de movimientos usando Expanded para distribución uniforme
-              ...controller.recentMovements.take(maxItems).map((movement) =>
-                Expanded(child: _buildMovementTile(movement, screenWidth))),
-              
+              ...controller.recentMovements
+                  .take(maxItems)
+                  .map(
+                    (movement) => Expanded(
+                      child: _buildMovementTile(movement, screenWidth),
+                    ),
+                  ),
+
               // Botón para ver más si hay más movimientos (ajustado para desktop/tablet)
               if (controller.recentMovements.length > maxItems) ...[
                 SizedBox(height: isDesktop ? 20 : 16),
@@ -55,7 +60,9 @@ class InventoryRecentActivity extends GetView<InventoryController> {
                     borderRadius: BorderRadius.circular(isDesktop ? 12 : 10),
                     boxShadow: [
                       BoxShadow(
-                        color: ElegantLightTheme.primaryBlue.withValues(alpha: isDesktop ? 0.25 : 0.2),
+                        color: ElegantLightTheme.primaryBlue.withValues(
+                          alpha: isDesktop ? 0.25 : 0.2,
+                        ),
                         blurRadius: isDesktop ? 8 : 6,
                         spreadRadius: isDesktop ? 2 : 1,
                         offset: const Offset(0, 2),
@@ -69,16 +76,19 @@ class InventoryRecentActivity extends GetView<InventoryController> {
                       borderRadius: BorderRadius.circular(isDesktop ? 12 : 10),
                       child: Padding(
                         padding: EdgeInsets.symmetric(
-                          vertical: isDesktop ? 14 : 10, // Mayor padding vertical para desktop/tablet
-                          horizontal: isDesktop ? 16 : 12
+                          vertical:
+                              isDesktop
+                                  ? 14
+                                  : 10, // Mayor padding vertical para desktop/tablet
+                          horizontal: isDesktop ? 16 : 12,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.inventory_2_outlined, 
-                              color: Colors.white, 
-                              size: isDesktop ? 20 : 16
+                              Icons.inventory_2_outlined,
+                              color: Colors.white,
+                              size: isDesktop ? 20 : 16,
                             ),
                             SizedBox(width: isDesktop ? 10 : 8),
                             Text(
@@ -91,9 +101,9 @@ class InventoryRecentActivity extends GetView<InventoryController> {
                             ),
                             SizedBox(width: isDesktop ? 8 : 6),
                             Icon(
-                              Icons.arrow_forward_ios, 
-                              color: Colors.white, 
-                              size: isDesktop ? 16 : 14
+                              Icons.arrow_forward_ios,
+                              color: Colors.white,
+                              size: isDesktop ? 16 : 14,
                             ),
                           ],
                         ),
@@ -110,7 +120,7 @@ class InventoryRecentActivity extends GetView<InventoryController> {
   }
 
   Widget _buildEmptyState(bool isDesktop) {
-    return Container(
+    return SizedBox(
       height: 200,
       child: Center(
         child: Column(
@@ -165,7 +175,8 @@ class InventoryRecentActivity extends GetView<InventoryController> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => Get.toNamed('/inventory/movements/detail/${movement.id}'),
+          onTap:
+              () => Get.toNamed('/inventory/movements/detail/${movement.id}'),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -181,7 +192,9 @@ class InventoryRecentActivity extends GetView<InventoryController> {
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: _getMovementColor(movement).withValues(alpha: 0.3),
+                        color: _getMovementColor(
+                          movement,
+                        ).withValues(alpha: 0.3),
                         blurRadius: 4,
                         spreadRadius: 1,
                         offset: const Offset(0, 2),
@@ -194,9 +207,9 @@ class InventoryRecentActivity extends GetView<InventoryController> {
                     size: 16,
                   ),
                 ),
-                
+
                 const SizedBox(width: 12),
-            
+
                 // Detalles del movimiento
                 Expanded(
                   child: Column(
@@ -209,7 +222,9 @@ class InventoryRecentActivity extends GetView<InventoryController> {
                         style: Get.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: ElegantLightTheme.textPrimary,
-                          fontSize: UnifiedTypography.getListItemTitleSize(screenWidth),
+                          fontSize: UnifiedTypography.getListItemTitleSize(
+                            screenWidth,
+                          ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -223,7 +238,10 @@ class InventoryRecentActivity extends GetView<InventoryController> {
                               movement.displayReason,
                               style: Get.textTheme.bodySmall?.copyWith(
                                 color: ElegantLightTheme.textSecondary,
-                                fontSize: UnifiedTypography.getListItemSubtitleSize(screenWidth),
+                                fontSize:
+                                    UnifiedTypography.getListItemSubtitleSize(
+                                      screenWidth,
+                                    ),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -237,7 +255,9 @@ class InventoryRecentActivity extends GetView<InventoryController> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: _getMovementColor(movement).withValues(alpha: 0.1),
+                              color: _getMovementColor(
+                                movement,
+                              ).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -245,7 +265,9 @@ class InventoryRecentActivity extends GetView<InventoryController> {
                               style: Get.textTheme.bodySmall?.copyWith(
                                 color: _getMovementColor(movement),
                                 fontWeight: FontWeight.bold,
-                                fontSize: UnifiedTypography.getQuantityTagSize(screenWidth),
+                                fontSize: UnifiedTypography.getQuantityTagSize(
+                                  screenWidth,
+                                ),
                               ),
                             ),
                           ),
@@ -317,5 +339,4 @@ class InventoryRecentActivity extends GetView<InventoryController> {
         return ElegantLightTheme.infoGradient;
     }
   }
-
 }

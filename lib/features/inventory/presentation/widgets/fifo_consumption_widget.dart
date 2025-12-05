@@ -57,9 +57,7 @@ class FifoConsumptionWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.1),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-        border: Border(
-          bottom: BorderSide(color: AppColors.borderLight),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.borderLight)),
       ),
       child: Row(
         children: [
@@ -69,11 +67,7 @@ class FifoConsumptionWidget extends StatelessWidget {
               color: AppColors.primary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.trending_up,
-              color: AppColors.primary,
-              size: 20,
-            ),
+            child: Icon(Icons.trending_up, color: AppColors.primary, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -108,9 +102,12 @@ class FifoConsumptionWidget extends StatelessWidget {
   }
 
   Widget _buildSummary() {
-    final totalConsumed = consumptions.fold(0, (sum, c) => sum + c.quantityConsumed);
+    final totalConsumed = consumptions.fold(
+      0,
+      (sum, c) => sum + c.quantityConsumed,
+    );
     final totalCost = consumptions.fold(0.0, (sum, c) => sum + c.totalCost);
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -144,7 +141,9 @@ class FifoConsumptionWidget extends StatelessWidget {
                   'Cantidad Procesada',
                   '$totalConsumed unidades',
                   Icons.check_circle,
-                  totalConsumed >= totalQuantityRequested ? Colors.green : Colors.orange,
+                  totalConsumed >= totalQuantityRequested
+                      ? Colors.green
+                      : Colors.orange,
                 ),
               ),
               const SizedBox(width: 12),
@@ -163,7 +162,12 @@ class FifoConsumptionWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+  Widget _buildSummaryCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -216,16 +220,16 @@ class FifoConsumptionWidget extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Process flow indicator
           _buildProcessFlow(),
-          
+
           const SizedBox(height: 16),
-          
+
           // Consumptions list
-          ...consumptions.asMap().entries.map((entry) => 
-            _buildConsumptionItem(entry.value, entry.key + 1),
-          ).toList(),
+          ...consumptions.asMap().entries.map(
+            (entry) => _buildConsumptionItem(entry.value, entry.key + 1),
+          ),
         ],
       ),
     );
@@ -253,7 +257,12 @@ class FifoConsumptionWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildFlowStep(String number, String label, Color color, bool isActive) {
+  Widget _buildFlowStep(
+    String number,
+    String label,
+    Color color,
+    bool isActive,
+  ) {
     return Column(
       children: [
         Container(
@@ -289,11 +298,7 @@ class FifoConsumptionWidget extends StatelessWidget {
   Widget _buildFlowArrow() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Icon(
-        Icons.arrow_forward,
-        color: AppColors.primary,
-        size: 16,
-      ),
+      child: Icon(Icons.arrow_forward, color: AppColors.primary, size: 16),
     );
   }
 
@@ -327,7 +332,7 @@ class FifoConsumptionWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,9 +347,14 @@ class FifoConsumptionWidget extends StatelessWidget {
                     ),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: _getLotStatusColor(consumption.lot).withOpacity(0.1),
+                        color: _getLotStatusColor(
+                          consumption.lot,
+                        ).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -389,15 +399,16 @@ class FifoConsumptionWidget extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        consumption.lot.isExpired 
+                        consumption.lot.isExpired
                             ? Icons.dangerous
-                            : consumption.lot.isNearExpiry 
-                                ? Icons.warning
-                                : Icons.schedule,
+                            : consumption.lot.isNearExpiry
+                            ? Icons.warning
+                            : Icons.schedule,
                         size: 16,
-                        color: consumption.lot.isExpired 
-                            ? Colors.red
-                            : consumption.lot.isNearExpiry 
+                        color:
+                            consumption.lot.isExpired
+                                ? Colors.red
+                                : consumption.lot.isNearExpiry
                                 ? Colors.orange
                                 : Colors.grey,
                       ),
@@ -405,9 +416,10 @@ class FifoConsumptionWidget extends StatelessWidget {
                       Text(
                         'Vence: ${AppFormatters.formatDate(consumption.lot.expiryDate!)}',
                         style: Get.textTheme.bodySmall?.copyWith(
-                          color: consumption.lot.isExpired 
-                              ? Colors.red
-                              : consumption.lot.isNearExpiry 
+                          color:
+                              consumption.lot.isExpired
+                                  ? Colors.red
+                                  : consumption.lot.isNearExpiry
                                   ? Colors.orange
                                   : AppColors.textSecondary,
                         ),
@@ -428,11 +440,7 @@ class FifoConsumptionWidget extends StatelessWidget {
       padding: const EdgeInsets.all(32),
       child: Column(
         children: [
-          Icon(
-            Icons.info_outline,
-            size: 48,
-            color: AppColors.textSecondary,
-          ),
+          Icon(Icons.info_outline, size: 48, color: AppColors.textSecondary),
           const SizedBox(height: 16),
           Text(
             'No hay lotes disponibles para procesamiento FIFO',
@@ -455,18 +463,19 @@ class FifoConsumptionWidget extends StatelessWidget {
   }
 
   Widget _buildFooter() {
-    final totalConsumed = consumptions.fold(0, (sum, c) => sum + c.quantityConsumed);
+    final totalConsumed = consumptions.fold(
+      0,
+      (sum, c) => sum + c.quantityConsumed,
+    );
     final totalCost = consumptions.fold(0.0, (sum, c) => sum + c.totalCost);
     final isComplete = totalConsumed >= totalQuantityRequested;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isComplete ? Colors.green.shade50 : Colors.orange.shade50,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
-        border: Border(
-          top: BorderSide(color: AppColors.borderLight),
-        ),
+        border: Border(top: BorderSide(color: AppColors.borderLight)),
       ),
       child: Row(
         children: [
@@ -481,7 +490,7 @@ class FifoConsumptionWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isComplete 
+                  isComplete
                       ? 'Procesamiento FIFO Completo'
                       : 'Procesamiento FIFO Parcial',
                   style: Get.textTheme.bodyMedium?.copyWith(

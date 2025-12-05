@@ -162,6 +162,10 @@ class IsarInvoice {
         return IsarInvoiceStatus.cancelled;
       case InvoiceStatus.partiallyPaid:
         return IsarInvoiceStatus.partiallyPaid;
+      case InvoiceStatus.credited:
+        return IsarInvoiceStatus.credited;
+      case InvoiceStatus.partiallyCredited:
+        return IsarInvoiceStatus.partiallyCredited;
     }
   }
 
@@ -179,6 +183,10 @@ class IsarInvoice {
         return InvoiceStatus.cancelled;
       case IsarInvoiceStatus.partiallyPaid:
         return InvoiceStatus.partiallyPaid;
+      case IsarInvoiceStatus.credited:
+        return InvoiceStatus.credited;
+      case IsarInvoiceStatus.partiallyCredited:
+        return InvoiceStatus.partiallyCredited;
     }
   }
 
@@ -215,6 +223,8 @@ class IsarInvoice {
         return PaymentMethod.bankTransfer;
       case IsarPaymentMethod.check:
         return PaymentMethod.check;
+      case IsarPaymentMethod.clientBalance:
+        return PaymentMethod.clientBalance;
       case IsarPaymentMethod.other:
         return PaymentMethod.other;
     }

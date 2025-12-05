@@ -745,10 +745,10 @@ class ProductPriceModel {
   /// ✅ MÉTODO HELPER: Formatear precio con moneda
   String get formattedAmount {
     try {
-      return '${currency} ${finalAmount.toStringAsFixed(2)}';
+      return '$currency ${finalAmount.toStringAsFixed(2)}';
     } catch (e) {
       print('❌ Error al formatear precio: $e');
-      return '${currency} 0.00';
+      return '$currency 0.00';
     }
   }
 

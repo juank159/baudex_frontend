@@ -395,7 +395,7 @@ import '../../core/utils/responsive.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -720,7 +720,7 @@ class _SplashScreenState extends State<SplashScreen>
 
 // Extensión para crear un splash screen más simple si lo necesitas
 class SimpleSplashScreen extends StatelessWidget {
-  const SimpleSplashScreen({Key? key}) : super(key: key);
+  const SimpleSplashScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

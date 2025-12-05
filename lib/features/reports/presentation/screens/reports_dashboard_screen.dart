@@ -1,7 +1,6 @@
 // lib/features/reports/presentation/screens/reports_dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_theme.dart';
 import '../../../../app/config/themes/app_colors.dart';
 
 class ReportsDashboardScreen extends StatelessWidget {
@@ -18,13 +17,14 @@ class ReportsDashboardScreen extends StatelessWidget {
           children: [
             // Welcome section
             _buildWelcomeSection(),
-            
+
             const SizedBox(height: 32),
 
             // Profitability Reports Section
             _buildReportSection(
               title: 'Reportes de Rentabilidad',
-              subtitle: 'Análisis de márgenes y ganancias por producto y categoría',
+              subtitle:
+                  'Análisis de márgenes y ganancias por producto y categoría',
               icon: Icons.trending_up,
               color: Colors.green,
               reports: [
@@ -38,7 +38,8 @@ class ReportsDashboardScreen extends StatelessWidget {
                   'title': 'Rentabilidad por Categorías',
                   'subtitle': 'Comparación de márgenes entre categorías',
                   'icon': Icons.category,
-                  'onTap': () => Get.toNamed('/reports/profitability/categories'),
+                  'onTap':
+                      () => Get.toNamed('/reports/profitability/categories'),
                 },
                 {
                   'title': 'Top Productos Rentables',
@@ -54,7 +55,8 @@ class ReportsDashboardScreen extends StatelessWidget {
             // Inventory Valuation Reports Section
             _buildReportSection(
               title: 'Reportes de Valoración',
-              subtitle: 'Valoración de inventario con diferentes métodos (FIFO, LIFO, Promedio)',
+              subtitle:
+                  'Valoración de inventario con diferentes métodos (FIFO, LIFO, Promedio)',
               icon: Icons.account_balance_wallet,
               color: Colors.blue,
               reports: [
@@ -132,17 +134,11 @@ class ReportsDashboardScreen extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.2),
-        ),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.analytics,
-            size: 48,
-            color: AppColors.primary,
-          ),
+          Icon(Icons.analytics, size: 48, color: AppColors.primary),
           const SizedBox(width: 20),
           Expanded(
             child: Column(
@@ -188,11 +184,7 @@ class ReportsDashboardScreen extends StatelessWidget {
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24,
-              ),
+              child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -260,11 +252,7 @@ class ReportsDashboardScreen extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    icon,
-                    color: AppColors.primary,
-                    size: 24,
-                  ),
+                  Icon(icon, color: AppColors.primary, size: 24),
                   const Spacer(),
                   Icon(
                     Icons.arrow_forward_ios,
@@ -327,7 +315,11 @@ class ReportsDashboardScreen extends StatelessWidget {
                 subtitle: 'Automatizar generación',
                 icon: Icons.schedule_send,
                 color: Colors.purple,
-                onTap: () => Get.snackbar('Programar', 'Funcionalidad en desarrollo'),
+                onTap:
+                    () => Get.snackbar(
+                      'Programar',
+                      'Funcionalidad en desarrollo',
+                    ),
               ),
             ),
             const SizedBox(width: 16),
@@ -337,7 +329,9 @@ class ReportsDashboardScreen extends StatelessWidget {
                 subtitle: 'Notificaciones automáticas',
                 icon: Icons.notifications_active,
                 color: Colors.orange,
-                onTap: () => Get.snackbar('Alertas', 'Funcionalidad en desarrollo'),
+                onTap:
+                    () =>
+                        Get.snackbar('Alertas', 'Funcionalidad en desarrollo'),
               ),
             ),
           ],
@@ -367,11 +361,7 @@ class ReportsDashboardScreen extends StatelessWidget {
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 24,
-                ),
+                child: Icon(icon, color: color, size: 24),
               ),
               const SizedBox(height: 12),
               Text(
@@ -440,7 +430,11 @@ class ReportsDashboardScreen extends StatelessWidget {
       title: const Text('Centro de Reportes'),
       actions: [
         IconButton(
-          onPressed: () => Get.snackbar('Ayuda', 'Documentación de reportes disponible próximamente'),
+          onPressed:
+              () => Get.snackbar(
+                'Ayuda',
+                'Documentación de reportes disponible próximamente',
+              ),
           icon: const Icon(Icons.help_outline),
           tooltip: 'Ayuda',
         ),

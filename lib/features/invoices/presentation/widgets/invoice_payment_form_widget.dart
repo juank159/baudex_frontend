@@ -1,14 +1,17 @@
 // lib/features/invoices/presentation/widgets/invoice_payment_form_widget.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:get/get_state_manager/src/simple/get_state.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/core/utils/number_input_formatter.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/shared/widgets/bank_account_selector.dart';
 import '../controllers/invoice_detail_controller.dart';
 import '../../domain/entities/invoice.dart';
+import '../../../bank_accounts/domain/entities/bank_account.dart';
 
-class InvoicePaymentFormWidget extends StatelessWidget {
+/// Widget de formulario de pago para el detalle de factura
+/// Usa las cuentas bancarias registradas del tenant (sin nada hardcodeado)
+class InvoicePaymentFormWidget extends StatefulWidget {
   final InvoiceDetailController controller;
   final VoidCallback onCancel;
   final VoidCallback onSubmit;
@@ -21,135 +24,128 @@ class InvoicePaymentFormWidget extends StatelessWidget {
   });
 
   @override
+  State<InvoicePaymentFormWidget> createState() => _InvoicePaymentFormWidgetState();
+}
+
+class _InvoicePaymentFormWidgetState extends State<InvoicePaymentFormWidget> {
+  BankAccount? _selectedAccount;
+
+  @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     final isTablet = Responsive.isTablet(context);
-    final isDesktop = Responsive.isDesktop(context);
-    
-    // Tamaños responsivos
-    final spacing = isMobile ? 16.0 : isTablet ? 20.0 : 24.0;
-    
+
+    // Tamaños responsivos compactos
+    final cardPadding = isMobile ? 12.0 : (isTablet ? 14.0 : 16.0);
+    final spacing = isMobile ? 12.0 : (isTablet ? 14.0 : 16.0);
+
     return Form(
-      key: controller.paymentFormKey,
+      key: widget.controller.paymentFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildFuturisticHeader(context, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop),
+          _buildHeader(context, isMobile: isMobile, cardPadding: cardPadding),
           SizedBox(height: spacing),
-          _buildFuturisticPaymentMethodSelector(context, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop),
+          _buildPaymentMethodSelector(context, isMobile: isMobile, isTablet: isTablet, cardPadding: cardPadding),
           SizedBox(height: spacing),
-          _buildFuturisticAmountField(context, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop),
+          _buildAmountField(context, isMobile: isMobile, isTablet: isTablet, cardPadding: cardPadding),
           SizedBox(height: spacing),
-          _buildFuturisticReferenceField(context, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop),
-          SizedBox(height: spacing),
-          _buildFuturisticNotesField(context, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop),
-          SizedBox(height: spacing * 1.5),
-          _buildFuturisticActions(context, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop),
+          _buildReferenceField(context, isMobile: isMobile, isTablet: isTablet, cardPadding: cardPadding),
+          SizedBox(height: spacing * 1.2),
+          _buildActions(context, isMobile: isMobile, isTablet: isTablet),
         ],
       ),
     );
   }
 
-  Widget _buildFuturisticHeader(BuildContext context, {
+  Widget _buildHeader(BuildContext context, {
     required bool isMobile,
-    required bool isTablet, 
-    required bool isDesktop,
+    required double cardPadding,
   }) {
-    final titleSize = isMobile ? 20.0 : isTablet ? 22.0 : 18.0;
-    final subtitleSize = isMobile ? 14.0 : isTablet ? 16.0 : 12.0;
-    final iconSize = isMobile ? 24.0 : isTablet ? 28.0 : 22.0;
-    final remainingBalance = controller.invoice!.balanceDue;
-    
+    final remainingBalance = widget.controller.invoice!.balanceDue;
+    final titleSize = isMobile ? 16.0 : 18.0;
+    final subtitleSize = isMobile ? 12.0 : 13.0;
+    final iconSize = isMobile ? 20.0 : 22.0;
+
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16.0 : isTablet ? 20.0 : 18.0),
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
-        gradient: ElegantLightTheme.glassGradient,
-        borderRadius: BorderRadius.circular(16),
+        color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.3),
-          width: 1,
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(isMobile ? 8.0 : isTablet ? 10.0 : 8.0),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.successGradient,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: ElegantLightTheme.glowShadow,
-                ),
-                child: Icon(
-                  Icons.payment,
-                  color: Colors.white,
-                  size: iconSize,
-                ),
-              ),
-              SizedBox(width: isMobile ? 12.0 : isTablet ? 16.0 : 14.0),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Registrar Pago',
-                      style: TextStyle(
-                        fontSize: titleSize,
-                        fontWeight: FontWeight.w700,
-                        color: ElegantLightTheme.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Saldo pendiente: ${AppFormatters.formatCurrency(remainingBalance)}',
-                      style: TextStyle(
-                        fontSize: subtitleSize,
-                        fontWeight: FontWeight.w500,
-                        color: ElegantLightTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: onCancel,
-                icon: Icon(
-                  Icons.close,
-                  color: ElegantLightTheme.textSecondary,
-                  size: iconSize,
-                ),
-                style: IconButton.styleFrom(
-                  backgroundColor: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+          Container(
+            padding: EdgeInsets.all(isMobile ? 8 : 10),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.payment,
+              color: ElegantLightTheme.primaryBlue,
+              size: iconSize,
+            ),
+          ),
+          SizedBox(width: isMobile ? 10 : 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Registrar Pago',
+                  style: TextStyle(
+                    fontSize: titleSize,
+                    fontWeight: FontWeight.w700,
+                    color: ElegantLightTheme.textPrimary,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  'Saldo: ${AppFormatters.formatCurrency(remainingBalance)}',
+                  style: TextStyle(
+                    fontSize: subtitleSize,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: widget.onCancel,
+            icon: Icon(
+              Icons.close,
+              color: ElegantLightTheme.textSecondary,
+              size: iconSize,
+            ),
+            style: IconButton.styleFrom(
+              backgroundColor: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+              padding: EdgeInsets.all(isMobile ? 6 : 8),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFuturisticPaymentMethodSelector(BuildContext context, {
+  Widget _buildPaymentMethodSelector(BuildContext context, {
     required bool isMobile,
-    required bool isTablet, 
-    required bool isDesktop,
+    required bool isTablet,
+    required double cardPadding,
   }) {
-    final textSize = isMobile ? 16.0 : isTablet ? 18.0 : 14.0;
-    final spacing = isMobile ? 12.0 : isTablet ? 16.0 : 14.0;
-    
+    final labelSize = isMobile ? 13.0 : 14.0;
+
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16.0 : isTablet ? 20.0 : 18.0),
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
-        gradient: ElegantLightTheme.glassGradient,
-        borderRadius: BorderRadius.circular(16),
+        color: ElegantLightTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.3),
-          width: 1,
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -158,96 +154,121 @@ class InvoicePaymentFormWidget extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.credit_card,
-                color: ElegantLightTheme.infoGradient.colors.first,
-                size: isMobile ? 20.0 : isTablet ? 22.0 : 18.0,
+                Icons.account_balance_wallet,
+                color: ElegantLightTheme.primaryBlue,
+                size: isMobile ? 18 : 20,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
-                'Método de Pago',
+                'Cuenta de Pago',
                 style: TextStyle(
-                  fontSize: textSize,
+                  fontSize: labelSize,
                   fontWeight: FontWeight.w600,
                   color: ElegantLightTheme.textPrimary,
                 ),
               ),
             ],
           ),
-          SizedBox(height: spacing),
-          GetBuilder<InvoiceDetailController>(
-            builder: (controller) {
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: PaymentMethod.values.map((method) {
-                  final isSelected = controller.selectedPaymentMethod == method;
-                  return GestureDetector(
-                    onTap: () => controller.setPaymentMethod(method),
-                    child: AnimatedContainer(
-                      duration: ElegantLightTheme.normalAnimation,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isMobile ? 12.0 : isTablet ? 16.0 : 14.0,
-                        vertical: isMobile ? 8.0 : isTablet ? 10.0 : 8.0,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: isSelected 
-                          ? ElegantLightTheme.primaryGradient 
-                          : ElegantLightTheme.glassGradient,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected 
-                            ? ElegantLightTheme.primaryGradient.colors.first
-                            : ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-                          width: 1,
-                        ),
-                        boxShadow: isSelected ? ElegantLightTheme.glowShadow : null,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            method.icon,
-                            color: isSelected ? Colors.white : ElegantLightTheme.textPrimary,
-                            size: isMobile ? 16.0 : isTablet ? 18.0 : 14.0,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            method.displayName,
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : ElegantLightTheme.textPrimary,
-                              fontSize: isMobile ? 14.0 : isTablet ? 16.0 : 12.0,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                            ),
-                          ),
-                        ],
+          SizedBox(height: isMobile ? 10 : 12),
+
+          // Widget reutilizable de selección de cuentas bancarias (dropdown)
+          BankAccountSelector(
+            selectedAccount: _selectedAccount,
+            onAccountSelected: (account) {
+              setState(() {
+                _selectedAccount = account;
+              });
+
+              if (account != null) {
+                // Establecer el método de pago basado en el tipo de cuenta
+                final paymentMethod = _getPaymentMethodFromAccount(account);
+                widget.controller.setPaymentMethod(paymentMethod);
+                widget.controller.setBankAccountId(account.id);
+              } else {
+                widget.controller.setBankAccountId(null);
+              }
+            },
+            hintText: 'Seleccionar cuenta de pago',
+            isRequired: true,
+          ),
+
+          // Información de la cuenta seleccionada
+          if (_selectedAccount != null) ...[
+            SizedBox(height: isMobile ? 8 : 10),
+            Container(
+              padding: EdgeInsets.all(isMobile ? 8 : 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF10B981).withValues(alpha: 0.1),
+                    const Color(0xFF10B981).withValues(alpha: 0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    color: const Color(0xFF10B981),
+                    size: isMobile ? 16 : 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'El pago se registrará en "${_selectedAccount!.name}"',
+                      style: TextStyle(
+                        fontSize: isMobile ? 11 : 12,
+                        color: const Color(0xFF10B981),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  );
-                }).toList(),
-              );
-            },
-          ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildFuturisticAmountField(BuildContext context, {
+  /// Convierte el tipo de cuenta bancaria al PaymentMethod correspondiente
+  PaymentMethod _getPaymentMethodFromAccount(BankAccount account) {
+    switch (account.type) {
+      case BankAccountType.cash:
+        return PaymentMethod.cash;
+      case BankAccountType.creditCard:
+        return PaymentMethod.creditCard;
+      case BankAccountType.debitCard:
+        return PaymentMethod.debitCard;
+      case BankAccountType.digitalWallet:
+      case BankAccountType.savings:
+      case BankAccountType.checking:
+        return PaymentMethod.bankTransfer;
+      case BankAccountType.other:
+        return PaymentMethod.other;
+    }
+  }
+
+  Widget _buildAmountField(BuildContext context, {
     required bool isMobile,
-    required bool isTablet, 
-    required bool isDesktop,
+    required bool isTablet,
+    required double cardPadding,
   }) {
-    final textSize = isMobile ? 16.0 : isTablet ? 18.0 : 14.0;
-    final spacing = isMobile ? 12.0 : isTablet ? 16.0 : 14.0;
-    
+    final labelSize = isMobile ? 13.0 : 14.0;
+    final inputSize = isMobile ? 14.0 : 15.0;
+
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16.0 : isTablet ? 20.0 : 18.0),
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
-        gradient: ElegantLightTheme.glassGradient,
-        borderRadius: BorderRadius.circular(16),
+        color: ElegantLightTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ElegantLightTheme.successGradient.colors.first.withValues(alpha: 0.3),
-          width: 1,
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -257,129 +278,129 @@ class InvoicePaymentFormWidget extends StatelessWidget {
             children: [
               Icon(
                 Icons.attach_money,
-                color: ElegantLightTheme.successGradient.colors.first,
-                size: isMobile ? 20.0 : isTablet ? 22.0 : 18.0,
+                color: Colors.green,
+                size: isMobile ? 18 : 20,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 'Monto del Pago',
                 style: TextStyle(
-                  fontSize: textSize,
+                  fontSize: labelSize,
                   fontWeight: FontWeight.w600,
                   color: ElegantLightTheme.textPrimary,
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: spacing),
-          TextFormField(
-            controller: controller.paymentAmountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-            ],
-            style: TextStyle(
-              fontSize: textSize,
-              fontWeight: FontWeight.w600,
-              color: ElegantLightTheme.textPrimary,
-            ),
-            decoration: InputDecoration(
-              hintText: '0.00',
-              hintStyle: TextStyle(
-                color: ElegantLightTheme.textTertiary,
-                fontSize: textSize,
-              ),
-              prefixText: '\$ ',
-              prefixStyle: TextStyle(
-                color: ElegantLightTheme.successGradient.colors.first,
-                fontSize: textSize,
-                fontWeight: FontWeight.w700,
-              ),
-              filled: true,
-              fillColor: ElegantLightTheme.backgroundColor,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: ElegantLightTheme.successGradient.colors.first,
-                  width: 2,
-                ),
-              ),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: isMobile ? 16.0 : isTablet ? 18.0 : 14.0,
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Ingrese el monto del pago';
-              }
-              final amount = double.tryParse(value);
-              if (amount == null || amount <= 0) {
-                return 'Ingrese un monto válido';
-              }
-              if (amount > controller.invoice!.balanceDue) {
-                return 'El monto no puede superar el saldo pendiente';
-              }
-              return null;
-            },
-          ),
-          SizedBox(height: 8),
-          Row(
-            children: [
-              TextButton.icon(
+              const Spacer(),
+              // Botón de pago completo
+              TextButton(
                 onPressed: () {
-                  controller.paymentAmountController.text = 
-                    controller.invoice!.balanceDue.toStringAsFixed(2);
+                  // Formatear el valor con separadores de miles
+                  widget.controller.paymentAmountController.text =
+                      NumberInputFormatter.formatValueForDisplay(
+                        widget.controller.invoice!.balanceDue,
+                        allowDecimals: true,
+                      );
                 },
-                icon: Icon(
-                  Icons.check_circle_outline,
-                  size: isMobile ? 16.0 : isTablet ? 18.0 : 14.0,
-                  color: ElegantLightTheme.successGradient.colors.first,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                label: Text(
+                child: Text(
                   'Pago completo',
                   style: TextStyle(
-                    fontSize: isMobile ? 12.0 : isTablet ? 14.0 : 11.0,
-                    color: ElegantLightTheme.successGradient.colors.first,
+                    fontSize: isMobile ? 11 : 12,
+                    color: Colors.green,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ],
           ),
+          SizedBox(height: isMobile ? 8 : 10),
+          TextFormField(
+            controller: widget.controller.paymentAmountController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              // Formatter con separadores de miles y decimales opcionales
+              NumberInputFormatter(allowDecimals: true, maxDecimalPlaces: 2),
+            ],
+            style: TextStyle(
+              fontSize: inputSize,
+              fontWeight: FontWeight.w600,
+              color: ElegantLightTheme.textPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: '0',
+              hintStyle: TextStyle(
+                color: ElegantLightTheme.textTertiary,
+                fontSize: inputSize,
+              ),
+              prefixText: '\$ ',
+              prefixStyle: TextStyle(
+                color: Colors.green,
+                fontSize: inputSize,
+                fontWeight: FontWeight.w700,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: isMobile ? 12 : 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Colors.green, width: 1.5),
+              ),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Ingrese el monto';
+              }
+              // Usar el método estático para obtener el valor numérico del texto formateado
+              final amount = NumberInputFormatter.getNumericValue(value);
+              if (amount == null || amount <= 0) {
+                return 'Monto inválido';
+              }
+              if (amount > widget.controller.invoice!.balanceDue) {
+                return 'Excede el saldo pendiente';
+              }
+              return null;
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildFuturisticReferenceField(BuildContext context, {
+  Widget _buildReferenceField(BuildContext context, {
     required bool isMobile,
-    required bool isTablet, 
-    required bool isDesktop,
+    required bool isTablet,
+    required double cardPadding,
   }) {
-    final textSize = isMobile ? 16.0 : isTablet ? 18.0 : 14.0;
-    final spacing = isMobile ? 12.0 : isTablet ? 16.0 : 14.0;
-    
+    final labelSize = isMobile ? 13.0 : 14.0;
+    final inputSize = isMobile ? 13.0 : 14.0;
+
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16.0 : isTablet ? 20.0 : 18.0),
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
-        gradient: ElegantLightTheme.glassGradient,
-        borderRadius: BorderRadius.circular(16),
+        color: ElegantLightTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.3),
-          width: 1,
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -389,140 +410,67 @@ class InvoicePaymentFormWidget extends StatelessWidget {
             children: [
               Icon(
                 Icons.receipt_long,
-                color: ElegantLightTheme.warningGradient.colors.first,
-                size: isMobile ? 20.0 : isTablet ? 22.0 : 18.0,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Referencia (Opcional)',
-                style: TextStyle(
-                  fontSize: textSize,
-                  fontWeight: FontWeight.w600,
-                  color: ElegantLightTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: spacing),
-          TextFormField(
-            controller: controller.paymentReferenceController,
-            style: TextStyle(
-              fontSize: textSize,
-              color: ElegantLightTheme.textPrimary,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Número de transferencia, cheque, etc.',
-              hintStyle: TextStyle(
-                color: ElegantLightTheme.textTertiary,
-                fontSize: isMobile ? 14.0 : isTablet ? 16.0 : 12.0,
-              ),
-              filled: true,
-              fillColor: ElegantLightTheme.backgroundColor,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: ElegantLightTheme.warningGradient.colors.first,
-                  width: 2,
-                ),
-              ),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: isMobile ? 16.0 : isTablet ? 18.0 : 14.0,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFuturisticNotesField(BuildContext context, {
-    required bool isMobile,
-    required bool isTablet, 
-    required bool isDesktop,
-  }) {
-    final textSize = isMobile ? 16.0 : isTablet ? 18.0 : 14.0;
-    final spacing = isMobile ? 12.0 : isTablet ? 16.0 : 14.0;
-    
-    return Container(
-      padding: EdgeInsets.all(isMobile ? 16.0 : isTablet ? 20.0 : 18.0),
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.glassGradient,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.note_alt_outlined,
                 color: ElegantLightTheme.textSecondary,
-                size: isMobile ? 20.0 : isTablet ? 22.0 : 18.0,
+                size: isMobile ? 18 : 20,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
-                'Notas (Opcional)',
+                'Referencia',
                 style: TextStyle(
-                  fontSize: textSize,
+                  fontSize: labelSize,
                   fontWeight: FontWeight.w600,
                   color: ElegantLightTheme.textPrimary,
                 ),
               ),
+              const SizedBox(width: 4),
+              Text(
+                '(Opcional)',
+                style: TextStyle(
+                  fontSize: isMobile ? 11 : 12,
+                  color: ElegantLightTheme.textTertiary,
+                ),
+              ),
             ],
           ),
-          SizedBox(height: spacing),
+          SizedBox(height: isMobile ? 8 : 10),
           TextFormField(
-            controller: controller.paymentNotesController,
-            maxLines: 3,
+            controller: widget.controller.paymentReferenceController,
             style: TextStyle(
-              fontSize: textSize,
+              fontSize: inputSize,
               color: ElegantLightTheme.textPrimary,
             ),
             decoration: InputDecoration(
-              hintText: 'Observaciones adicionales sobre el pago...',
+              hintText: 'Nro. transferencia, comprobante, etc.',
               hintStyle: TextStyle(
                 color: ElegantLightTheme.textTertiary,
-                fontSize: isMobile ? 14.0 : isTablet ? 16.0 : 12.0,
+                fontSize: isMobile ? 12 : 13,
               ),
               filled: true,
-              fillColor: ElegantLightTheme.backgroundColor,
+              fillColor: Colors.white,
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: isMobile ? 12 : 14,
+              ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(
                   color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
                 ),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(
                   color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
                 ),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(
-                  color: ElegantLightTheme.textSecondary,
-                  width: 2,
+                  color: ElegantLightTheme.primaryBlue,
+                  width: 1.5,
                 ),
               ),
-              contentPadding: EdgeInsets.all(16),
             ),
           ),
         ],
@@ -530,79 +478,80 @@ class InvoicePaymentFormWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildFuturisticActions(BuildContext context, {
+  Widget _buildActions(BuildContext context, {
     required bool isMobile,
-    required bool isTablet, 
-    required bool isDesktop,
+    required bool isTablet,
   }) {
-    final spacing = isMobile ? 12.0 : isTablet ? 16.0 : 14.0;
-    
+    final buttonHeight = isMobile ? 46.0 : 48.0;
+    final fontSize = isMobile ? 14.0 : 15.0;
+    final iconSize = isMobile ? 18.0 : 20.0;
+
+    // Color verde consistente con el tema
+    const successColor = Color(0xFF10B981);
+
     return Row(
       children: [
+        // Botón Cancelar
         Expanded(
-          child: Container(
-            height: isMobile ? 50.0 : isTablet ? 55.0 : 48.0,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: TextButton.icon(
-              onPressed: onCancel,
-              icon: Icon(
-                Icons.close,
-                color: ElegantLightTheme.textSecondary,
-                size: isMobile ? 18.0 : isTablet ? 20.0 : 16.0,
-              ),
-              label: Text(
-                'Cancelar',
-                style: TextStyle(
-                  color: ElegantLightTheme.textSecondary,
-                  fontSize: isMobile ? 16.0 : isTablet ? 18.0 : 14.0,
-                  fontWeight: FontWeight.w600,
+          child: SizedBox(
+            height: buttonHeight,
+            child: OutlinedButton(
+              onPressed: widget.onCancel,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ElegantLightTheme.textSecondary,
+                side: BorderSide(
+                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
                 ),
-              ),
-              style: TextButton.styleFrom(
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.close, size: iconSize),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-        SizedBox(width: spacing),
+        const SizedBox(width: 12),
+        // Botón Confirmar - mismo tamaño que Cancelar
         Expanded(
-          flex: 2,
-          child: Container(
-            height: isMobile ? 50.0 : isTablet ? 55.0 : 48.0,
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.successGradient,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: ElegantLightTheme.glowShadow,
-            ),
-            child: ElevatedButton.icon(
-              onPressed: onSubmit,
-              icon: Icon(
-                Icons.check,
-                color: Colors.white,
-                size: isMobile ? 18.0 : isTablet ? 20.0 : 16.0,
-              ),
-              label: Text(
-                'Confirmar Pago',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: isMobile ? 16.0 : isTablet ? 18.0 : 14.0,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+          child: SizedBox(
+            height: buttonHeight,
+            child: ElevatedButton(
+              onPressed: _selectedAccount != null ? widget.onSubmit : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
+                backgroundColor: successColor,
+                disabledBackgroundColor: Colors.grey.shade300,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check, size: iconSize, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(
+                    isMobile ? 'Confirmar' : 'Confirmar Pago',
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -10,8 +10,7 @@ class FuturisticStatusChip extends StatefulWidget {
   final PurchaseOrderStatus status;
   final double? size;
 
-  const FuturisticStatusChip({Key? key, required this.status, this.size})
-    : super(key: key);
+  const FuturisticStatusChip({super.key, required this.status, this.size});
 
   @override
   State<FuturisticStatusChip> createState() => _FuturisticStatusChipState();
@@ -146,8 +145,7 @@ class FuturisticItemCard extends StatefulWidget {
   final PurchaseOrderItem item;
   final VoidCallback? onTap;
 
-  const FuturisticItemCard({Key? key, required this.item, this.onTap})
-    : super(key: key);
+  const FuturisticItemCard({super.key, required this.item, this.onTap});
 
   @override
   State<FuturisticItemCard> createState() => _FuturisticItemCardState();
@@ -240,7 +238,8 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Progreso de recepción',
@@ -265,15 +264,20 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
                                 Container(
                                   height: 12,
                                   decoration: BoxDecoration(
-                                    color: ElegantLightTheme.textSecondary.withOpacity(0.15), // Fondo más visible
+                                    color: ElegantLightTheme.textSecondary
+                                        .withOpacity(0.15), // Fondo más visible
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: ElegantLightTheme.textSecondary.withOpacity(0.1),
+                                      color: ElegantLightTheme.textSecondary
+                                          .withOpacity(0.1),
                                       width: 1,
                                     ),
                                   ),
                                   child: TweenAnimationBuilder<double>(
-                                    tween: Tween<double>(begin: 0.0, end: widget.item.receivedPercentage / 100),
+                                    tween: Tween<double>(
+                                      begin: 0.0,
+                                      end: widget.item.receivedPercentage / 100,
+                                    ),
                                     duration: Duration(milliseconds: 800),
                                     curve: Curves.easeOutExpo,
                                     builder: (context, animatedValue, child) {
@@ -282,24 +286,40 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
                                           // Parte llena con destello
                                           if (animatedValue > 0)
                                             Flexible(
-                                              flex: (animatedValue * 100).round(),
+                                              flex:
+                                                  (animatedValue * 100).round(),
                                               child: Container(
                                                 height: 10,
                                                 margin: EdgeInsets.all(1),
                                                 decoration: BoxDecoration(
-                                                  gradient: widget.item.isFullyReceived
-                                                      ? ElegantLightTheme.successGradient
-                                                      : widget.item.isPartiallyReceived
-                                                      ? ElegantLightTheme.warningGradient
-                                                      : ElegantLightTheme.infoGradient,
-                                                  borderRadius: BorderRadius.circular(5),
+                                                  gradient:
+                                                      widget
+                                                              .item
+                                                              .isFullyReceived
+                                                          ? ElegantLightTheme
+                                                              .successGradient
+                                                          : widget
+                                                              .item
+                                                              .isPartiallyReceived
+                                                          ? ElegantLightTheme
+                                                              .warningGradient
+                                                          : ElegantLightTheme
+                                                              .infoGradient,
+                                                  borderRadius:
+                                                      BorderRadius.circular(5),
                                                 ),
                                                 child: ClipRRect(
-                                                  borderRadius: BorderRadius.circular(5),
+                                                  borderRadius:
+                                                      BorderRadius.circular(5),
                                                   child: Stack(
                                                     children: [
                                                       // Efecto de destello cuando está casi completa
-                                                      if (animatedValue >= widget.item.receivedPercentage / 100 * 0.98)
+                                                      if (animatedValue >=
+                                                          widget
+                                                                  .item
+                                                                  .receivedPercentage /
+                                                              100 *
+                                                              0.98)
                                                         _ProgressShimmerEffect(
                                                           borderRadius: 5,
                                                         ),
@@ -311,13 +331,16 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
                                           // Parte vacía
                                           if (animatedValue < 1.0)
                                             Flexible(
-                                              flex: ((1.0 - animatedValue) * 100).round(),
+                                              flex:
+                                                  ((1.0 - animatedValue) * 100)
+                                                      .round(),
                                               child: Container(
                                                 height: 10,
                                                 margin: EdgeInsets.all(1),
                                                 decoration: BoxDecoration(
                                                   color: Colors.transparent,
-                                                  borderRadius: BorderRadius.circular(5),
+                                                  borderRadius:
+                                                      BorderRadius.circular(5),
                                                 ),
                                               ),
                                             ),
@@ -348,7 +371,7 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final screenWidth = MediaQuery.of(context).size.width;
-                        
+
                         // Determinar qué campos adicionales mostrar según el caso
                         final List<Widget> infoItems = [
                           _buildInfoItem(
@@ -359,7 +382,9 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
                           ),
                           _buildInfoItem(
                             'Recibido',
-                            AppFormatters.formatNumber(widget.item.receivedQuantity ?? 0),
+                            AppFormatters.formatNumber(
+                              widget.item.receivedQuantity ?? 0,
+                            ),
                             Icons.check_circle,
                             screenWidth,
                           ),
@@ -370,18 +395,22 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
                           infoItems.add(
                             _buildInfoItem(
                               'Dañados',
-                              AppFormatters.formatNumber(widget.item.actualDamagedQuantity),
+                              AppFormatters.formatNumber(
+                                widget.item.actualDamagedQuantity,
+                              ),
                               Icons.warning_amber,
                               screenWidth,
                             ),
                           );
                         }
-                        
+
                         if (widget.item.hasMissingItems) {
                           infoItems.add(
                             _buildInfoItem(
                               'Faltantes',
-                              AppFormatters.formatNumber(widget.item.actualMissingQuantity),
+                              AppFormatters.formatNumber(
+                                widget.item.actualMissingQuantity,
+                              ),
                               Icons.remove_circle_outline,
                               screenWidth,
                             ),
@@ -397,7 +426,10 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
                           ),
                           _buildInfoItem(
                             'Total',
-                            AppFormatters.formatCurrency((widget.item.receivedQuantity ?? 0) * widget.item.unitPrice),
+                            AppFormatters.formatCurrency(
+                              (widget.item.receivedQuantity ?? 0) *
+                                  widget.item.unitPrice,
+                            ),
                             Icons.calculate,
                             screenWidth,
                           ),
@@ -410,11 +442,14 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
                             children: [
                               for (int i = 0; i < infoItems.length; i += 2)
                                 Padding(
-                                  padding: EdgeInsets.only(bottom: i + 2 < infoItems.length ? 8 : 0),
+                                  padding: EdgeInsets.only(
+                                    bottom: i + 2 < infoItems.length ? 8 : 0,
+                                  ),
                                   child: Row(
                                     children: [
                                       Expanded(child: infoItems[i]),
-                                      if (i + 1 < infoItems.length) Expanded(child: infoItems[i + 1]),
+                                      if (i + 1 < infoItems.length)
+                                        Expanded(child: infoItems[i + 1]),
                                     ],
                                   ),
                                 ),
@@ -423,7 +458,10 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
                         } else {
                           // Tablet/Desktop: una fila con todos los items
                           return Row(
-                            children: infoItems.map((item) => Expanded(child: item)).toList(),
+                            children:
+                                infoItems
+                                    .map((item) => Expanded(child: item))
+                                    .toList(),
                           );
                         }
                       },
@@ -438,12 +476,32 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
     );
   }
 
-  Widget _buildInfoItem(String label, String value, IconData icon, double screenWidth) {
+  Widget _buildInfoItem(
+    String label,
+    String value,
+    IconData icon,
+    double screenWidth,
+  ) {
     // Tamaños responsive
-    double iconSize = screenWidth >= 1200 ? 20 : screenWidth >= 800 ? 18 : 16;
-    double labelFontSize = screenWidth >= 1200 ? 10 : screenWidth >= 800 ? 9 : 8;
-    double valueFontSize = screenWidth >= 1200 ? 12 : screenWidth >= 800 ? 11 : 10;
-    
+    double iconSize =
+        screenWidth >= 1200
+            ? 20
+            : screenWidth >= 800
+            ? 18
+            : 16;
+    double labelFontSize =
+        screenWidth >= 1200
+            ? 10
+            : screenWidth >= 800
+            ? 9
+            : 8;
+    double valueFontSize =
+        screenWidth >= 1200
+            ? 12
+            : screenWidth >= 800
+            ? 11
+            : 10;
+
     return Column(
       children: [
         Icon(icon, color: const Color(0xFF6366F1), size: iconSize),
@@ -480,8 +538,7 @@ class _FuturisticItemCardState extends State<FuturisticItemCard>
 class FuturisticWorkflowTimeline extends StatefulWidget {
   final PurchaseOrder order;
 
-  const FuturisticWorkflowTimeline({Key? key, required this.order})
-    : super(key: key);
+  const FuturisticWorkflowTimeline({super.key, required this.order});
 
   @override
   State<FuturisticWorkflowTimeline> createState() =>
@@ -565,7 +622,9 @@ class _FuturisticWorkflowTimelineState extends State<FuturisticWorkflowTimeline>
     }
 
     // Evento de envío (basado en estado)
-    if (widget.order.isSent || widget.order.isPartiallyReceived || widget.order.isReceived) {
+    if (widget.order.isSent ||
+        widget.order.isPartiallyReceived ||
+        widget.order.isReceived) {
       events.add({
         'title': 'Orden enviada',
         'description': 'La orden fue enviada al proveedor',
@@ -581,7 +640,8 @@ class _FuturisticWorkflowTimelineState extends State<FuturisticWorkflowTimeline>
     if (widget.order.isPartiallyReceived) {
       events.add({
         'title': 'Recepción parcial',
-        'description': 'Algunos productos fueron recibidos. La orden está parcialmente completada.',
+        'description':
+            'Algunos productos fueron recibidos. La orden está parcialmente completada.',
         'date': widget.order.deliveredDate ?? DateTime.now(),
         'user': 'Sistema',
         'icon': Icons.pending_actions,
@@ -611,17 +671,62 @@ class _FuturisticWorkflowTimelineState extends State<FuturisticWorkflowTimeline>
   Widget build(BuildContext context) {
     final events = _buildWorkflowEvents();
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     // Tamaños responsive para cronología
-    double titleFontSize = screenWidth >= 1200 ? 20 : screenWidth >= 800 ? 18 : 16;
-    double iconSize = screenWidth >= 1200 ? 50 : screenWidth >= 800 ? 45 : 40;
-    double iconInnerSize = screenWidth >= 1200 ? 24 : screenWidth >= 800 ? 22 : 20;
-    double spacing = screenWidth >= 1200 ? 16 : screenWidth >= 800 ? 14 : 12;
-    double padding = screenWidth >= 1200 ? 16 : screenWidth >= 800 ? 14 : 12;
-    double cardTitleSize = screenWidth >= 1200 ? 16 : screenWidth >= 800 ? 14 : 12;
-    double cardDescSize = screenWidth >= 1200 ? 14 : screenWidth >= 800 ? 12 : 10;
-    double cardMetaSize = screenWidth >= 1200 ? 12 : screenWidth >= 800 ? 10 : 9;
-    double metaIconSize = screenWidth >= 1200 ? 14 : screenWidth >= 800 ? 12 : 11;
+    double titleFontSize =
+        screenWidth >= 1200
+            ? 20
+            : screenWidth >= 800
+            ? 18
+            : 16;
+    double iconSize =
+        screenWidth >= 1200
+            ? 50
+            : screenWidth >= 800
+            ? 45
+            : 40;
+    double iconInnerSize =
+        screenWidth >= 1200
+            ? 24
+            : screenWidth >= 800
+            ? 22
+            : 20;
+    double spacing =
+        screenWidth >= 1200
+            ? 16
+            : screenWidth >= 800
+            ? 14
+            : 12;
+    double padding =
+        screenWidth >= 1200
+            ? 16
+            : screenWidth >= 800
+            ? 14
+            : 12;
+    double cardTitleSize =
+        screenWidth >= 1200
+            ? 16
+            : screenWidth >= 800
+            ? 14
+            : 12;
+    double cardDescSize =
+        screenWidth >= 1200
+            ? 14
+            : screenWidth >= 800
+            ? 12
+            : 10;
+    double cardMetaSize =
+        screenWidth >= 1200
+            ? 12
+            : screenWidth >= 800
+            ? 10
+            : 9;
+    double metaIconSize =
+        screenWidth >= 1200
+            ? 14
+            : screenWidth >= 800
+            ? 12
+            : 11;
 
     return FuturisticContainer(
       child: Column(
@@ -691,7 +796,8 @@ class _FuturisticWorkflowTimelineState extends State<FuturisticWorkflowTimeline>
                                 gradient: ElegantLightTheme.glassGradient,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: ElegantLightTheme.textSecondary.withOpacity(0.1),
+                                  color: ElegantLightTheme.textSecondary
+                                      .withOpacity(0.1),
                                   width: 1,
                                 ),
                               ),
@@ -720,14 +826,72 @@ class _FuturisticWorkflowTimelineState extends State<FuturisticWorkflowTimeline>
                                   ),
                                   const SizedBox(height: 8),
                                   // Metadata responsive
-                                  screenWidth < 600 ? Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
+                                  screenWidth < 600
+                                      ? Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.schedule,
+                                                color:
+                                                    ElegantLightTheme
+                                                        .textTertiary,
+                                                size: metaIconSize,
+                                              ),
+                                              SizedBox(width: spacing / 4),
+                                              Expanded(
+                                                child: Text(
+                                                  _formatDate(event['date']),
+                                                  style: TextStyle(
+                                                    color:
+                                                        ElegantLightTheme
+                                                            .textTertiary,
+                                                    fontSize: cardMetaSize,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.person,
+                                                color:
+                                                    ElegantLightTheme
+                                                        .textTertiary,
+                                                size: metaIconSize,
+                                              ),
+                                              SizedBox(width: spacing / 4),
+                                              Expanded(
+                                                child: Text(
+                                                  event['user'],
+                                                  style: TextStyle(
+                                                    color:
+                                                        ElegantLightTheme
+                                                            .textTertiary,
+                                                    fontSize: cardMetaSize,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      )
+                                      : Row(
                                         children: [
                                           Icon(
                                             Icons.schedule,
-                                            color: ElegantLightTheme.textTertiary,
+                                            color:
+                                                ElegantLightTheme.textTertiary,
                                             size: metaIconSize,
                                           ),
                                           SizedBox(width: spacing / 4),
@@ -735,21 +899,20 @@ class _FuturisticWorkflowTimelineState extends State<FuturisticWorkflowTimeline>
                                             child: Text(
                                               _formatDate(event['date']),
                                               style: TextStyle(
-                                                color: ElegantLightTheme.textTertiary,
+                                                color:
+                                                    ElegantLightTheme
+                                                        .textTertiary,
                                                 fontSize: cardMetaSize,
                                               ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
+                                          SizedBox(width: spacing),
                                           Icon(
                                             Icons.person,
-                                            color: ElegantLightTheme.textTertiary,
+                                            color:
+                                                ElegantLightTheme.textTertiary,
                                             size: metaIconSize,
                                           ),
                                           SizedBox(width: spacing / 4),
@@ -757,7 +920,9 @@ class _FuturisticWorkflowTimelineState extends State<FuturisticWorkflowTimeline>
                                             child: Text(
                                               event['user'],
                                               style: TextStyle(
-                                                color: ElegantLightTheme.textTertiary,
+                                                color:
+                                                    ElegantLightTheme
+                                                        .textTertiary,
                                                 fontSize: cardMetaSize,
                                               ),
                                               maxLines: 1,
@@ -766,46 +931,6 @@ class _FuturisticWorkflowTimelineState extends State<FuturisticWorkflowTimeline>
                                           ),
                                         ],
                                       ),
-                                    ],
-                                  ) : Row(
-                                    children: [
-                                      Icon(
-                                        Icons.schedule,
-                                        color: ElegantLightTheme.textTertiary,
-                                        size: metaIconSize,
-                                      ),
-                                      SizedBox(width: spacing / 4),
-                                      Expanded(
-                                        child: Text(
-                                          _formatDate(event['date']),
-                                          style: TextStyle(
-                                            color: ElegantLightTheme.textTertiary,
-                                            fontSize: cardMetaSize,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      SizedBox(width: spacing),
-                                      Icon(
-                                        Icons.person,
-                                        color: ElegantLightTheme.textTertiary,
-                                        size: metaIconSize,
-                                      ),
-                                      SizedBox(width: spacing / 4),
-                                      Expanded(
-                                        child: Text(
-                                          event['user'],
-                                          style: TextStyle(
-                                            color: ElegantLightTheme.textTertiary,
-                                            fontSize: cardMetaSize,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                                 ],
                               ),
                             ),
@@ -817,7 +942,7 @@ class _FuturisticWorkflowTimelineState extends State<FuturisticWorkflowTimeline>
                 );
               },
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -832,9 +957,7 @@ class _FuturisticWorkflowTimelineState extends State<FuturisticWorkflowTimeline>
 class _ProgressShimmerEffect extends StatefulWidget {
   final double borderRadius;
 
-  const _ProgressShimmerEffect({
-    required this.borderRadius,
-  });
+  const _ProgressShimmerEffect({required this.borderRadius});
 
   @override
   State<_ProgressShimmerEffect> createState() => _ProgressShimmerEffectState();

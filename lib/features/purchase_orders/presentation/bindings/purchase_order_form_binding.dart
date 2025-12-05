@@ -1,5 +1,4 @@
 // lib/features/purchase_orders/presentation/bindings/purchase_order_form_binding.dart
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../controllers/purchase_order_form_controller.dart';
@@ -37,9 +36,9 @@ class PurchaseOrderFormBinding extends Bindings {
 
     // Force cleanup of existing controller to prevent GlobalKey conflicts
     cleanup();
-    
+
     print('🏷️ Registrando nuevo PurchaseOrderFormController...');
-    
+
     // Controller with proper cleanup and fenix for recreation
     Get.lazyPut(
       () => PurchaseOrderFormController(
@@ -51,7 +50,7 @@ class PurchaseOrderFormBinding extends Bindings {
       ),
       fenix: true, // Allow recreation to prevent GlobalKey conflicts
     );
-    
+
     print('✅ PurchaseOrderFormController registrado correctamente');
   }
 
@@ -59,17 +58,14 @@ class PurchaseOrderFormBinding extends Bindings {
     // Datasources
     if (!Get.isRegistered<PurchaseOrderRemoteDataSource>()) {
       Get.lazyPut<PurchaseOrderRemoteDataSource>(
-        () => PurchaseOrderRemoteDataSourceImpl(
-          dioClient: Get.find(),
-        ),
+        () => PurchaseOrderRemoteDataSourceImpl(dioClient: Get.find()),
       );
     }
-    
+
     if (!Get.isRegistered<PurchaseOrderLocalDataSource>()) {
       Get.lazyPut<PurchaseOrderLocalDataSource>(
-        () => PurchaseOrderLocalDataSourceImpl(
-          secureStorageService: Get.find(),
-        ),
+        () =>
+            PurchaseOrderLocalDataSourceImpl(secureStorageService: Get.find()),
       );
     }
 
@@ -86,15 +82,21 @@ class PurchaseOrderFormBinding extends Bindings {
 
     // Use Cases - Register only the required use cases for the form
     if (!Get.isRegistered<CreatePurchaseOrderUseCase>()) {
-      Get.lazyPut(() => CreatePurchaseOrderUseCase(Get.find<PurchaseOrderRepository>()));
+      Get.lazyPut(
+        () => CreatePurchaseOrderUseCase(Get.find<PurchaseOrderRepository>()),
+      );
     }
-    
+
     if (!Get.isRegistered<UpdatePurchaseOrderUseCase>()) {
-      Get.lazyPut(() => UpdatePurchaseOrderUseCase(Get.find<PurchaseOrderRepository>()));
+      Get.lazyPut(
+        () => UpdatePurchaseOrderUseCase(Get.find<PurchaseOrderRepository>()),
+      );
     }
-    
+
     if (!Get.isRegistered<GetPurchaseOrderByIdUseCase>()) {
-      Get.lazyPut(() => GetPurchaseOrderByIdUseCase(Get.find<PurchaseOrderRepository>()));
+      Get.lazyPut(
+        () => GetPurchaseOrderByIdUseCase(Get.find<PurchaseOrderRepository>()),
+      );
     }
   }
 
@@ -103,10 +105,10 @@ class PurchaseOrderFormBinding extends Bindings {
     try {
       if (Get.isRegistered<PurchaseOrderFormController>()) {
         print('🧹 Iniciando cleanup de PurchaseOrderFormController...');
-        
+
         // Only delete the controller - GetX will handle onClose() automatically
         Get.delete<PurchaseOrderFormController>(force: true);
-        
+
         print('✅ PurchaseOrderFormController eliminado del registro GetX');
       } else {
         print('ℹ️ No hay PurchaseOrderFormController para limpiar');

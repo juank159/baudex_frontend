@@ -1,7 +1,6 @@
 // lib/features/dashboard/presentation/widgets/dashboard_stats_grid.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'dart:math' as math;
 import '../controllers/dashboard_controller.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
@@ -246,10 +245,7 @@ class DashboardStatsGrid extends GetView<DashboardController> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 minimumSize: const Size(0, 32),
               ),
-              child: Text(
-                'Reintentar',
-                style: AppTextStyles.bodySmall,
-              ),
+              child: Text('Reintentar', style: AppTextStyles.bodySmall),
             ),
           ],
         ),
@@ -295,29 +291,17 @@ class _StatCardState extends State<_StatCard>
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.05,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.elasticOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
+    );
 
-    _glowAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
 
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: 0.02,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _rotationAnimation = Tween<double>(begin: 0.0, end: 0.02).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -338,10 +322,11 @@ class _StatCardState extends State<_StatCard>
             scale: _scaleAnimation.value,
             child: Transform(
               alignment: Alignment.center,
-              transform: Matrix4.identity()
-                ..setEntry(3, 2, 0.001)
-                ..rotateX(_rotationAnimation.value)
-                ..rotateY(_rotationAnimation.value * 0.5),
+              transform:
+                  Matrix4.identity()
+                    ..setEntry(3, 2, 0.001)
+                    ..rotateX(_rotationAnimation.value)
+                    ..rotateY(_rotationAnimation.value * 0.5),
               child: Container(
                 height: 150, // Aumentado para evitar overflow
                 decoration: BoxDecoration(
@@ -379,7 +364,9 @@ class _StatCardState extends State<_StatCard>
                     // Efecto glow cuando hover
                     if (_glowAnimation.value > 0)
                       BoxShadow(
-                        color: widget.color.withOpacity(_glowAnimation.value * 0.3),
+                        color: widget.color.withOpacity(
+                          _glowAnimation.value * 0.3,
+                        ),
                         blurRadius: 25 * _glowAnimation.value,
                         offset: const Offset(0, 5),
                         spreadRadius: 2 * _glowAnimation.value,
@@ -447,12 +434,15 @@ class _StatCardState extends State<_StatCard>
                               // Título con animación de brillos
                               Expanded(
                                 child: ShaderMask(
-                                  shaderCallback: (bounds) => LinearGradient(
-                                    colors: [
-                                      AppColors.textSecondary,
-                                      AppColors.textSecondary.withOpacity(0.8),
-                                    ],
-                                  ).createShader(bounds),
+                                  shaderCallback:
+                                      (bounds) => LinearGradient(
+                                        colors: [
+                                          AppColors.textSecondary,
+                                          AppColors.textSecondary.withOpacity(
+                                            0.8,
+                                          ),
+                                        ],
+                                      ).createShader(bounds),
                                   child: Text(
                                     widget.title,
                                     style: AppTextStyles.bodyMedium.copyWith(
@@ -468,14 +458,15 @@ class _StatCardState extends State<_StatCard>
                           const Spacer(),
                           // Valor principal con efecto de brillo
                           ShaderMask(
-                            shaderCallback: (bounds) => LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppColors.textPrimary,
-                                AppColors.textPrimary.withOpacity(0.8),
-                              ],
-                            ).createShader(bounds),
+                            shaderCallback:
+                                (bounds) => LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppColors.textPrimary,
+                                    AppColors.textPrimary.withOpacity(0.8),
+                                  ],
+                                ).createShader(bounds),
                             child: Text(
                               widget.value,
                               style: AppTextStyles.headlineSmall.copyWith(
@@ -535,7 +526,7 @@ class _StatCardState extends State<_StatCard>
     setState(() {
       _isHovered = isHovered;
     });
-    
+
     if (isHovered) {
       _animationController.forward();
     } else {

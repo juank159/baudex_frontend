@@ -7,7 +7,7 @@ import '../../domain/entities/category.dart';
 import '../controllers/categories_controller.dart';
 
 class CategoryFilterWidget extends GetView<CategoriesController> {
-  const CategoryFilterWidget({Key? key}) : super(key: key);
+  const CategoryFilterWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -65,11 +65,7 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: ElegantLightTheme.glowShadow,
             ),
-            child: const Icon(
-              Icons.tune,
-              color: Colors.white,
-              size: 20,
-            ),
+            child: const Icon(Icons.tune, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -116,7 +112,9 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: ElegantLightTheme.errorGradient.colors.first.withValues(alpha: 0.3),
+            color: ElegantLightTheme.errorGradient.colors.first.withValues(
+              alpha: 0.3,
+            ),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -133,7 +131,7 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
               builder: (context, constraints) {
                 // Si hay espacio suficiente, mostrar texto, si no, solo ícono
                 final hasSpaceForText = constraints.maxWidth > 60;
-                
+
                 if (hasSpaceForText) {
                   return Row(
                     mainAxisSize: MainAxisSize.min,
@@ -212,23 +210,25 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
   ) {
     return Container(
       decoration: BoxDecoration(
-        gradient: isSelected 
-          ? ElegantLightTheme.glassGradient
-          : null,
+        gradient: isSelected ? ElegantLightTheme.glassGradient : null,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected
-              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
-              : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+          color:
+              isSelected
+                  ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
           width: 1,
         ),
-        boxShadow: isSelected ? [
-          BoxShadow(
-            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ] : null,
+        boxShadow:
+            isSelected
+                ? [
+                  BoxShadow(
+                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+                : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -243,9 +243,10 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? ElegantLightTheme.primaryGradient
-                        : ElegantLightTheme.glassGradient,
+                    gradient:
+                        isSelected
+                            ? ElegantLightTheme.primaryGradient
+                            : ElegantLightTheme.glassGradient,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
@@ -261,21 +262,27 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: isSelected
-                          ? ElegantLightTheme.textPrimary
-                          : ElegantLightTheme.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color:
+                          isSelected
+                              ? ElegantLightTheme.textPrimary
+                              : ElegantLightTheme.textSecondary,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                       fontSize: 14,
                     ),
                   ),
                 ),
                 if (status != null) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      gradient: status == CategoryStatus.active
-                          ? ElegantLightTheme.successGradient
-                          : ElegantLightTheme.warningGradient,
+                      gradient:
+                          status == CategoryStatus.active
+                              ? ElegantLightTheme.successGradient
+                              : ElegantLightTheme.warningGradient,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -333,23 +340,28 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
   ) {
     return Container(
       decoration: BoxDecoration(
-        gradient: isSelected 
-          ? ElegantLightTheme.glassGradient
-          : null,
+        gradient: isSelected ? ElegantLightTheme.glassGradient : null,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected
-              ? ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.3)
-              : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+          color:
+              isSelected
+                  ? ElegantLightTheme.infoGradient.colors.first.withValues(
+                    alpha: 0.3,
+                  )
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
           width: 1,
         ),
-        boxShadow: isSelected ? [
-          BoxShadow(
-            color: ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ] : null,
+        boxShadow:
+            isSelected
+                ? [
+                  BoxShadow(
+                    color: ElegantLightTheme.infoGradient.colors.first
+                        .withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+                : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -364,13 +376,16 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? ElegantLightTheme.infoGradient
-                        : ElegantLightTheme.glassGradient,
+                    gradient:
+                        isSelected
+                            ? ElegantLightTheme.infoGradient
+                            : ElegantLightTheme.glassGradient,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
-                    parentId == 'parents_only' ? Icons.folder : Icons.folder_open,
+                    parentId == 'parents_only'
+                        ? Icons.folder
+                        : Icons.folder_open,
                     color: Colors.white,
                     size: 16,
                   ),
@@ -380,10 +395,12 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: isSelected
-                          ? ElegantLightTheme.textPrimary
-                          : ElegantLightTheme.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color:
+                          isSelected
+                              ? ElegantLightTheme.textPrimary
+                              : ElegantLightTheme.textSecondary,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                       fontSize: 14,
                     ),
                     maxLines: 1,
@@ -411,8 +428,7 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
               'Orden personalizado',
               'sortOrder',
               'ASC',
-              controller.sortBy == 'sortOrder' &&
-                  controller.sortOrder == 'ASC',
+              controller.sortBy == 'sortOrder' && controller.sortOrder == 'ASC',
             ),
             const SizedBox(height: 8),
             _buildSortOption(
@@ -445,8 +461,7 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
               'Más antiguos',
               'createdAt',
               'ASC',
-              controller.sortBy == 'createdAt' &&
-                  controller.sortOrder == 'ASC',
+              controller.sortBy == 'createdAt' && controller.sortOrder == 'ASC',
             ),
           ],
         );
@@ -463,23 +478,28 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
   ) {
     return Container(
       decoration: BoxDecoration(
-        gradient: isSelected 
-          ? ElegantLightTheme.glassGradient
-          : null,
+        gradient: isSelected ? ElegantLightTheme.glassGradient : null,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected
-              ? ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.3)
-              : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+          color:
+              isSelected
+                  ? ElegantLightTheme.warningGradient.colors.first.withValues(
+                    alpha: 0.3,
+                  )
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
           width: 1,
         ),
-        boxShadow: isSelected ? [
-          BoxShadow(
-            color: ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ] : null,
+        boxShadow:
+            isSelected
+                ? [
+                  BoxShadow(
+                    color: ElegantLightTheme.warningGradient.colors.first
+                        .withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+                : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -494,13 +514,16 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? ElegantLightTheme.warningGradient
-                        : ElegantLightTheme.glassGradient,
+                    gradient:
+                        isSelected
+                            ? ElegantLightTheme.warningGradient
+                            : ElegantLightTheme.glassGradient,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
-                    sortOrder == 'ASC' ? Icons.arrow_upward : Icons.arrow_downward,
+                    sortOrder == 'ASC'
+                        ? Icons.arrow_upward
+                        : Icons.arrow_downward,
                     color: Colors.white,
                     size: 16,
                   ),
@@ -510,17 +533,22 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: isSelected
-                          ? ElegantLightTheme.textPrimary
-                          : ElegantLightTheme.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color:
+                          isSelected
+                              ? ElegantLightTheme.textPrimary
+                              : ElegantLightTheme.textSecondary,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                       fontSize: 14,
                     ),
                   ),
                 ),
                 if (isSelected)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       gradient: ElegantLightTheme.primaryGradient,
                       borderRadius: BorderRadius.circular(6),
@@ -594,7 +622,8 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
     VoidCallback onTap,
   ) {
     return Container(
-      width: 175, // Ancho aumentado para evitar overflow (160 + 15 pixels extra)
+      width:
+          175, // Ancho aumentado para evitar overflow (160 + 15 pixels extra)
       height: 40, // Altura fija para todos los botones
       decoration: BoxDecoration(
         gradient: gradient,
@@ -617,11 +646,7 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 16,
-                ),
+                Icon(icon, color: Colors.white, size: 16),
                 const SizedBox(width: 8),
                 Text(
                   label,
@@ -705,10 +730,7 @@ class CategoryFilterWidget extends GetView<CategoriesController> {
             ),
           ),
           // Contenido de la card
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: child,
-          ),
+          Padding(padding: const EdgeInsets.all(16), child: child),
         ],
       ),
     );

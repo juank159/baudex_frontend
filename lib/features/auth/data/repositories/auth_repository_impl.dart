@@ -113,7 +113,9 @@ class AuthRepositoryImpl implements AuthRepository {
           organizationName: organizationName,
         );
 
-        print('🏗️ AuthRepository: Ejecutando registro con onboarding automático...');
+        print(
+          '🏗️ AuthRepository: Ejecutando registro con onboarding automático...',
+        );
         final response = await remoteDataSource.registerWithOnboarding(request);
 
         // Guardar datos localmente
@@ -128,7 +130,11 @@ class AuthRepositoryImpl implements AuthRepository {
       } on CacheException catch (e) {
         return Left(CacheFailure(e.message));
       } catch (e) {
-        return Left(UnknownFailure('Error inesperado durante el registro con onboarding: $e'));
+        return Left(
+          UnknownFailure(
+            'Error inesperado durante el registro con onboarding: $e',
+          ),
+        );
       }
     } else {
       return const Left(ConnectionFailure.noInternet);
@@ -145,7 +151,7 @@ class AuthRepositoryImpl implements AuthRepository {
         await localDataSource.saveUser(response.user);
 
         return Right(response.user.toEntity());
-      } on ServerException catch (e) {
+      } on ServerException {
         // Si falla la llamada remota, intentar obtener desde cache
         return _getProfileFromCache();
       } on ConnectionException catch (e) {

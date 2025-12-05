@@ -8,9 +8,14 @@ import '../models/supplier_stats_model.dart';
 import '../../domain/repositories/supplier_repository.dart';
 
 abstract class SupplierLocalDataSource {
-  Future<PaginatedResult<SupplierModel>> getSuppliers(SupplierQueryParams params);
+  Future<PaginatedResult<SupplierModel>> getSuppliers(
+    SupplierQueryParams params,
+  );
   Future<SupplierModel?> getSupplierById(String id);
-  Future<List<SupplierModel>> searchSuppliers(String searchTerm, {int limit = 10});
+  Future<List<SupplierModel>> searchSuppliers(
+    String searchTerm, {
+    int limit = 10,
+  });
   Future<List<SupplierModel>> getActiveSuppliers();
   Future<List<SupplierModel>> getCachedSuppliers();
   Future<void> cacheSuppliers(List<SupplierModel> suppliers);
@@ -23,7 +28,7 @@ abstract class SupplierLocalDataSource {
 
 class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
   final FlutterSecureStorage secureStorage;
-  
+
   static const String _suppliersKey = 'suppliers_cache';
   static const String _supplierStatsKey = 'supplier_stats_cache';
   static const String _supplierPrefix = 'supplier_';
@@ -31,69 +36,90 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
   SupplierLocalDataSourceImpl({required this.secureStorage});
 
   @override
-  Future<PaginatedResult<SupplierModel>> getSuppliers(SupplierQueryParams params) async {
+  Future<PaginatedResult<SupplierModel>> getSuppliers(
+    SupplierQueryParams params,
+  ) async {
     try {
       final suppliers = await getCachedSuppliers();
-      
+
       // Aplicar filtros localmente
       List<SupplierModel> filteredSuppliers = suppliers;
 
       // Filtro por búsqueda
       if (params.search != null && params.search!.isNotEmpty) {
         final searchLower = params.search!.toLowerCase();
-        filteredSuppliers = filteredSuppliers.where((supplier) =>
-          supplier.name.toLowerCase().contains(searchLower) ||
-          (supplier.contactPerson?.toLowerCase().contains(searchLower) ?? false) ||
-          (supplier.email?.toLowerCase().contains(searchLower) ?? false) ||
-          (supplier.code?.toLowerCase().contains(searchLower) ?? false) ||
-          (supplier.documentNumber?.toLowerCase().contains(searchLower) ?? false)
-        ).toList();
+        filteredSuppliers =
+            filteredSuppliers
+                .where(
+                  (supplier) =>
+                      supplier.name.toLowerCase().contains(searchLower) ||
+                      (supplier.contactPerson?.toLowerCase().contains(
+                            searchLower,
+                          ) ??
+                          false) ||
+                      (supplier.email?.toLowerCase().contains(searchLower) ??
+                          false) ||
+                      (supplier.code?.toLowerCase().contains(searchLower) ??
+                          false) ||
+                      (supplier.documentNumber.toLowerCase().contains(
+                            searchLower,
+                          ) ??
+                          false),
+                )
+                .toList();
       }
 
       // Filtro por estado
       if (params.status != null) {
-        filteredSuppliers = filteredSuppliers.where((supplier) =>
-          supplier.status == params.status
-        ).toList();
+        filteredSuppliers =
+            filteredSuppliers
+                .where((supplier) => supplier.status == params.status)
+                .toList();
       }
 
       // Filtro por tipo de documento
       if (params.documentType != null) {
-        filteredSuppliers = filteredSuppliers.where((supplier) =>
-          supplier.documentType == params.documentType
-        ).toList();
+        filteredSuppliers =
+            filteredSuppliers
+                .where(
+                  (supplier) => supplier.documentType == params.documentType,
+                )
+                .toList();
       }
 
       // Filtro por moneda
       if (params.currency != null) {
-        filteredSuppliers = filteredSuppliers.where((supplier) =>
-          supplier.currency == params.currency
-        ).toList();
+        filteredSuppliers =
+            filteredSuppliers
+                .where((supplier) => supplier.currency == params.currency)
+                .toList();
       }
 
       // Filtros booleanos
       if (params.hasEmail == true) {
-        filteredSuppliers = filteredSuppliers.where((supplier) =>
-          supplier.hasEmail
-        ).toList();
+        filteredSuppliers =
+            filteredSuppliers.where((supplier) => supplier.hasEmail).toList();
       }
 
       if (params.hasPhone == true) {
-        filteredSuppliers = filteredSuppliers.where((supplier) =>
-          supplier.hasPhone || supplier.hasMobile
-        ).toList();
+        filteredSuppliers =
+            filteredSuppliers
+                .where((supplier) => supplier.hasPhone || supplier.hasMobile)
+                .toList();
       }
 
       if (params.hasCreditLimit == true) {
-        filteredSuppliers = filteredSuppliers.where((supplier) =>
-          supplier.hasCreditLimit
-        ).toList();
+        filteredSuppliers =
+            filteredSuppliers
+                .where((supplier) => supplier.hasCreditLimit)
+                .toList();
       }
 
       if (params.hasDiscount == true) {
-        filteredSuppliers = filteredSuppliers.where((supplier) =>
-          supplier.hasDiscount
-        ).toList();
+        filteredSuppliers =
+            filteredSuppliers
+                .where((supplier) => supplier.hasDiscount)
+                .toList();
       }
 
       // Ordenamiento
@@ -119,11 +145,11 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
             default:
               comparison = a.name.compareTo(b.name);
           }
-          
+
           if (params.sortOrder == 'desc') {
             comparison = -comparison;
           }
-          
+
           return comparison;
         });
       }
@@ -133,10 +159,11 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
       final totalPages = (totalItems / params.limit).ceil();
       final startIndex = (params.page - 1) * params.limit;
       final endIndex = (startIndex + params.limit).clamp(0, totalItems);
-      
-      final paginatedSuppliers = startIndex < totalItems 
-          ? filteredSuppliers.sublist(startIndex, endIndex)
-          : <SupplierModel>[];
+
+      final paginatedSuppliers =
+          startIndex < totalItems
+              ? filteredSuppliers.sublist(startIndex, endIndex)
+              : <SupplierModel>[];
 
       final meta = PaginationMeta(
         page: params.page,
@@ -159,8 +186,11 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
   @override
   Future<SupplierModel?> getSupplierById(String id) async {
     try {
-      final supplierDataJson = await secureStorage.read(key: '$_supplierPrefix$id');
-      final supplierData = supplierDataJson != null ? json.decode(supplierDataJson) : null;
+      final supplierDataJson = await secureStorage.read(
+        key: '$_supplierPrefix$id',
+      );
+      final supplierData =
+          supplierDataJson != null ? json.decode(supplierDataJson) : null;
       if (supplierData != null) {
         return SupplierModel.fromJson(supplierData);
       }
@@ -171,18 +201,34 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
   }
 
   @override
-  Future<List<SupplierModel>> searchSuppliers(String searchTerm, {int limit = 10}) async {
+  Future<List<SupplierModel>> searchSuppliers(
+    String searchTerm, {
+    int limit = 10,
+  }) async {
     try {
       final suppliers = await getCachedSuppliers();
       final searchLower = searchTerm.toLowerCase();
-      
-      final results = suppliers.where((supplier) =>
-        supplier.name.toLowerCase().contains(searchLower) ||
-        (supplier.contactPerson?.toLowerCase().contains(searchLower) ?? false) ||
-        (supplier.email?.toLowerCase().contains(searchLower) ?? false) ||
-        (supplier.code?.toLowerCase().contains(searchLower) ?? false) ||
-        (supplier.documentNumber?.toLowerCase().contains(searchLower) ?? false)
-      ).take(limit).toList();
+
+      final results =
+          suppliers
+              .where(
+                (supplier) =>
+                    supplier.name.toLowerCase().contains(searchLower) ||
+                    (supplier.contactPerson?.toLowerCase().contains(
+                          searchLower,
+                        ) ??
+                        false) ||
+                    (supplier.email?.toLowerCase().contains(searchLower) ??
+                        false) ||
+                    (supplier.code?.toLowerCase().contains(searchLower) ??
+                        false) ||
+                    (supplier.documentNumber.toLowerCase().contains(
+                          searchLower,
+                        ) ??
+                        false),
+              )
+              .take(limit)
+              .toList();
 
       return results;
     } catch (e) {
@@ -196,7 +242,9 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
       final suppliers = await getCachedSuppliers();
       return suppliers.where((supplier) => supplier.isActive).toList();
     } catch (e) {
-      throw CacheException('Error al obtener proveedores activos desde cache: $e');
+      throw CacheException(
+        'Error al obtener proveedores activos desde cache: $e',
+      );
     }
   }
 
@@ -204,7 +252,8 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
   Future<List<SupplierModel>> getCachedSuppliers() async {
     try {
       final suppliersDataJson = await secureStorage.read(key: _suppliersKey);
-      final suppliersData = suppliersDataJson != null ? json.decode(suppliersDataJson) : null;
+      final suppliersData =
+          suppliersDataJson != null ? json.decode(suppliersDataJson) : null;
       if (suppliersData != null && suppliersData is List) {
         return suppliersData
             .map((data) => SupplierModel.fromJson(data as Map<String, dynamic>))
@@ -221,13 +270,17 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
   @override
   Future<void> cacheSuppliers(List<SupplierModel> suppliers) async {
     try {
-      final suppliersJson = suppliers.map((supplier) => supplier.toJson()).toList();
-      await secureStorage.write(key: _suppliersKey, value: json.encode(suppliersJson));
-      
+      final suppliersJson =
+          suppliers.map((supplier) => supplier.toJson()).toList();
+      await secureStorage.write(
+        key: _suppliersKey,
+        value: json.encode(suppliersJson),
+      );
+
       // También cachear cada proveedor individualmente
       for (final supplier in suppliers) {
-        await secureStorage.write(key:
-          '$_supplierPrefix${supplier.id}',
+        await secureStorage.write(
+          key: '$_supplierPrefix${supplier.id}',
           value: json.encode(supplier.toJson()),
         );
       }
@@ -246,19 +299,22 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
         key: '$_supplierPrefix${supplier.id}',
         value: json.encode(supplier.toJson()),
       );
-      
+
       // Actualizar también el cache general
       final suppliers = await getCachedSuppliers();
       final existingIndex = suppliers.indexWhere((s) => s.id == supplier.id);
-      
+
       if (existingIndex >= 0) {
         suppliers[existingIndex] = supplier;
       } else {
         suppliers.add(supplier);
       }
-      
+
       final suppliersJson = suppliers.map((s) => s.toJson()).toList();
-      await secureStorage.write(key: _suppliersKey, value: json.encode(suppliersJson));
+      await secureStorage.write(
+        key: _suppliersKey,
+        value: json.encode(suppliersJson),
+      );
     } catch (e) {
       // En macOS, ignoramos errores de Keychain para mantener funcionalidad
       print('⚠️ Error al cachear proveedor (se ignora): $e');
@@ -269,13 +325,17 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
   Future<void> removeCachedSupplier(String id) async {
     try {
       await secureStorage.delete(key: '$_supplierPrefix$id');
-      
+
       // Actualizar también el cache general
       final suppliers = await getCachedSuppliers();
       suppliers.removeWhere((supplier) => supplier.id == id);
-      
-      final suppliersJson = suppliers.map((supplier) => supplier.toJson()).toList();
-      await secureStorage.write(key: _suppliersKey, value: json.encode(suppliersJson));
+
+      final suppliersJson =
+          suppliers.map((supplier) => supplier.toJson()).toList();
+      await secureStorage.write(
+        key: _suppliersKey,
+        value: json.encode(suppliersJson),
+      );
     } catch (e) {
       throw CacheException('Error al remover proveedor del cache: $e');
     }
@@ -286,7 +346,7 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
     try {
       await secureStorage.delete(key: _suppliersKey);
       await secureStorage.delete(key: _supplierStatsKey);
-      
+
       // Remover todos los proveedores individuales
       final suppliers = await getCachedSuppliers();
       for (final supplier in suppliers) {
@@ -301,7 +361,8 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
   Future<SupplierStatsModel?> getCachedSupplierStats() async {
     try {
       final statsDataJson = await secureStorage.read(key: _supplierStatsKey);
-      final statsData = statsDataJson != null ? json.decode(statsDataJson) : null;
+      final statsData =
+          statsDataJson != null ? json.decode(statsDataJson) : null;
       if (statsData != null) {
         return SupplierStatsModel.fromJson(statsData);
       }
@@ -314,7 +375,10 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
   @override
   Future<void> cacheSupplierStats(SupplierStatsModel stats) async {
     try {
-      await secureStorage.write(key: _supplierStatsKey, value: json.encode(stats.toJson()));
+      await secureStorage.write(
+        key: _supplierStatsKey,
+        value: json.encode(stats.toJson()),
+      );
     } catch (e) {
       throw CacheException('Error al cachear estadísticas: $e');
     }

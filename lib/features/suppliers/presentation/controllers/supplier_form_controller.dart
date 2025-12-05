@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import '../../../../app/core/utils/number_input_formatter.dart';
 import '../../domain/entities/supplier.dart';
 import '../../domain/usecases/create_supplier_usecase.dart';
 import '../../domain/usecases/update_supplier_usecase.dart';
@@ -99,14 +100,31 @@ class SupplierFormController extends GetxController {
     discountPercentageController.text = '0';
     countryController.text = 'Colombia';
 
-    // Si hay un ID en los argumentos, cargar el proveedor
-    final args = Get.arguments as Map<String, dynamic>?;
-    if (args != null && args.containsKey('supplierId')) {
-      final supplierId = args['supplierId'] as String;
+    // Check for supplier ID from multiple sources:
+    // 1. Route parameters (URL path: /suppliers/edit/:id)
+    // 2. Navigation arguments (Get.toNamed with arguments)
+    String? supplierId;
+
+    // Priority 1: Check route parameters (from URL path)
+    final routeParams = Get.parameters;
+    if (routeParams.containsKey('id') && routeParams['id']?.isNotEmpty == true) {
+      supplierId = routeParams['id'];
+    }
+
+    // Priority 2: Check navigation arguments (fallback)
+    if (supplierId == null) {
+      final args = Get.arguments as Map<String, dynamic>?;
+      if (args != null && args.containsKey('supplierId')) {
+        supplierId = args['supplierId'] as String?;
+      }
+    }
+
+    // If supplier ID found, load the supplier for editing
+    if (supplierId != null && supplierId.isNotEmpty) {
       loadSupplier(supplierId);
     } else {
-      // Para nuevos proveedores, establecer valores por defecto para documento
-      documentType.value = DocumentType.nit; // Valor por defecto
+      // For new suppliers, set default values
+      documentType.value = DocumentType.nit; // Default value
       documentNumber.value = '';
     }
   }
@@ -211,7 +229,10 @@ class SupplierFormController extends GetxController {
     websiteController.text = supplier.website ?? '';
     currencyController.text = supplier.currency;
     paymentTermsController.text = supplier.paymentTermsDays.toString();
-    creditLimitController.text = supplier.creditLimit.toString();
+    creditLimitController.text = NumberInputFormatter.formatValueForDisplay(
+      supplier.creditLimit,
+      allowDecimals: true,
+    );
     discountPercentageController.text = supplier.discountPercentage.toString();
     notesController.text = supplier.notes ?? '';
 
@@ -237,7 +258,7 @@ class SupplierFormController extends GetxController {
         emailController.text.isEmpty || GetUtils.isEmail(emailController.text);
     final isCreditLimitValid =
         creditLimitController.text.isEmpty ||
-        (double.tryParse(creditLimitController.text) ?? -1) >= 0;
+        (NumberInputFormatter.getNumericValue(creditLimitController.text) ?? -1) >= 0;
     final isDiscountValid =
         discountPercentageController.text.isEmpty ||
         ((double.tryParse(discountPercentageController.text) ?? -1) >= 0 &&
@@ -350,7 +371,10 @@ class SupplierFormController extends GetxController {
         int.parse(paymentTermsController.text);
       }
       if (creditLimitController.text.isNotEmpty) {
-        double.parse(creditLimitController.text);
+        final creditLimit = NumberInputFormatter.getNumericValue(creditLimitController.text);
+        if (creditLimit == null || creditLimit < 0) {
+          return false;
+        }
       }
       if (discountPercentageController.text.isNotEmpty) {
         final discount = double.parse(discountPercentageController.text);
@@ -456,7 +480,7 @@ class SupplierFormController extends GetxController {
               ? currencyController.text.trim()
               : 'COP',
       paymentTermsDays: int.tryParse(paymentTermsController.text) ?? 30,
-      creditLimit: double.tryParse(creditLimitController.text) ?? 0.0,
+      creditLimit: NumberInputFormatter.getNumericValue(creditLimitController.text) ?? 0.0,
       discountPercentage:
           double.tryParse(discountPercentageController.text) ?? 0.0,
       notes:
@@ -551,7 +575,7 @@ class SupplierFormController extends GetxController {
               ? currencyController.text.trim()
               : 'COP',
       paymentTermsDays: int.tryParse(paymentTermsController.text) ?? 30,
-      creditLimit: double.tryParse(creditLimitController.text) ?? 0.0,
+      creditLimit: NumberInputFormatter.getNumericValue(creditLimitController.text) ?? 0.0,
       discountPercentage:
           double.tryParse(discountPercentageController.text) ?? 0.0,
       notes:

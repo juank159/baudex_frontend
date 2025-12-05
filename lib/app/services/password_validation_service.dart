@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 import '../core/network/dio_client.dart';
-import '../core/errors/exceptions.dart';
 import '../shared/widgets/password_validation_dialog.dart';
 
 class PasswordValidationService {
@@ -15,12 +14,10 @@ class PasswordValidationService {
   Future<bool> validatePassword(String password) async {
     try {
       print('🔐 Validando contraseña del usuario...');
-      
+
       final response = await _dioClient.post(
         '/auth/validate-password',
-        data: {
-          'password': password,
-        },
+        data: {'password': password},
         options: Options(
           // IMPORTANTE: Evitar que los interceptores 401 causen logout
           extra: {'skip_auth_interceptor': true},
@@ -31,13 +28,13 @@ class PasswordValidationService {
       final responseData = response.data['data'] as Map<String, dynamic>? ?? {};
       final success = responseData['valid'] as bool? ?? false;
       final message = responseData['message'] as String? ?? '';
-      
+
       print('✅ Respuesta de validación: $message');
-      
+
       return success;
     } on DioException catch (e) {
       print('❌ Error en validación de contraseña: ${e.response?.data}');
-      
+
       // Para error 401 (contraseña incorrecta), retornar false en lugar de excepción
       if (e.response?.statusCode == 401) {
         return false; // Contraseña incorrecta, no es una excepción crítica
@@ -58,7 +55,7 @@ class PasswordValidationService {
     required String message,
   }) async {
     final service = Get.find<PasswordValidationService>();
-    
+
     final result = await Get.dialog<bool>(
       barrierDismissible: false,
       _PasswordValidationDialog(
@@ -67,7 +64,7 @@ class PasswordValidationService {
         onValidate: service.validatePassword,
       ),
     );
-    
+
     return result ?? false;
   }
 }

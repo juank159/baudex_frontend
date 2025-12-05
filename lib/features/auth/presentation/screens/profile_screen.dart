@@ -10,7 +10,7 @@ import '../controllers/auth_controller.dart';
 import '../widgets/change_password_dialog.dart';
 
 class ProfileScreen extends GetView<AuthController> {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -215,9 +215,9 @@ class ProfileScreen extends GetView<AuthController> {
             ),
           ),
         ),
-        
+
         SizedBox(height: context.verticalSpacing / 2),
-        
+
         // Badge de organización
         if (user.organizationName != null)
           Container(
@@ -230,11 +230,7 @@ class ProfileScreen extends GetView<AuthController> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.business,
-                  size: 12,
-                  color: Colors.blue,
-                ),
+                Icon(Icons.business, size: 12, color: Colors.blue),
                 const SizedBox(width: 4),
                 Text(
                   user.organizationName!,
@@ -541,17 +537,17 @@ class ProfileScreen extends GetView<AuthController> {
       return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     }
   }
-  
+
   String _formatMemberSince(DateTime createdAt) {
     final now = DateTime.now();
     final difference = now.difference(createdAt);
-    
+
     // Mostrar años y meses si es más de un año
     if (difference.inDays >= 365) {
       final years = (difference.inDays / 365).floor();
       final remainingDays = difference.inDays % 365;
       final months = (remainingDays / 30).floor();
-      
+
       if (years == 1 && months == 0) {
         return 'Hace 1 año';
       } else if (years == 1) {
@@ -562,12 +558,12 @@ class ProfileScreen extends GetView<AuthController> {
         return 'Hace $years años y $months meses';
       }
     }
-    
+
     // Mostrar meses y días si es más de un mes
     if (difference.inDays >= 30) {
       final months = (difference.inDays / 30).floor();
       final days = difference.inDays % 30;
-      
+
       if (months == 1 && days == 0) {
         return 'Hace 1 mes';
       } else if (months == 1) {
@@ -578,7 +574,7 @@ class ProfileScreen extends GetView<AuthController> {
         return 'Hace $months meses y $days días';
       }
     }
-    
+
     // Mostrar solo días si es menos de un mes
     if (difference.inDays > 1) {
       return 'Hace ${difference.inDays} días';

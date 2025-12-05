@@ -11,25 +11,29 @@ class DashboardStatsModel extends DashboardStats {
     required ExpenseStatsModel expenses,
     required ProfitabilityStatsModel profitability,
   }) : super(
-          sales: sales,
-          invoices: invoices,
-          products: products,
-          customers: customers,
-          expenses: expenses,
-          profitability: profitability,
-        );
+         sales: sales,
+         invoices: invoices,
+         products: products,
+         customers: customers,
+         expenses: expenses,
+         profitability: profitability,
+       );
 
   factory DashboardStatsModel.fromJson(Map<String, dynamic> json) {
     // Mapear desde la estructura plana del backend a la estructura anidada del frontend
     return DashboardStatsModel(
       sales: SalesStatsModel(
-        totalAmount: (json['totalRevenue'] ?? 0).toDouble(), // ✅ CORREGIDO: usar totalRevenue
+        totalAmount:
+            (json['totalRevenue'] ?? 0)
+                .toDouble(), // ✅ CORREGIDO: usar totalRevenue
         totalSales: json['totalInvoices'] ?? 0,
-        todaySales: (json['totalRevenue'] ?? 0).toDouble(), // Usar revenue real 
+        todaySales: (json['totalRevenue'] ?? 0).toDouble(), // Usar revenue real
         yesterdaySales: 0.0, // TODO: agregar al backend
-        monthlySales: (json['totalRevenue'] ?? 0).toDouble(), // Usar revenue real
+        monthlySales:
+            (json['totalRevenue'] ?? 0).toDouble(), // Usar revenue real
         yearSales: (json['totalRevenue'] ?? 0).toDouble(), // Usar revenue real
-        todayGrowth: (json['revenueGrowth'] ?? 0).toDouble(), // Usar growth real
+        todayGrowth:
+            (json['revenueGrowth'] ?? 0).toDouble(), // Usar growth real
         monthlyGrowth: 0.0, // TODO: agregar al backend
       ),
       invoices: InvoiceStatsModel(
@@ -37,9 +41,11 @@ class DashboardStatsModel extends DashboardStats {
         todayInvoices: 0, // TODO: agregar al backend
         pendingInvoices: json['pendingInvoices'] ?? 0,
         paidInvoices: json['paidInvoices'] ?? 0,
-        averageInvoiceValue: json['totalInvoices'] > 0 
-          ? ((json['totalRevenue'] ?? 0).toDouble() / json['totalInvoices'])
-          : 0.0,
+        averageInvoiceValue:
+            json['totalInvoices'] > 0
+                ? ((json['totalRevenue'] ?? 0).toDouble() /
+                    json['totalInvoices'])
+                : 0.0,
         todayGrowth: 0.0, // TODO: agregar al backend
       ),
       products: ProductStatsModel(
@@ -55,9 +61,11 @@ class DashboardStatsModel extends DashboardStats {
         activeCustomers: json['activeCustomers'] ?? 0,
         newCustomersToday: 0, // TODO: agregar al backend
         newCustomersMonth: json['newCustomersThisMonth'] ?? 0,
-        averageOrderValue: json['totalInvoices'] > 0 
-          ? ((json['totalRevenue'] ?? 0).toDouble() / json['totalInvoices'])
-          : 0.0,
+        averageOrderValue:
+            json['totalInvoices'] > 0
+                ? ((json['totalRevenue'] ?? 0).toDouble() /
+                    json['totalInvoices'])
+                : 0.0,
         todayGrowth: 0.0, // TODO: agregar al backend
       ),
       expenses: ExpenseStatsModel(
@@ -68,11 +76,14 @@ class DashboardStatsModel extends DashboardStats {
         pendingExpenses: 0, // TODO: agregar al backend
         approvedExpenses: 0, // TODO: agregar al backend
         monthlyGrowth: 0.0, // TODO: agregar al backend
-        expensesByCategory: _parseExpensesByCategory(json['expensesByCategory']),
+        expensesByCategory: _parseExpensesByCategory(
+          json['expensesByCategory'],
+        ),
       ),
-      profitability: json['profitability'] != null 
-        ? ProfitabilityStatsModel.fromJson(json['profitability'])
-        : _createDefaultProfitabilityStats(json),
+      profitability:
+          json['profitability'] != null
+              ? ProfitabilityStatsModel.fromJson(json['profitability'])
+              : _createDefaultProfitabilityStats(json),
     );
   }
 
@@ -82,9 +93,12 @@ class DashboardStatsModel extends DashboardStats {
       'totalRevenue': sales.totalAmount,
       'totalExpenses': expenses.totalAmount,
       'netProfit': sales.totalAmount - expenses.totalAmount,
-      'profitMargin': sales.totalAmount > 0 
-        ? ((sales.totalAmount - expenses.totalAmount) / sales.totalAmount * 100) 
-        : 0.0,
+      'profitMargin':
+          sales.totalAmount > 0
+              ? ((sales.totalAmount - expenses.totalAmount) /
+                  sales.totalAmount *
+                  100)
+              : 0.0,
       'totalInvoices': invoices.totalInvoices,
       'paidInvoices': invoices.paidInvoices,
       'pendingInvoices': invoices.pendingInvoices,
@@ -98,14 +112,18 @@ class DashboardStatsModel extends DashboardStats {
     };
   }
 
-  static ProfitabilityStatsModel _createDefaultProfitabilityStats(Map<String, dynamic> json) {
+  static ProfitabilityStatsModel _createDefaultProfitabilityStats(
+    Map<String, dynamic> json,
+  ) {
     final totalRevenue = (json['totalRevenue'] ?? 0).toDouble();
     final totalCOGS = 0.0; // TODO: Calcular COGS real cuando esté el backend
     final grossProfit = totalRevenue - totalCOGS;
-    final grossMarginPercentage = totalRevenue > 0 ? (grossProfit / totalRevenue * 100) : 0.0;
+    final grossMarginPercentage =
+        totalRevenue > 0 ? (grossProfit / totalRevenue * 100) : 0.0;
     final totalExpenses = (json['totalExpenses'] ?? 0).toDouble();
     final netProfit = grossProfit - totalExpenses;
-    final netMarginPercentage = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0.0;
+    final netMarginPercentage =
+        totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0.0;
 
     return ProfitabilityStatsModel(
       totalRevenue: totalRevenue,
@@ -130,45 +148,40 @@ class DashboardStatsModel extends DashboardStats {
 
   static Map<String, double> _parseExpensesByCategory(dynamic categoriesData) {
     if (categoriesData == null) return <String, double>{};
-    
+
     if (categoriesData is Map<String, dynamic>) {
-      return categoriesData.map((key, value) => MapEntry(key, (value ?? 0).toDouble()));
+      return categoriesData.map(
+        (key, value) => MapEntry(key, (value ?? 0).toDouble()),
+      );
     } else if (categoriesData is List) {
       final Map<String, double> result = <String, double>{};
       for (final item in categoriesData) {
         if (item is Map<String, dynamic>) {
-          final categoryName = item['categoryName'] ?? item['name'] ?? 'Sin categoría';
-          final amount = (item['totalAmount'] ?? item['amount'] ?? 0).toDouble();
+          final categoryName =
+              item['categoryName'] ?? item['name'] ?? 'Sin categoría';
+          final amount =
+              (item['totalAmount'] ?? item['amount'] ?? 0).toDouble();
           result[categoryName] = amount;
         }
       }
       return result;
     }
-    
+
     return <String, double>{};
   }
 }
 
 class SalesStatsModel extends SalesStats {
   const SalesStatsModel({
-    required double totalAmount,
-    required int totalSales,
-    required double todaySales,
-    required double yesterdaySales,
-    required double monthlySales,
-    required double yearSales,
-    required double todayGrowth,
-    required double monthlyGrowth,
-  }) : super(
-          totalAmount: totalAmount,
-          totalSales: totalSales,
-          todaySales: todaySales,
-          yesterdaySales: yesterdaySales,
-          monthlySales: monthlySales,
-          yearSales: yearSales,
-          todayGrowth: todayGrowth,
-          monthlyGrowth: monthlyGrowth,
-        );
+    required super.totalAmount,
+    required super.totalSales,
+    required super.todaySales,
+    required super.yesterdaySales,
+    required super.monthlySales,
+    required super.yearSales,
+    required super.todayGrowth,
+    required super.monthlyGrowth,
+  });
 
   factory SalesStatsModel.fromJson(Map<String, dynamic> json) {
     return SalesStatsModel(
@@ -199,20 +212,13 @@ class SalesStatsModel extends SalesStats {
 
 class InvoiceStatsModel extends InvoiceStats {
   const InvoiceStatsModel({
-    required int totalInvoices,
-    required int todayInvoices,
-    required int pendingInvoices,
-    required int paidInvoices,
-    required double averageInvoiceValue,
-    required double todayGrowth,
-  }) : super(
-          totalInvoices: totalInvoices,
-          todayInvoices: todayInvoices,
-          pendingInvoices: pendingInvoices,
-          paidInvoices: paidInvoices,
-          averageInvoiceValue: averageInvoiceValue,
-          todayGrowth: todayGrowth,
-        );
+    required super.totalInvoices,
+    required super.todayInvoices,
+    required super.pendingInvoices,
+    required super.paidInvoices,
+    required super.averageInvoiceValue,
+    required super.todayGrowth,
+  });
 
   factory InvoiceStatsModel.fromJson(Map<String, dynamic> json) {
     return InvoiceStatsModel(
@@ -239,20 +245,13 @@ class InvoiceStatsModel extends InvoiceStats {
 
 class ProductStatsModel extends ProductStats {
   const ProductStatsModel({
-    required int totalProducts,
-    required int activeProducts,
-    required int lowStockProducts,
-    required int outOfStockProducts,
-    required double totalInventoryValue,
-    required int todayGrowth,
-  }) : super(
-          totalProducts: totalProducts,
-          activeProducts: activeProducts,
-          lowStockProducts: lowStockProducts,
-          outOfStockProducts: outOfStockProducts,
-          totalInventoryValue: totalInventoryValue,
-          todayGrowth: todayGrowth,
-        );
+    required super.totalProducts,
+    required super.activeProducts,
+    required super.lowStockProducts,
+    required super.outOfStockProducts,
+    required super.totalInventoryValue,
+    required super.todayGrowth,
+  });
 
   factory ProductStatsModel.fromJson(Map<String, dynamic> json) {
     return ProductStatsModel(
@@ -279,20 +278,13 @@ class ProductStatsModel extends ProductStats {
 
 class CustomerStatsModel extends CustomerStats {
   const CustomerStatsModel({
-    required int totalCustomers,
-    required int activeCustomers,
-    required int newCustomersToday,
-    required int newCustomersMonth,
-    required double averageOrderValue,
-    required double todayGrowth,
-  }) : super(
-          totalCustomers: totalCustomers,
-          activeCustomers: activeCustomers,
-          newCustomersToday: newCustomersToday,
-          newCustomersMonth: newCustomersMonth,
-          averageOrderValue: averageOrderValue,
-          todayGrowth: todayGrowth,
-        );
+    required super.totalCustomers,
+    required super.activeCustomers,
+    required super.newCustomersToday,
+    required super.newCustomersMonth,
+    required super.averageOrderValue,
+    required super.todayGrowth,
+  });
 
   factory CustomerStatsModel.fromJson(Map<String, dynamic> json) {
     return CustomerStatsModel(
@@ -319,24 +311,15 @@ class CustomerStatsModel extends CustomerStats {
 
 class ExpenseStatsModel extends ExpenseStats {
   const ExpenseStatsModel({
-    required double totalAmount,
-    required int totalExpenses,
-    required double monthlyExpenses,
-    required double todayExpenses,
-    required int pendingExpenses,
-    required int approvedExpenses,
-    required double monthlyGrowth,
-    required Map<String, double> expensesByCategory,
-  }) : super(
-          totalAmount: totalAmount,
-          totalExpenses: totalExpenses,
-          monthlyExpenses: monthlyExpenses,
-          todayExpenses: todayExpenses,
-          pendingExpenses: pendingExpenses,
-          approvedExpenses: approvedExpenses,
-          monthlyGrowth: monthlyGrowth,
-          expensesByCategory: expensesByCategory,
-        );
+    required super.totalAmount,
+    required super.totalExpenses,
+    required super.monthlyExpenses,
+    required super.todayExpenses,
+    required super.pendingExpenses,
+    required super.approvedExpenses,
+    required super.monthlyGrowth,
+    required super.expensesByCategory,
+  });
 
   factory ExpenseStatsModel.fromJson(Map<String, dynamic> json) {
     return ExpenseStatsModel(
@@ -347,7 +330,9 @@ class ExpenseStatsModel extends ExpenseStats {
       pendingExpenses: json['pendingExpenses'] ?? 0,
       approvedExpenses: json['approvedExpenses'] ?? 0,
       monthlyGrowth: (json['monthlyGrowth'] ?? 0).toDouble(),
-      expensesByCategory: ExpenseStatsModel._parseExpensesByCategory(json['expensesByCategory']),
+      expensesByCategory: ExpenseStatsModel._parseExpensesByCategory(
+        json['expensesByCategory'],
+      ),
     );
   }
 
@@ -366,21 +351,25 @@ class ExpenseStatsModel extends ExpenseStats {
 
   static Map<String, double> _parseExpensesByCategory(dynamic categoriesData) {
     if (categoriesData == null) return <String, double>{};
-    
+
     if (categoriesData is Map<String, dynamic>) {
-      return categoriesData.map((key, value) => MapEntry(key, (value ?? 0).toDouble()));
+      return categoriesData.map(
+        (key, value) => MapEntry(key, (value ?? 0).toDouble()),
+      );
     } else if (categoriesData is List) {
       final Map<String, double> result = <String, double>{};
       for (final item in categoriesData) {
         if (item is Map<String, dynamic>) {
-          final categoryName = item['categoryName'] ?? item['name'] ?? 'Sin categoría';
-          final amount = (item['totalAmount'] ?? item['amount'] ?? 0).toDouble();
+          final categoryName =
+              item['categoryName'] ?? item['name'] ?? 'Sin categoría';
+          final amount =
+              (item['totalAmount'] ?? item['amount'] ?? 0).toDouble();
           result[categoryName] = amount;
         }
       }
       return result;
     }
-    
+
     return <String, double>{};
   }
 }

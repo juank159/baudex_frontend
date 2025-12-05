@@ -7,18 +7,12 @@ part 'warehouse_stats_model.g.dart';
 @JsonSerializable()
 class WarehouseStatsModel extends WarehouseStats {
   const WarehouseStatsModel({
-    required int totalProducts,
-    required double totalValue,
-    required double totalQuantity,
-    required int lowStockProducts,
-    required int outOfStockProducts,
-  }) : super(
-          totalProducts: totalProducts,
-          totalValue: totalValue,
-          totalQuantity: totalQuantity,
-          lowStockProducts: lowStockProducts,
-          outOfStockProducts: outOfStockProducts,
-        );
+    required super.totalProducts,
+    required super.totalValue,
+    required super.totalQuantity,
+    required super.lowStockProducts,
+    required super.outOfStockProducts,
+  });
 
   factory WarehouseStatsModel.fromJson(Map<String, dynamic> json) =>
       _$WarehouseStatsModelFromJson(json);

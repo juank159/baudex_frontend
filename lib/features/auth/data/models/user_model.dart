@@ -159,36 +159,21 @@ import '../../domain/entities/user.dart';
 
 class UserModel extends User {
   const UserModel({
-    required String id,
-    required String firstName,
-    required String lastName,
-    required String email,
-    String? phone,
-    required UserRole role,
-    required UserStatus status,
-    String? avatar,
-    DateTime? lastLoginAt,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    required String organizationId,
-    required String organizationSlug,
-    String? organizationName,
-  }) : super(
-         id: id,
-         firstName: firstName,
-         lastName: lastName,
-         email: email,
-         phone: phone,
-         role: role,
-         status: status,
-         avatar: avatar,
-         lastLoginAt: lastLoginAt,
-         createdAt: createdAt,
-         updatedAt: updatedAt,
-         organizationId: organizationId,
-         organizationSlug: organizationSlug,
-         organizationName: organizationName,
-       );
+    required super.id,
+    required super.firstName,
+    required super.lastName,
+    required super.email,
+    super.phone,
+    required super.role,
+    required super.status,
+    super.avatar,
+    super.lastLoginAt,
+    required super.createdAt,
+    required super.updatedAt,
+    required super.organizationId,
+    required super.organizationSlug,
+    super.organizationName,
+  });
 
   /// Crear UserModel desde JSON
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -282,6 +267,7 @@ class UserModel extends User {
   }
 
   /// Crear copia con cambios
+  @override
   UserModel copyWith({
     String? id,
     String? firstName,

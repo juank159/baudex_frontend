@@ -8,7 +8,6 @@ import '../../domain/usecases/update_warehouse_usecase.dart';
 import '../../domain/usecases/get_warehouse_by_id_usecase.dart';
 import '../../domain/usecases/check_warehouse_code_exists_usecase.dart';
 import '../../domain/repositories/inventory_repository.dart';
-import 'warehouses_controller.dart';
 
 enum FormMode { create, edit }
 
@@ -24,10 +23,10 @@ class WarehouseFormController extends GetxController {
     required UpdateWarehouseUseCase updateWarehouseUseCase,
     required GetWarehouseByIdUseCase getWarehouseByIdUseCase,
     required CheckWarehouseCodeExistsUseCase checkWarehouseCodeExistsUseCase,
-  })  : _createWarehouseUseCase = createWarehouseUseCase,
-        _updateWarehouseUseCase = updateWarehouseUseCase,
-        _getWarehouseByIdUseCase = getWarehouseByIdUseCase,
-        _checkWarehouseCodeExistsUseCase = checkWarehouseCodeExistsUseCase;
+  }) : _createWarehouseUseCase = createWarehouseUseCase,
+       _updateWarehouseUseCase = updateWarehouseUseCase,
+       _getWarehouseByIdUseCase = getWarehouseByIdUseCase,
+       _checkWarehouseCodeExistsUseCase = checkWarehouseCodeExistsUseCase;
 
   // ==================== FORM STATE ====================
 
@@ -61,7 +60,8 @@ class WarehouseFormController extends GetxController {
   bool get isCreateMode => _formMode.value == FormMode.create;
   bool get isEditMode => _formMode.value == FormMode.edit;
   String get title => isCreateMode ? 'Crear Almacén' : 'Editar Almacén';
-  String get submitButtonText => isCreateMode ? 'Crear Almacén' : 'Actualizar Almacén';
+  String get submitButtonText =>
+      isCreateMode ? 'Crear Almacén' : 'Actualizar Almacén';
 
   // ==================== LIFECYCLE ====================
 
@@ -70,7 +70,7 @@ class WarehouseFormController extends GetxController {
     super.onInit();
     _initializeControllers();
     _setupFormListeners();
-    
+
     // Obtener parámetros de la ruta
     final arguments = Get.arguments as Map<String, dynamic>?;
     if (arguments != null) {
@@ -156,7 +156,7 @@ class WarehouseFormController extends GetxController {
     descriptionController.text = warehouse.description ?? '';
     addressController.text = warehouse.address ?? '';
     _isActive.value = warehouse.isActive;
-    
+
     // Resetear estado de modificado después de cargar
     _isDirty.value = false;
   }
@@ -213,12 +213,14 @@ class WarehouseFormController extends GetxController {
     final params = CreateWarehouseParams(
       name: nameController.text.trim(),
       code: codeController.text.trim(),
-      description: descriptionController.text.trim().isNotEmpty 
-          ? descriptionController.text.trim() 
-          : null,
-      address: addressController.text.trim().isNotEmpty 
-          ? addressController.text.trim() 
-          : null,
+      description:
+          descriptionController.text.trim().isNotEmpty
+              ? descriptionController.text.trim()
+              : null,
+      address:
+          addressController.text.trim().isNotEmpty
+              ? addressController.text.trim()
+              : null,
       isActive: _isActive.value,
     );
 
@@ -248,12 +250,14 @@ class WarehouseFormController extends GetxController {
     final params = UpdateWarehouseParams(
       name: nameController.text.trim(),
       code: codeController.text.trim(),
-      description: descriptionController.text.trim().isNotEmpty 
-          ? descriptionController.text.trim() 
-          : null,
-      address: addressController.text.trim().isNotEmpty 
-          ? addressController.text.trim() 
-          : null,
+      description:
+          descriptionController.text.trim().isNotEmpty
+              ? descriptionController.text.trim()
+              : null,
+      address:
+          addressController.text.trim().isNotEmpty
+              ? addressController.text.trim()
+              : null,
       isActive: _isActive.value,
     );
 
@@ -275,7 +279,7 @@ class WarehouseFormController extends GetxController {
         // Actualizar estado local
         _warehouse.value = warehouse;
         _isDirty.value = false;
-        
+
         // Navegar al listado de almacenes y refrescar la lista
         _navigateToWarehousesList(warehouse);
       },
@@ -311,7 +315,7 @@ class WarehouseFormController extends GetxController {
       AlertDialog(
         title: const Text('Cambios sin guardar'),
         content: const Text(
-          '¿Estás seguro que deseas salir sin guardar los cambios?'
+          '¿Estás seguro que deseas salir sin guardar los cambios?',
         ),
         actions: [
           TextButton(
@@ -340,15 +344,15 @@ class WarehouseFormController extends GetxController {
     if (value == null || value.trim().isEmpty) {
       return 'El nombre es obligatorio';
     }
-    
+
     if (value.trim().length < 2) {
       return 'El nombre debe tener al menos 2 caracteres';
     }
-    
+
     if (value.trim().length > 100) {
       return 'El nombre no puede exceder 100 caracteres';
     }
-    
+
     return null;
   }
 
@@ -357,21 +361,21 @@ class WarehouseFormController extends GetxController {
     if (value == null || value.trim().isEmpty) {
       return 'El código es obligatorio';
     }
-    
+
     if (value.trim().length < 2) {
       return 'El código debe tener al menos 2 caracteres';
     }
-    
+
     if (value.trim().length > 20) {
       return 'El código no puede exceder 20 caracteres';
     }
-    
+
     // Validar formato alfanumérico
     final codeRegex = RegExp(r'^[a-zA-Z0-9_-]+$');
     if (!codeRegex.hasMatch(value.trim())) {
       return 'El código solo puede contener letras, números, guiones y guiones bajos';
     }
-    
+
     return null;
   }
 
@@ -392,23 +396,25 @@ class WarehouseFormController extends GetxController {
         excludeId: isEditMode ? _warehouseId.value : null,
       );
 
-      return result.fold(
-        (failure) {
-          // Si el backend requiere UUID, asumir que el código es único para códigos alfanuméricos
-          if (failure.message.contains('uuid is expected') || 
-              failure.message.contains('Validation failed')) {
-            print('⚠️ Backend requiere UUID, saltando validación de unicidad para código alfanumérico');
-            return null; // Asumir que es válido
-          }
-          return 'Error al verificar código: ${failure.message}';
-        },
-        (exists) => exists ? 'Este código ya existe, elige otro' : null,
-      );
+      return result.fold((failure) {
+        // Si el backend requiere UUID, asumir que el código es único para códigos alfanuméricos
+        if (failure.message.contains('uuid is expected') ||
+            failure.message.contains('Validation failed')) {
+          print(
+            '⚠️ Backend requiere UUID, saltando validación de unicidad para código alfanumérico',
+          );
+          return null; // Asumir que es válido
+        }
+        return 'Error al verificar código: ${failure.message}';
+      }, (exists) => exists ? 'Este código ya existe, elige otro' : null);
     } catch (e) {
       // Si hay error de formato UUID, asumir que el código es válido
       final errorMessage = e.toString();
-      if (errorMessage.contains('uuid') || errorMessage.contains('Validation failed')) {
-        print('⚠️ Error de validación UUID, saltando verificación para código alfanumérico');
+      if (errorMessage.contains('uuid') ||
+          errorMessage.contains('Validation failed')) {
+        print(
+          '⚠️ Error de validación UUID, saltando verificación para código alfanumérico',
+        );
         return null; // Asumir que es válido
       }
       return 'Error al verificar código';
@@ -436,10 +442,12 @@ class WarehouseFormController extends GetxController {
   /// Navegar al listado de almacenes y actualizar la lista
   void _navigateToWarehousesList(Warehouse warehouse) {
     // Volver con resultado para que el controlador de warehouses refresque
-    Get.back(result: {
-      'action': isCreateMode ? 'created' : 'updated',
-      'warehouse': warehouse,
-    });
+    Get.back(
+      result: {
+        'action': isCreateMode ? 'created' : 'updated',
+        'warehouse': warehouse,
+      },
+    );
   }
 
   /// Refrescar la lista de almacenes después de navegar

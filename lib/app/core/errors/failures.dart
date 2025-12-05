@@ -17,7 +17,7 @@ abstract class Failure extends Equatable {
 
 /// Fallo de servidor - Errores de la API
 class ServerFailure extends Failure {
-  const ServerFailure(String message, {int? code}) : super(message, code: code);
+  const ServerFailure(super.message, {super.code});
 
   factory ServerFailure.fromStatusCode(int statusCode, String message) {
     switch (statusCode) {
@@ -59,8 +59,7 @@ class ServerFailure extends Failure {
 
 /// Fallo de conexión - Sin internet o problemas de red
 class ConnectionFailure extends Failure {
-  const ConnectionFailure([String message = 'Error de conexión'])
-    : super(message);
+  const ConnectionFailure([super.message = 'Error de conexión']);
 
   static const noInternet = ConnectionFailure('Sin conexión a internet');
   static const timeout = ConnectionFailure('Tiempo de conexión agotado');
@@ -69,12 +68,12 @@ class ConnectionFailure extends Failure {
 
 /// Fallo de red - Alias para ConnectionFailure para compatibilidad
 class NetworkFailure extends ConnectionFailure {
-  const NetworkFailure([String message = 'Error de red']) : super(message);
+  const NetworkFailure([super.message = 'Error de red']);
 }
 
 /// Fallo de cache/almacenamiento local
 class CacheFailure extends Failure {
-  const CacheFailure([String message = 'Error de cache']) : super(message);
+  const CacheFailure([super.message = 'Error de cache']);
 
   static const notFound = CacheFailure('Datos no encontrados en cache');
   static const writeError = CacheFailure('Error al escribir en cache');
@@ -102,8 +101,7 @@ class ValidationFailure extends Failure {
 
 /// Fallo de autenticación
 class AuthFailure extends Failure {
-  const AuthFailure([String message = 'Error de autenticación'])
-    : super(message);
+  const AuthFailure([super.message = 'Error de autenticación']);
 
   static const invalidCredentials = AuthFailure('Credenciales inválidas');
   static const tokenExpired = AuthFailure('Sesión expirada');
@@ -115,7 +113,7 @@ class AuthFailure extends Failure {
 
 /// Fallo de permisos
 class PermissionFailure extends Failure {
-  const PermissionFailure([String message = 'Sin permisos']) : super(message);
+  const PermissionFailure([super.message = 'Sin permisos']);
 
   static const accessDenied = PermissionFailure('Acceso denegado');
   static const insufficientPermissions = PermissionFailure(
@@ -125,7 +123,7 @@ class PermissionFailure extends Failure {
 
 /// Fallo de formato/parseo
 class FormatFailure extends Failure {
-  const FormatFailure([String message = 'Error de formato']) : super(message);
+  const FormatFailure([super.message = 'Error de formato']);
 
   static const jsonParse = FormatFailure('Error al parsear JSON');
   static const invalidData = FormatFailure('Datos inválidos');
@@ -133,5 +131,5 @@ class FormatFailure extends Failure {
 
 /// Fallo genérico para casos no cubiertos
 class UnknownFailure extends Failure {
-  const UnknownFailure([String message = 'Error desconocido']) : super(message);
+  const UnknownFailure([super.message = 'Error desconocido']);
 }

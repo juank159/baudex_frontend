@@ -14,7 +14,7 @@ class ElegantLightTheme {
   static const Color backgroundColor = Color(0xFFF8FAFC); // Slate 50
   static const Color surfaceColor = Color(0xFFFFFFFF); // White
   static const Color cardColor = Color(0xFFF1F5F9); // Slate 100
-  
+
   // Colores de texto
   static const Color textPrimary = Color(0xFF0F172A); // Slate 900
   static const Color textSecondary = Color(0xFF475569); // Slate 600
@@ -33,19 +33,13 @@ class ElegantLightTheme {
   static const LinearGradient cardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      Color(0xFFFFFFFF),
-      Color(0xFFF8FAFC),
-    ],
+    colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC)],
   );
 
   static const LinearGradient glassGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      Color(0x10000000),
-      Color(0x05000000),
-    ],
+    colors: [Color(0x10000000), Color(0x05000000)],
   );
 
   // Gradientes de estado
@@ -129,7 +123,7 @@ class ElegantContainer extends StatefulWidget {
   final bool hasGlow;
 
   const ElegantContainer({
-    Key? key,
+    super.key,
     required this.child,
     this.width,
     this.height,
@@ -139,7 +133,7 @@ class ElegantContainer extends StatefulWidget {
     this.onTap,
     this.gradient,
     this.hasGlow = false,
-  }) : super(key: key);
+  });
 
   @override
   State<ElegantContainer> createState() => _ElegantContainerState();
@@ -159,20 +153,18 @@ class _ElegantContainerState extends State<ElegantContainer>
       duration: ElegantLightTheme.normalAnimation,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.02,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: ElegantLightTheme.smoothCurve,
-    ));
-    _glowAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: ElegantLightTheme.elasticCurve,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: ElegantLightTheme.smoothCurve,
+      ),
+    );
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: ElegantLightTheme.elasticCurve,
+      ),
+    );
   }
 
   @override
@@ -211,7 +203,8 @@ class _ElegantContainerState extends State<ElegantContainer>
                       ...ElegantLightTheme.glowShadow.map(
                         (shadow) => shadow.copyWith(
                           color: shadow.color.withOpacity(
-                            shadow.color.opacity * _glowAnimation.value.clamp(0.0, 1.0),
+                            shadow.color.opacity *
+                                _glowAnimation.value.clamp(0.0, 1.0),
                           ),
                         ),
                       ),
@@ -247,9 +240,10 @@ class ElegantButton extends StatefulWidget {
   final double? width;
   final double? height;
   final bool isLoading;
+  final EdgeInsetsGeometry? padding;
 
   const ElegantButton({
-    Key? key,
+    super.key,
     required this.text,
     this.onPressed,
     this.icon,
@@ -257,7 +251,8 @@ class ElegantButton extends StatefulWidget {
     this.width,
     this.height,
     this.isLoading = false,
-  }) : super(key: key);
+    this.padding,
+  });
 
   @override
   State<ElegantButton> createState() => _ElegantButtonState();
@@ -276,13 +271,12 @@ class _ElegantButtonState extends State<ElegantButton>
       duration: ElegantLightTheme.fastAnimation,
       vsync: this,
     );
-    _pressAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.96,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: ElegantLightTheme.bounceCurve,
-    ));
+    _pressAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: ElegantLightTheme.bounceCurve,
+      ),
+    );
   }
 
   @override
@@ -321,35 +315,43 @@ class _ElegantButtonState extends State<ElegantButton>
                   borderRadius: BorderRadius.circular(12),
                   onTap: widget.onPressed,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding:
+                        widget.padding ??
+                        const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         if (widget.isLoading)
                           const SizedBox(
-                            width: 18,
-                            height: 18,
+                            width: 16,
+                            height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         else if (widget.icon != null)
-                          Icon(
-                            widget.icon,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        if ((widget.icon != null || widget.isLoading) && widget.text.isNotEmpty)
-                          const SizedBox(width: 8),
+                          Icon(widget.icon, color: Colors.white, size: 16),
+                        if ((widget.icon != null || widget.isLoading) &&
+                            widget.text.isNotEmpty)
+                          const SizedBox(width: 6),
                         if (widget.text.isNotEmpty)
-                          Text(
-                            widget.text,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                          Flexible(
+                            child: Text(
+                              widget.text,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
                       ],
@@ -383,14 +385,15 @@ class ElegantProgressIndicator extends StatefulWidget {
   final LinearGradient? gradient;
 
   const ElegantProgressIndicator({
-    Key? key,
+    super.key,
     required this.progress,
     this.label,
     this.gradient,
-  }) : super(key: key);
+  });
 
   @override
-  State<ElegantProgressIndicator> createState() => _ElegantProgressIndicatorState();
+  State<ElegantProgressIndicator> createState() =>
+      _ElegantProgressIndicatorState();
 }
 
 class _ElegantProgressIndicatorState extends State<ElegantProgressIndicator>
@@ -408,10 +411,12 @@ class _ElegantProgressIndicatorState extends State<ElegantProgressIndicator>
     _progressAnimation = Tween<double>(
       begin: 0.0,
       end: widget.progress.clamp(0.0, 1.0),
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: ElegantLightTheme.elasticCurve,
-    ));
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: ElegantLightTheme.elasticCurve,
+      ),
+    );
     _animationController.forward();
   }
 
@@ -422,10 +427,12 @@ class _ElegantProgressIndicatorState extends State<ElegantProgressIndicator>
       _progressAnimation = Tween<double>(
         begin: oldWidget.progress.clamp(0.0, 1.0),
         end: widget.progress.clamp(0.0, 1.0),
-      ).animate(CurvedAnimation(
-        parent: _animationController,
-        curve: ElegantLightTheme.elasticCurve,
-      ));
+      ).animate(
+        CurvedAnimation(
+          parent: _animationController,
+          curve: ElegantLightTheme.elasticCurve,
+        ),
+      );
       _animationController.reset();
       _animationController.forward();
     }
@@ -506,84 +513,63 @@ class _ElegantProgressIndicatorState extends State<ElegantProgressIndicator>
 // Alias para compatibilidad con código existente
 class FuturisticContainer extends ElegantContainer {
   const FuturisticContainer({
-    Key? key,
-    required Widget child,
-    double? width,
-    double? height,
-    EdgeInsetsGeometry? padding,
-    EdgeInsetsGeometry? margin,
-    bool isHoverable = true,
-    VoidCallback? onTap,
-    LinearGradient? gradient,
-    bool hasGlow = false,
-  }) : super(
-          key: key,
-          child: child,
-          width: width,
-          height: height,
-          padding: padding,
-          margin: margin,
-          isHoverable: isHoverable,
-          onTap: onTap,
-          gradient: gradient,
-          hasGlow: hasGlow,
-        );
+    super.key,
+    required super.child,
+    super.width,
+    super.height,
+    super.padding,
+    super.margin,
+    super.isHoverable,
+    super.onTap,
+    super.gradient,
+    super.hasGlow,
+  });
 }
 
 class FuturisticButton extends ElegantButton {
   const FuturisticButton({
-    Key? key,
-    required String text,
-    VoidCallback? onPressed,
-    IconData? icon,
-    LinearGradient? gradient,
-    double? width,
-    double? height,
-    bool isLoading = false,
-  }) : super(
-          key: key,
-          text: text,
-          onPressed: onPressed,
-          icon: icon,
-          gradient: gradient,
-          width: width,
-          height: height,
-          isLoading: isLoading,
-        );
+    super.key,
+    required super.text,
+    super.onPressed,
+    super.icon,
+    super.gradient,
+    super.width,
+    super.height,
+    super.isLoading,
+  });
 }
 
 class FuturisticProgressIndicator extends ElegantProgressIndicator {
   const FuturisticProgressIndicator({
-    Key? key,
-    required double progress,
-    String? label,
-    LinearGradient? gradient,
-  }) : super(
-          key: key,
-          progress: progress,
-          label: label,
-          gradient: gradient,
-        );
+    super.key,
+    required super.progress,
+    super.label,
+    super.gradient,
+  });
 }
 
 // Alias para FuturisticTheme para compatibilidad
 class FuturisticTheme {
-  static const LinearGradient primaryGradient = ElegantLightTheme.primaryGradient;
+  static const LinearGradient primaryGradient =
+      ElegantLightTheme.primaryGradient;
   static const LinearGradient cardGradient = ElegantLightTheme.cardGradient;
   static const LinearGradient glassGradient = ElegantLightTheme.glassGradient;
-  static const LinearGradient successGradient = ElegantLightTheme.successGradient;
-  static const LinearGradient warningGradient = ElegantLightTheme.warningGradient;
+  static const LinearGradient successGradient =
+      ElegantLightTheme.successGradient;
+  static const LinearGradient warningGradient =
+      ElegantLightTheme.warningGradient;
   static const LinearGradient errorGradient = ElegantLightTheme.errorGradient;
   static const LinearGradient infoGradient = ElegantLightTheme.infoGradient;
-  
-  static List<BoxShadow> get neuomorphicShadow => ElegantLightTheme.neuomorphicShadow;
+
+  static List<BoxShadow> get neuomorphicShadow =>
+      ElegantLightTheme.neuomorphicShadow;
   static List<BoxShadow> get elevatedShadow => ElegantLightTheme.elevatedShadow;
   static List<BoxShadow> get glowShadow => ElegantLightTheme.glowShadow;
-  
+
   static const Duration fastAnimation = ElegantLightTheme.fastAnimation;
   static const Duration normalAnimation = ElegantLightTheme.normalAnimation;
   static const Duration slowAnimation = ElegantLightTheme.slowAnimation;
-  
+
   static const Curve elasticCurve = ElegantLightTheme.elasticCurve;
   static const Curve bounceCurve = ElegantLightTheme.bounceCurve;
   static const Curve smoothCurve = ElegantLightTheme.smoothCurve;

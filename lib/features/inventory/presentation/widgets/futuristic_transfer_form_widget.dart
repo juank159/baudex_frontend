@@ -164,7 +164,7 @@ class FuturisticTransferFormWidget
                       availableWarehouses: controller.warehouses,
                       onWarehouseSelected: (warehouse) {
                         _handleWarehouseChange(
-                          warehouse, 
+                          warehouse,
                           isOriginWarehouse: true,
                         );
                       },
@@ -195,10 +195,11 @@ class FuturisticTransferFormWidget
                       selectedWarehouse: _getWarehouseById(
                         controller.selectedToWarehouseId.value,
                       ),
-                      availableWarehouses: _getAvailableWarehousesForDestination(),
+                      availableWarehouses:
+                          _getAvailableWarehousesForDestination(),
                       onWarehouseSelected: (warehouse) {
                         _handleWarehouseChange(
-                          warehouse, 
+                          warehouse,
                           isOriginWarehouse: false,
                         );
                       },
@@ -221,7 +222,7 @@ class FuturisticTransferFormWidget
                         availableWarehouses: controller.warehouses,
                         onWarehouseSelected: (warehouse) {
                           _handleWarehouseChange(
-                            warehouse, 
+                            warehouse,
                             isOriginWarehouse: true,
                           );
                         },
@@ -253,10 +254,11 @@ class FuturisticTransferFormWidget
                         selectedWarehouse: _getWarehouseById(
                           controller.selectedToWarehouseId.value,
                         ),
-                        availableWarehouses: _getAvailableWarehousesForDestination(),
+                        availableWarehouses:
+                            _getAvailableWarehousesForDestination(),
                         onWarehouseSelected: (warehouse) {
                           _handleWarehouseChange(
-                            warehouse, 
+                            warehouse,
                             isOriginWarehouse: false,
                           );
                         },
@@ -314,15 +316,20 @@ class FuturisticTransferFormWidget
           _buildProductSelector(isMobile, isTablet),
           SizedBox(height: isMobile ? 8 : 12),
           Obx(() {
-            final originWarehouse = _getWarehouseById(controller.selectedFromWarehouseId.value);
-            
+            final originWarehouse = _getWarehouseById(
+              controller.selectedFromWarehouseId.value,
+            );
+
             return Container(
               padding: EdgeInsets.all(isMobile ? 8 : 12),
               decoration: BoxDecoration(
-                color: ElegantLightTheme.infoGradient.colors.first.withOpacity(0.1),
+                color: ElegantLightTheme.infoGradient.colors.first.withOpacity(
+                  0.1,
+                ),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: ElegantLightTheme.infoGradient.colors.first.withOpacity(0.3),
+                  color: ElegantLightTheme.infoGradient.colors.first
+                      .withOpacity(0.3),
                   width: 1,
                 ),
               ),
@@ -336,7 +343,7 @@ class FuturisticTransferFormWidget
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      originWarehouse != null 
+                      originWarehouse != null
                           ? 'Las cantidades mostradas corresponden SOLO al almacén "${originWarehouse.name}". Los productos se agregan automáticamente con cantidad 1.'
                           : 'Los productos se agregan automáticamente con cantidad 1. Puedes editar la cantidad después.',
                       style: TextStyle(
@@ -365,8 +372,9 @@ class FuturisticTransferFormWidget
     final fieldSpacing = isMobile ? 6.0 : 8.0;
 
     return Obx(() {
-      final hasOriginWarehouse = controller.selectedFromWarehouseId.value.isNotEmpty;
-      
+      final hasOriginWarehouse =
+          controller.selectedFromWarehouseId.value.isNotEmpty;
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -383,10 +391,12 @@ class FuturisticTransferFormWidget
             Container(
               padding: EdgeInsets.all(isMobile ? 12.0 : 16.0),
               decoration: BoxDecoration(
-                color: ElegantLightTheme.warningGradient.colors.first.withOpacity(0.1),
+                color: ElegantLightTheme.warningGradient.colors.first
+                    .withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: ElegantLightTheme.warningGradient.colors.first.withOpacity(0.3),
+                  color: ElegantLightTheme.warningGradient.colors.first
+                      .withOpacity(0.3),
                   width: 1,
                 ),
               ),
@@ -419,11 +429,11 @@ class FuturisticTransferFormWidget
               onProductSelected: (product) {
                 controller.selectedProductId.value = product.id;
                 controller.productController.text = product.name;
-                
+
                 // Auto-agregar el producto con cantidad 1
                 controller.quantityController.text = '1';
                 controller.addProductToTransfer();
-                
+
                 // Limpiar el formulario para agregar otro producto
                 controller.productController.clear();
                 controller.quantityController.clear();
@@ -434,7 +444,6 @@ class FuturisticTransferFormWidget
       );
     });
   }
-
 
   Widget _buildNotesSection(bool isMobile, bool isTablet) {
     final sectionTitleFontSize =
@@ -589,7 +598,6 @@ class FuturisticTransferFormWidget
         );
   }
 
-
   void _createTransfer() {
     FuturisticNotifications.showProcessing(
       'Creando Transferencia',
@@ -657,11 +665,11 @@ class FuturisticTransferFormWidget
   List<Warehouse> _getAvailableWarehousesForDestination() {
     // Filtrar el almacén de origen para que no aparezca en destino
     final originWarehouseId = controller.selectedFromWarehouseId.value;
-    
+
     if (originWarehouseId.isEmpty) {
       return controller.warehouses.toList();
     }
-    
+
     return controller.warehouses
         .where((warehouse) => warehouse.id != originWarehouseId)
         .toList();
@@ -711,7 +719,9 @@ class FuturisticTransferFormWidget
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    isMobile ? '${controller.transferItems.length} prod.' : '${controller.transferItems.length} productos',
+                    isMobile
+                        ? '${controller.transferItems.length} prod.'
+                        : '${controller.transferItems.length} productos',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: isMobile ? 10 : 12,
@@ -730,7 +740,9 @@ class FuturisticTransferFormWidget
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    isMobile ? '${controller.totalQuantityInTransfer} uds.' : '${controller.totalQuantityInTransfer} unidades',
+                    isMobile
+                        ? '${controller.totalQuantityInTransfer} uds.'
+                        : '${controller.totalQuantityInTransfer} unidades',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: isMobile ? 10 : 12,
@@ -745,7 +757,7 @@ class FuturisticTransferFormWidget
               final index = entry.key;
               final item = entry.value;
               return _buildProductItem(item, index, isMobile, isTablet);
-            }).toList(),
+            }),
           ],
         ),
       );
@@ -783,10 +795,14 @@ class FuturisticTransferFormWidget
               gradient: ElegantLightTheme.infoGradient,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Icon(Icons.inventory_2, color: Colors.white, size: isMobile ? 14 : 16),
+            child: Icon(
+              Icons.inventory_2,
+              color: Colors.white,
+              size: isMobile ? 14 : 16,
+            ),
           ),
           SizedBox(width: isMobile ? 8 : 12),
-          
+
           // Product name - EXPANDIDO para usar más espacio
           Expanded(
             child: FutureBuilder<String>(
@@ -805,9 +821,9 @@ class FuturisticTransferFormWidget
               },
             ),
           ),
-          
+
           SizedBox(width: isMobile ? 8 : 12),
-          
+
           // 📦 MOSTRAR STOCK DISPONIBLE DEL ALMACÉN DE ORIGEN (Solo en tablet/desktop)
           if (!isMobile)
             FutureBuilder<int>(
@@ -817,12 +833,12 @@ class FuturisticTransferFormWidget
                 final hasStock = availableStock > 0;
                 final isWarning = availableStock < item.quantity;
                 final isError = availableStock == 0;
-                
+
                 Color backgroundColor;
                 Color borderColor;
                 Color textColor;
                 String displayText;
-                
+
                 if (isError) {
                   backgroundColor = Colors.red.withOpacity(0.1);
                   borderColor = Colors.red.withOpacity(0.3);
@@ -839,31 +855,24 @@ class FuturisticTransferFormWidget
                   textColor = Colors.green.shade700;
                   displayText = '$availableStock disp.';
                 }
-                
+
                 return Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: backgroundColor,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: borderColor,
-                      width: 1,
-                    ),
+                    border: Border.all(color: borderColor, width: 1),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (isError) 
+                      if (isError)
                         Icon(
                           Icons.warning_amber_rounded,
                           color: textColor,
                           size: 12,
                         ),
-                      if (isError) 
-                        SizedBox(width: 3),
+                      if (isError) SizedBox(width: 3),
                       Text(
                         displayText,
                         style: TextStyle(
@@ -877,9 +886,9 @@ class FuturisticTransferFormWidget
                 );
               },
             ),
-          
+
           if (!isMobile) SizedBox(width: 12),
-          
+
           // Compact quantity editor
           Container(
             decoration: BoxDecoration(
@@ -942,10 +951,10 @@ class FuturisticTransferFormWidget
               ],
             ),
           ),
-          
+
           SizedBox(width: isMobile ? 8 : 10),
-          
-          // "unidades" label 
+
+          // "unidades" label
           if (!isMobile)
             Text(
               'unidades',
@@ -955,11 +964,11 @@ class FuturisticTransferFormWidget
                 fontWeight: FontWeight.w500,
               ),
             ),
-          
+
           // ESPACIADOR - Push el botón eliminar a la derecha
           if (!isMobile) const Spacer(),
           if (isMobile) SizedBox(width: 8),
-          
+
           // Remove button - PEGADO en móvil, SEPARADO en desktop
           Container(
             margin: EdgeInsets.only(left: isMobile ? 0 : 16),
@@ -999,20 +1008,26 @@ class FuturisticTransferFormWidget
     try {
       // Only get stock if origin warehouse is selected
       if (controller.selectedFromWarehouseId.value.isEmpty) {
-        print('🚫 No origin warehouse selected, returning 0 stock for product $productId');
+        print(
+          '🚫 No origin warehouse selected, returning 0 stock for product $productId',
+        );
         return 0;
       }
 
       final warehouseId = controller.selectedFromWarehouseId.value;
       final warehouse = _getWarehouseById(warehouseId);
-      
+
       print('🔍 GETTING STOCK for product: $productId');
-      print('🏬 From warehouse: ${warehouse?.name ?? 'Unknown'} (ID: $warehouseId)');
+      print(
+        '🏬 From warehouse: ${warehouse?.name ?? 'Unknown'} (ID: $warehouseId)',
+      );
 
       final stock = await controller.getProductStock(productId, warehouseId);
-      
-      print('📦 Stock result: $stock units for product $productId in warehouse ${warehouse?.name}');
-      
+
+      print(
+        '📦 Stock result: $stock units for product $productId in warehouse ${warehouse?.name}',
+      );
+
       return stock;
     } catch (e) {
       print('❌ Error getting product stock in transfer form: $e');
@@ -1037,27 +1052,35 @@ class FuturisticTransferFormWidget
 
   // ==================== WAREHOUSE CHANGE MANAGEMENT ====================
 
-  void _handleWarehouseChange(Warehouse warehouse, {required bool isOriginWarehouse}) {
+  void _handleWarehouseChange(
+    Warehouse warehouse, {
+    required bool isOriginWarehouse,
+  }) {
     // Verificar si hay productos en la lista
     if (controller.transferItems.isNotEmpty) {
-      _showWarehouseChangeDialog(warehouse, isOriginWarehouse: isOriginWarehouse);
+      _showWarehouseChangeDialog(
+        warehouse,
+        isOriginWarehouse: isOriginWarehouse,
+      );
     } else {
       // No hay productos, cambiar directamente
       _updateWarehouse(warehouse, isOriginWarehouse: isOriginWarehouse);
     }
   }
 
-  void _showWarehouseChangeDialog(Warehouse warehouse, {required bool isOriginWarehouse}) {
+  void _showWarehouseChangeDialog(
+    Warehouse warehouse, {
+    required bool isOriginWarehouse,
+  }) {
     final warehouseType = isOriginWarehouse ? 'origen' : 'destino';
-    final currentWarehouse = isOriginWarehouse 
-        ? _getWarehouseById(controller.selectedFromWarehouseId.value)
-        : _getWarehouseById(controller.selectedToWarehouseId.value);
-    
+    final currentWarehouse =
+        isOriginWarehouse
+            ? _getWarehouseById(controller.selectedFromWarehouseId.value)
+            : _getWarehouseById(controller.selectedToWarehouseId.value);
+
     Get.dialog(
       AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
             Container(
@@ -1076,10 +1099,7 @@ class FuturisticTransferFormWidget
             const Expanded(
               child: Text(
                 'Cambiar Almacén',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -1090,10 +1110,7 @@ class FuturisticTransferFormWidget
           children: [
             Text(
               'Tienes ${controller.transferItems.length} productos en la lista de transferencia.',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 12),
             Container(
@@ -1120,7 +1137,10 @@ class FuturisticTransferFormWidget
                   const SizedBox(height: 6),
                   Text(
                     'Almacén de $warehouseType:',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   Text(
                     '${currentWarehouse?.name ?? 'No seleccionado'} → ${warehouse.name}',
@@ -1132,20 +1152,14 @@ class FuturisticTransferFormWidget
             const SizedBox(height: 12),
             const Text(
               '¿Qué deseas hacer?',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.grey),
-            ),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () {
@@ -1173,7 +1187,10 @@ class FuturisticTransferFormWidget
     );
   }
 
-  void _updateWarehouse(Warehouse warehouse, {required bool isOriginWarehouse}) {
+  void _updateWarehouse(
+    Warehouse warehouse, {
+    required bool isOriginWarehouse,
+  }) {
     if (isOriginWarehouse) {
       controller.selectedFromWarehouseId.value = warehouse.id;
       controller.fromWarehouseController.text = warehouse.displayName;
@@ -1188,7 +1205,7 @@ class FuturisticTransferFormWidget
   Future<void> _increaseQuantity(TransferItem item, int index) async {
     // Get available stock for this product in origin warehouse
     final availableStock = await _getProductStock(item.productId);
-    
+
     if (item.quantity >= availableStock) {
       FuturisticNotifications.showError(
         'Stock Insuficiente',
@@ -1196,7 +1213,7 @@ class FuturisticTransferFormWidget
       );
       return;
     }
-    
+
     controller.updateProductQuantity(index, item.quantity + 1);
   }
 
@@ -1208,14 +1225,16 @@ class FuturisticTransferFormWidget
       );
       return;
     }
-    
+
     controller.updateProductQuantity(index, item.quantity - 1);
   }
 
   Future<void> _editQuantityDialog(TransferItem item, int index) async {
     final availableStock = await _getProductStock(item.productId);
-    final quantityController = TextEditingController(text: item.quantity.toString());
-    
+    final quantityController = TextEditingController(
+      text: item.quantity.toString(),
+    );
+
     Get.dialog(
       AlertDialog(
         title: const Text('Editar Cantidad'),
@@ -1250,7 +1269,7 @@ class FuturisticTransferFormWidget
                 );
                 return;
               }
-              
+
               if (newQuantity > availableStock) {
                 FuturisticNotifications.showError(
                   'Stock Insuficiente',
@@ -1258,7 +1277,7 @@ class FuturisticTransferFormWidget
                 );
                 return;
               }
-              
+
               controller.updateProductQuantity(index, newQuantity);
               Get.back();
             },

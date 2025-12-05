@@ -4,7 +4,6 @@ import '../../../../app/config/constants/api_constants.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../models/expense_model.dart';
-import '../models/expenses_list_response_model.dart';
 import '../models/expense_category_model.dart';
 import '../models/expense_categories_response_model.dart';
 import '../models/expense_stats_model.dart';
@@ -29,7 +28,10 @@ abstract class ExpenseRemoteDataSource {
 
   Future<ExpenseModel> getExpenseById(String id);
   Future<ExpenseModel> createExpense(CreateExpenseRequestModel request);
-  Future<ExpenseModel> updateExpense(String id, UpdateExpenseRequestModel request);
+  Future<ExpenseModel> updateExpense(
+    String id,
+    UpdateExpenseRequestModel request,
+  );
   Future<void> deleteExpense(String id);
   Future<ExpenseModel> submitExpense(String id);
   Future<ExpenseModel> approveExpense(String id, String? notes);
@@ -50,11 +52,32 @@ abstract class ExpenseRemoteDataSource {
     String? orderDirection,
   });
 
+  Future<ExpenseCategoriesResponseModel> getExpenseCategoriesWithStats({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String? status,
+    String? orderBy,
+    String? orderDirection,
+  });
+
   Future<ExpenseCategoryModel> getExpenseCategoryById(String id);
-  Future<ExpenseCategoryModel> createExpenseCategory(CreateExpenseCategoryRequestModel request);
-  Future<ExpenseCategoryModel> updateExpenseCategory(String id, CreateExpenseCategoryRequestModel request);
+  Future<ExpenseCategoryModel> createExpenseCategory(
+    CreateExpenseCategoryRequestModel request,
+  );
+  Future<ExpenseCategoryModel> updateExpenseCategory(
+    String id,
+    CreateExpenseCategoryRequestModel request,
+  );
   Future<void> deleteExpenseCategory(String id);
   Future<List<ExpenseCategoryModel>> searchExpenseCategories(String query);
+
+  // Attachments
+  Future<List<String>> uploadAttachments(
+    String expenseId,
+    List<MultipartFile> files,
+  );
+  Future<void> deleteAttachment(String expenseId, String filename);
 }
 
 class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
@@ -76,19 +99,19 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     String? orderDirection,
   }) async {
     try {
-      final queryParams = <String, dynamic>{
-        'page': page,
-        'limit': limit,
-      };
+      final queryParams = <String, dynamic>{'page': page, 'limit': limit};
 
       if (search?.isNotEmpty == true) queryParams['search'] = search;
       if (status?.isNotEmpty == true) queryParams['status'] = status;
       if (type?.isNotEmpty == true) queryParams['type'] = type;
-      if (categoryId?.isNotEmpty == true) queryParams['categoryId'] = categoryId;
-      if (startDate != null) queryParams['startDate'] = startDate.toIso8601String();
+      if (categoryId?.isNotEmpty == true)
+        queryParams['categoryId'] = categoryId;
+      if (startDate != null)
+        queryParams['startDate'] = startDate.toIso8601String();
       if (endDate != null) queryParams['endDate'] = endDate.toIso8601String();
       if (orderBy?.isNotEmpty == true) queryParams['orderBy'] = orderBy;
-      if (orderDirection?.isNotEmpty == true) queryParams['orderDirection'] = orderDirection;
+      if (orderDirection?.isNotEmpty == true)
+        queryParams['orderDirection'] = orderDirection;
 
       final response = await dioClient.get(
         ApiConstants.expenses,
@@ -113,16 +136,13 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   Future<ExpenseModel> getExpenseById(String id) async {
     try {
       final response = await dioClient.get('${ApiConstants.expenses}/$id');
-      
+
       final expenseResponse = ExpenseResponseModel.fromJson(response.data);
       if (expenseResponse.data != null) {
         return expenseResponse.data!;
       }
-      
-      throw ServerException(
-        'Gasto no encontrado',
-        statusCode: 404,
-      );
+
+      throw ServerException('Gasto no encontrado', statusCode: 404);
     } on DioException catch (e) {
       throw ServerException(
         e.response?.data['message'] ?? 'Error al obtener el gasto',
@@ -167,7 +187,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   }
 
   @override
-  Future<ExpenseModel> updateExpense(String id, UpdateExpenseRequestModel request) async {
+  Future<ExpenseModel> updateExpense(
+    String id,
+    UpdateExpenseRequestModel request,
+  ) async {
     try {
       final response = await dioClient.patch(
         '${ApiConstants.expenses}/$id',
@@ -216,7 +239,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   @override
   Future<ExpenseModel> submitExpense(String id) async {
     try {
-      final response = await dioClient.post('${ApiConstants.expenses}/$id/submit');
+      final response = await dioClient.post(
+        '${ApiConstants.expenses}/$id/submit',
+      );
 
       final expenseResponse = ExpenseResponseModel.fromJson(response.data);
       if (expenseResponse.data != null) {
@@ -306,7 +331,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   @override
   Future<ExpenseModel> markAsPaid(String id) async {
     try {
-      final response = await dioClient.post('${ApiConstants.expenses}/$id/mark-paid');
+      final response = await dioClient.post(
+        '${ApiConstants.expenses}/$id/mark-paid',
+      );
 
       final expenseResponse = ExpenseResponseModel.fromJson(response.data);
       if (expenseResponse.data != null) {
@@ -360,7 +387,8 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      if (startDate != null) queryParams['startDate'] = startDate.toIso8601String();
+      if (startDate != null)
+        queryParams['startDate'] = startDate.toIso8601String();
       if (endDate != null) queryParams['endDate'] = endDate.toIso8601String();
 
       final response = await dioClient.get(
@@ -392,15 +420,13 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     String? orderDirection,
   }) async {
     try {
-      final queryParams = <String, dynamic>{
-        'page': page,
-        'limit': limit,
-      };
+      final queryParams = <String, dynamic>{'page': page, 'limit': limit};
 
       if (search?.isNotEmpty == true) queryParams['search'] = search;
       if (status?.isNotEmpty == true) queryParams['status'] = status;
       if (orderBy?.isNotEmpty == true) queryParams['orderBy'] = orderBy;
-      if (orderDirection?.isNotEmpty == true) queryParams['orderDirection'] = orderDirection;
+      if (orderDirection?.isNotEmpty == true)
+        queryParams['orderDirection'] = orderDirection;
 
       final response = await dioClient.get(
         ApiConstants.expenseCategories,
@@ -422,9 +448,49 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   }
 
   @override
+  Future<ExpenseCategoriesResponseModel> getExpenseCategoriesWithStats({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String? status,
+    String? orderBy,
+    String? orderDirection,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{'page': page, 'limit': limit};
+
+      if (search?.isNotEmpty == true) queryParams['search'] = search;
+      if (status?.isNotEmpty == true) queryParams['status'] = status;
+      if (orderBy?.isNotEmpty == true) queryParams['orderBy'] = orderBy;
+      if (orderDirection?.isNotEmpty == true)
+        queryParams['orderDirection'] = orderDirection;
+
+      final response = await dioClient.get(
+        '${ApiConstants.expenseCategories}/with-stats',
+        queryParameters: queryParams,
+      );
+
+      return ExpenseCategoriesResponseModel.fromJson(response.data);
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data['message'] ??
+            'Error al obtener categorías con estadísticas',
+        statusCode: e.response?.statusCode ?? 500,
+      );
+    } catch (e) {
+      throw ServerException(
+        'Error inesperado al obtener categorías con estadísticas: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  @override
   Future<ExpenseCategoryModel> getExpenseCategoryById(String id) async {
     try {
-      final response = await dioClient.get('${ApiConstants.expenseCategories}/$id');
+      final response = await dioClient.get(
+        '${ApiConstants.expenseCategories}/$id',
+      );
       return ExpenseCategoryModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw ServerException(
@@ -440,7 +506,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   }
 
   @override
-  Future<ExpenseCategoryModel> createExpenseCategory(CreateExpenseCategoryRequestModel request) async {
+  Future<ExpenseCategoryModel> createExpenseCategory(
+    CreateExpenseCategoryRequestModel request,
+  ) async {
     try {
       final response = await dioClient.post(
         ApiConstants.expenseCategories,
@@ -462,7 +530,10 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   }
 
   @override
-  Future<ExpenseCategoryModel> updateExpenseCategory(String id, CreateExpenseCategoryRequestModel request) async {
+  Future<ExpenseCategoryModel> updateExpenseCategory(
+    String id,
+    CreateExpenseCategoryRequestModel request,
+  ) async {
     try {
       final response = await dioClient.patch(
         '${ApiConstants.expenseCategories}/$id',
@@ -501,7 +572,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   }
 
   @override
-  Future<List<ExpenseCategoryModel>> searchExpenseCategories(String query) async {
+  Future<List<ExpenseCategoryModel>> searchExpenseCategories(
+    String query,
+  ) async {
     try {
       final response = await dioClient.get(
         '${ApiConstants.expenseCategories}/search',
@@ -509,7 +582,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
       );
 
       final List<dynamic> data = response.data['data'] ?? [];
-      return data.map((category) => ExpenseCategoryModel.fromJson(category)).toList();
+      return data
+          .map((category) => ExpenseCategoryModel.fromJson(category))
+          .toList();
     } on DioException catch (e) {
       throw ServerException(
         e.response?.data['message'] ?? 'Error al buscar categorías',
@@ -518,6 +593,57 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     } catch (e) {
       throw ServerException(
         'Error inesperado al buscar categorías: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  @override
+  Future<List<String>> uploadAttachments(
+    String expenseId,
+    List<MultipartFile> files,
+  ) async {
+    try {
+      final formData = FormData();
+
+      for (final file in files) {
+        formData.files.add(MapEntry('attachments', file));
+      }
+
+      final response = await dioClient.post(
+        '${ApiConstants.expenses}/$expenseId/upload-attachments',
+        data: formData,
+      );
+
+      final List<dynamic> urls = response.data['attachmentUrls'] ?? [];
+      return urls.cast<String>();
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data['message'] ?? 'Error al subir adjuntos',
+        statusCode: e.response?.statusCode ?? 500,
+      );
+    } catch (e) {
+      throw ServerException(
+        'Error inesperado al subir adjuntos: $e',
+        statusCode: 500,
+      );
+    }
+  }
+
+  @override
+  Future<void> deleteAttachment(String expenseId, String filename) async {
+    try {
+      await dioClient.delete(
+        '${ApiConstants.expenses}/$expenseId/attachments/$filename',
+      );
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data['message'] ?? 'Error al eliminar adjunto',
+        statusCode: e.response?.statusCode ?? 500,
+      );
+    } catch (e) {
+      throw ServerException(
+        'Error inesperado al eliminar adjunto: $e',
         statusCode: 500,
       );
     }

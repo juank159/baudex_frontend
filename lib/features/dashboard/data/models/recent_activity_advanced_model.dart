@@ -37,20 +37,25 @@ class RecentActivityAdvancedModel extends RecentActivityAdvanced {
       entityType: json['entityType'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
       icon: json['icon'] as String,
-      color: Color(int.parse(json['color'].toString().replaceFirst('#', '0xFF'))),
+      color: Color(
+        int.parse(json['color'].toString().replaceFirst('#', '0xFF')),
+      ),
       isSystemGenerated: json['isSystemGenerated'] as bool? ?? false,
       ipAddress: json['ipAddress'] as String?,
       userAgent: json['userAgent'] as String?,
       userId: json['userId'] as String,
-      userName: json['user'] != null 
-          ? '${json['user']['firstName']} ${json['user']['lastName'] ?? ''}'.trim()
-          : json['userName'] as String? ?? 'Usuario',
+      userName:
+          json['user'] != null
+              ? '${json['user']['firstName']} ${json['user']['lastName'] ?? ''}'
+                  .trim()
+              : json['userName'] as String? ?? 'Usuario',
       organizationId: json['organizationId'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
   }
 
+  @override
   Map<String, dynamic> toJson() {
     return {
       'id': id,

@@ -6,10 +6,8 @@ import '../controllers/dashboard_controller.dart';
 import '../../domain/entities/recent_activity.dart';
 import '../../domain/entities/recent_activity_advanced.dart' as advanced;
 import '../../../../app/config/themes/app_colors.dart';
-import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/config/themes/app_text_styles.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
-import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/shimmer_loading.dart';
 
 class RecentActivityCard extends GetView<DashboardController> {
@@ -45,17 +43,20 @@ class RecentActivityCard extends GetView<DashboardController> {
               colors: [
                 ElegantLightTheme.primaryBlue.withValues(alpha: 0.02),
                 Colors.transparent,
-                ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.01),
+                ElegantLightTheme.warningGradient.colors.first.withValues(
+                  alpha: 0.01,
+                ),
               ],
             ),
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isMobile = constraints.maxWidth < 600;
-              final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+              final isTablet =
+                  constraints.maxWidth >= 600 && constraints.maxWidth < 900;
               final padding = isMobile ? 16.0 : (isTablet ? 20.0 : 24.0);
               final headerSpacing = isMobile ? 16.0 : (isTablet ? 20.0 : 24.0);
-              
+
               return Padding(
                 padding: EdgeInsets.all(padding), // Responsive padding
                 child: Column(
@@ -100,22 +101,19 @@ class RecentActivityCard extends GetView<DashboardController> {
               ),
             ],
           ),
-          child: Icon(
-            Icons.timeline,
-            color: AppColors.primary,
-            size: 24,
-          ),
+          child: Icon(Icons.timeline, color: AppColors.primary, size: 24),
         ),
         const SizedBox(width: 16),
         // Título con efectos de texto
         Expanded(
           child: ShaderMask(
-            shaderCallback: (bounds) => LinearGradient(
-              colors: [
-                AppColors.textPrimary,
-                AppColors.textPrimary.withOpacity(0.8),
-              ],
-            ).createShader(bounds),
+            shaderCallback:
+                (bounds) => LinearGradient(
+                  colors: [
+                    AppColors.textPrimary,
+                    AppColors.textPrimary.withOpacity(0.8),
+                  ],
+                ).createShader(bounds),
             child: Text(
               'Actividad Reciente',
               style: AppTextStyles.titleMedium.copyWith(
@@ -146,17 +144,14 @@ class RecentActivityCard extends GetView<DashboardController> {
             boxShadow: [
               ...ElegantLightTheme.glowShadow,
               BoxShadow(
-                color: ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.3),
+                color: ElegantLightTheme.warningGradient.colors.first
+                    .withValues(alpha: 0.3),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
             ],
           ),
-          child: const Icon(
-            Icons.electric_bolt,
-            color: Colors.white,
-            size: 24,
-          ),
+          child: const Icon(Icons.electric_bolt, color: Colors.white, size: 24),
         ),
         const SizedBox(width: 16),
         // Título futurístico con degradado
@@ -165,7 +160,9 @@ class RecentActivityCard extends GetView<DashboardController> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ShaderMask(
-                shaderCallback: (bounds) => ElegantLightTheme.warningGradient.createShader(bounds),
+                shaderCallback:
+                    (bounds) =>
+                        ElegantLightTheme.warningGradient.createShader(bounds),
                 child: Text(
                   'Actividad Reciente',
                   style: AppTextStyles.titleMedium.copyWith(
@@ -225,7 +222,9 @@ class RecentActivityCard extends GetView<DashboardController> {
       return _buildModernEmptyState();
     }
 
-    return hasAdvancedData ? _buildAdvancedActivityList() : _buildActivityList();
+    return hasAdvancedData
+        ? _buildAdvancedActivityList()
+        : _buildActivityList();
   }
 
   Widget _buildActivityList() {
@@ -243,7 +242,11 @@ class RecentActivityCard extends GetView<DashboardController> {
   Widget _buildAdvancedActivityList() {
     return Column(
       children: [
-        for (int index = 0; index < controller.recentActivitiesAdvanced.length; index++)
+        for (
+          int index = 0;
+          index < controller.recentActivitiesAdvanced.length;
+          index++
+        )
           _ModernAdvancedActivityItem(
             activity: controller.recentActivitiesAdvanced[index],
             index: index,
@@ -283,7 +286,10 @@ class RecentActivityCard extends GetView<DashboardController> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const ShimmerContainer(width: double.infinity, height: 18),
+                      const ShimmerContainer(
+                        width: double.infinity,
+                        height: 18,
+                      ),
                       const SizedBox(height: 8),
                       const ShimmerContainer(width: 160, height: 14),
                       const SizedBox(height: 4),
@@ -438,18 +444,12 @@ class _RefreshButtonState extends State<_RefreshButton>
     _rotationAnimation = Tween<double>(
       begin: 0.0,
       end: 2 * math.pi,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
   }
 
   @override
@@ -544,10 +544,7 @@ class _ModernButtonState extends State<_ModernButton>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 0.95,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -568,10 +565,7 @@ class _ModernButtonState extends State<_ModernButton>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  widget.color,
-                  widget.color.withOpacity(0.8),
-                ],
+                colors: [widget.color, widget.color.withOpacity(0.8)],
               ),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
@@ -606,7 +600,10 @@ class _ModernButtonState extends State<_ModernButton>
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   child: Text(
                     widget.text,
                     style: AppTextStyles.bodyMedium.copyWith(
@@ -631,10 +628,12 @@ class _FuturisticActivityRefreshButton extends StatefulWidget {
   const _FuturisticActivityRefreshButton({required this.onRefresh});
 
   @override
-  State<_FuturisticActivityRefreshButton> createState() => _FuturisticActivityRefreshButtonState();
+  State<_FuturisticActivityRefreshButton> createState() =>
+      _FuturisticActivityRefreshButtonState();
 }
 
-class _FuturisticActivityRefreshButtonState extends State<_FuturisticActivityRefreshButton>
+class _FuturisticActivityRefreshButtonState
+    extends State<_FuturisticActivityRefreshButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _rotationAnimation;
@@ -653,26 +652,17 @@ class _FuturisticActivityRefreshButtonState extends State<_FuturisticActivityRef
     _rotationAnimation = Tween<double>(
       begin: 0.0,
       end: 2 * math.pi,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
 
     _glowAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -697,9 +687,10 @@ class _FuturisticActivityRefreshButtonState extends State<_FuturisticActivityRef
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  gradient: _isHovered
-                      ? ElegantLightTheme.warningGradient
-                      : ElegantLightTheme.glassGradient,
+                  gradient:
+                      _isHovered
+                          ? ElegantLightTheme.warningGradient
+                          : ElegantLightTheme.glassGradient,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: ElegantLightTheme.warningGradient.colors.first
@@ -711,8 +702,16 @@ class _FuturisticActivityRefreshButtonState extends State<_FuturisticActivityRef
                     if (_isHovered || _glowAnimation.value > 0)
                       BoxShadow(
                         color: ElegantLightTheme.warningGradient.colors.first
-                            .withValues(alpha: (_glowAnimation.value * 0.4).clamp(0.0, 1.0)),
-                        blurRadius: (20 * _glowAnimation.value).clamp(0.0, 20.0),
+                            .withValues(
+                              alpha: (_glowAnimation.value * 0.4).clamp(
+                                0.0,
+                                1.0,
+                              ),
+                            ),
+                        blurRadius: (20 * _glowAnimation.value).clamp(
+                          0.0,
+                          20.0,
+                        ),
                         offset: const Offset(0, 0),
                       ),
                   ],
@@ -731,20 +730,25 @@ class _FuturisticActivityRefreshButtonState extends State<_FuturisticActivityRef
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        gradient: _isHovered
-                            ? LinearGradient(
-                                colors: [
-                                  Colors.white.withValues(alpha: 0.2),
-                                  Colors.white.withValues(alpha: 0.1),
-                                ],
-                              )
-                            : null,
+                        gradient:
+                            _isHovered
+                                ? LinearGradient(
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.2),
+                                    Colors.white.withValues(alpha: 0.1),
+                                  ],
+                                )
+                                : null,
                       ),
                       child: Icon(
                         Icons.refresh_rounded,
-                        color: _isHovered
-                            ? Colors.white
-                            : ElegantLightTheme.warningGradient.colors.first,
+                        color:
+                            _isHovered
+                                ? Colors.white
+                                : ElegantLightTheme
+                                    .warningGradient
+                                    .colors
+                                    .first,
                         size: 22,
                       ),
                     ),
@@ -764,10 +768,7 @@ class _ModernActivityItem extends StatefulWidget {
   final RecentActivity activity;
   final int index;
 
-  const _ModernActivityItem({
-    required this.activity,
-    required this.index,
-  });
+  const _ModernActivityItem({required this.activity, required this.index});
 
   @override
   State<_ModernActivityItem> createState() => _ModernActivityItemState();
@@ -791,18 +792,12 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
     _slideAnimation = Tween<double>(
       begin: 50.0,
       end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutBack,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     // Iniciar animación con delay
     Future.delayed(Duration(milliseconds: widget.index * 100), () {
@@ -830,34 +825,38 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
                 final screenWidth = MediaQuery.of(context).size.width;
                 final isMobile = screenWidth < 600;
                 final isTablet = screenWidth >= 600 && screenWidth < 900;
-                
+
                 // Responsive spacing and sizing
                 final bottomMargin = isMobile ? 8.0 : (isTablet ? 12.0 : 16.0);
                 final padding = isMobile ? 12.0 : (isTablet ? 16.0 : 20.0);
                 final iconSpacing = isMobile ? 12.0 : (isTablet ? 14.0 : 16.0);
                 final borderRadius = isMobile ? 12.0 : 16.0;
-                
+
                 return Container(
-                  margin: EdgeInsets.only(bottom: widget.index < 4 ? bottomMargin : 0),
+                  margin: EdgeInsets.only(
+                    bottom: widget.index < 4 ? bottomMargin : 0,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: _isHovered
-                          ? [
-                              _getActivityColor().withOpacity(0.05),
-                              _getActivityColor().withOpacity(0.02),
-                            ]
-                          : [
-                              AppColors.surface.withOpacity(0.3),
-                              AppColors.surface.withOpacity(0.1),
-                            ],
+                      colors:
+                          _isHovered
+                              ? [
+                                _getActivityColor().withOpacity(0.05),
+                                _getActivityColor().withOpacity(0.02),
+                              ]
+                              : [
+                                AppColors.surface.withOpacity(0.3),
+                                AppColors.surface.withOpacity(0.1),
+                              ],
                     ),
                     borderRadius: BorderRadius.circular(borderRadius),
                     border: Border.all(
-                      color: _isHovered
-                          ? _getActivityColor().withOpacity(0.2)
-                          : AppColors.border.withOpacity(0.1),
+                      color:
+                          _isHovered
+                              ? _getActivityColor().withOpacity(0.2)
+                              : AppColors.border.withOpacity(0.1),
                       width: 1,
                     ),
                   ),
@@ -892,12 +891,12 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
         final screenWidth = MediaQuery.of(context).size.width;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 900;
-        
+
         // Responsive sizes
         final iconSize = isMobile ? 36.0 : (isTablet ? 40.0 : 48.0);
         final iconRadius = iconSize / 2;
         final innerIconSize = isMobile ? 18.0 : (isTablet ? 20.0 : 24.0);
-        
+
         return Container(
           width: iconSize,
           height: iconSize,
@@ -918,7 +917,7 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
                 offset: Offset(0, isMobile ? 4 : (isTablet ? 5 : 6)),
                 spreadRadius: isMobile ? 0.5 : 1,
               ),
-              if (widget.activity.type == ActivityType.invoice || 
+              if (widget.activity.type == ActivityType.invoice ||
                   widget.activity.type == ActivityType.expense)
                 BoxShadow(
                   color: activityColor.withOpacity(0.15),
@@ -944,12 +943,12 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
         final screenWidth = MediaQuery.of(context).size.width;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 900;
-        
+
         // Responsive font sizes
         final titleFontSize = isMobile ? 13.0 : (isTablet ? 14.0 : 15.0);
         final descriptionFontSize = isMobile ? 11.0 : (isTablet ? 12.0 : 13.0);
         final spacing = isMobile ? 2.0 : (isTablet ? 3.0 : 4.0);
-        
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -970,7 +969,8 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
                 color: AppColors.textSecondary,
                 fontSize: descriptionFontSize,
               ),
-              maxLines: isMobile ? 1 : 2, // Solo 1 línea en móvil para más compacto
+              maxLines:
+                  isMobile ? 1 : 2, // Solo 1 línea en móvil para más compacto
               overflow: TextOverflow.ellipsis,
             ),
           ],
@@ -985,17 +985,17 @@ class _ModernActivityItemState extends State<_ModernActivityItem>
         final screenWidth = MediaQuery.of(context).size.width;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 900;
-        
+
         // Responsive sizes
         final fontSize = isMobile ? 9.0 : (isTablet ? 10.0 : 11.0);
         final horizontalPadding = isMobile ? 6.0 : (isTablet ? 7.0 : 8.0);
         final verticalPadding = isMobile ? 3.0 : 4.0;
         final borderRadius = isMobile ? 6.0 : 8.0;
-        
+
         return Container(
           padding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding, 
-            vertical: verticalPadding
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
           ),
           decoration: BoxDecoration(
             color: AppColors.textSecondary.withOpacity(0.1),
@@ -1072,10 +1072,12 @@ class _ModernAdvancedActivityItem extends StatefulWidget {
   });
 
   @override
-  State<_ModernAdvancedActivityItem> createState() => _ModernAdvancedActivityItemState();
+  State<_ModernAdvancedActivityItem> createState() =>
+      _ModernAdvancedActivityItemState();
 }
 
-class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem>
+class _ModernAdvancedActivityItemState
+    extends State<_ModernAdvancedActivityItem>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _slideAnimation;
@@ -1093,18 +1095,12 @@ class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem
     _slideAnimation = Tween<double>(
       begin: 50.0,
       end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutBack,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     // Iniciar animación con delay
     Future.delayed(Duration(milliseconds: widget.index * 100), () {
@@ -1132,34 +1128,38 @@ class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem
                 final screenWidth = MediaQuery.of(context).size.width;
                 final isMobile = screenWidth < 600;
                 final isTablet = screenWidth >= 600 && screenWidth < 900;
-                
+
                 // Responsive spacing and sizing
                 final bottomMargin = isMobile ? 8.0 : (isTablet ? 12.0 : 16.0);
                 final padding = isMobile ? 12.0 : (isTablet ? 16.0 : 20.0);
                 final iconSpacing = isMobile ? 12.0 : (isTablet ? 14.0 : 16.0);
                 final borderRadius = isMobile ? 12.0 : 16.0;
-                
+
                 return Container(
-                  margin: EdgeInsets.only(bottom: widget.index < 4 ? bottomMargin : 0),
+                  margin: EdgeInsets.only(
+                    bottom: widget.index < 4 ? bottomMargin : 0,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: _isHovered
-                          ? [
-                              widget.activity.color.withOpacity(0.05),
-                              widget.activity.color.withOpacity(0.02),
-                            ]
-                          : [
-                              AppColors.surface.withOpacity(0.3),
-                              AppColors.surface.withOpacity(0.1),
-                            ],
+                      colors:
+                          _isHovered
+                              ? [
+                                widget.activity.color.withOpacity(0.05),
+                                widget.activity.color.withOpacity(0.02),
+                              ]
+                              : [
+                                AppColors.surface.withOpacity(0.3),
+                                AppColors.surface.withOpacity(0.1),
+                              ],
                     ),
                     borderRadius: BorderRadius.circular(borderRadius),
                     border: Border.all(
-                      color: _isHovered
-                          ? widget.activity.color.withOpacity(0.2)
-                          : AppColors.border.withOpacity(0.1),
+                      color:
+                          _isHovered
+                              ? widget.activity.color.withOpacity(0.2)
+                              : AppColors.border.withOpacity(0.1),
                       width: 1,
                     ),
                   ),
@@ -1189,29 +1189,32 @@ class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem
 
   Widget _buildActivityIcon() {
     // Determinar si es factura o gasto basado en el tipo de actividad
-    final isInvoice = widget.activity.title.toLowerCase().contains('factura') || 
-                     widget.activity.icon.contains('receipt');
-    final isExpense = widget.activity.title.toLowerCase().contains('gasto') || 
-                     widget.activity.icon.contains('money_off');
-    
+    final isInvoice =
+        widget.activity.title.toLowerCase().contains('factura') ||
+        widget.activity.icon.contains('receipt');
+    final isExpense =
+        widget.activity.title.toLowerCase().contains('gasto') ||
+        widget.activity.icon.contains('money_off');
+
     // Usar colores específicos para facturas (verde) y gastos (rojo)
-    final activityColor = isInvoice 
-        ? AppColors.success 
-        : isExpense 
-            ? AppColors.error 
+    final activityColor =
+        isInvoice
+            ? AppColors.success
+            : isExpense
+            ? AppColors.error
             : widget.activity.color;
-    
+
     return Builder(
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 900;
-        
+
         // Responsive sizes
         final iconSize = isMobile ? 36.0 : (isTablet ? 40.0 : 48.0);
         final iconRadius = iconSize / 2;
         final innerIconSize = isMobile ? 18.0 : (isTablet ? 20.0 : 24.0);
-        
+
         return Container(
           width: iconSize,
           height: iconSize,
@@ -1257,14 +1260,14 @@ class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem
         final screenWidth = MediaQuery.of(context).size.width;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 900;
-        
+
         // Responsive font sizes
         final titleFontSize = isMobile ? 13.0 : (isTablet ? 14.0 : 15.0);
         final descriptionFontSize = isMobile ? 11.0 : (isTablet ? 12.0 : 13.0);
         final userNameFontSize = isMobile ? 9.0 : (isTablet ? 10.0 : 11.0);
         final spacing = isMobile ? 2.0 : (isTablet ? 3.0 : 4.0);
         final badgeSpacing = isMobile ? 6.0 : 8.0;
-        
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1282,7 +1285,8 @@ class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (widget.activity.priority != advanced.ActivityPriority.normal) ...[
+                if (widget.activity.priority !=
+                    advanced.ActivityPriority.normal) ...[
                   SizedBox(width: badgeSpacing),
                   _buildPriorityBadge(),
                 ],
@@ -1295,7 +1299,8 @@ class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem
                 color: AppColors.textSecondary,
                 fontSize: descriptionFontSize,
               ),
-              maxLines: isMobile ? 1 : 2, // Solo 1 línea en móvil para más compacto
+              maxLines:
+                  isMobile ? 1 : 2, // Solo 1 línea en móvil para más compacto
               overflow: TextOverflow.ellipsis,
             ),
             if (widget.activity.userName.isNotEmpty) ...[
@@ -1362,17 +1367,17 @@ class _ModernAdvancedActivityItemState extends State<_ModernAdvancedActivityItem
         final screenWidth = MediaQuery.of(context).size.width;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 900;
-        
+
         // Responsive sizes
         final fontSize = isMobile ? 9.0 : (isTablet ? 10.0 : 11.0);
         final horizontalPadding = isMobile ? 6.0 : (isTablet ? 7.0 : 8.0);
         final verticalPadding = isMobile ? 3.0 : 4.0;
         final borderRadius = isMobile ? 6.0 : 8.0;
-        
+
         return Container(
           padding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding, 
-            vertical: verticalPadding
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
           ),
           decoration: BoxDecoration(
             color: AppColors.textSecondary.withOpacity(0.1),

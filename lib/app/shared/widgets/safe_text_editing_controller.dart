@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 /// ✅ SOLUCIÓN DEFINITIVA: SafeTextEditingController
-/// 
+///
 /// Este wrapper previene COMPLETAMENTE los errores de:
 /// - "A TextEditingController was used after being disposed"
 /// - Crashes durante navegación y lifecycle de widgets
-/// 
+///
 /// Características:
 /// 1. Auto-detección de estado disposed
 /// 2. Fallback seguro para todas las operaciones
@@ -19,19 +19,14 @@ class SafeTextEditingController extends TextEditingController {
   final String? _debugLabel;
   final List<VoidCallback> _safeListeners = [];
 
-  SafeTextEditingController({
-    String? text,
-    String? debugLabel,
-  }) : _debugLabel = debugLabel,
-       super(text: text) {
+  SafeTextEditingController({super.text, String? debugLabel})
+    : _debugLabel = debugLabel {
     _log('🔧 SafeTextEditingController creado: $_debugLabel');
   }
 
-  SafeTextEditingController.fromValue(
-    TextEditingValue? value, {
-    String? debugLabel,
-  }) : _debugLabel = debugLabel,
-       super.fromValue(value) {
+  SafeTextEditingController.fromValue(super.value, {String? debugLabel})
+    : _debugLabel = debugLabel,
+      super.fromValue() {
     _log('🔧 SafeTextEditingController.fromValue creado: $_debugLabel');
   }
 
@@ -210,7 +205,7 @@ class SafeTextEditingController extends TextEditingController {
       _log('🗑️ Llamando super.dispose()...');
       // Llamar dispose del padre
       super.dispose();
-      
+
       _log('✅ Dispose completado exitosamente');
     } catch (e) {
       _log('💥 Error durante dispose: $e');
@@ -229,7 +224,7 @@ class SafeTextEditingController extends TextEditingController {
     if (!isSafeToUse) {
       return fallback;
     }
-    
+
     try {
       return operation();
     } catch (e) {
@@ -255,7 +250,9 @@ class SafeTextEditingController extends TextEditingController {
 
   /// ✅ LOGGING: Método privado para logging consistente
   void _log(String message) {
-    print('🛡️ SafeTextEditingController${_debugLabel != null ? " ($_debugLabel)" : ""}: $message');
+    print(
+      '🛡️ SafeTextEditingController${_debugLabel != null ? " ($_debugLabel)" : ""}: $message',
+    );
   }
 
   /// ✅ FACTORY: Crear desde controlador existente (si es necesario)
@@ -266,7 +263,7 @@ class SafeTextEditingController extends TextEditingController {
     if (existing == null) {
       return SafeTextEditingController(debugLabel: debugLabel);
     }
-    
+
     // Intentar copiar el valor si el controlador existente es seguro
     try {
       final currentText = existing.text;
@@ -275,7 +272,9 @@ class SafeTextEditingController extends TextEditingController {
         debugLabel: debugLabel,
       );
     } catch (e) {
-      print('⚠️ SafeTextEditingController.fromExisting: Controlador fuente unsafe, creando nuevo vacío');
+      print(
+        '⚠️ SafeTextEditingController.fromExisting: Controlador fuente unsafe, creando nuevo vacío',
+      );
       return SafeTextEditingController(debugLabel: debugLabel);
     }
   }

@@ -2,10 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/animated_charts.dart';
 import '../controllers/customer_stats_controller.dart';
-import '../widgets/customer_stats_widget.dart';
 
 class CustomerStatsScreen extends GetView<CustomerStatsController> {
   const CustomerStatsScreen({super.key});
@@ -13,37 +14,36 @@ class CustomerStatsScreen extends GetView<CustomerStatsController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _buildAppBar(context),
-      body: SafeArea(
-        child: Obx(() {
-          if (controller.isLoading) {
+      appBar: _buildCompactAppBar(context),
+      body: GetBuilder<CustomerStatsController>(
+        builder: (ctrl) {
+          if (ctrl.isLoading) {
             return const LoadingWidget(message: 'Cargando estadísticas...');
           }
 
           return ResponsiveLayout(
-            mobile: _buildMobileLayout(context),
-            tablet: _buildTabletLayout(context),
-            desktop: _buildDesktopLayout(context),
+            mobile: _buildMobileLayout(context, ctrl),
+            tablet: _buildTabletLayout(context, ctrl),
+            desktop: _buildDesktopLayout(context, ctrl),
           );
-        }),
+        },
       ),
-      floatingActionButton: _buildFloatingActionButton(context),
+      floatingActionButton: _buildCompactFAB(context),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
+  // ==================== ELEGANT APP BAR ====================
 
+  PreferredSizeWidget _buildCompactAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.transparent,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      centerTitle: false,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: ElegantLightTheme.primaryGradient,
         ),
       ),
+      backgroundColor: Colors.transparent,
+      foregroundColor: Colors.white,
+      elevation: 0,
       title: Row(
         children: [
           Container(
@@ -51,991 +51,946 @@ class CustomerStatsScreen extends GetView<CustomerStatsController> {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
             ),
-            child: Icon(
-              Icons.analytics,
-              size: isMobile ? 18 : 20,
+            child: const Icon(
+              Icons.people_outline,
+              size: 18,
               color: Colors.white,
             ),
           ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
+          const SizedBox(width: 10),
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Colors.white, Color(0xFFE0E7FF)],
+            ).createShader(bounds),
+            child: const Text(
               'Estadísticas de Clientes',
               style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: isMobile ? 16 : 18,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.white,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
       ),
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Get.back(),
-      ),
       actions: [
-        // Refrescar
-        IconButton(
-          icon: const Icon(Icons.refresh, size: 20),
-          onPressed: controller.refreshStats,
-          tooltip: 'Actualizar',
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.white.withValues(alpha: 0.1),
-            foregroundColor: Colors.white,
+        Container(
+          margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
           ),
-        ),
-
-        // Periodo de tiempo
-        if (!isMobile)
-          Obx(
-            () => TextButton.icon(
-              onPressed: () => _showPeriodSelector(context),
-              icon: const Icon(Icons.calendar_today, size: 18),
-              label: Text(controller.currentPeriodLabel),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Colors.white.withValues(alpha: 0.1),
-              ),
-            ),
+          child: IconButton(
+            icon: const Icon(Icons.refresh, size: 20),
+            onPressed: () => controller.refreshStats(),
+            padding: const EdgeInsets.all(8),
+            tooltip: 'Actualizar datos',
           ),
-
-        // Menú de opciones
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, size: 20, color: Colors.white),
-          onSelected: (value) => _handleMenuAction(value, context),
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.white.withValues(alpha: 0.1),
-            foregroundColor: Colors.white,
-          ),
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'export',
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.successGradient,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.download,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Exportar Reporte',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'share',
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.infoGradient,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.share,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Compartir',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'print',
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: ElegantLightTheme.primaryBlue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.print,
-                      size: 18,
-                      color: ElegantLightTheme.primaryBlue,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Imprimir',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ],
     );
   }
 
-  Widget _buildMobileLayout(BuildContext context) {
+  // ==================== MOBILE LAYOUT ====================
+
+  Widget _buildMobileLayout(BuildContext context, CustomerStatsController ctrl) {
     return RefreshIndicator(
-      onRefresh: controller.refreshStats,
+      onRefresh: () => ctrl.refreshStats(),
+      child: CustomScrollView(
+        slivers: [
+          // Period Selector
+          SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.all(8),
+              child: _buildElegantPeriodSelector(context, ctrl),
+            ),
+          ),
+
+          // KPI Cards compactas
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: _buildCompactKPIGrid(context, ctrl),
+            ),
+          ),
+
+          // Quick Stats Bar
+          SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: _buildQuickStatsBar(context, ctrl),
+            ),
+          ),
+
+          // Charts Section
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              child: _buildCompactChartsSection(context, ctrl),
+            ),
+          ),
+
+          // Financial Summary
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              child: _buildFinancialSummaryCard(ctrl),
+            ),
+          ),
+
+          // Top Customers
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              child: _buildTopCustomersCard(context, ctrl),
+            ),
+          ),
+
+          // Bottom spacing
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        ],
+      ),
+    );
+  }
+
+  // ==================== TABLET LAYOUT ====================
+
+  Widget _buildTabletLayout(BuildContext context, CustomerStatsController ctrl) {
+    return RefreshIndicator(
+      onRefresh: () => ctrl.refreshStats(),
       child: SingleChildScrollView(
-        padding: context.responsivePadding,
-        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            // Resumen principal
-            _buildMainStatsCard(context),
-            SizedBox(height: context.verticalSpacing),
+            // Top Row: KPIs
+            _buildCompactKPIGrid(context, ctrl),
+            const SizedBox(height: 12),
 
-            // Estadísticas por estado
-            _buildStatusStatsCard(context),
-            SizedBox(height: context.verticalSpacing),
+            // Charts Row
+            Row(
+              children: [
+                Expanded(child: _buildStatusDonutChart(context, ctrl)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildFinancialBarChart(context, ctrl)),
+              ],
+            ),
 
-            // Estadísticas financieras
-            _buildFinancialStatsCard(context),
-            SizedBox(height: context.verticalSpacing),
+            const SizedBox(height: 12),
 
-            // Distribución por tipo de documento
-            _buildDocumentTypeStatsCard(context),
-            SizedBox(height: context.verticalSpacing),
-
-            // Estadísticas de actividad
-            _buildActivityStatsCard(context),
-            SizedBox(height: context.verticalSpacing),
-
-            // Top clientes
-            _buildTopCustomersCard(context),
+            // Bottom Row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildActivityStatsCard(ctrl)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildTopCustomersCard(context, ctrl)),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTabletLayout(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: controller.refreshStats,
-      child: SingleChildScrollView(
-        child: AdaptiveContainer(
-          maxWidth: 1000,
-          child: Column(
-            children: [
-              SizedBox(height: context.verticalSpacing),
+  // ==================== DESKTOP LAYOUT ====================
 
-              // Resumen principal
-              _buildMainStatsCard(context),
-              SizedBox(height: context.verticalSpacing * 2),
-
-              // Primera fila: Estados y Financiera
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _buildStatusStatsCard(context)),
-                  const SizedBox(width: 24),
-                  Expanded(child: _buildFinancialStatsCard(context)),
-                ],
-              ),
-
-              SizedBox(height: context.verticalSpacing * 2),
-
-              // Segunda fila: Documentos y Actividad
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _buildDocumentTypeStatsCard(context)),
-                  const SizedBox(width: 24),
-                  Expanded(child: _buildActivityStatsCard(context)),
-                ],
-              ),
-
-              SizedBox(height: context.verticalSpacing * 2),
-
-              // Top clientes
-              _buildTopCustomersCard(context),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDesktopLayout(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: controller.refreshStats,
-      child: Row(
-        children: [
-          // Panel principal
-          Expanded(
-            flex: 3,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                children: [
-                  // Resumen principal
-                  _buildMainStatsCard(context),
-                  const SizedBox(height: 32),
-
-                  // Primera fila
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildStatusStatsCard(context)),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildFinancialStatsCard(context)),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Segunda fila
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildDocumentTypeStatsCard(context)),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildActivityStatsCard(context)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Panel lateral
-          Container(
-            width: 400,
-            padding: const EdgeInsets.fromLTRB(0, 32, 32, 32),
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.glassGradient.scale(0.3),
-              border: Border(
-                left: BorderSide(
-                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-                ),
-              ),
-            ),
-            child: Column(
-              children: [
-                // Header del panel
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.cardGradient,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-                    ),
-                    boxShadow: ElegantLightTheme.elevatedShadow,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: ElegantLightTheme.primaryGradient.scale(0.3),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.analytics,
-                          size: 20,
-                          color: ElegantLightTheme.primaryBlue,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Panel de Control',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                          color: ElegantLightTheme.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Top clientes
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: _buildTopCustomersCard(context),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Acciones rápidas
-                _buildQuickActionsCard(context),
+  Widget _buildDesktopLayout(BuildContext context, CustomerStatsController ctrl) {
+    return Row(
+      children: [
+        // Enhanced Sidebar
+        Container(
+          width: 280,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                ElegantLightTheme.backgroundColor,
+                ElegantLightTheme.cardColor,
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainStatsCard(BuildContext context) {
-    return Obx(() {
-      if (controller.stats == null) {
-        return Container(
-          height: 200,
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.cardGradient,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+            border: Border(
+              right: BorderSide(
+                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+              ),
             ),
             boxShadow: ElegantLightTheme.elevatedShadow,
           ),
-          child: const Center(child: CircularProgressIndicator()),
-        );
-      }
-
-      return CustomerStatsWidget(stats: controller.stats!, isCompact: false);
-    });
-  }
-
-  Widget _buildStatusStatsCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-        ),
-        boxShadow: ElegantLightTheme.elevatedShadow,
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.primaryGradient.scale(0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.pie_chart,
-                  color: ElegantLightTheme.primaryBlue,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  'Distribución por Estado',
-                  style: TextStyle(
-                    fontSize: Responsive.getFontSize(
-                      context,
-                      mobile: 16,
-                      tablet: 16,
-                      desktop: 20,
-                    ),
-                    fontWeight: FontWeight.bold,
-                    color: ElegantLightTheme.textPrimary,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          Obx(() {
-            if (controller.stats == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final stats = controller.stats!;
-            return Column(
-              children: [
-                _buildStatusItem(
-                  context,
-                  'Activos',
-                  stats.active,
-                  stats.total,
-                  Colors.green,
-                  Icons.check_circle,
-                ),
-                const SizedBox(height: 16),
-                _buildStatusItem(
-                  context,
-                  'Inactivos',
-                  stats.inactive,
-                  stats.total,
-                  Colors.orange,
-                  Icons.pause_circle,
-                ),
-                const SizedBox(height: 16),
-                _buildStatusItem(
-                  context,
-                  'Suspendidos',
-                  stats.suspended,
-                  stats.total,
-                  Colors.red,
-                  Icons.block,
-                ),
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusItem(
-    BuildContext context,
-    String label,
-    int count,
-    int total,
-    Color color,
-    IconData icon,
-  ) {
-    final percentage = total > 0 ? (count / total * 100) : 0.0;
-    final gradient = _getGradientForColor(color);
-
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            gradient: gradient.scale(0.3),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: color.withValues(alpha: 0.3),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: ElegantLightTheme.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    '$count (${percentage.toStringAsFixed(1)}%)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: percentage / 100,
-                  backgroundColor:
-                      ElegantLightTheme.textTertiary.withValues(alpha: 0.1),
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                  minHeight: 6,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  LinearGradient _getGradientForColor(Color color) {
-    if (color == Colors.green || color == Colors.green.shade600) {
-      return ElegantLightTheme.successGradient;
-    } else if (color == Colors.orange || color == ElegantLightTheme.accentOrange) {
-      return ElegantLightTheme.warningGradient;
-    } else if (color == Colors.red || color == Colors.red.shade600) {
-      return ElegantLightTheme.errorGradient;
-    } else if (color == Colors.blue) {
-      return ElegantLightTheme.infoGradient;
-    } else if (color == Colors.purple) {
-      return ElegantLightTheme.primaryGradient;
-    } else if (color == Colors.teal) {
-      return ElegantLightTheme.successGradient;
-    } else {
-      return ElegantLightTheme.primaryGradient;
-    }
-  }
-
-  Widget _buildFinancialStatsCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-        ),
-        boxShadow: ElegantLightTheme.elevatedShadow,
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
+              // Sidebar Header
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.successGradient.scale(0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.attach_money,
-                  color: Colors.green.shade600,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  'Estadísticas Financieras',
-                  style: TextStyle(
-                    fontSize: Responsive.getFontSize(
-                      context,
-                      mobile: 16,
-                      tablet: 16,
-                      desktop: 20,
+                  gradient: ElegantLightTheme.primaryGradient,
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
-                    fontWeight: FontWeight.bold,
-                    color: ElegantLightTheme.textPrimary,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                  ],
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          Obx(() {
-            if (controller.stats == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final stats = controller.stats!;
-            return Column(
-              children: [
-                _buildFinancialItem(
-                  context,
-                  'Límite de Crédito Total',
-                  _formatCurrency(stats.totalCreditLimit),
-                  Icons.credit_card,
-                  Colors.blue,
-                ),
-                const SizedBox(height: 16),
-                _buildFinancialItem(
-                  context,
-                  'Balance Pendiente Total',
-                  _formatCurrency(stats.totalBalance),
-                  Icons.account_balance,
-                  Colors.purple,
-                ),
-                const SizedBox(height: 16),
-                _buildFinancialItem(
-                  context,
-                  'Promedio de Compra',
-                  _formatCurrency(stats.averagePurchaseAmount ?? 0.0),
-                  Icons.shopping_cart,
-                  Colors.teal,
-                ),
-                if ((stats.customersWithOverdue ?? 0) > 0) ...[
-                  const SizedBox(height: 16),
-                  _buildFinancialItem(
-                    context,
-                    'Clientes con Deuda Vencida',
-                    '${stats.customersWithOverdue}',
-                    Icons.warning,
-                    Colors.red,
-                  ),
-                ],
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFinancialItem(
-    BuildContext context,
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    final gradient = _getGradientForColor(color);
-
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            gradient: gradient.scale(0.3),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: color.withValues(alpha: 0.3),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: ElegantLightTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDocumentTypeStatsCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-        ),
-        boxShadow: ElegantLightTheme.elevatedShadow,
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.infoGradient.scale(0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.badge,
-                  color: ElegantLightTheme.primaryBlue,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Tipos de Documento',
-                style: TextStyle(
-                  fontSize: Responsive.getFontSize(
-                    context,
-                    mobile: 16,
-                    tablet: 18,
-                    desktop: 20,
-                  ),
-                  fontWeight: FontWeight.bold,
-                  color: ElegantLightTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          Obx(() {
-            if (controller.documentTypeStats.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            return Column(
-              children:
-                  controller.documentTypeStats.entries.map((entry) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildDocumentTypeItem(
-                        context,
-                        _getDocumentTypeLabel(entry.key),
-                        entry.value,
-                        controller.stats?.total ?? 0,
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.people_outline,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Analytics',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                'Dashboard de Clientes',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Period Selector
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
                       ),
-                    );
-                  }).toList(),
-            );
-          }),
+                      child: _buildDesktopPeriodSelector(context, ctrl),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Sidebar Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      _buildEnhancedSidebarKPIs(context, ctrl),
+                      const SizedBox(height: 14),
+                      _buildHealthCard(context, ctrl),
+                      const SizedBox(height: 14),
+                      _buildEnhancedQuickActionsCard(context, ctrl),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Main Content
+        Expanded(
+          child: Container(
+            color: ElegantLightTheme.backgroundColor,
+            child: Column(
+              children: [
+                // Top KPI Bar
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: _buildTopKPIBar(ctrl),
+                ),
+
+                // Main Content
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () => ctrl.refreshStats(),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          // Charts Row
+                          IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: _buildStatusDonutChart(context, ctrl),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildFinancialBarChart(context, ctrl),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Performance Analytics
+                          _buildPerformanceAnalytics(context, ctrl),
+
+                          const SizedBox(height: 16),
+
+                          // Financial Summary
+                          _buildFinancialSummaryCard(ctrl),
+
+                          const SizedBox(height: 16),
+
+                          // Top Customers
+                          _buildTopCustomersCard(context, ctrl),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==================== COMPACT WIDGETS ====================
+
+  Widget _buildTopKPIBar(CustomerStatsController ctrl) {
+    final stats = ctrl.stats;
+    if (stats == null) return const SizedBox.shrink();
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildTopKPIItem(
+            'Total Clientes',
+            stats.total.toString(),
+            Icons.people,
+            ElegantLightTheme.primaryBlue,
+          ),
+        ),
+        _buildVerticalDivider(),
+        Expanded(
+          child: _buildTopKPIItem(
+            'Activos',
+            stats.active.toString(),
+            Icons.check_circle,
+            const Color(0xFF10B981),
+          ),
+        ),
+        _buildVerticalDivider(),
+        Expanded(
+          child: _buildTopKPIItem(
+            'Tasa Activos',
+            '${(stats.total > 0 ? (stats.active / stats.total * 100) : 0).toStringAsFixed(1)}%',
+            Icons.trending_up,
+            stats.active / (stats.total > 0 ? stats.total : 1) >= 0.8
+                ? const Color(0xFF10B981)
+                : const Color(0xFFEF4444),
+          ),
+        ),
+        _buildVerticalDivider(),
+        Expanded(
+          child: _buildTopKPIItem(
+            'Crédito Total',
+            AppFormatters.formatCompactCurrency(stats.totalCreditLimit),
+            Icons.credit_card,
+            const Color(0xFFF59E0B),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVerticalDivider() {
+    return Container(
+      width: 1,
+      height: 40,
+      color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+    );
+  }
+
+  Widget _buildTopKPIItem(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: ElegantLightTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDocumentTypeItem(
-    BuildContext context,
-    String label,
-    int count,
-    int total,
-  ) {
-    final percentage = total > 0 ? (count / total * 100) : 0.0;
+  Widget _buildCompactKPIGrid(BuildContext context, CustomerStatsController ctrl) {
+    final stats = ctrl.stats;
+    if (stats == null) return const SizedBox.shrink();
 
+    return FuturisticContainer(
+      padding: EdgeInsets.zero,
+      child: GridView.count(
+        crossAxisCount: context.isMobile ? 2 : 4,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        childAspectRatio: context.isMobile ? 1.4 : 1.2,
+        mainAxisSpacing: 1,
+        crossAxisSpacing: 1,
+        children: [
+          _buildMiniKPI(
+            'Total',
+            stats.total,
+            Icons.people,
+            ElegantLightTheme.primaryBlue,
+          ),
+          _buildMiniKPI(
+            'Activos',
+            stats.active,
+            Icons.check_circle,
+            const Color(0xFF10B981),
+          ),
+          _buildMiniKPI(
+            'Inactivos',
+            stats.inactive,
+            Icons.pause_circle,
+            const Color(0xFFF59E0B),
+          ),
+          _buildMiniKPI(
+            'Suspendidos',
+            stats.suspended,
+            Icons.block,
+            const Color(0xFFEF4444),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniKPI(String label, int value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: ElegantLightTheme.glassGradient.scale(0.3),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        border: Border.all(color: ElegantLightTheme.textTertiary.withValues(alpha: 0.15)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.05),
+            color.withValues(alpha: 0.02),
+          ],
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: ElegantLightTheme.textSecondary,
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.primaryGradient.scale(0.3),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Text(
-              '$count (${percentage.toStringAsFixed(1)}%)',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: ElegantLightTheme.primaryBlue,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityStatsCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-        ),
-        boxShadow: ElegantLightTheme.elevatedShadow,
-      ),
-      padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.warningGradient.scale(0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.trending_up,
-                  color: ElegantLightTheme.accentOrange,
-                  size: 20,
-                ),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withValues(alpha: 0.2),
+                  color.withValues(alpha: 0.1),
+                ],
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Actividad Reciente',
-                style: TextStyle(
-                  fontSize: Responsive.getFontSize(
-                    context,
-                    mobile: 16,
-                    tablet: 18,
-                    desktop: 20,
-                  ),
-                  fontWeight: FontWeight.bold,
-                  color: ElegantLightTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          Obx(() {
-            return Column(
-              children: [
-                _buildActivityItem(
-                  context,
-                  'Clientes Registrados (${controller.currentPeriodLabel})',
-                  '${controller.newCustomersThisPeriod}',
-                  Icons.person_add,
-                  Colors.green,
-                ),
-                const SizedBox(height: 16),
-                _buildActivityItem(
-                  context,
-                  'Clientes Activos (${controller.currentPeriodLabel})',
-                  '${controller.activeCustomersThisPeriod}',
-                  Icons.check_circle,
-                  Colors.blue,
-                ),
-                const SizedBox(height: 16),
-                _buildActivityItem(
-                  context,
-                  'Promedio Diario',
-                  (controller.newCustomersThisPeriod /
-                          controller.daysInCurrentPeriod)
-                      .toStringAsFixed(1),
-                  Icons.timeline,
-                  Colors.orange,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
-            );
-          }),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 8),
+          TweenAnimationBuilder<int>(
+            tween: IntTween(begin: 0, end: value),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+            builder: (context, animatedValue, child) {
+              return Text(
+                animatedValue.toString(),
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  color: color,
+                ),
+              );
+            },
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: ElegantLightTheme.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildActivityItem(
-    BuildContext context,
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    final gradient = _getGradientForColor(color);
+  Widget _buildQuickStatsBar(BuildContext context, CustomerStatsController ctrl) {
+    final stats = ctrl.stats;
+    if (stats == null) return const SizedBox.shrink();
 
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            gradient: gradient.scale(0.3),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: color.withValues(alpha: 0.3),
+    return Obx(() => FuturisticContainer(
+      padding: const EdgeInsets.all(14),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          ElegantLightTheme.primaryBlue.withValues(alpha: ctrl.isPeriodLoading ? 0.12 : 0.08),
+          ElegantLightTheme.primaryBlue.withValues(alpha: ctrl.isPeriodLoading ? 0.06 : 0.03),
+        ],
+      ),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: ctrl.isPeriodLoading ? 0.6 : 1.0,
+        child: Row(
+          children: [
+            Expanded(
+              child: _buildQuickStat(
+                'Crédito',
+                AppFormatters.formatCompactCurrency(stats.totalCreditLimit),
+                const Color(0xFF10B981),
+                Icons.credit_card,
+              ),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
+            _buildQuickStatDivider(),
+            Expanded(
+              child: _buildQuickStat(
+                'Balance',
+                AppFormatters.formatCompactCurrency(stats.totalBalance),
+                const Color(0xFFF59E0B),
+                Icons.account_balance,
               ),
-            ],
-          ),
-          child: Icon(icon, color: color, size: 20),
+            ),
+            _buildQuickStatDivider(),
+            Expanded(
+              child: _buildQuickStat(
+                'Nuevos (${ctrl.currentPeriodLabel})',
+                ctrl.newCustomersThisPeriod.toString(),
+                ElegantLightTheme.primaryBlue,
+                Icons.person_add,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: ElegantLightTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
+      ),
+    ));
+  }
+
+  Widget _buildQuickStatDivider() {
+    return Container(
+      width: 1,
+      height: 32,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            ElegantLightTheme.textTertiary.withValues(alpha: 0.1),
+            ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+            ElegantLightTheme.textTertiary.withValues(alpha: 0.1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickStat(String label, String value, Color color, IconData icon) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color.withValues(alpha: 0.7)),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
                 value,
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
                   color: color,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: ElegantLightTheme.textSecondary,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildTopCustomersCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-        ),
-        boxShadow: ElegantLightTheme.elevatedShadow,
+  Widget _buildCompactChartsSection(BuildContext context, CustomerStatsController ctrl) {
+    return Column(
+      children: [
+        _buildStatusDonutChart(context, ctrl),
+        const SizedBox(height: 12),
+        _buildFinancialBarChart(context, ctrl),
+      ],
+    );
+  }
+
+  // ==================== CHARTS ====================
+
+  Widget _buildStatusDonutChart(BuildContext context, CustomerStatsController ctrl) {
+    final stats = ctrl.stats;
+    if (stats == null) return const SizedBox.shrink();
+
+    final segments = <ChartSegment>[];
+
+    if (stats.active > 0) {
+      segments.add(ChartSegment(
+        label: 'Activos',
+        value: stats.active.toDouble(),
+        color: const Color(0xFF10B981),
+        icon: Icons.check_circle,
+      ));
+    }
+
+    if (stats.inactive > 0) {
+      segments.add(ChartSegment(
+        label: 'Inactivos',
+        value: stats.inactive.toDouble(),
+        color: const Color(0xFFF59E0B),
+        icon: Icons.pause_circle,
+      ));
+    }
+
+    if (stats.suspended > 0) {
+      segments.add(ChartSegment(
+        label: 'Suspendidos',
+        value: stats.suspended.toDouble(),
+        color: const Color(0xFFEF4444),
+        icon: Icons.block,
+      ));
+    }
+
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.infoGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.pie_chart,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Estados de Clientes',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 220,
+            child: segments.isEmpty
+                ? Center(
+                    child: Text(
+                      'No hay datos disponibles',
+                      style: TextStyle(color: ElegantLightTheme.textSecondary),
+                    ),
+                  )
+                : Animated3DDonutChart(
+                    segments: segments,
+                    size: 160,
+                    showLegend: true,
+                    animationDuration: const Duration(milliseconds: 1200),
+                  ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildFinancialBarChart(BuildContext context, CustomerStatsController ctrl) {
+    final stats = ctrl.stats;
+    if (stats == null) return const SizedBox.shrink();
+
+    final creditLimit = stats.totalCreditLimit;
+    final balance = stats.totalBalance;
+    final available = creditLimit - balance;
+
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.successGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.bar_chart,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Análisis Financiero',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildAnimatedFinancialBars(creditLimit, balance, available),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnimatedFinancialBars(double creditLimit, double balance, double available) {
+    final maxValue = [creditLimit, balance, available].reduce((a, b) => a > b ? a : b);
+    final effectiveMax = maxValue > 0 ? maxValue : 100000.0;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: _buildAnimatedBarWithLabel(
+            label: 'Crédito',
+            value: creditLimit,
+            maxValue: effectiveMax,
+            color: ElegantLightTheme.primaryBlue,
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [
+                ElegantLightTheme.primaryBlue.withValues(alpha: 0.8),
+                ElegantLightTheme.primaryBlue,
+                ElegantLightTheme.primaryBlueLight,
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: _buildAnimatedBarWithLabel(
+            label: 'Usado',
+            value: balance,
+            maxValue: effectiveMax,
+            color: const Color(0xFFF59E0B),
+            gradient: const LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [Color(0xFFD97706), Color(0xFFF59E0B), Color(0xFFFBBF24)],
+            ),
+          ),
+        ),
+        Expanded(
+          child: _buildAnimatedBarWithLabel(
+            label: 'Disponible',
+            value: available,
+            maxValue: effectiveMax,
+            color: const Color(0xFF10B981),
+            gradient: const LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [Color(0xFF059669), Color(0xFF10B981), Color(0xFF34D399)],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnimatedBarWithLabel({
+    required String label,
+    required double value,
+    required double maxValue,
+    required Color color,
+    LinearGradient? gradient,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedVerticalBar(
+          label: '',
+          value: value,
+          maxValue: maxValue,
+          color: color,
+          gradient: gradient,
+          width: 50,
+          height: 130,
+          minFilledHeight: 50,
+          animationDuration: const Duration(milliseconds: 1400),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: ElegantLightTheme.textSecondary,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: value > 0
+                ? color.withValues(alpha: 0.12)
+                : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: value > 0
+                  ? color.withValues(alpha: 0.2)
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.15),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            AppFormatters.formatCompactCurrency(value),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: value > 0 ? color : ElegantLightTheme.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==================== PERFORMANCE & HEALTH ====================
+
+  Widget _buildPerformanceAnalytics(BuildContext context, CustomerStatsController ctrl) {
+    final stats = ctrl.stats;
+    if (stats == null) return const SizedBox.shrink();
+
+    final total = stats.total > 0 ? stats.total : 1;
+    final activePercent = stats.active / total * 100;
+    final inactivePercent = stats.inactive / total * 100;
+    final suspendedPercent = stats.suspended / total * 100;
+
+    return FuturisticContainer(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1045,83 +1000,753 @@ class CustomerStatsScreen extends GetView<CustomerStatsController> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.warningGradient.scale(0.3),
+                  gradient: ElegantLightTheme.primaryGradient,
                   borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: const Icon(
-                  Icons.star,
-                  color: ElegantLightTheme.accentOrange,
-                  size: 20,
+                  Icons.speed,
+                  size: 18,
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(width: 12),
               Text(
-                'Top Clientes',
+                'Análisis de Rendimiento',
                 style: TextStyle(
-                  fontSize: Responsive.getFontSize(
-                    context,
-                    mobile: 16,
-                    tablet: 18,
-                    desktop: 20,
-                  ),
                   fontWeight: FontWeight.bold,
+                  fontSize: 16,
                   color: ElegantLightTheme.textPrimary,
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPerformanceCard(
+                  'Clientes Activos',
+                  activePercent,
+                  '%',
+                  80,
+                  Icons.check_circle,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildPerformanceCard(
+                  'Clientes Inactivos',
+                  inactivePercent,
+                  '%',
+                  15,
+                  Icons.pause_circle,
+                  isInverted: true,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildPerformanceCard(
+                  'Suspendidos',
+                  suspendedPercent,
+                  '%',
+                  5,
+                  Icons.block,
+                  isInverted: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-          Obx(() {
-            if (controller.topCustomers.isEmpty) {
-              return Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.people_outline,
-                      size: 48,
-                      color: ElegantLightTheme.textTertiary,
+  Widget _buildPerformanceCard(
+    String title,
+    double value,
+    String unit,
+    double target,
+    IconData icon, {
+    bool isInverted = false,
+  }) {
+    final isGood = isInverted ? value <= target : value >= target;
+    final color = isGood ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.1),
+            color.withValues(alpha: 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withValues(alpha: 0.25),
+                  color.withValues(alpha: 0.15),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(height: 10),
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: value),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+            builder: (context, animatedValue, child) {
+              return Text(
+                '${animatedValue.toStringAsFixed(1)}$unit',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 22,
+                  color: color,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: ElegantLightTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              'Meta: ${isInverted ? "≤" : "≥"} ${target.toInt()}$unit',
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHealthCard(BuildContext context, CustomerStatsController ctrl) {
+    final stats = ctrl.stats;
+    if (stats == null) return const SizedBox.shrink();
+
+    final total = stats.total > 0 ? stats.total : 1;
+    final activeRate = stats.active / total * 100;
+    final suspendedRate = stats.suspended / total * 100;
+
+    final isHealthy = activeRate >= 80 && suspendedRate <= 5;
+    final hasIssues = activeRate < 60 || suspendedRate > 15;
+
+    final healthColor = isHealthy
+        ? Colors.green
+        : hasIssues
+            ? Colors.red
+            : Colors.orange;
+
+    final healthIcon = isHealthy
+        ? Icons.check_circle
+        : hasIssues
+            ? Icons.error
+            : Icons.warning_amber;
+
+    final healthMessage = isHealthy
+        ? 'Cartera de clientes saludable'
+        : hasIssues
+            ? 'Requiere atención urgente'
+            : 'Estado aceptable';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            healthColor.withValues(alpha: 0.12),
+            healthColor.withValues(alpha: 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: healthColor.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: healthColor.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      healthColor.withValues(alpha: 0.3),
+                      healthColor.withValues(alpha: 0.15),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: healthColor.withValues(alpha: 0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'No hay clientes disponibles',
+                  ],
+                ),
+                child: Icon(
+                  healthIcon,
+                  color: healthColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Salud de Cartera',
                       style: TextStyle(
-                        color: ElegantLightTheme.textSecondary,
                         fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: ElegantLightTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      healthMessage,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: healthColor,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
-              );
-            }
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildProgressIndicator(
+            'Tasa de Clientes Activos',
+            activeRate,
+            100,
+            '%',
+          ),
+        ],
+      ),
+    );
+  }
 
-            return Column(
-              children:
-                  controller.topCustomers.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final customer = entry.value;
+  Widget _buildProgressIndicator(String label, double value, double target, String unit) {
+    final progress = (value / target).clamp(0.0, 1.0);
+    final isGood = value >= 80;
+    final color = isGood ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
-                    final name =
-                        customer['name'] as String? ?? 'Cliente sin nombre';
-                    final totalPurchases =
-                        (customer['totalPurchases'] as num?)?.toDouble() ?? 0.0;
-                    final totalOrders =
-                        (customer['totalOrders'] as num?)?.toInt() ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: ElegantLightTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${value.toStringAsFixed(1)}$unit',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _buildAnimatedProgressBar(progress, color),
+      ],
+    );
+  }
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildTopCustomerItem(
-                        context,
-                        index + 1,
-                        name,
-                        totalPurchases,
-                        totalOrders,
+  Widget _buildAnimatedProgressBar(double percentage, Color color) {
+    return Container(
+      height: 8,
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.textSecondary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0.0, end: percentage.clamp(0.0, 1.0)),
+        duration: const Duration(milliseconds: 1200),
+        curve: Curves.easeOutExpo,
+        builder: (context, animatedValue, child) {
+          return Row(
+            children: [
+              if (animatedValue > 0)
+                Flexible(
+                  flex: (animatedValue * 100).round().clamp(1, 100),
+                  child: Container(
+                    height: 6,
+                    margin: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          color.withValues(alpha: 0.85),
+                          color,
+                          color.withValues(alpha: 0.9),
+                        ],
                       ),
-                    );
-                  }).toList(),
-            );
-          }),
+                      borderRadius: BorderRadius.circular(3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.4),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (animatedValue < 1.0)
+                Flexible(
+                  flex: ((1.0 - animatedValue) * 100).round().clamp(1, 100),
+                  child: Container(),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ==================== FINANCIAL & TOP CUSTOMERS ====================
+
+  Widget _buildFinancialSummaryCard(CustomerStatsController ctrl) {
+    final stats = ctrl.stats;
+    if (stats == null) return const SizedBox.shrink();
+
+    final creditLimit = stats.totalCreditLimit;
+    final balance = stats.totalBalance;
+    final available = creditLimit - balance;
+
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Resumen de Crédito',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Total: ${AppFormatters.formatCurrency(creditLimit)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildSalesProgressBar('Límite Total', creditLimit, creditLimit, ElegantLightTheme.primaryBlue),
+          const SizedBox(height: 12),
+          _buildSalesProgressBar('Utilizado', balance, creditLimit, const Color(0xFFF59E0B)),
+          const SizedBox(height: 12),
+          _buildSalesProgressBar('Disponible', available, creditLimit, const Color(0xFF10B981)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSalesProgressBar(String label, double value, double total, Color color) {
+    final percentage = total > 0 ? (value / total * 100) : 0.0;
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [color, color.withValues(alpha: 0.7)],
+                    ),
+                    borderRadius: BorderRadius.circular(3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Text(
+                  AppFormatters.formatCurrency(value),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${percentage.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        _buildAnimatedProgressBar(percentage / 100, color),
+      ],
+    );
+  }
+
+  Widget _buildActivityStatsCard(CustomerStatsController ctrl) {
+    return Obx(() => FuturisticContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.warningGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: ctrl.isPeriodLoading
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: ctrl.isPeriodLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.trending_up,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        'Actividad ${ctrl.currentPeriodLabel}',
+                        key: ValueKey('activity_${ctrl.currentPeriod}'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: ElegantLightTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      ctrl.periodDateRange,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: ElegantLightTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: ctrl.isPeriodLoading ? 0.5 : 1.0,
+            child: Column(
+              children: [
+                _buildActivityItem(
+                  'Nuevos Clientes',
+                  ctrl.newCustomersThisPeriod.toString(),
+                  Icons.person_add,
+                  const Color(0xFF10B981),
+                ),
+                const SizedBox(height: 12),
+                _buildActivityItem(
+                  'Clientes Activos',
+                  ctrl.activeCustomersThisPeriod.toString(),
+                  Icons.check_circle,
+                  ElegantLightTheme.primaryBlue,
+                ),
+                const SizedBox(height: 12),
+                _buildActivityItem(
+                  'Promedio Diario',
+                  ctrl.daysInCurrentPeriod > 0
+                      ? (ctrl.newCustomersThisPeriod / ctrl.daysInCurrentPeriod).toStringAsFixed(1)
+                      : '0.0',
+                  Icons.timeline,
+                  const Color(0xFFF59E0B),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ));
+  }
+
+  Widget _buildActivityItem(String label, String value, IconData icon, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: ElegantLightTheme.textSecondary,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopCustomersCard(BuildContext context, CustomerStatsController ctrl) {
+    return FuturisticContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.warningGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.star,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Top Clientes',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (ctrl.topCustomers.isEmpty)
+            Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 48,
+                    color: ElegantLightTheme.textTertiary,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No hay clientes disponibles',
+                    style: TextStyle(
+                      color: ElegantLightTheme.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...ctrl.topCustomers.asMap().entries.map((entry) {
+              final index = entry.key;
+              final customer = entry.value;
+
+              final name = customer['name'] as String? ?? 'Cliente sin nombre';
+              final totalPurchases = (customer['totalPurchases'] as num?)?.toDouble() ?? 0.0;
+              final totalOrders = (customer['totalOrders'] as num?)?.toInt() ?? 0;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildTopCustomerItem(
+                  context,
+                  index + 1,
+                  name,
+                  totalPurchases,
+                  totalOrders,
+                ),
+              );
+            }),
         ],
       ),
     );
@@ -1145,14 +1770,16 @@ class CustomerStatsScreen extends GetView<CustomerStatsController> {
         positionGradient = ElegantLightTheme.warningGradient;
         break;
       case 2:
-        positionColor = Colors.grey;
+        positionColor = Colors.grey.shade400;
         positionIcon = Icons.looks_two;
         positionGradient = ElegantLightTheme.glassGradient;
         break;
       case 3:
-        positionColor = Colors.brown;
+        positionColor = Colors.brown.shade400;
         positionIcon = Icons.looks_3;
-        positionGradient = ElegantLightTheme.errorGradient.scale(0.5);
+        positionGradient = LinearGradient(
+          colors: [Colors.brown.shade300, Colors.brown.shade500],
+        );
         break;
       default:
         positionColor = ElegantLightTheme.primaryBlue;
@@ -1163,16 +1790,16 @@ class CustomerStatsScreen extends GetView<CustomerStatsController> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: positionGradient.scale(0.2),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            positionColor.withValues(alpha: 0.08),
+            positionColor.withValues(alpha: 0.03),
+          ],
+        ),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: positionColor.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: positionColor.withValues(alpha: 0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: positionColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -1189,7 +1816,7 @@ class CustomerStatsScreen extends GetView<CustomerStatsController> {
                 ),
               ],
             ),
-            child: Icon(positionIcon, color: Colors.white, size: 18),
+            child: Icon(positionIcon, color: Colors.white, size: 16),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1198,29 +1825,23 @@ class CustomerStatsScreen extends GetView<CustomerStatsController> {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    fontSize: 14,
+                  style: TextStyle(
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: ElegantLightTheme.textPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
                 Text(
                   totalPurchases > 0
-                      ? '${_formatCurrency(totalPurchases)} • $totalOrders órdenes'
+                      ? '${AppFormatters.formatCompactCurrency(totalPurchases)} • $totalOrders órdenes'
                       : 'Sin compras registradas',
                   style: TextStyle(
-                    fontSize: 12,
-                    color:
-                        totalPurchases > 0
-                            ? ElegantLightTheme.textSecondary
-                            : ElegantLightTheme.accentOrange,
-                    fontStyle:
-                        totalPurchases > 0
-                            ? FontStyle.normal
-                            : FontStyle.italic,
+                    fontSize: 11,
+                    color: totalPurchases > 0
+                        ? ElegantLightTheme.textSecondary
+                        : const Color(0xFFF59E0B),
                   ),
                 ),
               ],
@@ -1231,143 +1852,137 @@ class CustomerStatsScreen extends GetView<CustomerStatsController> {
     );
   }
 
-  Widget _buildQuickActionsCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+  // ==================== SIDEBAR COMPONENTS ====================
+
+  Widget _buildEnhancedSidebarKPIs(BuildContext context, CustomerStatsController ctrl) {
+    final stats = ctrl.stats;
+    if (stats == null) return const SizedBox.shrink();
+
+    final total = stats.total > 0 ? stats.total : 1;
+    final activePercent = stats.active / total * 100;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.infoGradient,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(
+                Icons.insights,
+                size: 14,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'KPIs Principales',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: ElegantLightTheme.textPrimary,
+              ),
+            ),
+          ],
         ),
-        boxShadow: ElegantLightTheme.elevatedShadow,
+        const SizedBox(height: 14),
+        _buildEnhancedKPICard(
+          'Total Clientes',
+          stats.total.toString(),
+          Icons.people,
+          ElegantLightTheme.primaryBlue,
+        ),
+        const SizedBox(height: 10),
+        _buildEnhancedKPICard(
+          'Clientes Activos',
+          '${stats.active} (${activePercent.toStringAsFixed(1)}%)',
+          Icons.check_circle,
+          const Color(0xFF10B981),
+        ),
+        const SizedBox(height: 10),
+        _buildEnhancedKPICard(
+          'Crédito Total',
+          AppFormatters.formatCompactCurrency(stats.totalCreditLimit),
+          Icons.credit_card,
+          const Color(0xFFF59E0B),
+        ),
+        const SizedBox(height: 10),
+        _buildEnhancedKPICard(
+          'Balance Pendiente',
+          AppFormatters.formatCompactCurrency(stats.totalBalance),
+          Icons.account_balance,
+          const Color(0xFFEF4444),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEnhancedKPICard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.1),
+            color.withValues(alpha: 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text(
-            'Acciones Rápidas',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: ElegantLightTheme.textPrimary,
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withValues(alpha: 0.25),
+                  color.withValues(alpha: 0.15),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(10),
             ),
+            child: Icon(icon, color: color, size: 18),
           ),
-
-          const SizedBox(height: 16),
-
-          // Botón Ver Todos los Clientes
-          SizedBox(
-            width: double.infinity,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: controller.goToCustomersList,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.successGradient,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: ElegantLightTheme.elevatedShadow,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.people, size: 20, color: Colors.white),
-                      SizedBox(width: 8),
-                      Text(
-                        'Ver Todos los Clientes',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: ElegantLightTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Botón Nuevo Cliente
-          SizedBox(
-            width: double.infinity,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: controller.goToCreateCustomer,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: ElegantLightTheme.primaryBlue,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.person_add, size: 20, color: ElegantLightTheme.primaryBlue),
-                      SizedBox(width: 8),
-                      Text(
-                        'Nuevo Cliente',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: ElegantLightTheme.primaryBlue,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: color,
                   ),
                 ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Botón Exportar Reporte
-          SizedBox(
-            width: double.infinity,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _showExportDialog(context),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: ElegantLightTheme.primaryBlue,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.download, size: 20, color: ElegantLightTheme.primaryBlue),
-                      SizedBox(width: 8),
-                      Text(
-                        'Exportar Reporte',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: ElegantLightTheme.primaryBlue,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              ],
             ),
           ),
         ],
@@ -1375,472 +1990,511 @@ class CustomerStatsScreen extends GetView<CustomerStatsController> {
     );
   }
 
-  Widget? _buildFloatingActionButton(BuildContext context) {
-    if (context.isMobile) {
-      return FloatingActionButton(
-        onPressed: controller.refreshStats,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: ElegantLightTheme.glowShadow,
+  Widget _buildEnhancedQuickActionsCard(BuildContext context, CustomerStatsController ctrl) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ElegantLightTheme.textTertiary.withValues(alpha: 0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          child: const Icon(Icons.refresh, color: Colors.white, size: 24),
-        ),
-      );
-    }
-    return null;
-  }
-
-  // ==================== ACTION METHODS ====================
-
-  void _handleMenuAction(String action, BuildContext context) {
-    switch (action) {
-      case 'export':
-        _showExportDialog(context);
-        break;
-      case 'share':
-        _showShareDialog(context);
-        break;
-      case 'print':
-        _showPrintDialog(context);
-        break;
-    }
-  }
-
-  void _showPeriodSelector(BuildContext context) {
-    Get.bottomSheet(
-      SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.cardGradient,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: ElegantLightTheme.elevatedShadow,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              // Handle
               Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.flash_on,
+                  size: 14,
+                  color: Colors.white,
                 ),
               ),
+              const SizedBox(width: 10),
+              Text(
+                'Acciones Rápidas',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _buildQuickActionButton(
+            label: 'Nuevo Cliente',
+            icon: Icons.person_add,
+            color: ElegantLightTheme.primaryBlue,
+            onTap: () => ctrl.goToCreateCustomer(),
+            isPrimary: true,
+          ),
+          const SizedBox(height: 8),
+          _buildQuickActionButton(
+            label: 'Ver Todos',
+            icon: Icons.people_outline,
+            color: ElegantLightTheme.textSecondary,
+            onTap: () => ctrl.goToCustomersList(),
+          ),
+        ],
+      ),
+    );
+  }
 
-              // Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.primaryGradient.scale(0.3),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.calendar_today,
-                        size: 18,
-                        color: ElegantLightTheme.primaryBlue,
-                      ),
+  Widget _buildQuickActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    bool isPrimary = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        splashColor: color.withValues(alpha: 0.1),
+        highlightColor: color.withValues(alpha: 0.05),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+          decoration: BoxDecoration(
+            gradient: isPrimary ? ElegantLightTheme.primaryGradient : null,
+            color: isPrimary ? null : color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: isPrimary ? null : Border.all(color: color.withValues(alpha: 0.15)),
+            boxShadow: isPrimary
+                ? [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Seleccionar Período',
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: isPrimary
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  icon,
+                  color: isPrimary ? Colors.white : color,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isPrimary ? Colors.white : color,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: isPrimary
+                    ? Colors.white.withValues(alpha: 0.8)
+                    : color.withValues(alpha: 0.6),
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== PERIOD SELECTOR ====================
+
+  Widget _buildElegantPeriodSelector(BuildContext context, CustomerStatsController ctrl) {
+    return Obx(() => Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ctrl.isPeriodLoading
+              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+              : ElegantLightTheme.primaryBlue.withValues(alpha: 0.12),
+          width: ctrl.isPeriodLoading ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: ctrl.isPeriodLoading ? 0.15 : 0.06),
+            blurRadius: ctrl.isPeriodLoading ? 20 : 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: ctrl.isPeriodLoading
+                      ? [
+                          BoxShadow(
+                            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: ctrl.isPeriodLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.calendar_month,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Período de Análisis',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                         color: ElegantLightTheme.textPrimary,
+                      ),
+                    ),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        ctrl.isPeriodLoading
+                            ? 'Actualizando datos...'
+                            : '${ctrl.currentPeriodLabel} • ${ctrl.periodDateRange}',
+                        key: ValueKey('${ctrl.currentPeriod}_${ctrl.isPeriodLoading}'),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: ctrl.isPeriodLoading
+                              ? ElegantLightTheme.primaryBlue
+                              : ElegantLightTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              // Options - Wrapped in Flexible to prevent overflow
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
+              // Indicador de carga pequeño
+              if (ctrl.isPeriodLoading)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: controller.availablePeriods.map((period) {
-                      return ListTile(
-                        title: Text(
-                          period['label'] as String,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: ElegantLightTheme.textPrimary,
-                          ),
-                        ),
-                        trailing: Obx(() {
-                          final isSelected = controller.currentPeriod == period['value'];
-                          return isSelected
-                              ? Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    gradient: ElegantLightTheme.successGradient,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                )
-                              : const SizedBox.shrink();
-                        }),
-                        onTap: () {
-                          controller.changePeriod(period['value'] as String);
-                          Get.back();
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showExportDialog(BuildContext context) {
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.cardGradient,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-            ),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.successGradient.scale(0.3),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.download,
-                      color: Colors.green.shade600,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Exportar Reporte',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: ElegantLightTheme.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Selecciona el formato de exportación:',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: ElegantLightTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Funcionalidad pendiente de implementar',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: ElegantLightTheme.textTertiary,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => Get.back(),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cancelar',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: ElegantLightTheme.textSecondary,
+                    children: [
+                      SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            ElegantLightTheme.primaryBlue,
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        Get.back();
-                        controller.exportToCsv();
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                        decoration: BoxDecoration(
-                          gradient: ElegantLightTheme.successGradient,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: ElegantLightTheme.elevatedShadow,
-                        ),
-                        child: const Text(
-                          'Exportar',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showShareDialog(BuildContext context) {
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.cardGradient,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
-            ),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.infoGradient.scale(0.3),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.share,
-                      color: ElegantLightTheme.primaryBlue,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Compartir Estadísticas',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: ElegantLightTheme.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Funcionalidad pendiente de implementar',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: ElegantLightTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => Get.back(),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.primaryGradient,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: ElegantLightTheme.elevatedShadow,
-                      ),
-                      child: const Text(
-                        'Cerrar',
+                      const SizedBox(width: 6),
+                      Text(
+                        'Cargando',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 10,
+                          color: ElegantLightTheme.primaryBlue,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
-              ),
             ],
           ),
-        ),
+          const SizedBox(height: 12),
+          // Primera fila de períodos
+          Row(
+            children: ctrl.availablePeriods.take(3).map((period) {
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: _buildPeriodButton(ctrl, period),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 8),
+          // Segunda fila de períodos
+          Row(
+            children: ctrl.availablePeriods.skip(3).map((period) {
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: _buildPeriodButton(ctrl, period),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
-    );
+    ));
   }
 
-  void _showPrintDialog(BuildContext context) {
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Container(
+  Widget _buildPeriodButton(CustomerStatsController ctrl, Map<String, dynamic> period) {
+    return Obx(() {
+      final isSelected = ctrl.currentPeriod == period['value'];
+      final isLoading = ctrl.isPeriodLoading;
+      final label = period['label'] as String;
+
+      return GestureDetector(
+        onTap: isLoading ? null : () => ctrl.changePeriod(period['value'] as String),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
-            gradient: ElegantLightTheme.cardGradient,
-            borderRadius: BorderRadius.circular(16),
+            gradient: isSelected ? ElegantLightTheme.primaryGradient : null,
+            color: isSelected
+                ? null
+                : isLoading
+                    ? ElegantLightTheme.backgroundColor.withValues(alpha: 0.5)
+                    : ElegantLightTheme.backgroundColor,
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+              color: isSelected
+                  ? Colors.transparent
+                  : ElegantLightTheme.textTertiary.withValues(alpha: isLoading ? 0.1 : 0.2),
+              width: 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
+          ),
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected
+                  ? Colors.white
+                  : isLoading
+                      ? ElegantLightTheme.textTertiary
+                      : ElegantLightTheme.textSecondary,
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.primaryGradient.scale(0.3),
-                      borderRadius: BorderRadius.circular(10),
+        ),
+      );
+    });
+  }
+
+  Widget _buildDesktopPeriodSelector(BuildContext context, CustomerStatsController ctrl) {
+    return Obx(() => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            ctrl.isPeriodLoading
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
-                    child: const Icon(
-                      Icons.print,
-                      color: ElegantLightTheme.primaryBlue,
-                      size: 24,
-                    ),
+                  )
+                : const Icon(
+                    Icons.calendar_month,
+                    size: 14,
+                    color: Colors.white,
                   ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Imprimir Reporte',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: ElegantLightTheme.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Funcionalidad pendiente de implementar',
+            const SizedBox(width: 6),
+            const Expanded(
+              child: Text(
+                'Período de Análisis',
                 style: TextStyle(
-                  fontSize: 14,
-                  color: ElegantLightTheme.textSecondary,
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 24),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => Get.back(),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.primaryGradient,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: ElegantLightTheme.elevatedShadow,
-                      ),
-                      child: const Text(
-                        'Cerrar',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: ctrl.isPeriodLoading
+                ? Colors.white.withValues(alpha: 0.25)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+            border: ctrl.isPeriodLoading
+                ? Border.all(color: Colors.white.withValues(alpha: 0.3))
+                : null,
+          ),
+          child: Column(
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  ctrl.isPeriodLoading ? 'Actualizando...' : ctrl.currentPeriodLabel,
+                  key: ValueKey('desktop_${ctrl.currentPeriod}_${ctrl.isPeriodLoading}'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
+              if (!ctrl.isPeriodLoading) ...[
+                const SizedBox(height: 2),
+                Text(
+                  ctrl.periodDateRange,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
           ),
         ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: ctrl.availablePeriods.map((period) {
+            return _buildDesktopPeriodButton(ctrl, period);
+          }).toList(),
+        ),
+      ],
+    ));
+  }
+
+  Widget _buildDesktopPeriodButton(CustomerStatsController ctrl, Map<String, dynamic> period) {
+    return Obx(() {
+      final isSelected = ctrl.currentPeriod == period['value'];
+      final isLoading = ctrl.isPeriodLoading;
+      final label = period['label'] as String;
+
+      return GestureDetector(
+        onTap: isLoading ? null : () => ctrl.changePeriod(period['value'] as String),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? Colors.white
+                : Colors.white.withValues(alpha: isLoading ? 0.05 : 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: isLoading ? 0.15 : 0.25),
+              width: 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.25),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected
+                  ? ElegantLightTheme.primaryBlue
+                  : Colors.white.withValues(alpha: isLoading ? 0.5 : 1.0),
+            ),
+            child: Text(label),
+          ),
+        ),
+      );
+    });
+  }
+
+  // ==================== FAB ====================
+
+  Widget? _buildCompactFAB(BuildContext context) {
+    if (!context.isMobile) return null;
+
+    return FloatingActionButton(
+      onPressed: () => controller.goToCreateCustomer(),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: ElegantLightTheme.glowShadow,
+        ),
+        child: const Icon(Icons.person_add, color: Colors.white),
       ),
     );
-  }
-
-  // ==================== HELPER METHODS ====================
-
-  String _formatCurrency(double amount) {
-    // Formateo en pesos colombianos
-    if (amount >= 1000000000) {
-      return '\$${(amount / 1000000000).toStringAsFixed(1)}B';
-    } else if (amount >= 1000000) {
-      return '\$${(amount / 1000000).toStringAsFixed(1)}M';
-    } else if (amount >= 1000) {
-      return '\$${(amount / 1000).toStringAsFixed(0)}K';
-    } else {
-      return '\$${amount.toStringAsFixed(0)}';
-    }
-  }
-
-  String _getDocumentTypeLabel(String type) {
-    switch (type) {
-      case 'cc':
-        return 'Cédula de Ciudadanía';
-      case 'nit':
-        return 'NIT';
-      case 'ce':
-        return 'Cédula de Extranjería';
-      case 'passport':
-        return 'Pasaporte';
-      case 'other':
-        return 'Otro';
-      default:
-        return type;
-    }
   }
 }

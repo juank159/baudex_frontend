@@ -6,8 +6,7 @@ import '../../domain/usecases/get_expense_categories_usecase.dart';
 import '../../domain/usecases/create_expense_category_usecase.dart';
 import '../../domain/usecases/update_expense_category_usecase.dart';
 import '../../domain/usecases/delete_expense_category_usecase.dart';
-import '../../../../app/core/errors/failures.dart';
-import 'package:dartz/dartz.dart';
+import '../../../../app/core/utils/formatters.dart';
 
 class ExpenseCategoriesController extends GetxController {
   // Dependencies
@@ -38,26 +37,30 @@ class ExpenseCategoriesController extends GetxController {
 
   // Getters
   bool get isLoading => _isLoading.value;
-  bool get isCreating => _isCreating.value;  
+  bool get isCreating => _isCreating.value;
   bool get isUpdating => _isUpdating.value;
   bool get isDeleting => _isDeleting.value;
-  
+
   @override
   void onInit() {
     super.onInit();
     loadCategories();
-    
+
     // Listen to search query changes
-    debounce(searchQuery, (_) => _filterCategories(), time: const Duration(milliseconds: 300));
+    debounce(
+      searchQuery,
+      (_) => _filterCategories(),
+      time: const Duration(milliseconds: 300),
+    );
   }
 
-  // Load all categories
-  Future<void> loadCategories() async {
+  // Load all categories with statistics
+  Future<void> loadCategories({bool withStats = true}) async {
     _isLoading.value = true;
 
     try {
       final result = await _getExpenseCategoriesUseCase(
-        GetExpenseCategoriesParams(limit: 100),
+        GetExpenseCategoriesParams(limit: 100, withStats: withStats),
       );
 
       result.fold(
@@ -188,14 +191,12 @@ class ExpenseCategoriesController extends GetxController {
 
   // Toggle category status
   Future<void> toggleCategoryStatus(ExpenseCategory category) async {
-    final newStatus = category.status == ExpenseCategoryStatus.active 
-        ? ExpenseCategoryStatus.inactive 
-        : ExpenseCategoryStatus.active;
+    final newStatus =
+        category.status == ExpenseCategoryStatus.active
+            ? ExpenseCategoryStatus.inactive
+            : ExpenseCategoryStatus.active;
 
-    await updateCategory(
-      id: category.id,
-      status: newStatus,
-    );
+    await updateCategory(id: category.id, status: newStatus);
   }
 
   // Search functionality
@@ -207,11 +208,13 @@ class ExpenseCategoriesController extends GetxController {
     if (searchQuery.value.isEmpty) {
       filteredCategories.value = categories.toList();
     } else {
-      filteredCategories.value = categories.where((category) {
-        final searchLower = searchQuery.value.toLowerCase();
-        return category.name.toLowerCase().contains(searchLower) ||
-               (category.description?.toLowerCase().contains(searchLower) ?? false);
-      }).toList();
+      filteredCategories.value =
+          categories.where((category) {
+            final searchLower = searchQuery.value.toLowerCase();
+            return category.name.toLowerCase().contains(searchLower) ||
+                (category.description?.toLowerCase().contains(searchLower) ??
+                    false);
+          }).toList();
     }
   }
 
@@ -254,5 +257,7 @@ class ExpenseCategoriesController extends GetxController {
   int get totalCategories => categories.length;
   int get activeCategories => categories.where((cat) => cat.isActive).length;
   int get inactiveCategories => categories.where((cat) => !cat.isActive).length;
-  double get totalBudget => categories.fold(0.0, (sum, cat) => sum + cat.monthlyBudget);
+  double get totalBudget =>
+      categories.fold(0.0, (sum, cat) => sum + cat.monthlyBudget);
+  String get formattedTotalBudget => AppFormatters.formatCurrency(totalBudget);
 }

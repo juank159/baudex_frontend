@@ -12,9 +12,10 @@ class TransferSummarySection extends GetView<CreateTransferController> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final hasValidData = controller.transferItems.isNotEmpty &&
-                          controller.selectedFromWarehouseId.value.isNotEmpty &&
-                          controller.selectedToWarehouseId.value.isNotEmpty;
+      final hasValidData =
+          controller.transferItems.isNotEmpty &&
+          controller.selectedFromWarehouseId.value.isNotEmpty &&
+          controller.selectedToWarehouseId.value.isNotEmpty;
 
       if (!hasValidData) {
         return _buildEmptyState();
@@ -38,7 +39,10 @@ class TransferSummarySection extends GetView<CreateTransferController> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.grey.shade100, Colors.grey.shade200.withValues(alpha: 0.5)],
+          colors: [
+            Colors.grey.shade100,
+            Colors.grey.shade200.withValues(alpha: 0.5),
+          ],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
@@ -46,11 +50,7 @@ class TransferSummarySection extends GetView<CreateTransferController> {
       child: Center(
         child: Column(
           children: [
-            Icon(
-              Icons.preview,
-              size: 48,
-              color: Colors.grey.shade400,
-            ),
+            Icon(Icons.preview, size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 12),
             Text(
               'Vista Previa',
@@ -110,7 +110,7 @@ class TransferSummarySection extends GetView<CreateTransferController> {
               ],
             ),
           ),
-          
+
           // Content
           Padding(
             padding: const EdgeInsets.all(16),
@@ -138,7 +138,10 @@ class TransferSummarySection extends GetView<CreateTransferController> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade50, Colors.blue.shade100.withValues(alpha: 0.3)],
+          colors: [
+            Colors.blue.shade50,
+            Colors.blue.shade100.withValues(alpha: 0.3),
+          ],
         ),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.blue.shade200),
@@ -185,35 +188,37 @@ class TransferSummarySection extends GetView<CreateTransferController> {
               ),
             ],
           ),
-          
+
           if (controller.transferItems.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Divider(height: 1),
             const SizedBox(height: 8),
-            ...controller.transferItems.map((item) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      item.product.name,
-                      style: Get.textTheme.bodySmall?.copyWith(
-                        color: Colors.blue.shade700,
+            ...controller.transferItems.map(
+              (item) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.product.name,
+                        style: Get.textTheme.bodySmall?.copyWith(
+                          color: Colors.blue.shade700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Text(
-                    'x${item.quantity}',
-                    style: Get.textTheme.bodySmall?.copyWith(
-                      color: Colors.blue.shade800,
-                      fontWeight: FontWeight.w600,
+                    Text(
+                      'x${item.quantity}',
+                      style: Get.textTheme.bodySmall?.copyWith(
+                        color: Colors.blue.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            )).toList(),
+            ),
           ],
         ],
       ),
@@ -232,7 +237,7 @@ class TransferSummarySection extends GetView<CreateTransferController> {
             color: Colors.orange,
           ),
         ),
-        
+
         // Arrow
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -249,7 +254,7 @@ class TransferSummarySection extends GetView<CreateTransferController> {
             ),
           ),
         ),
-        
+
         // To warehouse
         Expanded(
           child: _buildWarehouseInfo(
@@ -270,7 +275,7 @@ class TransferSummarySection extends GetView<CreateTransferController> {
     required MaterialColor color,
   }) {
     final warehouseName = controller.getWarehouseName(warehouseId);
-    
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -313,13 +318,19 @@ class TransferSummarySection extends GetView<CreateTransferController> {
   }
 
   Widget _buildQuantitySummary() {
-    final totalQuantity = controller.transferItems.fold<int>(0, (sum, item) => sum + item.quantity);
-    
+    final totalQuantity = controller.transferItems.fold<int>(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.purple.shade50, Colors.purple.shade100.withValues(alpha: 0.3)],
+          colors: [
+            Colors.purple.shade50,
+            Colors.purple.shade100.withValues(alpha: 0.3),
+          ],
         ),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.purple.shade200),
@@ -370,7 +381,10 @@ class TransferSummarySection extends GetView<CreateTransferController> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.amber.shade50, Colors.amber.shade100.withValues(alpha: 0.3)],
+          colors: [
+            Colors.amber.shade50,
+            Colors.amber.shade100.withValues(alpha: 0.3),
+          ],
         ),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.amber.shade200),
@@ -408,20 +422,24 @@ class TransferSummarySection extends GetView<CreateTransferController> {
   Widget _buildValidationStatus() {
     return Obx(() {
       final isValid = controller.isFormValid.value;
-      final hasStockError = controller.quantityError.value.contains('Stock insuficiente');
-      
+      final hasStockError = controller.quantityError.value.contains(
+        'Stock insuficiente',
+      );
+
       if (isValid) {
         return _buildStatusCard(
           icon: Icons.check_circle,
           title: 'Transferencia lista',
-          message: 'Todos los datos son válidos. Puedes proceder con la transferencia.',
+          message:
+              'Todos los datos son válidos. Puedes proceder con la transferencia.',
           color: Colors.green,
         );
       } else if (hasStockError) {
         return _buildStatusCard(
           icon: Icons.warning,
           title: 'Stock insuficiente',
-          message: 'La cantidad solicitada excede el stock disponible en el almacén de origen.',
+          message:
+              'La cantidad solicitada excede el stock disponible en el almacén de origen.',
           color: Colors.red,
         );
       } else {

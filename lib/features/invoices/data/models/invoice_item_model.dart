@@ -1,5 +1,4 @@
 // lib/features/invoices/data/models/invoice_item_model.dart
-import 'package:baudex_desktop/features/products/domain/entities/product.dart';
 
 import '../../domain/entities/invoice_item.dart';
 import '../../domain/repositories/invoice_repository.dart';
@@ -102,8 +101,9 @@ class InvoiceItemModel extends InvoiceItem {
         productId: json['productId']?.toString(),
         product:
             json['product'] != null
-                ? ProductModel.fromJson(json['product'] as Map<String, dynamic>)
-                    .toEntity()
+                ? ProductModel.fromJson(
+                  json['product'] as Map<String, dynamic>,
+                ).toEntity()
                 : null,
 
         // Timestamps
@@ -130,7 +130,8 @@ class InvoiceItemModel extends InvoiceItem {
       if (notes != null) 'notes': notes,
       'invoiceId': invoiceId,
       if (productId != null) 'productId': productId,
-      if (product != null) 'product': ProductModel.fromEntity(product!).toJson(),
+      if (product != null)
+        'product': ProductModel.fromEntity(product!).toJson(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };

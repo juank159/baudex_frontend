@@ -151,13 +151,17 @@ class InvoiceStatsController extends GetxController {
   }
 
   /// Refrescar todos los datos
-  Future<void> refreshAllData() async {
+  Future<void> refreshAllData({bool showSuccessMessage = false}) async {
     try {
       _isRefreshing.value = true;
       print('🔄 Refrescando datos de estadísticas...');
 
       await loadAllData();
-      _showSuccess('Datos actualizados');
+
+      // ✅ Solo mostrar mensaje si se solicita explícitamente (refresh manual)
+      if (showSuccessMessage) {
+        _showSuccess('Datos actualizados');
+      }
     } catch (e) {
       print('💥 Error al refrescar datos: $e');
     } finally {
@@ -168,12 +172,26 @@ class InvoiceStatsController extends GetxController {
   // ==================== UI METHODS ====================
 
   /// Cambiar período de estadísticas
+  /// El filtrado se hace localmente en la UI, no necesita recargar del backend
   void changePeriod(StatsPeriod period) {
+    if (_selectedPeriod.value == period) return;
+
     _selectedPeriod.value = period;
+
+    final range = period.getDateRange();
     print('📊 Período cambiado a: ${period.name}');
-    // TODO: Implementar filtro por período cuando el backend lo soporte
-    loadStats();
+    print('   📅 Desde: ${range.start}');
+    print('   📅 Hasta: ${range.end}');
+
+    // Solo actualizar la UI - el filtrado se hace localmente en _calculateLocalStats y _calculateLocalAmounts
+    update();
   }
+
+  /// Obtener el rango de fechas del período actual
+  DateTimeRange get currentPeriodRange => _selectedPeriod.value.getDateRange();
+
+  /// Obtener descripción del período actual
+  String get currentPeriodDescription => _selectedPeriod.value.getDateRangeDescription();
 
   /// Mostrar/ocultar detalles de facturas vencidas
   void toggleOverdueDetails() {
@@ -249,18 +267,24 @@ class InvoiceStatsController extends GetxController {
 
   // ==================== NAVIGATION METHODS ====================
 
-  /// Navegar a lista de facturas con filtro
-  void goToInvoiceList({InvoiceStatus? status}) {
-    if (status != null) {
-      Get.toNamed('/invoices', parameters: {'status': status.value});
-    } else {
-      Get.toNamed('/invoices');
-    }
+  /// Navegar a lista de facturas
+  void goToInvoiceList() {
+    Get.toNamed('/invoices');
   }
 
   /// Navegar a facturas vencidas
   void goToOverdueInvoices() {
-    Get.toNamed('/invoices', parameters: {'status': 'overdue'});
+    Get.toNamed('/invoices/overdue');
+  }
+
+  /// Navegar a facturas por estado específico
+  void goToInvoicesByStatus(InvoiceStatus status) {
+    Get.toNamed('/invoices/status/${status.value}');
+  }
+
+  /// Navegar a facturas pendientes
+  void goToPendingInvoices() {
+    Get.toNamed('/invoices/status/pending');
   }
 
   /// Navegar a crear factura
@@ -370,15 +394,111 @@ class InvoiceStatsController extends GetxController {
 // ==================== DATA CLASSES ====================
 
 enum StatsPeriod {
-  today('Hoy'),
-  thisWeek('Esta Semana'),
-  thisMonth('Este Mes'),
-  thisQuarter('Este Trimestre'),
-  thisYear('Este Año'),
-  allTime('Todo el Tiempo');
+  today('Hoy', 'Hoy'),
+  thisWeek('Semana', 'Esta Semana'),
+  thisMonth('Mes', 'Este Mes'),
+  thisQuarter('Trimestre', 'Este Trimestre'),
+  thisYear('Año', 'Este Año'),
+  allTime('Todo', 'Todo el Tiempo');
 
-  const StatsPeriod(this.displayName);
+  const StatsPeriod(this.shortName, this.displayName);
+  final String shortName;
   final String displayName;
+
+  /// Obtiene el rango de fechas para este período
+  DateTimeRange getDateRange() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    switch (this) {
+      case StatsPeriod.today:
+        return DateTimeRange(
+          start: today,
+          end: today.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1)),
+        );
+      case StatsPeriod.thisWeek:
+        // Lunes de esta semana
+        final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
+        final endOfWeek = startOfWeek.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+        return DateTimeRange(start: startOfWeek, end: endOfWeek);
+      case StatsPeriod.thisMonth:
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+        return DateTimeRange(start: startOfMonth, end: endOfMonth);
+      case StatsPeriod.thisQuarter:
+        final quarter = ((now.month - 1) ~/ 3);
+        final startMonth = quarter * 3 + 1;
+        final startOfQuarter = DateTime(now.year, startMonth, 1);
+        final endOfQuarter = DateTime(now.year, startMonth + 3, 0, 23, 59, 59);
+        return DateTimeRange(start: startOfQuarter, end: endOfQuarter);
+      case StatsPeriod.thisYear:
+        final startOfYear = DateTime(now.year, 1, 1);
+        final endOfYear = DateTime(now.year, 12, 31, 23, 59, 59);
+        return DateTimeRange(start: startOfYear, end: endOfYear);
+      case StatsPeriod.allTime:
+        // Un rango muy amplio para "todo el tiempo"
+        return DateTimeRange(
+          start: DateTime(2000, 1, 1),
+          end: today.add(const Duration(days: 1)),
+        );
+    }
+  }
+
+  /// Obtiene una descripción corta del rango de fechas
+  String getDateRangeDescription() {
+    final range = getDateRange();
+    final now = DateTime.now();
+
+    switch (this) {
+      case StatsPeriod.today:
+        return _formatDate(range.start);
+      case StatsPeriod.thisWeek:
+        return '${_formatShortDate(range.start)} - ${_formatShortDate(range.end)}';
+      case StatsPeriod.thisMonth:
+        return _getMonthName(now.month);
+      case StatsPeriod.thisQuarter:
+        final quarter = ((now.month - 1) ~/ 3) + 1;
+        return 'Q$quarter ${now.year}';
+      case StatsPeriod.thisYear:
+        return '${now.year}';
+      case StatsPeriod.allTime:
+        return 'Histórico';
+    }
+  }
+
+  static String _formatDate(DateTime date) {
+    final months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+                    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  static String _formatShortDate(DateTime date) {
+    return '${date.day}/${date.month}';
+  }
+
+  static String _getMonthName(int month) {
+    final months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    return months[month - 1];
+  }
+
+  /// Icono asociado al período
+  IconData get icon {
+    switch (this) {
+      case StatsPeriod.today:
+        return Icons.today;
+      case StatsPeriod.thisWeek:
+        return Icons.view_week;
+      case StatsPeriod.thisMonth:
+        return Icons.calendar_month;
+      case StatsPeriod.thisQuarter:
+        return Icons.date_range;
+      case StatsPeriod.thisYear:
+        return Icons.calendar_today;
+      case StatsPeriod.allTime:
+        return Icons.all_inclusive;
+    }
+  }
 }
 
 class ChartData {

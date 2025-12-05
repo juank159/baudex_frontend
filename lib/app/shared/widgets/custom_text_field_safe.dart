@@ -197,26 +197,6 @@ class _CustomTextFieldSafeState extends State<CustomTextFieldSafe> {
     }
   }
 
-  /// ✅ SINCRONIZACIÓN BIDIRECCIONAL con controller externo
-  void _syncWithExternalController(String newValue) {
-    if (widget.controller == null) return;
-
-    // Si estamos usando el controller externo directamente, no hay nada que sincronizar
-    if (_safeController == widget.controller) {
-      _log('⚠️ Usando controller externo directamente, skip sync');
-      return;
-    }
-
-    try {
-      if (widget.controller!.isSafe && widget.controller!.text != newValue) {
-        widget.controller!.text = newValue;
-        _log('🔄 Valor sincronizado con controller externo');
-      }
-    } catch (e) {
-      _log('⚠️ Error sincronizando con controller externo: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -368,25 +348,17 @@ class _CustomTextFieldSafeState extends State<CustomTextFieldSafe> {
     );
   }
 
-  /// ✅ MANEJO SEGURO de cambios de texto
+  /// ✅ MANEJO SEGURO de cambios de texto (optimizado sin logs)
   void _handleTextChanged(String value) {
-    try {
-      _log('📝 _handleTextChanged llamado con: "$value"');
-      _log('   onChanged callback disponible: ${widget.onChanged != null}');
+    // Notificar al callback externo si existe
+    widget.onChanged?.call(value);
 
-      // Notificar al callback externo
-      if (widget.onChanged != null) {
-        _log('   ✅ Llamando callback onChanged...');
-        widget.onChanged?.call(value);
-        _log('   ✅ Callback onChanged ejecutado');
-      } else {
-        _log('   ❌ NO hay callback onChanged configurado!');
-      }
-
-      // Sincronizar con controller externo si existe
-      _syncWithExternalController(value);
-    } catch (e) {
-      _log('⚠️ Error en handleTextChanged: $e');
+    // Sincronizar con controller externo si existe y es diferente
+    if (widget.controller != null &&
+        _safeController != widget.controller &&
+        widget.controller!.isSafe &&
+        widget.controller!.text != value) {
+      widget.controller!.text = value;
     }
   }
 
@@ -405,13 +377,19 @@ class _CustomTextFieldSafeState extends State<CustomTextFieldSafe> {
 
   double _getResponsiveVerticalPadding(bool isMobile, bool isNarrow) {
     if (isNarrow) return 8.0;
-    if (isMobile) return 12.0;
-    return 14.0;
+    if (isMobile) return 10.0;
+    return 12.0; // Igual que el ModernSelectorWidget para consistencia
   }
 
-  /// ✅ LOGGING
+  /// ✅ LOGGING (deshabilitado para producción)
+  /// Cambiar a true solo para debugging específico de este widget
+  static const bool _enableDebugLogs = false;
+
   void _log(String message) {
-    print('🛡️ CustomTextFieldSafe ($_controllerDebugLabel): $message');
+    if (_enableDebugLogs) {
+      // ignore: avoid_print
+      print('🛡️ CustomTextFieldSafe ($_controllerDebugLabel): $message');
+    }
   }
 }
 

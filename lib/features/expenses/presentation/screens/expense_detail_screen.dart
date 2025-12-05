@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
-import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/expense_detail_controller.dart';

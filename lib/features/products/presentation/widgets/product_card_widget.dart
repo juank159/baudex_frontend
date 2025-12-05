@@ -1,7 +1,8 @@
 // lib/features/products/presentation/widgets/product_card_widget.dart
 import 'package:flutter/material.dart';
-import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
 
@@ -10,470 +11,673 @@ class ProductCardWidget extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
-  final bool isSelected;
   final bool showActions;
 
   const ProductCardWidget({
-    Key? key,
+    super.key,
     required this.product,
     this.onTap,
     this.onEdit,
     this.onDelete,
-    this.isSelected = false,
     this.showActions = true,
-  }) : super(key: key);
+  });
 
-  // ✅ NUEVO: Método para obtener el precio correcto
   ProductPrice? get _displayPrice {
     if (product.prices != null && product.prices!.isNotEmpty) {
       try {
-        // Intenta encontrar el "Precio al Público"
         return product.prices!.firstWhere(
           (p) => p.type.displayName.toLowerCase() == 'precio al público',
         );
       } catch (e) {
-        // Si no lo encuentra, devuelve el primer precio de la lista
         return product.prices!.first;
       }
     }
-    // Si no hay lista de precios, usa el `defaultPrice`
     return product.defaultPrice;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: isSelected ? 4 : 0.5,
-      margin: EdgeInsets.symmetric(
-        vertical: ResponsiveHelper.isMobile(context) ? 1 : 1.5,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(6),
-        side:
-            isSelected
-                ? BorderSide(color: Theme.of(context).primaryColor, width: 1.5)
-                : BorderSide.none,
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: ResponsiveHelper.isMobile(context) 
-              ? const EdgeInsets.all(4)  // 75% reducción para móviles
-              : const EdgeInsets.all(7),  // 40% reducción para desktop
-          child:
-              ResponsiveHelper.isMobile(context)
-                  ? _buildMobileLayout(context)
-                  : _buildDesktopLayout(context),
-        ),
-      ),
-    );
+    return ResponsiveHelper.isMobile(context)
+        ? _buildMobileCard(context)
+        : _buildDesktopCard(context);
   }
 
-  Widget _buildMobileLayout(BuildContext context) {
+  Widget _buildMobileCard(BuildContext context) {
     final price = _displayPrice;
 
-    return Column(
-      children: [
-        Row(
-          children: [
-            // Imagen del producto
-            _buildProductImage(context, ResponsiveHelper.isMobile(context) ? 25 : 45),
-            SizedBox(width: ResponsiveHelper.isMobile(context) ? 4 : 8),
-
-            // Información principal
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    style: TextStyle(
-                      fontSize: ResponsiveHelper.isMobile(context) ? 12 : 13,  // Aumentado para móvil, mantenido desktop
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,  // Asegurar color negro en ambos
-                    ),
-                    maxLines: ResponsiveHelper.isMobile(context) ? 2 : 1,  // Más líneas en móvil
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: ResponsiveHelper.isMobile(context) ? 2 : 3),  // Más espacio
-                  Row(
-                    children: [
-                      _buildStockChip(context),
-                      const SizedBox(width: 8),
-                      _buildStatusChip(context),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // ✅ PRECIO CORREGIDO Y FORMATEADO
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
               children: [
-                if (price != null) ...[
-                  Text(
-                    AppFormatters.formatPrice(price.finalAmount),
-                    style: TextStyle(
-                      fontSize: ResponsiveHelper.isMobile(context) ? 8 : 13,  // 50% vs 20% reducción
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade700,
-                    ),
-                  ),
-                  if (price.hasDiscount)
-                    Text(
-                      AppFormatters.formatPrice(price.amount),
-                      style: TextStyle(
-                        fontSize: ResponsiveHelper.isMobile(context) ? 5 : 8,  // 50% vs 20% reducción
-                        decoration: TextDecoration.lineThrough,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                ] else
-                  Text(
-                    'Sin precio',
-                    style: TextStyle(
-                      fontSize: ResponsiveHelper.isMobile(context) ? 5 : 8, 
-                      color: Colors.grey.shade500,
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-
-        // Información adicional
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                // ✅ CANTIDAD FORMATEADA
-                'Stock: ${AppFormatters.formatNumber(product.stock)} ${product.unit ?? "pcs"}',
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-              ),
-            ),
-            if (product.category != null)
-              Text(
-                product.category!.name,
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-              ),
-          ],
-        ),
-
-        // Acciones
-        if (showActions) ...[
-          const SizedBox(height: 8),
-          _buildActions(context),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildDesktopLayout(BuildContext context) {
-    final price = _displayPrice;
-
-    return Row(
-      children: [
-        // Imagen del producto
-        _buildProductImage(context, 48),  // 40% menos que 80
-        const SizedBox(width: 10),  // 40% menos que 16
-
-        // Información principal
-        Expanded(
-          flex: 3,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                product.name,
-                style: const TextStyle(
-                  fontSize: 13,  // Aumentado para mejor visibilidad
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,  // Asegurar color negro en desktop
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 3),  // Más espacio sin SKU
-              if (product.description != null) ...[
-                const SizedBox(height: 2),  // 50% menos que 4
-                Text(
-                  product.description!,
-                  style: TextStyle(fontSize: 7, color: Colors.grey.shade500),  // 40% menos que 12
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              const SizedBox(height: 5),  // 40% menos que 8
-              Row(
-                children: [
-                  _buildStockChip(context),
-                  const SizedBox(width: 8),
-                  _buildStatusChip(context),
-                  if (product.category != null) ...[
-                    const SizedBox(width: 5),  // 40% menos que 8
+                // Header compacto
+                Row(
+                  children: [
+                    // Product icon/avatar con gradiente
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
-                        borderRadius: BorderRadius.circular(12),
+                        gradient: _getStockGradient(),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _getStockColor().withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        product.category!.name,
-                        style: TextStyle(
-                          fontSize: 6,  // 40% menos que 10
-                          color: Colors.blue.shade700,
-                          fontWeight: FontWeight.w500,
+                      child: Center(
+                        child: Icon(
+                          _getProductIcon(),
+                          color: Colors.white,
+                          size: 18,
                         ),
                       ),
                     ),
+                    const SizedBox(width: 12),
+
+                    // Info principal compacta
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product.name,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: ElegantLightTheme.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'SKU: ${product.sku}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: ElegantLightTheme.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Badge de stock con gradiente
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        gradient: _getStockGradient().scale(0.3),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _getStockColor().withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getStockIcon(),
+                            size: 10,
+                            color: _getStockColor(),
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            _getStockText(),
+                            style: TextStyle(
+                              color: _getStockColor(),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
+                ),
+
+                const SizedBox(height: 8),
+
+                // Info adicional ultra compacta
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildCompactInfoChip(
+                        Icons.inventory_2_outlined,
+                        AppFormatters.formatNumber(product.stock),
+                        ElegantLightTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _buildCompactInfoChip(
+                        Icons.sell_outlined,
+                        price != null
+                            ? AppFormatters.formatPrice(price.finalAmount)
+                            : 'N/A',
+                        Colors.green.shade600,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _buildCompactInfoChip(
+                        Icons.category_outlined,
+                        product.category?.name ?? 'Sin cat.',
+                        ElegantLightTheme.accentOrange,
+                      ),
+                    ),
+                  ],
+                ),
+
+                if (showActions) ...[
+                  const SizedBox(height: 8),
+                  _buildMobileActions(),
                 ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
 
-        // Stock
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'Stock Actual',
-                style: TextStyle(
-                  fontSize: 7,  // 40% menos que 12
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                // ✅ CANTIDAD FORMATEADA
-                AppFormatters.formatNumber(product.stock),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: _getStockColor(),
-                ),
-              ),
-              Text(
-                product.unit ?? 'pcs',
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-              ),
-            ],
-          ),
+  Widget _buildDesktopCard(BuildContext context) {
+    final price = _displayPrice;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.15),
         ),
-
-        // Precio
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                // ✅ USA EL NOMBRE DEL PRECIO ENCONTRADO
-                price?.type.displayName ?? 'Precio',
-                style: TextStyle(
-                  fontSize: 7,  // 40% menos que 12
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              // ✅ PRECIO CORREGIDO Y FORMATEADO
-              if (price != null) ...[
-                Text(
-                  AppFormatters.formatPrice(price.finalAmount),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade700,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          hoverColor: ElegantLightTheme.primaryBlue.withValues(alpha: 0.03),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Product icon con gradiente
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: _getStockGradient(),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _getStockColor().withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ),
-                if (price.hasDiscount)
-                  Text(
-                    AppFormatters.formatPrice(price.amount),
-                    style: TextStyle(
-                      fontSize: 10,
-                      decoration: TextDecoration.lineThrough,
-                      color: Colors.grey.shade500,
+                  child: Center(
+                    child: Icon(
+                      _getProductIcon(),
+                      color: Colors.white,
+                      size: 28,
                     ),
                   ),
-              ] else
-                Text(
-                  'Sin precio',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
-            ],
+                const SizedBox(width: 20),
+
+                // Info principal - Columna izquierda
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Nombre del producto
+                      Text(
+                        product.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: ElegantLightTheme.textPrimary,
+                          letterSpacing: -0.3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+
+                      // SKU y código de barras
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 4,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.qr_code, size: 14, color: Colors.grey.shade500),
+                              const SizedBox(width: 6),
+                              Text(
+                                'SKU: ${product.sku}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade600,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (product.barcode != null && product.barcode!.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.barcode_reader, size: 14, color: Colors.grey.shade500),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Código: ${product.barcode}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+
+                // Info adicional - Columna centro
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Stock
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.inventory_2_outlined, size: 14, color: ElegantLightTheme.primaryBlue),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Stock:',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${AppFormatters.formatNumber(product.stock)} ${product.unit ?? 'uds'}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: ElegantLightTheme.primaryBlue,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Precio de venta
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.sell_outlined, size: 13, color: Colors.green.shade600),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Precio:',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            price != null
+                                ? AppFormatters.formatPrice(price.finalAmount)
+                                : 'N/A',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Categoría
+                      if (product.category != null) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.category_outlined, size: 13, color: ElegantLightTheme.accentOrange),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Cat:',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              product.category!.name,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: ElegantLightTheme.accentOrange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 20),
+
+                // Estado y acciones - Columna derecha
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Badge de estado de stock
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: _getStockGradient().scale(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _getStockColor().withValues(alpha: 0.4),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getStockIcon(),
+                            size: 14,
+                            color: _getStockColor(),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _getStockText(),
+                            style: TextStyle(
+                              color: _getStockColor(),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Botones de acción
+                    if (showActions)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (onEdit != null)
+                            _buildCompactActionButton(
+                              Icons.edit_outlined,
+                              'Editar',
+                              ElegantLightTheme.primaryBlue,
+                              onEdit!,
+                            ),
+                          if (onDelete != null) ...[
+                            const SizedBox(width: 6),
+                            _buildCompactActionButton(
+                              Icons.delete_outline,
+                              'Eliminar',
+                              Colors.red.shade600,
+                              onDelete!,
+                            ),
+                          ],
+                        ],
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
 
-        // Acciones
-        if (showActions) SizedBox(width: 120, child: _buildActions(context)),
+  Widget _buildCompactActionButton(IconData icon, String tooltip, Color color, VoidCallback onPressed) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: color.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactInfoChip(IconData icon, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.1),
+            color.withValues(alpha: 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileActions() {
+    return Row(
+      children: [
+        if (onEdit != null)
+          Expanded(
+            child: _buildActionButton(
+              'Editar',
+              Icons.edit,
+              ElegantLightTheme.primaryBlue,
+              onEdit!,
+            ),
+          ),
+        if (onEdit != null && onDelete != null)
+          const SizedBox(width: 8),
+        if (onDelete != null)
+          Expanded(
+            child: _buildActionButton(
+              'Eliminar',
+              Icons.delete,
+              Colors.red.shade600,
+              onDelete!,
+            ),
+          ),
       ],
     );
   }
 
-  Widget _buildProductImage(BuildContext context, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(8),
-        image:
-            product.primaryImage != null
-                ? DecorationImage(
-                  image: NetworkImage(product.primaryImage!),
-                  fit: BoxFit.cover,
-                )
-                : null,
-      ),
-      child:
-          product.primaryImage == null
-              ? Icon(
-                Icons.inventory_2,
-                size: size * 0.5,
-                color: Colors.grey.shade400,
-              )
-              : null,
-    );
-  }
+  Widget _buildActionButton(String text, IconData icon, Color color, VoidCallback onPressed) {
+    final gradient = _getGradientForColor(color);
 
-  Widget _buildStockChip(BuildContext context) {
-    Color stockColor = _getStockColor();
-    String stockText = _getStockText();
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: ResponsiveHelper.isMobile(context) ? 3 : 6, 
-        vertical: ResponsiveHelper.isMobile(context) ? 1 : 1.5,
-      ),
-      decoration: BoxDecoration(
-        color: stockColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(ResponsiveHelper.isMobile(context) ? 6 : 8),
-      ),
-      child: Text(
-        stockText,
-        style: TextStyle(
-          fontSize: ResponsiveHelper.isMobile(context) ? 5 : 8,  // 50% vs 20% reducción
-          color: stockColor,
-          fontWeight: FontWeight.bold,
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          gradient: gradient.scale(0.2),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildStatusChip(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: ResponsiveHelper.isMobile(context) ? 3 : 6, 
-        vertical: ResponsiveHelper.isMobile(context) ? 1 : 1.5,
-      ),
-      decoration: BoxDecoration(
-        color:
-            product.isActive ? Colors.green.shade100 : Colors.orange.shade100,
-        borderRadius: BorderRadius.circular(ResponsiveHelper.isMobile(context) ? 6 : 8),
-      ),
-      child: Text(
-        product.isActive ? 'ACTIVO' : 'INACTIVO',
-        style: TextStyle(
-          fontSize: ResponsiveHelper.isMobile(context) ? 5 : 8,  // 50% vs 20% reducción
-          color:
-              product.isActive ? Colors.green.shade700 : Colors.orange.shade700,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActions(BuildContext context) {
-    if (ResponsiveHelper.isMobile(context)) {
-      return Row(
-        children: [
-          Expanded(
-            child: IconButton(
-              icon: const Icon(Icons.edit, size: 16),
-              onPressed: onEdit,
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.blue.shade50,
-                foregroundColor: Colors.blue.shade700,
-                minimumSize: Size(ResponsiveHelper.isMobile(context) ? 24 : 28, ResponsiveHelper.isMobile(context) ? 24 : 28),
-                padding: EdgeInsets.zero,
-              ),
-              tooltip: 'Editar',
-            ),
-          ),
-          SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
-          Expanded(
-            child: IconButton(
-              icon: const Icon(Icons.delete, size: 16),
-              onPressed: onDelete,
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.red.shade50,
-                foregroundColor: Colors.red.shade700,
-                minimumSize: Size(ResponsiveHelper.isMobile(context) ? 24 : 28, ResponsiveHelper.isMobile(context) ? 24 : 28),
-                padding: EdgeInsets.zero,
-              ),
-              tooltip: 'Eliminar',
-            ),
-          ),
-        ],
-      );
-    } else {
-      return Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: IconButton(
-              icon: const Icon(Icons.edit, size: 20),
-              onPressed: onEdit,
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.blue.shade50,
-                foregroundColor: Colors.blue.shade700,
-                minimumSize: const Size(32, 32),
-                padding: EdgeInsets.zero,
-              ),
-              tooltip: 'Editar',
-            ),
-          ),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) / 2),
-          SizedBox(
-            width: double.infinity,
-            child: IconButton(
-              icon: const Icon(Icons.delete, size: 20),
-              onPressed: onDelete,
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.red.shade50,
-                foregroundColor: Colors.red.shade700,
-                minimumSize: const Size(32, 32),
-                padding: EdgeInsets.zero,
-              ),
-              tooltip: 'Eliminar',
-            ),
-          ),
-        ],
-      );
+  // Helper methods
+  IconData _getProductIcon() {
+    if (product.type == ProductType.service) {
+      return Icons.handyman;
     }
+    return Icons.shopping_bag;
   }
 
   Color _getStockColor() {
-    if (product.stock <= 0) {
-      return Colors.red;
+    if (product.stock <= 0 || product.status == ProductStatus.outOfStock) {
+      return Colors.red.shade600;
     } else if (product.isLowStock) {
-      return Colors.orange;
+      return ElegantLightTheme.accentOrange;
     } else {
-      return Colors.green;
+      return Colors.green.shade600;
+    }
+  }
+
+  LinearGradient _getStockGradient() {
+    if (product.stock <= 0 || product.status == ProductStatus.outOfStock) {
+      return ElegantLightTheme.errorGradient;
+    } else if (product.isLowStock) {
+      return ElegantLightTheme.warningGradient;
+    } else {
+      return ElegantLightTheme.successGradient;
+    }
+  }
+
+  LinearGradient _getGradientForColor(Color color) {
+    if (color == ElegantLightTheme.primaryBlue) {
+      return ElegantLightTheme.primaryGradient;
+    } else if (color == Colors.green.shade600) {
+      return ElegantLightTheme.successGradient;
+    } else if (color == Colors.red.shade600) {
+      return ElegantLightTheme.errorGradient;
+    } else {
+      return ElegantLightTheme.warningGradient;
+    }
+  }
+
+  IconData _getStockIcon() {
+    if (product.stock <= 0 || product.status == ProductStatus.outOfStock) {
+      return Icons.remove_circle;
+    } else if (product.isLowStock) {
+      return Icons.warning;
+    } else {
+      return Icons.check_circle;
     }
   }
 
   String _getStockText() {
-    if (product.stock <= 0) {
+    if (product.stock <= 0 || product.status == ProductStatus.outOfStock) {
       return 'SIN STOCK';
     } else if (product.isLowStock) {
       return 'STOCK BAJO';

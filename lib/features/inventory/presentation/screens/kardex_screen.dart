@@ -2,10 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/config/themes/app_colors.dart';
-import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
-import '../../../../app/shared/widgets/loading_widget.dart';
-import '../../domain/entities/kardex_entry.dart';
 import '../controllers/kardex_controller.dart';
 import '../widgets/kardex_summary_cards.dart';
 import '../widgets/kardex_entries_list.dart';
@@ -22,11 +19,11 @@ class KardexScreen extends GetView<KardexController> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final screenWidth = constraints.maxWidth;
-            
+
             // Definir breakpoints para diseño responsivo
             final isDesktop = screenWidth >= 1200;
             final isTablet = screenWidth >= 600 && screenWidth < 1200;
-            
+
             return Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -58,18 +55,26 @@ class KardexScreen extends GetView<KardexController> {
                   slivers: [
                     // Filters panel
                     SliverToBoxAdapter(
-                      child: Obx(() => AnimatedContainer(
-                        duration: ElegantLightTheme.normalAnimation,
-                        height: controller.showFilters.value ? null : 0,
-                        child: controller.showFilters.value
-                            ? Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isDesktop ? 32 : isTablet ? 24 : 16,
-                                ),
-                                child: const KardexFiltersPanel(),
-                              )
-                            : const SizedBox.shrink(),
-                      )),
+                      child: Obx(
+                        () => AnimatedContainer(
+                          duration: ElegantLightTheme.normalAnimation,
+                          height: controller.showFilters.value ? null : 0,
+                          child:
+                              controller.showFilters.value
+                                  ? Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal:
+                                          isDesktop
+                                              ? 32
+                                              : isTablet
+                                              ? 24
+                                              : 16,
+                                    ),
+                                    child: const KardexFiltersPanel(),
+                                  )
+                                  : const SizedBox.shrink(),
+                        ),
+                      ),
                     ),
 
                     // Period display elegante
@@ -78,9 +83,7 @@ class KardexScreen extends GetView<KardexController> {
                     ),
 
                     // Tab bar elegante
-                    SliverToBoxAdapter(
-                      child: _buildElegantTabBar(screenWidth),
-                    ),
+                    SliverToBoxAdapter(child: _buildElegantTabBar(screenWidth)),
 
                     // Tab content
                     SliverFillRemaining(
@@ -108,8 +111,13 @@ class KardexScreen extends GetView<KardexController> {
   Widget _buildSummaryTab(double screenWidth) {
     final isDesktop = screenWidth >= 1200;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
-    final padding = isDesktop ? 32.0 : isTablet ? 24.0 : 16.0;
-    
+    final padding =
+        isDesktop
+            ? 32.0
+            : isTablet
+            ? 24.0
+            : 16.0;
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(padding),
       child: Column(
@@ -148,16 +156,18 @@ class KardexScreen extends GetView<KardexController> {
                 ),
                 SizedBox(width: isDesktop ? 16 : 12),
                 Expanded(
-                  child: Obx(() => Text(
-                    controller.hasKardex
-                        ? controller.kardexSummary.value!.productName
-                        : 'Producto',
-                    style: Get.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: isDesktop ? 18 : 16,
-                      color: ElegantLightTheme.textPrimary,
+                  child: Obx(
+                    () => Text(
+                      controller.hasKardex
+                          ? controller.kardexSummary.value!.productName
+                          : 'Producto',
+                      style: Get.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: isDesktop ? 18 : 16,
+                        color: ElegantLightTheme.textPrimary,
+                      ),
                     ),
-                  )),
+                  ),
                 ),
               ],
             ),
@@ -206,52 +216,58 @@ class KardexScreen extends GetView<KardexController> {
                   ],
                 ),
                 SizedBox(height: isDesktop ? 20 : 16),
-                  Obx(() {
-                    if (!controller.hasKardex) return const SizedBox.shrink();
-                    
-                    final report = controller.kardexReport.value!;
-                    final summary = report.summary;
-                    
-                    // Diseño elegante para el resumen
-                    return Column(
-                      children: [
-                        _buildElegantSummaryRow(
-                          'Total de movimientos',
-                          '${report.totalMovements}',
-                          Icons.swap_horiz,
-                          ElegantLightTheme.infoGradient,
-                          isDesktop,
-                        ),
-                        SizedBox(height: isDesktop ? 16 : 12),
-                        _buildElegantSummaryRow(
-                          'Movimiento neto',
-                          '${summary.netMovement > 0 ? '+' : ''}${summary.netMovement}',
-                          summary.netMovement >= 0 ? Icons.trending_up : Icons.trending_down,
-                          summary.netMovement >= 0 ? ElegantLightTheme.successGradient : ElegantLightTheme.errorGradient,
-                          isDesktop,
-                        ),
-                        SizedBox(height: isDesktop ? 16 : 12),
-                        _buildElegantSummaryRow(
-                          'Valor neto',
-                          controller.formatCurrency(summary.netValue),
-                          Icons.monetization_on,
-                          summary.netValue >= 0 ? ElegantLightTheme.successGradient : ElegantLightTheme.errorGradient,
-                          isDesktop,
-                        ),
-                        SizedBox(height: isDesktop ? 16 : 12),
-                        _buildElegantSummaryRow(
-                          'Costo promedio',
-                          controller.formatCurrency(summary.averageUnitCost),
-                          Icons.analytics,
-                          ElegantLightTheme.primaryGradient,
-                          isDesktop,
-                        ),
-                      ],
-                    );
-                  }),
-                ],
-              ),
+                Obx(() {
+                  if (!controller.hasKardex) return const SizedBox.shrink();
+
+                  final report = controller.kardexReport.value!;
+                  final summary = report.summary;
+
+                  // Diseño elegante para el resumen
+                  return Column(
+                    children: [
+                      _buildElegantSummaryRow(
+                        'Total de movimientos',
+                        '${report.totalMovements}',
+                        Icons.swap_horiz,
+                        ElegantLightTheme.infoGradient,
+                        isDesktop,
+                      ),
+                      SizedBox(height: isDesktop ? 16 : 12),
+                      _buildElegantSummaryRow(
+                        'Movimiento neto',
+                        '${summary.netMovement > 0 ? '+' : ''}${summary.netMovement}',
+                        summary.netMovement >= 0
+                            ? Icons.trending_up
+                            : Icons.trending_down,
+                        summary.netMovement >= 0
+                            ? ElegantLightTheme.successGradient
+                            : ElegantLightTheme.errorGradient,
+                        isDesktop,
+                      ),
+                      SizedBox(height: isDesktop ? 16 : 12),
+                      _buildElegantSummaryRow(
+                        'Valor neto',
+                        controller.formatCurrency(summary.netValue),
+                        Icons.monetization_on,
+                        summary.netValue >= 0
+                            ? ElegantLightTheme.successGradient
+                            : ElegantLightTheme.errorGradient,
+                        isDesktop,
+                      ),
+                      SizedBox(height: isDesktop ? 16 : 12),
+                      _buildElegantSummaryRow(
+                        'Costo promedio',
+                        controller.formatCurrency(summary.averageUnitCost),
+                        Icons.analytics,
+                        ElegantLightTheme.primaryGradient,
+                        isDesktop,
+                      ),
+                    ],
+                  );
+                }),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -260,8 +276,13 @@ class KardexScreen extends GetView<KardexController> {
   Widget _buildMovementsTab(double screenWidth) {
     final isDesktop = screenWidth >= 1200;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
-    final padding = isDesktop ? 32.0 : isTablet ? 24.0 : 16.0;
-    
+    final padding =
+        isDesktop
+            ? 32.0
+            : isTablet
+            ? 24.0
+            : 16.0;
+
     return Column(
       children: [
         // Movements count elegante
@@ -296,43 +317,45 @@ class KardexScreen extends GetView<KardexController> {
               ),
               SizedBox(width: isDesktop ? 16 : 12),
               Expanded(
-                child: Obx(() => Text(
-                  '${controller.totalMovements} movimientos encontrados',
-                  style: Get.textTheme.bodyMedium?.copyWith(
-                    color: ElegantLightTheme.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: isDesktop ? 16 : 14,
+                child: Obx(
+                  () => Text(
+                    '${controller.totalMovements} movimientos encontrados',
+                    style: Get.textTheme.bodyMedium?.copyWith(
+                      color: ElegantLightTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: isDesktop ? 16 : 14,
+                    ),
                   ),
-                )),
+                ),
               ),
             ],
           ),
         ),
 
         // Movements list
-        const Expanded(
-          child: KardexEntriesList(),
-        ),
+        const Expanded(child: KardexEntriesList()),
       ],
     );
   }
 
   PreferredSizeWidget _buildElegantAppBar() {
     return AppBar(
-      title: Obx(() => Text(
-        controller.displayTitle,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 20,
-          shadows: [
-            Shadow(
-              color: Colors.black26,
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ],
+      title: Obx(
+        () => Text(
+          controller.displayTitle,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            shadows: [
+              Shadow(
+                color: Colors.black26,
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
         ),
-      )),
+      ),
       actions: [
         // Refresh button
         IconButton(
@@ -353,28 +376,29 @@ class KardexScreen extends GetView<KardexController> {
                 break;
             }
           },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'download',
-              child: Row(
-                children: [
-                  Icon(Icons.download, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  const Text('Descargar'),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'share',
-              child: Row(
-                children: [
-                  Icon(Icons.share, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  const Text('Compartir'),
-                ],
-              ),
-            ),
-          ],
+          itemBuilder:
+              (context) => [
+                PopupMenuItem(
+                  value: 'download',
+                  child: Row(
+                    children: [
+                      Icon(Icons.download, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      const Text('Descargar'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'share',
+                  child: Row(
+                    children: [
+                      Icon(Icons.share, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      const Text('Compartir'),
+                    ],
+                  ),
+                ),
+              ],
         ),
       ],
       flexibleSpace: Container(
@@ -409,7 +433,7 @@ class KardexScreen extends GetView<KardexController> {
   Widget _buildLoadingState(double screenWidth) {
     final isDesktop = screenWidth >= 1200;
     final padding = isDesktop ? 32.0 : 16.0;
-    
+
     return Center(
       child: Container(
         margin: EdgeInsets.all(padding),
@@ -452,7 +476,7 @@ class KardexScreen extends GetView<KardexController> {
   Widget _buildErrorState(double screenWidth) {
     final isDesktop = screenWidth >= 1200;
     final padding = isDesktop ? 32.0 : 16.0;
-    
+
     return Center(
       child: Container(
         margin: EdgeInsets.all(padding),
@@ -512,7 +536,7 @@ class KardexScreen extends GetView<KardexController> {
   Widget _buildEmptyState(double screenWidth) {
     final isDesktop = screenWidth >= 1200;
     final padding = isDesktop ? 32.0 : 16.0;
-    
+
     return Center(
       child: Container(
         margin: EdgeInsets.all(padding),
@@ -565,8 +589,13 @@ class KardexScreen extends GetView<KardexController> {
   Widget _buildElegantPeriodDisplay(double screenWidth) {
     final isDesktop = screenWidth >= 1200;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
-    final padding = isDesktop ? 32.0 : isTablet ? 24.0 : 16.0;
-    
+    final padding =
+        isDesktop
+            ? 32.0
+            : isTablet
+            ? 24.0
+            : 16.0;
+
     return Container(
       margin: EdgeInsets.symmetric(
         horizontal: padding,
@@ -605,29 +634,34 @@ class KardexScreen extends GetView<KardexController> {
             ),
           ),
           Expanded(
-            child: Obx(() => Text(
-              controller.dateRangeText,
-              style: Get.textTheme.bodyMedium?.copyWith(
-                color: ElegantLightTheme.textPrimary,
-                fontWeight: FontWeight.w700,
-                fontSize: isDesktop ? 16 : 14,
+            child: Obx(
+              () => Text(
+                controller.dateRangeText,
+                style: Get.textTheme.bodyMedium?.copyWith(
+                  color: ElegantLightTheme.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: isDesktop ? 16 : 14,
+                ),
               ),
-            )),
+            ),
           ),
           SizedBox(width: isDesktop ? 12 : 8),
           // Botón de filtros elegante como en la pantalla de referencia
           Obx(() {
-            final hasActiveFilters = false; // Por ahora sin filtros activos visibles
+            final hasActiveFilters =
+                false; // Por ahora sin filtros activos visibles
             return Container(
               decoration: BoxDecoration(
-                gradient: controller.showFilters.value
-                    ? ElegantLightTheme.primaryGradient
-                    : ElegantLightTheme.glassGradient,
+                gradient:
+                    controller.showFilters.value
+                        ? ElegantLightTheme.primaryGradient
+                        : ElegantLightTheme.glassGradient,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: controller.showFilters.value
-                      ? ElegantLightTheme.primaryBlue.withOpacity(0.3)
-                      : ElegantLightTheme.textSecondary.withOpacity(0.2),
+                  color:
+                      controller.showFilters.value
+                          ? ElegantLightTheme.primaryBlue.withOpacity(0.3)
+                          : ElegantLightTheme.textSecondary.withOpacity(0.2),
                   width: 1,
                 ),
               ),
@@ -638,14 +672,16 @@ class KardexScreen extends GetView<KardexController> {
                       controller.showFilters.value
                           ? Icons.filter_list_off
                           : Icons.filter_list,
-                      color: controller.showFilters.value
-                          ? Colors.white
-                          : ElegantLightTheme.textSecondary,
+                      color:
+                          controller.showFilters.value
+                              ? Colors.white
+                              : ElegantLightTheme.textSecondary,
                     ),
                     onPressed: controller.toggleFilters,
-                    tooltip: controller.showFilters.value
-                        ? 'Ocultar filtros'
-                        : 'Mostrar filtros',
+                    tooltip:
+                        controller.showFilters.value
+                            ? 'Ocultar filtros'
+                            : 'Mostrar filtros',
                   ),
                   if (hasActiveFilters)
                     Positioned(
@@ -679,8 +715,13 @@ class KardexScreen extends GetView<KardexController> {
   Widget _buildElegantTabBar(double screenWidth) {
     final isDesktop = screenWidth >= 1200;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
-    final padding = isDesktop ? 32.0 : isTablet ? 24.0 : 16.0;
-    
+    final padding =
+        isDesktop
+            ? 32.0
+            : isTablet
+            ? 24.0
+            : 16.0;
+
     return Container(
       margin: EdgeInsets.symmetric(
         horizontal: padding,
@@ -692,28 +733,30 @@ class KardexScreen extends GetView<KardexController> {
         borderRadius: BorderRadius.circular(isDesktop ? 20 : 16),
         boxShadow: ElegantLightTheme.elevatedShadow,
       ),
-      child: Obx(() => Row(
-        children: [
-          Expanded(
-            child: _buildElegantTabButton(
-              title: 'Resumen',
-              icon: Icons.analytics,
-              index: 0,
-              isSelected: controller.selectedTab.value == 0,
-              screenWidth: screenWidth,
+      child: Obx(
+        () => Row(
+          children: [
+            Expanded(
+              child: _buildElegantTabButton(
+                title: 'Resumen',
+                icon: Icons.analytics,
+                index: 0,
+                isSelected: controller.selectedTab.value == 0,
+                screenWidth: screenWidth,
+              ),
             ),
-          ),
-          Expanded(
-            child: _buildElegantTabButton(
-              title: 'Movimientos',
-              icon: Icons.list,
-              index: 1,
-              isSelected: controller.selectedTab.value == 1,
-              screenWidth: screenWidth,
+            Expanded(
+              child: _buildElegantTabButton(
+                title: 'Movimientos',
+                icon: Icons.list,
+                index: 1,
+                isSelected: controller.selectedTab.value == 1,
+                screenWidth: screenWidth,
+              ),
             ),
-          ),
-        ],
-      )),
+          ],
+        ),
+      ),
     );
   }
 
@@ -727,7 +770,7 @@ class KardexScreen extends GetView<KardexController> {
     final isDesktop = screenWidth >= 1200;
     final margin = isDesktop ? 6.0 : 4.0; // Reducir margen
     final borderRadius = isDesktop ? 14.0 : 10.0; // Reducir border radius
-    
+
     return AnimatedContainer(
       duration: ElegantLightTheme.normalAnimation,
       curve: ElegantLightTheme.smoothCurve,
@@ -753,17 +796,25 @@ class KardexScreen extends GetView<KardexController> {
               children: [
                 Icon(
                   icon,
-                  color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+                  color:
+                      isSelected
+                          ? Colors.white
+                          : ElegantLightTheme.textSecondary,
                   size: isDesktop ? 20 : 18, // Reducir tamaño de icono
                 ),
                 SizedBox(height: isDesktop ? 4 : 2), // Reducir spacing
-                Flexible( // Importante: usar Flexible en lugar de espacio fijo
+                Flexible(
+                  // Importante: usar Flexible en lugar de espacio fijo
                   child: Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+                      color:
+                          isSelected
+                              ? Colors.white
+                              : ElegantLightTheme.textSecondary,
                       fontSize: isDesktop ? 12 : 10, // Reducir tamaño de fuente
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -810,11 +861,7 @@ class KardexScreen extends GetView<KardexController> {
                 ),
               ],
             ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: isDesktop ? 18 : 16,
-            ),
+            child: Icon(icon, color: Colors.white, size: isDesktop ? 18 : 16),
           ),
           SizedBox(width: isDesktop ? 16 : 12),
           Expanded(
@@ -897,18 +944,9 @@ class KardexScreen extends GetView<KardexController> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: color ?? AppColors.textSecondary,
-            size: 20,
-          ),
+          Icon(icon, color: color ?? AppColors.textSecondary, size: 20),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: Get.textTheme.bodyMedium,
-            ),
-          ),
+          Expanded(child: Text(label, style: Get.textTheme.bodyMedium)),
           Text(
             value,
             style: Get.textTheme.bodyMedium?.copyWith(
@@ -932,18 +970,12 @@ class KardexScreen extends GetView<KardexController> {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: color ?? AppColors.textSecondary,
-            size: 18,
-          ),
+          Icon(icon, color: color ?? AppColors.textSecondary, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               label,
-              style: Get.textTheme.bodyMedium?.copyWith(
-                fontSize: 13,
-              ),
+              style: Get.textTheme.bodyMedium?.copyWith(fontSize: 13),
             ),
           ),
           Text(
@@ -971,19 +1003,12 @@ class KardexScreen extends GetView<KardexController> {
       decoration: BoxDecoration(
         color: color.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withOpacity(0.1),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.1), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: 16,
-          ),
+          Icon(icon, color: color, size: 16),
           const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1055,7 +1080,11 @@ class KardexScreen extends GetView<KardexController> {
                   color: Colors.green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.table_chart, color: Colors.green, size: 20),
+                child: const Icon(
+                  Icons.table_chart,
+                  color: Colors.green,
+                  size: 20,
+                ),
               ),
               title: const Text('Descargar como Excel'),
               subtitle: const Text('Archivo .xlsx guardado en tu dispositivo'),
@@ -1071,7 +1100,11 @@ class KardexScreen extends GetView<KardexController> {
                   color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.picture_as_pdf, color: Colors.red, size: 20),
+                child: const Icon(
+                  Icons.picture_as_pdf,
+                  color: Colors.red,
+                  size: 20,
+                ),
               ),
               title: const Text('Descargar como PDF'),
               subtitle: const Text('Archivo .pdf guardado en tu dispositivo'),
@@ -1129,10 +1162,16 @@ class KardexScreen extends GetView<KardexController> {
                   color: Colors.blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.table_chart, color: Colors.blue, size: 20),
+                child: const Icon(
+                  Icons.table_chart,
+                  color: Colors.blue,
+                  size: 20,
+                ),
               ),
               title: const Text('Compartir Excel'),
-              subtitle: const Text('Enviar archivo .xlsx por WhatsApp, Email, etc.'),
+              subtitle: const Text(
+                'Enviar archivo .xlsx por WhatsApp, Email, etc.',
+              ),
               onTap: () {
                 Get.back();
                 controller.exportKardexToExcel();
@@ -1145,10 +1184,16 @@ class KardexScreen extends GetView<KardexController> {
                   color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.picture_as_pdf, color: Colors.orange, size: 20),
+                child: const Icon(
+                  Icons.picture_as_pdf,
+                  color: Colors.orange,
+                  size: 20,
+                ),
               ),
               title: const Text('Compartir PDF'),
-              subtitle: const Text('Enviar reporte .pdf por WhatsApp, Email, etc.'),
+              subtitle: const Text(
+                'Enviar reporte .pdf por WhatsApp, Email, etc.',
+              ),
               onTap: () {
                 Get.back();
                 controller.shareKardexToPdf();

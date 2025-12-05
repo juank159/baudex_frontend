@@ -15,11 +15,13 @@ import '../../domain/usecases/update_invoice_usecase.dart';
 import '../../domain/usecases/confirm_invoice_usecase.dart';
 import '../../domain/usecases/cancel_invoice_usecase.dart';
 import '../../domain/usecases/add_payment_usecase.dart';
+import '../../domain/usecases/add_multiple_payments_usecase.dart';
 import '../../domain/usecases/get_invoice_stats_usecase.dart';
 import '../../domain/usecases/get_overdue_invoices_usecase.dart';
 import '../../domain/usecases/delete_invoice_usecase.dart';
 import '../../domain/usecases/search_invoices_usecase.dart';
 import '../../domain/usecases/get_invoices_by_customer_usecase.dart';
+import '../../domain/usecases/export_and_share_invoice_pdf_usecase.dart';
 
 import '../../data/datasources/invoice_remote_datasource.dart';
 import '../../data/datasources/invoice_local_datasource.dart';
@@ -143,7 +145,7 @@ class InvoiceBinding extends Bindings {
       () => InvoiceOfflineRepositorySimple(),
       fenix: true,
     );
-    
+
     // Register main repository (with offline ISAR fallback)
     Get.lazyPut<InvoiceRepository>(
       () => InvoiceRepositoryImpl(
@@ -211,9 +213,22 @@ class InvoiceBinding extends Bindings {
       fenix: true,
     );
     Get.lazyPut(
+      () => AddMultiplePaymentsUseCase(Get.find<InvoiceRepository>()),
+      fenix: true,
+    );
+    Get.lazyPut(
       () => DeleteInvoiceUseCase(Get.find<InvoiceRepository>()),
       fenix: true,
     );
+
+    // PDF Export Use Case
+    Get.lazyPut(
+      () => ExportAndShareInvoicePdfUseCase(
+        repository: Get.find<InvoiceRepository>(),
+      ),
+      fenix: true,
+    );
+
     print('✅ Use cases registrados');
   }
 
@@ -250,13 +265,16 @@ class InvoiceBinding extends Bindings {
       try {
         // Verificar que el use case de inventario esté disponible
         if (!Get.isRegistered<ProcessOutboundMovementFifoUseCase>()) {
-          print('⚠️ ProcessOutboundMovementFifoUseCase no encontrado - InvoiceInventoryService no se registrará');
+          print(
+            '⚠️ ProcessOutboundMovementFifoUseCase no encontrado - InvoiceInventoryService no se registrará',
+          );
           return;
         }
 
         Get.put(
           InvoiceInventoryService(
-            processOutboundMovementFifoUseCase: Get.find<ProcessOutboundMovementFifoUseCase>(),
+            processOutboundMovementFifoUseCase:
+                Get.find<ProcessOutboundMovementFifoUseCase>(),
           ),
           permanent: true, // Mantener disponible globalmente
         );
@@ -276,18 +294,18 @@ class InvoiceBinding extends Bindings {
     if (!Get.isRegistered<InvoiceListController>()) {
       try {
         print('🔧 Iniciando registro de InvoiceListController...');
-        
+
         // ✅ Validar dependencias antes de crear el controlador
         print('🔍 Validando dependencias requeridas...');
         final requiredDependencies = [
           'GetInvoicesUseCase',
-          'SearchInvoicesUseCase', 
+          'SearchInvoicesUseCase',
           'DeleteInvoiceUseCase',
           'ConfirmInvoiceUseCase',
           'CancelInvoiceUseCase',
           'GetInvoiceByIdUseCase',
         ];
-        
+
         for (final dep in requiredDependencies) {
           switch (dep) {
             case 'GetInvoicesUseCase':
@@ -323,7 +341,7 @@ class InvoiceBinding extends Bindings {
           }
           print('✅ $dep validado');
         }
-        
+
         print('🛠️ Creando InvoiceListController...');
         final controller = InvoiceListController(
           getInvoicesUseCase: Get.find<GetInvoicesUseCase>(),
@@ -333,29 +351,21 @@ class InvoiceBinding extends Bindings {
           cancelInvoiceUseCase: Get.find<CancelInvoiceUseCase>(),
           getInvoiceByIdUseCase: Get.find<GetInvoiceByIdUseCase>(),
         );
-        
-        if (controller == null) {
-          throw Exception('InvoiceListController creado pero es null');
-        }
-        
+
         print('📝 Registrando controlador en GetX...');
         Get.put(
           controller,
           permanent: false, // ✅ No permanente para permitir disposal correcto
         );
-        
+
         // ✅ Verificar que se registró correctamente
         if (!Get.isRegistered<InvoiceListController>()) {
           throw Exception('Controlador no se registró correctamente en GetX');
         }
-        
+
         final registeredController = Get.find<InvoiceListController>();
-        if (registeredController == null) {
-          throw Exception('Controlador registrado pero Get.find retorna null');
-        }
-        
+
         print('✅ InvoiceListController registrado y validado exitosamente');
-        
       } catch (e, stackTrace) {
         print('❌ Error registrando InvoiceListController: $e');
         print('📍 Stack trace: $stackTrace');
@@ -363,21 +373,13 @@ class InvoiceBinding extends Bindings {
       }
     } else {
       print('ℹ️ InvoiceListController ya está registrado');
-      
+
       try {
         // ✅ Verificar que el controlador existente no sea null
         final existingController = Get.find<InvoiceListController>();
-        if (existingController == null) {
-          print('⚠️ Controlador registrado pero es null, limpiando y re-registrando...');
-          Get.delete<InvoiceListController>(force: true);
-          registerListController(); // Recursivamente re-registrar
-          return;
-        }
-        
-        // ✅ SOLUCIÓN RADICAL: Recrear ScrollController para evitar conflictos
-        print('🔄 Recreando ScrollController del controlador existente');
-        existingController.recreateScrollController();
-        
+        // ✅ NOTA: El ScrollController ahora es manejado por el StatefulWidget (InvoiceListScreen)
+        // No es necesario verificar ni recrear ScrollController aquí
+        print('✅ InvoiceListController existente verificado');
       } catch (e) {
         print('❌ Error verificando controlador existente: $e');
         print('🗺 Forzando limpieza y re-registro...');
@@ -506,9 +508,12 @@ class InvoiceBinding extends Bindings {
           InvoiceDetailController(
             getInvoiceByIdUseCase: Get.find<GetInvoiceByIdUseCase>(),
             addPaymentUseCase: Get.find<AddPaymentUseCase>(),
+            addMultiplePaymentsUseCase: Get.find<AddMultiplePaymentsUseCase>(),
             confirmInvoiceUseCase: Get.find<ConfirmInvoiceUseCase>(),
             cancelInvoiceUseCase: Get.find<CancelInvoiceUseCase>(),
             deleteInvoiceUseCase: Get.find<DeleteInvoiceUseCase>(),
+            exportAndShareInvoicePdfUseCase:
+                Get.find<ExportAndShareInvoicePdfUseCase>(),
           ),
           permanent: false, // ✅ No permanente para permitir disposal correcto
           // ✅ REMOVER TAG PARA QUE SEA ACCESIBLE SIN TAG

@@ -12,7 +12,10 @@ enum InvoiceStatus {
   paid('paid', 'Pagada'),
   overdue('overdue', 'Vencida'),
   cancelled('cancelled', 'Cancelada'),
-  partiallyPaid('partially_paid', 'Pagada Parcialmente');
+  partiallyPaid('partially_paid', 'Pagada Parcialmente'),
+  // Estados para notas de crédito
+  credited('credited', 'Acreditada'),
+  partiallyCredited('partially_credited', 'Acreditada Parcialmente');
 
   const InvoiceStatus(this.value, this.displayName);
   final String value;
@@ -24,6 +27,13 @@ enum InvoiceStatus {
       orElse: () => InvoiceStatus.draft,
     );
   }
+
+  /// Verifica si la factura tiene alguna nota de crédito aplicada
+  bool get hasCreditNote =>
+      this == InvoiceStatus.credited || this == InvoiceStatus.partiallyCredited;
+
+  /// Verifica si la factura está completamente acreditada (anulada)
+  bool get isFullyCredited => this == InvoiceStatus.credited;
 }
 
 enum PaymentMethod {
@@ -33,6 +43,7 @@ enum PaymentMethod {
   debitCard('debit_card', 'Tarjeta de Débito', Icons.payment),
   bankTransfer('bank_transfer', 'Transferencia Bancaria', Icons.account_balance),
   check('check', 'Cheque', Icons.receipt),
+  clientBalance('client_balance', 'Saldo a Favor', Icons.account_balance_wallet),
   other('other', 'Otro', Icons.more_horiz);
 
   const PaymentMethod(this.value, this.displayName, this.icon);
@@ -65,6 +76,7 @@ class Invoice extends Equatable {
   final double total;
   final double paidAmount;
   final double balanceDue;
+  final double creditedAmount; // Monto acreditado por notas de crédito
 
   // Información adicional
   final String? notes;
@@ -99,6 +111,7 @@ class Invoice extends Equatable {
     required this.total,
     required this.paidAmount,
     required this.balanceDue,
+    this.creditedAmount = 0,
     this.notes,
     this.terms,
     this.metadata,
@@ -129,6 +142,7 @@ class Invoice extends Equatable {
     total,
     paidAmount,
     balanceDue,
+    creditedAmount,
     notes,
     terms,
     metadata,
@@ -144,8 +158,47 @@ class Invoice extends Equatable {
   ];
 
   // Getters útiles
+
+  /// Verifica si la factura está vencida
+  /// Reglas de negocio:
+  /// - NUNCA está vencida si: paid, draft, cancelled, credited
+  /// - NUNCA está vencida si balanceDue <= 0
+  /// - NUNCA está vencida si es pago parcial y dueDate == fecha creación (legacy fix)
+  /// - SÍ puede estar vencida si: pending o partially_paid Y pasó la fecha
   bool get isOverdue {
-    return DateTime.now().isAfter(dueDate) && status != InvoiceStatus.paid;
+    // Estados que NUNCA pueden estar vencidos
+    if (status == InvoiceStatus.paid ||
+        status == InvoiceStatus.draft ||
+        status == InvoiceStatus.cancelled ||
+        status == InvoiceStatus.credited) {
+      return false;
+    }
+
+    // No hay saldo pendiente = no puede estar vencida
+    if (balanceDue <= 0) {
+      return false;
+    }
+
+    // Comparar solo fechas (sin horas) para evitar falsos positivos
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDateOnly = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    final invoiceDateOnly = DateTime(date.year, date.month, date.day);
+
+    // 📅 LEGACY FIX: Facturas con pago parcial donde dueDate == fecha de creación
+    // Estas facturas tienen datos incorrectos de versiones anteriores
+    // Les damos un plazo implícito de 30 días desde su creación
+    if (status == InvoiceStatus.partiallyPaid &&
+        dueDateOnly.isAtSameMomentAs(invoiceDateOnly)) {
+      // Calcular fecha de vencimiento implícita (30 días desde creación)
+      final implicitDueDate = invoiceDateOnly.add(const Duration(days: 30));
+      // Vencida solo si hoy es DESPUÉS de la fecha implícita
+      return today.isAfter(implicitDueDate);
+    }
+
+    // Vencida solo si la fecha de hoy es DESPUÉS de la fecha de vencimiento
+    // (no el mismo día, sino días posteriores)
+    return today.isAfter(dueDateOnly);
   }
 
   bool get isPaid {
@@ -156,10 +209,54 @@ class Invoice extends Equatable {
     return paidAmount > 0 && paidAmount < total;
   }
 
+  /// Días de vencimiento (solo si está vencida)
+  /// Retorna días completos transcurridos desde la fecha de vencimiento
   int get daysOverdue {
     if (!isOverdue) return 0;
-    final difference = DateTime.now().difference(dueDate);
-    return difference.inDays;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDateOnly = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    final invoiceDateOnly = DateTime(date.year, date.month, date.day);
+
+    // 📅 LEGACY FIX: Facturas con pago parcial donde dueDate == fecha de creación
+    // Usar fecha implícita de 30 días
+    DateTime effectiveDueDate = dueDateOnly;
+    if (status == InvoiceStatus.partiallyPaid &&
+        dueDateOnly.isAtSameMomentAs(invoiceDateOnly)) {
+      effectiveDueDate = invoiceDateOnly.add(const Duration(days: 30));
+    }
+
+    final days = today.difference(effectiveDueDate).inDays;
+    return days > 0 ? days : 0;
+  }
+
+  /// Días restantes hasta el vencimiento (si aún no está vencida)
+  /// Retorna 0 si ya está vencida o pagada
+  int get daysUntilDue {
+    if (isOverdue || isPaid) return 0;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDateOnly = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    final invoiceDateOnly = DateTime(date.year, date.month, date.day);
+
+    // 📅 LEGACY FIX: Facturas con pago parcial donde dueDate == fecha de creación
+    // Usar fecha implícita de 30 días
+    DateTime effectiveDueDate = dueDateOnly;
+    if (status == InvoiceStatus.partiallyPaid &&
+        dueDateOnly.isAtSameMomentAs(invoiceDateOnly)) {
+      effectiveDueDate = invoiceDateOnly.add(const Duration(days: 30));
+    }
+
+    final difference = effectiveDueDate.difference(today).inDays;
+    return difference > 0 ? difference : 0;
+  }
+
+  /// Indica si la factura vence pronto (dentro de 3 días)
+  bool get isDueSoon {
+    if (isOverdue || isPaid) return false;
+    return daysUntilDue > 0 && daysUntilDue <= 3;
   }
 
   bool get canBeEdited {
@@ -177,7 +274,71 @@ class Invoice extends Equatable {
   }
 
   String get statusDisplayName => status.displayName;
-  String get paymentMethodDisplayName => paymentMethod.displayName;
+
+  /// Nombre para mostrar del método de pago
+  /// Prioriza mostrar el nombre del banco si existe (Nequi, Daviplata, Bancolombia, etc.)
+  String get paymentMethodDisplayName {
+    // Si hay pagos con cuenta bancaria, mostrar directamente el nombre del banco
+    if (payments.isNotEmpty) {
+      final firstPayment = payments.first;
+      if (firstPayment.bankAccount != null && firstPayment.bankAccount!.name.isNotEmpty) {
+        return firstPayment.bankAccount!.name;
+      }
+    }
+    return paymentMethod.displayName;
+  }
+
+  /// Nombre completo del método de pago (incluye tipo + banco si existe)
+  /// Formato: "Transferencia Bancaria (Nequi)"
+  String get fullPaymentMethodDisplayName {
+    if (payments.isNotEmpty) {
+      final firstPayment = payments.first;
+      if (firstPayment.bankAccount != null && firstPayment.bankAccount!.name.isNotEmpty) {
+        return '${paymentMethod.displayName} (${firstPayment.bankAccount!.name})';
+      }
+    }
+    return paymentMethod.displayName;
+  }
+
+  /// Nombre corto del método de pago para mostrar en cards
+  /// Prioriza mostrar el nombre del banco si existe (Nequi, Daviplata, etc.)
+  String get shortPaymentMethodName {
+    // Si hay pagos con cuenta bancaria, mostrar SOLO el nombre del banco
+    if (payments.isNotEmpty) {
+      final firstPayment = payments.first;
+      if (firstPayment.bankAccount != null && firstPayment.bankAccount!.name.isNotEmpty) {
+        return firstPayment.bankAccount!.name;
+      }
+    }
+    // Si no hay banco, mostrar nombre corto del método
+    switch (paymentMethod) {
+      case PaymentMethod.cash:
+        return 'Efectivo';
+      case PaymentMethod.creditCard:
+        return 'T.Crédito';
+      case PaymentMethod.debitCard:
+        return 'T.Débito';
+      case PaymentMethod.bankTransfer:
+        return 'Transferencia';
+      case PaymentMethod.check:
+        return 'Cheque';
+      case PaymentMethod.credit:
+        return 'Crédito';
+      case PaymentMethod.clientBalance:
+        return 'Saldo a Favor';
+      case PaymentMethod.other:
+        return 'Otro';
+    }
+  }
+
+  /// Obtiene el ícono apropiado para el método de pago
+  /// Si tiene cuenta bancaria, usa el ícono de banco
+  IconData get paymentMethodIcon {
+    if (payments.isNotEmpty && payments.first.bankAccount != null) {
+      return Icons.account_balance;
+    }
+    return paymentMethod.icon;
+  }
 
   // Customer info helpers
   String get customerName {
@@ -208,6 +369,7 @@ class Invoice extends Equatable {
     double? total,
     double? paidAmount,
     double? balanceDue,
+    double? creditedAmount,
     String? notes,
     String? terms,
     Map<String, dynamic>? metadata,
@@ -236,6 +398,7 @@ class Invoice extends Equatable {
       total: total ?? this.total,
       paidAmount: paidAmount ?? this.paidAmount,
       balanceDue: balanceDue ?? this.balanceDue,
+      creditedAmount: creditedAmount ?? this.creditedAmount,
       notes: notes ?? this.notes,
       terms: terms ?? this.terms,
       metadata: metadata ?? this.metadata,
@@ -267,6 +430,7 @@ class Invoice extends Equatable {
       total: 0,
       paidAmount: 0,
       balanceDue: 0,
+      creditedAmount: 0,
       customerId: '',
       createdById: '',
       items: [],

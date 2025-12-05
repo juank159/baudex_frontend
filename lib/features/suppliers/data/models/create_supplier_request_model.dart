@@ -1,6 +1,5 @@
 // lib/features/suppliers/data/models/create_supplier_request_model.dart
 import 'package:json_annotation/json_annotation.dart';
-import '../../domain/entities/supplier.dart';
 import '../../domain/usecases/create_supplier_usecase.dart';
 
 part 'create_supplier_request_model.g.dart';

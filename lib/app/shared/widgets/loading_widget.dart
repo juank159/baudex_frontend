@@ -6,8 +6,7 @@ class LoadingWidget extends StatelessWidget {
   final Color? color;
   final double? size;
 
-  const LoadingWidget({Key? key, this.message, this.color, this.size})
-    : super(key: key);
+  const LoadingWidget({super.key, this.message, this.color, this.size});
 
   @override
   Widget build(BuildContext context) {

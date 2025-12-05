@@ -413,8 +413,7 @@ class SupplierDetailController extends GetxController {
         'color': getStatusColor(supplier.value!.status),
         'icon': getStatusIcon(supplier.value!.status),
       },
-      if (supplier.value!.documentType != null &&
-          supplier.value!.documentNumber != null)
+      if (supplier.value!.documentNumber != null)
         {
           'label': getDocumentTypeText(supplier.value!.documentType),
           'value': supplier.value!.documentNumber,

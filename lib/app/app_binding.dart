@@ -18,6 +18,10 @@ import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
 import '../features/settings/presentation/bindings/settings_binding.dart';
 import 'services/sync_service.dart';
+// Bank Accounts - necesario globalmente para filtros de facturas
+import '../features/bank_accounts/data/datasources/bank_account_remote_datasource.dart';
+import '../features/bank_accounts/data/repositories/bank_account_repository_impl.dart';
+import '../features/bank_accounts/domain/repositories/bank_account_repository.dart';
 
 class InitialBinding implements Bindings {
   @override
@@ -60,12 +64,25 @@ class InitialBinding implements Bindings {
 
     // Core services
     Get.lazyPut<FileService>(() => FileServiceImpl(), fenix: true);
-    
+
     // Security services
     Get.lazyPut<PasswordValidationService>(() => PasswordValidationService(Get.find<DioClient>()), fenix: true);
 
     // UI Controllers
     Get.lazyPut<AppDrawerController>(() => AppDrawerController(), fenix: true);
+
+    // Bank Accounts - necesario globalmente para filtros de facturas
+    Get.lazyPut<BankAccountRemoteDataSource>(
+      () => BankAccountRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+      fenix: true,
+    );
+    Get.lazyPut<BankAccountRepository>(
+      () => BankAccountRepositoryImpl(
+        remoteDataSource: Get.find<BankAccountRemoteDataSource>(),
+        networkInfo: Get.find<NetworkInfo>(),
+      ),
+      fenix: true,
+    );
 
     print('✅ Dependencias core básicas registradas');
   }

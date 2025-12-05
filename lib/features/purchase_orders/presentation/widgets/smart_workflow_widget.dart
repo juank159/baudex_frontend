@@ -8,11 +8,7 @@ class SmartWorkflowWidget extends StatefulWidget {
   final PurchaseOrder order;
   final Function(String action, {Map<String, dynamic>? data})? onAction;
 
-  const SmartWorkflowWidget({
-    Key? key,
-    required this.order,
-    this.onAction,
-  }) : super(key: key);
+  const SmartWorkflowWidget({super.key, required this.order, this.onAction});
 
   @override
   State<SmartWorkflowWidget> createState() => _SmartWorkflowWidgetState();
@@ -31,13 +27,12 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
       duration: ElegantLightTheme.normalAnimation,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.02,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: ElegantLightTheme.smoothCurve,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: ElegantLightTheme.smoothCurve,
+      ),
+    );
   }
 
   @override
@@ -269,7 +264,9 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
               _buildCompactPrimaryAction(
                 title: 'Enviar al Proveedor',
                 icon: Icons.send,
-                gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+                ),
                 onTap: () => _executeAction('send'),
               ),
               const SizedBox(height: 8),
@@ -291,7 +288,9 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
                 child: _buildCompactPrimaryAction(
                   title: 'Enviar al Proveedor',
                   icon: Icons.send,
-                  gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+                  ),
                   onTap: () => _executeAction('send'),
                 ),
               ),
@@ -468,12 +467,27 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = MediaQuery.of(context).size.width;
-        
+
         // Ajustar padding y fontSize según el tamaño de pantalla
-        double horizontalPadding = screenWidth >= 1200 ? 16 : screenWidth >= 800 ? 12 : 8;
-        double fontSize = screenWidth >= 1200 ? 14 : screenWidth >= 800 ? 12 : 10;
-        double iconSize = screenWidth >= 1200 ? 18 : screenWidth >= 800 ? 16 : 14;
-        
+        double horizontalPadding =
+            screenWidth >= 1200
+                ? 16
+                : screenWidth >= 800
+                ? 12
+                : 8;
+        double fontSize =
+            screenWidth >= 1200
+                ? 14
+                : screenWidth >= 800
+                ? 12
+                : 10;
+        double iconSize =
+            screenWidth >= 1200
+                ? 18
+                : screenWidth >= 800
+                ? 16
+                : 14;
+
         return Container(
           height: 45,
           decoration: BoxDecoration(
@@ -524,16 +538,18 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
     );
   }
 
-  Widget _buildInfoCard(String title, String description, IconData icon, Color color) {
+  Widget _buildInfoCard(
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
       ),
       child: Row(
         children: [
@@ -543,11 +559,7 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
               color: color.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 24,
-            ),
+            child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -694,17 +706,31 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
     required String title,
     required IconData icon,
     required VoidCallback onTap,
-    Color? color,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = MediaQuery.of(context).size.width;
-        
+
         // Ajustar padding y fontSize según el tamaño de pantalla
-        double horizontalPadding = screenWidth >= 1200 ? 16 : screenWidth >= 800 ? 12 : 8;
-        double fontSize = screenWidth >= 1200 ? 14 : screenWidth >= 800 ? 12 : 10;
-        double iconSize = screenWidth >= 1200 ? 18 : screenWidth >= 800 ? 16 : 14;
-        
+        double horizontalPadding =
+            screenWidth >= 1200
+                ? 16
+                : screenWidth >= 800
+                ? 12
+                : 8;
+        double fontSize =
+            screenWidth >= 1200
+                ? 14
+                : screenWidth >= 800
+                ? 12
+                : 10;
+        double iconSize =
+            screenWidth >= 1200
+                ? 18
+                : screenWidth >= 800
+                ? 16
+                : 14;
+
         return Container(
           width: double.infinity,
           height: 48,
@@ -713,7 +739,9 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: ElegantLightTheme.errorGradient.colors.first.withOpacity(0.3),
+                color: ElegantLightTheme.errorGradient.colors.first.withOpacity(
+                  0.3,
+                ),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -725,15 +753,14 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
               borderRadius: BorderRadius.circular(12),
               onTap: onTap,
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      icon,
-                      color: Colors.white,
-                      size: iconSize,
-                    ),
+                    Icon(icon, color: Colors.white, size: iconSize),
                     const SizedBox(width: 8),
                     Text(
                       title,
@@ -862,7 +889,9 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: ElegantLightTheme.errorGradient.colors.first.withOpacity(0.3),
+            color: ElegantLightTheme.errorGradient.colors.first.withOpacity(
+              0.3,
+            ),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),

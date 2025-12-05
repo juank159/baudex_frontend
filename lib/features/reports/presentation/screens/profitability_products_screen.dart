@@ -1,7 +1,6 @@
 // lib/features/reports/presentation/screens/profitability_products_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_theme.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/reports_controller.dart';
@@ -20,12 +19,14 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
         children: [
           // Filters Section
           _buildFiltersSection(),
-          
+
           // Content
           Expanded(
             child: Obx(() {
               if (controller.isLoadingProfitability.value) {
-                return const LoadingWidget(message: 'Cargando análisis de rentabilidad...');
+                return const LoadingWidget(
+                  message: 'Cargando análisis de rentabilidad...',
+                );
               }
 
               if (controller.error.value.isNotEmpty) {
@@ -50,21 +51,14 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
-          bottom: BorderSide(
-            color: AppColors.borderColor,
-            width: 1,
-          ),
+          bottom: BorderSide(color: AppColors.borderColor, width: 1),
         ),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(
-                Icons.filter_alt,
-                color: AppColors.primary,
-                size: 20,
-              ),
+              Icon(Icons.filter_alt, color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
               Text(
                 'Filtros de Análisis',
@@ -90,25 +84,23 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
               // Date Range Picker
               Expanded(
                 flex: 2,
-                child: Obx(() => DateRangePickerWidget(
-                  startDate: controller.startDate.value,
-                  endDate: controller.endDate.value,
-                  onDateRangeChanged: controller.setDateRange,
-                  label: 'Período de Análisis',
-                )),
+                child: Obx(
+                  () => DateRangePickerWidget(
+                    startDate: controller.startDate.value,
+                    endDate: controller.endDate.value,
+                    onDateRangeChanged: controller.setDateRange,
+                    label: 'Período de Análisis',
+                  ),
+                ),
               ),
               const SizedBox(width: 16),
-              
+
               // Category Filter
-              Expanded(
-                child: _buildCategoryDropdown(),
-              ),
+              Expanded(child: _buildCategoryDropdown()),
               const SizedBox(width: 16),
-              
-              // Warehouse Filter  
-              Expanded(
-                child: _buildWarehouseDropdown(),
-              ),
+
+              // Warehouse Filter
+              Expanded(child: _buildWarehouseDropdown()),
             ],
           ),
         ],
@@ -117,45 +109,51 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
   }
 
   Widget _buildCategoryDropdown() {
-    return Obx(() => DropdownButtonFormField<String>(
-      value: controller.selectedCategoryId.value.isEmpty 
-          ? null 
-          : controller.selectedCategoryId.value,
-      decoration: const InputDecoration(
-        labelText: 'Categoría',
-        prefixIcon: Icon(Icons.category),
-        border: OutlineInputBorder(),
-      ),
-      items: [
-        const DropdownMenuItem<String>(
-          value: '',
-          child: Text('Todas las categorías'),
+    return Obx(
+      () => DropdownButtonFormField<String>(
+        value:
+            controller.selectedCategoryId.value.isEmpty
+                ? null
+                : controller.selectedCategoryId.value,
+        decoration: const InputDecoration(
+          labelText: 'Categoría',
+          prefixIcon: Icon(Icons.category),
+          border: OutlineInputBorder(),
         ),
-        // TODO: Add actual categories from a categories controller
-      ],
-      onChanged: (value) => controller.setCategoryFilter(value ?? ''),
-    ));
+        items: [
+          const DropdownMenuItem<String>(
+            value: '',
+            child: Text('Todas las categorías'),
+          ),
+          // TODO: Add actual categories from a categories controller
+        ],
+        onChanged: (value) => controller.setCategoryFilter(value ?? ''),
+      ),
+    );
   }
 
   Widget _buildWarehouseDropdown() {
-    return Obx(() => DropdownButtonFormField<String>(
-      value: controller.selectedWarehouseId.value.isEmpty 
-          ? null 
-          : controller.selectedWarehouseId.value,
-      decoration: const InputDecoration(
-        labelText: 'Almacén',
-        prefixIcon: Icon(Icons.warehouse),
-        border: OutlineInputBorder(),
-      ),
-      items: [
-        const DropdownMenuItem<String>(
-          value: '',
-          child: Text('Todos los almacenes'),
+    return Obx(
+      () => DropdownButtonFormField<String>(
+        value:
+            controller.selectedWarehouseId.value.isEmpty
+                ? null
+                : controller.selectedWarehouseId.value,
+        decoration: const InputDecoration(
+          labelText: 'Almacén',
+          prefixIcon: Icon(Icons.warehouse),
+          border: OutlineInputBorder(),
         ),
-        // TODO: Add actual warehouses from a warehouses controller
-      ],
-      onChanged: (value) => controller.setWarehouseFilter(value ?? ''),
-    ));
+        items: [
+          const DropdownMenuItem<String>(
+            value: '',
+            child: Text('Todos los almacenes'),
+          ),
+          // TODO: Add actual warehouses from a warehouses controller
+        ],
+        onChanged: (value) => controller.setWarehouseFilter(value ?? ''),
+      ),
+    );
   }
 
   Widget _buildContentSection() {
@@ -166,14 +164,14 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
         children: [
           // Summary Cards
           _buildSummaryCards(),
-          
+
           const SizedBox(height: 24),
-          
+
           // Charts Section
           _buildChartsSection(),
-          
+
           const SizedBox(height: 24),
-          
+
           // Data Table
           _buildDataTableSection(),
         ],
@@ -184,12 +182,23 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
   Widget _buildSummaryCards() {
     return Obx(() {
       final reports = controller.profitabilityByProducts;
-      final totalRevenue = reports.fold(0.0, (sum, report) => sum + report.totalRevenue);
-      final totalCost = reports.fold(0.0, (sum, report) => sum + report.totalCost);
-      final totalProfit = reports.fold(0.0, (sum, report) => sum + report.grossProfit);
-      final avgMargin = reports.isNotEmpty 
-          ? reports.fold(0.0, (sum, report) => sum + report.profitMargin) / reports.length
-          : 0.0;
+      final totalRevenue = reports.fold(
+        0.0,
+        (sum, report) => sum + report.totalRevenue,
+      );
+      final totalCost = reports.fold(
+        0.0,
+        (sum, report) => sum + report.totalCost,
+      );
+      final totalProfit = reports.fold(
+        0.0,
+        (sum, report) => sum + report.grossProfit,
+      );
+      final avgMargin =
+          reports.isNotEmpty
+              ? reports.fold(0.0, (sum, report) => sum + report.profitMargin) /
+                  reports.length
+              : 0.0;
 
       return Row(
         children: [
@@ -253,11 +262,7 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
                     color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 20,
-                  ),
+                  child: Icon(icon, color: color, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -297,9 +302,11 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
           ),
         ),
         const SizedBox(height: 16),
-        Obx(() => ProfitabilityChartWidget(
-          reports: controller.profitabilityByProducts,
-        )),
+        Obx(
+          () => ProfitabilityChartWidget(
+            reports: controller.profitabilityByProducts,
+          ),
+        ),
       ],
     );
   }
@@ -317,19 +324,25 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
               ),
             ),
             const Spacer(),
-            Obx(() => Chip(
-              label: Text('${controller.profitabilityByProducts.length} productos'),
-              backgroundColor: AppColors.primary.withOpacity(0.1),
-            )),
+            Obx(
+              () => Chip(
+                label: Text(
+                  '${controller.profitabilityByProducts.length} productos',
+                ),
+                backgroundColor: AppColors.primary.withOpacity(0.1),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
-        Obx(() => ProfitabilityTableWidget(
-          reports: controller.profitabilityByProducts,
-          onProductTap: (productId) {
-            // TODO: Navigate to product detail
-          },
-        )),
+        Obx(
+          () => ProfitabilityTableWidget(
+            reports: controller.profitabilityByProducts,
+            onProductTap: (productId) {
+              // TODO: Navigate to product detail
+            },
+          ),
+        ),
       ],
     );
   }
@@ -339,11 +352,7 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red.shade300,
-          ),
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
           const SizedBox(height: 16),
           Text(
             'Error al cargar los datos',
@@ -352,13 +361,15 @@ class ProfitabilityProductsScreen extends GetView<ReportsController> {
             ),
           ),
           const SizedBox(height: 8),
-          Obx(() => Text(
-            controller.error.value,
-            style: Get.textTheme.bodyMedium?.copyWith(
-              color: Colors.red.shade600,
+          Obx(
+            () => Text(
+              controller.error.value,
+              style: Get.textTheme.bodyMedium?.copyWith(
+                color: Colors.red.shade600,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          )),
+          ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: controller.refreshProfitabilityReports,

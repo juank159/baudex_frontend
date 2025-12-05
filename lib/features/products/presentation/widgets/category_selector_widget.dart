@@ -5,7 +5,6 @@ import '../../../categories/domain/entities/category.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
-import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../controllers/product_form_controller.dart';
 
@@ -169,10 +168,7 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOut,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
     _animationController.forward();
@@ -216,9 +212,11 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
       // ✅ Usar el controller del ProductForm para obtener categorías desde cache
       final productFormController = Get.find<ProductFormController>();
       final categories = productFormController.availableCategories;
-      
+
       if (categories.isNotEmpty) {
-        print('✅ CategorySelectorDialog: Usando ${categories.length} categorías desde cache');
+        print(
+          '✅ CategorySelectorDialog: Usando ${categories.length} categorías desde cache',
+        );
         setState(() {
           _categories = categories;
           _filteredCategories = _categories;
@@ -228,20 +226,20 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
         // Si no hay categorías en cache, cargar usando el método del controller
         await productFormController.loadAvailableCategoriesIfNeeded();
         final updatedCategories = productFormController.availableCategories;
-        
+
         setState(() {
           _categories = updatedCategories;
           _filteredCategories = _categories;
         });
-        
-        print('✅ CategorySelectorDialog: ${updatedCategories.length} categorías cargadas desde API');
+
+        print(
+          '✅ CategorySelectorDialog: ${updatedCategories.length} categorías cargadas desde API',
+        );
       }
 
       // ✅ DEBUG: Imprimir categorías para verificar
       for (int i = 0; i < _categories.length; i++) {
-        print(
-          '  Categoría $i: ${_categories[i].name} (${_categories[i].id})',
-        );
+        print('  Categoría $i: ${_categories[i].name} (${_categories[i].id})');
       }
     } catch (e) {
       print('💥 CategorySelectorDialog: Error inesperado: $e');
@@ -341,9 +339,10 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
                 padding: EdgeInsets.all(isMobile ? 20 : 24),
                 hasGlow: true,
                 child: Container(
-                  width: isMobile
-                      ? MediaQuery.of(context).size.width * 0.95
-                      : isTablet
+                  width:
+                      isMobile
+                          ? MediaQuery.of(context).size.width * 0.95
+                          : isTablet
                           ? MediaQuery.of(context).size.width * 0.85
                           : MediaQuery.of(context).size.width * 0.6,
                   constraints: BoxConstraints(
@@ -412,11 +411,7 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
-              Icons.category,
-              color: Colors.white,
-              size: 24,
-            ),
+            child: const Icon(Icons.category, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -540,11 +535,12 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected
-                          ? ElegantLightTheme.primaryBlue
-                          : ElegantLightTheme.textTertiary.withValues(
-                              alpha: 0.2,
-                            ),
+                      color:
+                          isSelected
+                              ? ElegantLightTheme.primaryBlue
+                              : ElegantLightTheme.textTertiary.withValues(
+                                alpha: 0.2,
+                              ),
                       width: isSelected ? 2 : 1,
                     ),
                   ),
@@ -555,18 +551,18 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
                       borderRadius: BorderRadius.circular(12),
                       child: FuturisticContainer(
                         padding: const EdgeInsets.all(16),
-                        gradient: isSelected
-                            ? LinearGradient(
-                                colors: [
-                                  ElegantLightTheme.primaryBlue.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  ElegantLightTheme.primaryBlueLight.withValues(
-                                    alpha: 0.05,
-                                  ),
-                                ],
-                              )
-                            : ElegantLightTheme.cardGradient,
+                        gradient:
+                            isSelected
+                                ? LinearGradient(
+                                  colors: [
+                                    ElegantLightTheme.primaryBlue.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    ElegantLightTheme.primaryBlueLight
+                                        .withValues(alpha: 0.05),
+                                  ],
+                                )
+                                : ElegantLightTheme.cardGradient,
                         child: Row(
                           children: [
                             // Icono de categoría
@@ -574,24 +570,27 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                gradient: isSelected
-                                    ? ElegantLightTheme.primaryGradient
-                                    : LinearGradient(
-                                        colors: [
-                                          Colors.grey.shade300,
-                                          Colors.grey.shade400,
-                                        ],
-                                      ),
+                                gradient:
+                                    isSelected
+                                        ? ElegantLightTheme.primaryGradient
+                                        : LinearGradient(
+                                          colors: [
+                                            Colors.grey.shade300,
+                                            Colors.grey.shade400,
+                                          ],
+                                        ),
                                 borderRadius: BorderRadius.circular(8),
-                                boxShadow: isSelected
-                                    ? ElegantLightTheme.glowShadow
-                                    : null,
+                                boxShadow:
+                                    isSelected
+                                        ? ElegantLightTheme.glowShadow
+                                        : null,
                               ),
                               child: Icon(
                                 Icons.folder,
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.grey.shade600,
+                                color:
+                                    isSelected
+                                        ? Colors.white
+                                        : Colors.grey.shade600,
                                 size: 20,
                               ),
                             ),
@@ -608,9 +607,10 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: isSelected
-                                          ? ElegantLightTheme.primaryBlue
-                                          : ElegantLightTheme.textPrimary,
+                                      color:
+                                          isSelected
+                                              ? ElegantLightTheme.primaryBlue
+                                              : ElegantLightTheme.textPrimary,
                                     ),
                                   ),
                                   if (category.description != null) ...[
@@ -634,8 +634,11 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
                                           vertical: 3,
                                         ),
                                         decoration: BoxDecoration(
-                                          gradient: ElegantLightTheme.successGradient,
-                                          borderRadius: BorderRadius.circular(6),
+                                          gradient:
+                                              ElegantLightTheme.successGradient,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                         ),
                                         child: const Text(
                                           'ACTIVA',
@@ -652,7 +655,8 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog>
                                           '${category.productsCount} productos',
                                           style: const TextStyle(
                                             fontSize: 11,
-                                            color: ElegantLightTheme.textTertiary,
+                                            color:
+                                                ElegantLightTheme.textTertiary,
                                           ),
                                         ),
                                     ],

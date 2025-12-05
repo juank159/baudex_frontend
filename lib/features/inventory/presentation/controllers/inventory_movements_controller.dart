@@ -620,7 +620,7 @@ class InventoryMovementsController extends GetxController {
     Get.dialog(
       Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Container(
+        child: SizedBox(
           width: 500,
           child: const Text('Create Movement Dialog'), // Placeholder
         ),

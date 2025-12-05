@@ -100,12 +100,13 @@ class NotificationsPanel extends GetView<DashboardController> {
         // Título con efectos de texto
         Expanded(
           child: ShaderMask(
-            shaderCallback: (bounds) => LinearGradient(
-              colors: [
-                AppColors.textPrimary,
-                AppColors.textPrimary.withOpacity(0.8),
-              ],
-            ).createShader(bounds),
+            shaderCallback:
+                (bounds) => LinearGradient(
+                  colors: [
+                    AppColors.textPrimary,
+                    AppColors.textPrimary.withOpacity(0.8),
+                  ],
+                ).createShader(bounds),
             child: Text(
               'Notificaciones',
               style: AppTextStyles.titleMedium.copyWith(
@@ -118,9 +119,12 @@ class NotificationsPanel extends GetView<DashboardController> {
           ),
         ),
         // Badge de notificaciones no leídas
-        Obx(() => controller.unreadNotificationsCount > 0
-            ? _UnreadBadge(count: controller.unreadNotificationsCount)
-            : const SizedBox.shrink()),
+        Obx(
+          () =>
+              controller.unreadNotificationsCount > 0
+                  ? _UnreadBadge(count: controller.unreadNotificationsCount)
+                  : const SizedBox.shrink(),
+        ),
         const SizedBox(width: 8),
         // Botón de refresh con animación
         _RefreshButton(onRefresh: controller.refreshNotifications),
@@ -160,7 +164,9 @@ class NotificationsPanel extends GetView<DashboardController> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ShaderMask(
-                shaderCallback: (bounds) => ElegantLightTheme.primaryGradient.createShader(bounds),
+                shaderCallback:
+                    (bounds) =>
+                        ElegantLightTheme.primaryGradient.createShader(bounds),
                 child: Text(
                   'Notificaciones',
                   style: AppTextStyles.titleMedium.copyWith(
@@ -197,9 +203,14 @@ class NotificationsPanel extends GetView<DashboardController> {
           ),
         ),
         // Badge futurístico de notificaciones no leídas
-        Obx(() => controller.unreadNotificationsCount > 0
-            ? _FuturisticUnreadBadge(count: controller.unreadNotificationsCount)
-            : const SizedBox.shrink()),
+        Obx(
+          () =>
+              controller.unreadNotificationsCount > 0
+                  ? _FuturisticUnreadBadge(
+                    count: controller.unreadNotificationsCount,
+                  )
+                  : const SizedBox.shrink(),
+        ),
         const SizedBox(width: 12),
         // Botón de refresh futurístico
         _FuturisticRefreshButton(onRefresh: controller.refreshNotifications),
@@ -225,19 +236,24 @@ class NotificationsPanel extends GetView<DashboardController> {
       return _buildModernEmptyState();
     }
 
-    return hasAdvancedData ? _buildAdvancedNotificationsList() : _buildNotificationsList();
+    return hasAdvancedData
+        ? _buildAdvancedNotificationsList()
+        : _buildNotificationsList();
   }
 
   Widget _buildNotificationsList() {
     final displayNotifications = controller.notifications.take(4).toList();
-    
+
     return Column(
       children: [
         for (int index = 0; index < displayNotifications.length; index++)
           _ModernNotificationItem(
             notification: displayNotifications[index],
             index: index,
-            onTap: () => controller.markNotificationAsRead(displayNotifications[index].id),
+            onTap:
+                () => controller.markNotificationAsRead(
+                  displayNotifications[index].id,
+                ),
           ),
         if (controller.notifications.length > 4) ...[
           const SizedBox(height: 16),
@@ -252,7 +268,7 @@ class NotificationsPanel extends GetView<DashboardController> {
 
   Widget _buildAdvancedNotificationsList() {
     final displayNotifications = controller.smartNotifications.take(4).toList();
-    
+
     return Column(
       children: [
         for (int index = 0; index < displayNotifications.length; index++)
@@ -307,7 +323,10 @@ class NotificationsPanel extends GetView<DashboardController> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const ShimmerContainer(width: double.infinity, height: 16),
+                      const ShimmerContainer(
+                        width: double.infinity,
+                        height: 16,
+                      ),
                       const SizedBox(height: 6),
                       const ShimmerContainer(width: 140, height: 14),
                       const SizedBox(height: 4),
@@ -459,7 +478,7 @@ class _FuturisticUnreadBadgeState extends State<_FuturisticUnreadBadge>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    
+
     _scaleController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -470,7 +489,10 @@ class _FuturisticUnreadBadgeState extends State<_FuturisticUnreadBadge>
     );
 
     _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _scaleController, curve: ElegantLightTheme.elasticCurve),
+      CurvedAnimation(
+        parent: _scaleController,
+        curve: ElegantLightTheme.elasticCurve,
+      ),
     );
 
     _glowAnimation = Tween<double>(begin: 0.3, end: 0.8).animate(
@@ -518,11 +540,7 @@ class _FuturisticUnreadBadgeState extends State<_FuturisticUnreadBadge>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.priority_high,
-                  color: Colors.white,
-                  size: 14,
-                ),
+                Icon(Icons.priority_high, color: Colors.white, size: 14),
                 const SizedBox(width: 4),
                 Text(
                   widget.count.toString(),
@@ -549,7 +567,8 @@ class _FuturisticRefreshButton extends StatefulWidget {
   const _FuturisticRefreshButton({required this.onRefresh});
 
   @override
-  State<_FuturisticRefreshButton> createState() => _FuturisticRefreshButtonState();
+  State<_FuturisticRefreshButton> createState() =>
+      _FuturisticRefreshButtonState();
 }
 
 class _FuturisticRefreshButtonState extends State<_FuturisticRefreshButton>
@@ -568,7 +587,7 @@ class _FuturisticRefreshButtonState extends State<_FuturisticRefreshButton>
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    
+
     _hoverController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -614,9 +633,10 @@ class _FuturisticRefreshButtonState extends State<_FuturisticRefreshButton>
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                gradient: _isHovered 
-                    ? ElegantLightTheme.primaryGradient 
-                    : ElegantLightTheme.glassGradient,
+                gradient:
+                    _isHovered
+                        ? ElegantLightTheme.primaryGradient
+                        : ElegantLightTheme.glassGradient,
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(
                   color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
@@ -625,8 +645,9 @@ class _FuturisticRefreshButtonState extends State<_FuturisticRefreshButton>
                 boxShadow: [
                   if (_isHovered) ...ElegantLightTheme.glowShadow,
                   BoxShadow(
-                    color: ElegantLightTheme.primaryBlue
-                        .withValues(alpha: 0.2 * _glowAnimation.value),
+                    color: ElegantLightTheme.primaryBlue.withValues(
+                      alpha: 0.2 * _glowAnimation.value,
+                    ),
                     blurRadius: 15,
                     offset: const Offset(0, 5),
                   ),
@@ -647,7 +668,10 @@ class _FuturisticRefreshButtonState extends State<_FuturisticRefreshButton>
                     angle: _rotationAnimation.value,
                     child: Icon(
                       Icons.refresh_rounded,
-                      color: _isHovered ? Colors.white : ElegantLightTheme.primaryBlue,
+                      color:
+                          _isHovered
+                              ? Colors.white
+                              : ElegantLightTheme.primaryBlue,
                       size: 22,
                     ),
                   ),
@@ -688,18 +712,12 @@ class _UnreadBadgeState extends State<_UnreadBadge>
     _pulseAnimation = Tween<double>(
       begin: 1.0,
       end: 1.3,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     _scaleAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
 
     _controller.forward();
     _controller.repeat(reverse: true);
@@ -724,15 +742,14 @@ class _UnreadBadgeState extends State<_UnreadBadge>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  AppColors.error,
-                  AppColors.error.withOpacity(0.8),
-                ],
+                colors: [AppColors.error, AppColors.error.withOpacity(0.8)],
               ),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.error.withOpacity(0.4 * _pulseAnimation.value),
+                  color: AppColors.error.withOpacity(
+                    0.4 * _pulseAnimation.value,
+                  ),
                   blurRadius: 8 * _pulseAnimation.value,
                   offset: const Offset(0, 2),
                 ),
@@ -780,18 +797,12 @@ class _RefreshButtonState extends State<_RefreshButton>
     _rotationAnimation = Tween<double>(
       begin: 0.0,
       end: 2 * math.pi,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
   }
 
   @override
@@ -885,10 +896,7 @@ class _ModernButtonState extends State<_ModernButton>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 0.95,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -909,10 +917,7 @@ class _ModernButtonState extends State<_ModernButton>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  widget.color,
-                  widget.color.withOpacity(0.8),
-                ],
+                colors: [widget.color, widget.color.withOpacity(0.8)],
               ),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
@@ -935,7 +940,10 @@ class _ModernButtonState extends State<_ModernButton>
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                   child: Text(
                     widget.text,
                     style: AppTextStyles.bodySmall.copyWith(
@@ -958,10 +966,7 @@ class _ViewAllButton extends StatefulWidget {
   final int count;
   final VoidCallback onPressed;
 
-  const _ViewAllButton({
-    required this.count,
-    required this.onPressed,
-  });
+  const _ViewAllButton({required this.count, required this.onPressed});
 
   @override
   State<_ViewAllButton> createState() => _ViewAllButtonState();
@@ -971,7 +976,7 @@ class _ViewAllButtonState extends State<_ViewAllButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  bool _isPressed = false;
+  final bool _isPressed = false;
 
   @override
   void initState() {
@@ -984,10 +989,7 @@ class _ViewAllButtonState extends State<_ViewAllButton>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 0.95,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -1072,7 +1074,8 @@ class _ModernNotificationItem extends StatefulWidget {
   });
 
   @override
-  State<_ModernNotificationItem> createState() => _ModernNotificationItemState();
+  State<_ModernNotificationItem> createState() =>
+      _ModernNotificationItemState();
 }
 
 class _ModernNotificationItemState extends State<_ModernNotificationItem>
@@ -1093,18 +1096,12 @@ class _ModernNotificationItemState extends State<_ModernNotificationItem>
     _slideAnimation = Tween<double>(
       begin: 50.0,
       end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutBack,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     // Iniciar animación con delay
     Future.delayed(Duration(milliseconds: widget.index * 100), () {
@@ -1133,21 +1130,23 @@ class _ModernNotificationItemState extends State<_ModernNotificationItem>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: _isHovered
-                      ? [
-                          _getPriorityColor().withOpacity(0.05),
-                          _getPriorityColor().withOpacity(0.02),
-                        ]
-                      : [
-                          AppColors.surface.withOpacity(0.3),
-                          AppColors.surface.withOpacity(0.1),
-                        ],
+                  colors:
+                      _isHovered
+                          ? [
+                            _getPriorityColor().withOpacity(0.05),
+                            _getPriorityColor().withOpacity(0.02),
+                          ]
+                          : [
+                            AppColors.surface.withOpacity(0.3),
+                            AppColors.surface.withOpacity(0.1),
+                          ],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: _isHovered
-                      ? _getPriorityColor().withOpacity(0.2)
-                      : AppColors.border.withOpacity(0.1),
+                  color:
+                      _isHovered
+                          ? _getPriorityColor().withOpacity(0.2)
+                          : AppColors.border.withOpacity(0.1),
                   width: 1,
                 ),
               ),
@@ -1202,11 +1201,7 @@ class _ModernNotificationItemState extends State<_ModernNotificationItem>
           ),
         ],
       ),
-      child: Icon(
-        _getTypeIcon(),
-        color: _getPriorityColor(),
-        size: 20,
-      ),
+      child: Icon(_getTypeIcon(), color: _getPriorityColor(), size: 20),
     );
   }
 
@@ -1221,9 +1216,10 @@ class _ModernNotificationItemState extends State<_ModernNotificationItem>
                 widget.notification.title,
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.textPrimary,
-                  fontWeight: widget.notification.isRead
-                      ? FontWeight.w500
-                      : FontWeight.w600,
+                  fontWeight:
+                      widget.notification.isRead
+                          ? FontWeight.w500
+                          : FontWeight.w600,
                   fontSize: 14,
                 ),
                 maxLines: 1,
@@ -1350,10 +1346,12 @@ class _ModernSmartNotificationItem extends StatefulWidget {
   });
 
   @override
-  State<_ModernSmartNotificationItem> createState() => _ModernSmartNotificationItemState();
+  State<_ModernSmartNotificationItem> createState() =>
+      _ModernSmartNotificationItemState();
 }
 
-class _ModernSmartNotificationItemState extends State<_ModernSmartNotificationItem>
+class _ModernSmartNotificationItemState
+    extends State<_ModernSmartNotificationItem>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _slideAnimation;
@@ -1371,18 +1369,12 @@ class _ModernSmartNotificationItemState extends State<_ModernSmartNotificationIt
     _slideAnimation = Tween<double>(
       begin: 50.0,
       end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutBack,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     // Iniciar animación con delay
     Future.delayed(Duration(milliseconds: widget.index * 100), () {
@@ -1411,21 +1403,23 @@ class _ModernSmartNotificationItemState extends State<_ModernSmartNotificationIt
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: _isHovered
-                      ? [
-                          widget.notification.color.withOpacity(0.05),
-                          widget.notification.color.withOpacity(0.02),
-                        ]
-                      : [
-                          AppColors.surface.withOpacity(0.3),
-                          AppColors.surface.withOpacity(0.1),
-                        ],
+                  colors:
+                      _isHovered
+                          ? [
+                            widget.notification.color.withOpacity(0.05),
+                            widget.notification.color.withOpacity(0.02),
+                          ]
+                          : [
+                            AppColors.surface.withOpacity(0.3),
+                            AppColors.surface.withOpacity(0.1),
+                          ],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: _isHovered
-                      ? widget.notification.color.withOpacity(0.2)
-                      : AppColors.border.withOpacity(0.1),
+                  color:
+                      _isHovered
+                          ? widget.notification.color.withOpacity(0.2)
+                          : AppColors.border.withOpacity(0.1),
                   width: 1,
                 ),
               ),
@@ -1499,9 +1493,10 @@ class _ModernSmartNotificationItemState extends State<_ModernSmartNotificationIt
                 widget.notification.title,
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.textPrimary,
-                  fontWeight: widget.notification.isRead
-                      ? FontWeight.w500
-                      : FontWeight.w600,
+                  fontWeight:
+                      widget.notification.isRead
+                          ? FontWeight.w500
+                          : FontWeight.w600,
                   fontSize: 14,
                 ),
                 maxLines: 1,
@@ -1532,7 +1527,8 @@ class _ModernSmartNotificationItemState extends State<_ModernSmartNotificationIt
         const SizedBox(height: 6),
         Row(
           children: [
-            if (widget.notification.priority != NotificationPriority.normal) ...[
+            if (widget.notification.priority !=
+                NotificationPriority.normal) ...[
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(

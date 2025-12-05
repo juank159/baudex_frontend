@@ -97,9 +97,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       _internalController = null;
     } else {
       // Crear/mantener controller interno seguro
-      if (_internalController == null) {
-        _internalController = TextEditingController();
-      }
+      _internalController ??= TextEditingController();
       _activeController = _internalController!;
 
       // Si había un controller externo pero se volvió inseguro, copiamos su valor si es posible
@@ -160,9 +158,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
   bool _isActiveControllerSafe() {
     try {
       // Verificaciones más robustas para detectar disposal
-      if (_activeController == null) return false;
-
-      // Test rápido de acceso a propiedades
       final _ = _activeController.text;
       final __ = _activeController.selection;
       final ___ = _activeController.value;

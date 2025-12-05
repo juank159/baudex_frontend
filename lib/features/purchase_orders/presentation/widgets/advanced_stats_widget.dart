@@ -8,10 +8,7 @@ import '../../domain/entities/purchase_order.dart';
 class AdvancedStatsWidget extends StatefulWidget {
   final PurchaseOrder order;
 
-  const AdvancedStatsWidget({
-    Key? key,
-    required this.order,
-  }) : super(key: key);
+  const AdvancedStatsWidget({super.key, required this.order});
 
   @override
   State<AdvancedStatsWidget> createState() => _AdvancedStatsWidgetState();
@@ -36,13 +33,19 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
         vsync: this,
       ),
     );
-    
-    _animations = _controllers.map((controller) =>
-        Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
-          parent: controller,
-          curve: ElegantLightTheme.elasticCurve,
-        ))).toList();
-    
+
+    _animations =
+        _controllers
+            .map(
+              (controller) => Tween<double>(begin: 0.0, end: 1.0).animate(
+                CurvedAnimation(
+                  parent: controller,
+                  curve: ElegantLightTheme.elasticCurve,
+                ),
+              ),
+            )
+            .toList();
+
     // Animar secuencialmente
     _animateCharts();
   }
@@ -65,12 +68,27 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     // Tamaños responsive para el análisis
-    double titleFontSize = screenWidth >= 1200 ? 20 : screenWidth >= 800 ? 18 : 16;
-    double iconContainerSize = screenWidth >= 1200 ? 24 : screenWidth >= 800 ? 22 : 20;
-    double iconPadding = screenWidth >= 1200 ? 12 : screenWidth >= 800 ? 10 : 8;
-    
+    double titleFontSize =
+        screenWidth >= 1200
+            ? 20
+            : screenWidth >= 800
+            ? 18
+            : 16;
+    double iconContainerSize =
+        screenWidth >= 1200
+            ? 24
+            : screenWidth >= 800
+            ? 22
+            : 20;
+    double iconPadding =
+        screenWidth >= 1200
+            ? 12
+            : screenWidth >= 800
+            ? 10
+            : 8;
+
     return FuturisticContainer(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,19 +123,19 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
             ],
           ),
           const SizedBox(height: 24),
-          
+
           // Gráfico circular de progreso responsive
           _buildProgressCircle(),
           const SizedBox(height: 24),
-          
+
           // Métricas de rendimiento responsive
           _buildPerformanceMetrics(),
           const SizedBox(height: 24),
-          
+
           // Distribución de costos
           _buildCostDistribution(),
           const SizedBox(height: 24),
-          
+
           // Timeline de eficiencia
           _buildEfficiencyTimeline(),
         ],
@@ -127,21 +145,49 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
 
   Widget _buildProgressCircle() {
     // Calcular cantidades por unidades, no por items
-    final totalQuantity = widget.order.items.fold<int>(0, (sum, item) => sum + item.quantity);
-    final receivedQuantity = widget.order.items.fold<int>(0, (sum, item) => sum + (item.receivedQuantity ?? 0));
-    final damagedQuantity = widget.order.items.fold<int>(0, (sum, item) => sum + (item.damagedQuantity ?? 0));
-    final missingQuantity = widget.order.items.fold<int>(0, (sum, item) => sum + (item.missingQuantity ?? 0));
-    final pendingQuantity = totalQuantity - receivedQuantity - damagedQuantity - missingQuantity;
-    
+    final totalQuantity = widget.order.items.fold<int>(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
+    final receivedQuantity = widget.order.items.fold<int>(
+      0,
+      (sum, item) => sum + (item.receivedQuantity ?? 0),
+    );
+    final damagedQuantity = widget.order.items.fold<int>(
+      0,
+      (sum, item) => sum + (item.damagedQuantity ?? 0),
+    );
+    final missingQuantity = widget.order.items.fold<int>(
+      0,
+      (sum, item) => sum + (item.missingQuantity ?? 0),
+    );
+    final pendingQuantity =
+        totalQuantity - receivedQuantity - damagedQuantity - missingQuantity;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
-        
+
         // Tamaños responsive
-        double containerHeight = screenWidth >= 1200 ? 450 : screenWidth >= 800 ? 420 : 380;
-        double donutSize = screenWidth >= 1200 ? 320 : screenWidth >= 800 ? 280 : 240;
-        double spacing = screenWidth >= 1200 ? 40 : screenWidth >= 800 ? 32 : 24;
-        
+        double containerHeight =
+            screenWidth >= 1200
+                ? 450
+                : screenWidth >= 800
+                ? 420
+                : 380;
+        double donutSize =
+            screenWidth >= 1200
+                ? 320
+                : screenWidth >= 800
+                ? 280
+                : 240;
+        double spacing =
+            screenWidth >= 1200
+                ? 40
+                : screenWidth >= 800
+                ? 32
+                : 24;
+
         return SizedBox(
           height: containerHeight,
           child: Center(
@@ -150,7 +196,12 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                 maxWidth: screenWidth >= 1200 ? 1200 : double.infinity,
               ),
               padding: EdgeInsets.symmetric(
-                horizontal: screenWidth >= 1200 ? 48 : screenWidth >= 800 ? 40 : 16,
+                horizontal:
+                    screenWidth >= 1200
+                        ? 48
+                        : screenWidth >= 800
+                        ? 40
+                        : 16,
                 vertical: 24,
               ),
               child: Row(
@@ -176,9 +227,9 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                       ),
                     ),
                   ),
-                  
+
                   SizedBox(width: spacing),
-                  
+
                   // Leyenda mejorada
                   Expanded(
                     flex: screenWidth < 600 ? 1 : 3,
@@ -231,14 +282,45 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
     );
   }
 
-  Widget _build3DLegendItem(String label, String value, IconData icon, Color color, double screenWidth) {
+  Widget _build3DLegendItem(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    double screenWidth,
+  ) {
     // Tamaños responsive ultra compactos
-    double containerHeight = screenWidth >= 1200 ? 50 : screenWidth >= 800 ? 45 : 40;
-    double iconSize = screenWidth >= 1200 ? 18 : screenWidth >= 800 ? 16 : 14;
-    double labelFontSize = screenWidth >= 1200 ? 11 : screenWidth >= 800 ? 10 : 9;
-    double valueFontSize = screenWidth >= 1200 ? 9 : screenWidth >= 800 ? 8 : 7;
-    double padding = screenWidth >= 1200 ? 6 : screenWidth >= 800 ? 5 : 4;
-    
+    double containerHeight =
+        screenWidth >= 1200
+            ? 50
+            : screenWidth >= 800
+            ? 45
+            : 40;
+    double iconSize =
+        screenWidth >= 1200
+            ? 18
+            : screenWidth >= 800
+            ? 16
+            : 14;
+    double labelFontSize =
+        screenWidth >= 1200
+            ? 11
+            : screenWidth >= 800
+            ? 10
+            : 9;
+    double valueFontSize =
+        screenWidth >= 1200
+            ? 9
+            : screenWidth >= 800
+            ? 8
+            : 7;
+    double padding =
+        screenWidth >= 1200
+            ? 6
+            : screenWidth >= 800
+            ? 5
+            : 4;
+
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 1200),
@@ -290,10 +372,7 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [
-                          color,
-                          color.withValues(alpha: 0.8),
-                        ],
+                        colors: [color, color.withValues(alpha: 0.8)],
                       ),
                       borderRadius: BorderRadius.circular((iconSize + 16) / 2),
                       boxShadow: [
@@ -311,15 +390,11 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                         ),
                       ],
                     ),
-                    child: Icon(
-                      icon,
-                      color: Colors.white,
-                      size: iconSize,
-                    ),
+                    child: Icon(icon, color: Colors.white, size: iconSize),
                   ),
-                  
+
                   SizedBox(width: screenWidth >= 800 ? 8 : 6),
-                  
+
                   // Texto con efecto de profundidad
                   Expanded(
                     child: Column(
@@ -373,11 +448,11 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
     final efficiency = _calculateEfficiency();
     final velocity = _calculateVelocity();
     final accuracy = _calculateAccuracy();
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
-        
+
         // SIEMPRE mostrar en fila (3 columnas) para todas las pantallas
         return AnimatedBuilder(
           animation: _animations[1],
@@ -446,15 +521,45 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = MediaQuery.of(context).size.width;
-        
+
         // Tamaños responsive para las cards de métricas
-        double padding = screenWidth >= 1200 ? 16 : screenWidth >= 800 ? 14 : 12;
-        double iconSize = screenWidth >= 1200 ? 24 : screenWidth >= 800 ? 22 : 20;
-        double labelFontSize = screenWidth >= 1200 ? 12 : screenWidth >= 800 ? 11 : 10;
-        double circleSize = screenWidth >= 1200 ? 60 : screenWidth >= 800 ? 55 : 50;
-        double percentFontSize = screenWidth >= 1200 ? 14 : screenWidth >= 800 ? 13 : 12;
-        double strokeWidth = screenWidth >= 1200 ? 6 : screenWidth >= 800 ? 5 : 4;
-        
+        double padding =
+            screenWidth >= 1200
+                ? 16
+                : screenWidth >= 800
+                ? 14
+                : 12;
+        double iconSize =
+            screenWidth >= 1200
+                ? 24
+                : screenWidth >= 800
+                ? 22
+                : 20;
+        double labelFontSize =
+            screenWidth >= 1200
+                ? 12
+                : screenWidth >= 800
+                ? 11
+                : 10;
+        double circleSize =
+            screenWidth >= 1200
+                ? 60
+                : screenWidth >= 800
+                ? 55
+                : 50;
+        double percentFontSize =
+            screenWidth >= 1200
+                ? 14
+                : screenWidth >= 800
+                ? 13
+                : 12;
+        double strokeWidth =
+            screenWidth >= 1200
+                ? 6
+                : screenWidth >= 800
+                ? 5
+                : 4;
+
         return Container(
           padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
@@ -467,11 +572,7 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
           ),
           child: Column(
             children: [
-              Icon(
-                icon,
-                color: gradient.colors.first,
-                size: iconSize,
-              ),
+              Icon(icon, color: gradient.colors.first, size: iconSize),
               const SizedBox(height: 8),
               Text(
                 label,
@@ -494,8 +595,11 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                     child: CircularProgressIndicator(
                       value: value * animationValue,
                       strokeWidth: strokeWidth,
-                      backgroundColor: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
-                      valueColor: AlwaysStoppedAnimation<Color>(gradient.colors.first),
+                      backgroundColor: ElegantLightTheme.textSecondary
+                          .withValues(alpha: 0.1),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        gradient.colors.first,
+                      ),
                     ),
                   ),
                   Text(
@@ -541,10 +645,13 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                 ),
               ),
               const SizedBox(height: 16),
-              ...widget.order.items.take(3).toList().asMap().entries.map((entry) {
+              ...widget.order.items.take(3).toList().asMap().entries.map((
+                entry,
+              ) {
                 final index = entry.key;
                 final item = entry.value;
-                final percentage = (item.totalAmount / widget.order.totalAmount);
+                final percentage =
+                    (item.totalAmount / widget.order.totalAmount);
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Column(
@@ -578,16 +685,22 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                       Container(
                         height: 12,
                         decoration: BoxDecoration(
-                          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.15),
+                          color: ElegantLightTheme.textSecondary.withValues(
+                            alpha: 0.15,
+                          ),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+                            color: ElegantLightTheme.textSecondary.withValues(
+                              alpha: 0.1,
+                            ),
                             width: 1,
                           ),
                         ),
                         child: TweenAnimationBuilder<double>(
                           tween: Tween<double>(begin: 0.0, end: percentage),
-                          duration: Duration(milliseconds: 1000 + (index * 200)),
+                          duration: Duration(
+                            milliseconds: 1000 + (index * 200),
+                          ),
                           curve: Curves.easeOutExpo,
                           builder: (context, animatedValue, child) {
                             return Row(
@@ -600,7 +713,8 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                                       height: 10,
                                       margin: const EdgeInsets.all(1),
                                       decoration: BoxDecoration(
-                                        gradient: ElegantLightTheme.primaryGradient,
+                                        gradient:
+                                            ElegantLightTheme.primaryGradient,
                                         borderRadius: BorderRadius.circular(5),
                                       ),
                                       child: ClipRRect(
@@ -608,7 +722,9 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                                         child: Stack(
                                           children: [
                                             // Efecto de destello cuando está casi completa
-                                            if (animatedValue >= percentage * 0.98 && percentage > 0.1)
+                                            if (animatedValue >=
+                                                    percentage * 0.98 &&
+                                                percentage > 0.1)
                                               _ProgressShimmerEffect(
                                                 borderRadius: 5,
                                               ),
@@ -653,15 +769,45 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
         return LayoutBuilder(
           builder: (context, constraints) {
             final screenWidth = constraints.maxWidth;
-            
+
             // Tamaños responsive
-            double padding = screenWidth >= 1200 ? 20 : screenWidth >= 800 ? 16 : 12;
-            double titleFontSize = screenWidth >= 1200 ? 16 : screenWidth >= 800 ? 15 : 14;
-            double itemSpacing = screenWidth >= 1200 ? 16 : screenWidth >= 800 ? 12 : 8;
-            double productFontSize = screenWidth >= 1200 ? 14 : screenWidth >= 800 ? 13 : 12;
-            double percentageFontSize = screenWidth >= 1200 ? 12 : screenWidth >= 800 ? 11 : 10;
-            double progressHeight = screenWidth >= 1200 ? 12 : screenWidth >= 800 ? 10 : 8;
-            
+            double padding =
+                screenWidth >= 1200
+                    ? 20
+                    : screenWidth >= 800
+                    ? 16
+                    : 12;
+            double titleFontSize =
+                screenWidth >= 1200
+                    ? 16
+                    : screenWidth >= 800
+                    ? 15
+                    : 14;
+            double itemSpacing =
+                screenWidth >= 1200
+                    ? 16
+                    : screenWidth >= 800
+                    ? 12
+                    : 8;
+            double productFontSize =
+                screenWidth >= 1200
+                    ? 14
+                    : screenWidth >= 800
+                    ? 13
+                    : 12;
+            double percentageFontSize =
+                screenWidth >= 1200
+                    ? 12
+                    : screenWidth >= 800
+                    ? 11
+                    : 10;
+            double progressHeight =
+                screenWidth >= 1200
+                    ? 12
+                    : screenWidth >= 800
+                    ? 10
+                    : 8;
+
             return Container(
               padding: EdgeInsets.all(padding),
               decoration: BoxDecoration(
@@ -684,25 +830,30 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                     ),
                   ),
                   SizedBox(height: itemSpacing),
-                  
+
                   // Lista de productos con progreso real
                   ...widget.order.items.asMap().entries.map((entry) {
                     final index = entry.key;
                     final item = entry.value;
                     final receivedQty = item.receivedQuantity ?? 0;
                     final totalQty = item.quantity;
-                    final progressPercentage = totalQty > 0 ? receivedQty / totalQty : 0.0;
-                    
+                    final progressPercentage =
+                        totalQty > 0 ? receivedQty / totalQty : 0.0;
+
                     // Determinar gradient basado en progreso
                     LinearGradient gradient;
                     if (progressPercentage >= 1.0) {
-                      gradient = ElegantLightTheme.successGradient; // Verde - Completo
+                      gradient =
+                          ElegantLightTheme.successGradient; // Verde - Completo
                     } else if (progressPercentage > 0.0) {
-                      gradient = ElegantLightTheme.warningGradient; // Amarillo - Parcial
+                      gradient =
+                          ElegantLightTheme
+                              .warningGradient; // Amarillo - Parcial
                     } else {
-                      gradient = ElegantLightTheme.infoGradient; // Azul - Pendiente
+                      gradient =
+                          ElegantLightTheme.infoGradient; // Azul - Pendiente
                     }
-                    
+
                     return Padding(
                       padding: EdgeInsets.only(bottom: itemSpacing),
                       child: Column(
@@ -726,16 +877,16 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                                   maxLines: 2,
                                 ),
                               ),
-                              
+
                               SizedBox(width: screenWidth < 600 ? 4 : 8),
-                              
+
                               // Cantidad y porcentaje (responsive)
                               Expanded(
                                 flex: 1,
                                 child: Text(
-                                  screenWidth < 600 
-                                    ? '${(progressPercentage * 100).toInt()}%'
-                                    : '$receivedQty/$totalQty (${(progressPercentage * 100).toInt()}%)',
+                                  screenWidth < 600
+                                      ? '${(progressPercentage * 100).toInt()}%'
+                                      : '$receivedQty/$totalQty (${(progressPercentage * 100).toInt()}%)',
                                   style: TextStyle(
                                     color: ElegantLightTheme.textSecondary,
                                     fontSize: percentageFontSize,
@@ -748,7 +899,7 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                               ),
                             ],
                           ),
-                          
+
                           // Fila inferior: Cantidad en móvil (si no se mostró arriba)
                           if (screenWidth < 600) ...[
                             const SizedBox(height: 2),
@@ -761,23 +912,33 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                               ),
                             ),
                           ],
-                          
+
                           const SizedBox(height: 8),
-                          
+
                           // Barra de progreso mejorada
                           Container(
                             height: progressHeight,
                             decoration: BoxDecoration(
-                              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(progressHeight / 2),
+                              color: ElegantLightTheme.textSecondary.withValues(
+                                alpha: 0.15,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                progressHeight / 2,
+                              ),
                               border: Border.all(
-                                color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+                                color: ElegantLightTheme.textSecondary
+                                    .withValues(alpha: 0.1),
                                 width: 1,
                               ),
                             ),
                             child: TweenAnimationBuilder<double>(
-                              tween: Tween<double>(begin: 0.0, end: progressPercentage),
-                              duration: Duration(milliseconds: 1000 + (index * 200)),
+                              tween: Tween<double>(
+                                begin: 0.0,
+                                end: progressPercentage,
+                              ),
+                              duration: Duration(
+                                milliseconds: 1000 + (index * 200),
+                              ),
                               curve: Curves.easeOutExpo,
                               builder: (context, animatedValue, child) {
                                 return Row(
@@ -791,16 +952,25 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                                           margin: const EdgeInsets.all(1),
                                           decoration: BoxDecoration(
                                             gradient: gradient,
-                                            borderRadius: BorderRadius.circular((progressHeight - 2) / 2),
+                                            borderRadius: BorderRadius.circular(
+                                              (progressHeight - 2) / 2,
+                                            ),
                                           ),
                                           child: ClipRRect(
-                                            borderRadius: BorderRadius.circular((progressHeight - 2) / 2),
+                                            borderRadius: BorderRadius.circular(
+                                              (progressHeight - 2) / 2,
+                                            ),
                                             child: Stack(
                                               children: [
                                                 // Efecto de destello cuando está casi completa
-                                                if (animatedValue >= progressPercentage * 0.98 && progressPercentage > 0.1)
+                                                if (animatedValue >=
+                                                        progressPercentage *
+                                                            0.98 &&
+                                                    progressPercentage > 0.1)
                                                   _ProgressShimmerEffect(
-                                                    borderRadius: (progressHeight - 2) / 2,
+                                                    borderRadius:
+                                                        (progressHeight - 2) /
+                                                        2,
                                                   ),
                                               ],
                                             ),
@@ -810,13 +980,17 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
                                     // Parte vacía
                                     if (animatedValue < 1.0)
                                       Flexible(
-                                        flex: ((1.0 - animatedValue) * 100).round(),
+                                        flex:
+                                            ((1.0 - animatedValue) * 100)
+                                                .round(),
                                         child: Container(
                                           height: progressHeight - 2,
                                           margin: const EdgeInsets.all(1),
                                           decoration: BoxDecoration(
                                             color: Colors.transparent,
-                                            borderRadius: BorderRadius.circular((progressHeight - 2) / 2),
+                                            borderRadius: BorderRadius.circular(
+                                              (progressHeight - 2) / 2,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -840,7 +1014,8 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
 
   double _calculateEfficiency() {
     final totalItems = widget.order.items.length;
-    final completedItems = widget.order.items.where((item) => item.isFullyReceived).length;
+    final completedItems =
+        widget.order.items.where((item) => item.isFullyReceived).length;
     return totalItems > 0 ? completedItems / totalItems : 0.0;
   }
 
@@ -865,8 +1040,14 @@ class _AdvancedStatsWidgetState extends State<AdvancedStatsWidget>
   }
 
   double _calculateAccuracy() {
-    final totalQuantity = widget.order.items.fold<int>(0, (sum, item) => sum + item.quantity);
-    final receivedQuantity = widget.order.items.fold<int>(0, (sum, item) => sum + (item.receivedQuantity ?? 0));
+    final totalQuantity = widget.order.items.fold<int>(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
+    final receivedQuantity = widget.order.items.fold<int>(
+      0,
+      (sum, item) => sum + (item.receivedQuantity ?? 0),
+    );
     return totalQuantity > 0 ? receivedQuantity / totalQuantity : 0.0;
   }
 }
@@ -898,7 +1079,6 @@ class _True3DDonutChart extends StatelessWidget {
       height: size,
       child: Stack(
         children: [
-          
           // Gráfico 3D principal
           Positioned.fill(
             child: CustomPaint(
@@ -912,13 +1092,10 @@ class _True3DDonutChart extends StatelessWidget {
               ),
             ),
           ),
-          
         ],
       ),
     );
   }
-
-
 }
 
 // CustomPainter que replica EXACTAMENTE grafico_dona.jpeg
@@ -948,21 +1125,33 @@ class _ExactReferencePainter extends CustomPainter {
     final outerRadius = math.min(size.width, size.height) / 2.8;
     final innerRadius = outerRadius * 0.45; // Agujero un poco más pequeño
     final depth3D = outerRadius * 0.4; // Más profundidad para efecto esférico
-    
+
     // Segmentos con colores por estado
     final segments = <({int quantity, Color color})>[];
-    
+
     if (receivedQuantity > 0) {
-      segments.add((quantity: receivedQuantity, color: const Color(0xFF10B981))); // Verde
+      segments.add((
+        quantity: receivedQuantity,
+        color: const Color(0xFF10B981),
+      )); // Verde
     }
     if (damagedQuantity > 0) {
-      segments.add((quantity: damagedQuantity, color: const Color(0xFFF59E0B))); // Naranja
+      segments.add((
+        quantity: damagedQuantity,
+        color: const Color(0xFFF59E0B),
+      )); // Naranja
     }
     if (missingQuantity > 0) {
-      segments.add((quantity: missingQuantity, color: const Color(0xFFEF4444))); // Rojo
+      segments.add((
+        quantity: missingQuantity,
+        color: const Color(0xFFEF4444),
+      )); // Rojo
     }
     if (pendingQuantity > 0) {
-      segments.add((quantity: pendingQuantity, color: const Color(0xFF3B82F6))); // Azul
+      segments.add((
+        quantity: pendingQuantity,
+        color: const Color(0xFF3B82F6),
+      )); // Azul
     }
 
     if (segments.isEmpty) return;
@@ -972,12 +1161,12 @@ class _ExactReferencePainter extends CustomPainter {
     const gapAngle = 0.1;
     final totalGaps = segments.length * gapAngle;
     final availableAngle = (2 * math.pi) - totalGaps;
-    
+
     for (int i = 0; i < segments.length; i++) {
       final segment = segments[i];
       final percentage = segment.quantity / totalQuantity;
       final segmentAngle = (availableAngle * percentage) * animationValue;
-      
+
       if (segmentAngle > 0.01) {
         _drawDonutSegment3D(
           canvas,
@@ -990,7 +1179,7 @@ class _ExactReferencePainter extends CustomPainter {
           depth3D,
         );
       }
-      
+
       currentAngle += segmentAngle + gapAngle;
     }
   }
@@ -1007,20 +1196,40 @@ class _ExactReferencePainter extends CustomPainter {
   ) {
     // Offset 3D hacia atrás y arriba como en la referencia
     final depthOffset = Offset(-depth * 0.6, -depth * 0.8);
-    
+
     // 1. Superficie trasera (base)
-    _drawDonutSegment(canvas, 
+    _drawDonutSegment(
+      canvas,
       Offset(center.dx + depthOffset.dx, center.dy + depthOffset.dy),
-      outerRadius, innerRadius, startAngle, sweepAngle, 
-      _darkenColor(color, 0.4));
-    
+      outerRadius,
+      innerRadius,
+      startAngle,
+      sweepAngle,
+      _darkenColor(color, 0.4),
+    );
+
     // 2. Paredes laterales 3D
-    _drawSegmentWalls(canvas, center, outerRadius, innerRadius, 
-      startAngle, sweepAngle, color, depthOffset);
-    
+    _drawSegmentWalls(
+      canvas,
+      center,
+      outerRadius,
+      innerRadius,
+      startAngle,
+      sweepAngle,
+      color,
+      depthOffset,
+    );
+
     // 3. Superficie frontal (la más visible)
-    _drawDonutSegment(canvas, center, outerRadius, innerRadius, 
-      startAngle, sweepAngle, _lightenColor(color, 0.1));
+    _drawDonutSegment(
+      canvas,
+      center,
+      outerRadius,
+      innerRadius,
+      startAngle,
+      sweepAngle,
+      _lightenColor(color, 0.1),
+    );
   }
 
   void _drawDonutSegment(
@@ -1036,37 +1245,44 @@ class _ExactReferencePainter extends CustomPainter {
     final gradient = RadialGradient(
       center: Alignment(-0.3, -0.3), // Luz desde arriba izquierda
       radius: 1.0,
-      colors: [
-        _lightenColor(color, 0.3),
-        color,
-        _darkenColor(color, 0.2),
-      ],
+      colors: [_lightenColor(color, 0.3), color, _darkenColor(color, 0.2)],
       stops: const [0.0, 0.6, 1.0],
     );
-    
-    final paint = Paint()
-      ..shader = gradient.createShader(Rect.fromCenter(
+
+    final paint =
+        Paint()
+          ..shader = gradient.createShader(
+            Rect.fromCenter(
+              center: center,
+              width: outerRadius * 2,
+              height: outerRadius * 2,
+            ),
+          );
+
+    final path = Path();
+
+    // Segmento de dona con bordes redondeados
+    path.addArc(
+      Rect.fromCenter(
         center: center,
         width: outerRadius * 2,
         height: outerRadius * 2,
-      ));
-    
-    final path = Path();
-    
-    // Segmento de dona con bordes redondeados
-    path.addArc(
-      Rect.fromCenter(center: center, width: outerRadius * 2, height: outerRadius * 2),
+      ),
       startAngle,
       sweepAngle,
     );
-    
+
     path.arcTo(
-      Rect.fromCenter(center: center, width: innerRadius * 2, height: innerRadius * 2),
+      Rect.fromCenter(
+        center: center,
+        width: innerRadius * 2,
+        height: innerRadius * 2,
+      ),
       startAngle + sweepAngle,
       -sweepAngle,
       false,
     );
-    
+
     path.close();
     canvas.drawPath(path, paint);
   }
@@ -1082,20 +1298,23 @@ class _ExactReferencePainter extends CustomPainter {
     Offset depthOffset,
   ) {
     // Pared exterior curva
-    final outerWallPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [_lightenColor(color, 0.1), _darkenColor(color, 0.3)],
-      ).createShader(Rect.fromLTWH(0, 0, outerRadius * 2, depthOffset.dy.abs()));
-    
+    final outerWallPaint =
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [_lightenColor(color, 0.1), _darkenColor(color, 0.3)],
+          ).createShader(
+            Rect.fromLTWH(0, 0, outerRadius * 2, depthOffset.dy.abs()),
+          );
+
     final steps = 20;
     final angleStep = sweepAngle / steps;
-    
+
     for (int i = 0; i < steps; i++) {
       final currentAngle = startAngle + (i * angleStep);
       final nextAngle = startAngle + ((i + 1) * angleStep);
-      
+
       // Puntos del arco exterior
       final p1Front = Offset(
         center.dx + outerRadius * math.cos(currentAngle),
@@ -1105,27 +1324,34 @@ class _ExactReferencePainter extends CustomPainter {
         center.dx + outerRadius * math.cos(nextAngle),
         center.dy + outerRadius * math.sin(nextAngle),
       );
-      
-      final p1Back = Offset(p1Front.dx + depthOffset.dx, p1Front.dy + depthOffset.dy);
-      final p2Back = Offset(p2Front.dx + depthOffset.dx, p2Front.dy + depthOffset.dy);
-      
-      final wallPath = Path()
-        ..moveTo(p1Front.dx, p1Front.dy)
-        ..lineTo(p2Front.dx, p2Front.dy)
-        ..lineTo(p2Back.dx, p2Back.dy)
-        ..lineTo(p1Back.dx, p1Back.dy)
-        ..close();
-      
+
+      final p1Back = Offset(
+        p1Front.dx + depthOffset.dx,
+        p1Front.dy + depthOffset.dy,
+      );
+      final p2Back = Offset(
+        p2Front.dx + depthOffset.dx,
+        p2Front.dy + depthOffset.dy,
+      );
+
+      final wallPath =
+          Path()
+            ..moveTo(p1Front.dx, p1Front.dy)
+            ..lineTo(p2Front.dx, p2Front.dy)
+            ..lineTo(p2Back.dx, p2Back.dy)
+            ..lineTo(p1Back.dx, p1Back.dy)
+            ..close();
+
       canvas.drawPath(wallPath, outerWallPaint);
     }
-    
+
     // Pared interior curva (más oscura)
     final innerWallPaint = Paint()..color = _darkenColor(color, 0.5);
-    
+
     for (int i = 0; i < steps; i++) {
       final currentAngle = startAngle + (i * angleStep);
       final nextAngle = startAngle + ((i + 1) * angleStep);
-      
+
       final p1Front = Offset(
         center.dx + innerRadius * math.cos(currentAngle),
         center.dy + innerRadius * math.sin(currentAngle),
@@ -1134,26 +1360,41 @@ class _ExactReferencePainter extends CustomPainter {
         center.dx + innerRadius * math.cos(nextAngle),
         center.dy + innerRadius * math.sin(nextAngle),
       );
-      
-      final p1Back = Offset(p1Front.dx + depthOffset.dx, p1Front.dy + depthOffset.dy);
-      final p2Back = Offset(p2Front.dx + depthOffset.dx, p2Front.dy + depthOffset.dy);
-      
-      final innerWallPath = Path()
-        ..moveTo(p1Front.dx, p1Front.dy)
-        ..lineTo(p1Back.dx, p1Back.dy)
-        ..lineTo(p2Back.dx, p2Back.dy)
-        ..lineTo(p2Front.dx, p2Front.dy)
-        ..close();
-      
+
+      final p1Back = Offset(
+        p1Front.dx + depthOffset.dx,
+        p1Front.dy + depthOffset.dy,
+      );
+      final p2Back = Offset(
+        p2Front.dx + depthOffset.dx,
+        p2Front.dy + depthOffset.dy,
+      );
+
+      final innerWallPath =
+          Path()
+            ..moveTo(p1Front.dx, p1Front.dy)
+            ..lineTo(p1Back.dx, p1Back.dy)
+            ..lineTo(p2Back.dx, p2Back.dy)
+            ..lineTo(p2Front.dx, p2Front.dy)
+            ..close();
+
       canvas.drawPath(innerWallPath, innerWallPaint);
     }
-    
+
     // Paredes laterales de los extremos
-    final sideWallPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [_lightenColor(color, 0.05), _darkenColor(color, 0.25)],
-      ).createShader(Rect.fromLTWH(0, 0, outerRadius - innerRadius, depthOffset.dy.abs()));
-    
+    final sideWallPaint =
+        Paint()
+          ..shader = LinearGradient(
+            colors: [_lightenColor(color, 0.05), _darkenColor(color, 0.25)],
+          ).createShader(
+            Rect.fromLTWH(
+              0,
+              0,
+              outerRadius - innerRadius,
+              depthOffset.dy.abs(),
+            ),
+          );
+
     // Lado inicio
     final startOuterFront = Offset(
       center.dx + outerRadius * math.cos(startAngle),
@@ -1163,18 +1404,25 @@ class _ExactReferencePainter extends CustomPainter {
       center.dx + innerRadius * math.cos(startAngle),
       center.dy + innerRadius * math.sin(startAngle),
     );
-    final startOuterBack = Offset(startOuterFront.dx + depthOffset.dx, startOuterFront.dy + depthOffset.dy);
-    final startInnerBack = Offset(startInnerFront.dx + depthOffset.dx, startInnerFront.dy + depthOffset.dy);
-    
-    final startSidePath = Path()
-      ..moveTo(startOuterFront.dx, startOuterFront.dy)
-      ..lineTo(startInnerFront.dx, startInnerFront.dy)
-      ..lineTo(startInnerBack.dx, startInnerBack.dy)
-      ..lineTo(startOuterBack.dx, startOuterBack.dy)
-      ..close();
-    
+    final startOuterBack = Offset(
+      startOuterFront.dx + depthOffset.dx,
+      startOuterFront.dy + depthOffset.dy,
+    );
+    final startInnerBack = Offset(
+      startInnerFront.dx + depthOffset.dx,
+      startInnerFront.dy + depthOffset.dy,
+    );
+
+    final startSidePath =
+        Path()
+          ..moveTo(startOuterFront.dx, startOuterFront.dy)
+          ..lineTo(startInnerFront.dx, startInnerFront.dy)
+          ..lineTo(startInnerBack.dx, startInnerBack.dy)
+          ..lineTo(startOuterBack.dx, startOuterBack.dy)
+          ..close();
+
     canvas.drawPath(startSidePath, sideWallPaint);
-    
+
     // Lado final
     final endAngle = startAngle + sweepAngle;
     final endOuterFront = Offset(
@@ -1185,19 +1433,25 @@ class _ExactReferencePainter extends CustomPainter {
       center.dx + innerRadius * math.cos(endAngle),
       center.dy + innerRadius * math.sin(endAngle),
     );
-    final endOuterBack = Offset(endOuterFront.dx + depthOffset.dx, endOuterFront.dy + depthOffset.dy);
-    final endInnerBack = Offset(endInnerFront.dx + depthOffset.dx, endInnerFront.dy + depthOffset.dy);
-    
-    final endSidePath = Path()
-      ..moveTo(endOuterFront.dx, endOuterFront.dy)
-      ..lineTo(endOuterBack.dx, endOuterBack.dy)
-      ..lineTo(endInnerBack.dx, endInnerBack.dy)
-      ..lineTo(endInnerFront.dx, endInnerFront.dy)
-      ..close();
-    
+    final endOuterBack = Offset(
+      endOuterFront.dx + depthOffset.dx,
+      endOuterFront.dy + depthOffset.dy,
+    );
+    final endInnerBack = Offset(
+      endInnerFront.dx + depthOffset.dx,
+      endInnerFront.dy + depthOffset.dy,
+    );
+
+    final endSidePath =
+        Path()
+          ..moveTo(endOuterFront.dx, endOuterFront.dy)
+          ..lineTo(endOuterBack.dx, endOuterBack.dy)
+          ..lineTo(endInnerBack.dx, endInnerBack.dy)
+          ..lineTo(endInnerFront.dx, endInnerFront.dy)
+          ..close();
+
     canvas.drawPath(endSidePath, sideWallPaint);
   }
-
 
   Color _lightenColor(Color color, double factor) {
     return Color.fromRGBO(
@@ -1225,9 +1479,7 @@ class _ExactReferencePainter extends CustomPainter {
 class _ProgressShimmerEffect extends StatefulWidget {
   final double borderRadius;
 
-  const _ProgressShimmerEffect({
-    required this.borderRadius,
-  });
+  const _ProgressShimmerEffect({required this.borderRadius});
 
   @override
   State<_ProgressShimmerEffect> createState() => _ProgressShimmerEffectState();

@@ -15,9 +15,9 @@ class SubscriptionInfoService {
 
         if (organization != null) {
           final subscriptionPlan =
-              organization.subscriptionPlan?.name.toLowerCase() ?? 'trial';
+              organization.subscriptionPlan.name.toLowerCase() ?? 'trial';
           final subscriptionStatus =
-              organization.subscriptionStatus?.name.toLowerCase() ?? 'expired';
+              organization.subscriptionStatus.name.toLowerCase() ?? 'expired';
 
           return {
             'plan': subscriptionPlan,
@@ -125,8 +125,8 @@ class SubscriptionInfoService {
 
   /// Mensaje de contacto para renovación
   static String _getContactMessage(Map<String, String> contactInfo) {
-    return 'Para renovar tu suscripción, contacta a nuestro equipo de ventas:\n\n' +
-        '📞 ${contactInfo['phone']}\n' +
+    return 'Para renovar tu suscripción, contacta a nuestro equipo de ventas:\n\n'
+            '📞 ${contactInfo['phone']}\n' +
         '📧 ${contactInfo['email']}\n' +
         '💬 ${contactInfo['whatsapp']}';
   }

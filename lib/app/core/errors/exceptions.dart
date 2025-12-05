@@ -13,8 +13,7 @@ abstract class AppException implements Exception {
 
 /// Excepción del servidor - Errores de la API
 class ServerException extends AppException {
-  const ServerException(String message, {int? statusCode})
-    : super(message, statusCode: statusCode);
+  const ServerException(super.message, {super.statusCode});
 
   /// Factory para crear desde código de estado HTTP
   factory ServerException.fromStatusCode(int statusCode, String message) {
@@ -60,8 +59,7 @@ class ServerException extends AppException {
 
 /// Excepción de conexión - Sin internet o problemas de red
 class ConnectionException extends AppException {
-  const ConnectionException([String message = 'Error de conexión'])
-    : super(message);
+  const ConnectionException([super.message = 'Error de conexión']);
 
   static const noInternet = ConnectionException('Sin conexión a internet');
   static const timeout = ConnectionException('Tiempo de conexión agotado');
@@ -70,7 +68,7 @@ class ConnectionException extends AppException {
 
 /// Excepción de cache/almacenamiento local
 class CacheException extends AppException {
-  const CacheException([String message = 'Error de cache']) : super(message);
+  const CacheException([super.message = 'Error de cache']);
 
   static const notFound = CacheException('Datos no encontrados en cache');
   static const writeError = CacheException('Error al escribir en cache');
@@ -79,7 +77,7 @@ class CacheException extends AppException {
 
 /// Excepción de formato/parseo
 class FormatException extends AppException {
-  const FormatException([String message = 'Error de formato']) : super(message);
+  const FormatException([super.message = 'Error de formato']);
 
   static const jsonParse = FormatException('Error al parsear JSON');
   static const invalidData = FormatException('Datos inválidos');
@@ -87,8 +85,7 @@ class FormatException extends AppException {
 
 /// Excepción de autenticación
 class AuthException extends AppException {
-  const AuthException([String message = 'Error de autenticación'])
-    : super(message);
+  const AuthException([super.message = 'Error de autenticación']);
 
   static const invalidCredentials = AuthException('Credenciales inválidas');
   static const tokenExpired = AuthException('Sesión expirada');
@@ -114,7 +111,7 @@ class ValidationException extends AppException {
 
 /// Excepción de permisos
 class PermissionException extends AppException {
-  const PermissionException([String message = 'Sin permisos']) : super(message);
+  const PermissionException([super.message = 'Sin permisos']);
 
   static const accessDenied = PermissionException('Acceso denegado');
   static const insufficientPermissions = PermissionException(

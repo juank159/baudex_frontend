@@ -139,7 +139,6 @@
 // lib/features/products/data/models/product_response_model.dart
 import '../../../../app/core/models/pagination_meta.dart';
 import 'product_model.dart';
-import 'product_stats_model.dart';
 
 class ProductResponseModel {
   final List<ProductModel> data;

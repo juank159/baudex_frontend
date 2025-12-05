@@ -2,6 +2,8 @@
 import 'package:isar/isar.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/entities/invoice_payment.dart';
+import '../../../bank_accounts/data/models/bank_account_model.dart';
+import '../../../bank_accounts/domain/entities/bank_account.dart';
 
 part 'invoice_payment_model.g.dart';
 
@@ -11,16 +13,22 @@ class InvoicePaymentModel {
 
   late String id;
   late double amount;
-  
+
   @enumerated
   late PaymentMethod paymentMethod;
-  
+
   late DateTime paymentDate;
   String? reference;
   String? notes;
   late String invoiceId;
   late String createdById;
   late String organizationId;
+
+  // Cuenta bancaria asociada (opcional)
+  String? bankAccountId;
+  @ignore
+  BankAccount? bankAccount;
+
   late DateTime createdAt;
   late DateTime updatedAt;
 
@@ -36,6 +44,8 @@ class InvoicePaymentModel {
     required this.invoiceId,
     required this.createdById,
     required this.organizationId,
+    this.bankAccountId,
+    this.bankAccount,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -76,6 +86,14 @@ class InvoicePaymentModel {
     print('🔍 InvoicePaymentModel.fromJson: Procesando payment ${json['id']}');
 
     try {
+      // Parsear bankAccount si viene en el JSON
+      BankAccount? bankAccount;
+      if (json['bankAccount'] != null && json['bankAccount'] is Map) {
+        bankAccount = BankAccountModel.fromJson(
+          json['bankAccount'] as Map<String, dynamic>,
+        ).toEntity();
+      }
+
       return InvoicePaymentModel._(
         id: json['id']?.toString() ?? '',
         amount: _parseToDouble(json['amount']),
@@ -88,6 +106,8 @@ class InvoicePaymentModel {
         invoiceId: json['invoiceId']?.toString() ?? '',
         createdById: json['createdById']?.toString() ?? '',
         organizationId: json['organizationId']?.toString() ?? '',
+        bankAccountId: json['bankAccountId']?.toString(),
+        bankAccount: bankAccount,
         createdAt: _parseDateTime(json['createdAt']),
         updatedAt: _parseDateTime(json['updatedAt']),
       );
@@ -109,6 +129,7 @@ class InvoicePaymentModel {
       'invoiceId': invoiceId,
       'createdById': createdById,
       'organizationId': organizationId,
+      if (bankAccountId != null) 'bankAccountId': bankAccountId,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -125,6 +146,8 @@ class InvoicePaymentModel {
       invoiceId: payment.invoiceId,
       createdById: payment.createdById,
       organizationId: payment.organizationId,
+      bankAccountId: payment.bankAccountId,
+      bankAccount: payment.bankAccount,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
     );
@@ -142,6 +165,8 @@ class InvoicePaymentModel {
       invoiceId: invoiceId,
       createdById: createdById,
       organizationId: organizationId,
+      bankAccountId: bankAccountId,
+      bankAccount: bankAccount,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );

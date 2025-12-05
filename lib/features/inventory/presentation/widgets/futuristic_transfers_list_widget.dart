@@ -6,39 +6,41 @@ import '../../../../app/core/theme/futuristic_notifications.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../controllers/inventory_transfers_controller.dart';
 
-class FuturisticTransfersListWidget extends GetView<InventoryTransfersController> {
+class FuturisticTransfersListWidget
+    extends GetView<InventoryTransfersController> {
   const FuturisticTransfersListWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final transfers = controller.filteredTransfers;
-      
+
       if (transfers.isEmpty) {
         return _buildNoResultsState();
       }
 
       return Column(
-        children: transfers.asMap().entries.map((entry) {
-          final index = entry.key;
-          final transfer = entry.value;
-          
-          return TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0.0, end: 1.0),
-            duration: Duration(milliseconds: 300 + (index * 100)),
-            curve: ElegantLightTheme.elasticCurve,
-            builder: (context, animationValue, child) {
-              final safeOpacity = animationValue.clamp(0.0, 1.0);
-              return Transform.translate(
-                offset: Offset(50 * (1 - safeOpacity), 0),
-                child: Opacity(
-                  opacity: safeOpacity,
-                  child: _buildTransferCard(transfer),
-                ),
+        children:
+            transfers.asMap().entries.map((entry) {
+              final index = entry.key;
+              final transfer = entry.value;
+
+              return TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0.0, end: 1.0),
+                duration: Duration(milliseconds: 300 + (index * 100)),
+                curve: ElegantLightTheme.elasticCurve,
+                builder: (context, animationValue, child) {
+                  final safeOpacity = animationValue.clamp(0.0, 1.0);
+                  return Transform.translate(
+                    offset: Offset(50 * (1 - safeOpacity), 0),
+                    child: Opacity(
+                      opacity: safeOpacity,
+                      child: _buildTransferCard(transfer),
+                    ),
+                  );
+                },
               );
-            },
-          );
-        }).toList(),
+            }).toList(),
       );
     });
   }
@@ -53,11 +55,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
               gradient: ElegantLightTheme.warningGradient,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
-              Icons.search_off,
-              color: Colors.white,
-              size: 40,
-            ),
+            child: const Icon(Icons.search_off, color: Colors.white, size: 40),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -95,15 +93,45 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
         final screenWidth = constraints.maxWidth;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 1200;
-        
+
         // Responsive values - más compacto
-        final cardMargin = isMobile ? 8.0 : isTablet ? 10.0 : 12.0;
-        final iconSize = isMobile ? 16.0 : isTablet ? 18.0 : 20.0;
-        final titleFontSize = isMobile ? 14.0 : isTablet ? 15.0 : 16.0;
-        final subtitleFontSize = isMobile ? 11.0 : isTablet ? 12.0 : 13.0;
-        final spacing = isMobile ? 8.0 : isTablet ? 10.0 : 12.0;
-        final iconPadding = isMobile ? 8.0 : isTablet ? 9.0 : 10.0;
-        
+        final cardMargin =
+            isMobile
+                ? 8.0
+                : isTablet
+                ? 10.0
+                : 12.0;
+        final iconSize =
+            isMobile
+                ? 16.0
+                : isTablet
+                ? 18.0
+                : 20.0;
+        final titleFontSize =
+            isMobile
+                ? 14.0
+                : isTablet
+                ? 15.0
+                : 16.0;
+        final subtitleFontSize =
+            isMobile
+                ? 11.0
+                : isTablet
+                ? 12.0
+                : 13.0;
+        final spacing =
+            isMobile
+                ? 8.0
+                : isTablet
+                ? 10.0
+                : 12.0;
+        final iconPadding =
+            isMobile
+                ? 8.0
+                : isTablet
+                ? 9.0
+                : 10.0;
+
         return Container(
           margin: EdgeInsets.only(bottom: cardMargin),
           child: FuturisticContainer(
@@ -112,16 +140,29 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header with status and date
-                isMobile 
-                  ? _buildMobileHeader(transfer, iconSize, titleFontSize, subtitleFontSize, iconPadding)
-                  : _buildDesktopHeader(transfer, iconSize, titleFontSize, subtitleFontSize, iconPadding, spacing),
+                isMobile
+                    ? _buildMobileHeader(
+                      transfer,
+                      iconSize,
+                      titleFontSize,
+                      subtitleFontSize,
+                      iconPadding,
+                    )
+                    : _buildDesktopHeader(
+                      transfer,
+                      iconSize,
+                      titleFontSize,
+                      subtitleFontSize,
+                      iconPadding,
+                      spacing,
+                    ),
                 SizedBox(height: spacing),
 
                 // Transfer details - responsive layout
                 _buildTransferDetails(transfer, isMobile, isTablet, spacing),
-                
+
                 SizedBox(height: spacing),
-                
+
                 // Action buttons - responsive
                 _buildActionButtons(transfer, isMobile, isTablet),
               ],
@@ -132,7 +173,13 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
     );
   }
 
-  Widget _buildMobileHeader(dynamic transfer, double iconSize, double titleFontSize, double subtitleFontSize, double iconPadding) {
+  Widget _buildMobileHeader(
+    dynamic transfer,
+    double iconSize,
+    double titleFontSize,
+    double subtitleFontSize,
+    double iconPadding,
+  ) {
     return Row(
       children: [
         Container(
@@ -142,7 +189,9 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
             borderRadius: BorderRadius.circular(10),
             boxShadow: [
               BoxShadow(
-                color: _getStatusGradient(transfer['status']).colors.first.withOpacity(0.3),
+                color: _getStatusGradient(
+                  transfer['status'],
+                ).colors.first.withOpacity(0.3),
                 offset: const Offset(0, 2),
                 blurRadius: 6,
               ),
@@ -187,7 +236,14 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
     );
   }
 
-  Widget _buildDesktopHeader(dynamic transfer, double iconSize, double titleFontSize, double subtitleFontSize, double iconPadding, double spacing) {
+  Widget _buildDesktopHeader(
+    dynamic transfer,
+    double iconSize,
+    double titleFontSize,
+    double subtitleFontSize,
+    double iconPadding,
+    double spacing,
+  ) {
     return Row(
       children: [
         Container(
@@ -197,7 +253,9 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: _getStatusGradient(transfer['status']).colors.first.withOpacity(0.3),
+                color: _getStatusGradient(
+                  transfer['status'],
+                ).colors.first.withOpacity(0.3),
                 offset: const Offset(0, 4),
                 blurRadius: 8,
               ),
@@ -245,12 +303,37 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
     );
   }
 
-  Widget _buildTransferDetails(dynamic transfer, bool isMobile, bool isTablet, double spacing) {
-    final detailPadding = isMobile ? 10.0 : isTablet ? 12.0 : 14.0;
-    final arrowIconSize = isMobile ? 12.0 : isTablet ? 14.0 : 16.0;
-    final arrowPadding = isMobile ? 5.0 : isTablet ? 6.0 : 7.0;
-    final horizontalSpacing = isMobile ? 8.0 : isTablet ? 10.0 : 12.0;
-    
+  Widget _buildTransferDetails(
+    dynamic transfer,
+    bool isMobile,
+    bool isTablet,
+    double spacing,
+  ) {
+    final detailPadding =
+        isMobile
+            ? 10.0
+            : isTablet
+            ? 12.0
+            : 14.0;
+    final arrowIconSize =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 14.0
+            : 16.0;
+    final arrowPadding =
+        isMobile
+            ? 5.0
+            : isTablet
+            ? 6.0
+            : 7.0;
+    final horizontalSpacing =
+        isMobile
+            ? 8.0
+            : isTablet
+            ? 10.0
+            : 12.0;
+
     return Container(
       padding: EdgeInsets.all(detailPadding),
       decoration: BoxDecoration(
@@ -263,20 +346,29 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
       child: Column(
         children: [
           // Warehouse flow - responsive layout
-          isMobile 
-            ? _buildMobileWarehouseFlow(transfer, arrowIconSize, arrowPadding)
-            : _buildDesktopWarehouseFlow(transfer, arrowIconSize, arrowPadding, horizontalSpacing),
+          isMobile
+              ? _buildMobileWarehouseFlow(transfer, arrowIconSize, arrowPadding)
+              : _buildDesktopWarehouseFlow(
+                transfer,
+                arrowIconSize,
+                arrowPadding,
+                horizontalSpacing,
+              ),
           SizedBox(height: spacing),
 
           // Product and quantity info - responsive
           isMobile
-            ? _buildMobileProductInfo(transfer)
-            : _buildDesktopProductInfo(transfer, horizontalSpacing),
+              ? _buildMobileProductInfo(transfer)
+              : _buildDesktopProductInfo(transfer, horizontalSpacing),
 
-          if (transfer['notes'] != null && 
-              transfer['notes'].isNotEmpty && 
-              !transfer['notes'].toString().toLowerCase().contains('transfer') &&
-              !transfer['notes'].toString().toLowerCase().contains('transferencia')) ...[
+          if (transfer['notes'] != null &&
+              transfer['notes'].isNotEmpty &&
+              !transfer['notes'].toString().toLowerCase().contains(
+                'transfer',
+              ) &&
+              !transfer['notes'].toString().toLowerCase().contains(
+                'transferencia',
+              )) ...[
             SizedBox(height: spacing),
             _buildNotesSection(transfer, isMobile),
           ],
@@ -285,7 +377,11 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
     );
   }
 
-  Widget _buildMobileWarehouseFlow(dynamic transfer, double arrowIconSize, double arrowPadding) {
+  Widget _buildMobileWarehouseFlow(
+    dynamic transfer,
+    double arrowIconSize,
+    double arrowPadding,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -308,7 +404,8 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: ElegantLightTheme.primaryGradient.colors.first.withOpacity(0.3),
+                  color: ElegantLightTheme.primaryGradient.colors.first
+                      .withOpacity(0.3),
                   offset: const Offset(0, 2),
                   blurRadius: 6,
                 ),
@@ -334,7 +431,12 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
     );
   }
 
-  Widget _buildDesktopWarehouseFlow(dynamic transfer, double arrowIconSize, double arrowPadding, double horizontalSpacing) {
+  Widget _buildDesktopWarehouseFlow(
+    dynamic transfer,
+    double arrowIconSize,
+    double arrowPadding,
+    double horizontalSpacing,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -379,7 +481,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
 
   Widget _buildMobileProductInfo(dynamic transfer) {
     final isPending = transfer['status'] == 'pending';
-    
+
     return Row(
       children: [
         Expanded(
@@ -391,43 +493,45 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
             ElegantLightTheme.warningGradient.colors.first,
           ),
         ),
-        
+
         // Centro: Botón Ver Detalles (solo icono en mobile) para non-pending o espacio vacío para pending
         SizedBox(
           width: 44,
-          child: !isPending 
-            ? Center(
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.infoGradient,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ElegantLightTheme.infoGradient.colors.first.withOpacity(0.3),
-                        offset: const Offset(0, 2),
-                        blurRadius: 6,
+          child:
+              !isPending
+                  ? Center(
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.infoGradient,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: ElegantLightTheme.infoGradient.colors.first
+                                .withOpacity(0.3),
+                            offset: const Offset(0, 2),
+                            blurRadius: 6,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _showTransferDetails(transfer),
-                      borderRadius: BorderRadius.circular(12),
-                      child: const Icon(
-                        Icons.visibility,
-                        color: Colors.white,
-                        size: 18,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _showTransferDetails(transfer),
+                          borderRadius: BorderRadius.circular(12),
+                          child: const Icon(
+                            Icons.visibility,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              )
-            : Container(), // Espacio vacío para transfers pending
+                  )
+                  : Container(), // Espacio vacío para transfers pending
         ),
-        
+
         Expanded(
           flex: 2,
           child: _buildInfoItem(
@@ -443,7 +547,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
 
   Widget _buildDesktopProductInfo(dynamic transfer, double horizontalSpacing) {
     final isPending = transfer['status'] == 'pending';
-    
+
     return Row(
       children: [
         Expanded(
@@ -455,61 +559,63 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
             ElegantLightTheme.warningGradient.colors.first,
           ),
         ),
-        
+
         // Centro: Botón Ver Detalles para non-pending o espacio vacío para pending
         SizedBox(
           width: 100,
-          child: !isPending 
-            ? Center(
-                child: Container(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.infoGradient,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ElegantLightTheme.infoGradient.colors.first.withOpacity(0.3),
-                        offset: const Offset(0, 2),
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _showTransferDetails(transfer),
-                      borderRadius: BorderRadius.circular(12),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.visibility,
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                          SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              'Ver',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+          child:
+              !isPending
+                  ? Center(
+                    child: Container(
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.infoGradient,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: ElegantLightTheme.infoGradient.colors.first
+                                .withOpacity(0.3),
+                            offset: const Offset(0, 2),
+                            blurRadius: 6,
                           ),
                         ],
                       ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _showTransferDetails(transfer),
+                          borderRadius: BorderRadius.circular(12),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.visibility,
+                                color: Colors.white,
+                                size: 14,
+                              ),
+                              SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  'Ver',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              )
-            : Container(), // Espacio vacío para transfers pending
+                  )
+                  : Container(), // Espacio vacío para transfers pending
         ),
-        
+
         Expanded(
           flex: 3,
           child: _buildInfoItem(
@@ -527,7 +633,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
     final notesPadding = isMobile ? 10.0 : 12.0;
     final notesFontSize = isMobile ? 11.0 : 12.0;
     final notesIconSize = isMobile ? 14.0 : 16.0;
-    
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(notesPadding),
@@ -563,12 +669,22 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
   }
 
   Widget _buildActionButtons(dynamic transfer, bool isMobile, bool isTablet) {
-    final buttonHeight = isMobile ? 32.0 : isTablet ? 34.0 : 36.0;
-    final buttonSpacing = isMobile ? 6.0 : isTablet ? 8.0 : 10.0;
-    
+    final buttonHeight =
+        isMobile
+            ? 32.0
+            : isTablet
+            ? 34.0
+            : 36.0;
+    final buttonSpacing =
+        isMobile
+            ? 6.0
+            : isTablet
+            ? 8.0
+            : 10.0;
+
     if (transfer['status'] == 'pending') {
-      return isMobile 
-        ? Column(
+      return isMobile
+          ? Column(
             children: [
               SizedBox(
                 width: double.infinity,
@@ -593,7 +709,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
               ),
             ],
           )
-        : Row(
+          : Row(
             children: [
               Expanded(
                 child: FuturisticButton(
@@ -623,7 +739,12 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
     }
   }
 
-  Widget _buildWarehouseInfo(String label, Map<String, dynamic> warehouse, Color color, IconData icon) {
+  Widget _buildWarehouseInfo(
+    String label,
+    Map<String, dynamic> warehouse,
+    Color color,
+    IconData icon,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 200;
@@ -633,7 +754,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
         final nameFontSize = isMobile ? 11.0 : 12.0;
         final codeFontSize = isMobile ? 9.0 : 10.0;
         final spacing = isMobile ? 3.0 : 4.0;
-        
+
         return Column(
           children: [
             Container(
@@ -687,7 +808,12 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
     );
   }
 
-  Widget _buildInfoItem(String label, String value, IconData icon, Color color) {
+  Widget _buildInfoItem(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 200;
@@ -695,7 +821,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
         final labelFontSize = isMobile ? 9.0 : 10.0;
         final valueFontSize = isMobile ? 11.0 : 12.0;
         final spacing = isMobile ? 2.0 : 3.0;
-        
+
         return Column(
           children: [
             Icon(icon, color: color, size: iconSize),
@@ -738,9 +864,12 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
         final iconSize = isMobile ? 10.0 : 12.0;
         final fontSize = isMobile ? 9.0 : 11.0;
         final spacing = isMobile ? 3.0 : 4.0;
-        
+
         return Container(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
+          ),
           decoration: BoxDecoration(
             gradient: _getStatusGradient(status),
             borderRadius: BorderRadius.circular(20),
@@ -755,11 +884,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                _getStatusIcon(status),
-                color: Colors.white,
-                size: iconSize,
-              ),
+              Icon(_getStatusIcon(status), color: Colors.white, size: iconSize),
               SizedBox(width: spacing),
               Text(
                 _getStatusText(status),
@@ -824,7 +949,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
       'Confirmando Transferencia',
       'Procesando la confirmación de la transferencia...',
     );
-    
+
     // Simulate API call
     Future.delayed(const Duration(seconds: 2), () {
       FuturisticNotifications.showSuccess(
@@ -849,11 +974,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                 gradient: ElegantLightTheme.warningGradient,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(
-                Icons.warning,
-                color: Colors.white,
-                size: 32,
-              ),
+              child: const Icon(Icons.warning, color: Colors.white, size: 32),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -893,7 +1014,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                         'Cancelando Transferencia',
                         'Procesando la cancelación...',
                       );
-                      
+
                       // Simulate API call
                       Future.delayed(const Duration(seconds: 1), () {
                         FuturisticNotifications.showSuccess(
@@ -922,29 +1043,28 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
           final screenHeight = constraints.maxHeight;
           final isMobile = screenWidth < 600;
           final isTablet = screenWidth >= 600 && screenWidth < 1200;
-          
+
           // Responsive dialog sizing
-          final dialogWidth = isMobile 
-              ? screenWidth * 0.9
-              : isTablet 
+          final dialogWidth =
+              isMobile
+                  ? screenWidth * 0.9
+                  : isTablet
                   ? screenWidth * 0.7
                   : screenWidth * 0.5;
           final maxDialogHeight = screenHeight * 0.8;
-          
+
           final padding = isMobile ? 16.0 : 24.0;
           final iconSize = isMobile ? 20.0 : 24.0;
           final titleFontSize = isMobile ? 18.0 : 22.0;
           final statusFontSize = isMobile ? 12.0 : 14.0;
           final spacing = isMobile ? 16.0 : 20.0;
-          
+
           return Center(
             child: Material(
               color: Colors.transparent,
               child: Container(
                 width: dialogWidth,
-                constraints: BoxConstraints(
-                  maxHeight: maxDialogHeight,
-                ),
+                constraints: BoxConstraints(maxHeight: maxDialogHeight),
                 margin: EdgeInsets.symmetric(
                   horizontal: isMobile ? 20 : 40,
                   vertical: 40,
@@ -953,10 +1073,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white,
-                      Colors.white.withOpacity(0.95),
-                    ],
+                    colors: [Colors.white, Colors.white.withOpacity(0.95)],
                   ),
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
@@ -993,13 +1110,19 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                _getStatusGradient(transfer['status']).colors.first.withOpacity(0.1),
-                                _getStatusGradient(transfer['status']).colors.last.withOpacity(0.05),
+                                _getStatusGradient(
+                                  transfer['status'],
+                                ).colors.first.withOpacity(0.1),
+                                _getStatusGradient(
+                                  transfer['status'],
+                                ).colors.last.withOpacity(0.05),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: _getStatusGradient(transfer['status']).colors.first.withOpacity(0.2),
+                              color: _getStatusGradient(
+                                transfer['status'],
+                              ).colors.first.withOpacity(0.2),
                             ),
                           ),
                           child: Row(
@@ -1007,11 +1130,15 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                               Container(
                                 padding: EdgeInsets.all(padding * 0.75),
                                 decoration: BoxDecoration(
-                                  gradient: _getStatusGradient(transfer['status']),
+                                  gradient: _getStatusGradient(
+                                    transfer['status'],
+                                  ),
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: _getStatusGradient(transfer['status']).colors.first.withOpacity(0.4),
+                                      color: _getStatusGradient(
+                                        transfer['status'],
+                                      ).colors.first.withOpacity(0.4),
                                       offset: const Offset(0, 4),
                                       blurRadius: 12,
                                     ),
@@ -1040,13 +1167,20 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                                     ),
                                     const SizedBox(height: 4),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
-                                        gradient: _getStatusGradient(transfer['status']),
+                                        gradient: _getStatusGradient(
+                                          transfer['status'],
+                                        ),
                                         borderRadius: BorderRadius.circular(20),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: _getStatusGradient(transfer['status']).colors.first.withOpacity(0.3),
+                                            color: _getStatusGradient(
+                                              transfer['status'],
+                                            ).colors.first.withOpacity(0.3),
                                             offset: const Offset(0, 2),
                                             blurRadius: 6,
                                           ),
@@ -1072,7 +1206,9 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                                   size: iconSize,
                                 ),
                                 style: IconButton.styleFrom(
-                                  backgroundColor: ElegantLightTheme.textSecondary.withOpacity(0.1),
+                                  backgroundColor: ElegantLightTheme
+                                      .textSecondary
+                                      .withOpacity(0.1),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1082,27 +1218,54 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                           ),
                         ),
                         SizedBox(height: spacing),
-                        
+
                         // Información detallada en cards elegantes
-                        _buildDetailCard('Información General', [
-                          _buildDetailRow('Fecha de Creación', _formatDate(DateTime.parse(transfer['createdAt']))),
-                          _buildDetailRow('Almacén de Origen', transfer['fromWarehouse']['name']),
-                          _buildDetailRow('Almacén de Destino', transfer['toWarehouse']['name']),
-                        ], Icons.info_outline, ElegantLightTheme.infoGradient, isMobile),
-                        
+                        _buildDetailCard(
+                          'Información General',
+                          [
+                            _buildDetailRow(
+                              'Fecha de Creación',
+                              _formatDate(
+                                DateTime.parse(transfer['createdAt']),
+                              ),
+                            ),
+                            _buildDetailRow(
+                              'Almacén de Origen',
+                              transfer['fromWarehouse']['name'],
+                            ),
+                            _buildDetailRow(
+                              'Almacén de Destino',
+                              transfer['toWarehouse']['name'],
+                            ),
+                          ],
+                          Icons.info_outline,
+                          ElegantLightTheme.infoGradient,
+                          isMobile,
+                        ),
+
                         SizedBox(height: spacing * 0.75),
-                        
+
                         _buildProductsDetailCard(transfer, isMobile, spacing),
-                        
-                        if (transfer['notes'] != null && transfer['notes'].isNotEmpty) ...[
+
+                        if (transfer['notes'] != null &&
+                            transfer['notes'].isNotEmpty) ...[
                           SizedBox(height: spacing * 0.75),
-                          _buildDetailCard('Notas Adicionales', [
-                            _buildDetailRow('Observaciones', transfer['notes']),
-                          ], Icons.notes, ElegantLightTheme.successGradient, isMobile),
+                          _buildDetailCard(
+                            'Notas Adicionales',
+                            [
+                              _buildDetailRow(
+                                'Observaciones',
+                                transfer['notes'],
+                              ),
+                            ],
+                            Icons.notes,
+                            ElegantLightTheme.successGradient,
+                            isMobile,
+                          ),
                         ],
-                        
+
                         SizedBox(height: spacing * 1.5),
-                        
+
                         // Botones de acción modernos
                         Row(
                           children: [
@@ -1113,7 +1276,8 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+                                      color: ElegantLightTheme.primaryBlue
+                                          .withOpacity(0.3),
                                       offset: const Offset(0, 4),
                                       blurRadius: 12,
                                     ),
@@ -1130,7 +1294,8 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                                         horizontal: 24,
                                       ),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Icon(
                                             Icons.check_circle,
@@ -1202,12 +1367,18 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
     );
   }
 
-  Widget _buildDetailCard(String title, List<Widget> details, IconData icon, LinearGradient gradient, bool isMobile) {
+  Widget _buildDetailCard(
+    String title,
+    List<Widget> details,
+    IconData icon,
+    LinearGradient gradient,
+    bool isMobile,
+  ) {
     final padding = isMobile ? 16.0 : 20.0;
     final iconSize = isMobile ? 18.0 : 20.0;
     final titleFontSize = isMobile ? 14.0 : 16.0;
     final spacing = isMobile ? 12.0 : 16.0;
-    
+
     return Container(
       padding: EdgeInsets.all(padding),
       decoration: BoxDecoration(
@@ -1250,11 +1421,7 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
                     ),
                   ],
                 ),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: iconSize,
-                ),
+                child: Icon(icon, color: Colors.white, size: iconSize),
               ),
               SizedBox(width: spacing * 0.75),
               Text(
@@ -1268,83 +1435,109 @@ class FuturisticTransfersListWidget extends GetView<InventoryTransfersController
             ],
           ),
           SizedBox(height: spacing),
-          ...details.map((detail) => Padding(
-            padding: EdgeInsets.only(bottom: spacing * 0.75),
-            child: detail,
-          )).toList(),
+          ...details.map(
+            (detail) => Padding(
+              padding: EdgeInsets.only(bottom: spacing * 0.75),
+              child: detail,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildProductsDetailCard(dynamic transfer, bool isMobile, double spacing) {
+  Widget _buildProductsDetailCard(
+    dynamic transfer,
+    bool isMobile,
+    double spacing,
+  ) {
     final productDetails = transfer['productDetails'] as List<dynamic>;
     final totalProducts = transfer['totalProducts'] as int;
     final totalQuantity = transfer['totalQuantity'] as int;
-    
+
     // Si es un solo producto, mostrar formato simple
     if (totalProducts == 1) {
       final product = productDetails.first;
-      return _buildDetailCard('Detalles del Producto', [
-        _buildDetailRow('Producto', product['name']),
-        _buildDetailRow('SKU', product['sku']),
-        _buildDetailRow('Cantidad', AppFormatters.formatNumber(product['quantity'])),
-      ], Icons.inventory_2, ElegantLightTheme.warningGradient, isMobile);
-    }
-    
-    // Si son múltiples productos, mostrar lista expandida
-    return _buildDetailCard('Productos Transferidos ($totalProducts)', [
-      _buildDetailRow('Total de Productos', totalProducts.toString()),
-      _buildDetailRow('Cantidad Total', AppFormatters.formatNumber(totalQuantity)),
-      const Divider(height: 20),
-      ...productDetails.asMap().entries.map((entry) {
-        final index = entry.key;
-        final product = entry.value;
-        return Padding(
-          padding: EdgeInsets.only(bottom: index < productDetails.length - 1 ? 12 : 0),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${index + 1}. ${product['name']}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'SKU: ${product['sku']}',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      'Cantidad: ${AppFormatters.formatNumber(product['quantity'])}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                        color: ElegantLightTheme.primaryBlue,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+      return _buildDetailCard(
+        'Detalles del Producto',
+        [
+          _buildDetailRow('Producto', product['name']),
+          _buildDetailRow('SKU', product['sku']),
+          _buildDetailRow(
+            'Cantidad',
+            AppFormatters.formatNumber(product['quantity']),
           ),
-        );
-      }).toList(),
-    ], Icons.inventory_2, ElegantLightTheme.warningGradient, isMobile);
+        ],
+        Icons.inventory_2,
+        ElegantLightTheme.warningGradient,
+        isMobile,
+      );
+    }
+
+    // Si son múltiples productos, mostrar lista expandida
+    return _buildDetailCard(
+      'Productos Transferidos ($totalProducts)',
+      [
+        _buildDetailRow('Total de Productos', totalProducts.toString()),
+        _buildDetailRow(
+          'Cantidad Total',
+          AppFormatters.formatNumber(totalQuantity),
+        ),
+        const Divider(height: 20),
+        ...productDetails.asMap().entries.map((entry) {
+          final index = entry.key;
+          final product = entry.value;
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index < productDetails.length - 1 ? 12 : 0,
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${index + 1}. ${product['name']}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'SKU: ${product['sku']}',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        'Cantidad: ${AppFormatters.formatNumber(product['quantity'])}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: ElegantLightTheme.primaryBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+      Icons.inventory_2,
+      ElegantLightTheme.warningGradient,
+      isMobile,
+    );
   }
 }

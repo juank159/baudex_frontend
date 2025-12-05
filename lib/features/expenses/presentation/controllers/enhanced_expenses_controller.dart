@@ -64,6 +64,9 @@ class EnhancedExpensesController extends GetxController {
   // ✅ NUEVO: Filtro por período predefinido - Cambiado a 'all' por defecto
   final _currentPeriod = 'all'.obs; // today, week, month, all
 
+  // ✅ NUEVO: Indicador de búsqueda en progreso
+  final _isSearching = false.obs;
+
   // UI Controllers
   final searchController = TextEditingController();
   final scrollController = ScrollController();
@@ -93,6 +96,7 @@ class EnhancedExpensesController extends GetxController {
   ExpenseType? get currentType => _currentType.value;
   String? get selectedCategoryId => _selectedCategoryId.value;
   String get searchTerm => _searchTerm.value;
+  bool get isSearching => _isSearching.value;
   String get sortBy => _sortBy.value;
   String get sortOrder => _sortOrder.value;
   DateTime? get startDate => _startDate.value;
@@ -148,8 +152,8 @@ class EnhancedExpensesController extends GetxController {
   Future<void> _loadInitialData() async {
     print('🧮 Cargando datos iniciales...');
 
-    // ✅ Cargar en paralelo para mejor rendimiento
-    await Future.wait([_loadExpenses(reset: true), _loadStats()]);
+    // ✅ IMPORTANTE: _loadExpenses ahora llama a _loadStats() internamente después de asignar datos
+    await _loadExpenses(reset: true);
 
     print('✅ Datos iniciales cargados correctamente');
   }
@@ -208,6 +212,9 @@ class EnhancedExpensesController extends GetxController {
 
           // ✅ Actualizar metadatos de paginación
           _updatePaginationMetadata(response.meta);
+
+          // ✅ IMPORTANTE: Calcular estadísticas DESPUÉS de asignar datos
+          _loadStats();
         },
       );
     } catch (e) {
@@ -228,33 +235,124 @@ class EnhancedExpensesController extends GetxController {
 
   Future<void> _loadStats() async {
     try {
-      print('📊 Cargando estadísticas...');
+      print('📊 Calculando estadísticas desde gastos filtrados...');
 
-      // ✅ Calcular fechas según el período seleccionado para consistencia
-      final dateRange = _getDateRangeForPeriod(_currentPeriod.value);
+      // ✅ NUEVO: Calcular estadísticas LOCALMENTE desde los gastos ya filtrados
+      // Esto garantiza 100% consistencia con lo que se muestra en pantalla
+      _stats.value = _calculateStatsFromFilteredExpenses();
 
-      // ✅ Cargar estadísticas con el mismo rango de fecha que la lista
-      final result = await _getExpenseStatsUseCase.call(
-        GetExpenseStatsParams(
-          startDate: dateRange['start'],
-          endDate: dateRange['end'],
-        ),
-      );
-
-      result.fold(
-        (failure) {
-          print('❌ Error cargando estadísticas: ${failure.message}');
-        },
-        (stats) {
-          print('✅ Estadísticas cargadas correctamente');
-
-          // ✅ Enriquecer estadísticas con datos calculados
-          _stats.value = _enrichStatsWithCalculatedData(stats);
-        },
-      );
+      print('✅ Estadísticas calculadas localmente:');
+      print('   Total: ${_stats.value?.totalAmount}');
+      print('   Cantidad: ${_stats.value?.totalExpenses}');
+      print('   Aprobados: ${_stats.value?.approvedExpenses}');
+      print('   Pendientes: ${_stats.value?.pendingExpenses}');
+      print('   Pagados: ${_stats.value?.paidExpenses}');
     } catch (e) {
-      print('💥 Error inesperado cargando estadísticas: $e');
+      print('💥 Error calculando estadísticas: $e');
     }
+  }
+
+  // ✅ NUEVO: Calcular estadísticas desde los gastos filtrados localmente
+  ExpenseStats _calculateStatsFromFilteredExpenses() {
+    print('🔍 Calculando estadísticas desde ${_expenses.length} gastos en memoria');
+
+    if (_expenses.isEmpty) {
+      print('⚠️ No hay gastos filtrados, retornando estadísticas vacías');
+      return ExpenseStats(
+        totalExpenses: 0,
+        totalAmount: 0.0,
+        approvedExpenses: 0,
+        approvedAmount: 0.0,
+        pendingExpenses: 0,
+        pendingAmount: 0.0,
+        rejectedExpenses: 0,
+        rejectedAmount: 0.0,
+        paidExpenses: 0,
+        paidAmount: 0.0,
+        monthlyAmount: 0.0,
+        weeklyAmount: 0.0,
+        dailyAmount: 0.0,
+        averageExpenseAmount: 0.0,
+        expensesByCategory: {},
+        expensesByType: {},
+        expensesByStatus: {},
+        monthlyTrends: [],
+        monthlyCount: 0,
+      );
+    }
+
+    // Calcular totales
+    final totalExpenses = _expenses.length;
+    final totalAmount = _expenses.fold<double>(0.0, (sum, expense) => sum + expense.amount);
+    final averageAmount = totalExpenses > 0 ? totalAmount / totalExpenses : 0.0;
+
+    print('💰 Total calculado: \$${totalAmount.toStringAsFixed(2)} desde $totalExpenses gastos');
+    if (totalExpenses > 0 && totalExpenses <= 5) {
+      for (var i = 0; i < _expenses.length; i++) {
+        print('   Gasto ${i + 1}: \$${_expenses[i].amount} - ${_expenses[i].description}');
+      }
+    }
+
+    // Filtrar por estado
+    final approved = _expenses.where((e) => e.status == ExpenseStatus.approved).toList();
+    final pending = _expenses.where((e) => e.status == ExpenseStatus.pending).toList();
+    final rejected = _expenses.where((e) => e.status == ExpenseStatus.rejected).toList();
+    final paid = _expenses.where((e) => e.isPaid).toList();
+
+    final approvedExpenses = approved.length;
+    final approvedAmount = approved.fold<double>(0.0, (sum, e) => sum + e.amount);
+
+    final pendingExpenses = pending.length;
+    final pendingAmount = pending.fold<double>(0.0, (sum, e) => sum + e.amount);
+
+    final rejectedExpenses = rejected.length;
+    final rejectedAmount = rejected.fold<double>(0.0, (sum, e) => sum + e.amount);
+
+    final paidExpenses = paid.length;
+    final paidAmount = paid.fold<double>(0.0, (sum, e) => sum + e.amount);
+
+    // Agrupar por categoría (usando categoryId ya que no tenemos el objeto completo)
+    final expensesByCategory = <String, double>{};
+    for (final expense in _expenses) {
+      final categoryId = expense.categoryId;
+      expensesByCategory[categoryId] = (expensesByCategory[categoryId] ?? 0) + expense.amount;
+    }
+
+    // Agrupar por tipo
+    final expensesByType = <String, double>{};
+    for (final expense in _expenses) {
+      final typeName = expense.type.displayName;
+      expensesByType[typeName] = (expensesByType[typeName] ?? 0) + expense.amount;
+    }
+
+    // Contar por estado
+    final expensesByStatus = <String, int>{
+      'approved': approvedExpenses,
+      'pending': pendingExpenses,
+      'rejected': rejectedExpenses,
+    };
+
+    return ExpenseStats(
+      totalExpenses: totalExpenses,
+      totalAmount: totalAmount,
+      approvedExpenses: approvedExpenses,
+      approvedAmount: approvedAmount,
+      pendingExpenses: pendingExpenses,
+      pendingAmount: pendingAmount,
+      rejectedExpenses: rejectedExpenses,
+      rejectedAmount: rejectedAmount,
+      paidExpenses: paidExpenses,
+      paidAmount: paidAmount,
+      monthlyAmount: totalAmount,
+      weeklyAmount: totalAmount,
+      dailyAmount: totalAmount,
+      averageExpenseAmount: averageAmount,
+      expensesByCategory: expensesByCategory,
+      expensesByType: expensesByType,
+      expensesByStatus: expensesByStatus,
+      monthlyTrends: [],
+      monthlyCount: totalExpenses,
+    );
   }
 
   Future<void> _loadMoreExpenses() async {
@@ -275,8 +373,19 @@ class EnhancedExpensesController extends GetxController {
   Timer? _searchTimer;
   void _debounceSearch() {
     _searchTimer?.cancel();
-    _searchTimer = Timer(const Duration(milliseconds: 500), () {
-      _loadExpenses(reset: true);
+
+    // Mostrar indicador de búsqueda si hay texto
+    if (_searchTerm.value.isNotEmpty) {
+      _isSearching.value = true;
+    } else {
+      _isSearching.value = false;
+    }
+
+    // ✅ Debounce de 800ms - suficiente tiempo para usuarios que escriben lento
+    _searchTimer = Timer(const Duration(milliseconds: 800), () {
+      _loadExpenses(reset: true).then((_) {
+        _isSearching.value = false;
+      });
     });
   }
 
@@ -285,6 +394,43 @@ class EnhancedExpensesController extends GetxController {
     _currentPeriod.value = period;
     _loadExpenses(reset: true);
     _loadStats(); // ✅ Recargar estadísticas con nuevo período
+  }
+
+  void setPeriod(String period) {
+    setPeriodFilter(period);
+  }
+
+  void setDateRange({DateTime? start, DateTime? end}) {
+    print('📅 Estableciendo rango de fechas: ${start?.toString()} - ${end?.toString()}');
+
+    // ✅ Si hay fecha de inicio, asegurarse de que sea a las 00:00:00
+    if (start != null) {
+      _startDate.value = DateTime(start.year, start.month, start.day, 0, 0, 0);
+      print('   ✅ Fecha inicio ajustada: ${_startDate.value}');
+    }
+
+    // ✅ Si hay fecha de fin, asegurarse de que incluya TODO el día (23:59:59.999)
+    if (end != null) {
+      _endDate.value = DateTime(end.year, end.month, end.day, 23, 59, 59, 999);
+      print('   ✅ Fecha fin ajustada: ${_endDate.value}');
+    }
+
+    // Si se establece un rango personalizado, cambiar período a 'custom'
+    if (start != null || end != null) {
+      _currentPeriod.value = 'custom';
+    }
+
+    _loadExpenses(reset: true);
+    // ✅ _loadStats() se llama automáticamente dentro de _loadExpenses
+  }
+
+  void clearDateFilters() {
+    print('🗑️ Limpiando filtros de fecha');
+    _startDate.value = null;
+    _endDate.value = null;
+    _currentPeriod.value = 'all';
+    _loadExpenses(reset: true);
+    // ✅ _loadStats() se llama automáticamente dentro de _loadExpenses
   }
 
   void applyStatusFilter(ExpenseStatus? status) {
@@ -634,29 +780,35 @@ class EnhancedExpensesController extends GetxController {
   Map<String, DateTime?> _getDateRangeForPeriod(String period) {
     final now = DateTime.now();
 
+    // ✅ PRIMERO: Si hay fechas personalizadas (_startDate o _endDate), usarlas
+    if (_startDate.value != null || _endDate.value != null) {
+      print('🔍 Usando rango personalizado: ${_startDate.value} - ${_endDate.value}');
+      return {'start': _startDate.value, 'end': _endDate.value};
+    }
+
+    // ✅ SEGUNDO: Usar período predefinido
     switch (period) {
       case 'today':
         final today = DateTime(now.year, now.month, now.day);
-        return {'start': today, 'end': today.add(const Duration(days: 1))};
+        final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+        print('🔍 Filtrando por HOY: $today - $endOfDay');
+        return {'start': today, 'end': endOfDay};
 
       case 'week':
         final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final start = DateTime(
-          startOfWeek.year,
-          startOfWeek.month,
-          startOfWeek.day,
-        );
-        return {'start': start, 'end': start.add(const Duration(days: 7))};
+        final start = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+        final endOfWeek = start.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+        print('🔍 Filtrando por ESTA SEMANA: $start - $endOfWeek');
+        return {'start': start, 'end': endOfWeek};
 
       case 'month':
         final startOfMonth = DateTime(now.year, now.month, 1);
-        final endOfMonth = DateTime(now.year, now.month + 1, 1);
+        final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
+        print('🔍 Filtrando por ESTE MES: $startOfMonth - $endOfMonth');
         return {'start': startOfMonth, 'end': endOfMonth};
 
-      case 'custom':
-        return {'start': _startDate.value, 'end': _endDate.value};
-
       default: // 'all'
+        print('🔍 Mostrando TODOS los gastos (sin filtro de fecha)');
         return {'start': null, 'end': null};
     }
   }

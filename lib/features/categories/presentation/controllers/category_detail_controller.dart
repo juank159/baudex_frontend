@@ -1,7 +1,6 @@
 // lib/features/categories/presentation/controllers/category_detail_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/usecases/get_categories_usecase.dart';
 import '../../domain/usecases/get_category_by_id_usecase.dart';
@@ -40,7 +39,7 @@ class CategoryDetailController extends GetxController
 
   // Tab controller para las pestañas
   late TabController tabController;
-  
+
   // Tab management for futuristic interface
   final _selectedTab = 0.obs;
 
@@ -56,7 +55,7 @@ class CategoryDetailController extends GetxController
 
   bool get hasCategory => _category.value != null;
   bool get hasSubcategories => _subcategories.isNotEmpty;
-  
+
   // Tab getters
   RxInt get selectedTab => _selectedTab;
 

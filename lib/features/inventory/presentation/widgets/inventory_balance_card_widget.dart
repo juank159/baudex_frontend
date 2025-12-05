@@ -7,10 +7,7 @@ import '../../domain/entities/inventory_balance.dart';
 class InventoryBalanceCardWidget extends StatelessWidget {
   final InventoryBalance balance;
 
-  const InventoryBalanceCardWidget({
-    super.key,
-    required this.balance,
-  });
+  const InventoryBalanceCardWidget({super.key, required this.balance});
 
   @override
   Widget build(BuildContext context) {
@@ -18,94 +15,93 @@ class InventoryBalanceCardWidget extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 5),
       child: Padding(
         padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          balance.productName,
-                          style: Get.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        balance.productName,
+                        style: Get.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
                         ),
-                      ],
-                    ),
-                  ),
-                  _buildStockStatus(),
-                ],
-              ),
-              
-              const SizedBox(height: 6),
-              
-              // Stock info
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildInfoItem(
-                      icon: Icons.inventory_2,
-                      label: 'Stock',
-                      value: '${balance.totalQuantity}',
-                      color: _getStockColor(),
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildInfoItem(
-                      icon: Icons.attach_money,
-                      label: 'Valor Total',
-                      value: AppFormatters.formatCurrency(balance.totalValue),
-                      color: Get.theme.colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 4),
-              
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildInfoItem(
-                      icon: Icons.trending_up,
-                      label: 'Costo Promedio',
-                      value: AppFormatters.formatCurrency(balance.averageCost),
-                      color: Get.theme.colorScheme.secondary,
-                    ),
-                  ),
-                  if (balance.categoryName != null)
-                    Expanded(
-                      child: _buildInfoItem(
-                        icon: Icons.category,
-                        label: 'Categoría',
-                        value: balance.categoryName!,
-                        color: Get.theme.colorScheme.tertiary,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                ],
-              ),
-              
-              // Warnings
-              if (_hasWarnings()) ...[
-                const SizedBox(height: 10),
-                _buildWarnings(),
+                    ],
+                  ),
+                ),
+                _buildStockStatus(),
               ],
-              
-              // FIFO lots summary
-              if (balance.fifoLots.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _buildFifoSummary(),
+            ),
+
+            const SizedBox(height: 6),
+
+            // Stock info
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInfoItem(
+                    icon: Icons.inventory_2,
+                    label: 'Stock',
+                    value: '${balance.totalQuantity}',
+                    color: _getStockColor(),
+                  ),
+                ),
+                Expanded(
+                  child: _buildInfoItem(
+                    icon: Icons.attach_money,
+                    label: 'Valor Total',
+                    value: AppFormatters.formatCurrency(balance.totalValue),
+                    color: Get.theme.colorScheme.primary,
+                  ),
+                ),
               ],
+            ),
+
+            const SizedBox(height: 4),
+
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInfoItem(
+                    icon: Icons.trending_up,
+                    label: 'Costo Promedio',
+                    value: AppFormatters.formatCurrency(balance.averageCost),
+                    color: Get.theme.colorScheme.secondary,
+                  ),
+                ),
+                Expanded(
+                  child: _buildInfoItem(
+                    icon: Icons.category,
+                    label: 'Categoría',
+                    value: balance.categoryName!,
+                    color: Get.theme.colorScheme.tertiary,
+                  ),
+                ),
+              ],
+            ),
+
+            // Warnings
+            if (_hasWarnings()) ...[
+              const SizedBox(height: 10),
+              _buildWarnings(),
             ],
-          ),
+
+            // FIFO lots summary
+            if (balance.fifoLots.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _buildFifoSummary(),
+            ],
+          ],
         ),
+      ),
     );
   }
 
@@ -227,7 +223,9 @@ class InventoryBalanceCardWidget extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   'Próximos a vencer: ${balance.nearExpiryQuantity}',
-                  style: Get.textTheme.bodySmall?.copyWith(color: Colors.orange),
+                  style: Get.textTheme.bodySmall?.copyWith(
+                    color: Colors.orange,
+                  ),
                 ),
               ],
             ),
@@ -238,12 +236,13 @@ class InventoryBalanceCardWidget extends StatelessWidget {
 
   Widget _buildFifoSummary() {
     final activeLots = balance.fifoLots.where((lot) => lot.quantity > 0).length;
-    final oldestLot = balance.fifoLots.isNotEmpty ? balance.fifoLots.first : null;
+    final oldestLot =
+        balance.fifoLots.isNotEmpty ? balance.fifoLots.first : null;
 
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Get.theme.colorScheme.surfaceVariant.withOpacity(0.5),
+        color: Get.theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(

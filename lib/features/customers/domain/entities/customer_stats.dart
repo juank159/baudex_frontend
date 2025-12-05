@@ -182,8 +182,9 @@ class CustomerStats extends Equatable {
     if (total != (active + inactive + suspended)) {
       errors.add('La suma de estados no coincide con el total');
     }
-    if (totalCreditLimit < 0)
+    if (totalCreditLimit < 0) {
       errors.add('Límite de crédito no puede ser negativo');
+    }
     if (totalBalance < 0) errors.add('Balance no puede ser negativo');
     if (activePercentage < 0 || activePercentage > 100) {
       errors.add('Porcentaje activo debe estar entre 0 y 100');

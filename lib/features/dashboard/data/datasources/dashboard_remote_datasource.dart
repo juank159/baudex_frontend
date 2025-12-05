@@ -109,7 +109,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = AppFormatters.formatDateForApi(startDate);
       }
@@ -125,7 +125,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       return DashboardStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener estadísticas del dashboard',
+        e.response?.data['message'] ??
+            'Error al obtener estadísticas del dashboard',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -142,9 +143,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
     List<ActivityType>? types,
   }) async {
     try {
-      final queryParams = <String, dynamic>{
-        'limit': limit,
-      };
+      final queryParams = <String, dynamic>{'limit': limit};
 
       if (types != null && types.isNotEmpty) {
         queryParams['types'] = types.map((t) => t.name).join(',');
@@ -172,9 +171,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
     bool? unreadOnly,
   }) async {
     try {
-      final queryParams = <String, dynamic>{
-        'limit': limit,
-      };
+      final queryParams = <String, dynamic>{'limit': limit};
 
       if (unreadOnly != null) {
         queryParams['unreadOnly'] = unreadOnly;
@@ -197,7 +194,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }
 
   @override
-  Future<NotificationModel> markNotificationAsRead(String notificationId) async {
+  Future<NotificationModel> markNotificationAsRead(
+    String notificationId,
+  ) async {
     try {
       // TODO: Implementar endpoint para marcar notificación como leída
       throw ServerException(
@@ -206,7 +205,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       );
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al marcar notificación como leída',
+        e.response?.data['message'] ??
+            'Error al marcar notificación como leída',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -227,7 +227,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       );
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al marcar todas las notificaciones como leídas',
+        e.response?.data['message'] ??
+            'Error al marcar todas las notificaciones como leídas',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -266,7 +267,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       return 0;
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener conteo de notificaciones',
+        e.response?.data['message'] ??
+            'Error al obtener conteo de notificaciones',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -284,7 +286,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -300,7 +302,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       return SalesStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener estadísticas de ventas',
+        e.response?.data['message'] ??
+            'Error al obtener estadísticas de ventas',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -318,7 +321,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -336,7 +339,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       return InvoiceStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener estadísticas de facturas',
+        e.response?.data['message'] ??
+            'Error al obtener estadísticas de facturas',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -352,14 +356,13 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
     try {
       // TODO: Implementar endpoint específico para estadísticas de productos
       // Por ahora obtenemos datos del resumen general
-      final response = await dioClient.get(
-        '/dashboard/summary',
-      );
+      final response = await dioClient.get('/dashboard/summary');
 
       return ProductStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener estadísticas de productos',
+        e.response?.data['message'] ??
+            'Error al obtener estadísticas de productos',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -377,7 +380,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -395,7 +398,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       return CustomerStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener estadísticas de clientes',
+        e.response?.data['message'] ??
+            'Error al obtener estadísticas de clientes',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -413,7 +417,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -429,7 +433,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       return ExpenseStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener estadísticas de gastos',
+        e.response?.data['message'] ??
+            'Error al obtener estadísticas de gastos',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -447,7 +452,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -463,7 +468,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener productos más vendidos',
+        e.response?.data['message'] ??
+            'Error al obtener productos más vendidos',
         statusCode: e.response?.statusCode ?? 500,
       );
     }
@@ -476,7 +482,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -505,7 +511,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -534,7 +540,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -563,7 +569,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -592,7 +598,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -608,7 +614,8 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener estadísticas de métodos de pago',
+        e.response?.data['message'] ??
+            'Error al obtener estadísticas de métodos de pago',
         statusCode: e.response?.statusCode ?? 500,
       );
     }
@@ -621,7 +628,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -652,7 +659,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      
+
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -671,16 +678,17 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         '/dashboard/profitability',
         queryParameters: queryParams,
       );
-      
+
       // Extraer datos de la respuesta del endpoint real
       // Backend envuelve la respuesta con {success: true, data: {...}, timestamp: "..."}
       final responseData = response.data['data'];
       print('🔍 PROFITABILITY DEBUG: Full response = ${response.data}');
-      print('🔍 PROFITABILITY DEBUG: Data portion = ${responseData}');
+      print('🔍 PROFITABILITY DEBUG: Data portion = $responseData');
       return ProfitabilityStatsModel.fromJson(responseData);
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener métricas de rentabilidad',
+        e.response?.data['message'] ??
+            'Error al obtener métricas de rentabilidad',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {

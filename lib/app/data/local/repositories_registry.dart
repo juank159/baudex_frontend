@@ -1,11 +1,11 @@
 // lib/app/data/local/repositories_registry.dart
-import 'package:get/get.dart';
 /// Registry for all offline repositories (simplified version)
 /// Provides centralized access to sync operations across all features
 class RepositoriesRegistry {
   static RepositoriesRegistry? _instance;
-  static RepositoriesRegistry get instance => _instance ??= RepositoriesRegistry._();
-  
+  static RepositoriesRegistry get instance =>
+      _instance ??= RepositoriesRegistry._();
+
   RepositoriesRegistry._();
 
   /// Get total count of unsynced entities across all repositories (placeholder)

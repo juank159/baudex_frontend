@@ -13,7 +13,7 @@ class SpectacularFloatingActionButton extends StatefulWidget {
   final bool enableHover;
 
   const SpectacularFloatingActionButton({
-    Key? key,
+    super.key,
     required this.onPressed,
     required this.icon,
     this.text,
@@ -22,74 +22,60 @@ class SpectacularFloatingActionButton extends StatefulWidget {
     this.size,
     this.enablePulse = true,
     this.enableHover = true,
-  }) : super(key: key);
+  });
 
   @override
-  State<SpectacularFloatingActionButton> createState() => _SpectacularFloatingActionButtonState();
+  State<SpectacularFloatingActionButton> createState() =>
+      _SpectacularFloatingActionButtonState();
 }
 
-class _SpectacularFloatingActionButtonState extends State<SpectacularFloatingActionButton>
+class _SpectacularFloatingActionButtonState
+    extends State<SpectacularFloatingActionButton>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _hoverController;
   late AnimationController _floatingController;
-  
+
   late Animation<double> _pulseAnimation;
   late Animation<double> _hoverScaleAnimation;
   late Animation<double> _hoverGlowAnimation;
   late Animation<double> _floatingAnimation;
-  
+
   bool _isHovered = false;
 
   @override
   void initState() {
     super.initState();
-    
+
     // Animación de pulso (respiración)
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
     );
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.05,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
 
     // Animación de hover
     _hoverController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _hoverScaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _hoverController,
-      curve: Curves.elasticOut,
-    ));
-    _hoverGlowAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _hoverController,
-      curve: Curves.easeInOut,
-    ));
+    _hoverScaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.elasticOut),
+    );
+    _hoverGlowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
 
     // Animación de flotación
     _floatingController = AnimationController(
       duration: const Duration(milliseconds: 3000),
       vsync: this,
     );
-    _floatingAnimation = Tween<double>(
-      begin: 0.0,
-      end: 8.0,
-    ).animate(CurvedAnimation(
-      parent: _floatingController,
-      curve: Curves.easeInOut,
-    ));
+    _floatingAnimation = Tween<double>(begin: 0.0, end: 8.0).animate(
+      CurvedAnimation(parent: _floatingController, curve: Curves.easeInOut),
+    );
 
     // Iniciar animaciones automáticas
     if (widget.enablePulse) {
@@ -125,12 +111,14 @@ class _SpectacularFloatingActionButtonState extends State<SpectacularFloatingAct
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 600;
-        final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1200;
+        final isTablet =
+            constraints.maxWidth >= 600 && constraints.maxWidth < 1200;
         final isDesktop = constraints.maxWidth >= 1200;
-        
+
         // Determinar si mostrar texto basado en el tamaño de pantalla
-        final shouldShowText = isDesktop && (widget.showText || widget.text != null);
-        
+        final shouldShowText =
+            isDesktop && (widget.showText || widget.text != null);
+
         return AnimatedBuilder(
           animation: Listenable.merge([
             _pulseAnimation,
@@ -153,11 +141,18 @@ class _SpectacularFloatingActionButtonState extends State<SpectacularFloatingAct
                       children: [
                         // Resplandor holográfico
                         if (widget.enableHover) _buildHolographicGlow(),
-                        
+
                         // Botón principal con efectos elegantes
                         Transform.scale(
-                          scale: _hoverScaleAnimation.value * _pulseAnimation.value,
-                          child: _buildMainButton(shouldShowText, isMobile, isTablet, isDesktop),
+                          scale:
+                              _hoverScaleAnimation.value *
+                              _pulseAnimation.value,
+                          child: _buildMainButton(
+                            shouldShowText,
+                            isMobile,
+                            isTablet,
+                            isDesktop,
+                          ),
                         ),
                       ],
                     ),
@@ -171,20 +166,43 @@ class _SpectacularFloatingActionButtonState extends State<SpectacularFloatingAct
     );
   }
 
-  Widget _buildMainButton(bool shouldShowText, bool isMobile, bool isTablet, bool isDesktop) {
+  Widget _buildMainButton(
+    bool shouldShowText,
+    bool isMobile,
+    bool isTablet,
+    bool isDesktop,
+  ) {
     final gradient = widget.gradient ?? ElegantLightTheme.primaryGradient;
-    
+
     // Tamaños responsivos
-    final buttonWidth = shouldShowText 
-        ? null 
-        : (isMobile ? 56.0 : isTablet ? 64.0 : 68.0);
-    final buttonHeight = isMobile ? 56.0 : isTablet ? 64.0 : 68.0;
-    final iconSize = isMobile ? 24.0 : isTablet ? 28.0 : 32.0;
-    
+    final buttonWidth =
+        shouldShowText
+            ? null
+            : (isMobile
+                ? 56.0
+                : isTablet
+                ? 64.0
+                : 68.0);
+    final buttonHeight =
+        isMobile
+            ? 56.0
+            : isTablet
+            ? 64.0
+            : 68.0;
+    final iconSize =
+        isMobile
+            ? 24.0
+            : isTablet
+            ? 28.0
+            : 32.0;
+
     return Container(
       width: buttonWidth,
       height: buttonHeight,
-      padding: shouldShowText ? const EdgeInsets.symmetric(horizontal: 20, vertical: 16) : null,
+      padding:
+          shouldShowText
+              ? const EdgeInsets.symmetric(horizontal: 20, vertical: 16)
+              : null,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -200,14 +218,16 @@ class _SpectacularFloatingActionButtonState extends State<SpectacularFloatingAct
           ],
           stops: [0.0, 0.7, 1.0],
         ),
-        borderRadius: BorderRadius.circular(shouldShowText ? 30 : buttonHeight / 2),
+        borderRadius: BorderRadius.circular(
+          shouldShowText ? 30 : buttonHeight / 2,
+        ),
         boxShadow: [
           // Sombra base elegante
           ...ElegantLightTheme.glowShadow,
           // Sombra de hover espectacular
           BoxShadow(
             color: gradient.colors.first.withOpacity(
-              0.4 + (_hoverGlowAnimation.value * 0.4)
+              0.4 + (_hoverGlowAnimation.value * 0.4),
             ),
             blurRadius: 15 + (_hoverGlowAnimation.value * 25),
             spreadRadius: 2 + (_hoverGlowAnimation.value * 8),
@@ -215,9 +235,7 @@ class _SpectacularFloatingActionButtonState extends State<SpectacularFloatingAct
           ),
           // Resplandor mágico
           BoxShadow(
-            color: Colors.white.withOpacity(
-              _hoverGlowAnimation.value * 0.3
-            ),
+            color: Colors.white.withOpacity(_hoverGlowAnimation.value * 0.3),
             blurRadius: 30 + (_hoverGlowAnimation.value * 20),
             spreadRadius: -5,
             offset: const Offset(0, 0),
@@ -229,54 +247,54 @@ class _SpectacularFloatingActionButtonState extends State<SpectacularFloatingAct
         children: [
           // Efectos de brillo interno
           _buildInternalShimmer(shouldShowText, buttonHeight),
-          
+
           // Contenido del botón
-          shouldShowText 
+          shouldShowText
               ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      widget.icon,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    widget.icon,
+                    color: Colors.white,
+                    size: iconSize,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 5,
+                        offset: const Offset(2, 2),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    widget.text ?? '',
+                    style: TextStyle(
                       color: Colors.white,
-                      size: iconSize,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                       shadows: [
                         Shadow(
                           color: Colors.black.withOpacity(0.3),
                           blurRadius: 5,
-                          offset: const Offset(2, 2),
+                          offset: const Offset(1, 1),
                         ),
                       ],
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      widget.text ?? '',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 5,
-                            offset: const Offset(1, 1),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                )
+                  ),
+                ],
+              )
               : Icon(
-                  widget.icon,
-                  color: Colors.white,
-                  size: iconSize + (_hoverGlowAnimation.value * 4),
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 5,
-                      offset: const Offset(2, 2),
-                    ),
-                  ],
-                ),
+                widget.icon,
+                color: Colors.white,
+                size: iconSize + (_hoverGlowAnimation.value * 4),
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 5,
+                    offset: const Offset(2, 2),
+                  ),
+                ],
+              ),
         ],
       ),
     );
@@ -293,7 +311,7 @@ class _SpectacularFloatingActionButtonState extends State<SpectacularFloatingAct
           colors: [
             Colors.transparent,
             ElegantLightTheme.primaryBlue.withOpacity(
-              _hoverGlowAnimation.value * 0.1
+              _hoverGlowAnimation.value * 0.1,
             ),
             Colors.purple.withOpacity(_hoverGlowAnimation.value * 0.05),
             Colors.transparent,
@@ -312,7 +330,9 @@ class _SpectacularFloatingActionButtonState extends State<SpectacularFloatingAct
           width: shouldShowText ? double.infinity : buttonHeight,
           height: buttonHeight,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(shouldShowText ? 30 : buttonHeight / 2),
+            borderRadius: BorderRadius.circular(
+              shouldShowText ? 30 : buttonHeight / 2,
+            ),
             gradient: LinearGradient(
               begin: Alignment(-1.0 + _pulseAnimation.value * 2, 0),
               end: Alignment(1.0 + _pulseAnimation.value * 2, 0),

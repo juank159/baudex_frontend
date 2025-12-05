@@ -371,7 +371,7 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
               size: 14,
               color: isSelected
                   ? ElegantLightTheme.primaryBlue
-                  : Colors.grey.shade600,
+                  : ElegantLightTheme.textSecondary,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -382,7 +382,7 @@ class ModernCustomerFilterWidget extends GetView<CustomersController> {
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   color: isSelected
                       ? ElegantLightTheme.primaryBlue
-                      : Colors.grey.shade700,
+                      : ElegantLightTheme.textSecondary,
                 ),
               ),
             ),

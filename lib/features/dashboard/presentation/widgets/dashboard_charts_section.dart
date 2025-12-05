@@ -3,13 +3,11 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_text_styles.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive_text.dart';
-import '../../../../app/shared/animations/stats_animations.dart';
 import '../controllers/dashboard_controller.dart';
 
 class DashboardChartsSection extends StatelessWidget {
@@ -172,76 +170,76 @@ class DashboardChartsSection extends StatelessWidget {
 
   Widget _buildFuturisticSectionHeader() {
     return Builder(
-      builder: (context) => Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: ElegantLightTheme.glowShadow,
-            ),
-            child: Icon(
-              Icons.analytics,
-              color: Colors.white,
-              size: ResponsiveText.getIconSize(context),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Análisis Financiero',
-                  style: AppTextStyles.titleLarge.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: ElegantLightTheme.textPrimary,
-                    fontSize: ResponsiveText.getTitleLargeSize(context),
-                    letterSpacing: 0.5,
-                  ),
+      builder:
+          (context) => Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: ElegantLightTheme.glowShadow,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Comparación de Ingresos vs Gastos en Tiempo Real',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: ElegantLightTheme.textSecondary,
-                    fontSize: ResponsiveText.getBodySmallSize(context),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.successGradient,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: ElegantLightTheme.elevatedShadow,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.trending_up,
+                child: Icon(
+                  Icons.analytics,
                   color: Colors.white,
-                  size: 16,
+                  size: ResponsiveText.getIconSize(context),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  'Live',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Análisis Financiero',
+                      style: AppTextStyles.titleLarge.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: ResponsiveText.getTitleLargeSize(context),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Comparación de Ingresos vs Gastos en Tiempo Real',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: ElegantLightTheme.textSecondary,
+                        fontSize: ResponsiveText.getBodySmallSize(context),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.successGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: ElegantLightTheme.elevatedShadow,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.trending_up, color: Colors.white, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Live',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -272,7 +270,9 @@ class DashboardChartsSection extends StatelessWidget {
     final netProfit = controller.realGrossProfit;
 
     return Container(
-      padding: const EdgeInsets.all(12), // Reducido de 20 a 12 para vista más compacta
+      padding: const EdgeInsets.all(
+        12,
+      ), // Reducido de 20 a 12 para vista más compacta
       decoration: BoxDecoration(
         color: Colors.transparent, // Sin fondo gris, fondo transparente
         borderRadius: BorderRadius.circular(16),
@@ -297,7 +297,9 @@ class DashboardChartsSection extends StatelessWidget {
                     Icons.trending_up,
                   ),
                 ),
-                const SizedBox(width: 10), // Reducido de 12 a 10 para más espacio
+                const SizedBox(
+                  width: 10,
+                ), // Reducido de 12 a 10 para más espacio
                 Expanded(
                   child: _buildCompactMetricCard(
                     'Gastos',
@@ -306,7 +308,9 @@ class DashboardChartsSection extends StatelessWidget {
                     Icons.trending_down,
                   ),
                 ),
-                const SizedBox(width: 10), // Reducido de 12 a 10 para más espacio
+                const SizedBox(
+                  width: 10,
+                ), // Reducido de 12 a 10 para más espacio
                 Expanded(
                   child: _buildCompactMetricCard(
                     netProfit >= 0 ? 'Ganancia' : 'Pérdida',
@@ -318,7 +322,9 @@ class DashboardChartsSection extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12), // Reducido de 20 a 12 para vista más compacta
+          const SizedBox(
+            height: 12,
+          ), // Reducido de 20 a 12 para vista más compacta
           // Gráfico de barras
           _buildBarChart(totalSales, totalExpenses, maxValue),
         ],
@@ -473,7 +479,11 @@ class DashboardChartsSection extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(icon, color: Colors.white, size: 14), // Reducido de 16 a 14
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: 14,
+            ), // Reducido de 16 a 14
           ),
           const SizedBox(height: 5), // Reducido de 6 a 5 para evitar overflow
           Text(
@@ -496,7 +506,8 @@ class DashboardChartsSection extends StatelessWidget {
               style: TextStyle(
                 color: gradient.colors.first,
                 fontWeight: FontWeight.w800,
-                fontSize: 11, // Reducido de 12 a 11 pero se escalará automáticamente
+                fontSize:
+                    11, // Reducido de 12 a 11 pero se escalará automáticamente
                 letterSpacing: 0.2, // Reducido espaciado
               ),
               textAlign: TextAlign.center,
@@ -517,7 +528,10 @@ class DashboardChartsSection extends StatelessWidget {
     final percentage2 = maxValue > 0 ? (totalExpenses / maxValue) : 0;
     final screenWidth = MediaQuery.of(Get.context!).size.width;
     final isMobile = screenWidth < 600;
-    final maxBarHeight = isMobile ? 120.0 : 360.0; // Barras más cortas en móvil para vista compacta
+    final maxBarHeight =
+        isMobile
+            ? 120.0
+            : 360.0; // Barras más cortas en móvil para vista compacta
     final barHeight1 = maxBarHeight * percentage1;
     final barHeight2 = maxBarHeight * percentage2;
     final minHeight = 4.0;
@@ -528,7 +542,12 @@ class DashboardChartsSection extends StatelessWidget {
     );
 
     return Container(
-      padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 4, isMobile ? 12 : 20, isMobile ? 12 : 20), // Padding más compacto en móvil
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 12 : 20,
+        4,
+        isMobile ? 12 : 20,
+        isMobile ? 12 : 20,
+      ), // Padding más compacto en móvil
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -567,9 +586,13 @@ class DashboardChartsSection extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                SizedBox(height: isMobile ? 0 : 8), // Espacio adicional en desktop entre valor y barra
+                SizedBox(
+                  height: isMobile ? 0 : 8,
+                ), // Espacio adicional en desktop entre valor y barra
                 _build3DBar(finalHeight1, AppColors.success, isMobile),
-                SizedBox(height: isMobile ? 0 : 6), // Espacio adicional en desktop entre barra y etiqueta
+                SizedBox(
+                  height: isMobile ? 0 : 6,
+                ), // Espacio adicional en desktop entre barra y etiqueta
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -640,9 +663,13 @@ class DashboardChartsSection extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                SizedBox(height: isMobile ? 0 : 8), // Espacio adicional en desktop entre valor y barra
+                SizedBox(
+                  height: isMobile ? 0 : 8,
+                ), // Espacio adicional en desktop entre valor y barra
                 _build3DBar(finalHeight2, AppColors.error, isMobile),
-                SizedBox(height: isMobile ? 0 : 6), // Espacio adicional en desktop entre barra y etiqueta
+                SizedBox(
+                  height: isMobile ? 0 : 6,
+                ), // Espacio adicional en desktop entre barra y etiqueta
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -686,7 +713,7 @@ class DashboardChartsSection extends StatelessWidget {
   Widget _build3DBar(double height, Color baseColor, bool isMobile) {
     // Usar la altura real sin forzar mínimos para alineación correcta
     final safeHeight = height;
-    
+
     // Mapear colores a gradientes futurísticos
     LinearGradient gradient;
     if (baseColor == AppColors.success) {
@@ -698,7 +725,8 @@ class DashboardChartsSection extends StatelessWidget {
     }
 
     // Usar altura fija del contenedor para garantizar alineación (ajustada para evitar overflow)
-    final double fixedContainerHeight = isMobile ? 140.0 : 340.0; // Altura más compacta en móvil
+    final double fixedContainerHeight =
+        isMobile ? 140.0 : 340.0; // Altura más compacta en móvil
 
     return SizedBox(
       width: 85,
@@ -724,7 +752,9 @@ class DashboardChartsSection extends StatelessWidget {
                   ],
                   stops: const [0.0, 0.5, 1.0],
                 ),
-                borderRadius: BorderRadius.circular(30), // COMPLETAMENTE REDONDEADO - sin esquinas cuadradas
+                borderRadius: BorderRadius.circular(
+                  30,
+                ), // COMPLETAMENTE REDONDEADO - sin esquinas cuadradas
               ),
             ),
           ),
@@ -739,8 +769,8 @@ class DashboardChartsSection extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    gradient.colors.first.withValues(alpha: 0.7), 
-                    gradient.colors.last
+                    gradient.colors.first.withValues(alpha: 0.7),
+                    gradient.colors.last,
                   ],
                 ),
                 borderRadius: BorderRadius.circular(40),
@@ -750,7 +780,8 @@ class DashboardChartsSection extends StatelessWidget {
           ),
           // Cuerpo principal del cilindro con perspectiva futurística
           Positioned(
-            bottom: 15, // Posición fija desde el fondo para alineación consistente
+            bottom:
+                15, // Posición fija desde el fondo para alineación consistente
             child: Transform(
               alignment: Alignment.center,
               transform:
@@ -765,11 +796,15 @@ class DashboardChartsSection extends StatelessWidget {
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                     colors: [
-                      gradient.colors.first.withValues(alpha: 0.6), // Sombra izquierda
+                      gradient.colors.first.withValues(
+                        alpha: 0.6,
+                      ), // Sombra izquierda
                       gradient.colors.first.withValues(alpha: 0.8),
                       gradient.colors.last, // Centro brillante
                       gradient.colors.first.withValues(alpha: 0.9),
-                      gradient.colors.first.withValues(alpha: 0.5), // Sombra derecha
+                      gradient.colors.first.withValues(
+                        alpha: 0.5,
+                      ), // Sombra derecha
                     ],
                     stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
                   ),
@@ -783,7 +818,10 @@ class DashboardChartsSection extends StatelessWidget {
           ),
           // Reflejo lateral con perspectiva
           Positioned(
-            bottom: 15 + (safeHeight * 0.3), // Posicionado relativo a la altura de la barra
+            bottom:
+                15 +
+                (safeHeight *
+                    0.3), // Posicionado relativo a la altura de la barra
             left: 18,
             child: Transform(
               alignment: Alignment.center,
@@ -1047,5 +1085,4 @@ class DashboardChartsSection extends StatelessWidget {
       ),
     );
   }
-
 }

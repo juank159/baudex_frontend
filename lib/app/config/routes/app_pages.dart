@@ -20,7 +20,6 @@ import 'package:baudex_desktop/features/customers/presentation/screens/modern_cu
 import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_controller.dart';
 import 'package:baudex_desktop/features/invoices/presentation/bindings/invoice_binding.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_detail_screen.dart';
-import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_screen_wrapper.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_tabs_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_list_screen.dart';
@@ -45,33 +44,23 @@ import 'package:baudex_desktop/features/products/presentation/screens/product_st
 import 'package:baudex_desktop/features/products/presentation/screens/products_list_screen.dart';
 import 'package:baudex_desktop/features/products/presentation/screens/product_detail_screen.dart';
 import 'package:baudex_desktop/features/expenses/presentation/bindings/expense_binding.dart';
-import 'package:baudex_desktop/features/expenses/presentation/controllers/expenses_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_form_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_detail_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_categories_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/screens/expenses_list_screen.dart';
-import 'package:baudex_desktop/features/expenses/presentation/screens/expense_form_screen.dart';
+import 'package:baudex_desktop/features/expenses/presentation/screens/modern_expense_form_screen.dart';
 import 'package:baudex_desktop/features/expenses/presentation/screens/expense_detail_screen.dart';
 import 'package:baudex_desktop/features/expenses/presentation/screens/expense_categories_screen.dart';
 import 'package:baudex_desktop/features/suppliers/presentation/bindings/suppliers_binding.dart';
-import 'package:baudex_desktop/features/suppliers/presentation/controllers/suppliers_controller.dart';
-import 'package:baudex_desktop/features/suppliers/presentation/controllers/supplier_detail_controller.dart';
-import 'package:baudex_desktop/features/suppliers/presentation/controllers/supplier_form_controller.dart';
 import 'package:baudex_desktop/features/suppliers/presentation/screens/suppliers_list_screen.dart';
 import 'package:baudex_desktop/features/suppliers/presentation/screens/supplier_detail_screen.dart';
 import 'package:baudex_desktop/features/suppliers/presentation/screens/supplier_form_screen.dart';
 import 'package:baudex_desktop/features/purchase_orders/presentation/bindings/purchase_orders_binding.dart';
 import 'package:baudex_desktop/features/purchase_orders/presentation/bindings/purchase_order_form_binding.dart';
-import 'package:baudex_desktop/features/purchase_orders/presentation/bindings/purchase_order_detail_binding.dart'
-    hide PurchaseOrderDetailBinding;
-import 'package:baudex_desktop/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
-import 'package:baudex_desktop/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
-import 'package:baudex_desktop/features/purchase_orders/presentation/controllers/purchase_order_form_controller.dart';
 import 'package:baudex_desktop/features/purchase_orders/presentation/screens/purchase_orders_list_screen.dart';
 import 'package:baudex_desktop/features/purchase_orders/presentation/screens/futuristic_purchase_order_detail_screen.dart';
 import 'package:baudex_desktop/features/purchase_orders/presentation/screens/purchase_order_form_screen.dart';
 import 'package:baudex_desktop/features/inventory/presentation/bindings/inventory_binding.dart';
-import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_list_screen.dart';
 import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_dashboard_screen.dart';
 import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_movements_screen.dart';
 import 'package:baudex_desktop/features/inventory/presentation/screens/inventory_adjustments_screen.dart';
@@ -109,6 +98,15 @@ import 'package:baudex_desktop/features/reports/presentation/screens/valuation_c
 import 'package:baudex_desktop/features/reports/presentation/screens/kardex_multi_product_screen.dart';
 import 'package:baudex_desktop/features/reports/presentation/screens/movements_summary_screen.dart';
 import 'package:baudex_desktop/features/reports/presentation/screens/inventory_aging_screen.dart';
+import 'package:baudex_desktop/features/credit_notes/presentation/bindings/credit_note_binding.dart';
+import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_list_screen.dart';
+import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_detail_screen.dart';
+import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_form_screen.dart';
+import 'package:baudex_desktop/features/bank_accounts/presentation/bindings/bank_accounts_binding.dart';
+import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_accounts_screen.dart';
+import 'package:baudex_desktop/features/customer_credits/presentation/bindings/customer_credit_binding.dart';
+import 'package:baudex_desktop/features/customer_credits/presentation/pages/customer_credits_page.dart';
+import 'package:baudex_desktop/features/customer_credits/presentation/pages/client_balances_page.dart';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -1291,7 +1289,7 @@ class AppPages {
 
     GetPage(
       name: AppRoutes.expensesCreate,
-      page: () => const ExpenseFormScreen(),
+      page: () => const ModernExpenseFormScreen(),
       binding: BindingsBuilder(() {
         print('🔧 [CREAR GASTO] Inicializando bindings...');
         ExpenseBinding().dependencies();
@@ -1303,6 +1301,9 @@ class AppPages {
               getExpenseByIdUseCase: Get.find(),
               getExpenseCategoriesUseCase: Get.find(),
               createExpenseCategoryUseCase: Get.find(),
+              updateExpenseCategoryUseCase: Get.find(),
+              uploadAttachmentsUseCase: Get.find(),
+              deleteAttachmentUseCase: Get.find(),
               fileService: Get.find(),
             ),
           );
@@ -1316,7 +1317,7 @@ class AppPages {
 
     GetPage(
       name: '${AppRoutes.expensesEdit}/:id',
-      page: () => const ExpenseFormScreen(),
+      page: () => const ModernExpenseFormScreen(),
       binding: BindingsBuilder(() {
         print('🔧 [EDITAR GASTO] Inicializando bindings...');
         ExpenseBinding().dependencies();
@@ -1328,6 +1329,9 @@ class AppPages {
               getExpenseByIdUseCase: Get.find(),
               getExpenseCategoriesUseCase: Get.find(),
               createExpenseCategoryUseCase: Get.find(),
+              updateExpenseCategoryUseCase: Get.find(),
+              uploadAttachmentsUseCase: Get.find(),
+              deleteAttachmentUseCase: Get.find(),
               fileService: Get.find(),
             ),
           );
@@ -1579,6 +1583,140 @@ class AppPages {
       name: AppRoutes.reportsInventoryAging,
       page: () => const InventoryAgingScreen(),
       binding: ReportsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== CREDIT NOTES PAGES ====================
+
+    // 📋 LISTA DE NOTAS DE CRÉDITO
+    GetPage(
+      name: AppRoutes.creditNotes,
+      page: () => const CreditNoteListScreen(),
+      binding: CreditNoteListBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ➕ CREAR NOTA DE CRÉDITO
+    GetPage(
+      name: AppRoutes.creditNotesCreate,
+      page: () => const CreditNoteFormScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [CREAR NOTA CRÉDITO] Inicializando bindings...');
+
+        // Asegurar dependencias de Invoice para GetInvoiceByIdUseCase
+        if (!InvoiceBinding.areBaseDependenciesRegistered()) {
+          print('📄 [CREAR NOTA CRÉDITO] Registrando InvoiceBinding base...');
+          InvoiceBinding().dependencies();
+          print('✅ [CREAR NOTA CRÉDITO] InvoiceBinding base registrado');
+        }
+
+        // Registrar CreditNoteFormBinding
+        CreditNoteFormBinding().dependencies();
+        print('✅ [CREAR NOTA CRÉDITO] CreditNoteFormBinding registrado');
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ✏️ EDITAR NOTA DE CRÉDITO
+    GetPage(
+      name: '${AppRoutes.creditNotesEdit}/:id',
+      page: () => const CreditNoteFormScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [EDITAR NOTA CRÉDITO] Inicializando bindings...');
+
+        // Asegurar dependencias de Invoice
+        if (!InvoiceBinding.areBaseDependenciesRegistered()) {
+          print('📄 [EDITAR NOTA CRÉDITO] Registrando InvoiceBinding base...');
+          InvoiceBinding().dependencies();
+          print('✅ [EDITAR NOTA CRÉDITO] InvoiceBinding base registrado');
+        }
+
+        // Registrar CreditNoteFormBinding
+        CreditNoteFormBinding().dependencies();
+        print('✅ [EDITAR NOTA CRÉDITO] CreditNoteFormBinding registrado');
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 👁️ DETALLE DE NOTA DE CRÉDITO
+    GetPage(
+      name: '${AppRoutes.creditNotesDetail}/:id',
+      page: () => const CreditNoteDetailScreen(),
+      binding: CreditNoteDetailBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 📋 NOTAS DE CRÉDITO POR FACTURA
+    GetPage(
+      name: '/credit-notes/invoice/:invoiceId',
+      page: () => const CreditNoteListScreen(),
+      binding: CreditNoteListBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== BANK ACCOUNTS PAGES ====================
+
+    // 🏦 CUENTAS BANCARIAS
+    GetPage(
+      name: AppRoutes.bankAccounts,
+      page: () => const BankAccountsScreen(),
+      binding: BankAccountsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== CUSTOMER CREDITS PAGES ====================
+
+    // 💳 CRÉDITOS DE CLIENTES
+    GetPage(
+      name: AppRoutes.customerCredits,
+      page: () => const CustomerCreditsPage(),
+      binding: CustomerCreditBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 👁️ DETALLE DE CRÉDITO
+    GetPage(
+      name: '${AppRoutes.customerCreditsDetail}/:id',
+      page: () => const CustomerCreditsPage(),
+      binding: CustomerCreditBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 👤 CRÉDITOS POR CLIENTE
+    GetPage(
+      name: '/customer-credits/customer/:customerId',
+      page: () => const CustomerCreditsPage(),
+      binding: CustomerCreditBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== CLIENT BALANCES PAGES ====================
+
+    // 💰 SALDOS A FAVOR
+    GetPage(
+      name: AppRoutes.clientBalances,
+      page: () => const ClientBalancesPage(),
+      binding: CustomerCreditBinding(),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],

@@ -307,7 +307,7 @@ class InvoiceItemsListWidget extends StatelessWidget {
           final index = entry.key;
           final item = entry.value;
           return _buildTabletItemRow(context, item, index);
-        }).toList(),
+        }),
       ],
     );
   }
@@ -478,7 +478,7 @@ class InvoiceItemsListWidget extends StatelessWidget {
             final index = entry.key;
             final item = entry.value;
             return _buildDesktopTableRow(context, item, index);
-          }).toList(),
+          }),
         ],
       ),
     );

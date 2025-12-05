@@ -10,6 +10,8 @@ class InvoiceQueryParamsModel {
   final String? paymentMethod;
   final String? customerId;
   final String? createdById;
+  final String? bankAccountId;
+  final String? bankAccountName; // Filtro por nombre de método de pago (Nequi, Bancolombia, etc.)
   final String? startDate;
   final String? endDate;
   final double? minAmount;
@@ -25,6 +27,8 @@ class InvoiceQueryParamsModel {
     this.paymentMethod,
     this.customerId,
     this.createdById,
+    this.bankAccountId,
+    this.bankAccountName,
     this.startDate,
     this.endDate,
     this.minAmount,
@@ -57,6 +61,12 @@ class InvoiceQueryParamsModel {
     if (createdById != null) {
       params['createdById'] = createdById;
     }
+    if (bankAccountId != null) {
+      params['bankAccountId'] = bankAccountId;
+    }
+    if (bankAccountName != null && bankAccountName!.isNotEmpty) {
+      params['bankAccountName'] = bankAccountName;
+    }
     if (startDate != null) {
       params['startDate'] = startDate;
     }
@@ -81,6 +91,8 @@ class InvoiceQueryParamsModel {
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,
+    String? bankAccountId,
+    String? bankAccountName,
     DateTime? startDate,
     DateTime? endDate,
     double? minAmount,
@@ -96,6 +108,8 @@ class InvoiceQueryParamsModel {
       paymentMethod: paymentMethod?.value,
       customerId: customerId,
       createdById: createdById,
+      bankAccountId: bankAccountId,
+      bankAccountName: bankAccountName,
       startDate: startDate?.toIso8601String(),
       endDate: endDate?.toIso8601String(),
       minAmount: minAmount,
@@ -125,6 +139,8 @@ class InvoiceQueryParamsModel {
     String? paymentMethod,
     String? customerId,
     String? createdById,
+    String? bankAccountId,
+    String? bankAccountName,
     String? startDate,
     String? endDate,
     double? minAmount,
@@ -140,6 +156,8 @@ class InvoiceQueryParamsModel {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       customerId: customerId ?? this.customerId,
       createdById: createdById ?? this.createdById,
+      bankAccountId: bankAccountId ?? this.bankAccountId,
+      bankAccountName: bankAccountName ?? this.bankAccountName,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       minAmount: minAmount ?? this.minAmount,
@@ -166,6 +184,8 @@ class InvoiceQueryParamsModel {
         paymentMethod != null ||
         customerId != null ||
         createdById != null ||
+        bankAccountId != null ||
+        bankAccountName != null ||
         startDate != null ||
         endDate != null ||
         minAmount != null ||
@@ -179,6 +199,8 @@ class InvoiceQueryParamsModel {
     if (status != null) filters.add('status: $status');
     if (paymentMethod != null) filters.add('paymentMethod: $paymentMethod');
     if (customerId != null) filters.add('customerId: $customerId');
+    if (bankAccountId != null) filters.add('bankAccountId: $bankAccountId');
+    if (bankAccountName != null) filters.add('bankAccountName: $bankAccountName');
     if (startDate != null) filters.add('startDate: $startDate');
     if (endDate != null) filters.add('endDate: $endDate');
     if (minAmount != null) filters.add('minAmount: $minAmount');

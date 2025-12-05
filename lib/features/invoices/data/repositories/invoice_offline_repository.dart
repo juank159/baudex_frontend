@@ -34,6 +34,8 @@ class InvoiceOfflineRepository implements InvoiceRepository {
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,
+    String? bankAccountId,
+    String? bankAccountName, // Filtro por nombre de método de pago (no aplica en offline)
     DateTime? startDate,
     DateTime? endDate,
     double? minAmount,
@@ -370,6 +372,7 @@ class InvoiceOfflineRepository implements InvoiceRepository {
     String? notes,
     String? terms,
     Map<String, dynamic>? metadata,
+    String? bankAccountId, // 🏦 ID de la cuenta bancaria para registrar el pago
   }) async {
     try {
       final now = DateTime.now();
@@ -586,6 +589,7 @@ class InvoiceOfflineRepository implements InvoiceRepository {
     required String invoiceId,
     required double amount,
     required PaymentMethod paymentMethod,
+    String? bankAccountId,
     DateTime? paymentDate,
     String? reference,
     String? notes,
@@ -615,6 +619,50 @@ class InvoiceOfflineRepository implements InvoiceRepository {
       return Right(isarInvoice.toEntity());
     } catch (e) {
       return Left(CacheFailure('Error adding payment: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, MultiplePaymentsResult>> addMultiplePayments({
+    required String invoiceId,
+    required List<PaymentItemData> payments,
+    DateTime? paymentDate,
+    bool createCreditForRemaining = false,
+    String? generalNotes,
+  }) async {
+    try {
+      final isarInvoice =
+          await _isar.isarInvoices.filter().serverIdEqualTo(invoiceId).findFirst();
+
+      if (isarInvoice == null) {
+        return Left(CacheFailure('Invoice not found'));
+      }
+
+      // Calculate total payment amount
+      final totalPaid = payments.fold(0.0, (sum, p) => sum + p.amount);
+      final remainingBalance = isarInvoice.total - totalPaid;
+
+      // Update invoice status based on payment
+      if (remainingBalance <= 0) {
+        isarInvoice.status = IsarInvoiceStatus.paid;
+      } else {
+        isarInvoice.status = IsarInvoiceStatus.partiallyPaid;
+      }
+
+      isarInvoice.markAsUnsynced();
+
+      await _isar.writeTxn(() async {
+        await _isar.isarInvoices.put(isarInvoice);
+      });
+
+      return Right(MultiplePaymentsResult(
+        invoice: isarInvoice.toEntity(),
+        paymentsCreated: payments.length,
+        remainingBalance: remainingBalance > 0 ? remainingBalance : 0,
+        creditCreated: createCreditForRemaining && remainingBalance > 0,
+      ));
+    } catch (e) {
+      return Left(CacheFailure('Error adding multiple payments: ${e.toString()}'));
     }
   }
 
@@ -743,6 +791,10 @@ class InvoiceOfflineRepository implements InvoiceRepository {
         return IsarInvoiceStatus.overdue;
       case InvoiceStatus.partiallyPaid:
         return IsarInvoiceStatus.partiallyPaid;
+      case InvoiceStatus.credited:
+        return IsarInvoiceStatus.credited;
+      case InvoiceStatus.partiallyCredited:
+        return IsarInvoiceStatus.partiallyCredited;
     }
   }
 
@@ -760,8 +812,15 @@ class InvoiceOfflineRepository implements InvoiceRepository {
         return IsarPaymentMethod.bankTransfer;
       case PaymentMethod.check:
         return IsarPaymentMethod.check;
+      case PaymentMethod.clientBalance:
+        return IsarPaymentMethod.clientBalance;
       case PaymentMethod.other:
         return IsarPaymentMethod.other;
     }
+  }
+
+  @override
+  Future<Either<Failure, List<int>>> downloadInvoicePdf(String id) async {
+    return Left(ServerFailure('Download PDF not available offline'));
   }
 }

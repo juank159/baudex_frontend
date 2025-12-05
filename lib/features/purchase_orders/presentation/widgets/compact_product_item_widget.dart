@@ -38,15 +38,16 @@ class RealTimeCurrencyFormatter extends TextInputFormatter {
 
     // Calcular la nueva posición del cursor
     int newCursorPosition = formatted.length;
-    
+
     // Si el usuario está escribiendo al final, mantener el cursor al final
     if (newValue.selection.baseOffset == newValue.text.length) {
       newCursorPosition = formatted.length;
     } else {
       // Para posiciones intermedias, mantener la posición relativa
-      final oldDigitsCount = oldValue.text.replaceAll(RegExp(r'[^0-9]'), '').length;
+      final oldDigitsCount =
+          oldValue.text.replaceAll(RegExp(r'[^0-9]'), '').length;
       final newDigitsCount = digitsOnly.length;
-      
+
       if (newDigitsCount > oldDigitsCount) {
         // Se agregó un dígito, mover el cursor al final
         newCursorPosition = formatted.length;
@@ -93,16 +94,16 @@ class _CompactProductItemWidgetState extends State<CompactProductItemWidget> {
   late TextEditingController _priceController;
   late TextEditingController _discountController;
   bool _isUpdatingInternally = false;
-  
+
   /// Determina si el item debe mantenerse expandido para completar información básica
   bool get _shouldStayExpanded {
     // Mantener expandido si:
     // 1. No hay producto seleccionado
     // 2. Hay producto pero no hay precio unitario
     // 3. Hay producto y precio pero cantidad es 0
-    return widget.item.productId.isEmpty || 
-           widget.item.unitPrice <= 0 || 
-           widget.item.quantity <= 0;
+    return widget.item.productId.isEmpty ||
+        widget.item.unitPrice <= 0 ||
+        widget.item.quantity <= 0;
   }
 
   @override
@@ -114,9 +115,10 @@ class _CompactProductItemWidgetState extends State<CompactProductItemWidget> {
 
     // Set initial values with formatting
     _quantityController.text = widget.item.quantity.toString();
-    _priceController.text = widget.item.unitPrice > 0 
-        ? AppFormatters.formatNumber(widget.item.unitPrice.toInt())
-        : '';
+    _priceController.text =
+        widget.item.unitPrice > 0
+            ? AppFormatters.formatNumber(widget.item.unitPrice.toInt())
+            : '';
     _discountController.text =
         widget.item.discountPercentage > 0
             ? widget.item.discountPercentage.toString()
@@ -131,9 +133,10 @@ class _CompactProductItemWidgetState extends State<CompactProductItemWidget> {
     if (oldWidget.item != widget.item && !_isUpdatingInternally) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _quantityController.text = widget.item.quantity.toString();
-        _priceController.text = widget.item.unitPrice > 0 
-            ? AppFormatters.formatNumber(widget.item.unitPrice.toInt())
-            : '';
+        _priceController.text =
+            widget.item.unitPrice > 0
+                ? AppFormatters.formatNumber(widget.item.unitPrice.toInt())
+                : '';
         _discountController.text =
             widget.item.discountPercentage > 0
                 ? widget.item.discountPercentage.toString()
@@ -162,7 +165,6 @@ class _CompactProductItemWidgetState extends State<CompactProductItemWidget> {
         initiallyExpanded: _shouldStayExpanded,
         title: _buildCompactTitle(),
         subtitle: _buildCompactSubtitle(),
-        children: [_buildExpandedContent()],
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -189,6 +191,7 @@ class _CompactProductItemWidgetState extends State<CompactProductItemWidget> {
             ],
           ],
         ),
+        children: [_buildExpandedContent()],
       ),
     );
   }

@@ -7,26 +7,16 @@ part 'notification_model.g.dart';
 @JsonSerializable()
 class NotificationModel extends Notification {
   const NotificationModel({
-    required String id,
-    required NotificationType type,
-    required String title,
-    required String message,
-    required DateTime timestamp,
-    required bool isRead,
-    required NotificationPriority priority,
-    String? relatedId,
-    Map<String, dynamic>? actionData,
-  }) : super(
-          id: id,
-          type: type,
-          title: title,
-          message: message,
-          timestamp: timestamp,
-          isRead: isRead,
-          priority: priority,
-          relatedId: relatedId,
-          actionData: actionData,
-        );
+    required super.id,
+    required super.type,
+    required super.title,
+    required super.message,
+    required super.timestamp,
+    required super.isRead,
+    required super.priority,
+    super.relatedId,
+    super.actionData,
+  });
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     // Temporalmente sin generación automática

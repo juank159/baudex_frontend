@@ -8,6 +8,9 @@ import '../../domain/usecases/update_expense_usecase.dart';
 import '../../domain/usecases/get_expense_by_id_usecase.dart';
 import '../../domain/usecases/get_expense_categories_usecase.dart';
 import '../../domain/usecases/create_expense_category_usecase.dart';
+import '../../domain/usecases/update_expense_category_usecase.dart';
+import '../../domain/usecases/upload_attachments_usecase.dart';
+import '../../domain/usecases/delete_attachment_usecase.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/services/file_service.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -21,6 +24,9 @@ class ExpenseFormController extends GetxController {
   final GetExpenseByIdUseCase _getExpenseByIdUseCase;
   final GetExpenseCategoriesUseCase _getExpenseCategoriesUseCase;
   final CreateExpenseCategoryUseCase _createExpenseCategoryUseCase;
+  final UpdateExpenseCategoryUseCase _updateExpenseCategoryUseCase;
+  final UploadAttachmentsUseCase _uploadAttachmentsUseCase;
+  final DeleteAttachmentUseCase _deleteAttachmentUseCase;
   final FileService _fileService;
 
   ExpenseFormController({
@@ -29,12 +35,18 @@ class ExpenseFormController extends GetxController {
     required GetExpenseByIdUseCase getExpenseByIdUseCase,
     required GetExpenseCategoriesUseCase getExpenseCategoriesUseCase,
     required CreateExpenseCategoryUseCase createExpenseCategoryUseCase,
+    required UpdateExpenseCategoryUseCase updateExpenseCategoryUseCase,
+    required UploadAttachmentsUseCase uploadAttachmentsUseCase,
+    required DeleteAttachmentUseCase deleteAttachmentUseCase,
     required FileService fileService,
   }) : _createExpenseUseCase = createExpenseUseCase,
        _updateExpenseUseCase = updateExpenseUseCase,
        _getExpenseByIdUseCase = getExpenseByIdUseCase,
        _getExpenseCategoriesUseCase = getExpenseCategoriesUseCase,
        _createExpenseCategoryUseCase = createExpenseCategoryUseCase,
+       _updateExpenseCategoryUseCase = updateExpenseCategoryUseCase,
+       _uploadAttachmentsUseCase = uploadAttachmentsUseCase,
+       _deleteAttachmentUseCase = deleteAttachmentUseCase,
        _fileService = fileService;
 
   // Form
@@ -57,6 +69,8 @@ class ExpenseFormController extends GetxController {
   final _isLoading = false.obs;
   final _isSaving = false.obs;
   final _isLoadingCategories = false.obs;
+  final _isUploadingAttachments = false.obs;
+  final _uploadProgress = 0.0.obs;
 
   // Datos del formulario
   final selectedDate = Rxn<DateTime>();
@@ -77,6 +91,8 @@ class ExpenseFormController extends GetxController {
   bool get isLoading => _isLoading.value;
   bool get isSaving => _isSaving.value;
   bool get isLoadingCategories => _isLoadingCategories.value;
+  bool get isUploadingAttachments => _isUploadingAttachments.value;
+  double get uploadProgress => _uploadProgress.value;
   bool get isEditMode => _expenseId.value != null;
 
   bool get canSave {
@@ -256,12 +272,15 @@ class ExpenseFormController extends GetxController {
   }
 
   // Cargar categorías
-  Future<void> loadCategories() async {
+  Future<void> loadCategories({bool withStats = true}) async {
     _isLoadingCategories.value = true;
 
     try {
       final result = await _getExpenseCategoriesUseCase(
-        GetExpenseCategoriesParams(limit: 100),
+        GetExpenseCategoriesParams(
+          limit: 100,
+          withStats: withStats,
+        ),
       );
 
       result.fold(
@@ -271,8 +290,8 @@ class ExpenseFormController extends GetxController {
         },
         (paginatedResult) {
           categories.value = paginatedResult.data;
-          
-          // Si no estamos en modo edición y no hay categoría seleccionada, 
+
+          // Si no estamos en modo edición y no hay categoría seleccionada,
           // seleccionar la primera categoría automáticamente
           if (!isEditMode && selectedCategory.value == null && categories.isNotEmpty) {
             selectedCategory.value = categories.first;
@@ -320,6 +339,7 @@ class ExpenseFormController extends GetxController {
 
   Future<bool> _createExpenseWithStatus(ExpenseStatus status) async {
     try {
+      // 1. Crear el gasto sin adjuntos primero
       final result = await _createExpenseUseCase(
         CreateExpenseParams(
           description: _description.value.trim(),
@@ -328,8 +348,8 @@ class ExpenseFormController extends GetxController {
           categoryId: selectedCategory.value!.id,
           type: selectedType.value!,
           paymentMethod: selectedPaymentMethod.value!,
-          vendor: vendorController.text.trim().isEmpty 
-              ? null 
+          vendor: vendorController.text.trim().isEmpty
+              ? null
               : vendorController.text.trim(),
           invoiceNumber: invoiceNumberController.text.trim().isEmpty
               ? null
@@ -340,28 +360,65 @@ class ExpenseFormController extends GetxController {
           notes: notesController.text.trim().isEmpty
               ? null
               : notesController.text.trim(),
-          attachments: attachments.isEmpty ? null : attachments.map((a) => a.name).toList(),
+          attachments: null, // No enviar adjuntos aquí
           tags: tags.isEmpty ? null : tags.toList(),
           status: status,
         ),
       );
 
-      return result.fold(
+      return await result.fold(
         (failure) {
           // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
           final handled = SubscriptionErrorHandler.handleFailure(
             failure,
             context: 'crear gasto',
           );
-          
+
           if (!handled) {
             // Solo mostrar error genérico si no fue un error de suscripción
             _showError('Error al crear gasto', failure.message);
           }
           return false;
         },
-        (expense) {
-          final message = status == ExpenseStatus.draft 
+        (expense) async {
+          // 2. Si hay adjuntos con bytes (archivos nuevos), subirlos
+          final filesToUpload = attachments.where((a) => a.bytes != null).toList();
+
+          if (filesToUpload.isNotEmpty) {
+            _isUploadingAttachments.value = true;
+            _uploadProgress.value = 0.0;
+
+            try {
+              // Simular progreso (en una implementación real, esto vendría del dio)
+              _uploadProgress.value = 0.3;
+
+              final uploadResult = await _uploadAttachmentsUseCase(
+                UploadAttachmentsParams(
+                  expenseId: expense.id,
+                  files: filesToUpload,
+                ),
+              );
+
+              _uploadProgress.value = 1.0;
+
+              uploadResult.fold(
+                (uploadFailure) {
+                  _showError(
+                    'Advertencia',
+                    'Gasto creado pero hubo un error al subir adjuntos: ${uploadFailure.message}',
+                  );
+                },
+                (uploadedUrls) {
+                  // Adjuntos subidos exitosamente
+                },
+              );
+            } finally {
+              _isUploadingAttachments.value = false;
+              _uploadProgress.value = 0.0;
+            }
+          }
+
+          final message = status == ExpenseStatus.draft
               ? 'Gasto guardado como borrador exitosamente'
               : 'Gasto creado y aprobado exitosamente';
           _showSuccess(message);
@@ -376,6 +433,7 @@ class ExpenseFormController extends GetxController {
 
   Future<bool> _updateExpense() async {
     try {
+      // 1. Actualizar el gasto sin tocar adjuntos
       final result = await _updateExpenseUseCase(
         UpdateExpenseParams(
           id: _expenseId.value!,
@@ -385,8 +443,8 @@ class ExpenseFormController extends GetxController {
           categoryId: selectedCategory.value!.id,
           type: selectedType.value!,
           paymentMethod: selectedPaymentMethod.value!,
-          vendor: vendorController.text.trim().isEmpty 
-              ? null 
+          vendor: vendorController.text.trim().isEmpty
+              ? null
               : vendorController.text.trim(),
           invoiceNumber: invoiceNumberController.text.trim().isEmpty
               ? null
@@ -397,26 +455,63 @@ class ExpenseFormController extends GetxController {
           notes: notesController.text.trim().isEmpty
               ? null
               : notesController.text.trim(),
-          attachments: attachments.isEmpty ? null : attachments.map((a) => a.name).toList(),
+          attachments: null, // No tocar adjuntos aquí
           tags: tags.isEmpty ? null : tags.toList(),
         ),
       );
 
-      return result.fold(
+      return await result.fold(
         (failure) {
           // 🔒 USAR HANDLER GLOBAL PARA ERRORES DE SUSCRIPCIÓN
           final handled = SubscriptionErrorHandler.handleFailure(
             failure,
             context: 'editar gasto',
           );
-          
+
           if (!handled) {
             // Solo mostrar error genérico si no fue un error de suscripción
             _showError('Error al actualizar gasto', failure.message);
           }
           return false;
         },
-        (expense) {
+        (expense) async {
+          // 2. Subir nuevos adjuntos si los hay
+          final filesToUpload = attachments.where((a) => a.bytes != null).toList();
+
+          if (filesToUpload.isNotEmpty) {
+            _isUploadingAttachments.value = true;
+            _uploadProgress.value = 0.0;
+
+            try {
+              // Simular progreso (en una implementación real, esto vendría del dio)
+              _uploadProgress.value = 0.3;
+
+              final uploadResult = await _uploadAttachmentsUseCase(
+                UploadAttachmentsParams(
+                  expenseId: _expenseId.value!,
+                  files: filesToUpload,
+                ),
+              );
+
+              _uploadProgress.value = 1.0;
+
+              uploadResult.fold(
+                (uploadFailure) {
+                  _showError(
+                    'Advertencia',
+                    'Gasto actualizado pero hubo un error al subir adjuntos: ${uploadFailure.message}',
+                  );
+                },
+                (uploadedUrls) {
+                  // Adjuntos subidos exitosamente
+                },
+              );
+            } finally {
+              _isUploadingAttachments.value = false;
+              _uploadProgress.value = 0.0;
+            }
+          }
+
           _showSuccess('Gasto actualizado exitosamente');
           return true;
         },
@@ -438,13 +533,36 @@ class ExpenseFormController extends GetxController {
     }
   }
 
-  void removeAttachment(AttachmentFile attachment) {
+  Future<void> removeAttachment(AttachmentFile attachment) async {
     attachments.remove(attachment);
-    // Intentar eliminar el archivo físico si existe
-    if (attachment.path.isNotEmpty) {
-      _fileService.deleteAttachment(attachment.path).catchError((e) {
-        // Error silencioso al eliminar archivo
-      });
+
+    // Si estamos en modo edición y el archivo no tiene bytes (es del servidor)
+    if (isEditMode && attachment.bytes == null && _expenseId.value != null) {
+      // Eliminar del servidor
+      final deleteResult = await _deleteAttachmentUseCase(
+        DeleteAttachmentParams(
+          expenseId: _expenseId.value!,
+          filename: attachment.name,
+        ),
+      );
+
+      deleteResult.fold(
+        (failure) {
+          _showError('Error', 'No se pudo eliminar el adjunto del servidor: ${failure.message}');
+          // Revertir la eliminación local
+          attachments.add(attachment);
+        },
+        (_) {
+          _showSuccess('Adjunto eliminado');
+        },
+      );
+    } else {
+      // Eliminar el archivo local si existe
+      if (attachment.path.isNotEmpty) {
+        _fileService.deleteAttachment(attachment.path).catchError((e) {
+          // Error silencioso al eliminar archivo local
+        });
+      }
     }
   }
 
@@ -542,6 +660,41 @@ class ExpenseFormController extends GetxController {
       );
     } catch (e) {
       return Left(ServerFailure('Error inesperado al crear categoría: $e'));
+    }
+  }
+
+  Future<Either<Failure, ExpenseCategory>> updateExpenseCategory({
+    required String categoryId,
+    String? name,
+    String? description,
+    String? color,
+    double? monthlyBudget,
+    int? sortOrder,
+    ExpenseCategoryStatus? status,
+  }) async {
+    try {
+      final result = await _updateExpenseCategoryUseCase(
+        UpdateExpenseCategoryParams(
+          id: categoryId,
+          name: name,
+          description: description,
+          color: color,
+          monthlyBudget: monthlyBudget,
+          sortOrder: sortOrder,
+          status: status,
+        ),
+      );
+
+      return result.fold(
+        (failure) => Left(failure),
+        (category) {
+          // Recargar las categorías para mostrar los cambios
+          loadCategories();
+          return Right(category);
+        },
+      );
+    } catch (e) {
+      return Left(ServerFailure('Error inesperado al actualizar categoría: $e'));
     }
   }
 

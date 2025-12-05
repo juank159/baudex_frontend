@@ -59,16 +59,30 @@ class MainLayout extends StatelessWidget {
         ),
       ),
       actions: actions,
-      automaticallyImplyLeading: showBackButton,
-      leading: showDrawer && !showBackButton
-          ? Builder(
-              builder: (context) => IconButton(
-                icon: Icon(drawerIcon),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-                tooltip: 'Menú',
+      automaticallyImplyLeading: false,
+      leading: showBackButton
+          ? IconButton(
+              icon: const Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.white,
+                size: 20,
               ),
+              onPressed: () => Get.back(),
+              tooltip: 'Volver',
             )
-          : null,
+          : (showDrawer
+              ? Builder(
+                  builder: (context) => IconButton(
+                    icon: Icon(
+                      drawerIcon,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                    tooltip: 'Menú',
+                  ),
+                )
+              : null),
       flexibleSpace: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

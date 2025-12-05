@@ -31,7 +31,9 @@ class InvoiceCardWidget extends StatelessWidget {
     return ResponsiveLayout(
       mobile: _buildMobileCard(context),
       tablet: _buildMobileCard(context), // Usar mobile para tablet también
-      desktop: _buildMobileCard(context), // Usar mobile para desktop también por ahora
+      desktop: _buildMobileCard(
+        context,
+      ), // Usar mobile para desktop también por ahora
     );
   }
 
@@ -39,32 +41,42 @@ class InvoiceCardWidget extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        gradient: isSelected 
-          ? LinearGradient(
-              colors: [
-                ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.15),
-                ElegantLightTheme.primaryGradient.colors.last.withValues(alpha: 0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            )
-          : ElegantLightTheme.cardGradient,
+        gradient:
+            isSelected
+                ? LinearGradient(
+                  colors: [
+                    ElegantLightTheme.primaryGradient.colors.first.withValues(
+                      alpha: 0.15,
+                    ),
+                    ElegantLightTheme.primaryGradient.colors.last.withValues(
+                      alpha: 0.05,
+                    ),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+                : ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected
-            ? ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.5)
-            : ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+          color:
+              isSelected
+                  ? ElegantLightTheme.primaryGradient.colors.first.withValues(
+                    alpha: 0.5,
+                  )
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
           width: isSelected ? 2 : 1,
         ),
-        boxShadow: isSelected 
-          ? [
-              BoxShadow(
-                color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-            ]
-          : ElegantLightTheme.elevatedShadow,
+        boxShadow:
+            isSelected
+                ? [
+                  BoxShadow(
+                    color: ElegantLightTheme.primaryGradient.colors.first
+                        .withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+                : ElegantLightTheme.elevatedShadow,
       ),
       child: Material(
         color: Colors.transparent,
@@ -135,7 +147,9 @@ class InvoiceCardWidget extends StatelessWidget {
                     gradient: ElegantLightTheme.glassGradient,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+                      color: ElegantLightTheme.textSecondary.withValues(
+                        alpha: 0.2,
+                      ),
                       width: 1,
                     ),
                   ),
@@ -148,7 +162,8 @@ class InvoiceCardWidget extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.3),
+                              color: ElegantLightTheme.infoGradient.colors.first
+                                  .withValues(alpha: 0.3),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -191,8 +206,8 @@ class InvoiceCardWidget extends StatelessWidget {
                     const SizedBox(width: 4),
                     Expanded(
                       child: _buildCompactInfoChip(
-                        _getShortPaymentMethodName(invoice.paymentMethod),
-                        _getPaymentMethodIcon(invoice.paymentMethod),
+                        invoice.shortPaymentMethodName,
+                        invoice.paymentMethodIcon,
                         _getPaymentMethodColor(invoice.paymentMethod),
                       ),
                     ),
@@ -577,7 +592,7 @@ class InvoiceCardWidget extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _getPaymentMethodIcon(invoice.paymentMethod),
+                              invoice.paymentMethodIcon,
                               size: 12,
                               color: _getPaymentMethodColor(
                                 invoice.paymentMethod,
@@ -585,7 +600,7 @@ class InvoiceCardWidget extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              _getShortPaymentMethodName(invoice.paymentMethod),
+                              invoice.shortPaymentMethodName,
                               style: TextStyle(
                                 fontSize: 10,
                                 color: _getPaymentMethodColor(
@@ -748,7 +763,7 @@ class InvoiceCardWidget extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                _getPaymentMethodIcon(invoice.paymentMethod),
+                                invoice.paymentMethodIcon,
                                 size: 8,
                                 color: _getPaymentMethodColor(
                                   invoice.paymentMethod,
@@ -756,9 +771,7 @@ class InvoiceCardWidget extends StatelessWidget {
                               ),
                               const SizedBox(width: 3),
                               Text(
-                                _getShortPaymentMethodName(
-                                  invoice.paymentMethod,
-                                ),
+                                invoice.shortPaymentMethodName,
                                 style: TextStyle(
                                   fontSize: 8,
                                   color: _getPaymentMethodColor(
@@ -974,38 +987,180 @@ class InvoiceCardWidget extends StatelessWidget {
   Widget _buildPaymentProgress(BuildContext context) {
     final progress =
         invoice.total > 0 ? invoice.paidAmount / invoice.total : 0.0;
+    final percentage = (progress * 100).clamp(0.0, 100.0);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Progreso de Pago',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Text(
-              '${(progress * 100).toStringAsFixed(1)}%',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+    // Color basado en progreso
+    final Color progressColor;
+    if (percentage >= 75) {
+      progressColor = Colors.green;
+    } else if (percentage >= 50) {
+      progressColor = Colors.blue;
+    } else if (percentage >= 25) {
+      progressColor = Colors.orange;
+    } else {
+      progressColor = Colors.red.shade400;
+    }
+
+    // ✅ VERSIÓN COMPACTA Y ELEGANTE para todas las pantallas
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            progressColor.withValues(alpha: 0.08),
+            progressColor.withValues(alpha: 0.03),
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        const SizedBox(height: 4),
-        LinearProgressIndicator(
-          value: progress,
-          backgroundColor: Colors.grey.shade300,
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: progressColor.withValues(alpha: 0.25),
+          width: 1,
         ),
-      ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Línea 1: Barra de progreso con porcentaje integrado
+          Row(
+            children: [
+              // Barra de progreso expandible
+              Expanded(
+                child: _buildCompactAnimatedProgressBar(
+                  progress: progress,
+                  color: progressColor,
+                  height: 8,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Porcentaje compacto animado
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: percentage),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOutCubic,
+                builder: (context, animatedValue, child) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [progressColor, progressColor.withValues(alpha: 0.85)],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: progressColor.withValues(alpha: 0.35),
+                          blurRadius: 3,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      '${animatedValue.toStringAsFixed(0)}%',
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          // Línea 2: Montos en formato completo
+          Row(
+            children: [
+              Icon(Icons.check_circle, size: 10, color: Colors.green.shade600),
+              const SizedBox(width: 3),
+              Flexible(
+                child: Text(
+                  AppFormatters.formatCurrency(invoice.paidAmount),
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                width: 1,
+                height: 10,
+                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.schedule, size: 10, color: Colors.orange.shade600),
+              const SizedBox(width: 3),
+              Flexible(
+                child: Text(
+                  AppFormatters.formatCurrency(invoice.balanceDue),
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Colors.orange.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Barra de progreso compacta animada con shimmer
+  Widget _buildCompactAnimatedProgressBar({
+    required double progress,
+    required Color color,
+    double height = 6,
+  }) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(height / 2),
+      ),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0.0, end: progress.clamp(0.0, 1.0)),
+        duration: const Duration(milliseconds: 1000),
+        curve: Curves.easeOutCubic,
+        builder: (context, animatedValue, child) {
+          return FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: animatedValue,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    color.withValues(alpha: 0.9),
+                    color,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(height / 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.4),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(height / 2),
+                child: _ShimmerEffect(color: color, height: height),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -1062,10 +1217,7 @@ class InvoiceCardWidget extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: ElegantLightTheme.glassGradient,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: color.withValues(alpha: 0.4),
-            width: 1,
-          ),
+          border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
           boxShadow: [
             BoxShadow(
               color: color.withValues(alpha: 0.3),
@@ -1111,7 +1263,9 @@ class InvoiceCardWidget extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.2),
+            color: ElegantLightTheme.primaryGradient.colors.first.withValues(
+              alpha: 0.2,
+            ),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -1125,232 +1279,270 @@ class InvoiceCardWidget extends StatelessWidget {
             gradient: ElegantLightTheme.primaryGradient,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(
-            Icons.more_vert, 
-            color: Colors.white,
-            size: 16,
-          ),
+          child: const Icon(Icons.more_vert, color: Colors.white, size: 16),
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         color: Colors.transparent,
         elevation: 0,
-        itemBuilder: (context) => [
-          if (invoice.canBeEdited)
-            PopupMenuItem(
-              value: 'edit',
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.glassGradient,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.blue.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue, Colors.blue.withValues(alpha: 0.8)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(Icons.edit, size: 14, color: Colors.white),
+        itemBuilder:
+            (context) => [
+              if (invoice.canBeEdited)
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Editar',
-                      style: TextStyle(
-                        color: ElegantLightTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          PopupMenuItem(
-            value: 'print',
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: ElegantLightTheme.glassGradient,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Colors.grey.withValues(alpha: 0.4),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withValues(alpha: 0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.grey.shade600, Colors.grey.shade500],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                      gradient: ElegantLightTheme.glassGradient,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.blue.withValues(alpha: 0.3),
+                        width: 1,
                       ),
-                      borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Icon(Icons.print, size: 14, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Imprimir',
-                    style: TextStyle(
-                      color: ElegantLightTheme.textPrimary,
-                      fontWeight: FontWeight.w600,
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.blue,
+                                Colors.blue.withValues(alpha: 0.8),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Editar',
+                          style: TextStyle(
+                            color: ElegantLightTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          if (invoice.status == InvoiceStatus.draft)
-            PopupMenuItem(
-              value: 'confirm',
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.glassGradient,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.green.withValues(alpha: 0.4),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withValues(alpha: 0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.successGradient,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(Icons.check_circle, size: 14, color: Colors.white),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Confirmar',
-                      style: TextStyle(
-                        color: ElegantLightTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          if (invoice.canBeCancelled)
-            PopupMenuItem(
-              value: 'cancel',
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.glassGradient,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.4),
-                    width: 1,
+              PopupMenuItem(
+                value: 'print',
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.orange.withValues(alpha: 0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.glassGradient,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.grey.withValues(alpha: 0.4),
+                      width: 1,
                     ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.warningGradient,
-                        borderRadius: BorderRadius.circular(6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
                       ),
-                      child: const Icon(Icons.cancel, size: 14, color: Colors.white),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Cancelar',
-                      style: TextStyle(
-                        color: ElegantLightTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.grey.shade600,
+                              Colors.grey.shade500,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          Icons.print,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Imprimir',
+                        style: TextStyle(
+                          color: ElegantLightTheme.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          if (invoice.canBeEdited)
-            PopupMenuItem(
-              value: 'delete',
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.glassGradient,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.red.withValues(alpha: 0.4),
-                    width: 1,
+              if (invoice.status == InvoiceStatus.draft)
+                PopupMenuItem(
+                  value: 'confirm',
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.glassGradient,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.green.withValues(alpha: 0.4),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            gradient: ElegantLightTheme.successGradient,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.check_circle,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Confirmar',
+                          style: TextStyle(
+                            color: ElegantLightTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.red.withValues(alpha: 0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        gradient: ElegantLightTheme.errorGradient,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(Icons.delete, size: 14, color: Colors.white),
+              if (invoice.canBeCancelled)
+                PopupMenuItem(
+                  value: 'cancel',
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Eliminar',
-                      style: TextStyle(
-                        color: ElegantLightTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.glassGradient,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.orange.withValues(alpha: 0.4),
+                        width: 1,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.orange.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                  ],
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            gradient: ElegantLightTheme.warningGradient,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.cancel,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Cancelar',
+                          style: TextStyle(
+                            color: ElegantLightTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-        ],
+              if (invoice.canBeEdited)
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.glassGradient,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.red.withValues(alpha: 0.4),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            gradient: ElegantLightTheme.errorGradient,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.delete,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Eliminar',
+                          style: TextStyle(
+                            color: ElegantLightTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
       ),
     );
   }
@@ -1368,6 +1560,8 @@ class InvoiceCardWidget extends StatelessWidget {
       case PaymentMethod.check:
         return Icons.receipt;
       case PaymentMethod.credit:
+        return Icons.account_balance_wallet;
+      case PaymentMethod.clientBalance:
         return Icons.account_balance_wallet;
       case PaymentMethod.other:
         return Icons.more_horiz;
@@ -1400,10 +1594,7 @@ class InvoiceCardWidget extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
         boxShadow: [
           BoxShadow(
             color: color.withValues(alpha: 0.2),
@@ -1460,6 +1651,8 @@ class InvoiceCardWidget extends StatelessWidget {
         return 'Cheque';
       case PaymentMethod.credit:
         return 'Crédito';
+      case PaymentMethod.clientBalance:
+        return 'Saldo a Favor';
       case PaymentMethod.other:
         return 'Otro';
     }
@@ -1479,6 +1672,8 @@ class InvoiceCardWidget extends StatelessWidget {
         return Colors.teal;
       case PaymentMethod.credit:
         return Colors.orange; // Naranja como pendiente
+      case PaymentMethod.clientBalance:
+        return Colors.teal; // Verde azulado para saldo a favor
       case PaymentMethod.other:
         return Colors.grey;
     }
@@ -1662,25 +1857,66 @@ class InvoiceCardWidget extends StatelessWidget {
   // ✅ LAYOUT UNIFICADO QUE FUNCIONA EN TODAS LAS PANTALLAS
   Widget _buildUnifiedCard(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 1100;
-    final isTablet = MediaQuery.of(context).size.width > 650 && MediaQuery.of(context).size.width <= 1100;
-    
+    final isTablet =
+        MediaQuery.of(context).size.width > 650 &&
+        MediaQuery.of(context).size.width <= 1100;
+
     return Container(
-      margin: EdgeInsets.only(bottom: isDesktop ? 3 : isTablet ? 10 : 2),
+      margin: EdgeInsets.only(
+        bottom:
+            isDesktop
+                ? 3
+                : isTablet
+                ? 10
+                : 2,
+      ),
       decoration: BoxDecoration(
-        color: isSelected
-            ? Theme.of(context).primaryColor.withOpacity(isDesktop ? 0.04 : isTablet ? 0.06 : 0.08)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(isDesktop ? 8 : isTablet ? 12 : 8),
+        color:
+            isSelected
+                ? Theme.of(context).primaryColor.withOpacity(
+                  isDesktop
+                      ? 0.04
+                      : isTablet
+                      ? 0.06
+                      : 0.08,
+                )
+                : Colors.white,
+        borderRadius: BorderRadius.circular(
+          isDesktop
+              ? 8
+              : isTablet
+              ? 12
+              : 8,
+        ),
         border: Border.all(
-          color: isSelected
-              ? Theme.of(context).primaryColor
-              : Colors.grey.shade200,
-          width: isSelected ? (isDesktop ? 1.2 : isTablet ? 1.5 : 2) : (isDesktop ? 0.8 : 1),
+          color:
+              isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade200,
+          width:
+              isSelected
+                  ? (isDesktop
+                      ? 1.2
+                      : isTablet
+                      ? 1.5
+                      : 2)
+                  : (isDesktop ? 0.8 : 1),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDesktop ? 0.02 : isTablet ? 0.03 : 0.04),
-            blurRadius: isDesktop ? 4 : isTablet ? 6 : 8,
+            color: Colors.black.withOpacity(
+              isDesktop
+                  ? 0.02
+                  : isTablet
+                  ? 0.03
+                  : 0.04,
+            ),
+            blurRadius:
+                isDesktop
+                    ? 4
+                    : isTablet
+                    ? 6
+                    : 8,
             offset: Offset(0, isDesktop ? 1 : 2),
           ),
         ],
@@ -1690,11 +1926,27 @@ class InvoiceCardWidget extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
-          borderRadius: BorderRadius.circular(isDesktop ? 8 : isTablet ? 12 : 8),
+          borderRadius: BorderRadius.circular(
+            isDesktop
+                ? 8
+                : isTablet
+                ? 12
+                : 8,
+          ),
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: isDesktop ? 12 : isTablet ? 18 : 16,
-              vertical: isDesktop ? 8 : isTablet ? 18 : 16,
+              horizontal:
+                  isDesktop
+                      ? 12
+                      : isTablet
+                      ? 18
+                      : 16,
+              vertical:
+                  isDesktop
+                      ? 8
+                      : isTablet
+                      ? 18
+                      : 16,
             ),
             child: Row(
               children: [
@@ -1725,13 +1977,18 @@ class InvoiceCardWidget extends StatelessWidget {
                             child: Text(
                               invoice.number,
                               style: TextStyle(
-                                fontSize: isDesktop ? 13 : isTablet ? 15 : 16,
+                                fontSize:
+                                    isDesktop
+                                        ? 13
+                                        : isTablet
+                                        ? 15
+                                        : 16,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
                             ),
                           ),
-                          
+
                           // Estado de la factura
                           InvoiceStatusWidget(
                             invoice: invoice,
@@ -1739,9 +1996,16 @@ class InvoiceCardWidget extends StatelessWidget {
                           ),
                         ],
                       ),
-                      
-                      SizedBox(height: isDesktop ? 4 : isTablet ? 6 : 8),
-                      
+
+                      SizedBox(
+                        height:
+                            isDesktop
+                                ? 4
+                                : isTablet
+                                ? 6
+                                : 8,
+                      ),
+
                       // Cliente y fecha
                       Row(
                         children: [
@@ -1749,26 +2013,43 @@ class InvoiceCardWidget extends StatelessWidget {
                             child: Text(
                               invoice.customerName,
                               style: TextStyle(
-                                fontSize: isDesktop ? 11 : isTablet ? 13 : 14,
+                                fontSize:
+                                    isDesktop
+                                        ? 11
+                                        : isTablet
+                                        ? 13
+                                        : 14,
                                 color: Colors.grey.shade600,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          
+
                           Text(
                             AppFormatters.formatDate(invoice.createdAt),
                             style: TextStyle(
-                              fontSize: isDesktop ? 10 : isTablet ? 11 : 12,
+                              fontSize:
+                                  isDesktop
+                                      ? 10
+                                      : isTablet
+                                      ? 11
+                                      : 12,
                               color: Colors.grey.shade500,
                             ),
                           ),
                         ],
                       ),
-                      
-                      SizedBox(height: isDesktop ? 4 : isTablet ? 6 : 8),
-                      
+
+                      SizedBox(
+                        height:
+                            isDesktop
+                                ? 4
+                                : isTablet
+                                ? 6
+                                : 8,
+                      ),
+
                       // Monto y vencimiento
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1780,7 +2061,12 @@ class InvoiceCardWidget extends StatelessWidget {
                               Text(
                                 'Total',
                                 style: TextStyle(
-                                  fontSize: isDesktop ? 9 : isTablet ? 10 : 11,
+                                  fontSize:
+                                      isDesktop
+                                          ? 9
+                                          : isTablet
+                                          ? 10
+                                          : 11,
                                   color: Colors.grey.shade500,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1788,46 +2074,73 @@ class InvoiceCardWidget extends StatelessWidget {
                               Text(
                                 AppFormatters.formatCurrency(invoice.total),
                                 style: TextStyle(
-                                  fontSize: isDesktop ? 12 : isTablet ? 14 : 15,
+                                  fontSize:
+                                      isDesktop
+                                          ? 12
+                                          : isTablet
+                                          ? 14
+                                          : 15,
                                   fontWeight: FontWeight.bold,
                                   color: Theme.of(context).primaryColor,
                                 ),
                               ),
                             ],
                           ),
-                          
+
                           // Fecha de vencimiento
-                          if (invoice.dueDate != null)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Vence',
-                                  style: TextStyle(
-                                    fontSize: isDesktop ? 9 : isTablet ? 10 : 11,
-                                    color: invoice.isOverdue ? Colors.red.shade600 : Colors.grey.shade500,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                'Vence',
+                                style: TextStyle(
+                                  fontSize:
+                                      isDesktop
+                                          ? 9
+                                          : isTablet
+                                          ? 10
+                                          : 11,
+                                  color:
+                                      invoice.isOverdue
+                                          ? Colors.red.shade600
+                                          : Colors.grey.shade500,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                                Text(
-                                  AppFormatters.formatDate(invoice.dueDate!),
-                                  style: TextStyle(
-                                    fontSize: isDesktop ? 11 : isTablet ? 12 : 13,
-                                    color: invoice.isOverdue ? Colors.red.shade700 : Colors.grey.shade700,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              ),
+                              Text(
+                                AppFormatters.formatDate(invoice.dueDate!),
+                                style: TextStyle(
+                                  fontSize:
+                                      isDesktop
+                                          ? 11
+                                          : isTablet
+                                          ? 12
+                                          : 13,
+                                  color:
+                                      invoice.isOverdue
+                                          ? Colors.red.shade700
+                                          : Colors.grey.shade700,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                
+
                 // ✅ ACCIONES RÁPIDAS (incluyendo imprimir)
                 if (!isMultiSelectMode) ...[
-                  SizedBox(height: isDesktop ? 8 : isTablet ? 12 : 8),
+                  SizedBox(
+                    height:
+                        isDesktop
+                            ? 8
+                            : isTablet
+                            ? 12
+                            : 8,
+                  ),
                   _buildQuickActions(context),
                 ],
               ],
@@ -1835,6 +2148,72 @@ class InvoiceCardWidget extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Widget de efecto shimmer animado para barras de progreso
+class _ShimmerEffect extends StatefulWidget {
+  final Color color;
+  final double height;
+
+  const _ShimmerEffect({
+    required this.color,
+    required this.height,
+  });
+
+  @override
+  State<_ShimmerEffect> createState() => _ShimmerEffectState();
+}
+
+class _ShimmerEffectState extends State<_ShimmerEffect>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
+    _animation = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          height: widget.height,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.transparent,
+                Colors.white.withValues(alpha: 0.3),
+                Colors.transparent,
+              ],
+              stops: [
+                (_animation.value - 0.3).clamp(0.0, 1.0),
+                _animation.value.clamp(0.0, 1.0),
+                (_animation.value + 0.3).clamp(0.0, 1.0),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

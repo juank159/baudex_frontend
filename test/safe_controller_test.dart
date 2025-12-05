@@ -1,8 +1,8 @@
 // test/safe_controller_test.dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import '../lib/app/shared/widgets/safe_text_editing_controller.dart';
-import '../lib/app/shared/widgets/custom_text_field_safe.dart';
+import 'package:baudex_desktop/app/shared/widgets/safe_text_editing_controller.dart';
+import 'package:baudex_desktop/app/shared/widgets/custom_text_field_safe.dart';
 
 void main() {
   group('SafeTextEditingController Tests', () {
@@ -27,10 +27,10 @@ void main() {
     test('should handle text operations safely', () {
       controller.text = 'test text';
       expect(controller.safeText(), equals('test text'));
-      
+
       controller.safeSetText('new text');
       expect(controller.text, equals('new text'));
-      
+
       controller.safeClear();
       expect(controller.text, isEmpty);
     });
@@ -38,11 +38,11 @@ void main() {
     test('should handle dispose safely', () {
       controller.text = 'test';
       expect(controller.canSafelyAccess(), isTrue);
-      
+
       controller.dispose();
       expect(controller.isDisposed, isTrue);
       expect(controller.canSafelyAccess(), isFalse);
-      
+
       // Should not crash after dispose
       expect(() => controller.text, returnsNormally);
       expect(() => controller.safeText(), returnsNormally);
@@ -52,7 +52,7 @@ void main() {
     test('should handle multiple dispose calls safely', () {
       controller.dispose();
       expect(controller.isDisposed, isTrue);
-      
+
       // Multiple dispose calls should not crash
       expect(() => controller.dispose(), returnsNormally);
       expect(() => controller.dispose(), returnsNormally);
@@ -63,16 +63,16 @@ void main() {
       void testListener() {
         listenerCalled = true;
       }
-      
+
       controller.addListener(testListener);
       controller.text = 'trigger listener';
-      
+
       // Note: In real scenario, listener would be called
       // This test verifies that addListener doesn't crash
-      
+
       controller.removeListener(testListener);
       controller.dispose();
-      
+
       // Should not crash even with listeners
       expect(() => controller.addListener(testListener), returnsNormally);
     });
@@ -83,10 +83,10 @@ void main() {
         existingController,
         debugLabel: 'FromExisting',
       );
-      
+
       expect(safeController.text, equals('existing text'));
       expect(safeController.canSafelyAccess(), isTrue);
-      
+
       existingController.dispose();
       safeController.dispose();
     });
@@ -94,16 +94,16 @@ void main() {
     test('should handle disposed source controller in fromExisting', () {
       final existingController = TextEditingController(text: 'test');
       existingController.dispose();
-      
+
       // Should not crash even with disposed source
       final safeController = SafeTextEditingController.fromExisting(
         existingController,
         debugLabel: 'FromDisposed',
       );
-      
+
       expect(safeController.canSafelyAccess(), isTrue);
       expect(safeController.text, isEmpty); // Should fallback to empty
-      
+
       safeController.dispose();
     });
   });
@@ -112,7 +112,7 @@ void main() {
     test('should check safety of normal controller', () {
       final controller = TextEditingController();
       expect(controller.isSafe, isTrue);
-      
+
       controller.dispose();
       expect(controller.isSafe, isFalse);
     });
@@ -120,10 +120,10 @@ void main() {
     test('should convert to safe controller', () {
       final controller = TextEditingController(text: 'test');
       final safeController = controller.toSafe('ConvertedController');
-      
+
       expect(safeController.text, equals('test'));
       expect(safeController.canSafelyAccess(), isTrue);
-      
+
       controller.dispose();
       safeController.dispose();
     });
@@ -132,7 +132,7 @@ void main() {
   group('CustomTextFieldSafe Widget Tests', () {
     testWidgets('should render without crashing', (WidgetTester tester) async {
       final controller = SafeTextEditingController(debugLabel: 'WidgetTest');
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -144,14 +144,16 @@ void main() {
           ),
         ),
       );
-      
+
       expect(find.text('Test Field'), findsOneWidget);
       expect(find.byType(TextFormField), findsOneWidget);
-      
+
       controller.dispose();
     });
 
-    testWidgets('should handle null controller gracefully', (WidgetTester tester) async {
+    testWidgets('should handle null controller gracefully', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -163,15 +165,17 @@ void main() {
           ),
         ),
       );
-      
+
       expect(find.text('Test Field'), findsOneWidget);
       expect(find.byType(TextFormField), findsOneWidget);
     });
 
-    testWidgets('should handle disposed controller gracefully', (WidgetTester tester) async {
+    testWidgets('should handle disposed controller gracefully', (
+      WidgetTester tester,
+    ) async {
       final controller = SafeTextEditingController(debugLabel: 'DisposedTest');
       controller.dispose(); // Dispose before using
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -183,16 +187,18 @@ void main() {
           ),
         ),
       );
-      
+
       // Should render placeholder field without crashing
       expect(find.text('Test Field'), findsOneWidget);
       expect(find.byType(TextFormField), findsOneWidget);
     });
 
-    testWidgets('should handle text input and changes', (WidgetTester tester) async {
+    testWidgets('should handle text input and changes', (
+      WidgetTester tester,
+    ) async {
       final controller = SafeTextEditingController(debugLabel: 'InputTest');
       String? lastChangedValue;
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -207,14 +213,14 @@ void main() {
           ),
         ),
       );
-      
+
       // Enter text
       await tester.enterText(find.byType(TextFormField), 'test input');
       await tester.pump();
-      
+
       expect(controller.text, equals('test input'));
       expect(lastChangedValue, equals('test input'));
-      
+
       controller.dispose();
     });
   });
@@ -223,7 +229,7 @@ void main() {
     test('should prevent disposed controller errors during navigation', () {
       // Simulate navigation scenario
       final controllers = <SafeTextEditingController>[];
-      
+
       // Create multiple controllers as might happen during navigation
       for (int i = 0; i < 10; i++) {
         final controller = SafeTextEditingController(
@@ -231,18 +237,18 @@ void main() {
           text: 'Initial text $i',
         );
         controllers.add(controller);
-        
+
         // Simulate rapid disposal (navigation back)
         if (i % 2 == 0) {
           controller.dispose();
         }
       }
-      
+
       // Should be able to access all controllers safely
       for (final controller in controllers) {
         expect(() => controller.safeText(), returnsNormally);
         expect(() => controller.canSafelyAccess(), returnsNormally);
-        
+
         if (!controller.isDisposed) {
           controller.dispose();
         }
@@ -251,18 +257,21 @@ void main() {
 
     test('should handle rapid text changes without crashing', () {
       final controller = SafeTextEditingController(debugLabel: 'RapidChanges');
-      
+
       // Simulate rapid text changes
       for (int i = 0; i < 100; i++) {
         controller.safeSetText('Text change $i');
         expect(controller.safeText(), equals('Text change $i'));
       }
-      
+
       controller.dispose();
-      
+
       // Should not crash even after dispose
       for (int i = 0; i < 10; i++) {
-        expect(() => controller.safeSetText('After dispose $i'), returnsNormally);
+        expect(
+          () => controller.safeSetText('After dispose $i'),
+          returnsNormally,
+        );
       }
     });
   });

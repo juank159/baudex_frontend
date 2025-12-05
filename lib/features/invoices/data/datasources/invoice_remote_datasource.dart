@@ -12,6 +12,8 @@ import '../models/create_invoice_request_model.dart';
 import '../models/update_invoice_request_model.dart';
 import '../models/add_payment_request_model.dart';
 import '../models/invoice_query_models.dart';
+import '../models/invoice_payment_model.dart';
+import '../models/multi_payment_result_model.dart';
 
 /// Contrato para el datasource remoto de facturas
 abstract class InvoiceRemoteDataSource {
@@ -30,7 +32,45 @@ abstract class InvoiceRemoteDataSource {
   Future<InvoiceModel> confirmInvoice(String id);
   Future<InvoiceModel> cancelInvoice(String id);
   Future<InvoiceModel> addPayment(String id, AddPaymentRequestModel request);
+  Future<MultiPaymentResultModel> addMultiplePayments(
+    String id,
+    AddMultiplePaymentsRequestModel request,
+  );
+  Future<List<InvoicePaymentModel>> getInvoicePayments(String id);
+  Future<InvoiceModel> removePayment(String invoiceId, String paymentId);
   Future<void> deleteInvoice(String id);
+
+  /// ✅ NUEVO: Descargar PDF de factura
+  Future<List<int>> downloadInvoicePdf(String id);
+
+  /// Aplicar saldo a favor del cliente a una factura
+  /// [invoiceId] - ID de la factura
+  /// [amount] - Monto a aplicar (opcional, si no se especifica usa todo el disponible)
+  Future<ApplyBalanceResultModel> applyClientBalance(String invoiceId, {double? amount});
+}
+
+/// Modelo para el resultado de aplicar saldo a favor
+class ApplyBalanceResultModel {
+  final InvoiceModel invoice;
+  final double balanceUsed;
+  final double remainingBalance;
+  final double remainingDebt;
+
+  const ApplyBalanceResultModel({
+    required this.invoice,
+    required this.balanceUsed,
+    required this.remainingBalance,
+    required this.remainingDebt,
+  });
+
+  factory ApplyBalanceResultModel.fromJson(Map<String, dynamic> json) {
+    return ApplyBalanceResultModel(
+      invoice: InvoiceModel.fromJson(json['invoice'] as Map<String, dynamic>),
+      balanceUsed: (json['balanceUsed'] as num?)?.toDouble() ?? 0,
+      remainingBalance: (json['remainingBalance'] as num?)?.toDouble() ?? 0,
+      remainingDebt: (json['remainingDebt'] as num?)?.toDouble() ?? 0,
+    );
+  }
 }
 
 /// Implementación del datasource remoto usando Dio
@@ -54,6 +94,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
         paymentMethod: params.paymentMethod,
         customerId: params.customerId,
         createdById: params.createdById,
+        bankAccountId: params.bankAccountId,
+        bankAccountName: params.bankAccountName,
         startDate: params.startDate,
         endDate: params.endDate,
         minAmount: params.minAmount,
@@ -336,7 +378,7 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     } catch (e) {
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
-        throw e; // Re-throw with original statusCode
+        rethrow; // Re-throw with original statusCode
       }
       throw ServerException('Error inesperado al crear factura: $e');
     }
@@ -379,7 +421,7 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     } catch (e) {
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
-        throw e; // Re-throw with original statusCode
+        rethrow; // Re-throw with original statusCode
       }
       throw ServerException('Error inesperado al actualizar factura: $e');
     }
@@ -466,9 +508,91 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     } catch (e) {
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
-        throw e; // Re-throw with original statusCode
+        rethrow; // Re-throw with original statusCode
       }
       throw ServerException('Error inesperado al agregar pago: $e');
+    }
+  }
+
+  @override
+  Future<MultiPaymentResultModel> addMultiplePayments(
+    String id,
+    AddMultiplePaymentsRequestModel request,
+  ) async {
+    try {
+      print('🌐 InvoiceRemoteDataSource: Agregando ${request.paymentCount} pagos a factura: $id');
+
+      if (!request.isValid) {
+        throw ServerException('Datos de pagos inválidos');
+      }
+
+      final response = await dioClient.post(
+        '/invoices/$id/payments/multiple',
+        data: request.toJson(),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        return MultiPaymentResultModel.fromJson(responseData);
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw ServerException('Error inesperado al agregar pagos múltiples: $e');
+    }
+  }
+
+  @override
+  Future<List<InvoicePaymentModel>> getInvoicePayments(String id) async {
+    try {
+      print('🌐 InvoiceRemoteDataSource: Obteniendo pagos de factura: $id');
+
+      final response = await dioClient.get('/invoices/$id/payments');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data is List
+            ? response.data
+            : (response.data['data'] ?? []);
+        return data
+            .map((json) => InvoicePaymentModel.fromJson(json as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw ServerException('Error inesperado al obtener pagos: $e');
+    }
+  }
+
+  @override
+  Future<InvoiceModel> removePayment(String invoiceId, String paymentId) async {
+    try {
+      print('🌐 InvoiceRemoteDataSource: Eliminando pago $paymentId de factura: $invoiceId');
+
+      final response = await dioClient.delete(
+        '/invoices/$invoiceId/payments/$paymentId',
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        if (responseData is Map<String, dynamic>) {
+          return InvoiceModel.fromJson(responseData);
+        }
+        throw ServerException('Respuesta inválida del servidor');
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw ServerException('Error inesperado al eliminar pago: $e');
     }
   }
 
@@ -571,6 +695,70 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
 
       default:
         return ServerException('Error desconocido: ${e.message}');
+    }
+  }
+
+  /// ✅ NUEVO: Descargar PDF de factura
+  @override
+  Future<List<int>> downloadInvoicePdf(String id) async {
+    try {
+      print('📄 InvoiceRemoteDataSource: Descargando PDF de factura $id');
+
+      final response = await dioClient.get(
+        '/invoices/$id/pdf',
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {'Accept': 'application/pdf'},
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ PDF descargado correctamente: ${response.data.length} bytes');
+        return response.data as List<int>;
+      } else {
+        throw ServerException(
+          'Error al descargar PDF',
+          statusCode: response.statusCode,
+        );
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      print('❌ Error inesperado al descargar PDF: $e');
+      throw ServerException('Error inesperado al descargar PDF: $e');
+    }
+  }
+
+  /// Aplicar saldo a favor del cliente a una factura
+  @override
+  Future<ApplyBalanceResultModel> applyClientBalance(String invoiceId, {double? amount}) async {
+    try {
+      print('💰 InvoiceRemoteDataSource: Aplicando saldo a favor a factura $invoiceId');
+
+      final body = <String, dynamic>{};
+      if (amount != null) {
+        body['amount'] = amount;
+      }
+
+      final response = await dioClient.post(
+        '/invoices/$invoiceId/apply-balance',
+        data: body,
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Saldo aplicado correctamente');
+        return ApplyBalanceResultModel.fromJson(response.data as Map<String, dynamic>);
+      } else {
+        throw ServerException(
+          'Error al aplicar saldo a favor',
+          statusCode: response.statusCode,
+        );
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      print('❌ Error inesperado al aplicar saldo: $e');
+      throw ServerException('Error inesperado al aplicar saldo: $e');
     }
   }
 }

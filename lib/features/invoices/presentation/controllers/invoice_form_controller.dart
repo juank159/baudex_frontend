@@ -5,6 +5,7 @@ import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
 import 'package:baudex_desktop/features/invoices/presentation/controllers/thermal_printer_controller.dart';
+import 'package:baudex_desktop/features/invoices/presentation/widgets/enhanced_payment_dialog.dart';
 import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
 
@@ -27,6 +28,7 @@ import '../../../customers/domain/usecases/get_customers_usecase.dart';
 import '../../../customers/domain/usecases/search_customers_usecase.dart';
 import '../../../customers/domain/usecases/create_customer_usecase.dart';
 import '../../../products/domain/entities/product.dart';
+import '../../../products/domain/entities/tax_enums.dart';
 import '../../../products/domain/usecases/get_products_usecase.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 
@@ -55,7 +57,7 @@ class InvoiceFormController extends GetxController {
 
   // ✅ NUEVO: Controlador de impresión térmica
   late final ThermalPrinterController _thermalPrinterController;
-  
+
   // ✅ NUEVO: Servicio de integración con inventario
   late final InvoiceInventoryService _inventoryService;
 
@@ -88,13 +90,15 @@ class InvoiceFormController extends GetxController {
       _thermalPrinterController = Get.put(ThermalPrinterController());
       print('🆕 Creando nuevo ThermalPrinterController');
     }
-    
+
     // ✅ INICIALIZAR SERVICIO DE INVENTARIO (REUTILIZAR SI YA EXISTE)
     try {
       _inventoryService = Get.find<InvoiceInventoryService>();
       print('♻️ Reutilizando InvoiceInventoryService existente');
     } catch (e) {
-      print('❌ InvoiceInventoryService no encontrado - debe ser registrado en bindings');
+      print(
+        '❌ InvoiceInventoryService no encontrado - debe ser registrado en bindings',
+      );
     }
   }
 
@@ -119,7 +123,7 @@ class InvoiceFormController extends GetxController {
   final _invoiceDate = DateTime.now().obs;
   final _dueDate = DateTime.now().add(const Duration(days: 30)).obs;
   final _paymentMethod = PaymentMethod.cash.obs;
-  final _taxPercentage = 19.0.obs;
+  final _taxPercentage = 0.0.obs; // Se establece desde el primer producto agregado
   final _discountPercentage = 0.0.obs;
   final _discountAmount = 0.0.obs;
 
@@ -191,37 +195,63 @@ class InvoiceFormController extends GetxController {
       invoiceItems.every((item) => item.isValid) &&
       selectedCustomer != null;
 
-  // Cálculos
+  // ✅ CÁLCULOS ACTUALIZADOS PARA USAR IVA POR ITEM
+
+  /// Subtotal SIN IVA (base gravable) - usa el IVA individual de cada item
   double get subtotalWithoutTax {
     return _invoiceItems.fold(0.0, (sum, item) {
-      final priceWithoutTax = item.unitPrice / (1 + (taxPercentage / 100));
-      final itemSubtotal = item.quantity * priceWithoutTax;
-      final percentageDiscount = (itemSubtotal * item.discountPercentage) / 100;
-      final totalDiscount = percentageDiscount + item.discountAmount;
-      return sum + (itemSubtotal - totalDiscount);
+      return sum + item.subtotalWithoutTax;
     });
   }
 
+  /// Subtotal CON IVA (precio de venta)
   double get subtotal {
     return subtotalWithoutTax + taxAmount;
   }
 
+  /// Descuento total aplicado
   double get totalDiscountAmount {
-    final subtotalWithoutTax = this.subtotalWithoutTax;
     final percentageDiscount = (subtotalWithoutTax * discountPercentage) / 100;
     return percentageDiscount + discountAmount;
   }
 
+  /// Base gravable después de descuentos
   double get taxableAmount {
     return subtotalWithoutTax - totalDiscountAmount;
   }
 
+  /// ✅ IVA total calculado sumando el IVA de cada item
   double get taxAmount {
-    return taxableAmount * (taxPercentage / 100);
+    final baseSubtotal = subtotalWithoutTax;
+    if (baseSubtotal <= 0) return 0;
+
+    final subtotalAfterDiscount = baseSubtotal - totalDiscountAmount;
+    final discountRatio =
+        subtotalAfterDiscount > 0 ? subtotalAfterDiscount / baseSubtotal : 0;
+
+    // Sumar el IVA de cada item, ajustado proporcionalmente al descuento
+    return _invoiceItems.fold(0.0, (sum, item) {
+      return sum + (item.taxAmount * discountRatio);
+    });
   }
 
+  /// Total final (base + IVA)
   double get total {
     return taxableAmount + taxAmount;
+  }
+
+  /// ✅ Recalcular el IVA promedio ponderado para mostrar en UI
+  void _recalculateAverageTaxPercentage() {
+    final taxable = taxableAmount;
+    if (taxable <= 0) {
+      _taxPercentage.value = 0;
+      return;
+    }
+
+    // Calcular IVA promedio ponderado basado en el monto de impuesto real
+    final averageTax = (taxAmount / taxable) * 100;
+    _taxPercentage.value = double.parse(averageTax.toStringAsFixed(2));
+    print('📊 IVA promedio calculado: ${_taxPercentage.value}%');
   }
 
   // UI helpers
@@ -420,7 +450,7 @@ class InvoiceFormController extends GetxController {
     print('   - Subtotal sin IVA: \${subtotalWithoutTax.toStringAsFixed(2)}');
     print('   - Descuentos: \${totalDiscountAmount.toStringAsFixed(2)}');
     print('   - Monto gravable: \${taxableAmount.toStringAsFixed(2)}');
-    print('   - IVA (${taxPercentage}%): \${taxAmount.toStringAsFixed(2)}');
+    print('   - IVA ($taxPercentage%): \${taxAmount.toStringAsFixed(2)}');
     print('   - TOTAL: \${total.toStringAsFixed(2)}');
   }
 
@@ -1021,6 +1051,22 @@ class InvoiceFormController extends GetxController {
         return;
       }
 
+      // ✅ DETERMINAR EL IVA DEL PRODUCTO
+      // 1. isTaxable debe ser true
+      // 2. taxCategory NO puede ser NO_GRAVADO ni EXENTO
+      // 3. taxRate debe ser mayor a 0
+      double itemTaxPercentage = 0;
+      final isNoGravado = product.taxCategory == TaxCategory.noGravado;
+      final isExento = product.taxCategory == TaxCategory.exento;
+      final hasTax = product.isTaxable && !isNoGravado && !isExento && product.taxRate > 0;
+
+      if (hasTax) {
+        itemTaxPercentage = product.taxRate;
+        print('💰 Item CON IVA: ${product.name} - ${itemTaxPercentage}% (${product.taxCategory.displayName})');
+      } else {
+        print('📦 Item SIN IVA: ${product.name} (${product.taxCategory.displayName}, isTaxable: ${product.isTaxable}, taxRate: ${product.taxRate})');
+      }
+
       final newItem = InvoiceItemFormData(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         description: product.name,
@@ -1028,10 +1074,14 @@ class InvoiceFormController extends GetxController {
         unitPrice: unitPrice,
         unit: product.unit ?? 'pcs',
         productId: product.id,
+        taxPercentage: itemTaxPercentage, // ✅ INCLUIR IVA INDIVIDUAL
       );
 
       // ✅ MODIFICACIÓN: Agregar al inicio de la lista
       _invoiceItems.insert(0, newItem);
+
+      // ✅ ACTUALIZAR EL IVA DE LA FACTURA (promedio ponderado para mostrar)
+      _recalculateAverageTaxPercentage();
 
       // ✅ NUEVO: Notificar que se agregó un nuevo producto en el índice 0
       _lastUpdatedItemIndex.value = 0;
@@ -1573,19 +1623,25 @@ class InvoiceFormController extends GetxController {
   // ==================== CALCULATIONS ====================
 
   void _recalculateTotals() {
+    // ✅ Recalcular IVA promedio cuando cambian los items
+    _recalculateAverageTaxPercentage();
     update();
   }
 
   // ==================== PAYMENT & SAVE ====================
 
-  // ✅ MÉTODO PRINCIPAL ACTUALIZADO CON IMPRESIÓN
+  // ✅ MÉTODO PRINCIPAL ACTUALIZADO CON IMPRESIÓN, CUENTA BANCARIA Y PAGOS MÚLTIPLES
   Future<bool> saveInvoiceWithPayment(
     double receivedAmount,
     double change,
     PaymentMethod paymentMethod,
     InvoiceStatus status,
-    bool shouldPrint, // ✅ NUEVO PARÁMETRO
-  ) async {
+    bool shouldPrint, {
+    String? bankAccountId, // 🏦 ID de la cuenta bancaria para registrar el pago
+    List<MultiplePaymentData>? multiplePayments, // 💳 Lista de pagos múltiples
+    bool createCreditForRemaining = false, // 📝 Crear crédito para saldo restante
+    double? balanceApplied, // 💰 NUEVO: Saldo a favor aplicado del cliente
+  }) async {
     if (!_validateForm()) return false;
 
     try {
@@ -1599,17 +1655,31 @@ class InvoiceFormController extends GetxController {
       print('   - Recibido: \${receivedAmount.toStringAsFixed(2)}');
       print('   - Cambio: \${change.toStringAsFixed(2)}');
       print('   - Es edición: $isEditMode');
-      print('   - Debe imprimir: $shouldPrint'); // ✅ NUEVO LOG
+      print('   - Debe imprimir: $shouldPrint');
+      print('   - Pagos múltiples: ${multiplePayments?.length ?? 0}');
+      print('   - Crear crédito por saldo: $createCreditForRemaining');
+      print('   - Saldo a favor aplicado: \${balanceApplied?.toStringAsFixed(2) ?? "0.00"}');
 
       _paymentMethod.value = paymentMethod;
 
-      final paymentInfo = _buildPaymentNotes(receivedAmount, change, status);
+      // ✅ CONSTRUIR NOTAS CON INFORMACIÓN DE PAGOS MÚLTIPLES
+      final paymentInfo = multiplePayments != null && multiplePayments.isNotEmpty
+          ? _buildMultiplePaymentNotes(multiplePayments, status, createCreditForRemaining)
+          : _buildPaymentNotes(receivedAmount, change, status);
       notesController.text = paymentInfo;
 
       _adjustDueDateByPaymentMethod(paymentMethod, status);
 
       print('📅 Fecha de vencimiento ajustada: ${_dueDate.value}');
       print('📝 Notas generadas: ${paymentInfo.length} caracteres');
+      if (bankAccountId != null) {
+        print('🏦 Cuenta bancaria seleccionada: $bankAccountId');
+      }
+      if (multiplePayments != null && multiplePayments.isNotEmpty) {
+        for (final payment in multiplePayments) {
+          print('💳 Pago: ${payment.method.displayName} - \$${payment.amount.toStringAsFixed(2)}');
+        }
+      }
 
       Invoice? savedInvoice;
 
@@ -1618,7 +1688,13 @@ class InvoiceFormController extends GetxController {
         savedInvoice = await _updateExistingInvoice(status);
       } else {
         print('➕ Creando nueva factura...');
-        savedInvoice = await _createNewInvoice(status);
+        savedInvoice = await _createNewInvoice(
+          status,
+          bankAccountId: bankAccountId,
+          multiplePayments: multiplePayments,
+          createCreditForRemaining: createCreditForRemaining,
+          balanceApplied: balanceApplied, // 💰 NUEVO: Pasar saldo aplicado
+        );
       }
 
       // ✅ VALIDAR SI LA FACTURA SE GUARDÓ CORRECTAMENTE
@@ -1662,10 +1738,13 @@ class InvoiceFormController extends GetxController {
 
       // ✅ NUEVO: Asegurar que la configuración de impresora esté cargada
       print('🔄 Verificando configuración de impresora antes de imprimir...');
-      final printerConfigLoaded = await _thermalPrinterController.ensurePrinterConfigLoaded();
-      
+      final printerConfigLoaded =
+          await _thermalPrinterController.ensurePrinterConfigLoaded();
+
       if (!printerConfigLoaded) {
-        print('⚠️ No se pudo cargar configuración de impresora, continuando con valores por defecto');
+        print(
+          '⚠️ No se pudo cargar configuración de impresora, continuando con valores por defecto',
+        );
       }
 
       // Usar el controlador de impresión térmica
@@ -1717,10 +1796,19 @@ class InvoiceFormController extends GetxController {
     }
   }
 
+  /// Ajusta la fecha de vencimiento según el método de pago y estado
+  ///
+  /// Reglas de negocio:
+  /// - Borrador: +30 días
+  /// - Pagos inmediatos (efectivo, tarjeta, transferencia): mismo día (fin del día)
+  /// - Crédito: según términos del cliente o 30 días
+  /// - Cheque: +15 días
+  /// - Pago parcial: se ajustará en backend con +30 días para el saldo
   void _adjustDueDateByPaymentMethod(
     PaymentMethod method,
     InvoiceStatus status,
   ) {
+    // Para borradores, siempre 30 días
     if (status == InvoiceStatus.draft) {
       _dueDate.value = _invoiceDate.value.add(const Duration(days: 30));
       print(
@@ -1734,16 +1822,25 @@ class InvoiceFormController extends GetxController {
       case PaymentMethod.creditCard:
       case PaymentMethod.debitCard:
       case PaymentMethod.bankTransfer:
+      case PaymentMethod.clientBalance:
+        // Para pagos inmediatos: mismo día (el backend ajustará al final del día)
+        // Si hay pago parcial, el backend extenderá la fecha para el saldo
         _dueDate.value = _invoiceDate.value;
         break;
+
       case PaymentMethod.credit:
+        // Crédito: usar términos del cliente o 30 días por defecto
         final creditDays = selectedCustomer?.paymentTerms ?? 30;
         _dueDate.value = _invoiceDate.value.add(Duration(days: creditDays));
         break;
+
       case PaymentMethod.check:
+        // Cheque: 15 días para permitir cobro
         _dueDate.value = _invoiceDate.value.add(const Duration(days: 15));
         break;
+
       case PaymentMethod.other:
+        // Otro: usar términos del cliente o 30 días
         if (selectedCustomer != null && selectedCustomer!.paymentTerms > 0) {
           _dueDate.value = _invoiceDate.value.add(
             Duration(days: selectedCustomer!.paymentTerms),
@@ -1789,7 +1886,7 @@ class InvoiceFormController extends GetxController {
     }
 
     if (taxAmount > 0) {
-      buffer.writeln('IVA (${taxPercentage}%): \$${format.format(taxAmount)}');
+      buffer.writeln('IVA ($taxPercentage%): \$${format.format(taxAmount)}');
     }
 
     // ✅ MOSTRAR EL TOTAL CORRECTO (que debe coincidir con el precio del producto)
@@ -1837,6 +1934,74 @@ class InvoiceFormController extends GetxController {
     return buffer.toString();
   }
 
+  /// ✅ NUEVO: Construir notas para pagos múltiples
+  String _buildMultiplePaymentNotes(
+    List<MultiplePaymentData> payments,
+    InvoiceStatus status,
+    bool createCreditForRemaining,
+  ) {
+    final buffer = StringBuffer();
+    buffer.writeln('Estado: ${status.displayName.toUpperCase()}');
+
+    // Calcular totales de pagos
+    double totalPaid = 0;
+    for (final payment in payments) {
+      totalPaid += payment.amount;
+    }
+    final remaining = total - totalPaid;
+
+    buffer.writeln('=== PAGOS MÚLTIPLES ===');
+
+    for (int i = 0; i < payments.length; i++) {
+      final payment = payments[i];
+      final bankInfo = payment.bankAccountName != null
+          ? ' (${payment.bankAccountName})'
+          : '';
+      buffer.writeln(
+        'Pago ${i + 1}: ${payment.method.displayName}$bankInfo - \$${format.format(payment.amount)}',
+      );
+    }
+
+    buffer.writeln('------------------------');
+    buffer.writeln('Subtotal sin IVA: \$${format.format(subtotalWithoutTax)}');
+
+    if (totalDiscountAmount > 0) {
+      buffer.writeln('Descuento: \$${totalDiscountAmount.toStringAsFixed(2)}');
+    }
+
+    if (taxAmount > 0) {
+      buffer.writeln('IVA ($taxPercentage%): \$${format.format(taxAmount)}');
+    }
+
+    buffer.writeln('TOTAL FACTURA: \$${format.format(total)}');
+    buffer.writeln('TOTAL PAGADO: \$${format.format(totalPaid)}');
+
+    if (remaining > 0) {
+      if (createCreditForRemaining) {
+        buffer.writeln('CRÉDITO GENERADO: \$${format.format(remaining)}');
+        buffer.writeln(
+          'Vencimiento crédito: ${_dueDate.value.toString().split(' ')[0]}',
+        );
+      } else {
+        buffer.writeln('SALDO PENDIENTE: \$${format.format(remaining)}');
+      }
+    } else if (remaining < 0) {
+      buffer.writeln('CAMBIO: \$${format.format(remaining.abs())}');
+    }
+
+    buffer.writeln('------------------------');
+    buffer.writeln('Fecha: ${DateTime.now().toString().split('.')[0]}');
+    buffer.writeln('Cliente: ${selectedCustomer?.displayName ?? 'N/A'}');
+
+    if (notesController.text.isNotEmpty &&
+        !notesController.text.contains('PAGOS MÚLTIPLES')) {
+      buffer.writeln('\n=== NOTAS ADICIONALES ===');
+      buffer.writeln(notesController.text);
+    }
+
+    return buffer.toString();
+  }
+
   Future<void> saveInvoice() async {
     if (!_validateForm()) return;
 
@@ -1859,8 +2024,14 @@ class InvoiceFormController extends GetxController {
     }
   }
 
-  // ✅ MODIFICADO: Retornar la factura creada
-  Future<Invoice?> _createNewInvoice(InvoiceStatus status) async {
+  // ✅ MODIFICADO: Retornar la factura creada con cuenta bancaria y pagos múltiples
+  Future<Invoice?> _createNewInvoice(
+    InvoiceStatus status, {
+    String? bankAccountId,
+    List<MultiplePaymentData>? multiplePayments,
+    bool createCreditForRemaining = false,
+    double? balanceApplied, // 💰 NUEVO: Saldo a favor aplicado del cliente
+  }) async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
     if (!SubscriptionValidationService.canCreateInvoice()) {
       print(
@@ -1900,6 +2071,57 @@ class InvoiceFormController extends GetxController {
             )
             .toList();
 
+    // ✅ CONSTRUIR METADATA CON INFORMACIÓN DE PAGOS MÚLTIPLES Y SALDO APLICADO
+    Map<String, dynamic>? invoiceMetadata;
+
+    // 💰 NUEVO: Incluir saldo a favor aplicado en metadata
+    if (balanceApplied != null && balanceApplied > 0) {
+      invoiceMetadata = {
+        'clientBalanceApplied': balanceApplied,
+        'clientId': validCustomer.id,
+      };
+      print('💰 Saldo a favor aplicado: \$${balanceApplied.toStringAsFixed(2)}');
+    }
+
+    if (multiplePayments != null && multiplePayments.isNotEmpty) {
+      // Calcular total pagado y saldo restante
+      double totalPaid = 0;
+      for (final payment in multiplePayments) {
+        totalPaid += payment.amount;
+      }
+      // ✅ Considerar el saldo aplicado para el cálculo del restante
+      final effectiveTotal = total - (balanceApplied ?? 0);
+      final remaining = effectiveTotal - totalPaid;
+
+      invoiceMetadata = {
+        ...?invoiceMetadata, // Mantener saldo aplicado si existe
+        'multiplePayments': multiplePayments.map((p) {
+          return <String, dynamic>{
+            'amount': p.amount,
+            'method': p.method.name,
+            'bankAccountId': p.bankAccountId,
+            'bankAccountName': p.bankAccountName,
+          };
+        }).toList(),
+        'totalPaid': totalPaid,
+        'remainingBalance': remaining > 0 ? remaining : 0,
+        'createCreditForRemaining': createCreditForRemaining && remaining > 0,
+        'isMultiplePayment': true,
+      };
+      print('💳 Metadata de pagos múltiples creada:');
+      print('   - Total factura: \$${total.toStringAsFixed(2)}');
+      print('   - Saldo aplicado: \$${balanceApplied?.toStringAsFixed(2) ?? "0.00"}');
+      print('   - Total efectivo: \$${effectiveTotal.toStringAsFixed(2)}');
+      print('   - Total pagado: \$${totalPaid.toStringAsFixed(2)}');
+      print('   - Saldo restante: \$${remaining > 0 ? remaining.toStringAsFixed(2) : "0.00"}');
+      print('   - Crear crédito: $createCreditForRemaining');
+      print('   - Número de pagos: ${multiplePayments.length}');
+      for (var i = 0; i < multiplePayments.length; i++) {
+        final p = multiplePayments[i];
+        print('   - Pago ${i + 1}: \$${p.amount.toStringAsFixed(2)} via ${p.method.name} (cuenta: ${p.bankAccountName ?? "N/A"})');
+      }
+    }
+
     final result = await _createInvoiceUseCase(
       CreateInvoiceParams(
         customerId: validCustomer.id,
@@ -1914,6 +2136,8 @@ class InvoiceFormController extends GetxController {
         discountAmount: discountAmount,
         notes: notesController.text.isNotEmpty ? notesController.text : null,
         terms: termsController.text.isNotEmpty ? termsController.text : null,
+        bankAccountId: bankAccountId, // 🏦 Cuenta bancaria para registrar el pago
+        metadata: invoiceMetadata, // 💳 Información de pagos múltiples
       ),
     );
 
@@ -1939,19 +2163,22 @@ class InvoiceFormController extends GetxController {
         print(
           '✅ _createNewInvoice SUCCESS: Factura creada con ID ${invoice.id}',
         );
-        
+
         // ✅ PROCESAR INVENTARIO AUTOMÁTICAMENTE
         try {
-          final inventoryProcessed = await _inventoryService.processInventoryForInvoice(invoice);
+          final inventoryProcessed = await _inventoryService
+              .processInventoryForInvoice(invoice);
           if (inventoryProcessed) {
-            print('✅ Inventario procesado exitosamente para factura ${invoice.number}');
+            print(
+              '✅ Inventario procesado exitosamente para factura ${invoice.number}',
+            );
           } else {
             print('⚠️ Inventario no procesado (configuración o error)');
           }
         } catch (e) {
           print('❌ Error procesando inventario: $e');
         }
-        
+
         print('✅ Preparando para nueva venta...');
         _prepareForNewSale();
         return invoice; // ✅ RETORNAR LA FACTURA CREADA
@@ -2053,6 +2280,7 @@ class InvoiceFormController extends GetxController {
     _dueDate.value = DateTime.now();
     notesController.clear();
     termsController.text = 'Venta de contado';
+    _taxPercentage.value = 0.0; // Se establecerá desde el primer producto agregado
     _discountPercentage.value = 0.0;
     _discountAmount.value = 0.0;
     _recalculateTotals();
@@ -2069,7 +2297,7 @@ class InvoiceFormController extends GetxController {
     _invoiceDate.value = DateTime.now();
     _dueDate.value = DateTime.now().add(const Duration(days: 30));
     _paymentMethod.value = PaymentMethod.cash;
-    _taxPercentage.value = 19.0;
+    _taxPercentage.value = 0.0; // Se establecerá desde el primer producto agregado
     _discountPercentage.value = 0.0;
     _discountAmount.value = 0.0;
 

@@ -18,12 +18,13 @@ class WarehouseDetailController extends GetxController {
   WarehouseDetailController({
     required GetWarehouseByIdUseCase getWarehouseByIdUseCase,
     required DeleteWarehouseUseCase deleteWarehouseUseCase,
-    required CheckWarehouseHasMovementsUseCase checkWarehouseHasMovementsUseCase,
+    required CheckWarehouseHasMovementsUseCase
+    checkWarehouseHasMovementsUseCase,
     required GetActiveWarehousesCountUseCase getActiveWarehousesCountUseCase,
-  })  : _getWarehouseByIdUseCase = getWarehouseByIdUseCase,
-        _deleteWarehouseUseCase = deleteWarehouseUseCase,
-        _checkWarehouseHasMovementsUseCase = checkWarehouseHasMovementsUseCase,
-        _getActiveWarehousesCountUseCase = getActiveWarehousesCountUseCase;
+  }) : _getWarehouseByIdUseCase = getWarehouseByIdUseCase,
+       _deleteWarehouseUseCase = deleteWarehouseUseCase,
+       _checkWarehouseHasMovementsUseCase = checkWarehouseHasMovementsUseCase,
+       _getActiveWarehousesCountUseCase = getActiveWarehousesCountUseCase;
 
   // ==================== OBSERVABLES ====================
 
@@ -44,7 +45,7 @@ class WarehouseDetailController extends GetxController {
   bool get isLoading => _isLoading.value;
   String get error => _error.value;
   String get warehouseId => _warehouseId.value;
-  
+
   // Estadísticas getters
   int get totalProducts => _totalProducts.value;
   int get totalMovements => _totalMovements.value;
@@ -63,11 +64,11 @@ class WarehouseDetailController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    
+
     // Obtener ID del warehouse desde los argumentos o parámetros
     final arguments = Get.arguments as Map<String, dynamic>?;
     final paramId = Get.parameters['id'];
-    
+
     if (arguments != null && arguments['warehouseId'] != null) {
       _warehouseId.value = arguments['warehouseId'] as String;
     } else if (paramId != null) {
@@ -123,7 +124,7 @@ class WarehouseDetailController extends GetxController {
   Future<void> _loadWarehouseStats() async {
     // Simular carga de estadísticas
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     // Mock data - en el futuro se reemplazaría con calls reales a la API
     _totalProducts.value = 150 + (DateTime.now().millisecond % 100);
     _totalMovements.value = 45 + (DateTime.now().millisecond % 20);
@@ -188,7 +189,7 @@ class WarehouseDetailController extends GetxController {
     if (_warehouse.value == null) return;
 
     final warehouse = _warehouse.value!;
-    
+
     try {
       _isLoading.value = true;
 
@@ -196,7 +197,7 @@ class WarehouseDetailController extends GetxController {
       if (warehouse.isActive) {
         final activeCountResult = await _getActiveWarehousesCountUseCase();
         final activeCount = activeCountResult.fold((l) => 0, (r) => r);
-        
+
         if (activeCount <= 1) {
           Get.snackbar(
             'No se puede eliminar',
@@ -211,16 +212,20 @@ class WarehouseDetailController extends GetxController {
       }
 
       // 2. Verificar si tiene movimientos de inventario
-      final hasMovementsResult = await _checkWarehouseHasMovementsUseCase(_warehouseId.value);
+      final hasMovementsResult = await _checkWarehouseHasMovementsUseCase(
+        _warehouseId.value,
+      );
       final hasMovements = hasMovementsResult.fold((l) => false, (r) => r);
 
-      String warningMessage = '¿Estás seguro que deseas eliminar el almacén "${warehouse.name}"?\n\n';
-      
+      String warningMessage =
+          '¿Estás seguro que deseas eliminar el almacén "${warehouse.name}"?\n\n';
+
       if (hasMovements) {
-        warningMessage += '⚠️ ADVERTENCIA: Este almacén tiene movimientos de inventario asociados. '
-                         'Eliminar este almacén puede afectar la trazabilidad de los productos.\n\n';
+        warningMessage +=
+            '⚠️ ADVERTENCIA: Este almacén tiene movimientos de inventario asociados. '
+            'Eliminar este almacén puede afectar la trazabilidad de los productos.\n\n';
       }
-      
+
       warningMessage += 'Esta acción no se puede deshacer.';
 
       // 3. Confirmar eliminación con advertencias
@@ -233,7 +238,11 @@ class WarehouseDetailController extends GetxController {
                 color: hasMovements ? Colors.orange : Colors.red,
               ),
               const SizedBox(width: 8),
-              Text(hasMovements ? 'Eliminar con precaución' : 'Confirmar eliminación'),
+              Text(
+                hasMovements
+                    ? 'Eliminar con precaución'
+                    : 'Confirmar eliminación',
+              ),
             ],
           ),
           content: Text(warningMessage),
@@ -260,7 +269,7 @@ class WarehouseDetailController extends GetxController {
 
       // 4. Proceder con la eliminación
       final result = await _deleteWarehouseUseCase(_warehouseId.value);
-      
+
       result.fold(
         (failure) {
           Get.snackbar(
@@ -281,9 +290,11 @@ class WarehouseDetailController extends GetxController {
             colorText: Colors.green.shade800,
             icon: const Icon(Icons.check, color: Colors.green),
           );
-          
+
           // Regresar a la lista de almacenes
-          Get.back(result: {'action': 'deleted', 'warehouseId': _warehouseId.value});
+          Get.back(
+            result: {'action': 'deleted', 'warehouseId': _warehouseId.value},
+          );
         },
       );
     } catch (e) {
@@ -306,7 +317,7 @@ class WarehouseDetailController extends GetxController {
 
     final newStatus = !_warehouse.value!.isActive;
     final statusText = newStatus ? 'activar' : 'desactivar';
-    
+
     try {
       _isLoading.value = true;
 
@@ -314,7 +325,7 @@ class WarehouseDetailController extends GetxController {
       if (!newStatus && _warehouse.value!.isActive) {
         final activeCountResult = await _getActiveWarehousesCountUseCase();
         final activeCount = activeCountResult.fold((l) => 0, (r) => r);
-        
+
         if (activeCount <= 1) {
           Get.snackbar(
             'No se puede desactivar',
@@ -328,22 +339,26 @@ class WarehouseDetailController extends GetxController {
         }
       }
 
-      String confirmMessage = '¿Estás seguro que deseas $statusText el almacén "${_warehouse.value!.name}"?';
-      
+      String confirmMessage =
+          '¿Estás seguro que deseas $statusText el almacén "${_warehouse.value!.name}"?';
+
       if (!newStatus) {
         // Verificar si tiene movimientos antes de desactivar
-        final hasMovementsResult = await _checkWarehouseHasMovementsUseCase(_warehouseId.value);
+        final hasMovementsResult = await _checkWarehouseHasMovementsUseCase(
+          _warehouseId.value,
+        );
         final hasMovements = hasMovementsResult.fold((l) => false, (r) => r);
-        
+
         if (hasMovements) {
-          confirmMessage += '\n\n⚠️ Este almacén tiene movimientos de inventario. '
-                           'Desactivarlo impedirá nuevas operaciones pero no afectará el historial.';
+          confirmMessage +=
+              '\n\n⚠️ Este almacén tiene movimientos de inventario. '
+              'Desactivarlo impedirá nuevas operaciones pero no afectará el historial.';
         }
       }
-      
+
       final confirmed = await Get.dialog<bool>(
         AlertDialog(
-          title: Text('Confirmar ${statusText}'),
+          title: Text('Confirmar $statusText'),
           content: Text(confirmMessage),
           actions: [
             TextButton(
@@ -410,7 +425,7 @@ class WarehouseDetailController extends GetxController {
   /// Obtener texto formateado de la última actualización
   String getLastUpdateText() {
     if (_warehouse.value?.updatedAt == null) return 'Desconocido';
-    
+
     final now = DateTime.now();
     final updated = _warehouse.value!.updatedAt!;
     final difference = now.difference(updated);
@@ -436,7 +451,9 @@ class WarehouseDetailController extends GetxController {
     print('   Has error: $hasError');
     print('   Error: "$error"');
     if (hasWarehouse) {
-      print('   Warehouse: ${_warehouse.value!.name} (${_warehouse.value!.code})');
+      print(
+        '   Warehouse: ${_warehouse.value!.name} (${_warehouse.value!.code})',
+      );
       print('   Is active: ${_warehouse.value!.isActive}');
     }
     print('   Stats - Products: $totalProducts, Movements: $totalMovements');

@@ -3,7 +3,6 @@ import 'package:baudex_desktop/features/inventory/domain/repositories/inventory_
 import 'package:baudex_desktop/features/invoices/domain/entities/invoice_item.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/core/errors/failures.dart';
 import '../../../settings/presentation/controllers/user_preferences_controller.dart';
 import '../../../inventory/domain/usecases/process_outbound_movement_fifo_usecase.dart';
 import '../../../inventory/domain/entities/inventory_movement.dart';

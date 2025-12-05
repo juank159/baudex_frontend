@@ -23,6 +23,7 @@ class CustomerStatsController extends GetxController {
   // Estados de carga
   final _isLoading = false.obs;
   final _isRefreshing = false.obs;
+  final _isPeriodLoading = false.obs;
 
   // Datos principales
   final Rxn<CustomerStats> _stats = Rxn<CustomerStats>();
@@ -34,6 +35,13 @@ class CustomerStatsController extends GetxController {
   final _newCustomersThisPeriod = 0.obs;
   final _activeCustomersThisPeriod = 0.obs;
 
+  // Estadísticas adicionales del período
+  final _totalPurchasesThisPeriod = 0.0.obs;
+  final _averageOrderValueThisPeriod = 0.0.obs;
+
+  // Cache de clientes para filtrado por período
+  List<Customer> _cachedCustomers = [];
+
   // Control de inicialización
   bool _isInitialized = false;
 
@@ -41,12 +49,15 @@ class CustomerStatsController extends GetxController {
 
   bool get isLoading => _isLoading.value;
   bool get isRefreshing => _isRefreshing.value;
+  bool get isPeriodLoading => _isPeriodLoading.value;
   CustomerStats? get stats => _stats.value;
   Map<String, int> get documentTypeStats => _documentTypeStats;
   List<Map<String, dynamic>> get topCustomers => _topCustomers;
   String get currentPeriod => _currentPeriod.value;
   int get newCustomersThisPeriod => _newCustomersThisPeriod.value;
   int get activeCustomersThisPeriod => _activeCustomersThisPeriod.value;
+  double get totalPurchasesThisPeriod => _totalPurchasesThisPeriod.value;
+  double get averageOrderValueThisPeriod => _averageOrderValueThisPeriod.value;
 
   // Períodos disponibles
   List<Map<String, String>> get availablePeriods => [
@@ -80,9 +91,27 @@ class CustomerStatsController extends GetxController {
         return 90;
       case 'year':
         return 365;
+      case 'all':
+        return 9999; // Todo el tiempo
       default:
         return 30;
     }
+  }
+
+  // Rango de fechas del período actual
+  String get periodDateRange {
+    final now = DateTime.now();
+    final startDate = _getPeriodStartDate(now, _currentPeriod.value);
+
+    String formatDate(DateTime date) {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+
+    if (_currentPeriod.value == 'all') {
+      return 'Todo el historial';
+    }
+
+    return '${formatDate(startDate)} - ${formatDate(now)}';
   }
 
   // ==================== LIFECYCLE ====================
@@ -124,6 +153,9 @@ class CustomerStatsController extends GetxController {
       // Cargar estadísticas principales
       await loadMainStats();
 
+      // Cachear clientes para filtrado eficiente por período
+      await _cacheAllCustomers();
+
       // Cargar estadísticas por tipo de documento
       await loadDocumentTypeStats();
 
@@ -131,12 +163,53 @@ class CustomerStatsController extends GetxController {
       await loadTopCustomers();
 
       // Cargar estadísticas del período actual
-      await loadPeriodStats();
+      await _calculatePeriodStats();
+
+      update();
     } catch (e) {
       print('❌ Error al cargar estadísticas: $e');
       _showError('Error', 'No se pudieron cargar las estadísticas');
     } finally {
       _isLoading.value = false;
+    }
+  }
+
+  /// Cachear todos los clientes para filtrado eficiente
+  Future<void> _cacheAllCustomers() async {
+    try {
+      print('📦 Cacheando clientes para filtrado por período...');
+
+      _cachedCustomers = [];
+      int page = 1;
+      bool hasMore = true;
+
+      while (hasMore) {
+        final result = await _customerRepository.getCustomers(
+          page: page,
+          limit: 100,
+        );
+
+        final success = result.fold(
+          (failure) {
+            print(
+              '⚠️ Error al cachear clientes página $page: ${failure.message}',
+            );
+            return false;
+          },
+          (paginatedResult) {
+            _cachedCustomers.addAll(paginatedResult.data);
+            hasMore = paginatedResult.meta.hasNextPage;
+            page++;
+            return true;
+          },
+        );
+
+        if (!success) break;
+      }
+
+      print('✅ ${_cachedCustomers.length} clientes cacheados para filtrado');
+    } catch (e) {
+      print('❌ Error al cachear clientes: $e');
     }
   }
 
@@ -284,119 +357,91 @@ class CustomerStatsController extends GetxController {
     }
   }
 
-  /// Cargar estadísticas del período actual
-  // Future<void> loadPeriodStats() async {
-  //   try {
-  //     print('📅 Cargando estadísticas del período: ${_currentPeriod.value}...');
-
-  //     // Como no tenemos el método específico, calculamos las estadísticas localmente
-  //     final result = await _customerRepository.getCustomers(limit: 1000);
-
-  //     result.fold(
-  //       (failure) {
-  //         print('⚠️ Error al cargar clientes para período: ${failure.message}');
-  //         _newCustomersThisPeriod.value = 0;
-  //         _activeCustomersThisPeriod.value = 0;
-  //       },
-  //       (paginatedResult) {
-  //         final customers = paginatedResult.data;
-  //         final now = DateTime.now();
-  //         final periodStart = _getPeriodStartDate(now, _currentPeriod.value);
-
-  //         // Contar nuevos clientes en el período
-  //         final newCustomers =
-  //             customers.where((customer) {
-  //               return customer.createdAt.isAfter(periodStart);
-  //             }).length;
-
-  //         // Contar clientes activos en el período (que hicieron compras)
-  //         final activeCustomers =
-  //             customers.where((customer) {
-  //               return customer.status == CustomerStatus.active &&
-  //                   (customer.lastPurchaseAt?.isAfter(periodStart) ?? false);
-  //             }).length;
-
-  //         _newCustomersThisPeriod.value = newCustomers;
-  //         _activeCustomersThisPeriod.value = activeCustomers;
-  //         print(
-  //           '✅ Estadísticas del período cargadas: $newCustomers nuevos, $activeCustomers activos',
-  //         );
-  //       },
-  //     );
-  //   } catch (e) {
-  //     print('❌ Error inesperado al cargar stats del período: $e');
-  //     // Valores por defecto si falla
-  //     _newCustomersThisPeriod.value = 0;
-  //     _activeCustomersThisPeriod.value = _stats.value?.active ?? 0;
-  //   }
-  // }
-
-  Future<void> loadPeriodStats() async {
+  /// Calcular estadísticas del período actual usando datos cacheados
+  Future<void> _calculatePeriodStats() async {
     try {
-      print('📅 Cargando estadísticas del período: ${_currentPeriod.value}...');
+      print(
+        '📅 Calculando estadísticas del período: ${_currentPeriod.value}...',
+      );
 
-      // ✅ FIX: Cargar todos los clientes usando paginación
-      List<Customer> allCustomers = [];
-      int page = 1;
-      bool hasMore = true;
+      final now = DateTime.now();
+      final periodStart = _getPeriodStartDate(now, _currentPeriod.value);
 
-      while (hasMore) {
-        final result = await _customerRepository.getCustomers(
-          page: page,
-          limit: 100, // ✅ Respetar el límite máximo del backend
-        );
-
-        final success = result.fold(
-          (failure) {
-            print(
-              '⚠️ Error al cargar clientes página $page: ${failure.message}',
-            );
-            return false;
-          },
-          (paginatedResult) {
-            allCustomers.addAll(paginatedResult.data);
-            hasMore = paginatedResult.meta.hasNextPage;
-            page++;
-            return true;
-          },
-        );
-
-        if (!success) break;
-      }
-
-      if (allCustomers.isNotEmpty) {
-        final now = DateTime.now();
-        final periodStart = _getPeriodStartDate(now, _currentPeriod.value);
-
-        // Contar nuevos clientes en el período
-        final newCustomers =
-            allCustomers.where((customer) {
-              return customer.createdAt.isAfter(periodStart);
-            }).length;
-
-        // Contar clientes activos en el período (que hicieron compras)
-        final activeCustomers =
-            allCustomers.where((customer) {
-              return customer.status == CustomerStatus.active &&
-                  (customer.lastPurchaseAt?.isAfter(periodStart) ?? false);
-            }).length;
-
-        _newCustomersThisPeriod.value = newCustomers;
-        _activeCustomersThisPeriod.value = activeCustomers;
-        print(
-          '✅ Estadísticas del período cargadas: $newCustomers nuevos, $activeCustomers activos de ${allCustomers.length} total',
-        );
-      } else {
-        // Si no se pueden cargar clientes, usar valores por defecto
+      if (_cachedCustomers.isEmpty) {
+        print('⚠️ No hay clientes cacheados, usando valores por defecto');
         _newCustomersThisPeriod.value = 0;
         _activeCustomersThisPeriod.value = _stats.value?.active ?? 0;
+        _totalPurchasesThisPeriod.value = 0.0;
+        _averageOrderValueThisPeriod.value = 0.0;
+        return;
       }
+
+      // Filtrar clientes según el período
+      List<Customer> customersInPeriod;
+      if (_currentPeriod.value == 'all') {
+        customersInPeriod = _cachedCustomers;
+      } else {
+        customersInPeriod = _cachedCustomers;
+      }
+
+      // Contar nuevos clientes en el período
+      final newCustomers =
+          customersInPeriod.where((customer) {
+            if (_currentPeriod.value == 'all') return true;
+            return customer.createdAt.isAfter(periodStart) ||
+                customer.createdAt.isAtSameMomentAs(periodStart);
+          }).length;
+
+      // Contar clientes activos en el período (que hicieron compras)
+      final activeCustomers =
+          customersInPeriod.where((customer) {
+            if (_currentPeriod.value == 'all') {
+              return customer.status == CustomerStatus.active;
+            }
+            return customer.status == CustomerStatus.active &&
+                (customer.lastPurchaseAt?.isAfter(periodStart) ?? false);
+          }).length;
+
+      // Calcular total de compras en el período
+      double totalPurchases = 0.0;
+      int totalOrders = 0;
+
+      for (final customer in customersInPeriod) {
+        if (_currentPeriod.value == 'all') {
+          totalPurchases += customer.totalPurchases;
+          totalOrders += customer.totalOrders;
+        } else if (customer.lastPurchaseAt?.isAfter(periodStart) ?? false) {
+          // Solo contar compras de clientes que compraron en el período
+          totalPurchases += customer.totalPurchases;
+          totalOrders += customer.totalOrders;
+        }
+      }
+
+      _newCustomersThisPeriod.value = newCustomers;
+      _activeCustomersThisPeriod.value = activeCustomers;
+      _totalPurchasesThisPeriod.value = totalPurchases;
+      _averageOrderValueThisPeriod.value =
+          totalOrders > 0 ? totalPurchases / totalOrders : 0.0;
+
+      print(
+        '✅ Estadísticas del período calculadas:\n'
+        '   - Nuevos: $newCustomers\n'
+        '   - Activos: $activeCustomers\n'
+        '   - Compras: \$${totalPurchases.toStringAsFixed(2)}\n'
+        '   - Promedio: \$${_averageOrderValueThisPeriod.value.toStringAsFixed(2)}',
+      );
     } catch (e) {
-      print('❌ Error inesperado al cargar stats del período: $e');
-      // Valores por defecto si falla
+      print('❌ Error inesperado al calcular stats del período: $e');
       _newCustomersThisPeriod.value = 0;
       _activeCustomersThisPeriod.value = _stats.value?.active ?? 0;
+      _totalPurchasesThisPeriod.value = 0.0;
+      _averageOrderValueThisPeriod.value = 0.0;
     }
+  }
+
+  /// Método legacy para compatibilidad
+  Future<void> loadPeriodStats() async {
+    await _calculatePeriodStats();
   }
 
   /// Refrescar todas las estadísticas
@@ -421,15 +466,33 @@ class CustomerStatsController extends GetxController {
     }
   }
 
-  /// Cambiar período de tiempo
+  /// Cambiar período de tiempo con animación y recarga de datos
   Future<void> changePeriod(String newPeriod) async {
     if (_currentPeriod.value == newPeriod) return;
+    if (_isPeriodLoading.value) return; // Evitar cambios mientras carga
 
     print('📅 Cambiando período de $currentPeriod a $newPeriod...');
-    _currentPeriod.value = newPeriod;
 
-    // Recargar estadísticas del nuevo período
-    await loadPeriodStats();
+    _isPeriodLoading.value = true;
+    update();
+
+    try {
+      // Pequeño delay para mostrar animación de carga
+      await Future.delayed(const Duration(milliseconds: 150));
+
+      _currentPeriod.value = newPeriod;
+
+      // Recalcular estadísticas del nuevo período
+      await _calculatePeriodStats();
+
+      print('✅ Período cambiado exitosamente a: $newPeriod');
+    } catch (e) {
+      print('❌ Error al cambiar período: $e');
+      _showError('Error', 'No se pudo cambiar el período de análisis');
+    } finally {
+      _isPeriodLoading.value = false;
+      update();
+    }
   }
 
   // ==================== EXPORT METHODS ====================
@@ -558,6 +621,8 @@ class CustomerStatsController extends GetxController {
         return DateTime(now.year, quarterMonth, 1);
       case 'year':
         return DateTime(now.year, 1, 1);
+      case 'all':
+        return DateTime(2000, 1, 1); // Fecha muy antigua para incluir todo
       default:
         return DateTime(now.year, now.month, 1);
     }
@@ -601,7 +666,7 @@ class CustomerStatsController extends GetxController {
 
     final stats = _stats.value!;
     return '''
-Resumen de Estadísticas - ${currentPeriodLabel}
+Resumen de Estadísticas - $currentPeriodLabel
 
 Total de Clientes: ${stats.total}
 • Activos: ${stats.active} (${formatPercentage(stats.activePercentage)})

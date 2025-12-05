@@ -81,15 +81,10 @@ class InvoiceStatsModel extends InvoiceStats {
 
   // Método para validar que los datos sean consistentes
   bool get isValid {
-    // Verificar que los totales sean coherentes
-    final totalCount =
-        draft + pending + paid + overdue + cancelled + partiallyPaid;
-
-    // Permitir una pequeña diferencia por redondeo
-    return (totalCount - total).abs() <= 1 &&
-        totalSales >= 0 &&
-        pendingAmount >= 0 &&
-        overdueAmount >= 0;
+    // Solo validar que los montos no sean negativos
+    // No validar suma de estados porque puede haber facturas con estados
+    // adicionales (credited, partially_credited) que no se cuentan aquí
+    return totalSales >= 0 && pendingAmount >= 0 && overdueAmount >= 0;
   }
 
   // Helpers para parsing seguro

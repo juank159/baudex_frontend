@@ -15,7 +15,7 @@ class FuturisticWarehouseSelectorWidget extends StatefulWidget {
   final Color iconColor;
 
   const FuturisticWarehouseSelectorWidget({
-    Key? key,
+    super.key,
     required this.label,
     this.selectedWarehouse,
     required this.onWarehouseSelected,
@@ -23,13 +23,15 @@ class FuturisticWarehouseSelectorWidget extends StatefulWidget {
     this.isRequired = false,
     this.icon = Icons.warehouse,
     this.iconColor = Colors.blue,
-  }) : super(key: key);
+  });
 
   @override
-  State<FuturisticWarehouseSelectorWidget> createState() => _FuturisticWarehouseSelectorWidgetState();
+  State<FuturisticWarehouseSelectorWidget> createState() =>
+      _FuturisticWarehouseSelectorWidgetState();
 }
 
-class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseSelectorWidget>
+class _FuturisticWarehouseSelectorWidgetState
+    extends State<FuturisticWarehouseSelectorWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -42,13 +44,12 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
       duration: ElegantLightTheme.normalAnimation,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.02,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: ElegantLightTheme.smoothCurve,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: ElegantLightTheme.smoothCurve,
+      ),
+    );
   }
 
   @override
@@ -64,11 +65,11 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
         final screenWidth = constraints.maxWidth;
         final isMobile = screenWidth < 600;
         final isTablet = screenWidth >= 600 && screenWidth < 1200;
-        
+
         // Responsive values
         final labelFontSize = isMobile ? 13.0 : 14.0;
         final spacing = isMobile ? 6.0 : 8.0;
-        
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -96,119 +97,133 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
               ],
             ),
             SizedBox(height: spacing),
-        AnimatedBuilder(
-          animation: _scaleAnimation,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: _scaleAnimation.value,
-              child: MouseRegion(
-                onEnter: (_) => _onHover(true),
-                onExit: (_) => _onHover(false),
-                child: GestureDetector(
-                  onTap: _showWarehouseSelector,
-                  child: Container(
-                    padding: EdgeInsets.all(isMobile ? 14.0 : 16.0),
-                    decoration: BoxDecoration(
-                      gradient: widget.selectedWarehouse != null
-                          ? LinearGradient(
-                              colors: [
-                                widget.iconColor.withOpacity(0.1),
-                                widget.iconColor.withOpacity(0.05),
-                              ],
-                            )
-                          : ElegantLightTheme.glassGradient,
-                      borderRadius: BorderRadius.circular(isMobile ? 10.0 : 12.0),
-                      border: Border.all(
-                        color: widget.selectedWarehouse != null
-                            ? widget.iconColor.withOpacity(0.3)
-                            : ElegantLightTheme.textSecondary.withOpacity(0.2),
-                        width: 1,
-                      ),
-                      boxShadow: _isHovered
-                          ? [
-                              BoxShadow(
-                                color: widget.iconColor.withOpacity(0.2),
-                                offset: const Offset(0, 4),
-                                blurRadius: 12,
-                                spreadRadius: 0,
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(isMobile ? 6.0 : 8.0),
-                          decoration: BoxDecoration(
-                            color: widget.selectedWarehouse != null
-                                ? widget.iconColor
-                                : ElegantLightTheme.textSecondary,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (widget.selectedWarehouse != null
-                                    ? widget.iconColor
-                                    : ElegantLightTheme.textSecondary).withOpacity(0.3),
-                                offset: const Offset(0, 2),
-                                blurRadius: 4,
-                              ),
-                            ],
+            AnimatedBuilder(
+              animation: _scaleAnimation,
+              builder: (context, child) {
+                return Transform.scale(
+                  scale: _scaleAnimation.value,
+                  child: MouseRegion(
+                    onEnter: (_) => _onHover(true),
+                    onExit: (_) => _onHover(false),
+                    child: GestureDetector(
+                      onTap: _showWarehouseSelector,
+                      child: Container(
+                        padding: EdgeInsets.all(isMobile ? 14.0 : 16.0),
+                        decoration: BoxDecoration(
+                          gradient:
+                              widget.selectedWarehouse != null
+                                  ? LinearGradient(
+                                    colors: [
+                                      widget.iconColor.withOpacity(0.1),
+                                      widget.iconColor.withOpacity(0.05),
+                                    ],
+                                  )
+                                  : ElegantLightTheme.glassGradient,
+                          borderRadius: BorderRadius.circular(
+                            isMobile ? 10.0 : 12.0,
                           ),
-                          child: Icon(
-                            widget.icon,
-                            color: Colors.white,
-                            size: isMobile ? 14.0 : 16.0,
+                          border: Border.all(
+                            color:
+                                widget.selectedWarehouse != null
+                                    ? widget.iconColor.withOpacity(0.3)
+                                    : ElegantLightTheme.textSecondary
+                                        .withOpacity(0.2),
+                            width: 1,
                           ),
+                          boxShadow:
+                              _isHovered
+                                  ? [
+                                    BoxShadow(
+                                      color: widget.iconColor.withOpacity(0.2),
+                                      offset: const Offset(0, 4),
+                                      blurRadius: 12,
+                                      spreadRadius: 0,
+                                    ),
+                                  ]
+                                  : null,
                         ),
-                        SizedBox(width: isMobile ? 10.0 : 12.0),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.selectedWarehouse?.name ?? 'Seleccionar almacén',
-                                style: TextStyle(
-                                  color: widget.selectedWarehouse != null
-                                      ? ElegantLightTheme.textPrimary
-                                      : ElegantLightTheme.textSecondary,
-                                  fontSize: isMobile ? 13.0 : 14.0,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                              ),
-                              if (widget.selectedWarehouse != null) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${widget.selectedWarehouse!.code}${widget.selectedWarehouse!.isMainWarehouse ? ' (Principal)' : ''}',
-                                  style: TextStyle(
-                                    color: widget.selectedWarehouse!.isMainWarehouse
-                                        ? Colors.green
-                                        : ElegantLightTheme.textTertiary,
-                                    fontSize: isMobile ? 11.0 : 12.0,
-                                    fontWeight: FontWeight.w500,
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(isMobile ? 6.0 : 8.0),
+                              decoration: BoxDecoration(
+                                color:
+                                    widget.selectedWarehouse != null
+                                        ? widget.iconColor
+                                        : ElegantLightTheme.textSecondary,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: (widget.selectedWarehouse != null
+                                            ? widget.iconColor
+                                            : ElegantLightTheme.textSecondary)
+                                        .withOpacity(0.3),
+                                    offset: const Offset(0, 2),
+                                    blurRadius: 4,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  softWrap: false,
-                                ),
-                              ],
-                            ],
-                          ),
+                                ],
+                              ),
+                              child: Icon(
+                                widget.icon,
+                                color: Colors.white,
+                                size: isMobile ? 14.0 : 16.0,
+                              ),
+                            ),
+                            SizedBox(width: isMobile ? 10.0 : 12.0),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.selectedWarehouse?.name ??
+                                        'Seleccionar almacén',
+                                    style: TextStyle(
+                                      color:
+                                          widget.selectedWarehouse != null
+                                              ? ElegantLightTheme.textPrimary
+                                              : ElegantLightTheme.textSecondary,
+                                      fontSize: isMobile ? 13.0 : 14.0,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: false,
+                                  ),
+                                  if (widget.selectedWarehouse != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${widget.selectedWarehouse!.code}${widget.selectedWarehouse!.isMainWarehouse ? ' (Principal)' : ''}',
+                                      style: TextStyle(
+                                        color:
+                                            widget
+                                                    .selectedWarehouse!
+                                                    .isMainWarehouse
+                                                ? Colors.green
+                                                : ElegantLightTheme
+                                                    .textTertiary,
+                                        fontSize: isMobile ? 11.0 : 12.0,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.keyboard_arrow_down,
+                              color: ElegantLightTheme.textSecondary,
+                              size: isMobile ? 18.0 : 20.0,
+                            ),
+                          ],
                         ),
-                        Icon(
-                          Icons.keyboard_arrow_down,
-                          color: ElegantLightTheme.textSecondary,
-                          size: isMobile ? 18.0 : 20.0,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-            );
-          },
+                );
+              },
             ),
           ],
         );
@@ -245,14 +260,25 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
             final screenHeight = constraints.maxHeight;
             final isMobile = screenWidth < 600;
             final isTablet = screenWidth >= 600 && screenWidth < 1200;
-            
+
             // Responsive values
-            final dialogMargin = isMobile ? 20.0 : isTablet ? 30.0 : 40.0;
+            final dialogMargin =
+                isMobile
+                    ? 20.0
+                    : isTablet
+                    ? 30.0
+                    : 40.0;
             final headerIconSize = isMobile ? 20.0 : 24.0;
-            final headerFontSize = isMobile ? 16.0 : isTablet ? 18.0 : 20.0;
+            final headerFontSize =
+                isMobile
+                    ? 16.0
+                    : isTablet
+                    ? 18.0
+                    : 20.0;
             final maxDialogHeight = screenHeight * (isMobile ? 0.8 : 0.7);
-            final maxListHeight = maxDialogHeight - 150; // Reserve space for header
-            
+            final maxListHeight =
+                maxDialogHeight - 150; // Reserve space for header
+
             return Center(
               child: Container(
                 constraints: BoxConstraints(
@@ -283,13 +309,16 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
                                 padding: EdgeInsets.all(isMobile ? 10.0 : 12.0),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: [widget.iconColor, widget.iconColor.withOpacity(0.8)],
+                                    colors: [
+                                      widget.iconColor,
+                                      widget.iconColor.withOpacity(0.8),
+                                    ],
                                   ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Icon(
-                                  widget.icon, 
-                                  color: Colors.white, 
+                                  widget.icon,
+                                  color: Colors.white,
                                   size: headerIconSize,
                                 ),
                               ),
@@ -319,12 +348,22 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
                           SizedBox(height: isMobile ? 16.0 : 24.0),
                           Flexible(
                             child: ConstrainedBox(
-                              constraints: BoxConstraints(maxHeight: maxListHeight),
+                              constraints: BoxConstraints(
+                                maxHeight: maxListHeight,
+                              ),
                               child: SingleChildScrollView(
                                 child: Column(
-                                  children: widget.availableWarehouses.map((warehouse) => 
-                                    _buildWarehouseOption(warehouse, isMobile, isTablet)
-                                  ).toList(),
+                                  children:
+                                      widget.availableWarehouses
+                                          .map(
+                                            (warehouse) =>
+                                                _buildWarehouseOption(
+                                                  warehouse,
+                                                  isMobile,
+                                                  isTablet,
+                                                ),
+                                          )
+                                          .toList(),
                                 ),
                               ),
                             ),
@@ -342,9 +381,13 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
     );
   }
 
-  Widget _buildWarehouseOption(Warehouse warehouse, bool isMobile, bool isTablet) {
+  Widget _buildWarehouseOption(
+    Warehouse warehouse,
+    bool isMobile,
+    bool isTablet,
+  ) {
     final isSelected = widget.selectedWarehouse?.id == warehouse.id;
-    
+
     // Responsive values
     final marginBottom = isMobile ? 6.0 : 8.0;
     final padding = isMobile ? 12.0 : 16.0;
@@ -356,7 +399,7 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
     final descriptionFontSize = isMobile ? 11.0 : 12.0;
     final badgeFontSize = isMobile ? 9.0 : 10.0;
     final checkIconSize = isMobile ? 14.0 : 16.0;
-    
+
     return Container(
       margin: EdgeInsets.only(bottom: marginBottom),
       child: GestureDetector(
@@ -368,16 +411,21 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
           duration: ElegantLightTheme.fastAnimation,
           padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
-            gradient: isSelected
-                ? LinearGradient(
-                    colors: [widget.iconColor.withOpacity(0.2), widget.iconColor.withOpacity(0.1)],
-                  )
-                : ElegantLightTheme.glassGradient,
+            gradient:
+                isSelected
+                    ? LinearGradient(
+                      colors: [
+                        widget.iconColor.withOpacity(0.2),
+                        widget.iconColor.withOpacity(0.1),
+                      ],
+                    )
+                    : ElegantLightTheme.glassGradient,
             borderRadius: BorderRadius.circular(isMobile ? 10.0 : 12.0),
             border: Border.all(
-              color: isSelected
-                  ? widget.iconColor.withOpacity(0.5)
-                  : ElegantLightTheme.textSecondary.withOpacity(0.1),
+              color:
+                  isSelected
+                      ? widget.iconColor.withOpacity(0.5)
+                      : ElegantLightTheme.textSecondary.withOpacity(0.1),
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -386,11 +434,15 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
               Container(
                 padding: EdgeInsets.all(iconPadding),
                 decoration: BoxDecoration(
-                  gradient: warehouse.isMainWarehouse
-                      ? ElegantLightTheme.successGradient
-                      : LinearGradient(
-                          colors: [widget.iconColor, widget.iconColor.withOpacity(0.8)],
-                        ),
+                  gradient:
+                      warehouse.isMainWarehouse
+                          ? ElegantLightTheme.successGradient
+                          : LinearGradient(
+                            colors: [
+                              widget.iconColor,
+                              widget.iconColor.withOpacity(0.8),
+                            ],
+                          ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -423,7 +475,7 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
                           SizedBox(width: spacing / 2),
                           Container(
                             padding: EdgeInsets.symmetric(
-                              horizontal: isMobile ? 6.0 : 8.0, 
+                              horizontal: isMobile ? 6.0 : 8.0,
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
@@ -454,10 +506,13 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
                     ),
-                    if (warehouse.description != null && warehouse.description!.isNotEmpty) ...[
+                    if (warehouse.description != null &&
+                        warehouse.description!.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: double.infinity),
+                        constraints: const BoxConstraints(
+                          maxWidth: double.infinity,
+                        ),
                         child: Text(
                           warehouse.description!,
                           style: TextStyle(
@@ -503,10 +558,10 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
       print('⚠️ Ya procesando selección, ignorando tap adicional');
       return;
     }
-    
+
     _isProcessing = true;
     print('🔧 SUPER FAST DIALOG CLOSE for warehouse: ${warehouse.name}');
-    
+
     try {
       // STEP 1: Cerrar dialog INMEDIATAMENTE - ANTES del callback
       if (Navigator.canPop(Get.context!)) {
@@ -516,12 +571,12 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
         Get.back();
         print('✅ Dialog closed with Get.back()');
       }
-      
+
       // STEP 2: Ejecutar callback DESPUÉS de cerrar
       Future.microtask(() {
         widget.onWarehouseSelected(warehouse);
         print('✅ Callback executed for: ${warehouse.name}');
-        
+
         // Mostrar notificación breve
         FuturisticNotifications.showSuccess(
           'Seleccionado',
@@ -529,7 +584,6 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
           duration: const Duration(milliseconds: 1500),
         );
       });
-      
     } catch (e) {
       print('⚠️ Error closing dialog: $e');
       // Fallback: forzar cierre con Get.back()
@@ -541,5 +595,4 @@ class _FuturisticWarehouseSelectorWidgetState extends State<FuturisticWarehouseS
       });
     }
   }
-
 }

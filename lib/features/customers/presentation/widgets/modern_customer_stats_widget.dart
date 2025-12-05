@@ -1,6 +1,7 @@
 // lib/features/customers/presentation/widgets/modern_customer_stats_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../domain/entities/customer_stats.dart';
 
@@ -159,8 +160,11 @@ class ModernCustomerStatsWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                gradient: ElegantLightTheme.glassGradient,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.15),
+                ),
               ),
               child: Row(
                 children: [
@@ -286,9 +290,11 @@ class ModernCustomerStatsWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                gradient: ElegantLightTheme.glassGradient,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(
+                  color: ElegantLightTheme.textTertiary.withValues(alpha: 0.15),
+                ),
               ),
               child: Row(
                 children: [
@@ -296,7 +302,11 @@ class ModernCustomerStatsWidget extends StatelessWidget {
                   const SizedBox(width: 8),
                   const Text(
                     'Métricas Financieras',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: ElegantLightTheme.textPrimary,
+                    ),
                   ),
                   const Spacer(),
                   _buildFinancialBadge(
@@ -337,7 +347,7 @@ class ModernCustomerStatsWidget extends StatelessWidget {
             color: color,
           ),
         ),
-        Text(label, style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
+        Text(label, style: const TextStyle(fontSize: 9, color: ElegantLightTheme.textSecondary)),
       ],
     );
   }
@@ -581,7 +591,7 @@ class ModernCustomerStatsWidget extends StatelessWidget {
         ),
         Text(
           label,
-          style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          style: const TextStyle(fontSize: 10, color: ElegantLightTheme.textSecondary),
         ),
       ],
     );
@@ -591,7 +601,7 @@ class ModernCustomerStatsWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -599,7 +609,7 @@ class ModernCustomerStatsWidget extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            style: const TextStyle(fontSize: 11, color: ElegantLightTheme.textSecondary),
           ),
           Text(
             value,
@@ -618,7 +628,7 @@ class ModernCustomerStatsWidget extends StatelessWidget {
     return Container(
       width: 1,
       height: 20,
-      color: Colors.grey.shade300,
+      color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
       margin: const EdgeInsets.symmetric(horizontal: 8),
     );
   }
@@ -630,21 +640,8 @@ class ModernCustomerStatsWidget extends StatelessWidget {
 
   String _formatCurrency(double? amount) {
     if (amount == null || amount.isNaN || amount.isInfinite) {
-      return '\$0';
+      return '\$ 0';
     }
-
-    final absoluteAmount = amount.abs();
-    final isNegative = amount < 0;
-    String result;
-
-    if (absoluteAmount >= 1000000) {
-      result = '\$${(absoluteAmount / 1000000).toStringAsFixed(1)}M';
-    } else if (absoluteAmount >= 1000) {
-      result = '\$${(absoluteAmount / 1000).toStringAsFixed(1)}K';
-    } else {
-      result = '\$${absoluteAmount.toStringAsFixed(0)}';
-    }
-
-    return isNegative ? '-$result' : result;
+    return AppFormatters.formatCompactCurrency(amount);
   }
 }

@@ -328,11 +328,29 @@ class SecureStorageService {
   /// Limpiar todos los datos de tenant
   Future<void> clearTenantData() async {
     try {
-      await Future.wait([
-        deleteTenantSlug(),
-        deleteCurrentOrganization(),
-      ]);
+      print('🧹 SecureStorageService: Limpiando datos de tenant...');
+
+      // Limpiar tenant slug
+      await deleteTenantSlug();
+      print('✅ SecureStorageService: Tenant slug eliminado');
+
+      // Limpiar organización actual
+      await deleteCurrentOrganization();
+      print('✅ SecureStorageService: Organización actual eliminada');
+
+      // Verificar que se limpiaron correctamente
+      final verifySlug = await getTenantSlug();
+      final verifyOrg = await getCurrentOrganization();
+
+      if (verifySlug != null || verifyOrg != null) {
+        print('⚠️ SecureStorageService: Datos de tenant no se limpiaron completamente');
+        print('   - Tenant slug restante: $verifySlug');
+        print('   - Organización restante: ${verifyOrg != null ? "presente" : "null"}');
+      } else {
+        print('✅ SecureStorageService: Datos de tenant completamente limpiados');
+      }
     } catch (e) {
+      print('❌ SecureStorageService: Error al limpiar datos de tenant: $e');
       throw Exception('Error al limpiar datos de tenant: $e');
     }
   }
@@ -369,13 +387,33 @@ class SecureStorageService {
   /// Limpiar todos los datos de autenticación
   Future<void> clearAuthData() async {
     try {
+      print('🧹 SecureStorageService: Iniciando limpieza de datos de autenticación...');
+
+      // Primero limpiar tenant data para asegurar que no haya conflictos
+      await clearTenantData();
+      print('✅ SecureStorageService: Datos de tenant limpiados');
+
+      // Luego limpiar los demás datos
       await Future.wait([
         deleteToken(),
         deleteRefreshToken(),
         deleteUserData(),
-        clearTenantData(), // También limpiar datos de tenant al cerrar sesión
       ]);
+
+      print('✅ SecureStorageService: Todos los datos de autenticación limpiados');
+
+      // Verificación adicional: asegurar que el tenant slug fue eliminado
+      final remainingTenant = await getTenantSlug();
+      if (remainingTenant != null) {
+        print('⚠️ SecureStorageService: Tenant slug persistente detectado, forzando eliminación...');
+        await deleteTenantSlug();
+        final verifyAgain = await getTenantSlug();
+        print('🔍 SecureStorageService: Verificación final de tenant slug: $verifyAgain');
+      } else {
+        print('✅ SecureStorageService: Verificado - tenant slug completamente eliminado');
+      }
     } catch (e) {
+      print('❌ SecureStorageService: Error al limpiar datos de autenticación: $e');
       throw Exception('Error al limpiar datos de autenticación: $e');
     }
   }

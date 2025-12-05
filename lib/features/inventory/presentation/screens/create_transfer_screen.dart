@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
-import '../../../../app/core/utils/formatters.dart';
 import '../controllers/create_transfer_controller.dart';
 import '../widgets/transfer_form/transfer_basic_form.dart';
 import '../widgets/transfer_form/warehouse_selection_section.dart';
@@ -50,7 +49,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
   }
 
   // ==================== SIMPLE LAYOUT ====================
-  
+
   Widget _buildSimpleLayout() {
     return Container(
       decoration: BoxDecoration(
@@ -71,19 +70,19 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
             // 1. Encabezado
             _buildPageHeader(),
             const SizedBox(height: AppDimensions.paddingXLarge),
-            
+
             // 2. Selección de almacenes
             const WarehouseSelectionSection(),
             const SizedBox(height: AppDimensions.paddingXLarge),
-            
+
             // 3. Selección de productos
             const TransferBasicForm(),
             const SizedBox(height: AppDimensions.paddingXLarge),
-            
+
             // 4. Notas adicionales
             _buildNotesSection(),
             const SizedBox(height: AppDimensions.paddingXLarge),
-            
+
             // 5. Botones de acción
             _buildActionButtons(),
           ],
@@ -93,7 +92,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
   }
 
   // ==================== MOBILE LAYOUT (DEPRECATED) ===================="
-  
+
   Widget _buildMobileLayout() {
     return Container(
       decoration: BoxDecoration(
@@ -110,7 +109,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
         children: [
           // Progress indicator
           Obx(() => _buildMobileProgress()),
-          
+
           // Form content
           Expanded(
             child: PageView(
@@ -150,9 +149,12 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
           height: 32,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: isActive 
-                ? ElegantLightTheme.primaryGradient
-                : LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400]),
+            gradient:
+                isActive
+                    ? ElegantLightTheme.primaryGradient
+                    : LinearGradient(
+                      colors: [Colors.grey.shade300, Colors.grey.shade400],
+                    ),
           ),
           child: Center(
             child: Text(
@@ -170,7 +172,8 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
           label,
           style: TextStyle(
             fontSize: 12,
-            color: isActive ? ElegantLightTheme.primaryBlue : Colors.grey.shade600,
+            color:
+                isActive ? ElegantLightTheme.primaryBlue : Colors.grey.shade600,
             fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
@@ -183,9 +186,12 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
       height: 2,
       margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        gradient: isActive 
-            ? ElegantLightTheme.primaryGradient
-            : LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade300]),
+        gradient:
+            isActive
+                ? ElegantLightTheme.primaryGradient
+                : LinearGradient(
+                  colors: [Colors.grey.shade300, Colors.grey.shade300],
+                ),
         borderRadius: BorderRadius.circular(1),
       ),
     );
@@ -258,7 +264,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
   }
 
   // ==================== TABLET LAYOUT ====================
-  
+
   Widget _buildTabletLayout() {
     return Container(
       decoration: BoxDecoration(
@@ -274,22 +280,13 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
       child: Row(
         children: [
           // Form panel (left)
-          Expanded(
-            flex: 2,
-            child: _buildFormPanel(),
-          ),
-          
+          Expanded(flex: 2, child: _buildFormPanel()),
+
           // Divider
-          Container(
-            width: 1,
-            color: Colors.grey.shade300,
-          ),
-          
+          Container(width: 1, color: Colors.grey.shade300),
+
           // Summary panel (right)
-          Expanded(
-            flex: 1,
-            child: _buildSummaryPanel(),
-          ),
+          Expanded(flex: 1, child: _buildSummaryPanel()),
         ],
       ),
     );
@@ -303,13 +300,13 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
         children: [
           _buildSectionTitle('Información de la Transferencia'),
           const SizedBox(height: AppDimensions.paddingLarge),
-          
+
           const TransferBasicForm(),
           const SizedBox(height: AppDimensions.paddingXLarge),
-          
+
           const WarehouseSelectionSection(),
           const SizedBox(height: AppDimensions.paddingXLarge),
-          
+
           _buildNotesSection(),
         ],
       ),
@@ -344,11 +341,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.summarize,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                Icon(Icons.summarize, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   'Resumen',
@@ -360,14 +353,14 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
               ],
             ),
           ),
-          
+
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(AppDimensions.paddingLarge),
               child: const TransferSummarySection(),
             ),
           ),
-          
+
           Container(
             padding: const EdgeInsets.all(AppDimensions.paddingLarge),
             decoration: BoxDecoration(
@@ -388,7 +381,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
   }
 
   // ==================== DESKTOP LAYOUT ====================
-  
+
   Widget _buildDesktopLayout() {
     return Container(
       decoration: BoxDecoration(
@@ -404,22 +397,13 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
       child: Row(
         children: [
           // Main form (left - 60%)
-          Expanded(
-            flex: 3,
-            child: _buildDesktopMainForm(),
-          ),
-          
+          Expanded(flex: 3, child: _buildDesktopMainForm()),
+
           // Divider
-          Container(
-            width: 1,
-            color: Colors.grey.shade300,
-          ),
-          
+          Container(width: 1, color: Colors.grey.shade300),
+
           // Summary sidebar (right - 40%)
-          Expanded(
-            flex: 2,
-            child: _buildDesktopSidebar(),
-          ),
+          Expanded(flex: 2, child: _buildDesktopSidebar()),
         ],
       ),
     );
@@ -433,13 +417,13 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
         children: [
           _buildPageHeader(),
           const SizedBox(height: AppDimensions.paddingXLarge),
-          
+
           const TransferBasicForm(),
           const SizedBox(height: AppDimensions.paddingXLarge),
-          
+
           const WarehouseSelectionSection(),
           const SizedBox(height: AppDimensions.paddingXLarge),
-          
+
           _buildNotesSection(),
         ],
       ),
@@ -475,11 +459,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.preview,
-                  color: Colors.white,
-                  size: 24,
-                ),
+                Icon(Icons.preview, color: Colors.white, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -493,7 +473,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
               ],
             ),
           ),
-          
+
           // Summary content
           Expanded(
             child: SingleChildScrollView(
@@ -501,7 +481,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
               child: const TransferSummarySection(),
             ),
           ),
-          
+
           // Action buttons
           Container(
             padding: const EdgeInsets.all(AppDimensions.paddingLarge),
@@ -536,18 +516,13 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
         // Resumen compacto de la transferencia
         Obx(() => _buildCompactSummary()),
         const SizedBox(height: AppDimensions.paddingLarge),
-        
+
         // Botones de acción
         Row(
           children: [
-            Expanded(
-              child: _buildCancelButton(),
-            ),
+            Expanded(child: _buildCancelButton()),
             const SizedBox(width: AppDimensions.paddingMedium),
-            Expanded(
-              flex: 2,
-              child: _buildSubmitButton(),
-            ),
+            Expanded(flex: 2, child: _buildSubmitButton()),
           ],
         ),
       ],
@@ -555,9 +530,10 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
   }
 
   Widget _buildCompactSummary() {
-    final hasValidData = controller.transferItems.isNotEmpty &&
-                        controller.selectedFromWarehouseId.value.isNotEmpty &&
-                        controller.selectedToWarehouseId.value.isNotEmpty;
+    final hasValidData =
+        controller.transferItems.isNotEmpty &&
+        controller.selectedFromWarehouseId.value.isNotEmpty &&
+        controller.selectedToWarehouseId.value.isNotEmpty;
 
     if (!hasValidData) {
       return const SizedBox.shrink();
@@ -576,7 +552,11 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
         children: [
           Row(
             children: [
-              Icon(Icons.summarize, color: ElegantLightTheme.primaryBlue, size: 20),
+              Icon(
+                Icons.summarize,
+                color: ElegantLightTheme.primaryBlue,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Resumen de la Transferencia',
@@ -588,34 +568,36 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
             ],
           ),
           const SizedBox(height: 12),
-          
+
           _buildSummaryRow(
             'Productos:',
             '${controller.transferItems.length} ${controller.transferItems.length == 1 ? 'producto' : 'productos'}',
             Icons.inventory_2,
           ),
           const SizedBox(height: 8),
-          
+
           _buildSummaryRow(
             'De:',
-            controller.getWarehouseName(controller.selectedFromWarehouseId.value),
+            controller.getWarehouseName(
+              controller.selectedFromWarehouseId.value,
+            ),
             Icons.outbox,
           ),
           const SizedBox(height: 8),
-          
+
           _buildSummaryRow(
             'Hacia:',
             controller.getWarehouseName(controller.selectedToWarehouseId.value),
             Icons.inbox,
           ),
           const SizedBox(height: 8),
-          
+
           _buildSummaryRow(
             'Total items:',
             '${controller.transferItems.fold<int>(0, (sum, item) => sum + item.quantity)} unidades',
             Icons.numbers,
           ),
-          
+
           // Estado de validación
           const SizedBox(height: 12),
           Obx(() => _buildValidationStatus()),
@@ -654,12 +636,14 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
 
   Widget _buildValidationStatus() {
     final isValid = controller.isFormValid.value;
-    final hasStockError = controller.quantityError.value.contains('Stock insuficiente');
-    
+    final hasStockError = controller.quantityError.value.contains(
+      'Stock insuficiente',
+    );
+
     Color statusColor;
     IconData statusIcon;
     String statusText;
-    
+
     if (isValid) {
       statusColor = Colors.green.shade700;
       statusIcon = Icons.check_circle;
@@ -673,7 +657,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
       statusIcon = Icons.info;
       statusText = 'Completa todos los campos';
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -765,7 +749,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
       children: [
         _buildSectionTitle('Notas adicionales'),
         const SizedBox(height: AppDimensions.paddingMedium),
-        
+
         Container(
           decoration: BoxDecoration(
             gradient: ElegantLightTheme.cardGradient,
@@ -792,61 +776,68 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
   }
 
   Widget _buildSubmitButton() {
-    return Obx(() => Container(
-      width: double.infinity,
-      height: 56,
-      decoration: BoxDecoration(
-        gradient: controller.canSubmit 
-            ? ElegantLightTheme.primaryGradient
-            : LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400]),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: controller.canSubmit ? [
-          BoxShadow(
-            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ] : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: controller.canSubmit ? controller.createTransfer : null,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            alignment: Alignment.center,
-            child: controller.isCreating.value
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.send,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        controller.submitButtonText,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+    return Obx(
+      () => Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient:
+              controller.canSubmit
+                  ? ElegantLightTheme.primaryGradient
+                  : LinearGradient(
+                    colors: [Colors.grey.shade300, Colors.grey.shade400],
                   ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow:
+              controller.canSubmit
+                  ? [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(
+                        alpha: 0.3,
+                      ),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                  : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: controller.canSubmit ? controller.createTransfer : null,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              alignment: Alignment.center,
+              child:
+                  controller.isCreating.value
+                      ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                      : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.send, color: Colors.white, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            controller.submitButtonText,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+            ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildCancelButton() {
@@ -857,9 +848,7 @@ class CreateTransferScreen extends GetView<CreateTransferController> {
         onPressed: () => Get.back(),
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: Colors.grey.shade400),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
           'Cancelar',

@@ -1,8 +1,6 @@
 // lib/features/categories/presentation/screens/categories_list_screen.dart
-import 'package:baudex_desktop/app/config/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'dart:math' as math;
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
@@ -39,9 +37,7 @@ class CategoriesListScreen extends GetWidget<CategoriesController> {
           children: [
             // Fondo con patrón de partículas
             Positioned.fill(
-              child: CustomPaint(
-                painter: FuturisticParticlesPainter(),
-              ),
+              child: CustomPaint(painter: FuturisticParticlesPainter()),
             ),
             // Contenido principal
             SafeArea(
@@ -69,11 +65,7 @@ class CategoriesListScreen extends GetWidget<CategoriesController> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: ElegantLightTheme.glowShadow,
             ),
-            child: const Icon(
-              Icons.category,
-              color: Colors.white,
-              size: 24,
-            ),
+            child: const Icon(Icons.category, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 12),
           const Text(
@@ -94,11 +86,12 @@ class CategoriesListScreen extends GetWidget<CategoriesController> {
       ),
       automaticallyImplyLeading: false,
       leading: Builder(
-        builder: (context) => IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-          tooltip: 'Menú',
-        ),
+        builder:
+            (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+              tooltip: 'Menú',
+            ),
       ),
       actions: [
         _buildFuturisticActionButton(
@@ -202,7 +195,8 @@ class CategoriesListScreen extends GetWidget<CategoriesController> {
         children: [
           // Panel lateral futurístico - ancho optimizado para tablet
           Container(
-            width: 350, // Aumentado de 320 a 350 para más espacio en las tarjetas
+            width:
+                350, // Aumentado de 320 a 350 para más espacio en las tarjetas
             decoration: BoxDecoration(
               gradient: ElegantLightTheme.glassGradient,
               border: Border(
@@ -469,7 +463,9 @@ class CategoriesListScreen extends GetWidget<CategoriesController> {
 
             final category = categories[index];
             return Padding(
-              padding: const EdgeInsets.only(bottom: 4), // ✅ Reducido de 6 a 4 para más compacto
+              padding: const EdgeInsets.only(
+                bottom: 4,
+              ), // ✅ Reducido de 6 a 4 para más compacto
               child: CategoryCardWidget(
                 category: category,
                 onTap: () => controller.showCategoryDetails(category.id),
@@ -553,7 +549,6 @@ class CategoriesListScreen extends GetWidget<CategoriesController> {
     }
   }
 
-
   void _showFilters(BuildContext context) {
     Get.bottomSheet(
       Container(
@@ -592,7 +587,9 @@ class CategoriesListScreen extends GetWidget<CategoriesController> {
                         gradient: ElegantLightTheme.glassGradient,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                          color: ElegantLightTheme.primaryBlue.withValues(
+                            alpha: 0.3,
+                          ),
                           width: 1,
                         ),
                       ),
@@ -625,7 +622,9 @@ class CategoriesListScreen extends GetWidget<CategoriesController> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                            color: ElegantLightTheme.primaryBlue.withValues(
+                              alpha: 0.3,
+                            ),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -1048,11 +1047,11 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
-        
+
         // Configuración responsive más conservadora para evitar overflow
         int crossAxisCount;
         double childAspectRatio;
-        
+
         if (screenWidth >= 1200) {
           // Desktop: 3 columnas con ratio más alto para evitar overflow
           crossAxisCount = 3;
@@ -1103,11 +1102,11 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
   }
 
   Widget _buildResponsiveMetricCard(
-    String label, 
-    String value, 
-    IconData icon, 
-    Color color, 
-    double screenWidth
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    double screenWidth,
   ) {
     // Tamaños responsivos para evitar overflow
     double iconSize;
@@ -1115,7 +1114,7 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
     double labelFontSize;
     double verticalSpacing;
     double horizontalPadding;
-    
+
     if (screenWidth >= 1200) {
       // Desktop: tamaños más pequeños para evitar overflow
       iconSize = 18; // Reducido de 24 a 18
@@ -1125,7 +1124,7 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
       horizontalPadding = 8; // Padding más compacto
     } else if (screenWidth >= 800) {
       // Tablet: tamaños intermedios
-      iconSize = 20; 
+      iconSize = 20;
       valueFontSize = 15;
       labelFontSize = 11;
       verticalSpacing = 5;
@@ -1141,8 +1140,8 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
 
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: horizontalPadding, 
-        vertical: horizontalPadding
+        horizontal: horizontalPadding,
+        vertical: horizontalPadding,
       ),
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
@@ -1162,7 +1161,8 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
         children: [
           Icon(icon, color: color, size: iconSize),
           SizedBox(height: verticalSpacing),
-          FittedBox( // Usar FittedBox para escalar automáticamente si es necesario
+          FittedBox(
+            // Usar FittedBox para escalar automáticamente si es necesario
             fit: BoxFit.scaleDown,
             child: Text(
               value,
@@ -1176,7 +1176,8 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
             ),
           ),
           SizedBox(height: verticalSpacing / 2),
-          FittedBox( // Usar FittedBox para el label también
+          FittedBox(
+            // Usar FittedBox para el label también
             fit: BoxFit.scaleDown,
             child: Text(
               label,
@@ -1231,21 +1232,18 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
               gradient: ElegantLightTheme.primaryGradient,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
-              Icons.search,
-              color: Colors.white,
-              size: 20,
-            ),
+            child: const Icon(Icons.search, color: Colors.white, size: 20),
           ),
-          suffixIcon: controller.isSearchMode
-              ? IconButton(
-                  icon: const Icon(
-                    Icons.clear,
-                    color: ElegantLightTheme.textSecondary,
-                  ),
-                  onPressed: controller.clearFilters,
-                )
-              : null,
+          suffixIcon:
+              controller.isSearchMode
+                  ? IconButton(
+                    icon: const Icon(
+                      Icons.clear,
+                      color: ElegantLightTheme.textSecondary,
+                    ),
+                    onPressed: controller.clearFilters,
+                  )
+                  : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -1269,11 +1267,7 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                   gradient: ElegantLightTheme.infoGradient,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.build,
-                  color: Colors.white,
-                  size: 16,
-                ),
+                child: const Icon(Icons.build, color: Colors.white, size: 16),
               ),
               const SizedBox(width: 8),
               const Text(
@@ -1353,11 +1347,7 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                     gradient: gradient,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 16,
-                  ),
+                  child: Icon(icon, color: Colors.white, size: 16),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1414,7 +1404,8 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
                     BoxShadow(
-                      color: ElegantLightTheme.errorGradient.colors.first.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.errorGradient.colors.first
+                          .withValues(alpha: 0.3),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -1437,7 +1428,7 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Filtros con diseño elegante
           _buildStatusFilterCard(),
           const SizedBox(height: 16),
@@ -1472,8 +1463,12 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  ElegantLightTheme.successGradient.colors.first.withValues(alpha: 0.1),
-                  ElegantLightTheme.successGradient.colors.last.withValues(alpha: 0.05),
+                  ElegantLightTheme.successGradient.colors.first.withValues(
+                    alpha: 0.1,
+                  ),
+                  ElegantLightTheme.successGradient.colors.last.withValues(
+                    alpha: 0.05,
+                  ),
                 ],
               ),
               borderRadius: const BorderRadius.only(
@@ -1490,13 +1485,18 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: ElegantLightTheme.successGradient.colors.first.withValues(alpha: 0.3),
+                        color: ElegantLightTheme.successGradient.colors.first
+                            .withValues(alpha: 0.3),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.toggle_on, color: Colors.white, size: 16),
+                  child: const Icon(
+                    Icons.toggle_on,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -1565,8 +1565,12 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.1),
-                  ElegantLightTheme.infoGradient.colors.last.withValues(alpha: 0.05),
+                  ElegantLightTheme.infoGradient.colors.first.withValues(
+                    alpha: 0.1,
+                  ),
+                  ElegantLightTheme.infoGradient.colors.last.withValues(
+                    alpha: 0.05,
+                  ),
                 ],
               ),
               borderRadius: const BorderRadius.only(
@@ -1583,13 +1587,18 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.3),
+                        color: ElegantLightTheme.infoGradient.colors.first
+                            .withValues(alpha: 0.3),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.account_tree, color: Colors.white, size: 16),
+                  child: const Icon(
+                    Icons.account_tree,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -1651,8 +1660,12 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.1),
-                  ElegantLightTheme.warningGradient.colors.last.withValues(alpha: 0.05),
+                  ElegantLightTheme.warningGradient.colors.first.withValues(
+                    alpha: 0.1,
+                  ),
+                  ElegantLightTheme.warningGradient.colors.last.withValues(
+                    alpha: 0.05,
+                  ),
                 ],
               ),
               borderRadius: const BorderRadius.only(
@@ -1669,7 +1682,8 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.3),
+                        color: ElegantLightTheme.warningGradient.colors.first
+                            .withValues(alpha: 0.3),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -1709,7 +1723,8 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                     'Nombre (A-Z)',
                     'name',
                     'ASC',
-                    controller.sortBy == 'name' && controller.sortOrder == 'ASC',
+                    controller.sortBy == 'name' &&
+                        controller.sortOrder == 'ASC',
                   ),
                   const SizedBox(height: 8),
                   _buildSortOption(
@@ -1717,7 +1732,8 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                     'Nombre (Z-A)',
                     'name',
                     'DESC',
-                    controller.sortBy == 'name' && controller.sortOrder == 'DESC',
+                    controller.sortBy == 'name' &&
+                        controller.sortOrder == 'DESC',
                   ),
                   const SizedBox(height: 8),
                   _buildSortOption(
@@ -1766,8 +1782,12 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.1),
-                  ElegantLightTheme.primaryGradient.colors.last.withValues(alpha: 0.05),
+                  ElegantLightTheme.primaryGradient.colors.first.withValues(
+                    alpha: 0.1,
+                  ),
+                  ElegantLightTheme.primaryGradient.colors.last.withValues(
+                    alpha: 0.05,
+                  ),
                 ],
               ),
               borderRadius: const BorderRadius.only(
@@ -1784,13 +1804,18 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.3),
+                        color: ElegantLightTheme.primaryGradient.colors.first
+                            .withValues(alpha: 0.3),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.flash_on, color: Colors.white, size: 16),
+                  child: const Icon(
+                    Icons.flash_on,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -1855,23 +1880,25 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
   ) {
     return Container(
       decoration: BoxDecoration(
-        gradient: isSelected 
-          ? ElegantLightTheme.glassGradient
-          : null,
+        gradient: isSelected ? ElegantLightTheme.glassGradient : null,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected
-              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
-              : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+          color:
+              isSelected
+                  ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
           width: 1,
         ),
-        boxShadow: isSelected ? [
-          BoxShadow(
-            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ] : null,
+        boxShadow:
+            isSelected
+                ? [
+                  BoxShadow(
+                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+                : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -1886,9 +1913,10 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? ElegantLightTheme.primaryGradient
-                        : ElegantLightTheme.glassGradient,
+                    gradient:
+                        isSelected
+                            ? ElegantLightTheme.primaryGradient
+                            : ElegantLightTheme.glassGradient,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
@@ -1904,21 +1932,27 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: isSelected
-                          ? ElegantLightTheme.textPrimary
-                          : ElegantLightTheme.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color:
+                          isSelected
+                              ? ElegantLightTheme.textPrimary
+                              : ElegantLightTheme.textSecondary,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                       fontSize: 14,
                     ),
                   ),
                 ),
                 if (status != null) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      gradient: status == CategoryStatus.active
-                          ? ElegantLightTheme.successGradient
-                          : ElegantLightTheme.warningGradient,
+                      gradient:
+                          status == CategoryStatus.active
+                              ? ElegantLightTheme.successGradient
+                              : ElegantLightTheme.warningGradient,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -1946,23 +1980,28 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
   ) {
     return Container(
       decoration: BoxDecoration(
-        gradient: isSelected 
-          ? ElegantLightTheme.glassGradient
-          : null,
+        gradient: isSelected ? ElegantLightTheme.glassGradient : null,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected
-              ? ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.3)
-              : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+          color:
+              isSelected
+                  ? ElegantLightTheme.infoGradient.colors.first.withValues(
+                    alpha: 0.3,
+                  )
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
           width: 1,
         ),
-        boxShadow: isSelected ? [
-          BoxShadow(
-            color: ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ] : null,
+        boxShadow:
+            isSelected
+                ? [
+                  BoxShadow(
+                    color: ElegantLightTheme.infoGradient.colors.first
+                        .withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+                : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -1977,13 +2016,16 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? ElegantLightTheme.infoGradient
-                        : ElegantLightTheme.glassGradient,
+                    gradient:
+                        isSelected
+                            ? ElegantLightTheme.infoGradient
+                            : ElegantLightTheme.glassGradient,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
-                    parentId == 'parents_only' ? Icons.folder : Icons.folder_open,
+                    parentId == 'parents_only'
+                        ? Icons.folder
+                        : Icons.folder_open,
                     color: Colors.white,
                     size: 16,
                   ),
@@ -1993,10 +2035,12 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: isSelected
-                          ? ElegantLightTheme.textPrimary
-                          : ElegantLightTheme.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color:
+                          isSelected
+                              ? ElegantLightTheme.textPrimary
+                              : ElegantLightTheme.textSecondary,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                       fontSize: 14,
                     ),
                     maxLines: 1,
@@ -2020,23 +2064,28 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
   ) {
     return Container(
       decoration: BoxDecoration(
-        gradient: isSelected 
-          ? ElegantLightTheme.glassGradient
-          : null,
+        gradient: isSelected ? ElegantLightTheme.glassGradient : null,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected
-              ? ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.3)
-              : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+          color:
+              isSelected
+                  ? ElegantLightTheme.warningGradient.colors.first.withValues(
+                    alpha: 0.3,
+                  )
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
           width: 1,
         ),
-        boxShadow: isSelected ? [
-          BoxShadow(
-            color: ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ] : null,
+        boxShadow:
+            isSelected
+                ? [
+                  BoxShadow(
+                    color: ElegantLightTheme.warningGradient.colors.first
+                        .withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+                : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -2051,13 +2100,16 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? ElegantLightTheme.warningGradient
-                        : ElegantLightTheme.glassGradient,
+                    gradient:
+                        isSelected
+                            ? ElegantLightTheme.warningGradient
+                            : ElegantLightTheme.glassGradient,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
-                    sortOrder == 'ASC' ? Icons.arrow_upward : Icons.arrow_downward,
+                    sortOrder == 'ASC'
+                        ? Icons.arrow_upward
+                        : Icons.arrow_downward,
                     color: Colors.white,
                     size: 16,
                   ),
@@ -2067,17 +2119,22 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: isSelected
-                          ? ElegantLightTheme.textPrimary
-                          : ElegantLightTheme.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color:
+                          isSelected
+                              ? ElegantLightTheme.textPrimary
+                              : ElegantLightTheme.textSecondary,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                       fontSize: 14,
                     ),
                   ),
                 ),
                 if (isSelected)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       gradient: ElegantLightTheme.primaryGradient,
                       borderRadius: BorderRadius.circular(6),
@@ -2130,11 +2187,7 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 16,
-                ),
+                Icon(icon, color: Colors.white, size: 16),
                 const SizedBox(width: 8),
                 Text(
                   label,
@@ -2249,9 +2302,10 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
 
   Widget _buildFuturisticCategoriesList(BuildContext context) {
     return Obx(() {
-      final categories = controller.isSearchMode
-          ? controller.searchResults
-          : controller.categories;
+      final categories =
+          controller.isSearchMode
+              ? controller.searchResults
+              : controller.categories;
 
       if (categories.isEmpty && !controller.isLoading) {
         return _buildFuturisticEmptyState(context);
@@ -2288,8 +2342,10 @@ extension FuturisticCategoriesWidgets on CategoriesListScreen {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: FuturisticCategoryCard(
                           category: category,
-                          onTap: () => controller.showCategoryDetails(category.id),
-                          onEdit: () => controller.goToEditCategory(category.id),
+                          onTap:
+                              () => controller.showCategoryDetails(category.id),
+                          onEdit:
+                              () => controller.goToEditCategory(category.id),
                           onDelete: () => controller.confirmDelete(category),
                         ),
                       ),
@@ -2469,36 +2525,41 @@ class _FuturisticCategoryCardState extends State<FuturisticCategoryCard> {
       child: AnimatedContainer(
         duration: ElegantLightTheme.normalAnimation,
         decoration: BoxDecoration(
-          gradient: _isHovered
-              ? LinearGradient(
-                  colors: [
-                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
-                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.02),
-                  ],
-                )
-              : ElegantLightTheme.glassGradient,
+          gradient:
+              _isHovered
+                  ? LinearGradient(
+                    colors: [
+                      ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+                      ElegantLightTheme.primaryBlue.withValues(alpha: 0.02),
+                    ],
+                  )
+                  : ElegantLightTheme.glassGradient,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: _isHovered
-                ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
-                : ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+            color:
+                _isHovered
+                    ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+                    : ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
             width: 1,
           ),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+          boxShadow:
+              _isHovered
+                  ? [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(
+                        alpha: 0.15,
+                      ),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                  : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
         ),
         child: Material(
           color: Colors.transparent,
@@ -2514,15 +2575,22 @@ class _FuturisticCategoryCardState extends State<FuturisticCategoryCard> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      gradient: widget.category.isActive
-                          ? ElegantLightTheme.successGradient
-                          : ElegantLightTheme.warningGradient,
+                      gradient:
+                          widget.category.isActive
+                              ? ElegantLightTheme.successGradient
+                              : ElegantLightTheme.warningGradient,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
                           color: (widget.category.isActive
-                                  ? ElegantLightTheme.successGradient.colors.first
-                                  : ElegantLightTheme.warningGradient.colors.first)
+                                  ? ElegantLightTheme
+                                      .successGradient
+                                      .colors
+                                      .first
+                                  : ElegantLightTheme
+                                      .warningGradient
+                                      .colors
+                                      .first)
                               .withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
@@ -2573,17 +2641,30 @@ class _FuturisticCategoryCardState extends State<FuturisticCategoryCard> {
                               ),
                               decoration: BoxDecoration(
                                 color: (widget.category.isActive
-                                        ? ElegantLightTheme.successGradient.colors.first
-                                        : ElegantLightTheme.warningGradient.colors.first)
+                                        ? ElegantLightTheme
+                                            .successGradient
+                                            .colors
+                                            .first
+                                        : ElegantLightTheme
+                                            .warningGradient
+                                            .colors
+                                            .first)
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 widget.category.status.name.toUpperCase(),
                                 style: TextStyle(
-                                  color: widget.category.isActive
-                                      ? ElegantLightTheme.successGradient.colors.first
-                                      : ElegantLightTheme.warningGradient.colors.first,
+                                  color:
+                                      widget.category.isActive
+                                          ? ElegantLightTheme
+                                              .successGradient
+                                              .colors
+                                              .first
+                                          : ElegantLightTheme
+                                              .warningGradient
+                                              .colors
+                                              .first,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -2633,9 +2714,10 @@ class _FuturisticCategoryCardState extends State<FuturisticCategoryCard> {
 class FuturisticParticlesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = ElegantLightTheme.textSecondary.withValues(alpha: 0.05)
-      ..style = PaintingStyle.fill;
+    final paint =
+        Paint()
+          ..color = ElegantLightTheme.textSecondary.withValues(alpha: 0.05)
+          ..style = PaintingStyle.fill;
 
     // Dibujar partículas flotantes en patrón diagonal
     for (int i = 0; i < 30; i++) {
@@ -2646,9 +2728,10 @@ class FuturisticParticlesPainter extends CustomPainter {
     }
 
     // Líneas conectoras sutiles
-    final linePaint = Paint()
-      ..color = ElegantLightTheme.primaryBlue.withValues(alpha: 0.03)
-      ..strokeWidth = 1;
+    final linePaint =
+        Paint()
+          ..color = ElegantLightTheme.primaryBlue.withValues(alpha: 0.03)
+          ..strokeWidth = 1;
 
     for (int i = 0; i < 10; i++) {
       final startX = (i * 120.0) % size.width;
@@ -2656,11 +2739,7 @@ class FuturisticParticlesPainter extends CustomPainter {
       final endX = ((i + 1) * 120.0) % size.width;
       final endY = ((i + 1) * 80.0) % size.height;
 
-      canvas.drawLine(
-        Offset(startX, startY),
-        Offset(endX, endY),
-        linePaint,
-      );
+      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), linePaint);
     }
   }
 

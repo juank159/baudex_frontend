@@ -33,6 +33,8 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,
+    String? bankAccountId,
+    String? bankAccountName, // Filtro por nombre de método de pago (no aplica en offline)
     DateTime? startDate,
     DateTime? endDate,
     double? minAmount,
@@ -309,6 +311,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     String? notes,
     String? terms,
     Map<String, dynamic>? metadata,
+    String? bankAccountId, // 🏦 ID de la cuenta bancaria para registrar el pago
   }) async {
     return Left(ServerFailure('Create invoice not available offline'));
   }
@@ -348,6 +351,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     required String invoiceId,
     required double amount,
     required PaymentMethod paymentMethod,
+    String? bankAccountId,
     DateTime? paymentDate,
     String? reference,
     String? notes,
@@ -356,8 +360,24 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
   }
 
   @override
+  Future<Either<Failure, MultiplePaymentsResult>> addMultiplePayments({
+    required String invoiceId,
+    required List<PaymentItemData> payments,
+    DateTime? paymentDate,
+    bool createCreditForRemaining = false,
+    String? generalNotes,
+  }) async {
+    return Left(ServerFailure('Add multiple payments not available offline'));
+  }
+
+  @override
   Future<Either<Failure, void>> deleteInvoice(String id) async {
     return Left(ServerFailure('Delete invoice not available offline'));
+  }
+
+  @override
+  Future<Either<Failure, List<int>>> downloadInvoicePdf(String id) async {
+    return Left(ServerFailure('Download PDF not available offline'));
   }
 
   // ==================== CACHE OPERATIONS ====================
@@ -403,7 +423,11 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       case InvoiceStatus.overdue:
         return IsarInvoiceStatus.overdue;
       case InvoiceStatus.partiallyPaid:
-        return IsarInvoiceStatus.pending; // Map to pending as fallback
+        return IsarInvoiceStatus.partiallyPaid;
+      case InvoiceStatus.credited:
+        return IsarInvoiceStatus.credited;
+      case InvoiceStatus.partiallyCredited:
+        return IsarInvoiceStatus.partiallyCredited;
     }
   }
 }

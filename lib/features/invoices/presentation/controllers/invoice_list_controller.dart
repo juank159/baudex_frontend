@@ -11,7 +11,6 @@ import '../../domain/usecases/delete_invoice_usecase.dart';
 import '../../domain/usecases/confirm_invoice_usecase.dart';
 import '../../domain/usecases/cancel_invoice_usecase.dart';
 import '../../domain/usecases/get_invoice_by_id_usecase.dart';
-import '../../../settings/presentation/controllers/settings_controller.dart';
 import '../controllers/thermal_printer_controller.dart';
 import '../controllers/invoice_stats_controller.dart';
 
@@ -23,6 +22,36 @@ class InvoiceListController extends GetxController {
   final ConfirmInvoiceUseCase _confirmInvoiceUseCase;
   final CancelInvoiceUseCase _cancelInvoiceUseCase;
   final GetInvoiceByIdUseCase _getInvoiceByIdUseCase;
+
+  // ==================== CACHÉ ESTÁTICO ====================
+  // Caché estático para persistir datos entre recreaciones del controlador
+  static List<Invoice>? _cachedInvoices;
+  static PaginationMeta? _cachedMeta;
+  static DateTime? _lastCacheTime;
+  static const _cacheValidityDuration = Duration(minutes: 5);
+
+  /// Verificar si el caché es válido
+  static bool _isCacheValid() {
+    if (_cachedInvoices == null || _lastCacheTime == null) return false;
+    final timeSinceCache = DateTime.now().difference(_lastCacheTime!);
+    return timeSinceCache < _cacheValidityDuration;
+  }
+
+  /// Actualizar el caché con nuevos datos
+  static void _updateCache(List<Invoice> invoices, PaginationMeta? meta) {
+    _cachedInvoices = List.from(invoices);
+    _cachedMeta = meta;
+    _lastCacheTime = DateTime.now();
+    // print('💾 Caché de facturas actualizado: ${invoices.length} items');
+  }
+
+  /// Invalidar el caché (llamar después de operaciones CRUD)
+  static void invalidateCache() {
+    _cachedInvoices = null;
+    _cachedMeta = null;
+    _lastCacheTime = null;
+    // print('🗑️ Caché de facturas invalidado');
+  }
 
   InvoiceListController({
     required GetInvoicesUseCase getInvoicesUseCase,
@@ -37,7 +66,7 @@ class InvoiceListController extends GetxController {
        _confirmInvoiceUseCase = confirmInvoiceUseCase,
        _cancelInvoiceUseCase = cancelInvoiceUseCase,
        _getInvoiceByIdUseCase = getInvoiceByIdUseCase {
-    print('🎮 InvoiceListController: Instancia creada correctamente');
+    // print('🎮 InvoiceListController: Instancia creada correctamente');
   }
 
   // ==================== OBSERVABLES ====================
@@ -58,6 +87,8 @@ class InvoiceListController extends GetxController {
   final _searchQuery = ''.obs;
   final _selectedStatus = Rxn<InvoiceStatus>();
   final _selectedPaymentMethod = Rxn<PaymentMethod>();
+  final _selectedBankAccountId = Rxn<String>(); // Filtro por ID de cuenta bancaria (legacy)
+  final _selectedBankAccountName = Rxn<String>(); // ✅ NUEVO: Filtro por NOMBRE de método de pago (Nequi, Bancolombia, etc.)
   final _startDate = Rxn<DateTime>();
   final _endDate = Rxn<DateTime>();
   final _minAmount = Rxn<double>();
@@ -73,12 +104,24 @@ class InvoiceListController extends GetxController {
   final searchController = SafeTextEditingController(
     debugLabel: 'InvoiceListSearch',
   );
-  
-  // ✅ SOLUCIÓN RADICAL: ScrollController se creará dinámicamente
+
+  // ✅ NOTA IMPORTANTE: El ScrollController ahora es manejado por InvoiceListScreen (StatefulWidget)
+  // Esto garantiza un lifecycle correcto y evita el error "attached to more than one ScrollPosition"
+  // Las variables _scrollController y _scrollListener se mantienen solo por compatibilidad pero NO se usan
+  @Deprecated('ScrollController ahora es manejado por InvoiceListScreen')
   ScrollController? _scrollController;
 
   // ✅ NUEVO: Timer para debounce de búsqueda
   Timer? _searchDebounceTimer;
+
+  // ✅ AUTO-REFRESH: Timestamp del último refresh para control optimizado
+  DateTime? _lastRefreshTime;
+
+  // ✅ AUTO-REFRESH: Intervalo mínimo entre refreshes (30 segundos)
+  static const _minRefreshInterval = Duration(seconds: 30);
+
+  // ✅ AUTO-REFRESH: Worker para monitorear cambios de ruta
+  Worker? _routeWorker;
 
   // ==================== GETTERS ====================
 
@@ -95,6 +138,8 @@ class InvoiceListController extends GetxController {
   String get searchQuery => _searchQuery.value;
   InvoiceStatus? get selectedStatus => _selectedStatus.value;
   PaymentMethod? get selectedPaymentMethod => _selectedPaymentMethod.value;
+  String? get selectedBankAccountId => _selectedBankAccountId.value; // Getter para cuenta bancaria (legacy)
+  String? get selectedBankAccountName => _selectedBankAccountName.value; // ✅ NUEVO: Getter para nombre de método de pago
   DateTime? get startDate => _startDate.value;
   DateTime? get endDate => _endDate.value;
   double? get minAmount => _minAmount.value;
@@ -110,25 +155,29 @@ class InvoiceListController extends GetxController {
   bool get hasNextPage {
     final meta = _paginationMeta.value;
     if (meta == null) return false;
-    
+
     // ✅ Doble verificación: hasNextPage Y currentPage < totalPages
     return meta.hasNextPage && meta.page < meta.totalPages;
   }
-  
+
   bool get hasPreviousPage => _paginationMeta.value?.hasPreviousPage ?? false;
   int get currentPage => _paginationMeta.value?.page ?? 1;
   int get totalPages => _paginationMeta.value?.totalPages ?? 1;
   int get totalItems => _paginationMeta.value?.totalItems ?? 0;
-  
+
   // ✅ NUEVOS: Getters de utilidad para paginación
-  String get paginationInfo => 'Página $currentPage de $totalPages ($totalItems facturas)';
+  String get paginationInfo =>
+      'Página $currentPage de $totalPages ($totalItems facturas)';
   double get loadingProgress => totalPages > 0 ? currentPage / totalPages : 0.0;
   bool get isLastPage => currentPage >= totalPages;
-  bool get canLoadMore => hasNextPage && !_isLoadingMore.value && !_isLoading.value;
+  bool get canLoadMore =>
+      hasNextPage && !_isLoadingMore.value && !_isLoading.value;
 
   bool get hasFilters =>
       _selectedStatus.value != null ||
       _selectedPaymentMethod.value != null ||
+      _selectedBankAccountId.value != null ||
+      _selectedBankAccountName.value != null || // ✅ Incluir filtro de nombre de método de pago
       _startDate.value != null ||
       _endDate.value != null ||
       _minAmount.value != null ||
@@ -139,11 +188,13 @@ class InvoiceListController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    print('🚀 InvoiceListController: Inicializando...');
+    // print('🚀 InvoiceListController: Inicializando...');
 
-    // ✅ CREAR ScrollController ÚNICO y FRESCO
-    _createFreshScrollController();
-    _setupScrollListener();
+    // ✅ NOTA: El ScrollController ahora es manejado por el StatefulWidget (InvoiceListScreen)
+    // No es necesario crear ni configurar listener aquí - el widget gestiona su propio lifecycle
+    // _createFreshScrollController();
+    // _setupScrollListener();
+
     _setupSearchListener();
     loadInvoices();
     _loadInvoiceStatsIfAvailable();
@@ -152,22 +203,101 @@ class InvoiceListController extends GetxController {
   @override
   void onReady() {
     super.onReady();
-    print(
-      '✅ InvoiceListController: Ready state - controlador completamente inicializado',
-    );
+    // print('✅ InvoiceListController: Ready state - controlador completamente inicializado');
 
     // Verificar si necesitamos refrescar datos después de navegar
     if (_invoices.isEmpty) {
-      print('📋 Lista vacía en onReady, cargando facturas...');
+      // print('📋 Lista vacía en onReady, cargando facturas...');
       loadInvoices();
     }
+
+    // ✅ AUTO-REFRESH: Configurar listener de navegación
+    _setupRouteListener();
+  }
+
+  /// ✅ AUTO-REFRESH: Configurar listener para detectar cuando volvemos a esta pantalla
+  void _setupRouteListener() {
+    // Simplemente verificamos cada vez que se llama onReady
+    // El auto-refresh real se maneja en checkAndRefreshIfNeeded() que se llama desde la UI
+    // print('✅ Auto-refresh configurado. Se verificará en cada visita a la pantalla.');
+  }
+
+  /// ✅ AUTO-REFRESH: Método público para verificar y refrescar si es necesario
+  /// Este método debe ser llamado cada vez que la pantalla se vuelve visible
+  Future<void> checkAndRefreshIfNeeded() async {
+    if (!isClosed) {
+      _handleScreenResumed();
+    }
+  }
+
+  /// ✅ AUTO-REFRESH: Manejar cuando el usuario regresa a esta pantalla
+  void _handleScreenResumed() {
+    // print('🔄 InvoiceListScreen: Pantalla reanudada, verificando necesidad de refresh...');
+
+    // ✅ SINCRONIZACIÓN CON CRÉDITOS: Verificar si hay pagos de créditos que afectan facturas
+    if (_checkCreditPaymentPending()) {
+      // print('✅ Ejecutando refresh por pago de crédito con factura asociada...');
+      refreshAllData();
+      return;
+    }
+
+    // Verificar si ha pasado suficiente tiempo desde el último refresh
+    if (_shouldAutoRefresh()) {
+      // print('✅ Ejecutando auto-refresh de datos...');
+      refreshAllData();
+    } else {
+      final secondsSinceLastRefresh =
+          _lastRefreshTime != null
+              ? DateTime.now().difference(_lastRefreshTime!).inSeconds
+              : 0;
+      // print('⏭️  Saltando refresh (último hace $secondsSinceLastRefresh segundos)');
+    }
+  }
+
+  /// ✅ SINCRONIZACIÓN: Verificar si hay pagos de créditos pendientes que afectan facturas
+  bool _checkCreditPaymentPending() {
+    final hasPending = _hasPendingCreditPaymentRefresh;
+    if (hasPending) {
+      _clearPendingCreditRefresh();
+    }
+    return hasPending;
+  }
+
+  // ✅ Flag estático para comunicación entre controladores
+  static bool _hasPendingCreditPaymentRefresh = false;
+
+  /// ✅ Método estático para que otros controladores marquen refresh pendiente
+  static void markInvoiceRefreshNeeded() {
+    _hasPendingCreditPaymentRefresh = true;
+    // print('📌 InvoiceListController: Marcado refresh pendiente por pago de crédito');
+  }
+
+  /// ✅ Limpiar flag después de refresh
+  void _clearPendingCreditRefresh() {
+    _hasPendingCreditPaymentRefresh = false;
+  }
+
+  /// ✅ AUTO-REFRESH: Determinar si debemos hacer auto-refresh
+  bool _shouldAutoRefresh() {
+    // Si nunca se ha hecho refresh, hacerlo
+    if (_lastRefreshTime == null) {
+      return true;
+    }
+
+    // Si ha pasado el intervalo mínimo, hacerlo
+    final timeSinceLastRefresh = DateTime.now().difference(_lastRefreshTime!);
+    return timeSinceLastRefresh >= _minRefreshInterval;
   }
 
   @override
   void onClose() {
-    print('🔚 InvoiceListController: Liberando recursos...');
+    // print('🔚 InvoiceListController: Liberando recursos...');
 
     try {
+      // ✅ AUTO-REFRESH: Cancelar worker de rutas
+      _routeWorker?.dispose();
+      _routeWorker = null;
+
       // ✅ CRÍTICO: Cancelar timer de debounce antes de liberar recursos
       _searchDebounceTimer?.cancel();
       _searchDebounceTimer = null;
@@ -176,9 +306,9 @@ class InvoiceListController extends GetxController {
       if (searchController.canSafelyAccess()) {
         try {
           searchController.removeListener(_onSearchChanged);
-          print('✅ Search listener removido exitosamente');
+          // print('✅ Search listener removido exitosamente');
         } catch (e) {
-          print('⚠️ Error removiendo search listener: $e');
+          // print('⚠️ Error removiendo search listener: $e');
         }
       }
 
@@ -186,34 +316,20 @@ class InvoiceListController extends GetxController {
       try {
         searchController
             .dispose(); // SafeController maneja dispose de forma segura
-        print('✅ SafeSearchController disposed exitosamente');
+        // print('✅ SafeSearchController disposed exitosamente');
       } catch (e) {
-        print('⚠️ Error al liberar searchController: $e');
+        // print('⚠️ Error al liberar searchController: $e');
       }
 
-      // ✅ SOLUCIÓN RADICAL: Disposal ultra-seguro
-      try {
-        if (_scrollListener != null && _scrollController?.hasClients == true) {
-          _scrollController!.removeListener(_scrollListener!);
-          _scrollListener = null;
-          print('✅ ScrollController listener removido exitosamente');
-        }
-      } catch (e) {
-        print('⚠️ Error removiendo scroll listener: $e');
-      }
+      // ✅ NOTA: El ScrollController ahora es manejado por el StatefulWidget (InvoiceListScreen)
+      // No es necesario disponer aquí - el widget gestiona su propio lifecycle
+      // Esto evita el error de "ScrollController attached to more than one position"
+      _scrollListener = null;
+      _scrollController = null;
 
-      // ✅ DISPOSE SEGURO del ScrollController dinámico
-      try {
-        _scrollController?.dispose();
-        _scrollController = null;
-        print('✅ ScrollController disposed exitosamente');
-      } catch (e) {
-        print('⚠️ Error al liberar scrollController: $e');
-      }
-
-      print('✅ InvoiceListController: Recursos marcados para liberación');
+      // print('✅ InvoiceListController: Recursos marcados para liberación');
     } catch (e) {
-      print('❌ Error durante onClose: $e');
+      // print('❌ Error durante onClose: $e');
     }
 
     super.onClose();
@@ -222,11 +338,24 @@ class InvoiceListController extends GetxController {
   // ==================== CORE METHODS ====================
 
   /// ✅ PAGINACIÓN PROFESIONAL: Cargar facturas con manejo de errores mejorado
-  Future<void> loadInvoices({bool showLoading = true}) async {
+  Future<void> loadInvoices({bool showLoading = true, bool forceRefresh = false}) async {
     try {
+      // ✅ CACHÉ: Si hay caché válido y no es refresh forzado, usar caché
+      if (!forceRefresh && _isCacheValid() && _searchQuery.value.isEmpty && !hasFilters) {
+        // print('⚡ Usando caché de facturas (${_cachedInvoices!.length} items)');
+        _invoices.value = List.from(_cachedInvoices!);
+        _paginationMeta.value = _cachedMeta;
+        _applyLocalFilters();
+        _lastRefreshTime = DateTime.now();
+
+        // Refrescar en background para mantener datos actualizados
+        _refreshInBackground();
+        return;
+      }
+
       if (showLoading) _isLoading.value = true;
 
-      print('📋 CARGA INICIAL: Cargando primera página de facturas...');
+      // print('📋 CARGA INICIAL: Cargando primera página de facturas...');
 
       final result = await _getInvoicesUseCase(
         GetInvoicesParams(
@@ -235,6 +364,8 @@ class InvoiceListController extends GetxController {
           search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
           status: _getServerFilterStatus(),
           paymentMethod: _selectedPaymentMethod.value,
+          bankAccountId: _selectedBankAccountId.value,
+          bankAccountName: _selectedBankAccountName.value, // ✅ NUEVO: Filtro por nombre de método de pago
           startDate: _startDate.value,
           endDate: _endDate.value,
           minAmount: _minAmount.value,
@@ -246,42 +377,53 @@ class InvoiceListController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar facturas: ${failure.message}');
+          // print('❌ Error al cargar facturas: ${failure.message}');
           _showError('Error al cargar facturas', failure.message);
-          
+
           // ✅ Limpiar datos en caso de error
           _invoices.clear();
           _filteredInvoices.clear();
           _paginationMeta.value = null;
         },
         (paginatedResult) {
-          print('✅ CARGA INICIAL EXITOSA:');
-          print('   - Facturas recibidas: ${paginatedResult.data.length}');
-          print('   - Página actual: ${paginatedResult.meta.page}');
-          print('   - Total páginas: ${paginatedResult.meta.totalPages}');
-          print('   - Total facturas: ${paginatedResult.meta.totalItems}');
-          print('   - Tiene siguiente: ${paginatedResult.meta.hasNextPage}');
+          // print('✅ CARGA INICIAL EXITOSA:');
+          // print('   - Facturas recibidas: ${paginatedResult.data.length}');
+          // print('   - Página actual: ${paginatedResult.meta.page}');
+          // print('   - Total páginas: ${paginatedResult.meta.totalPages}');
+          // print('   - Total facturas: ${paginatedResult.meta.totalItems}');
+          // print('   - Tiene siguiente: ${paginatedResult.meta.hasNextPage}');
 
           // ✅ Asignar datos iniciales
           _invoices.value = paginatedResult.data;
           _paginationMeta.value = paginatedResult.meta;
 
+          // ✅ CACHÉ: Guardar en caché si no hay filtros de búsqueda
+          if (_searchQuery.value.isEmpty && !hasFilters) {
+            _updateCache(paginatedResult.data, paginatedResult.meta);
+          }
+
           // ✅ Aplicar filtros locales
           _applyLocalFilters();
 
-          print('✅ FILTRADO COMPLETADO:');
-          print('   - Facturas sin filtrar: ${_invoices.length}');
-          print('   - Facturas filtradas: ${_filteredInvoices.length}');
+          // print('✅ FILTRADO COMPLETADO:');
+          // print('   - Facturas sin filtrar: ${_invoices.length}');
+          // print('   - Facturas filtradas: ${_filteredInvoices.length}');
+
+          // ✅ AUTO-REFRESH: Actualizar timestamp de último refresh exitoso
+          _lastRefreshTime = DateTime.now();
 
           // ✅ FORZAR ACTUALIZACIÓN DE UI
           update();
         },
       );
     } catch (e, stackTrace) {
-      print('💥 Error inesperado al cargar facturas: $e');
-      print('📍 Stack trace: $stackTrace');
-      _showError('Error inesperado', 'No se pudieron cargar las facturas: ${e.toString()}');
-      
+      // print('💥 Error inesperado al cargar facturas: $e');
+      // print('📍 Stack trace: $stackTrace');
+      _showError(
+        'Error inesperado',
+        'No se pudieron cargar las facturas: ${e.toString()}',
+      );
+
       // ✅ Limpiar datos en caso de error crítico
       _invoices.clear();
       _filteredInvoices.clear();
@@ -297,7 +439,7 @@ class InvoiceListController extends GetxController {
 
     try {
       _isLoadingMore.value = true;
-      print('📋 InvoiceListController: Cargando más facturas...');
+      // print('📋 InvoiceListController: Cargando más facturas...');
 
       final nextPage = currentPage + 1;
 
@@ -308,6 +450,8 @@ class InvoiceListController extends GetxController {
           search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
           status: _getServerFilterStatus(),
           paymentMethod: _selectedPaymentMethod.value,
+          bankAccountId: _selectedBankAccountId.value,
+          bankAccountName: _selectedBankAccountName.value, // ✅ NUEVO: Filtro por nombre de método de pago
           startDate: _startDate.value,
           endDate: _endDate.value,
           minAmount: _minAmount.value,
@@ -319,63 +463,126 @@ class InvoiceListController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar más facturas: ${failure.message}');
+          // print('❌ Error al cargar más facturas: ${failure.message}');
           _showError('Error al cargar más facturas', failure.message);
         },
         (paginatedResult) {
           // ✅ DEBUGGING: Estado antes de agregar
-          print('🔍 ANTES DE AGREGAR:');
-          print('   - Facturas actuales: ${_invoices.length}');
-          print('   - Facturas filtradas: ${_filteredInvoices.length}');
-          print('   - Nuevas facturas recibidas: ${paginatedResult.data.length}');
-          
+          // print('🔍 ANTES DE AGREGAR:');
+          // print('   - Facturas actuales: ${_invoices.length}');
+          // print('   - Facturas filtradas: ${_filteredInvoices.length}');
+          // print('   - Nuevas facturas recibidas: ${paginatedResult.data.length}');
+
           // ✅ Evitar duplicados verificando IDs existentes
           final existingIds = _invoices.map((inv) => inv.id).toSet();
-          final newInvoices = paginatedResult.data.where((inv) => !existingIds.contains(inv.id)).toList();
-          
-          print('🔍 FILTRADO DE DUPLICADOS:');
-          print('   - Facturas realmente nuevas: ${newInvoices.length}');
-          
+          final newInvoices =
+              paginatedResult.data
+                  .where((inv) => !existingIds.contains(inv.id))
+                  .toList();
+
+          // print('🔍 FILTRADO DE DUPLICADOS:');
+          // print('   - Facturas realmente nuevas: ${newInvoices.length}');
+
           if (newInvoices.isEmpty) {
-            print('⚠️ Todas las facturas ya existían (duplicados)');
-            _showError('Datos duplicados', 'Los datos de esta página ya fueron cargados');
+            // print('⚠️ Todas las facturas ya existían (duplicados)');
+            _showError(
+              'Datos duplicados',
+              'Los datos de esta página ya fueron cargados',
+            );
             return;
           }
-          
+
           // ✅ Agregar solo facturas nuevas
           _invoices.addAll(newInvoices);
           _paginationMeta.value = paginatedResult.meta;
           _applyLocalFilters();
-          
-          print('✅ DESPUÉS DE AGREGAR:');
-          print('   - Total facturas: ${_invoices.length}');
-          print('   - Total filtradas: ${_filteredInvoices.length}');
-          print('   - Página actual: ${paginatedResult.meta.page}');
-          print('   - Tiene más páginas: ${paginatedResult.meta.hasNextPage}');
-          
+
+          // print('✅ DESPUÉS DE AGREGAR:');
+          // print('   - Total facturas: ${_invoices.length}');
+          // print('   - Total filtradas: ${_filteredInvoices.length}');
+          // print('   - Página actual: ${paginatedResult.meta.page}');
+          // print('   - Tiene más páginas: ${paginatedResult.meta.hasNextPage}');
+
           // ✅ Forzar actualización de UI
           update();
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al cargar más facturas: $e');
+      // print('💥 Error inesperado al cargar más facturas: $e');
     } finally {
       _isLoadingMore.value = false;
     }
   }
 
   /// Refrescar facturas
-  Future<void> refreshInvoices() async {
+  Future<void> refreshInvoices({bool showSuccessMessage = true}) async {
     try {
       _isRefreshing.value = true;
-      print('🔄 InvoiceListController: Refrescando facturas...');
+      // print('🔄 InvoiceListController: Refrescando facturas...');
 
-      await loadInvoices(showLoading: false);
-      _showSuccess('Facturas actualizadas');
+      // ✅ Forzar refresh desde el servidor
+      await loadInvoices(showLoading: false, forceRefresh: true);
+
+      // ✅ Solo mostrar mensaje si se solicita explícitamente (manual refresh)
+      if (showSuccessMessage) {
+        _showSuccess('Facturas actualizadas');
+      }
     } catch (e) {
-      print('💥 Error al refrescar facturas: $e');
+      // print('💥 Error al refrescar facturas: $e');
     } finally {
       _isRefreshing.value = false;
+    }
+  }
+
+  /// ✅ CACHÉ: Refrescar datos en background sin bloquear la UI
+  Future<void> _refreshInBackground() async {
+    // Esperar un momento para no afectar la UI inicial
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (isClosed) return;
+
+    try {
+      // print('🔄 Refrescando facturas en background...');
+
+      final result = await _getInvoicesUseCase(
+        GetInvoicesParams(
+          page: 1,
+          limit: 20,
+          sortBy: _sortBy.value,
+          sortOrder: _sortOrder.value,
+        ),
+      );
+
+      if (isClosed) return;
+
+      result.fold(
+        (failure) {
+          // print('⚠️ Error en refresh background: ${failure.message}');
+        },
+        (paginatedResult) {
+          // Verificar si los datos cambiaron
+          final hasChanges = _cachedInvoices == null ||
+              _cachedInvoices!.length != paginatedResult.data.length ||
+              (paginatedResult.data.isNotEmpty &&
+                  _cachedInvoices!.isNotEmpty &&
+                  paginatedResult.data.first.id != _cachedInvoices!.first.id);
+
+          if (hasChanges) {
+            // print('✅ Datos actualizados en background');
+            _invoices.value = paginatedResult.data;
+            _paginationMeta.value = paginatedResult.meta;
+            _updateCache(paginatedResult.data, paginatedResult.meta);
+            _applyLocalFilters();
+            update();
+          } else {
+            // print('ℹ️ Sin cambios detectados en background');
+            // Actualizar solo el timestamp del caché
+            _lastCacheTime = DateTime.now();
+          }
+        },
+      );
+    } catch (e) {
+      // print('⚠️ Error en refresh background: $e');
     }
   }
 
@@ -385,7 +592,7 @@ class InvoiceListController extends GetxController {
       _isSearching.value = true;
       _searchQuery.value = query;
 
-      print('🔍 InvoiceListController: Buscando facturas: "$query"');
+      // print('🔍 InvoiceListController: Buscando facturas: "$query"');
 
       if (query.isEmpty) {
         await loadInvoices();
@@ -399,17 +606,17 @@ class InvoiceListController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error en búsqueda: ${failure.message}');
+          // print('❌ Error en búsqueda: ${failure.message}');
           _showError('Error en búsqueda', failure.message);
         },
         (searchResults) {
           _invoices.value = searchResults;
           _applyLocalFilters();
-          print('✅ ${searchResults.length} facturas encontradas');
+          // print('✅ ${searchResults.length} facturas encontradas');
         },
       );
     } catch (e) {
-      print('💥 Error inesperado en búsqueda: $e');
+      // print('💥 Error inesperado en búsqueda: $e');
     } finally {
       _isSearching.value = false;
     }
@@ -430,11 +637,11 @@ class InvoiceListController extends GetxController {
   /// Aplicar filtro de estado
   void filterByStatus(InvoiceStatus? status) {
     _selectedStatus.value = status;
-    print('🔧 Filtro estado: ${status?.displayName ?? "Todos"}');
+    // print('🔧 Filtro estado: ${status?.displayName ?? "Todos"}');
 
     // Si se selecciona "pending", incluir también "partiallyPaid"
     if (status == InvoiceStatus.pending) {
-      print('🔧 Filtro extendido: Incluyendo facturas parcialmente pagadas');
+      // print('🔧 Filtro extendido: Incluyendo facturas parcialmente pagadas');
     }
 
     loadInvoices();
@@ -443,15 +650,55 @@ class InvoiceListController extends GetxController {
   /// Aplicar filtro de método de pago
   void filterByPaymentMethod(PaymentMethod? paymentMethod) {
     _selectedPaymentMethod.value = paymentMethod;
-    print('🔧 Filtro método pago: ${paymentMethod?.displayName ?? "Todos"}');
+    // print('🔧 Filtro método pago: ${paymentMethod?.displayName ?? "Todos"}');
     loadInvoices();
   }
 
+  /// Aplicar filtro de cuenta bancaria por ID (legacy)
+  void filterByBankAccount(String? bankAccountId) {
+    _selectedBankAccountId.value = bankAccountId;
+    // print('🔧 Filtro cuenta bancaria (ID): ${bankAccountId ?? "Todas"}');
+    loadInvoices();
+  }
+
+  /// Aplicar filtro por nombre de método de pago (Nequi, Bancolombia, Efectivo, etc.)
+  /// Si [reload] es false, no recarga las facturas (útil para aplicar múltiples filtros)
+  void filterByBankAccountName(String? bankAccountName, {bool reload = true}) {
+    _selectedBankAccountName.value = bankAccountName;
+    // print('🔧 Filtro método de pago: ${bankAccountName ?? "Todos"}');
+    if (reload) loadInvoices();
+  }
+
   /// Aplicar filtro de fechas
-  void filterByDateRange(DateTime? start, DateTime? end) {
+  /// Si [reload] es false, no recarga las facturas (útil para aplicar múltiples filtros)
+  void filterByDateRange(DateTime? start, DateTime? end, {bool reload = true}) {
     _startDate.value = start;
     _endDate.value = end;
-    print('🔧 Filtro fechas: ${start?.toString()} - ${end?.toString()}');
+    // print('🔧 Filtro fechas: ${start?.toString()} - ${end?.toString()}');
+    if (reload) loadInvoices();
+  }
+
+  /// Aplicar múltiples filtros de una sola vez (optimizado - una sola llamada al servidor)
+  void applyFilters({
+    InvoiceStatus? status,
+    String? bankAccountName,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    // print('🔧 Aplicando filtros múltiples...');
+
+    // Actualizar todos los valores sin recargar
+    _selectedStatus.value = status;
+    _selectedBankAccountName.value = bankAccountName;
+    _startDate.value = startDate;
+    _endDate.value = endDate;
+
+    // print('   - Estado: ${status?.displayName ?? "Todos"}');
+    // print('   - Método de pago: ${bankAccountName ?? "Todos"}');
+    // print('   - Fecha inicio: ${startDate?.toString() ?? "N/A"}');
+    // print('   - Fecha fin: ${endDate?.toString() ?? "N/A"}');
+
+    // Una sola llamada al servidor
     loadInvoices();
   }
 
@@ -459,7 +706,7 @@ class InvoiceListController extends GetxController {
   void filterByAmountRange(double? min, double? max) {
     _minAmount.value = min;
     _maxAmount.value = max;
-    print('🔧 Filtro montos: $min - $max');
+    // print('🔧 Filtro montos: $min - $max');
     loadInvoices();
   }
 
@@ -467,7 +714,7 @@ class InvoiceListController extends GetxController {
   void changeSort(String newSortBy, String newSortOrder) {
     _sortBy.value = newSortBy;
     _sortOrder.value = newSortOrder;
-    print('🔧 Ordenamiento: $newSortBy $newSortOrder');
+    // print('🔧 Ordenamiento: $newSortBy $newSortOrder');
     loadInvoices();
   }
 
@@ -476,6 +723,8 @@ class InvoiceListController extends GetxController {
     try {
       _selectedStatus.value = null;
       _selectedPaymentMethod.value = null;
+      _selectedBankAccountId.value = null;
+      _selectedBankAccountName.value = null; // ✅ Limpiar filtro de nombre de método de pago
       _startDate.value = null;
       _endDate.value = null;
       _minAmount.value = null;
@@ -486,16 +735,14 @@ class InvoiceListController extends GetxController {
       if (searchController.canSafelyAccess()) {
         searchController.safeClear();
       } else {
-        print(
-          '⚠️ InvoiceListController: SearchController no seguro, recreando...',
-        );
+        // print('⚠️ InvoiceListController: SearchController no seguro, recreando...');
         _recreateSafeSearchController();
       }
 
-      print('🧹 InvoiceListController: Filtros limpiados');
+      // print('🧹 InvoiceListController: Filtros limpiados');
       loadInvoices();
     } catch (e) {
-      print('⚠️ Error al limpiar filtros: $e');
+      // print('⚠️ Error al limpiar filtros: $e');
       // Al menos limpiar los filtros observables
       _selectedStatus.value = null;
       _selectedPaymentMethod.value = null;
@@ -512,7 +759,7 @@ class InvoiceListController extends GetxController {
   /// Confirmar factura
   Future<void> confirmInvoice(String invoiceId) async {
     try {
-      print('✅ Confirmando factura: $invoiceId');
+      // print('✅ Confirmando factura: $invoiceId');
 
       final result = await _confirmInvoiceUseCase(
         ConfirmInvoiceParams(id: invoiceId),
@@ -524,11 +771,12 @@ class InvoiceListController extends GetxController {
         },
         (updatedInvoice) {
           _updateInvoiceInList(updatedInvoice);
+          invalidateCache(); // ✅ Invalidar caché después de confirmar
           _showSuccess('Factura confirmada exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error al confirmar factura: $e');
+      // print('💥 Error al confirmar factura: $e');
       _showError('Error inesperado', 'No se pudo confirmar la factura');
     }
   }
@@ -536,7 +784,7 @@ class InvoiceListController extends GetxController {
   /// Cancelar factura
   Future<void> cancelInvoice(String invoiceId) async {
     try {
-      print('❌ Cancelando factura: $invoiceId');
+      // print('❌ Cancelando factura: $invoiceId');
 
       final result = await _cancelInvoiceUseCase(
         CancelInvoiceParams(id: invoiceId),
@@ -548,11 +796,12 @@ class InvoiceListController extends GetxController {
         },
         (updatedInvoice) {
           _updateInvoiceInList(updatedInvoice);
+          invalidateCache(); // ✅ Invalidar caché después de cancelar
           _showSuccess('Factura cancelada exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error al cancelar factura: $e');
+      // print('💥 Error al cancelar factura: $e');
       _showError('Error inesperado', 'No se pudo cancelar la factura');
     }
   }
@@ -560,7 +809,7 @@ class InvoiceListController extends GetxController {
   /// Eliminar factura
   Future<void> deleteInvoice(String invoiceId) async {
     try {
-      print('🗑️ Eliminando factura: $invoiceId');
+      // print('🗑️ Eliminando factura: $invoiceId');
 
       final result = await _deleteInvoiceUseCase(
         DeleteInvoiceParams(id: invoiceId),
@@ -572,11 +821,12 @@ class InvoiceListController extends GetxController {
         },
         (_) {
           _removeInvoiceFromList(invoiceId);
+          invalidateCache(); // ✅ Invalidar caché después de eliminar
           _showSuccess('Factura eliminada exitosamente');
         },
       );
     } catch (e) {
-      print('💥 Error al eliminar factura: $e');
+      // print('💥 Error al eliminar factura: $e');
       _showError('Error inesperado', 'No se pudo eliminar la factura');
     }
   }
@@ -589,7 +839,7 @@ class InvoiceListController extends GetxController {
     if (!_isMultiSelectMode.value) {
       _selectedInvoices.clear();
     }
-    print('🔧 Modo selección múltiple: ${_isMultiSelectMode.value}');
+    // print('🔧 Modo selección múltiple: ${_isMultiSelectMode.value}');
   }
 
   /// Seleccionar/deseleccionar factura
@@ -599,20 +849,20 @@ class InvoiceListController extends GetxController {
     } else {
       _selectedInvoices.add(invoiceId);
     }
-    print('🎯 Facturas seleccionadas: ${_selectedInvoices.length}');
+    // print('🎯 Facturas seleccionadas: ${_selectedInvoices.length}');
   }
 
   /// Seleccionar todas las facturas visibles
   void selectAllVisibleInvoices() {
     _selectedInvoices.value =
         _filteredInvoices.map((invoice) => invoice.id).toList();
-    print('✅ Todas las facturas visibles seleccionadas');
+    // print('✅ Todas las facturas visibles seleccionadas');
   }
 
   /// Deseleccionar todas las facturas
   void clearSelection() {
     _selectedInvoices.clear();
-    print('🧹 Selección limpiada');
+    // print('🧹 Selección limpiada');
   }
 
   // ==================== NAVIGATION METHODS ====================
@@ -630,8 +880,8 @@ class InvoiceListController extends GetxController {
   /// Navegar a detalles de factura
   void goToInvoiceDetail(String invoiceId) {
     try {
-      print('🚀 Navegando a detalle de factura: $invoiceId');
-      print('🔍 Ruta actual antes de navegación: ${Get.currentRoute}');
+      // print('🚀 Navegando a detalle de factura: $invoiceId');
+      // print('🔍 Ruta actual antes de navegación: ${Get.currentRoute}');
 
       // ✅ VERIFICACIÓN: Asegurarse de que la navegación es segura
       if (invoiceId.isEmpty) {
@@ -643,14 +893,14 @@ class InvoiceListController extends GetxController {
       Future.microtask(() {
         try {
           Get.toNamed('/invoices/detail/$invoiceId');
-          print('✅ Navegación iniciada exitosamente');
+          // print('✅ Navegación iniciada exitosamente');
         } catch (navError) {
-          print('❌ Error en navegación microtask: $navError');
+          // print('❌ Error en navegación microtask: $navError');
           _showError('Error de navegación', 'No se pudo abrir el detalle');
         }
       });
     } catch (e) {
-      print('❌ Error navegando a detalle: $e');
+      // print('❌ Error navegando a detalle: $e');
       _showError(
         'Error de navegación',
         'No se pudo abrir el detalle de la factura',
@@ -662,8 +912,8 @@ class InvoiceListController extends GetxController {
   Future<void> printInvoice(String invoiceId) async {
     try {
       _isPrinting.value = true;
-      print('🖨️ === INICIANDO IMPRESIÓN DESDE LISTADO ===');
-      print('   - Invoice ID: $invoiceId');
+      // print('🖨️ === INICIANDO IMPRESIÓN DESDE LISTADO ===');
+      // print('   - Invoice ID: $invoiceId');
 
       // Obtener la factura completa
       final result = await _getInvoiceByIdUseCase(
@@ -672,60 +922,60 @@ class InvoiceListController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error al obtener factura: ${failure.message}');
+          // print('❌ Error al obtener factura: ${failure.message}');
           _showError('Error', 'No se pudo cargar la factura para imprimir');
         },
         (invoice) async {
-          print('✅ Factura obtenida: ${invoice.number}');
-          print('   - Cliente: ${invoice.customerName}');
-          print('   - Total: \$${invoice.total.toStringAsFixed(2)}');
+          // print('✅ Factura obtenida: ${invoice.number}');
+          // print('   - Cliente: ${invoice.customerName}');
+          // print('   - Total: \$${invoice.total.toStringAsFixed(2)}');
 
           // ✅ NUEVO ENFOQUE: Usar ThermalPrinterController mejorado
           try {
             // Obtener el ThermalPrinterController
             final thermalController = Get.find<ThermalPrinterController>();
-            
+
             // ✅ CLAVE: Asegurar que la configuración de impresora esté cargada
-            print('🔄 Verificando configuración de impresora antes de imprimir...');
-            final printerConfigLoaded = await thermalController.ensurePrinterConfigLoaded();
-            
+            // print('🔄 Verificando configuración de impresora antes de imprimir...');
+            final printerConfigLoaded =
+                await thermalController.ensurePrinterConfigLoaded();
+
             if (!printerConfigLoaded) {
-              print('❌ No se pudo cargar configuración de impresora');
+              // print('❌ No se pudo cargar configuración de impresora');
               _showError(
-                'Error de configuración', 
-                'No hay impresora configurada. Configura una en Configuración > Impresoras.'
+                'Error de configuración',
+                'No hay impresora configurada. Configura una en Configuración > Impresoras.',
               );
               return;
             }
-            
-            print('✅ Configuración de impresora verificada exitosamente');
-            
+
+            // print('✅ Configuración de impresora verificada exitosamente');
+
             // Imprimir la factura
             final success = await thermalController.printInvoice(invoice);
 
             if (success) {
-              print('✅ Impresión exitosa desde listado');
+              // print('✅ Impresión exitosa desde listado');
               _showSuccess('Factura ${invoice.number} impresa exitosamente');
             } else {
-              print('❌ Error en impresión desde listado');
+              // print('❌ Error en impresión desde listado');
               final error = thermalController.lastError ?? "Error desconocido";
               _showError(
                 'Error de impresión',
                 'No se pudo imprimir la factura: $error',
               );
             }
-            
           } catch (e) {
-            print('❌ Error en el proceso de impresión: $e');
+            // print('❌ Error en el proceso de impresión: $e');
             _showError(
               'Error de impresión',
-              'No se pudo completar la impresión. Verifica la configuración de la impresora.'
+              'No se pudo completar la impresión. Verifica la configuración de la impresora.',
             );
           }
         },
       );
     } catch (e) {
-      print('💥 Error inesperado al imprimir: $e');
+      // print('💥 Error inesperado al imprimir: $e');
       _showError('Error inesperado', 'No se pudo imprimir la factura');
     } finally {
       _isPrinting.value = false;
@@ -739,10 +989,12 @@ class InvoiceListController extends GetxController {
 
   // ==================== HELPER METHODS ====================
 
-  // Variable para guardar la referencia del listener
+  // Variable para guardar la referencia del listener (deprecado)
+  @Deprecated('ScrollController ahora es manejado por InvoiceListScreen')
   VoidCallback? _scrollListener;
 
-  /// ✅ SOLUCIÓN RADICAL: Scroll listener con validación exhaustiva
+  /// @deprecated El ScrollController ahora es manejado por InvoiceListScreen
+  @Deprecated('ScrollController ahora es manejado por InvoiceListScreen. NO usar.')
   void _setupScrollListener() {
     if (_isControllerSafe()) {
       try {
@@ -750,147 +1002,166 @@ class InvoiceListController extends GetxController {
         if (_scrollListener != null && _scrollController != null) {
           try {
             _scrollController!.removeListener(_scrollListener!);
-            print('🧹 Listener anterior removido');
+            // print('🧹 Listener anterior removido');
           } catch (e) {
-            print('⚠️ Error removiendo listener anterior: $e');
+            // print('⚠️ Error removiendo listener anterior: $e');
           }
         }
-        
+
         // ✅ Throttling para evitar múltiples llamadas
         DateTime? lastScrollCall;
         const scrollThrottleMs = 150; // Límite de llamadas cada 150ms
-        
+
         // Crear el listener como una función separada para poder removerla después
         _scrollListener = () {
           try {
             final now = DateTime.now();
-            if (lastScrollCall != null && 
-                now.difference(lastScrollCall!).inMilliseconds < scrollThrottleMs) {
+            if (lastScrollCall != null &&
+                now.difference(lastScrollCall!).inMilliseconds <
+                    scrollThrottleMs) {
               return; // Ignorar si es muy pronto desde la última llamada
             }
             lastScrollCall = now;
-            
+
             // ✅ OBTENER CONTROLADOR DINÁMICO
             final controller = _scrollController;
             if (controller == null) {
-              print('⚠️ ScrollController es null, saltando scroll event');
+              // print('⚠️ ScrollController es null, saltando scroll event');
               return;
             }
-            
+
             // ✅ VALIDAR ESTADO DEL CONTROLADOR ANTES DE USAR
             if (!controller.hasClients) {
-              print('⚠️ ScrollController no tiene clients, saltando scroll event');
+              // print('⚠️ ScrollController no tiene clients, saltando scroll event');
               return;
             }
-            
+
             // ✅ VALIDAR QUE SOLO HAY UNA POSICIÓN ACTIVA
             if (controller.positions.length != 1) {
-              print('❌ CONFLICTO: ScrollController tiene ${controller.positions.length} posiciones');
-              print('🔧 Removiendo listener para evitar conflictos');
-              controller.removeListener(_scrollListener!);
-              _scrollListener = null;
+              // Múltiples posiciones = conflicto, simplemente ignorar este evento
+              // NO remover el listener, solo saltar este evento
               return;
             }
-            
+
             final position = controller.position;
-            final threshold = position.maxScrollExtent - 300; // ✅ Umbral más grande para mejor UX
-            
+            final threshold =
+                position.maxScrollExtent -
+                300; // ✅ Umbral más grande para mejor UX
+
             // ✅ Verificaciones múltiples antes de activar paginación
-            if (position.pixels >= threshold && 
-                hasNextPage && 
-                !_isLoadingMore.value && 
+            if (position.pixels >= threshold &&
+                hasNextPage &&
+                !_isLoadingMore.value &&
                 !_isLoading.value) {
-              
-              print('📜 SCROLL TRIGGER: Activando paginación');
-              print('   - Posición actual: ${position.pixels.round()}');
-              print('   - Umbral: ${threshold.round()}');
-              print('   - Página actual: $currentPage/$totalPages');
-              
+              // print('📜 SCROLL TRIGGER: Activando paginación');
+              // print('   - Posición actual: ${position.pixels.round()}');
+              // print('   - Umbral: ${threshold.round()}');
+              // print('   - Página actual: $currentPage/$totalPages');
+
               loadMoreInvoices();
             }
           } catch (e) {
-            print('❌ Error en scroll listener: $e');
+            // print('❌ Error en scroll listener: $e');
             // Remover listener problemático
             try {
               _scrollController?.removeListener(_scrollListener!);
               _scrollListener = null;
             } catch (removeError) {
-              print('❌ Error removiendo listener problemático: $removeError');
+              // print('❌ Error removiendo listener problemático: $removeError');
             }
           }
         };
-        
+
         // ✅ USAR EL SCROLL CONTROLLER DINÁMICO
         final controller = mainScrollController;
-        
+
         // ✅ VALIDAR ANTES DE AGREGAR LISTENER
+        // Permitir agregar listener incluso con 0 posiciones (aún no conectado a ListView)
+        // Solo evitar si hay múltiples posiciones (conflicto real)
         if (controller.positions.length > 1) {
-          print('❌ No se puede agregar listener: ScrollController ya tiene ${controller.positions.length} posiciones');
-          return;
+          // Hay conflicto, pero no impedir - el listener manejará esto internamente
         }
-        
+
         // ✅ AGREGAR LISTENER CON VALIDACIÓN
         controller.addListener(_scrollListener!);
-        print('✅ PAGINACIÓN: Scroll listener configurado con validación exhaustiva');
-        
+        // print('✅ PAGINACIÓN: Scroll listener configurado con validación exhaustiva');
       } catch (e) {
-        print('❌ Error configurando scroll listener: $e');
+        // print('❌ Error configurando scroll listener: $e');
         _scrollListener = null;
       }
     } else {
-      print('⚠️ Controller no es seguro, saltando configuración de scroll listener');
+      // print('⚠️ Controller no es seguro, saltando configuración de scroll listener');
     }
   }
-  
-  /// ✅ SOLUCIÓN RADICAL: Crear ScrollController fresco cada vez
+
+  /// @deprecated El ScrollController ahora es manejado por InvoiceListScreen
+  @Deprecated('ScrollController ahora es manejado por InvoiceListScreen. NO usar.')
   void _createFreshScrollController() {
     try {
-      // ✅ Limpiar controlador anterior si existe
+      // ✅ Si ya existe un controller válido, no crear otro
       if (_scrollController != null) {
-        if (_scrollListener != null && _scrollController!.hasClients) {
-          _scrollController!.removeListener(_scrollListener!);
+        // Verificar si tiene múltiples posiciones (problema)
+        if (_scrollController!.hasClients && _scrollController!.positions.length > 1) {
+          // HAY CONFLICTO - necesitamos esperar a que se limpien las posiciones
+          // No disponer inmediatamente, dejar que Flutter lo maneje
+          _scrollController = null;
+        } else if (_scrollController!.hasClients && _scrollController!.positions.length == 1) {
+          // Controller válido con una posición - NO RECREAR
+          return;
+        } else if (!_scrollController!.hasClients) {
+          // No tiene clients, podemos disponer y recrear
+          try {
+            if (_scrollListener != null) {
+              _scrollController!.removeListener(_scrollListener!);
+            }
+            _scrollController!.dispose();
+          } catch (e) {
+            // Ignorar errores de dispose
+          }
+          _scrollController = null;
         }
-        _scrollController!.dispose();
-        print('🧹 ScrollController anterior limpiado');
       }
-      
-      // ✅ Crear nuevo ScrollController fresco
-      _scrollController = ScrollController();
-      print('🆕 Nuevo ScrollController creado');
-      
+
+      // ✅ Crear nuevo ScrollController solo si es necesario
+      if (_scrollController == null) {
+        _scrollController = ScrollController();
+      }
     } catch (e) {
-      print('❌ Error creando ScrollController fresco: $e');
-      _scrollController = ScrollController(); // Fallback
+      _scrollController = ScrollController(); // Fallback seguro
     }
   }
-  
-  /// ✅ GETTER SEGURO para el ScrollController
+
+  /// @deprecated El ScrollController ahora es manejado por InvoiceListScreen (StatefulWidget)
+  /// Este getter se mantiene solo por compatibilidad pero NO debe usarse
+  @Deprecated('ScrollController ahora es manejado por InvoiceListScreen. NO usar este getter.')
   ScrollController get mainScrollController {
-    if (_scrollController == null) {
-      print('⚠️ ScrollController es null, creando uno nuevo');
-      _createFreshScrollController();
-    }
+    // ⚠️ ADVERTENCIA: Este getter está deprecado
+    // El ScrollController real está en InvoiceListScreen._scrollController
+    _scrollController ??= ScrollController();
     return _scrollController!;
   }
-  
+
   // ==================== MÉTODOS DE PAGINACIÓN MANUAL ====================
-  
+
   /// ✅ PAGINACIÓN PROFESIONAL: Ir a una página específica
   Future<void> goToPage(int pageNumber) async {
     if (pageNumber < 1 || pageNumber > totalPages) {
-      _showError('Página inválida', 'La página debe estar entre 1 y $totalPages');
+      _showError(
+        'Página inválida',
+        'La página debe estar entre 1 y $totalPages',
+      );
       return;
     }
-    
+
     if (pageNumber == currentPage) {
-      print('⚠️ Ya estamos en la página $pageNumber');
+      // print('⚠️ Ya estamos en la página $pageNumber');
       return;
     }
-    
+
     try {
       _isLoading.value = true;
-      print('📄 Navegando a página $pageNumber...');
-      
+      // print('📄 Navegando a página $pageNumber...');
+
       final result = await _getInvoicesUseCase(
         GetInvoicesParams(
           page: pageNumber,
@@ -909,7 +1180,7 @@ class InvoiceListController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error al ir a página $pageNumber: ${failure.message}');
+          // print('❌ Error al ir a página $pageNumber: ${failure.message}');
           _showError('Error de navegación', failure.message);
         },
         (paginatedResult) {
@@ -917,58 +1188,54 @@ class InvoiceListController extends GetxController {
           _invoices.value = paginatedResult.data;
           _paginationMeta.value = paginatedResult.meta;
           _applyLocalFilters();
-          
-          print('✅ Navegación exitosa a página $pageNumber');
-          print('   - Facturas cargadas: ${paginatedResult.data.length}');
-          
-          // ✅ Scroll al inicio de la lista
-          final controller = mainScrollController;
-          if (controller.hasClients) {
-            controller.animateTo(
-              0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-            );
-          }
-          
+
+          // print('✅ Navegación exitosa a página $pageNumber');
+          // print('   - Facturas cargadas: ${paginatedResult.data.length}');
+
+          // ✅ NOTA: El scroll al inicio ahora debe ser manejado por el widget
+          // El ScrollController es propiedad del StatefulWidget (InvoiceListScreen)
+
           update();
         },
       );
     } catch (e) {
-      print('💥 Error inesperado navegando a página: $e');
-      _showError('Error inesperado', 'No se pudo navegar a la página $pageNumber');
+      // print('💥 Error inesperado navegando a página: $e');
+      _showError(
+        'Error inesperado',
+        'No se pudo navegar a la página $pageNumber',
+      );
     } finally {
       _isLoading.value = false;
     }
   }
-  
+
   /// ✅ Ir a la primera página
   Future<void> goToFirstPage() async {
     await goToPage(1);
   }
-  
+
   /// ✅ Ir a la última página
   Future<void> goToLastPage() async {
     await goToPage(totalPages);
   }
-  
+
   /// ✅ Ir a la página siguiente
   Future<void> goToNextPage() async {
     if (hasNextPage) {
       await goToPage(currentPage + 1);
     }
   }
-  
+
   /// ✅ Ir a la página anterior
   Future<void> goToPreviousPage() async {
     if (hasPreviousPage) {
       await goToPage(currentPage - 1);
     }
   }
-  
+
   /// ✅ RESETEAR PAGINACIÓN: Volver al estado inicial
   Future<void> resetPagination() async {
-    print('🔄 Reseteando paginación a estado inicial...');
+    // print('🔄 Reseteando paginación a estado inicial...');
     _invoices.clear();
     _filteredInvoices.clear();
     _paginationMeta.value = null;
@@ -979,9 +1246,7 @@ class InvoiceListController extends GetxController {
   void _onSearchChanged() {
     // Verificación: Estado del SafeController
     if (!searchController.canSafelyAccess()) {
-      print(
-        '⚠️ InvoiceListController: SafeSearchController no accesible, cancelando búsqueda',
-      );
+      // print('⚠️ InvoiceListController: SafeSearchController no accesible, cancelando búsqueda');
       _searchDebounceTimer?.cancel();
       return;
     }
@@ -1003,20 +1268,18 @@ class InvoiceListController extends GetxController {
                 searchInvoices(query);
               }
             } else {
-              print(
-                '⚠️ Controlador cerrado o unsafe durante timer de búsqueda',
-              );
+              // print('⚠️ Controlador cerrado o unsafe durante timer de búsqueda');
             }
           });
         }
       } catch (e) {
-        print('⚠️ Error en _onSearchChanged: $e');
+        // print('⚠️ Error en _onSearchChanged: $e');
         // Si hay error, cancelar timer para evitar futuros problemas
         _searchDebounceTimer?.cancel();
         _searchDebounceTimer = null;
       }
     } else {
-      print('⚠️ GetxController cerrado, ignorando cambio de búsqueda');
+      // print('⚠️ GetxController cerrado, ignorando cambio de búsqueda');
       _searchDebounceTimer?.cancel();
     }
   }
@@ -1026,15 +1289,13 @@ class InvoiceListController extends GetxController {
     if (searchController.canSafelyAccess()) {
       try {
         searchController.addListener(_onSearchChanged);
-        print('✅ InvoiceListController: Search listener agregado exitosamente');
+        // print('✅ InvoiceListController: Search listener agregado exitosamente');
       } catch (e) {
-        print('❌ Error configurando search listener: $e');
+        // print('❌ Error configurando search listener: $e');
         _recreateSafeSearchController();
       }
     } else {
-      print(
-        '⚠️ SearchController no seguro en _setupSearchListener, recreando...',
-      );
+      // print('⚠️ SearchController no seguro en _setupSearchListener, recreando...');
       _recreateSafeSearchController();
     }
   }
@@ -1049,8 +1310,8 @@ class InvoiceListController extends GetxController {
   // }
 
   void _applyLocalFilters() {
-    print('🔍 DEBUG: _applyLocalFilters() - Iniciando filtrado');
-    print('🔍 DEBUG: _invoices.length: ${_invoices.length}');
+    // print('🔍 DEBUG: _applyLocalFilters() - Iniciando filtrado');
+    // print('🔍 DEBUG: _invoices.length: ${_invoices.length}');
 
     _filteredInvoices.value =
         _invoices.where((invoice) {
@@ -1069,10 +1330,8 @@ class InvoiceListController extends GetxController {
           return true;
         }).toList();
 
-    print(
-      '🔍 DEBUG: _filteredInvoices.length después del filtrado: ${_filteredInvoices.length}',
-    );
-    print('🔍 DEBUG: _applyLocalFilters() - Filtrado completado');
+    // print('🔍 DEBUG: _filteredInvoices.length después del filtrado: ${_filteredInvoices.length}');
+    // print('🔍 DEBUG: _applyLocalFilters() - Filtrado completado');
   }
 
   /// Actualizar factura en la lista
@@ -1125,40 +1384,39 @@ class InvoiceListController extends GetxController {
       // Intentar encontrar el controlador de estadísticas
       if (Get.isRegistered<InvoiceStatsController>()) {
         final statsController = Get.find<InvoiceStatsController>();
-        print(
-          '📊 InvoiceListController: Cargando estadísticas automáticamente',
-        );
+        // print('📊 InvoiceListController: Cargando estadísticas automáticamente');
 
         // Cargar estadísticas en el siguiente frame para evitar conflictos
         Future.microtask(() {
-          statsController.refreshAllData();
+          // ✅ Auto-refresh silencioso de estadísticas
+          statsController.refreshAllData(showSuccessMessage: false);
         });
       } else {
-        print(
-          '⚠️ InvoiceListController: Controlador de estadísticas no encontrado',
-        );
+        // print('⚠️ InvoiceListController: Controlador de estadísticas no encontrado');
       }
     } catch (e) {
-      print('💥 Error al cargar estadísticas automáticamente: $e');
+      // print('💥 Error al cargar estadísticas automáticamente: $e');
       // No mostrar error al usuario ya que es una funcionalidad secundaria
     }
   }
 
   /// Refrescar datos incluyendo estadísticas
-  Future<void> refreshAllData() async {
-    // ✅ RECREAR ScrollController para evitar conflictos
-    _createFreshScrollController();
-    _setupScrollListener();
-    
-    await refreshInvoices();
+  Future<void> refreshAllData({bool showSuccessMessage = false}) async {
+    // ✅ NOTA: El ScrollController ahora es manejado por el StatefulWidget (InvoiceListScreen)
+    // No es necesario recrearlo aquí - el widget gestiona su propio lifecycle
+
+    // ✅ Auto-refresh silencioso por defecto, solo mostrar mensaje si es manual
+    await refreshInvoices(showSuccessMessage: showSuccessMessage);
     _loadInvoiceStatsIfAvailable();
   }
-  
-  /// ✅ MÉTODO PÚBLICO: Recrear ScrollController si hay problemas
+
+  /// @deprecated El ScrollController ahora es manejado por InvoiceListScreen (StatefulWidget)
+  /// Este método se mantiene solo por compatibilidad pero NO hace nada
+  @Deprecated('ScrollController ahora es manejado por InvoiceListScreen. Este método no hace nada.')
   void recreateScrollController() {
-    print('🔄 Recreando ScrollController por solicitud externa');
-    _createFreshScrollController();
-    _setupScrollListener();
+    // ⚠️ ADVERTENCIA: Este método está deprecado y no hace nada
+    // El ScrollController real está en InvoiceListScreen._scrollController
+    // y su lifecycle es manejado por el StatefulWidget (initState/dispose)
   }
 
   /// ✅ MÉTODO SIMPLIFICADO: Verificar estado usando SafeController
@@ -1169,7 +1427,7 @@ class InvoiceListController extends GetxController {
   /// ✅ NUEVO: Recrear SafeSearchController de forma segura
   void _recreateSafeSearchController() {
     try {
-      print('🔧 InvoiceListController: Recreando SafeSearchController...');
+      // print('🔧 InvoiceListController: Recreando SafeSearchController...');
 
       // Cancelar cualquier timer pendiente
       _searchDebounceTimer?.cancel();
@@ -1184,9 +1442,9 @@ class InvoiceListController extends GetxController {
       // Volver a configurar el listener
       _setupSearchListener();
 
-      print('✅ SafeSearchController recreado exitosamente');
+      // print('✅ SafeSearchController recreado exitosamente');
     } catch (e) {
-      print('❌ Error recreando SafeSearchController: $e');
+      // print('❌ Error recreando SafeSearchController: $e');
     }
   }
 }

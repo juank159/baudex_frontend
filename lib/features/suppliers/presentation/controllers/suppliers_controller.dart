@@ -168,12 +168,10 @@ class SuppliersController extends GetxController {
           }
 
           // Actualizar metadatos de paginación
-          if (paginatedResult.meta != null) {
-            totalPages.value = paginatedResult.meta!.totalPages;
-            totalItems.value = paginatedResult.meta!.total;
-            hasNextPage.value = paginatedResult.meta!.hasNext;
-            hasPrevPage.value = paginatedResult.meta!.hasPrev;
-          }
+          totalPages.value = paginatedResult.meta!.totalPages;
+          totalItems.value = paginatedResult.meta!.total;
+          hasNextPage.value = paginatedResult.meta!.hasNext;
+          hasPrevPage.value = paginatedResult.meta!.hasPrev;
 
           // Si no hay búsqueda activa, actualizar lista filtrada
           if (searchQuery.value.isEmpty) {

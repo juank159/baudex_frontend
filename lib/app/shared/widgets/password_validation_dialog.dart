@@ -1,6 +1,5 @@
 // lib/app/shared/widgets/password_validation_dialog.dart
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../core/utils/responsive_text.dart';
 import '../../config/themes/app_colors.dart';
 
@@ -17,7 +16,8 @@ class PasswordValidationDialog extends StatefulWidget {
   });
 
   @override
-  State<PasswordValidationDialog> createState() => _PasswordValidationDialogState();
+  State<PasswordValidationDialog> createState() =>
+      _PasswordValidationDialogState();
 }
 
 class _PasswordValidationDialogState extends State<PasswordValidationDialog> {
@@ -43,7 +43,7 @@ class _PasswordValidationDialogState extends State<PasswordValidationDialog> {
 
     try {
       final isValid = await widget.onValidate(_passwordController.text);
-      
+
       if (isValid) {
         if (mounted) {
           Navigator.of(context).pop(true); // Contraseña válida
@@ -72,9 +72,7 @@ class _PasswordValidationDialogState extends State<PasswordValidationDialog> {
     final isMobile = deviceType == DeviceType.mobile;
 
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(
         children: [
           Icon(
@@ -135,9 +133,9 @@ class _PasswordValidationDialogState extends State<PasswordValidationDialog> {
                   ],
                 ),
               ),
-              
+
               SizedBox(height: isMobile ? 16 : 20),
-              
+
               // Campo de contraseña
               TextFormField(
                 controller: _passwordController,
@@ -155,7 +153,9 @@ class _PasswordValidationDialogState extends State<PasswordValidationDialog> {
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                      _obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                       size: ResponsiveText.getSmallIconSize(context),
                     ),
                     onPressed: () {
@@ -169,24 +169,15 @@ class _PasswordValidationDialogState extends State<PasswordValidationDialog> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: AppColors.grey300,
-                      width: 1,
-                    ),
+                    borderSide: BorderSide(color: AppColors.grey300, width: 1),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: AppColors.primary,
-                      width: 2,
-                    ),
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: AppColors.error,
-                      width: 1,
-                    ),
+                    borderSide: BorderSide(color: AppColors.error, width: 1),
                   ),
                 ),
                 validator: (value) {
@@ -200,7 +191,7 @@ class _PasswordValidationDialogState extends State<PasswordValidationDialog> {
                 },
                 onFieldSubmitted: (_) => _validatePassword(),
               ),
-              
+
               // Mensaje de error
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -259,7 +250,7 @@ class _PasswordValidationDialogState extends State<PasswordValidationDialog> {
             ),
           ),
         ),
-        
+
         // Botón Validar
         ElevatedButton(
           onPressed: _isLoading ? null : _validatePassword,
@@ -274,22 +265,23 @@ class _PasswordValidationDialogState extends State<PasswordValidationDialog> {
               borderRadius: BorderRadius.circular(8),
             ),
           ),
-          child: _isLoading
-              ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          child:
+              _isLoading
+                  ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                  : Text(
+                    'Validar',
+                    style: TextStyle(
+                      fontSize: ResponsiveText.getBodyMediumSize(context),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                )
-              : Text(
-                  'Validar',
-                  style: TextStyle(
-                    fontSize: ResponsiveText.getBodyMediumSize(context),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
         ),
       ],
     );

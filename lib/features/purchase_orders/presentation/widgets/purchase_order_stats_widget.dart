@@ -1,8 +1,5 @@
 // lib/features/purchase_orders/presentation/widgets/purchase_order_stats_widget.dart
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import '../../../../app/config/themes/app_colors.dart';
-import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/animations/stats_animations.dart';
@@ -11,67 +8,64 @@ import '../../domain/entities/purchase_order.dart';
 class PurchaseOrderStatsWidget extends StatelessWidget {
   final PurchaseOrderStats stats;
 
-  const PurchaseOrderStatsWidget({
-    super.key,
-    required this.stats,
-  });
+  const PurchaseOrderStatsWidget({super.key, required this.stats});
 
   @override
   Widget build(BuildContext context) {
     final responsiveSizes = _getResponsiveSizes(context);
-    
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.all(responsiveSizes['padding']!),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Resumen general
-          StatsAnimations.slideInFadeIn(
-            child: _buildGeneralSummary(responsiveSizes),
-            duration: const Duration(milliseconds: 600),
-          ),
-          SizedBox(height: responsiveSizes['sectionSpacing']!),
-          
-          // Distribución por estado
-          StatsAnimations.slideInFadeIn(
-            child: _buildStatusStats(responsiveSizes),
-            duration: const Duration(milliseconds: 800),
-            beginOffset: const Offset(0.2, 0.3),
-          ),
-          SizedBox(height: responsiveSizes['sectionSpacing']!),
-          
-          // Distribución por prioridad
-          StatsAnimations.slideInFadeIn(
-            child: _buildPriorityStats(responsiveSizes),
-            duration: const Duration(milliseconds: 1000),
-            beginOffset: const Offset(-0.2, 0.3),
-          ),
-          SizedBox(height: responsiveSizes['sectionSpacing']!),
-          
-          // Estadísticas de tiempo
-          StatsAnimations.slideInFadeIn(
-            child: _buildTimeStats(responsiveSizes),
-            duration: const Duration(milliseconds: 1200),
-            beginOffset: const Offset(0.3, 0.3),
-          ),
-          SizedBox(height: responsiveSizes['sectionSpacing']!),
-          
-          // Indicadores de rendimiento
-          StatsAnimations.slideInFadeIn(
-            child: _buildPerformanceIndicators(responsiveSizes),
-            duration: const Duration(milliseconds: 1400),
-            beginOffset: const Offset(0, 0.4),
-          ),
-        ],
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Resumen general
+            StatsAnimations.slideInFadeIn(
+              child: _buildGeneralSummary(responsiveSizes),
+              duration: const Duration(milliseconds: 600),
+            ),
+            SizedBox(height: responsiveSizes['sectionSpacing']!),
+
+            // Distribución por estado
+            StatsAnimations.slideInFadeIn(
+              child: _buildStatusStats(responsiveSizes),
+              duration: const Duration(milliseconds: 800),
+              beginOffset: const Offset(0.2, 0.3),
+            ),
+            SizedBox(height: responsiveSizes['sectionSpacing']!),
+
+            // Distribución por prioridad
+            StatsAnimations.slideInFadeIn(
+              child: _buildPriorityStats(responsiveSizes),
+              duration: const Duration(milliseconds: 1000),
+              beginOffset: const Offset(-0.2, 0.3),
+            ),
+            SizedBox(height: responsiveSizes['sectionSpacing']!),
+
+            // Estadísticas de tiempo
+            StatsAnimations.slideInFadeIn(
+              child: _buildTimeStats(responsiveSizes),
+              duration: const Duration(milliseconds: 1200),
+              beginOffset: const Offset(0.3, 0.3),
+            ),
+            SizedBox(height: responsiveSizes['sectionSpacing']!),
+
+            // Indicadores de rendimiento
+            StatsAnimations.slideInFadeIn(
+              child: _buildPerformanceIndicators(responsiveSizes),
+              duration: const Duration(milliseconds: 1400),
+              beginOffset: const Offset(0, 0.4),
+            ),
+          ],
         ),
       ),
     );
   }
-  
+
   Map<String, double> _getResponsiveSizes(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     if (screenWidth >= 1200) {
       // Desktop: tamaños más grandes para mejor legibilidad
       return {
@@ -120,101 +114,103 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
   Widget _buildGeneralSummary(Map<String, double> sizes) {
     return LayoutBuilder(
       builder: (context, constraints) {
-    return Container(
-      padding: EdgeInsets.all(sizes['internalPadding']!),
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
-        borderRadius: BorderRadius.circular(sizes['cardSpacing']! + 4),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(sizes['cardSpacing']!),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(sizes['cardSpacing']!),
-                ),
-                child: Icon(
-                  Icons.analytics,
-                  color: Colors.white,
-                  size: sizes['iconSize']!,
-                ),
+        return Container(
+          padding: EdgeInsets.all(sizes['internalPadding']!),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.cardGradient,
+            borderRadius: BorderRadius.circular(sizes['cardSpacing']! + 4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+                spreadRadius: 2,
               ),
-              SizedBox(width: sizes['cardSpacing']!),
-              Flexible(
-                child: Text(
-                  'Resumen General',
-                  style: TextStyle(
-                    color: ElegantLightTheme.textPrimary,
-                    fontSize: sizes['titleSize']!,
-                    fontWeight: FontWeight.w700,
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(sizes['cardSpacing']!),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(
+                        sizes['cardSpacing']!,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.analytics,
+                      color: Colors.white,
+                      size: sizes['iconSize']!,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  SizedBox(width: sizes['cardSpacing']!),
+                  Flexible(
+                    child: Text(
+                      'Resumen General',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: sizes['titleSize']!,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: sizes['cardSpacing']! + 4),
+
+              // Cards de resumen en grid
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: constraints.maxWidth >= 800 ? 4 : 2,
+                childAspectRatio: 1.2,
+                crossAxisSpacing: sizes['cardSpacing']!,
+                mainAxisSpacing: sizes['cardSpacing']!,
+                children: [
+                  _buildSummaryCard(
+                    'Total',
+                    '${stats.totalOrders}',
+                    Icons.shopping_cart,
+                    ElegantLightTheme.primaryGradient,
+                    sizes,
+                  ),
+                  _buildSummaryCard(
+                    'Valor Total',
+                    AppFormatters.formatCurrency(stats.totalValue),
+                    Icons.monetization_on,
+                    ElegantLightTheme.successGradient,
+                    sizes,
+                  ),
+                  _buildSummaryCard(
+                    'Promedio',
+                    AppFormatters.formatCurrency(stats.averageOrderValue),
+                    Icons.trending_up,
+                    ElegantLightTheme.infoGradient,
+                    sizes,
+                  ),
+                  _buildSummaryCard(
+                    'Proveedores',
+                    '${stats.activeSuppliers}',
+                    Icons.business,
+                    ElegantLightTheme.warningGradient,
+                    sizes,
+                  ),
+                ],
               ),
             ],
           ),
-          SizedBox(height: sizes['cardSpacing']! + 4),
-          
-          // Cards de resumen en grid
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: constraints.maxWidth >= 800 ? 4 : 2,
-            childAspectRatio: 1.2,
-            crossAxisSpacing: sizes['cardSpacing']!,
-            mainAxisSpacing: sizes['cardSpacing']!,
-            children: [
-              _buildSummaryCard(
-                'Total',
-                '${stats.totalOrders}',
-                Icons.shopping_cart,
-                ElegantLightTheme.primaryGradient,
-                sizes,
-              ),
-              _buildSummaryCard(
-                'Valor Total',
-                AppFormatters.formatCurrency(stats.totalValue),
-                Icons.monetization_on,
-                ElegantLightTheme.successGradient,
-                sizes,
-              ),
-              _buildSummaryCard(
-                'Promedio',
-                AppFormatters.formatCurrency(stats.averageOrderValue),
-                Icons.trending_up,
-                ElegantLightTheme.infoGradient,
-                sizes,
-              ),
-              _buildSummaryCard(
-                'Proveedores',
-                '${stats.activeSuppliers}',
-                Icons.business,
-                ElegantLightTheme.warningGradient,
-                sizes,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+        );
       },
     );
   }
@@ -227,9 +223,7 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
     Map<String, double> sizes,
   ) {
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: sizes['cardHeight']!,
-      ),
+      constraints: BoxConstraints(maxHeight: sizes['cardHeight']!),
       padding: EdgeInsets.all(sizes['internalPadding']! * 0.6),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -267,11 +261,7 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
               gradient: gradient,
               borderRadius: BorderRadius.circular(sizes['cardSpacing']! * 0.8),
             ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: sizes['iconSize']!,
-            ),
+            child: Icon(icon, color: Colors.white, size: sizes['iconSize']!),
           ),
           SizedBox(height: sizes['cardSpacing']! * 0.6),
           _buildAnimatedValue(value, gradient.colors.first, sizes),
@@ -345,15 +335,55 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
             ],
           ),
           SizedBox(height: sizes['cardSpacing']! + 4),
-          
+
           Column(
             children: [
-              _buildStatusBar('Pendientes', stats.pendingOrders, stats.totalOrders, ElegantLightTheme.warningGradient, sizes),
-              _buildStatusBar('Aprobadas', stats.approvedOrders, stats.totalOrders, ElegantLightTheme.infoGradient, sizes),
-              _buildStatusBar('Enviadas', stats.sentOrders, stats.totalOrders, const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]), sizes),
-              _buildStatusBar('Parcialmente Recibidas', stats.partiallyReceivedOrders, stats.totalOrders, const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]), sizes),
-              _buildStatusBar('Recibidas', stats.receivedOrders, stats.totalOrders, ElegantLightTheme.successGradient, sizes),
-              _buildStatusBar('Canceladas', stats.cancelledOrders, stats.totalOrders, ElegantLightTheme.errorGradient, sizes),
+              _buildStatusBar(
+                'Pendientes',
+                stats.pendingOrders,
+                stats.totalOrders,
+                ElegantLightTheme.warningGradient,
+                sizes,
+              ),
+              _buildStatusBar(
+                'Aprobadas',
+                stats.approvedOrders,
+                stats.totalOrders,
+                ElegantLightTheme.infoGradient,
+                sizes,
+              ),
+              _buildStatusBar(
+                'Enviadas',
+                stats.sentOrders,
+                stats.totalOrders,
+                const LinearGradient(
+                  colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+                ),
+                sizes,
+              ),
+              _buildStatusBar(
+                'Parcialmente Recibidas',
+                stats.partiallyReceivedOrders,
+                stats.totalOrders,
+                const LinearGradient(
+                  colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                ),
+                sizes,
+              ),
+              _buildStatusBar(
+                'Recibidas',
+                stats.receivedOrders,
+                stats.totalOrders,
+                ElegantLightTheme.successGradient,
+                sizes,
+              ),
+              _buildStatusBar(
+                'Canceladas',
+                stats.cancelledOrders,
+                stats.totalOrders,
+                ElegantLightTheme.errorGradient,
+                sizes,
+              ),
             ],
           ),
         ],
@@ -361,9 +391,15 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBar(String label, int count, int total, LinearGradient gradient, Map<String, double> sizes) {
+  Widget _buildStatusBar(
+    String label,
+    int count,
+    int total,
+    LinearGradient gradient,
+    Map<String, double> sizes,
+  ) {
     final percentage = total > 0 ? count / total : 0.0;
-    
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: sizes['cardSpacing']! * 0.5),
       child: Column(
@@ -374,9 +410,15 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
                 padding: EdgeInsets.all(sizes['cardSpacing']! * 0.4),
                 decoration: BoxDecoration(
                   gradient: gradient,
-                  borderRadius: BorderRadius.circular(sizes['cardSpacing']! * 0.6),
+                  borderRadius: BorderRadius.circular(
+                    sizes['cardSpacing']! * 0.6,
+                  ),
                 ),
-                child: Icon(Icons.circle, size: sizes['iconSize']! * 0.6, color: Colors.white),
+                child: Icon(
+                  Icons.circle,
+                  size: sizes['iconSize']! * 0.6,
+                  color: Colors.white,
+                ),
               ),
               SizedBox(width: sizes['cardSpacing']!),
               Expanded(
@@ -433,7 +475,9 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
             ),
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0.0, end: percentage),
-              duration: Duration(milliseconds: 1800 + (percentage * 1200).round()),
+              duration: Duration(
+                milliseconds: 1800 + (percentage * 1200).round(),
+              ),
               curve: Curves.easeOutExpo,
               builder: (context, animatedValue, child) {
                 return Row(
@@ -447,14 +491,19 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
                           margin: EdgeInsets.all(sizes['cardSpacing']! * 0.1),
                           decoration: BoxDecoration(
                             gradient: gradient,
-                            borderRadius: BorderRadius.circular(sizes['cardSpacing']! * 0.5),
+                            borderRadius: BorderRadius.circular(
+                              sizes['cardSpacing']! * 0.5,
+                            ),
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(sizes['cardSpacing']! * 0.5),
+                            borderRadius: BorderRadius.circular(
+                              sizes['cardSpacing']! * 0.5,
+                            ),
                             child: Stack(
                               children: [
                                 // Efecto de destello cuando está casi completa
-                                if (animatedValue >= percentage * 0.98 && percentage > 0.1)
+                                if (animatedValue >= percentage * 0.98 &&
+                                    percentage > 0.1)
                                   _ProgressShimmerEffect(
                                     borderRadius: sizes['cardSpacing']! * 0.5,
                                   ),
@@ -472,7 +521,9 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
                           margin: EdgeInsets.all(sizes['cardSpacing']! * 0.1),
                           decoration: BoxDecoration(
                             color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(sizes['cardSpacing']! * 0.5),
+                            borderRadius: BorderRadius.circular(
+                              sizes['cardSpacing']! * 0.5,
+                            ),
                           ),
                         ),
                       ),
@@ -489,81 +540,117 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
   Widget _buildPriorityStats(Map<String, double> sizes) {
     return LayoutBuilder(
       builder: (context, constraints) {
-    return Container(
-      padding: EdgeInsets.all(sizes['internalPadding']!),
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
-        borderRadius: BorderRadius.circular(sizes['cardSpacing']! + 4),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(sizes['cardSpacing']!),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
-                  borderRadius: BorderRadius.circular(sizes['cardSpacing']!),
-                ),
-                child: Icon(
-                  Icons.priority_high,
-                  color: Colors.white,
-                  size: sizes['iconSize']!,
-                ),
+        return Container(
+          padding: EdgeInsets.all(sizes['internalPadding']!),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.cardGradient,
+            borderRadius: BorderRadius.circular(sizes['cardSpacing']! + 4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+                spreadRadius: 2,
               ),
-              SizedBox(width: sizes['cardSpacing']!),
-              Flexible(
-                child: Text(
-                  'Distribución por Prioridad',
-                  style: TextStyle(
-                    color: ElegantLightTheme.textPrimary,
-                    fontSize: sizes['titleSize']!,
-                    fontWeight: FontWeight.w600,
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(sizes['cardSpacing']!),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+                      ),
+                      borderRadius: BorderRadius.circular(
+                        sizes['cardSpacing']!,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.priority_high,
+                      color: Colors.white,
+                      size: sizes['iconSize']!,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  SizedBox(width: sizes['cardSpacing']!),
+                  Flexible(
+                    child: Text(
+                      'Distribución por Prioridad',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: sizes['titleSize']!,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: sizes['cardSpacing']! + 4),
+
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: constraints.maxWidth >= 800 ? 4 : 2,
+                childAspectRatio: 1.1,
+                crossAxisSpacing: sizes['cardSpacing']!,
+                mainAxisSpacing: sizes['cardSpacing']!,
+                children: [
+                  _buildPriorityCard(
+                    'Urgente',
+                    stats.urgentOrders,
+                    const LinearGradient(
+                      colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+                    ),
+                    Icons.priority_high,
+                    sizes,
+                  ),
+                  _buildPriorityCard(
+                    'Alta',
+                    stats.highPriorityOrders,
+                    ElegantLightTheme.errorGradient,
+                    Icons.keyboard_arrow_up,
+                    sizes,
+                  ),
+                  _buildPriorityCard(
+                    'Media',
+                    stats.mediumPriorityOrders,
+                    ElegantLightTheme.warningGradient,
+                    Icons.remove,
+                    sizes,
+                  ),
+                  _buildPriorityCard(
+                    'Baja',
+                    stats.lowPriorityOrders,
+                    ElegantLightTheme.successGradient,
+                    Icons.keyboard_arrow_down,
+                    sizes,
+                  ),
+                ],
               ),
             ],
           ),
-          SizedBox(height: sizes['cardSpacing']! + 4),
-          
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: constraints.maxWidth >= 800 ? 4 : 2,
-            childAspectRatio: 1.1,
-            crossAxisSpacing: sizes['cardSpacing']!,
-            mainAxisSpacing: sizes['cardSpacing']!,
-            children: [
-              _buildPriorityCard('Urgente', stats.urgentOrders, const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]), Icons.priority_high, sizes),
-              _buildPriorityCard('Alta', stats.highPriorityOrders, ElegantLightTheme.errorGradient, Icons.keyboard_arrow_up, sizes),
-              _buildPriorityCard('Media', stats.mediumPriorityOrders, ElegantLightTheme.warningGradient, Icons.remove, sizes),
-              _buildPriorityCard('Baja', stats.lowPriorityOrders, ElegantLightTheme.successGradient, Icons.keyboard_arrow_down, sizes),
-            ],
-          ),
-        ],
-      ),
-    );
+        );
       },
     );
   }
 
-  Widget _buildPriorityCard(String label, int count, LinearGradient gradient, IconData icon, Map<String, double> sizes) {
+  Widget _buildPriorityCard(
+    String label,
+    int count,
+    LinearGradient gradient,
+    IconData icon,
+    Map<String, double> sizes,
+  ) {
     return Container(
       constraints: BoxConstraints(maxHeight: sizes['cardHeight']!),
       padding: EdgeInsets.all(sizes['internalPadding']! * 0.6),
@@ -603,7 +690,11 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
               gradient: gradient,
               borderRadius: BorderRadius.circular(sizes['cardSpacing']! * 0.6),
             ),
-            child: Icon(icon, color: Colors.white, size: sizes['iconSize']! * 0.8),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: sizes['iconSize']! * 0.8,
+            ),
           ),
           SizedBox(height: sizes['cardSpacing']! * 0.6),
           StatsAnimations.animatedCounter(
@@ -634,81 +725,120 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
   Widget _buildTimeStats(Map<String, double> sizes) {
     return LayoutBuilder(
       builder: (context, constraints) {
-    return Container(
-      padding: EdgeInsets.all(sizes['internalPadding']!),
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.cardGradient,
-        borderRadius: BorderRadius.circular(sizes['cardSpacing']! + 4),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(sizes['cardSpacing']!),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.infoGradient,
-                  borderRadius: BorderRadius.circular(sizes['cardSpacing']!),
-                ),
-                child: Icon(
-                  Icons.access_time,
-                  color: Colors.white,
-                  size: sizes['iconSize']!,
-                ),
+        return Container(
+          padding: EdgeInsets.all(sizes['internalPadding']!),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.cardGradient,
+            borderRadius: BorderRadius.circular(sizes['cardSpacing']! + 4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+                spreadRadius: 2,
               ),
-              SizedBox(width: sizes['cardSpacing']!),
-              Flexible(
-                child: Text(
-                  'Estadísticas de Tiempo',
-                  style: TextStyle(
-                    color: ElegantLightTheme.textPrimary,
-                    fontSize: sizes['titleSize']!,
-                    fontWeight: FontWeight.w600,
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(sizes['cardSpacing']!),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.infoGradient,
+                      borderRadius: BorderRadius.circular(
+                        sizes['cardSpacing']!,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.access_time,
+                      color: Colors.white,
+                      size: sizes['iconSize']!,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  SizedBox(width: sizes['cardSpacing']!),
+                  Flexible(
+                    child: Text(
+                      'Estadísticas de Tiempo',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: sizes['titleSize']!,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: sizes['cardSpacing']! + 4),
+
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: constraints.maxWidth >= 800 ? 2 : 1,
+                childAspectRatio: constraints.maxWidth >= 800 ? 2.5 : 2.8,
+                crossAxisSpacing: sizes['cardSpacing']!,
+                mainAxisSpacing: sizes['cardSpacing']!,
+                children: [
+                  _buildTimeCard(
+                    'Órdenes Vencidas',
+                    '${stats.overdueOrders}',
+                    'han pasado su fecha',
+                    ElegantLightTheme.errorGradient,
+                    Icons.warning,
+                    sizes,
+                  ),
+                  _buildTimeCard(
+                    'Tiempo Promedio',
+                    '${stats.averageDeliveryDays.toStringAsFixed(1)} días',
+                    'orden hasta entrega',
+                    ElegantLightTheme.infoGradient,
+                    Icons.access_time,
+                    sizes,
+                  ),
+                  _buildTimeCard(
+                    'Entrega Puntual',
+                    '${(stats.onTimeDeliveryRate * 100).toStringAsFixed(1)}%',
+                    'entregas fueron puntuales',
+                    ElegantLightTheme.successGradient,
+                    Icons.check_circle,
+                    sizes,
+                  ),
+                  _buildTimeCard(
+                    'Pendientes Urgentes',
+                    '${stats.pendingUrgentOrders}',
+                    'órdenes sin procesar',
+                    const LinearGradient(
+                      colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+                    ),
+                    Icons.priority_high,
+                    sizes,
+                  ),
+                ],
               ),
             ],
           ),
-          SizedBox(height: sizes['cardSpacing']! + 4),
-          
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: constraints.maxWidth >= 800 ? 2 : 1,
-            childAspectRatio: constraints.maxWidth >= 800 ? 2.5 : 2.8,
-            crossAxisSpacing: sizes['cardSpacing']!,
-            mainAxisSpacing: sizes['cardSpacing']!,
-            children: [
-              _buildTimeCard('Órdenes Vencidas', '${stats.overdueOrders}', 'han pasado su fecha', ElegantLightTheme.errorGradient, Icons.warning, sizes),
-              _buildTimeCard('Tiempo Promedio', '${stats.averageDeliveryDays.toStringAsFixed(1)} días', 'orden hasta entrega', ElegantLightTheme.infoGradient, Icons.access_time, sizes),
-              _buildTimeCard('Entrega Puntual', '${(stats.onTimeDeliveryRate * 100).toStringAsFixed(1)}%', 'entregas fueron puntuales', ElegantLightTheme.successGradient, Icons.check_circle, sizes),
-              _buildTimeCard('Pendientes Urgentes', '${stats.pendingUrgentOrders}', 'órdenes sin procesar', const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]), Icons.priority_high, sizes),
-            ],
-          ),
-        ],
-      ),
-    );
+        );
       },
     );
   }
 
-  Widget _buildTimeCard(String title, String value, String subtitle, LinearGradient gradient, IconData icon, Map<String, double> sizes) {
+  Widget _buildTimeCard(
+    String title,
+    String value,
+    String subtitle,
+    LinearGradient gradient,
+    IconData icon,
+    Map<String, double> sizes,
+  ) {
     return Container(
       constraints: BoxConstraints(maxHeight: sizes['cardHeight']!),
       padding: EdgeInsets.all(sizes['internalPadding']! * 0.8),
@@ -848,20 +978,44 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
             ],
           ),
           SizedBox(height: sizes['cardSpacing']! + 4),
-          
-          _buildPerformanceIndicator('Tasa de Aprobación', stats.approvalRate, 'Órdenes aprobadas vs rechazadas', ElegantLightTheme.successGradient, sizes),
+
+          _buildPerformanceIndicator(
+            'Tasa de Aprobación',
+            stats.approvalRate,
+            'Órdenes aprobadas vs rechazadas',
+            ElegantLightTheme.successGradient,
+            sizes,
+          ),
           SizedBox(height: sizes['cardSpacing']!),
-          _buildPerformanceIndicator('Eficiencia de Entrega', stats.onTimeDeliveryRate, 'Entregas puntuales', ElegantLightTheme.infoGradient, sizes),
+          _buildPerformanceIndicator(
+            'Eficiencia de Entrega',
+            stats.onTimeDeliveryRate,
+            'Entregas puntuales',
+            ElegantLightTheme.infoGradient,
+            sizes,
+          ),
           SizedBox(height: sizes['cardSpacing']!),
-          _buildPerformanceIndicator('Tasa de Cancelación', stats.cancellationRate, 'Órdenes canceladas', ElegantLightTheme.errorGradient, sizes),
+          _buildPerformanceIndicator(
+            'Tasa de Cancelación',
+            stats.cancellationRate,
+            'Órdenes canceladas',
+            ElegantLightTheme.errorGradient,
+            sizes,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildPerformanceIndicator(String title, double rate, String description, LinearGradient gradient, Map<String, double> sizes) {
+  Widget _buildPerformanceIndicator(
+    String title,
+    double rate,
+    String description,
+    LinearGradient gradient,
+    Map<String, double> sizes,
+  ) {
     final percentage = rate * 100;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -928,10 +1082,14 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
                         margin: EdgeInsets.all(sizes['cardSpacing']! * 0.1),
                         decoration: BoxDecoration(
                           gradient: gradient,
-                          borderRadius: BorderRadius.circular(sizes['cardSpacing']! * 0.6),
+                          borderRadius: BorderRadius.circular(
+                            sizes['cardSpacing']! * 0.6,
+                          ),
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(sizes['cardSpacing']! * 0.6),
+                          borderRadius: BorderRadius.circular(
+                            sizes['cardSpacing']! * 0.6,
+                          ),
                           child: Stack(
                             children: [
                               // Efecto de destello cuando está casi completa
@@ -953,7 +1111,9 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
                         margin: EdgeInsets.all(sizes['cardSpacing']! * 0.1),
                         decoration: BoxDecoration(
                           color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(sizes['cardSpacing']! * 0.6),
+                          borderRadius: BorderRadius.circular(
+                            sizes['cardSpacing']! * 0.6,
+                          ),
                         ),
                       ),
                     ),
@@ -976,7 +1136,11 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildAnimatedValue(String value, Color color, Map<String, double> sizes) {
+  Widget _buildAnimatedValue(
+    String value,
+    Color color,
+    Map<String, double> sizes,
+  ) {
     // Check if value is a number (for counter animation)
     final numericValue = int.tryParse(value.replaceAll(RegExp(r'[^\d]'), ''));
     if (numericValue != null && !value.contains('\$') && !value.contains('%')) {
@@ -989,7 +1153,7 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
         ),
       );
     }
-    
+
     // Check if value is a percentage
     if (value.contains('%')) {
       final percentValue = double.tryParse(value.replaceAll('%', ''));
@@ -1004,10 +1168,12 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
         );
       }
     }
-    
+
     // Check if value is currency
     if (value.contains('\$') || value.contains('COP')) {
-      final currencyValue = double.tryParse(value.replaceAll(RegExp(r'[^\d.]'), ''));
+      final currencyValue = double.tryParse(
+        value.replaceAll(RegExp(r'[^\d.]'), ''),
+      );
       if (currencyValue != null) {
         return StatsAnimations.animatedCurrency(
           value: currencyValue,
@@ -1020,7 +1186,7 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
         );
       }
     }
-    
+
     // Default: just animated text
     return StatsAnimations.slideInFadeIn(
       child: Text(
@@ -1041,9 +1207,7 @@ class PurchaseOrderStatsWidget extends StatelessWidget {
 class _ProgressShimmerEffect extends StatefulWidget {
   final double borderRadius;
 
-  const _ProgressShimmerEffect({
-    required this.borderRadius,
-  });
+  const _ProgressShimmerEffect({required this.borderRadius});
 
   @override
   State<_ProgressShimmerEffect> createState() => _ProgressShimmerEffectState();

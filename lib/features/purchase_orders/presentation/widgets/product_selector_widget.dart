@@ -145,12 +145,15 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
     final hasProduct = product != null;
 
     return GestureDetector(
-      onTap: widget.activateOnTextFieldTap ? () {
-        setState(() {
-          _showSearchField = true;
-        });
-        _focusNode.requestFocus();
-      } : null,
+      onTap:
+          widget.activateOnTextFieldTap
+              ? () {
+                setState(() {
+                  _showSearchField = true;
+                });
+                _focusNode.requestFocus();
+              }
+              : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
@@ -174,16 +177,18 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: hasProduct
-                    ? Colors.blue.shade100
-                    : Theme.of(context).primaryColor.withOpacity(0.1),
+                color:
+                    hasProduct
+                        ? Colors.blue.shade100
+                        : Theme.of(context).primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
                 Icons.inventory_2,
-                color: hasProduct
-                    ? Colors.blue.shade600
-                    : Theme.of(context).primaryColor,
+                color:
+                    hasProduct
+                        ? Colors.blue.shade600
+                        : Theme.of(context).primaryColor,
                 size: 16,
               ),
             ),
@@ -205,7 +210,7 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (hasProduct && product!.sku.isNotEmpty) ...[
+                  if (hasProduct && product.sku.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
                       'SKU: ${product.sku}',
@@ -295,28 +300,31 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
           focusNode: _focusNode,
           style: const TextStyle(fontSize: 16),
           decoration: InputDecoration(
-            hintText: 'Buscar producto... (↑↓ para navegar, Enter para seleccionar)',
+            hintText:
+                'Buscar producto... (↑↓ para navegar, Enter para seleccionar)',
             hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-            prefixIcon: _isSearching
-                ? Container(
-                    padding: const EdgeInsets.all(12),
-                    child: const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : Icon(Icons.search, color: Colors.grey.shade500),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      _searchController.clear();
-                      _focusNode.requestFocus();
-                      _resetSelection();
-                    },
-                  )
-                : null,
+            prefixIcon:
+                _isSearching
+                    ? Container(
+                      padding: const EdgeInsets.all(12),
+                      child: const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                    : Icon(Icons.search, color: Colors.grey.shade500),
+            suffixIcon:
+                _searchController.text.isNotEmpty
+                    ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        _focusNode.requestFocus();
+                        _resetSelection();
+                      },
+                    )
+                    : null,
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -356,7 +364,11 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
     );
   }
 
-  Widget _buildProductTile(BuildContext context, Product product, bool isKeyboardSelected) {
+  Widget _buildProductTile(
+    BuildContext context,
+    Product product,
+    bool isKeyboardSelected,
+  ) {
     final isSelected = widget.selectedProduct?.id == product.id;
 
     return Material(
@@ -366,9 +378,10 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isKeyboardSelected
-                ? Theme.of(context).primaryColor.withOpacity(0.2)
-                : isSelected
+            color:
+                isKeyboardSelected
+                    ? Theme.of(context).primaryColor.withOpacity(0.2)
+                    : isSelected
                     ? Theme.of(context).primaryColor.withOpacity(0.1)
                     : Colors.transparent,
             border: Border(
@@ -403,9 +416,10 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
-                        color: isSelected
-                            ? Theme.of(context).primaryColor
-                            : Colors.black87,
+                        color:
+                            isSelected
+                                ? Theme.of(context).primaryColor
+                                : Colors.black87,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -498,7 +512,7 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
   }
 
   // ==================== NAVEGACIÓN CON TECLAS ====================
-  
+
   void _handleKeyEvent(KeyEvent event) {
     if (event is KeyDownEvent && _searchResults.isNotEmpty) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -507,9 +521,10 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
         });
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
         setState(() {
-          _selectedIndex = _selectedIndex <= 0 
-              ? _searchResults.length - 1 
-              : _selectedIndex - 1;
+          _selectedIndex =
+              _selectedIndex <= 0
+                  ? _searchResults.length - 1
+                  : _selectedIndex - 1;
         });
       } else if (event.logicalKey == LogicalKeyboardKey.enter) {
         _handleEnterKey();
@@ -518,7 +533,7 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
       }
     }
   }
-  
+
   void _handleEnterKey() {
     if (_searchResults.isNotEmpty) {
       if (_selectedIndex >= 0 && _selectedIndex < _searchResults.length) {
@@ -529,7 +544,7 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
       }
     }
   }
-  
+
   void _resetSelection() {
     setState(() {
       _selectedIndex = -1;
@@ -610,7 +625,7 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
 
     try {
       _lastSearchTerm = query;
-      
+
       List<Product> results = [];
 
       if (_purchaseOrderController != null) {
@@ -622,7 +637,8 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
           _searchResults.clear();
           _searchResults.addAll(results.take(8));
           _isSearching = false;
-          _selectedIndex = _searchResults.isNotEmpty ? 0 : -1; // Auto-seleccionar el primero
+          _selectedIndex =
+              _searchResults.isNotEmpty ? 0 : -1; // Auto-seleccionar el primero
         });
       }
     } catch (e) {

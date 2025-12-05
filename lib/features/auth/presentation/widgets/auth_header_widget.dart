@@ -90,13 +90,13 @@ class AuthHeaderWidget extends StatelessWidget {
   final Color? subtitleColor;
 
   const AuthHeaderWidget({
-    Key? key,
+    super.key,
     required this.title,
     required this.subtitle,
     this.logo,
     this.titleColor,
     this.subtitleColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

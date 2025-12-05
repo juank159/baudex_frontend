@@ -100,6 +100,8 @@ class IsarInvoicePayment {
         return IsarPaymentMethod.bankTransfer;
       case PaymentMethod.check:
         return IsarPaymentMethod.check;
+      case PaymentMethod.clientBalance:
+        return IsarPaymentMethod.clientBalance;
       case PaymentMethod.other:
         return IsarPaymentMethod.other;
       default:
@@ -121,6 +123,8 @@ class IsarInvoicePayment {
         return PaymentMethod.bankTransfer;
       case IsarPaymentMethod.check:
         return PaymentMethod.check;
+      case IsarPaymentMethod.clientBalance:
+        return PaymentMethod.clientBalance;
       case IsarPaymentMethod.other:
         return PaymentMethod.other;
     }

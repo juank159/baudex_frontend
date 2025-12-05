@@ -14,21 +14,19 @@ class SubscriptionErrorDialog extends StatelessWidget {
   final VoidCallback? onSecondaryActionPressed;
 
   const SubscriptionErrorDialog({
-    Key? key,
+    super.key,
     required this.title,
     required this.message,
     this.actionText,
     this.onActionPressed,
     this.secondaryActionText,
     this.onSecondaryActionPressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(
         children: [
           Container(
@@ -48,18 +46,16 @@ class SubscriptionErrorDialog extends StatelessWidget {
             child: Text(
               title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.orange.shade800,
-                  ),
+                fontWeight: FontWeight.w600,
+                color: Colors.orange.shade800,
+              ),
             ),
           ),
         ],
       ),
       content: Container(
         width: context.isMobile ? double.maxFinite : 480,
-        constraints: BoxConstraints(
-          maxHeight: context.isMobile ? 400 : 500,
-        ),
+        constraints: BoxConstraints(maxHeight: context.isMobile ? 400 : 500),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -69,13 +65,13 @@ class SubscriptionErrorDialog extends StatelessWidget {
               Text(
                 message,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey.shade700,
-                      height: 1.4,
-                    ),
+                  color: Colors.grey.shade700,
+                  height: 1.4,
+                ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Información adicional con icono
               Container(
                 padding: const EdgeInsets.all(12),
@@ -96,9 +92,9 @@ class SubscriptionErrorDialog extends StatelessWidget {
                       child: Text(
                         'Para continuar usando todas las funcionalidades, actualiza tu suscripción a un plan activo.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.blue.shade700,
-                              fontSize: 13,
-                            ),
+                          color: Colors.blue.shade700,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ],
@@ -121,7 +117,7 @@ class SubscriptionErrorDialog extends StatelessWidget {
               ),
             ),
           ),
-        
+
         // Botón principal
         CustomButton(
           text: actionText ?? 'Entendido',
@@ -146,7 +142,8 @@ class SubscriptionErrorDialog extends StatelessWidget {
     Get.dialog(
       SubscriptionErrorDialog(
         title: 'Suscripción Expirada',
-        message: customMessage ?? 
+        message:
+            customMessage ??
             'Tu período de prueba ha expirado. Para continuar creando productos y accediendo a todas las funcionalidades, necesitas actualizar tu suscripción.',
         actionText: 'Actualizar Suscripción',
         onActionPressed: () {
@@ -178,13 +175,16 @@ class SubscriptionErrorDialog extends StatelessWidget {
     Get.dialog(
       SubscriptionErrorDialog(
         title: customTitle ?? 'Acceso Restringido',
-        message: customMessage ?? 
+        message:
+            customMessage ??
             'Esta funcionalidad requiere una suscripción activa. Por favor, actualiza tu plan para continuar.',
         actionText: actionText ?? 'Ver Planes',
-        onActionPressed: onActionPressed ?? () {
-          Get.back();
-          Get.toNamed('/settings/subscription');
-        },
+        onActionPressed:
+            onActionPressed ??
+            () {
+              Get.back();
+              Get.toNamed('/settings/subscription');
+            },
         secondaryActionText: 'Cancelar',
       ),
       barrierDismissible: true,
@@ -199,9 +199,10 @@ class SubscriptionErrorDialog extends StatelessWidget {
     Get.dialog(
       SubscriptionErrorDialog(
         title: 'Límite de Usuarios Alcanzado',
-        message: maxUsers != null
-            ? 'Has alcanzado el límite máximo de $maxUsers usuarios para tu plan actual. Para agregar más usuarios, actualiza tu suscripción.'
-            : 'Has alcanzado el límite máximo de usuarios para tu plan actual. Para agregar más usuarios, actualiza tu suscripción.',
+        message:
+            maxUsers != null
+                ? 'Has alcanzado el límite máximo de $maxUsers usuarios para tu plan actual. Para agregar más usuarios, actualiza tu suscripción.'
+                : 'Has alcanzado el límite máximo de usuarios para tu plan actual. Para agregar más usuarios, actualiza tu suscripción.',
         actionText: 'Actualizar Plan',
         onActionPressed: () {
           Get.back();

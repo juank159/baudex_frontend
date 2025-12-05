@@ -1,6 +1,5 @@
 // lib/features/suppliers/data/models/update_supplier_request_model.dart
 import 'package:json_annotation/json_annotation.dart';
-import '../../domain/entities/supplier.dart';
 import '../../domain/usecases/update_supplier_usecase.dart';
 
 part 'update_supplier_request_model.g.dart';
@@ -58,7 +57,7 @@ class UpdateSupplierRequestModel {
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = {};
-    
+
     // Solo incluir campos que no son nulos
     if (name != null) data['name'] = name;
     if (code != null) data['code'] = code;
@@ -78,10 +77,11 @@ class UpdateSupplierRequestModel {
     if (currency != null) data['currency'] = currency;
     if (paymentTermsDays != null) data['paymentTermsDays'] = paymentTermsDays;
     if (creditLimit != null) data['creditLimit'] = creditLimit;
-    if (discountPercentage != null) data['discountPercentage'] = discountPercentage;
+    if (discountPercentage != null)
+      data['discountPercentage'] = discountPercentage;
     if (notes != null) data['notes'] = notes;
     if (metadata != null) data['metadata'] = metadata;
-    
+
     return data;
   }
 

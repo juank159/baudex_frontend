@@ -9,10 +9,7 @@ import '../../domain/entities/organization.dart';
 class EditOrganizationDialog extends StatefulWidget {
   final Organization organization;
 
-  const EditOrganizationDialog({
-    super.key,
-    required this.organization,
-  });
+  const EditOrganizationDialog({super.key, required this.organization});
 
   @override
   State<EditOrganizationDialog> createState() => _EditOrganizationDialogState();
@@ -23,7 +20,7 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _slugController;
   late final TextEditingController _domainController;
-  
+
   late String _selectedCurrency;
   late String _selectedLocale;
   late String _selectedTimezone;
@@ -52,7 +49,6 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
     {'code': 'America/Mexico_City', 'name': 'México (CST)'},
   ];
 
-
   @override
   void initState() {
     super.initState();
@@ -62,8 +58,10 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
   void _initializeControllers() {
     _nameController = TextEditingController(text: widget.organization.name);
     _slugController = TextEditingController(text: widget.organization.slug);
-    _domainController = TextEditingController(text: widget.organization.domain ?? '');
-    
+    _domainController = TextEditingController(
+      text: widget.organization.domain ?? '',
+    );
+
     _selectedCurrency = widget.organization.currency;
     _selectedLocale = widget.organization.locale;
     _selectedTimezone = widget.organization.timezone;
@@ -84,12 +82,12 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
     final screenSize = MediaQuery.of(context).size;
     final isSmallScreen = screenSize.width < 600;
     final isMediumScreen = screenSize.width >= 600 && screenSize.width < 900;
-    
+
     // Responsive dialog sizing
     double dialogWidth;
     double maxHeight;
     EdgeInsets padding;
-    
+
     if (isSmallScreen) {
       dialogWidth = screenSize.width * 0.95; // 95% of screen width on mobile
       maxHeight = screenSize.height * 0.9; // 90% of screen height
@@ -124,7 +122,7 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
               child: _buildHeader(),
             ),
             const SizedBox(height: AppDimensions.spacingMedium),
-            
+
             // Scrollable content
             Expanded(
               child: SingleChildScrollView(
@@ -132,7 +130,7 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
                 child: _buildForm(controller),
               ),
             ),
-            
+
             // Actions with padding
             Padding(
               padding: padding.copyWith(top: AppDimensions.spacingMedium),
@@ -153,11 +151,7 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
             color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
           ),
-          child: Icon(
-            Icons.edit,
-            color: AppColors.primary,
-            size: 24,
-          ),
+          child: Icon(Icons.edit, color: AppColors.primary, size: 24),
         ),
         const SizedBox(width: AppDimensions.spacingMedium),
         Expanded(
@@ -198,7 +192,7 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
           // Información básica
           _buildSectionTitle('Información Básica'),
           const SizedBox(height: AppDimensions.spacingMedium),
-          
+
           TextFormField(
             controller: _nameController,
             decoration: const InputDecoration(
@@ -208,9 +202,9 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
             ),
             validator: controller.validateOrganizationName,
           ),
-          
+
           const SizedBox(height: AppDimensions.spacingMedium),
-          
+
           TextFormField(
             controller: _slugController,
             decoration: const InputDecoration(
@@ -222,9 +216,9 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
             validator: controller.validateOrganizationSlug,
             enabled: false, // El slug generalmente no se puede cambiar
           ),
-          
+
           const SizedBox(height: AppDimensions.spacingMedium),
-          
+
           TextFormField(
             controller: _domainController,
             decoration: const InputDecoration(
@@ -240,7 +234,11 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
           // Estado
           SwitchListTile(
             title: const Text('Organización Activa'),
-            subtitle: Text(_isActive ? 'La organización está activa' : 'La organización está inactiva'),
+            subtitle: Text(
+              _isActive
+                  ? 'La organización está activa'
+                  : 'La organización está inactiva',
+            ),
             value: _isActive,
             onChanged: (value) => setState(() => _isActive = value),
             activeColor: AppColors.success,
@@ -251,77 +249,87 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
           // Configuración regional
           _buildSectionTitle('Configuración Regional'),
           const SizedBox(height: AppDimensions.spacingMedium),
-          
+
           DropdownButtonFormField<String>(
-            value: _currencies.any((currency) => currency['code'] == _selectedCurrency) 
-                ? _selectedCurrency 
-                : _currencies.first['code'],
+            value:
+                _currencies.any(
+                      (currency) => currency['code'] == _selectedCurrency,
+                    )
+                    ? _selectedCurrency
+                    : _currencies.first['code'],
             decoration: const InputDecoration(
               labelText: 'Moneda',
               prefixIcon: Icon(Icons.monetization_on),
               border: OutlineInputBorder(),
             ),
             isExpanded: true, // Prevents overflow
-            items: _currencies.map((currency) {
-              return DropdownMenuItem<String>(
-                value: currency['code'],
-                child: Text(
-                  currency['name']!,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              );
-            }).toList(),
+            items:
+                _currencies.map((currency) {
+                  return DropdownMenuItem<String>(
+                    value: currency['code'],
+                    child: Text(
+                      currency['name']!,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  );
+                }).toList(),
             onChanged: (value) => setState(() => _selectedCurrency = value!),
           ),
-          
+
           const SizedBox(height: AppDimensions.spacingMedium),
-          
+
           DropdownButtonFormField<String>(
-            value: _locales.any((locale) => locale['code'] == _selectedLocale) 
-                ? _selectedLocale 
-                : _locales.first['code'],
+            value:
+                _locales.any((locale) => locale['code'] == _selectedLocale)
+                    ? _selectedLocale
+                    : _locales.first['code'],
             decoration: const InputDecoration(
               labelText: 'Idioma',
               prefixIcon: Icon(Icons.language),
               border: OutlineInputBorder(),
             ),
             isExpanded: true, // Prevents overflow
-            items: _locales.map((locale) {
-              return DropdownMenuItem<String>(
-                value: locale['code'],
-                child: Text(
-                  locale['name']!,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              );
-            }).toList(),
+            items:
+                _locales.map((locale) {
+                  return DropdownMenuItem<String>(
+                    value: locale['code'],
+                    child: Text(
+                      locale['name']!,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  );
+                }).toList(),
             onChanged: (value) => setState(() => _selectedLocale = value!),
           ),
-          
+
           const SizedBox(height: AppDimensions.spacingMedium),
-          
+
           DropdownButtonFormField<String>(
-            value: _timezones.any((timezone) => timezone['code'] == _selectedTimezone) 
-                ? _selectedTimezone 
-                : _timezones.first['code'],
+            value:
+                _timezones.any(
+                      (timezone) => timezone['code'] == _selectedTimezone,
+                    )
+                    ? _selectedTimezone
+                    : _timezones.first['code'],
             decoration: const InputDecoration(
               labelText: 'Zona Horaria',
               prefixIcon: Icon(Icons.access_time),
               border: OutlineInputBorder(),
             ),
             isExpanded: true, // Prevents overflow
-            items: _timezones.map((timezone) {
-              return DropdownMenuItem<String>(
-                value: timezone['code'],
-                child: Text(
-                  timezone['name']!,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              );
-            }).toList(),
+            items:
+                _timezones.map((timezone) {
+                  return DropdownMenuItem<String>(
+                    value: timezone['code'],
+                    child: Text(
+                      timezone['name']!,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  );
+                }).toList(),
             onChanged: (value) => setState(() => _selectedTimezone = value!),
           ),
 
@@ -330,10 +338,13 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
           // Información adicional
           _buildSectionTitle('Información Adicional'),
           const SizedBox(height: AppDimensions.spacingMedium),
-          
+
           _buildInfoRow('ID', widget.organization.id),
           _buildInfoRow('Creado', _formatDate(widget.organization.createdAt)),
-          _buildInfoRow('Actualizado', _formatDate(widget.organization.updatedAt)),
+          _buildInfoRow(
+            'Actualizado',
+            _formatDate(widget.organization.updatedAt),
+          ),
         ],
       ),
     );
@@ -355,7 +366,7 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isSmallWidth = constraints.maxWidth < 300;
-          
+
           if (isSmallWidth) {
             // Stack vertically on very small screens
             return Column(
@@ -369,10 +380,7 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
+                Text(value, style: Theme.of(context).textTheme.bodyMedium),
               ],
             );
           } else {
@@ -413,14 +421,17 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
           children: [
             ElevatedButton.icon(
               onPressed: controller.isLoading ? null : _updateOrganization,
-              icon: controller.isLoading 
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save),
-              label: Text(controller.isLoading ? 'Guardando...' : 'Guardar Cambios'),
+              icon:
+                  controller.isLoading
+                      ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.save),
+              label: Text(
+                controller.isLoading ? 'Guardando...' : 'Guardar Cambios',
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.onPrimary,
@@ -432,12 +443,12 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
             const SizedBox(height: AppDimensions.spacingSmall),
             TextButton(
               onPressed: controller.isLoading ? null : () => Get.back(),
-              child: const Text('Cancelar'),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                   vertical: AppDimensions.paddingMedium,
                 ),
               ),
+              child: const Text('Cancelar'),
             ),
           ],
         );
@@ -454,14 +465,17 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
             Flexible(
               child: ElevatedButton.icon(
                 onPressed: controller.isLoading ? null : _updateOrganization,
-                icon: controller.isLoading 
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save),
-                label: Text(controller.isLoading ? 'Guardando...' : 'Guardar Cambios'),
+                icon:
+                    controller.isLoading
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.save),
+                label: Text(
+                  controller.isLoading ? 'Guardando...' : 'Guardar Cambios',
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.onPrimary,
@@ -490,10 +504,13 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
 
     print('✅ Form validation passed');
     final controller = Get.find<OrganizationController>();
-    
+
     final updates = <String, dynamic>{
       'name': _nameController.text.trim(),
-      'domain': _domainController.text.trim().isEmpty ? null : _domainController.text.trim(),
+      'domain':
+          _domainController.text.trim().isEmpty
+              ? null
+              : _domainController.text.trim(),
       'currency': _selectedCurrency,
       'locale': _selectedLocale,
       'timezone': _selectedTimezone,
@@ -503,13 +520,13 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
     print('📤 Sending updates: $updates');
     final success = await controller.updateCurrentOrganization(updates);
     print('📥 Update result: $success');
-    
+
     if (success) {
       print('✅ Update successful! Closing dialog immediately...');
-      
+
       // Cerrar el diálogo primero
       Navigator.of(context).pop();
-      
+
       // Mostrar snackbar después de cerrar
       Get.snackbar(
         'Éxito',
@@ -520,7 +537,7 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog> {
         icon: const Icon(Icons.check_circle, color: Colors.green),
         duration: const Duration(seconds: 3),
       );
-      
+
       print('✅ Dialog closed and snackbar shown');
     } else {
       print('❌ Update failed, dialog remains open');

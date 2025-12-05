@@ -501,7 +501,7 @@ class CategoriesController extends GetxController {
   @override
   void onClose() {
     print('🔧 CategoriesController: Iniciando dispose...');
-    
+
     // Dispose seguro del searchController
     if (!searchController.isDisposed) {
       searchController.dispose();
@@ -509,11 +509,11 @@ class CategoriesController extends GetxController {
     } else {
       print('⚠️ CategoriesController: searchController ya estaba disposed');
     }
-    
+
     // Dispose del scrollController
     scrollController.dispose();
     print('✅ CategoriesController: scrollController disposed');
-    
+
     super.onClose();
     print('✅ CategoriesController: Dispose completado');
   }
@@ -852,8 +852,9 @@ class CategoriesController extends GetxController {
 
   /// Aplicar filtro por categoría padre
   void applyParentFilter(String? parentId) {
-    if (_selectedParentId.value == parentId)
+    if (_selectedParentId.value == parentId) {
       return; // Evitar refrescos innecesarios
+    }
 
     // ✅ CORRECCIÓN CRÍTICA: Manejar el caso especial 'parents_only'
     if (parentId == 'parents_only') {
@@ -871,8 +872,9 @@ class CategoriesController extends GetxController {
 
   /// Cambiar ordenamiento
   void changeSorting(String sortBy, String sortOrder) {
-    if (_sortBy.value == sortBy && _sortOrder.value == sortOrder)
+    if (_sortBy.value == sortBy && _sortOrder.value == sortOrder) {
       return; // Evitar refrescos innecesarios
+    }
 
     _sortBy.value = sortBy;
     _sortOrder.value = sortOrder;
@@ -883,11 +885,11 @@ class CategoriesController extends GetxController {
   /// Limpiar filtros
   void clearFilters() {
     print('🧹 Limpiando filtros...');
-    
+
     _currentStatus.value = null;
     _selectedParentId.value = null;
     _searchTerm.value = '';
-    
+
     // Clear seguro del searchController
     if (searchController.isSafeToUse) {
       searchController.clear();
@@ -895,20 +897,20 @@ class CategoriesController extends GetxController {
     } else {
       print('⚠️ SearchController no es seguro para limpiar');
     }
-    
+
     _searchResults.clear();
     _currentPage.value = 1;
     loadCategories();
-    
+
     print('✅ Filtros limpiados');
   }
 
   /// Actualizar búsqueda
   void updateSearch(String value) {
     print('🔍 Actualizando búsqueda: "$value"');
-    
+
     _searchTerm.value = value;
-    
+
     if (value.trim().isEmpty) {
       print('🔍 Búsqueda vacía, limpiando resultados');
       _searchResults.clear();
@@ -1032,7 +1034,8 @@ class CategoriesController extends GetxController {
       'searchControllerStatus': {
         'isDisposed': searchController.isDisposed,
         'isSafeToUse': searchController.isSafeToUse,
-        'textLength': searchController.isSafeToUse ? searchController.text.length : -1,
+        'textLength':
+            searchController.isSafeToUse ? searchController.text.length : -1,
       },
     };
   }

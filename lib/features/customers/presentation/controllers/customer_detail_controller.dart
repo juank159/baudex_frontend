@@ -1,6 +1,8 @@
 // lib/features/customers/presentation/controllers/customer_detail_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/repositories/customer_repository.dart';
@@ -217,26 +219,166 @@ class CustomerDetailController extends GetxController {
     if (_customer.value == null) return;
 
     Get.dialog(
-      AlertDialog(
-        title: const Text('Eliminar Cliente'),
-        content: Text(
-          '¿Estás seguro que deseas eliminar el cliente "${_customer.value!.displayName}"?\n\n'
-          'Esta acción no se puede deshacer.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Get.back();
-              deleteCustomer();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Eliminar'),
-          ),
-        ],
+      Builder(
+        builder: (context) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final isMobile = screenWidth < 600;
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 40,
+              vertical: isMobile ? 24 : 40,
+            ),
+            child: Container(
+              constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 400),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header compacto
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(isMobile ? 16 : 20),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.errorGradient,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(isMobile ? 16 : 20),
+                        topRight: Radius.circular(isMobile ? 16 : 20),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(isMobile ? 10 : 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.delete_forever,
+                            size: isMobile ? 24 : 28,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: isMobile ? 12 : 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Eliminar Cliente',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 16 : 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                'Acción irreversible',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 11 : 12,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Content compacto
+                  Padding(
+                    padding: EdgeInsets.all(isMobile ? 16 : 20),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(isMobile ? 12 : 14),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: Colors.red.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.red.shade600,
+                                size: isMobile ? 20 : 22,
+                              ),
+                              SizedBox(width: isMobile ? 10 : 12),
+                              Expanded(
+                                child: Text(
+                                  'Esta acción no se puede deshacer',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 12 : 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.red.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: isMobile ? 12 : 16),
+                        Text(
+                          '¿Eliminar "${_customer.value!.displayName}"?',
+                          style: TextStyle(
+                            fontSize: isMobile ? 14 : 15,
+                            color: ElegantLightTheme.textPrimary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: isMobile ? 16 : 20),
+
+                        // Buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildDialogButton(
+                                label: 'Cancelar',
+                                icon: Icons.close,
+                                onTap: () => Get.back(),
+                                isOutline: true,
+                                isCompact: isMobile,
+                              ),
+                            ),
+                            SizedBox(width: isMobile ? 10 : 12),
+                            Expanded(
+                              child: _buildDialogButton(
+                                label: 'Eliminar',
+                                icon: Icons.delete,
+                                gradient: ElegantLightTheme.errorGradient,
+                                onTap: () {
+                                  Get.back();
+                                  deleteCustomer();
+                                },
+                                isCompact: isMobile,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -245,79 +387,489 @@ class CustomerDetailController extends GetxController {
     if (_customer.value == null) return;
 
     Get.dialog(
-      AlertDialog(
-        title: const Text('Cambiar Estado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children:
-              CustomerStatus.values.map((status) {
-                return RadioListTile<CustomerStatus>(
-                  title: Text(_getStatusDisplayName(status)),
-                  value: status,
-                  groupValue: _customer.value!.status,
-                  onChanged: (CustomerStatus? value) {
-                    if (value != null && value != _customer.value!.status) {
-                      Get.back();
-                      updateCustomerStatus(value);
-                    }
-                  },
-                );
-              }).toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
+      Builder(
+        builder: (context) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final isMobile = screenWidth < 600;
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 40,
+              vertical: isMobile ? 24 : 40,
+            ),
+            child: Container(
+              constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 400),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
+                boxShadow: [
+                  BoxShadow(
+                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header compacto
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(isMobile ? 16 : 20),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.infoGradient,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(isMobile ? 16 : 20),
+                        topRight: Radius.circular(isMobile ? 16 : 20),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(isMobile ? 10 : 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.swap_horiz,
+                            size: isMobile ? 24 : 28,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: isMobile ? 12 : 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Cambiar Estado',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 16 : 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                'Actual: ${_getStatusDisplayName(_customer.value!.status)}',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 11 : 12,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Status Options
+                  Padding(
+                    padding: EdgeInsets.all(isMobile ? 14 : 20),
+                    child: Column(
+                      children: [
+                        ...CustomerStatus.values.map((status) {
+                          final isSelected = status == _customer.value!.status;
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: isMobile ? 8 : 10),
+                            child: _buildStatusOption(
+                              status: status,
+                              isSelected: isSelected,
+                              isCompact: isMobile,
+                              onTap: isSelected
+                                  ? null
+                                  : () {
+                                      Get.back();
+                                      updateCustomerStatus(status);
+                                    },
+                            ),
+                          );
+                        }),
+                        SizedBox(height: isMobile ? 8 : 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: _buildDialogButton(
+                            label: 'Cancelar',
+                            icon: Icons.close,
+                            onTap: () => Get.back(),
+                            isOutline: true,
+                            isCompact: isMobile,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStatusOption({
+    required CustomerStatus status,
+    required bool isSelected,
+    required VoidCallback? onTap,
+    bool isCompact = false,
+  }) {
+    final color = _getStatusColor(status);
+    final gradient = _getStatusGradient(status);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(isCompact ? 10 : 12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: EdgeInsets.all(isCompact ? 12 : 16),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? gradient.scale(0.2)
+                : LinearGradient(
+                    colors: [
+                      color.withValues(alpha: 0.05),
+                      color.withValues(alpha: 0.02),
+                    ],
+                  ),
+            borderRadius: BorderRadius.circular(isCompact ? 10 : 12),
+            border: Border.all(
+              color: isSelected ? color : color.withValues(alpha: 0.2),
+              width: isSelected ? 2 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-        ],
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(isCompact ? 8 : 10),
+                decoration: BoxDecoration(
+                  gradient: isSelected ? gradient : null,
+                  color: isSelected ? null : color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(isCompact ? 8 : 10),
+                ),
+                child: Icon(
+                  _getStatusIcon(status),
+                  size: isCompact ? 18 : 20,
+                  color: isSelected ? Colors.white : color,
+                ),
+              ),
+              SizedBox(width: isCompact ? 10 : 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getStatusDisplayName(status),
+                      style: TextStyle(
+                        fontSize: isCompact ? 13 : 15,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? color : ElegantLightTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      _getStatusDescription(status),
+                      style: TextStyle(
+                        fontSize: isCompact ? 11 : 12,
+                        color: ElegantLightTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                Container(
+                  padding: EdgeInsets.all(isCompact ? 4 : 6),
+                  decoration: BoxDecoration(
+                    gradient: gradient,
+                    borderRadius: BorderRadius.circular(isCompact ? 6 : 8),
+                  ),
+                  child: Icon(
+                    Icons.check,
+                    size: isCompact ? 14 : 16,
+                    color: Colors.white,
+                  ),
+                )
+              else
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: isCompact ? 12 : 14,
+                  color: color.withValues(alpha: 0.5),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   void showPurchaseCheckDialog() {
     final amountController = SafeTextEditingController(debugLabel: 'PurchaseCheckAmount');
+    final customer = _customer.value!;
+    final availableCredit = customer.creditLimit - customer.currentBalance;
 
     Get.dialog(
-      AlertDialog(
-        title: const Text('Verificar Capacidad de Compra'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Ingresa el monto de la compra:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Monto',
-                prefixText: '\$ ',
-                border: OutlineInputBorder(),
+      Builder(
+        builder: (context) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final isMobile = screenWidth < 600;
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 40,
+              vertical: isMobile ? 24 : 40,
+            ),
+            child: Container(
+              constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 420),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header compacto
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(isMobile ? 16 : 20),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.successGradient,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(isMobile ? 16 : 20),
+                          topRight: Radius.circular(isMobile ? 16 : 20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(isMobile ? 10 : 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.credit_card,
+                              size: isMobile ? 24 : 28,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: isMobile ? 12 : 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Verificar Compra',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 16 : 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  customer.displayName,
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 11 : 12,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Content compacto
+                    Padding(
+                      padding: EdgeInsets.all(isMobile ? 16 : 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Credit Info Card compacto
+                          Container(
+                            padding: EdgeInsets.all(isMobile ? 12 : 14),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
+                                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.03),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(isMobile ? 8 : 10),
+                                  decoration: BoxDecoration(
+                                    gradient: ElegantLightTheme.primaryGradient,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.account_balance_wallet,
+                                    size: isMobile ? 18 : 20,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: isMobile ? 10 : 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Crédito Disponible',
+                                        style: TextStyle(
+                                          fontSize: isMobile ? 11 : 12,
+                                          color: ElegantLightTheme.textSecondary,
+                                        ),
+                                      ),
+                                      Text(
+                                        AppFormatters.formatCurrency(availableCredit),
+                                        style: TextStyle(
+                                          fontSize: isMobile ? 16 : 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: availableCredit > 0
+                                              ? const Color(0xFF10B981)
+                                              : const Color(0xFFEF4444),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: isMobile ? 14 : 20),
+
+                          // Amount Input
+                          Text(
+                            'Monto de la Compra',
+                            style: TextStyle(
+                              fontSize: isMobile ? 13 : 14,
+                              fontWeight: FontWeight.w600,
+                              color: ElegantLightTheme.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: isMobile ? 6 : 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: ElegantLightTheme.backgroundColor,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: TextField(
+                              controller: amountController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              style: TextStyle(
+                                fontSize: isMobile ? 16 : 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: '0.00',
+                                hintStyle: TextStyle(
+                                  color: ElegantLightTheme.textTertiary,
+                                ),
+                                prefixIcon: Container(
+                                  margin: EdgeInsets.all(isMobile ? 6 : 8),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isMobile ? 10 : 12,
+                                    vertical: isMobile ? 6 : 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: ElegantLightTheme.primaryGradient,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '\$',
+                                    style: TextStyle(
+                                      fontSize: isMobile ? 16 : 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: isMobile ? 12 : 16,
+                                  vertical: isMobile ? 12 : 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: isMobile ? 16 : 24),
+
+                          // Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildDialogButton(
+                                  label: 'Cancelar',
+                                  icon: Icons.close,
+                                  onTap: () => Get.back(),
+                                  isOutline: true,
+                                  isCompact: isMobile,
+                                ),
+                              ),
+                              SizedBox(width: isMobile ? 10 : 12),
+                              Expanded(
+                                child: _buildDialogButton(
+                                  label: 'Verificar',
+                                  icon: Icons.check_circle,
+                                  gradient: ElegantLightTheme.successGradient,
+                                  onTap: () {
+                                    final amount = double.tryParse(
+                                      amountController.text.replaceAll(',', '.'),
+                                    );
+                                    if (amount != null && amount > 0) {
+                                      Get.back();
+                                      checkPurchaseCapability(amount);
+                                    } else {
+                                      _showError('Error', 'Ingresa un monto válido');
+                                    }
+                                  },
+                                  isCompact: isMobile,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              final amount = double.tryParse(amountController.text);
-              if (amount != null && amount > 0) {
-                Get.back();
-                checkPurchaseCapability(amount);
-              } else {
-                Get.snackbar(
-                  'Error',
-                  'Ingresa un monto válido',
-                  snackPosition: SnackPosition.TOP,
-                );
-              }
-            },
-            child: const Text('Verificar'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -326,28 +878,262 @@ class CustomerDetailController extends GetxController {
     final canPurchase = info['canPurchase'] as bool? ?? false;
     final reason = info['reason'] as String?;
     final availableCredit = info['availableCredit'] as double? ?? 0.0;
+    final gradient = canPurchase ? ElegantLightTheme.successGradient : ElegantLightTheme.errorGradient;
+    final color = canPurchase ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     Get.dialog(
-      AlertDialog(
-        title: Text(canPurchase ? 'Compra Aprobada' : 'Compra Denegada'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (canPurchase)
-              const Text('✅ El cliente puede realizar esta compra.')
-            else
-              Text('❌ ${reason ?? "No se puede realizar la compra"}'),
-            const SizedBox(height: 8),
-            Text(
-              'Crédito disponible: \$${availableCredit.toStringAsFixed(2)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+      Builder(
+        builder: (context) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final isMobile = screenWidth < 600;
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 40,
+              vertical: isMobile ? 24 : 40,
             ),
-          ],
+            child: Container(
+              constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 400),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header compacto
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(isMobile ? 16 : 20),
+                    decoration: BoxDecoration(
+                      gradient: gradient,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(isMobile ? 16 : 20),
+                        topRight: Radius.circular(isMobile ? 16 : 20),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(isMobile ? 12 : 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(isMobile ? 12 : 16),
+                          ),
+                          child: Icon(
+                            canPurchase ? Icons.check_circle : Icons.cancel,
+                            size: isMobile ? 28 : 36,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: isMobile ? 12 : 16),
+                        Expanded(
+                          child: Text(
+                            canPurchase ? 'Compra Aprobada' : 'Compra Denegada',
+                            style: TextStyle(
+                              fontSize: isMobile ? 18 : 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Content compacto
+                  Padding(
+                    padding: EdgeInsets.all(isMobile ? 16 : 20),
+                    child: Column(
+                      children: [
+                        // Result Message
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(isMobile ? 12 : 14),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: color.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                canPurchase ? Icons.thumb_up : Icons.warning_amber_rounded,
+                                color: color,
+                                size: isMobile ? 20 : 22,
+                              ),
+                              SizedBox(width: isMobile ? 10 : 12),
+                              Expanded(
+                                child: Text(
+                                  canPurchase
+                                      ? 'El cliente puede realizar esta compra'
+                                      : reason ?? 'No se puede realizar la compra',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 12 : 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: color,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: isMobile ? 12 : 16),
+
+                        // Available Credit
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(isMobile ? 12 : 14),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
+                                ElegantLightTheme.primaryBlue.withValues(alpha: 0.03),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(isMobile ? 6 : 8),
+                                    decoration: BoxDecoration(
+                                      gradient: ElegantLightTheme.primaryGradient,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Icon(
+                                      Icons.account_balance_wallet,
+                                      size: isMobile ? 14 : 16,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(width: isMobile ? 8 : 10),
+                                  Text(
+                                    'Crédito Disponible',
+                                    style: TextStyle(
+                                      fontSize: isMobile ? 12 : 13,
+                                      color: ElegantLightTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                AppFormatters.formatCurrency(availableCredit),
+                                style: TextStyle(
+                                  fontSize: isMobile ? 14 : 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: availableCredit > 0
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFEF4444),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: isMobile ? 16 : 20),
+
+                        // Close Button
+                        SizedBox(
+                          width: double.infinity,
+                          child: _buildDialogButton(
+                            label: 'Cerrar',
+                            icon: Icons.close,
+                            gradient: gradient,
+                            onTap: () => Get.back(),
+                            isCompact: isMobile,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ==================== DIALOG WIDGETS ====================
+
+  Widget _buildDialogButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    LinearGradient? gradient,
+    bool isOutline = false,
+    bool isCompact = false,
+  }) {
+    final buttonGradient = gradient ?? ElegantLightTheme.primaryGradient;
+    final primaryColor = buttonGradient.colors.first;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(isCompact ? 10 : 12),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            vertical: isCompact ? 10 : 14,
+            horizontal: isCompact ? 14 : 20,
+          ),
+          decoration: BoxDecoration(
+            gradient: isOutline ? null : buttonGradient,
+            color: isOutline ? Colors.transparent : null,
+            borderRadius: BorderRadius.circular(isCompact ? 10 : 12),
+            border: isOutline
+                ? Border.all(
+                    color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+                    width: 1.5,
+                  )
+                : null,
+            boxShadow: isOutline
+                ? null
+                : [
+                    BoxShadow(
+                      color: primaryColor.withValues(alpha: 0.3),
+                      blurRadius: isCompact ? 6 : 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: isCompact ? 16 : 18,
+                color: isOutline ? ElegantLightTheme.textSecondary : Colors.white,
+              ),
+              SizedBox(width: isCompact ? 6 : 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: isCompact ? 13 : 14,
+                  fontWeight: FontWeight.w600,
+                  color: isOutline ? ElegantLightTheme.textPrimary : Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Cerrar')),
-        ],
       ),
     );
   }
@@ -364,15 +1150,52 @@ class CustomerDetailController extends GetxController {
     }
   }
 
-  Color getStatusColor(CustomerStatus status) {
+  String _getStatusDescription(CustomerStatus status) {
     switch (status) {
       case CustomerStatus.active:
-        return Colors.green;
+        return 'Cliente habilitado para compras';
       case CustomerStatus.inactive:
-        return Colors.orange;
+        return 'Cliente temporalmente inactivo';
       case CustomerStatus.suspended:
-        return Colors.red;
+        return 'Cliente suspendido - Sin compras';
     }
+  }
+
+  IconData _getStatusIcon(CustomerStatus status) {
+    switch (status) {
+      case CustomerStatus.active:
+        return Icons.check_circle;
+      case CustomerStatus.inactive:
+        return Icons.pause_circle;
+      case CustomerStatus.suspended:
+        return Icons.block;
+    }
+  }
+
+  Color _getStatusColor(CustomerStatus status) {
+    switch (status) {
+      case CustomerStatus.active:
+        return const Color(0xFF10B981);
+      case CustomerStatus.inactive:
+        return const Color(0xFFF59E0B);
+      case CustomerStatus.suspended:
+        return const Color(0xFFEF4444);
+    }
+  }
+
+  LinearGradient _getStatusGradient(CustomerStatus status) {
+    switch (status) {
+      case CustomerStatus.active:
+        return ElegantLightTheme.successGradient;
+      case CustomerStatus.inactive:
+        return ElegantLightTheme.warningGradient;
+      case CustomerStatus.suspended:
+        return ElegantLightTheme.errorGradient;
+    }
+  }
+
+  Color getStatusColor(CustomerStatus status) {
+    return _getStatusColor(status);
   }
 
   String formatCurrency(double amount) {

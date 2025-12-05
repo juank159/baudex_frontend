@@ -240,7 +240,7 @@ class IsarExpense {
       case IsarPaymentMethod.cash:
         return PaymentMethod.cash;
       case IsarPaymentMethod.credit:
-        return PaymentMethod.other; // Fallback since credit doesn't exist
+        return PaymentMethod.other; // Fallback since credit doesn't exist in expenses
       case IsarPaymentMethod.creditCard:
         return PaymentMethod.creditCard;
       case IsarPaymentMethod.debitCard:
@@ -249,6 +249,8 @@ class IsarExpense {
         return PaymentMethod.bankTransfer;
       case IsarPaymentMethod.check:
         return PaymentMethod.check;
+      case IsarPaymentMethod.clientBalance:
+        return PaymentMethod.other; // Fallback since clientBalance doesn't apply to expenses
       case IsarPaymentMethod.other:
         return PaymentMethod.other;
     }

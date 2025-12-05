@@ -21,7 +21,7 @@ import '../../domain/entities/warehouse.dart';
 
 class InventoryExportService {
   static const String companyName = 'BAUDEX';
-  
+
   // ==================== EXCEL EXPORTS ====================
 
   static Future<void> exportBalancesToExcel(
@@ -32,48 +32,71 @@ class InventoryExportService {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Inventario - Balances'];
-      
+
       // Remove default sheet
       excel.delete('Sheet1');
-      
+
       // Calculate summary
       final totalProducts = balances.length;
-      final totalValue = balances.fold(0.0, (sum, balance) => sum + balance.totalValue);
-      
+      final totalValue = balances.fold(
+        0.0,
+        (sum, balance) => sum + balance.totalValue,
+      );
+
       // Add summary section
       int currentRow = 0;
-      
+
       // Company header
-      final companyCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+      final companyCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
       companyCell.value = TextCellValue(companyName);
       companyCell.cellStyle = CellStyle(bold: true, fontSize: 16);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+      );
       currentRow++;
-      
+
       // Title
-      final titleCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+      final titleCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
       titleCell.value = TextCellValue('Reporte de Balances de Inventario');
       titleCell.cellStyle = CellStyle(bold: true, fontSize: 14);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+      );
       currentRow++;
-      
+
       // Date
-      final dateCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
-      dateCell.value = TextCellValue('Fecha: ${AppFormatters.formatDateTime(DateTime.now())}');
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow));
+      final dateCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
+      dateCell.value = TextCellValue(
+        'Fecha: ${AppFormatters.formatDateTime(DateTime.now())}',
+      );
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+      );
       currentRow++;
-      
+
       // Summary
-      final summaryCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
-      summaryCell.value = TextCellValue('Productos: $totalProducts    Valor: ${AppFormatters.formatCurrency(totalValue)}');
+      final summaryCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
+      summaryCell.value = TextCellValue(
+        'Productos: $totalProducts    Valor: ${AppFormatters.formatCurrency(totalValue)}',
+      );
       summaryCell.cellStyle = CellStyle(bold: true, fontSize: 12);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+      );
       currentRow += 2; // Extra space
-      
+
       // Header
       final headers = [
         'Producto',
@@ -84,22 +107,22 @@ class InventoryExportService {
         'Costo Promedio',
         'Última Actualización',
       ];
-      
+
       // Add headers
       for (int i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow));
-        cell.value = TextCellValue(headers[i]);
-        cell.cellStyle = CellStyle(
-          bold: true,
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow),
         );
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = CellStyle(bold: true);
       }
       currentRow++;
-      
+
       // Add data
       for (int i = 0; i < balances.length; i++) {
         final balance = balances[i];
         final rowIndex = currentRow + i;
-        
+
         final rowData = [
           balance.productName,
           balance.totalQuantity.toString(),
@@ -109,20 +132,21 @@ class InventoryExportService {
           AppFormatters.formatCurrency(balance.averageCost),
           AppFormatters.formatDateTime(balance.lastUpdated),
         ];
-        
+
         for (int j = 0; j < rowData.length; j++) {
-          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex));
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex),
+          );
           cell.value = TextCellValue(rowData[j]);
         }
       }
-      
+
       // Auto-size columns
       for (int i = 0; i < headers.length; i++) {
         sheet.setColumnAutoFit(i);
       }
-      
+
       await _saveAndShareExcel(excel, 'inventario_balances', shareOnly: true);
-      
     } catch (e) {
       throw Exception('Error exportando balances a Excel: $e');
     }
@@ -136,48 +160,71 @@ class InventoryExportService {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Inventario - Balances'];
-      
+
       // Remove default sheet
       excel.delete('Sheet1');
-      
+
       // Calculate summary
       final totalProducts = balances.length;
-      final totalValue = balances.fold(0.0, (sum, balance) => sum + balance.totalValue);
-      
+      final totalValue = balances.fold(
+        0.0,
+        (sum, balance) => sum + balance.totalValue,
+      );
+
       // Add summary section
       int currentRow = 0;
-      
+
       // Company header
-      final companyCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+      final companyCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
       companyCell.value = TextCellValue(companyName);
       companyCell.cellStyle = CellStyle(bold: true, fontSize: 16);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+      );
       currentRow++;
-      
+
       // Title
-      final titleCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+      final titleCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
       titleCell.value = TextCellValue('Reporte de Balances de Inventario');
       titleCell.cellStyle = CellStyle(bold: true, fontSize: 14);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+      );
       currentRow++;
-      
+
       // Date
-      final dateCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
-      dateCell.value = TextCellValue('Fecha: ${AppFormatters.formatDateTime(DateTime.now())}');
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow));
+      final dateCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
+      dateCell.value = TextCellValue(
+        'Fecha: ${AppFormatters.formatDateTime(DateTime.now())}',
+      );
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+      );
       currentRow++;
-      
+
       // Summary
-      final summaryCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
-      summaryCell.value = TextCellValue('Productos: $totalProducts    Valor: ${AppFormatters.formatCurrency(totalValue)}');
+      final summaryCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
+      summaryCell.value = TextCellValue(
+        'Productos: $totalProducts    Valor: ${AppFormatters.formatCurrency(totalValue)}',
+      );
       summaryCell.cellStyle = CellStyle(bold: true, fontSize: 12);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+      );
       currentRow += 2; // Extra space
-      
+
       // Header
       final headers = [
         'Producto',
@@ -188,22 +235,22 @@ class InventoryExportService {
         'Costo Promedio',
         'Última Actualización',
       ];
-      
+
       // Add headers
       for (int i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow));
-        cell.value = TextCellValue(headers[i]);
-        cell.cellStyle = CellStyle(
-          bold: true,
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow),
         );
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = CellStyle(bold: true);
       }
       currentRow++;
-      
+
       // Add data
       for (int i = 0; i < balances.length; i++) {
         final balance = balances[i];
         final rowIndex = currentRow + i;
-        
+
         final rowData = [
           balance.productName,
           balance.totalQuantity.toString(),
@@ -213,33 +260,36 @@ class InventoryExportService {
           AppFormatters.formatCurrency(balance.averageCost),
           AppFormatters.formatDateTime(balance.lastUpdated),
         ];
-        
+
         for (int j = 0; j < rowData.length; j++) {
-          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex));
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex),
+          );
           cell.value = TextCellValue(rowData[j]);
         }
       }
-      
+
       // Auto-size columns
       for (int i = 0; i < headers.length; i++) {
         sheet.setColumnAutoFit(i);
       }
-      
+
       return await _saveExcelWithPicker(excel, 'inventario_balances');
-      
     } catch (e) {
       throw Exception('Error descargando balances a Excel: $e');
     }
   }
 
-  static Future<void> exportMovementsToExcel(List<InventoryMovement> movements) async {
+  static Future<void> exportMovementsToExcel(
+    List<InventoryMovement> movements,
+  ) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Inventario - Movimientos'];
-      
+
       // Remove default sheet
       excel.delete('Sheet1');
-      
+
       // Header
       final headers = [
         'Fecha',
@@ -255,21 +305,21 @@ class InventoryExportService {
         'Referencia',
         'Notas',
       ];
-      
+
       // Add headers
       for (int i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
-        cell.value = TextCellValue(headers[i]);
-        cell.cellStyle = CellStyle(
-          bold: true,
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0),
         );
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = CellStyle(bold: true);
       }
-      
+
       // Add data
       for (int i = 0; i < movements.length; i++) {
         final movement = movements[i];
         final rowIndex = i + 1;
-        
+
         final rowData = [
           AppFormatters.formatDate(movement.movementDate),
           movement.productName,
@@ -281,16 +331,21 @@ class InventoryExportService {
           AppFormatters.formatCurrency(movement.totalCost),
           movement.status.displayStatus,
           movement.warehouseName ?? 'N/A',
-          movement.hasReference ? '${movement.referenceType} - ${movement.referenceId}' : 'N/A',
+          movement.hasReference
+              ? '${movement.referenceType} - ${movement.referenceId}'
+              : 'N/A',
           movement.notes ?? '',
         ];
-        
+
         for (int j = 0; j < rowData.length; j++) {
-          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex));
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex),
+          );
           cell.value = TextCellValue(rowData[j]);
-          
+
           // Color coding for quantity
-          if (j == 5) { // Quantity column
+          if (j == 5) {
+            // Quantity column
             if (movement.type == InventoryMovementType.inbound) {
               cell.cellStyle = CellStyle();
             } else if (movement.type == InventoryMovementType.outbound) {
@@ -299,33 +354,42 @@ class InventoryExportService {
           }
         }
       }
-      
+
       // Auto-size columns
       for (int i = 0; i < headers.length; i++) {
         sheet.setColumnAutoFit(i);
       }
-      
-      await _saveAndShareExcel(excel, 'transferencias_inventario', shareOnly: true);
-      
+
+      await _saveAndShareExcel(
+        excel,
+        'transferencias_inventario',
+        shareOnly: true,
+      );
     } catch (e) {
       throw Exception('Error exportando movimientos a Excel: $e');
     }
   }
 
-  static Future<void> exportKardexFromEntriestoExcel(String productName, List<KardexEntry> entries) async {
+  static Future<void> exportKardexFromEntriestoExcel(
+    String productName,
+    List<KardexEntry> entries,
+  ) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Kardex - $productName'];
-      
+
       // Remove default sheet
       excel.delete('Sheet1');
-      
+
       // Header with product info
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value = 
-          TextCellValue('KARDEX DE PRODUCTO: $productName');
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0), 
-                 CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: 0));
-      
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+          .value = TextCellValue('KARDEX DE PRODUCTO: $productName');
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+        CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: 0),
+      );
+
       // Headers
       final headers = [
         'Fecha',
@@ -338,21 +402,21 @@ class InventoryExportService {
         'Costo Salida',
         'Valor Total',
       ];
-      
+
       // Add headers
       for (int i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2));
-        cell.value = TextCellValue(headers[i]);
-        cell.cellStyle = CellStyle(
-          bold: true,
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2),
         );
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = CellStyle(bold: true);
       }
-      
+
       // Add data
       for (int i = 0; i < entries.length; i++) {
         final entry = entries[i];
         final rowIndex = i + 3;
-        
+
         final rowData = [
           AppFormatters.formatDate(entry.date),
           '${entry.documentType} - ${entry.documentNumber}',
@@ -360,50 +424,66 @@ class InventoryExportService {
           entry.quantityIn > 0 ? entry.quantityIn.toString() : '',
           entry.quantityOut > 0 ? entry.quantityOut.toString() : '',
           entry.balance.toString(),
-          entry.unitCostIn > 0 ? AppFormatters.formatCurrency(entry.unitCostIn) : '',
-          entry.unitCostOut > 0 ? AppFormatters.formatCurrency(entry.unitCostOut) : '',
+          entry.unitCostIn > 0
+              ? AppFormatters.formatCurrency(entry.unitCostIn)
+              : '',
+          entry.unitCostOut > 0
+              ? AppFormatters.formatCurrency(entry.unitCostOut)
+              : '',
           AppFormatters.formatCurrency(entry.totalValue),
         ];
-        
+
         for (int j = 0; j < rowData.length; j++) {
-          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex));
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex),
+          );
           cell.value = TextCellValue(rowData[j]);
-          
+
           // Color coding for quantities
-          if (j == 3 && entry.quantityIn > 0) { // Entrada
+          if (j == 3 && entry.quantityIn > 0) {
+            // Entrada
             cell.cellStyle = CellStyle();
-          } else if (j == 4 && entry.quantityOut > 0) { // Salida
+          } else if (j == 4 && entry.quantityOut > 0) {
+            // Salida
             cell.cellStyle = CellStyle();
           }
         }
       }
-      
+
       // Auto-size columns
       for (int i = 0; i < headers.length; i++) {
         sheet.setColumnAutoFit(i);
       }
-      
-      await _saveAndShareExcel(excel, 'kardex_${productName.replaceAll(' ', '_')}');
-      
+
+      await _saveAndShareExcel(
+        excel,
+        'kardex_${productName.replaceAll(' ', '_')}',
+      );
     } catch (e) {
       throw Exception('Error exportando kardex a Excel: $e');
     }
   }
 
-  static Future<void> exportKardexToExcel(String productName, List<InventoryMovement> movements) async {
+  static Future<void> exportKardexToExcel(
+    String productName,
+    List<InventoryMovement> movements,
+  ) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Kardex - $productName'];
-      
+
       // Remove default sheet
       excel.delete('Sheet1');
-      
+
       // Header with product info
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value = 
-          TextCellValue('KARDEX DE PRODUCTO: $productName');
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0), 
-                 CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: 0));
-      
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+          .value = TextCellValue('KARDEX DE PRODUCTO: $productName');
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+        CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: 0),
+      );
+
       // Headers
       final headers = [
         'Fecha',
@@ -415,30 +495,36 @@ class InventoryExportService {
         'Costo Unit.',
         'Valor Total',
       ];
-      
+
       // Add headers
       for (int i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2));
-        cell.value = TextCellValue(headers[i]);
-        cell.cellStyle = CellStyle(
-          bold: true,
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2),
         );
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = CellStyle(bold: true);
       }
-      
+
       // Calculate running balance
       int runningBalance = 0;
-      
+
       // Add data
       for (int i = 0; i < movements.length; i++) {
         final movement = movements[i];
         final rowIndex = i + 3;
-        
+
         // Update running balance
         runningBalance += movement.quantity;
-        
-        final entrada = movement.type == InventoryMovementType.inbound ? movement.quantity.toString() : '';
-        final salida = movement.type == InventoryMovementType.outbound ? movement.quantity.abs().toString() : '';
-        
+
+        final entrada =
+            movement.type == InventoryMovementType.inbound
+                ? movement.quantity.toString()
+                : '';
+        final salida =
+            movement.type == InventoryMovementType.outbound
+                ? movement.quantity.abs().toString()
+                : '';
+
         final rowData = [
           AppFormatters.formatDate(movement.movementDate),
           movement.type.displayType,
@@ -449,20 +535,24 @@ class InventoryExportService {
           AppFormatters.formatCurrency(movement.unitCost),
           AppFormatters.formatCurrency(movement.totalCost),
         ];
-        
+
         for (int j = 0; j < rowData.length; j++) {
-          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex));
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex),
+          );
           cell.value = TextCellValue(rowData[j]);
         }
       }
-      
+
       // Auto-size columns
       for (int i = 0; i < headers.length; i++) {
         sheet.setColumnAutoFit(i);
       }
-      
-      await _saveAndShareExcel(excel, 'kardex_${productName.replaceAll(' ', '_')}');
-      
+
+      await _saveAndShareExcel(
+        excel,
+        'kardex_${productName.replaceAll(' ', '_')}',
+      );
     } catch (e) {
       throw Exception('Error exportando kardex a Excel: $e');
     }
@@ -477,23 +567,23 @@ class InventoryExportService {
   }) async {
     try {
       final pdf = pw.Document();
-      
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(20),
-          build: (context) => [
-            _buildPDFHeader('Reporte de Balances de Inventario'),
-            pw.SizedBox(height: 20),
-            _buildBalancesTable(balances),
-            pw.SizedBox(height: 20),
-            _buildPDFFooter(),
-          ],
+          build:
+              (context) => [
+                _buildPDFHeader('Reporte de Balances de Inventario'),
+                pw.SizedBox(height: 20),
+                _buildBalancesTable(balances),
+                pw.SizedBox(height: 20),
+                _buildPDFFooter(),
+              ],
         ),
       );
-      
+
       await _saveAndSharePDF(pdf, 'inventario_balances', shareOnly: true);
-      
     } catch (e) {
       throw Exception('Error exportando balances a PDF: $e');
     }
@@ -506,98 +596,125 @@ class InventoryExportService {
   }) async {
     try {
       final pdf = pw.Document();
-      
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(20),
-          build: (context) => [
-            _buildPDFHeader('Reporte de Balances de Inventario'),
-            pw.SizedBox(height: 20),
-            _buildBalancesTable(balances),
-            pw.SizedBox(height: 20),
-            _buildPDFFooter(),
-          ],
+          build:
+              (context) => [
+                _buildPDFHeader('Reporte de Balances de Inventario'),
+                pw.SizedBox(height: 20),
+                _buildBalancesTable(balances),
+                pw.SizedBox(height: 20),
+                _buildPDFFooter(),
+              ],
         ),
       );
-      
+
       return await _savePDFWithPicker(pdf, 'inventario_balances');
-      
     } catch (e) {
       throw Exception('Error descargando balances a PDF: $e');
     }
   }
 
-  static Future<void> exportMovementsToPDF(List<InventoryMovement> movements) async {
+  static Future<void> exportMovementsToPDF(
+    List<InventoryMovement> movements,
+  ) async {
     try {
       final pdf = pw.Document();
-      
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(20),
-          build: (context) => [
-            _buildPDFHeader('Reporte de Movimientos de Inventario'),
-            pw.SizedBox(height: 20),
-            _buildMovementsTable(movements),
-            pw.SizedBox(height: 20),
-            _buildPDFFooter(),
-          ],
+          build:
+              (context) => [
+                _buildPDFHeader('Reporte de Movimientos de Inventario'),
+                pw.SizedBox(height: 20),
+                _buildMovementsTable(movements),
+                pw.SizedBox(height: 20),
+                _buildPDFFooter(),
+              ],
         ),
       );
-      
+
       await _saveAndSharePDF(pdf, 'transferencias_inventario', shareOnly: true);
-      
     } catch (e) {
       throw Exception('Error exportando movimientos a PDF: $e');
     }
   }
 
-  static Future<String> downloadMovementsToExcel(List<InventoryMovement> movements, {List<Warehouse>? warehouses}) async {
+  static Future<String> downloadMovementsToExcel(
+    List<InventoryMovement> movements, {
+    List<Warehouse>? warehouses,
+  }) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Transferencias de Inventario'];
-      
+
       // Remove default sheet
       excel.delete('Sheet1');
-      
+
       // Add company header and title
       int currentRow = 0;
-      
+
       // Company header
-      final companyCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+      final companyCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
       companyCell.value = TextCellValue(companyName);
       companyCell.cellStyle = CellStyle(bold: true, fontSize: 16);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: currentRow),
+      );
       currentRow++;
-      
+
       // Title
-      final titleCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
-      titleCell.value = TextCellValue('Reporte de Transferencias de Inventario');
+      final titleCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
+      titleCell.value = TextCellValue(
+        'Reporte de Transferencias de Inventario',
+      );
       titleCell.cellStyle = CellStyle(bold: true, fontSize: 14);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: currentRow),
+      );
       currentRow++;
-      
+
       // Date
-      final dateCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
-      dateCell.value = TextCellValue('Fecha: ${AppFormatters.formatDateTime(DateTime.now())}');
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: currentRow));
+      final dateCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
+      dateCell.value = TextCellValue(
+        'Fecha: ${AppFormatters.formatDateTime(DateTime.now())}',
+      );
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: currentRow),
+      );
       currentRow++;
-      
+
       // Group and process movements to avoid duplicates
       final processedMovements = _processTransferMovements(movements);
-      
+
       // Summary
-      final summaryCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
-      summaryCell.value = TextCellValue('Total de Transferencias: ${processedMovements.length}');
+      final summaryCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
+      summaryCell.value = TextCellValue(
+        'Total de Transferencias: ${processedMovements.length}',
+      );
       summaryCell.cellStyle = CellStyle(bold: true, fontSize: 12);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: currentRow),
+      );
       currentRow += 2; // Extra space
-      
+
       // Header
       final headers = [
         'Fecha',
@@ -609,26 +726,34 @@ class InventoryExportService {
         'Notas',
         'Tipo de Movimiento',
       ];
-      
+
       // Add headers
       for (int i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow));
-        cell.value = TextCellValue(headers[i]);
-        cell.cellStyle = CellStyle(
-          bold: true,
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow),
         );
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = CellStyle(bold: true);
       }
       currentRow++;
-      
+
       // Add data
       for (int i = 0; i < processedMovements.length; i++) {
         final movement = processedMovements[i];
         final rowIndex = currentRow + i;
-        
+
         // Extract warehouse names for transfers using better logic
-        String almacenOrigen = _extractWarehouseName(movement, isOrigin: true, warehouses: warehouses);
-        String almacenDestino = _extractWarehouseName(movement, isOrigin: false, warehouses: warehouses);
-        
+        String almacenOrigen = _extractWarehouseName(
+          movement,
+          isOrigin: true,
+          warehouses: warehouses,
+        );
+        String almacenDestino = _extractWarehouseName(
+          movement,
+          isOrigin: false,
+          warehouses: warehouses,
+        );
+
         // Get status in Spanish
         String estadoEspanol = '';
         switch (movement.status.name) {
@@ -644,7 +769,7 @@ class InventoryExportService {
           default:
             estadoEspanol = movement.status.name;
         }
-        
+
         // Get movement type in Spanish
         String tipoMovimiento = '';
         switch (movement.type.name) {
@@ -663,7 +788,7 @@ class InventoryExportService {
           default:
             tipoMovimiento = movement.type.name;
         }
-        
+
         final rowData = [
           AppFormatters.formatDate(movement.createdAt),
           movement.productName,
@@ -674,21 +799,27 @@ class InventoryExportService {
           movement.notes ?? '',
           tipoMovimiento,
         ];
-        
+
         for (int j = 0; j < rowData.length; j++) {
-          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex));
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex),
+          );
           cell.value = TextCellValue(rowData[j]);
-          
+
           // Color coding for quantity
-          if (j == 4) { // Quantity column
-            if (movement.type == InventoryMovementType.transferIn || movement.type == InventoryMovementType.inbound) {
+          if (j == 4) {
+            // Quantity column
+            if (movement.type == InventoryMovementType.transferIn ||
+                movement.type == InventoryMovementType.inbound) {
               cell.cellStyle = CellStyle();
-            } else if (movement.type == InventoryMovementType.transferOut || movement.type == InventoryMovementType.outbound) {
+            } else if (movement.type == InventoryMovementType.transferOut ||
+                movement.type == InventoryMovementType.outbound) {
               cell.cellStyle = CellStyle();
             }
           }
           // Color coding for status
-          if (j == 5) { // Status column
+          if (j == 5) {
+            // Status column
             if (movement.status.name == 'confirmed') {
               cell.cellStyle = CellStyle();
             } else if (movement.status.name == 'cancelled') {
@@ -699,117 +830,131 @@ class InventoryExportService {
           }
         }
       }
-      
+
       // Auto-size columns
       for (int i = 0; i < headers.length; i++) {
         sheet.setColumnAutoFit(i);
       }
-      
-      return await _saveExcelWithPicker(excel, 'Transferencias_Inventario_${AppFormatters.formatDate(DateTime.now()).replaceAll('/', '-')}');
-      
+
+      return await _saveExcelWithPicker(
+        excel,
+        'Transferencias_Inventario_${AppFormatters.formatDate(DateTime.now()).replaceAll('/', '-')}',
+      );
     } catch (e) {
       throw Exception('Error descargando movimientos a Excel: $e');
     }
   }
 
-  static Future<String> downloadMovementsToPDF(List<InventoryMovement> movements, {List<Warehouse>? warehouses}) async {
+  static Future<String> downloadMovementsToPDF(
+    List<InventoryMovement> movements, {
+    List<Warehouse>? warehouses,
+  }) async {
     try {
       final processedMovements = _processTransferMovements(movements);
       final pdf = pw.Document();
-      
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(20),
-          build: (context) => [
-            _buildPDFHeader('Reporte de Transferencias de Inventario'),
-            pw.SizedBox(height: 10),
-            pw.Text(
-              'Total de Transferencias: ${processedMovements.length}',
-              style: pw.TextStyle(
-                fontSize: 12, 
-                fontWeight: pw.FontWeight.bold,
-                font: pw.Font.helvetica(),
-              ),
-            ),
-            pw.SizedBox(height: 20),
-            _buildTransfersTable(processedMovements, warehouses),
-            pw.SizedBox(height: 20),
-            _buildPDFFooter(),
-          ],
+          build:
+              (context) => [
+                _buildPDFHeader('Reporte de Transferencias de Inventario'),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Total de Transferencias: ${processedMovements.length}',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                    font: pw.Font.helvetica(),
+                  ),
+                ),
+                pw.SizedBox(height: 20),
+                _buildTransfersTable(processedMovements, warehouses),
+                pw.SizedBox(height: 20),
+                _buildPDFFooter(),
+              ],
         ),
       );
-      
-      return await _savePDFWithPicker(pdf, 'Transferencias_Inventario_${AppFormatters.formatDate(DateTime.now()).replaceAll('/', '-')}');
-      
+
+      return await _savePDFWithPicker(
+        pdf,
+        'Transferencias_Inventario_${AppFormatters.formatDate(DateTime.now()).replaceAll('/', '-')}',
+      );
     } catch (e) {
       throw Exception('Error descargando movimientos a PDF: $e');
     }
   }
 
-  static Future<void> exportKardexFromEntriesToPDF(String productName, List<KardexEntry> entries) async {
+  static Future<void> exportKardexFromEntriesToPDF(
+    String productName,
+    List<KardexEntry> entries,
+  ) async {
     try {
       final pdf = pw.Document();
-      
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(20),
-          build: (context) => [
-            _buildPDFHeader('Kardex de Producto'),
-            pw.SizedBox(height: 10),
-            pw.Text(
-              'Producto: $productName',
-              style: pw.TextStyle(
-                fontSize: 16, 
-                fontWeight: pw.FontWeight.bold,
-                font: pw.Font.helvetica(),
-              ),
-            ),
-            pw.SizedBox(height: 20),
-            _buildKardexEntriesTable(entries),
-            pw.SizedBox(height: 20),
-            _buildPDFFooter(),
-          ],
+          build:
+              (context) => [
+                _buildPDFHeader('Kardex de Producto'),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Producto: $productName',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    font: pw.Font.helvetica(),
+                  ),
+                ),
+                pw.SizedBox(height: 20),
+                _buildKardexEntriesTable(entries),
+                pw.SizedBox(height: 20),
+                _buildPDFFooter(),
+              ],
         ),
       );
-      
+
       await _saveAndSharePDF(pdf, 'kardex_${productName.replaceAll(' ', '_')}');
-      
     } catch (e) {
       throw Exception('Error exportando kardex a PDF: $e');
     }
   }
 
-  static Future<void> exportKardexToPDF(String productName, List<InventoryMovement> movements) async {
+  static Future<void> exportKardexToPDF(
+    String productName,
+    List<InventoryMovement> movements,
+  ) async {
     try {
       final pdf = pw.Document();
-      
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(20),
-          build: (context) => [
-            _buildPDFHeader('Kardex de Producto'),
-            pw.SizedBox(height: 10),
-            pw.Text(
-              'Producto: $productName',
-              style: pw.TextStyle(
-                fontSize: 16, 
-                fontWeight: pw.FontWeight.bold,
-                font: pw.Font.helvetica(),
-              ),
-            ),
-            pw.SizedBox(height: 20),
-            _buildKardexTable(movements),
-            pw.SizedBox(height: 20),
-            _buildPDFFooter(),
-          ],
+          build:
+              (context) => [
+                _buildPDFHeader('Kardex de Producto'),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Producto: $productName',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    font: pw.Font.helvetica(),
+                  ),
+                ),
+                pw.SizedBox(height: 20),
+                _buildKardexTable(movements),
+                pw.SizedBox(height: 20),
+                _buildPDFFooter(),
+              ],
         ),
       );
-      
+
       await _saveAndSharePDF(pdf, 'kardex_${productName.replaceAll(' ', '_')}');
-      
     } catch (e) {
       throw Exception('Error exportando kardex a PDF: $e');
     }
@@ -827,17 +972,14 @@ class InventoryExportService {
             pw.Text(
               companyName,
               style: pw.TextStyle(
-                fontSize: 24, 
+                fontSize: 24,
                 fontWeight: pw.FontWeight.bold,
                 font: pw.Font.helvetica(),
               ),
             ),
             pw.Text(
               'Generado: ${AppFormatters.formatDateTime(DateTime.now())}',
-              style: pw.TextStyle(
-                fontSize: 10,
-                font: pw.Font.helvetica(),
-              ),
+              style: pw.TextStyle(fontSize: 10, font: pw.Font.helvetica()),
             ),
           ],
         ),
@@ -845,7 +987,7 @@ class InventoryExportService {
         pw.Text(
           title,
           style: pw.TextStyle(
-            fontSize: 18, 
+            fontSize: 18,
             fontWeight: pw.FontWeight.bold,
             font: pw.Font.helvetica(),
           ),
@@ -861,10 +1003,7 @@ class InventoryExportService {
         pw.Divider(),
         pw.Text(
           'Reporte generado automaticamente por $companyName',
-          style: pw.TextStyle(
-            fontSize: 8,
-            font: pw.Font.helvetica(),
-          ),
+          style: pw.TextStyle(fontSize: 8, font: pw.Font.helvetica()),
         ),
       ],
     );
@@ -873,8 +1012,11 @@ class InventoryExportService {
   static pw.Widget _buildBalancesTable(List<InventoryBalance> balances) {
     // Calculate summary
     final totalProducts = balances.length;
-    final totalValue = balances.fold(0.0, (sum, balance) => sum + balance.totalValue);
-    
+    final totalValue = balances.fold(
+      0.0,
+      (sum, balance) => sum + balance.totalValue,
+    );
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -910,7 +1052,7 @@ class InventoryExportService {
           ),
         ),
         pw.SizedBox(height: 16),
-        
+
         // Table
         pw.Table(
           border: pw.TableBorder.all(width: 0.5),
@@ -936,16 +1078,22 @@ class InventoryExportService {
               ],
             ),
             // Data rows
-            ...balances.map((balance) => pw.TableRow(
-              children: [
-                _buildTableCell(balance.productName),
-                _buildTableCell(balance.totalQuantity.toString()),
-                _buildTableCell(balance.availableQuantity.toString()),
-                _buildTableCell(balance.reservedQuantity.toString()),
-                _buildTableCell(AppFormatters.formatCurrency(balance.totalValue)),
-                _buildTableCell(AppFormatters.formatCurrency(balance.averageCost)),
-              ],
-            )),
+            ...balances.map(
+              (balance) => pw.TableRow(
+                children: [
+                  _buildTableCell(balance.productName),
+                  _buildTableCell(balance.totalQuantity.toString()),
+                  _buildTableCell(balance.availableQuantity.toString()),
+                  _buildTableCell(balance.reservedQuantity.toString()),
+                  _buildTableCell(
+                    AppFormatters.formatCurrency(balance.totalValue),
+                  ),
+                  _buildTableCell(
+                    AppFormatters.formatCurrency(balance.averageCost),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ],
@@ -979,32 +1127,37 @@ class InventoryExportService {
           ],
         ),
         // Data rows
-        ...movements.map((movement) => pw.TableRow(
-          children: [
-            _buildTableCell(AppFormatters.formatDate(movement.movementDate)),
-            _buildTableCell(movement.productName),
-            _buildTableCell(movement.type.displayType),
-            _buildTableCell(movement.reason.displayReason),
-            _buildTableCell(movement.displayQuantity),
-            _buildTableCell(AppFormatters.formatCurrency(movement.totalCost)),
-            _buildTableCell(movement.status.displayStatus),
-          ],
-        )),
+        ...movements.map(
+          (movement) => pw.TableRow(
+            children: [
+              _buildTableCell(AppFormatters.formatDate(movement.movementDate)),
+              _buildTableCell(movement.productName),
+              _buildTableCell(movement.type.displayType),
+              _buildTableCell(movement.reason.displayReason),
+              _buildTableCell(movement.displayQuantity),
+              _buildTableCell(AppFormatters.formatCurrency(movement.totalCost)),
+              _buildTableCell(movement.status.displayStatus),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  static pw.Widget _buildTransfersTable(List<InventoryMovement> movements, List<Warehouse>? warehouses) {
+  static pw.Widget _buildTransfersTable(
+    List<InventoryMovement> movements,
+    List<Warehouse>? warehouses,
+  ) {
     return pw.Table(
       border: pw.TableBorder.all(width: 0.5),
       columnWidths: {
-        0: const pw.FlexColumnWidth(1.5),  // Fecha
-        1: const pw.FlexColumnWidth(2.5),  // Producto
-        2: const pw.FlexColumnWidth(2),    // Almacén Origen
-        3: const pw.FlexColumnWidth(2),    // Almacén Destino
-        4: const pw.FlexColumnWidth(1),    // Cantidad
-        5: const pw.FlexColumnWidth(1.5),  // Estado
-        6: const pw.FlexColumnWidth(1.5),  // Tipo
+        0: const pw.FlexColumnWidth(1.5), // Fecha
+        1: const pw.FlexColumnWidth(2.5), // Producto
+        2: const pw.FlexColumnWidth(2), // Almacén Origen
+        3: const pw.FlexColumnWidth(2), // Almacén Destino
+        4: const pw.FlexColumnWidth(1), // Cantidad
+        5: const pw.FlexColumnWidth(1.5), // Estado
+        6: const pw.FlexColumnWidth(1.5), // Tipo
       },
       children: [
         // Header
@@ -1023,9 +1176,17 @@ class InventoryExportService {
         // Data rows
         ...movements.map((movement) {
           // Extract warehouse names for transfers using better logic
-          String almacenOrigen = _extractWarehouseName(movement, isOrigin: true, warehouses: warehouses);
-          String almacenDestino = _extractWarehouseName(movement, isOrigin: false, warehouses: warehouses);
-          
+          String almacenOrigen = _extractWarehouseName(
+            movement,
+            isOrigin: true,
+            warehouses: warehouses,
+          );
+          String almacenDestino = _extractWarehouseName(
+            movement,
+            isOrigin: false,
+            warehouses: warehouses,
+          );
+
           // Get status in Spanish
           String estadoEspanol = '';
           switch (movement.status.name) {
@@ -1041,7 +1202,7 @@ class InventoryExportService {
             default:
               estadoEspanol = movement.status.name;
           }
-          
+
           // Get movement type in Spanish
           String tipoMovimiento = '';
           switch (movement.type.name) {
@@ -1060,7 +1221,7 @@ class InventoryExportService {
             default:
               tipoMovimiento = movement.type.name;
           }
-          
+
           return pw.TableRow(
             children: [
               _buildTableCell(AppFormatters.formatDate(movement.createdAt)),
@@ -1079,7 +1240,7 @@ class InventoryExportService {
 
   static pw.Widget _buildKardexTable(List<InventoryMovement> movements) {
     int runningBalance = 0;
-    
+
     return pw.Table(
       border: pw.TableBorder.all(width: 0.5),
       columnWidths: {
@@ -1106,10 +1267,16 @@ class InventoryExportService {
         // Data rows
         ...movements.map((movement) {
           runningBalance += movement.quantity;
-          
-          final entrada = movement.type == InventoryMovementType.inbound ? movement.quantity.toString() : '';
-          final salida = movement.type == InventoryMovementType.outbound ? movement.quantity.abs().toString() : '';
-          
+
+          final entrada =
+              movement.type == InventoryMovementType.inbound
+                  ? movement.quantity.toString()
+                  : '';
+          final salida =
+              movement.type == InventoryMovementType.outbound
+                  ? movement.quantity.abs().toString()
+                  : '';
+
           return pw.TableRow(
             children: [
               _buildTableCell(AppFormatters.formatDate(movement.movementDate)),
@@ -1133,22 +1300,27 @@ class InventoryExportService {
         style: pw.TextStyle(
           fontSize: isHeader ? 8 : 5,
           fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
-          font: pw.Font.helvetica(), // Use basic font that supports Unicode better
+          font:
+              pw.Font.helvetica(), // Use basic font that supports Unicode better
         ),
         textAlign: isHeader ? pw.TextAlign.center : pw.TextAlign.left,
       ),
     );
   }
 
-  static Future<String> _saveAndShareExcel(Excel excel, String filename, {bool shareOnly = false}) async {
+  static Future<String> _saveAndShareExcel(
+    Excel excel,
+    String filename, {
+    bool shareOnly = false,
+  }) async {
     try {
       final bytes = excel.encode();
       if (bytes == null) throw Exception('No se pudo generar el archivo Excel');
-      
+
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/$filename.xlsx');
       await file.writeAsBytes(bytes);
-      
+
       if (shareOnly) {
         await Share.shareXFiles(
           [XFile(file.path)],
@@ -1156,7 +1328,7 @@ class InventoryExportService {
           subject: 'Reporte - $filename',
         );
       }
-      
+
       return file.path;
     } catch (e) {
       throw Exception('Error guardando archivo Excel: $e');
@@ -1190,29 +1362,41 @@ class InventoryExportService {
           ],
         ),
         // Data rows
-        ...entries.map((entry) => pw.TableRow(
-          children: [
-            _buildTableCell(AppFormatters.formatDate(entry.date)),
-            _buildTableCell('${entry.documentType} - ${entry.documentNumber}'),
-            _buildTableCell(entry.description),
-            _buildTableCell(entry.quantityIn > 0 ? entry.quantityIn.toString() : ''),
-            _buildTableCell(entry.quantityOut > 0 ? entry.quantityOut.toString() : ''),
-            _buildTableCell(entry.balance.toString()),
-            _buildTableCell(AppFormatters.formatCurrency(entry.totalValue)),
-          ],
-        )),
+        ...entries.map(
+          (entry) => pw.TableRow(
+            children: [
+              _buildTableCell(AppFormatters.formatDate(entry.date)),
+              _buildTableCell(
+                '${entry.documentType} - ${entry.documentNumber}',
+              ),
+              _buildTableCell(entry.description),
+              _buildTableCell(
+                entry.quantityIn > 0 ? entry.quantityIn.toString() : '',
+              ),
+              _buildTableCell(
+                entry.quantityOut > 0 ? entry.quantityOut.toString() : '',
+              ),
+              _buildTableCell(entry.balance.toString()),
+              _buildTableCell(AppFormatters.formatCurrency(entry.totalValue)),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  static Future<String> _saveAndSharePDF(pw.Document pdf, String filename, {bool shareOnly = false}) async {
+  static Future<String> _saveAndSharePDF(
+    pw.Document pdf,
+    String filename, {
+    bool shareOnly = false,
+  }) async {
     try {
       final bytes = await pdf.save();
-      
+
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/$filename.pdf');
       await file.writeAsBytes(bytes);
-      
+
       if (shareOnly) {
         await Share.shareXFiles(
           [XFile(file.path)],
@@ -1220,7 +1404,7 @@ class InventoryExportService {
           subject: 'Reporte - $filename',
         );
       }
-      
+
       return file.path;
     } catch (e) {
       throw Exception('Error guardando archivo PDF: $e');
@@ -1229,14 +1413,16 @@ class InventoryExportService {
 
   // ==================== AGING REPORTS ====================
 
-  static Future<void> exportAgingDataToExcel(List<Map<String, dynamic>> agingData) async {
+  static Future<void> exportAgingDataToExcel(
+    List<Map<String, dynamic>> agingData,
+  ) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Reporte de Antigüedad'];
-      
+
       // Remove default sheet
       excel.delete('Sheet1');
-      
+
       // Header
       final headers = [
         'Producto',
@@ -1248,21 +1434,21 @@ class InventoryExportService {
         'Estado',
         'Última Entrada',
       ];
-      
+
       // Add headers
       for (int i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
-        cell.value = TextCellValue(headers[i]);
-        cell.cellStyle = CellStyle(
-          bold: true,
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0),
         );
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = CellStyle(bold: true);
       }
-      
+
       // Add data
       for (int i = 0; i < agingData.length; i++) {
         final item = agingData[i];
         final rowIndex = i + 1;
-        
+
         final rowData = [
           item['productName']?.toString() ?? '',
           item['productSku']?.toString() ?? '',
@@ -1271,17 +1457,22 @@ class InventoryExportService {
           item['averageAgeDays']?.toString() ?? '0',
           AppFormatters.formatCurrency((item['totalValue'] ?? 0.0).toDouble()),
           _getAgingStatus((item['averageAgeDays'] ?? 0) as int),
-          item['lastReceiptDate'] != null 
-              ? AppFormatters.formatDate(DateTime.parse(item['lastReceiptDate']))
+          item['lastReceiptDate'] != null
+              ? AppFormatters.formatDate(
+                DateTime.parse(item['lastReceiptDate']),
+              )
               : 'N/A',
         ];
-        
+
         for (int j = 0; j < rowData.length; j++) {
-          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex));
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex),
+          );
           cell.value = TextCellValue(rowData[j]);
-          
+
           // Color coding for aging status
-          if (j == 6) { // Status column
+          if (j == 6) {
+            // Status column
             final ageDays = (item['averageAgeDays'] ?? 0) as int;
             if (ageDays > 180) {
               cell.cellStyle = CellStyle();
@@ -1293,41 +1484,44 @@ class InventoryExportService {
           }
         }
       }
-      
+
       // Auto-size columns
       for (int i = 0; i < headers.length; i++) {
         sheet.setColumnAutoFit(i);
       }
-      
+
       await _saveAndShareExcel(excel, 'reporte_antiguedad_inventario');
-      
     } catch (e) {
       throw Exception('Error exportando reporte de antigüedad a Excel: $e');
     }
   }
 
-  static Future<void> exportAgingDataToPDF(List<Map<String, dynamic>> agingData, dynamic agingSummary) async {
+  static Future<void> exportAgingDataToPDF(
+    List<Map<String, dynamic>> agingData,
+    dynamic agingSummary,
+  ) async {
     try {
       final pdf = pw.Document();
-      
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(20),
-          build: (context) => [
-            _buildPDFHeader('Reporte de Antigüedad de Inventario'),
-            pw.SizedBox(height: 10),
-            if (agingSummary != null) _buildAgingSummarySection(agingSummary),
-            pw.SizedBox(height: 20),
-            _buildAgingDataTable(agingData),
-            pw.SizedBox(height: 20),
-            _buildPDFFooter(),
-          ],
+          build:
+              (context) => [
+                _buildPDFHeader('Reporte de Antigüedad de Inventario'),
+                pw.SizedBox(height: 10),
+                if (agingSummary != null)
+                  _buildAgingSummarySection(agingSummary),
+                pw.SizedBox(height: 20),
+                _buildAgingDataTable(agingData),
+                pw.SizedBox(height: 20),
+                _buildPDFFooter(),
+              ],
         ),
       );
-      
+
       await _saveAndSharePDF(pdf, 'reporte_antiguedad_inventario');
-      
     } catch (e) {
       throw Exception('Error exportando reporte de antigüedad a PDF: $e');
     }
@@ -1346,7 +1540,7 @@ class InventoryExportService {
           pw.Text(
             'Resumen del Reporte',
             style: pw.TextStyle(
-              fontSize: 14, 
+              fontSize: 14,
               fontWeight: pw.FontWeight.bold,
               font: pw.Font.helvetica(),
             ),
@@ -1356,7 +1550,9 @@ class InventoryExportService {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text('Total de productos: ${summary.totalProducts}'),
-              pw.Text('Valor total: ${AppFormatters.formatCurrency(summary.totalValue)}'),
+              pw.Text(
+                'Valor total: ${AppFormatters.formatCurrency(summary.totalValue)}',
+              ),
               pw.Text('Antigüedad promedio: ${summary.averageAgeDays} días'),
             ],
           ),
@@ -1392,17 +1588,25 @@ class InventoryExportService {
           ],
         ),
         // Data rows
-        ...agingData.map((item) => pw.TableRow(
-          children: [
-            _buildTableCell(item['productName']?.toString() ?? ''),
-            _buildTableCell(item['productSku']?.toString() ?? ''),
-            _buildTableCell(item['categoryName']?.toString() ?? ''),
-            _buildTableCell(item['totalStock']?.toString() ?? '0'),
-            _buildTableCell(item['averageAgeDays']?.toString() ?? '0'),
-            _buildTableCell(AppFormatters.formatCurrency((item['totalValue'] ?? 0.0).toDouble())),
-            _buildTableCell(_getAgingStatus((item['averageAgeDays'] ?? 0) as int)),
-          ],
-        )),
+        ...agingData.map(
+          (item) => pw.TableRow(
+            children: [
+              _buildTableCell(item['productName']?.toString() ?? ''),
+              _buildTableCell(item['productSku']?.toString() ?? ''),
+              _buildTableCell(item['categoryName']?.toString() ?? ''),
+              _buildTableCell(item['totalStock']?.toString() ?? '0'),
+              _buildTableCell(item['averageAgeDays']?.toString() ?? '0'),
+              _buildTableCell(
+                AppFormatters.formatCurrency(
+                  (item['totalValue'] ?? 0.0).toDouble(),
+                ),
+              ),
+              _buildTableCell(
+                _getAgingStatus((item['averageAgeDays'] ?? 0) as int),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -1416,17 +1620,24 @@ class InventoryExportService {
 
   // ==================== HELPER METHODS FOR BATCH DATA ====================
 
-  static Future<Map<String, String>> _getSupplierNames(List<InventoryBatch> batches) async {
+  static Future<Map<String, String>> _getSupplierNames(
+    List<InventoryBatch> batches,
+  ) async {
     try {
       final dio = Get.find<DioClient>().dio;
       final Map<String, String> supplierNames = {};
-      
+
       // Get unique purchase order IDs to fetch supplier info from there
-      final uniqueOrderIds = batches
-          .where((batch) => batch.purchaseOrderId != null && batch.purchaseOrderId!.isNotEmpty)
-          .map((batch) => batch.purchaseOrderId!)
-          .toSet();
-      
+      final uniqueOrderIds =
+          batches
+              .where(
+                (batch) =>
+                    batch.purchaseOrderId != null &&
+                    batch.purchaseOrderId!.isNotEmpty,
+              )
+              .map((batch) => batch.purchaseOrderId!)
+              .toSet();
+
       // Fetch supplier names from purchase orders
       for (final orderId in uniqueOrderIds) {
         try {
@@ -1436,7 +1647,9 @@ class InventoryExportService {
             final supplierName = orderData['supplier']?['name'];
             if (supplierName != null) {
               // Map this supplier name to all batches from this purchase order
-              final batchesFromThisOrder = batches.where((batch) => batch.purchaseOrderId == orderId);
+              final batchesFromThisOrder = batches.where(
+                (batch) => batch.purchaseOrderId == orderId,
+              );
               for (final batch in batchesFromThisOrder) {
                 supplierNames[batch.id] = supplierName;
               }
@@ -1446,7 +1659,7 @@ class InventoryExportService {
           print('❌ Error obteniendo datos de orden $orderId: $e');
         }
       }
-      
+
       return supplierNames;
     } catch (e) {
       print('❌ Error obteniendo nombres de proveedores: $e');
@@ -1454,24 +1667,32 @@ class InventoryExportService {
     }
   }
 
-  static Future<Map<String, String>> _getPurchaseOrderNumbers(List<InventoryBatch> batches) async {
+  static Future<Map<String, String>> _getPurchaseOrderNumbers(
+    List<InventoryBatch> batches,
+  ) async {
     try {
       final dio = Get.find<DioClient>().dio;
       final Map<String, String> orderNumbers = {};
-      
+
       // Get unique purchase order IDs
-      final uniqueOrderIds = batches
-          .where((batch) => batch.purchaseOrderId != null && batch.purchaseOrderId!.isNotEmpty)
-          .map((batch) => batch.purchaseOrderId!)
-          .toSet();
-      
+      final uniqueOrderIds =
+          batches
+              .where(
+                (batch) =>
+                    batch.purchaseOrderId != null &&
+                    batch.purchaseOrderId!.isNotEmpty,
+              )
+              .map((batch) => batch.purchaseOrderId!)
+              .toSet();
+
       // Fetch purchase order numbers directly via API
       for (final orderId in uniqueOrderIds) {
         try {
           final response = await dio.get('/purchase-orders/$orderId');
           if (response.statusCode == 200 && response.data['success'] == true) {
             final orderData = response.data['data'];
-            orderNumbers[orderId] = orderData['orderNumber'] ?? 'PO-${orderId.substring(0, 8)}';
+            orderNumbers[orderId] =
+                orderData['orderNumber'] ?? 'PO-${orderId.substring(0, 8)}';
           } else {
             orderNumbers[orderId] = 'PO-${orderId.substring(0, 8)}';
           }
@@ -1480,7 +1701,7 @@ class InventoryExportService {
           orderNumbers[orderId] = 'PO-${orderId.substring(0, 8)}';
         }
       }
-      
+
       return orderNumbers;
     } catch (e) {
       print('❌ Error obteniendo números de órdenes: $e');
@@ -1490,18 +1711,21 @@ class InventoryExportService {
 
   // ==================== BATCH EXPORTS ====================
 
-  static Future<void> exportBatchesToExcel(List<InventoryBatch> batches, String productName) async {
+  static Future<void> exportBatchesToExcel(
+    List<InventoryBatch> batches,
+    String productName,
+  ) async {
     try {
       // Obtain real supplier names and purchase order numbers
       final supplierNames = await _getSupplierNames(batches);
       final orderNumbers = await _getPurchaseOrderNumbers(batches);
-      
+
       final excel = Excel.createExcel();
       final sheet = excel['Lotes - $productName'];
-      
+
       // Remove default sheet
       excel.delete('Sheet1');
-      
+
       // Header
       final headers = [
         'Número de Lote',
@@ -1519,25 +1743,27 @@ class InventoryExportService {
         'Proveedor',
         'Orden de Compra',
       ];
-      
+
       // Add headers
       for (int i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
-        cell.value = TextCellValue(headers[i]);
-        cell.cellStyle = CellStyle(
-          bold: true,
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0),
         );
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = CellStyle(bold: true);
       }
-      
+
       // Add data
       for (int i = 0; i < batches.length; i++) {
         final batch = batches[i];
         final rowIndex = i + 1;
-        
+
         final rowData = [
           batch.batchNumber,
           AppFormatters.formatDate(batch.entryDate),
-          batch.hasExpiry ? AppFormatters.formatDate(batch.expiryDate!) : 'Sin vencimiento',
+          batch.hasExpiry
+              ? AppFormatters.formatDate(batch.expiryDate!)
+              : 'Sin vencimiento',
           batch.originalQuantity.toString(),
           batch.currentQuantity.toString(),
           (batch.originalQuantity - batch.currentQuantity).toString(),
@@ -1548,15 +1774,22 @@ class InventoryExportService {
           _getBatchStatusText(batch),
           batch.daysInStock.toString(),
           supplierNames[batch.id] ?? batch.supplierName ?? 'N/A',
-          batch.purchaseOrderId != null ? (orderNumbers[batch.purchaseOrderId!] ?? batch.purchaseOrderNumber ?? 'N/A') : 'N/A',
+          batch.purchaseOrderId != null
+              ? (orderNumbers[batch.purchaseOrderId!] ??
+                  batch.purchaseOrderNumber ??
+                  'N/A')
+              : 'N/A',
         ];
-        
+
         for (int j = 0; j < rowData.length; j++) {
-          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex));
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex),
+          );
           cell.value = TextCellValue(rowData[j]);
-          
+
           // Color coding for status
-          if (j == 10) { // Status column (now at index 10)
+          if (j == 10) {
+            // Status column (now at index 10)
             if (batch.isExpiredByDate) {
               cell.cellStyle = CellStyle();
             } else if (batch.isNearExpiry) {
@@ -1567,31 +1800,37 @@ class InventoryExportService {
           }
         }
       }
-      
+
       // Auto-size columns
       for (int i = 0; i < headers.length; i++) {
         sheet.setColumnAutoFit(i);
       }
-      
-      await _saveAndShareExcel(excel, 'lotes_${productName.replaceAll(' ', '_')}', shareOnly: true);
-      
+
+      await _saveAndShareExcel(
+        excel,
+        'lotes_${productName.replaceAll(' ', '_')}',
+        shareOnly: true,
+      );
     } catch (e) {
       throw Exception('Error exportando lotes a Excel: $e');
     }
   }
 
-  static Future<String> downloadBatchesToExcel(List<InventoryBatch> batches, String productName) async {
+  static Future<String> downloadBatchesToExcel(
+    List<InventoryBatch> batches,
+    String productName,
+  ) async {
     try {
       // Obtain real supplier names and purchase order numbers
       final supplierNames = await _getSupplierNames(batches);
       final orderNumbers = await _getPurchaseOrderNumbers(batches);
-      
+
       final excel = Excel.createExcel();
       final sheet = excel['Lotes - $productName'];
-      
+
       // Remove default sheet
       excel.delete('Sheet1');
-      
+
       // Header
       final headers = [
         'Número de Lote',
@@ -1609,25 +1848,27 @@ class InventoryExportService {
         'Proveedor',
         'Orden de Compra',
       ];
-      
+
       // Add headers
       for (int i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
-        cell.value = TextCellValue(headers[i]);
-        cell.cellStyle = CellStyle(
-          bold: true,
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0),
         );
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = CellStyle(bold: true);
       }
-      
+
       // Add data
       for (int i = 0; i < batches.length; i++) {
         final batch = batches[i];
         final rowIndex = i + 1;
-        
+
         final rowData = [
           batch.batchNumber,
           AppFormatters.formatDate(batch.entryDate),
-          batch.hasExpiry ? AppFormatters.formatDate(batch.expiryDate!) : 'Sin vencimiento',
+          batch.hasExpiry
+              ? AppFormatters.formatDate(batch.expiryDate!)
+              : 'Sin vencimiento',
           batch.originalQuantity.toString(),
           batch.currentQuantity.toString(),
           (batch.originalQuantity - batch.currentQuantity).toString(),
@@ -1638,15 +1879,22 @@ class InventoryExportService {
           _getBatchStatusText(batch),
           batch.daysInStock.toString(),
           supplierNames[batch.id] ?? batch.supplierName ?? 'N/A',
-          batch.purchaseOrderId != null ? (orderNumbers[batch.purchaseOrderId!] ?? batch.purchaseOrderNumber ?? 'N/A') : 'N/A',
+          batch.purchaseOrderId != null
+              ? (orderNumbers[batch.purchaseOrderId!] ??
+                  batch.purchaseOrderNumber ??
+                  'N/A')
+              : 'N/A',
         ];
-        
+
         for (int j = 0; j < rowData.length; j++) {
-          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex));
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex),
+          );
           cell.value = TextCellValue(rowData[j]);
-          
+
           // Color coding for status
-          if (j == 10) { // Status column (now at index 10)
+          if (j == 10) {
+            // Status column (now at index 10)
             if (batch.isExpiredByDate) {
               cell.cellStyle = CellStyle();
             } else if (batch.isNearExpiry) {
@@ -1657,98 +1905,115 @@ class InventoryExportService {
           }
         }
       }
-      
+
       // Auto-size columns
       for (int i = 0; i < headers.length; i++) {
         sheet.setColumnAutoFit(i);
       }
-      
-      return await _saveExcelWithPicker(excel, 'lotes_${productName.replaceAll(' ', '_')}');
-      
+
+      return await _saveExcelWithPicker(
+        excel,
+        'lotes_${productName.replaceAll(' ', '_')}',
+      );
     } catch (e) {
       throw Exception('Error descargando lotes a Excel: $e');
     }
   }
 
-  static Future<void> exportBatchesToPDF(List<InventoryBatch> batches, String productName) async {
+  static Future<void> exportBatchesToPDF(
+    List<InventoryBatch> batches,
+    String productName,
+  ) async {
     try {
       final pdf = pw.Document();
-      
+
       // Build the table with all columns (async)
       final batchesTable = await _buildBatchesTable(batches);
-      
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(20),
-          build: (context) => [
-            _buildPDFHeader('Reporte de Lotes de Inventario'),
-            pw.SizedBox(height: 10),
-            pw.Text(
-              'Producto: $productName',
-              style: pw.TextStyle(
-                fontSize: 16, 
-                fontWeight: pw.FontWeight.bold,
-                font: pw.Font.helvetica(),
-              ),
-            ),
-            pw.SizedBox(height: 20),
-            batchesTable,
-            pw.SizedBox(height: 20),
-            _buildPDFFooter(),
-          ],
+          build:
+              (context) => [
+                _buildPDFHeader('Reporte de Lotes de Inventario'),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Producto: $productName',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    font: pw.Font.helvetica(),
+                  ),
+                ),
+                pw.SizedBox(height: 20),
+                batchesTable,
+                pw.SizedBox(height: 20),
+                _buildPDFFooter(),
+              ],
         ),
       );
-      
-      await _saveAndSharePDF(pdf, 'lotes_${productName.replaceAll(' ', '_')}', shareOnly: true);
-      
+
+      await _saveAndSharePDF(
+        pdf,
+        'lotes_${productName.replaceAll(' ', '_')}',
+        shareOnly: true,
+      );
     } catch (e) {
       throw Exception('Error exportando lotes a PDF: $e');
     }
   }
 
-  static Future<String> downloadBatchesToPDF(List<InventoryBatch> batches, String productName) async {
+  static Future<String> downloadBatchesToPDF(
+    List<InventoryBatch> batches,
+    String productName,
+  ) async {
     try {
       final pdf = pw.Document();
-      
+
       // Build the table with all columns (async)
       final batchesTable = await _buildBatchesTable(batches);
-      
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(20),
-          build: (context) => [
-            _buildPDFHeader('Reporte de Lotes de Inventario'),
-            pw.SizedBox(height: 10),
-            pw.Text(
-              'Producto: $productName',
-              style: pw.TextStyle(
-                fontSize: 16, 
-                fontWeight: pw.FontWeight.bold,
-                font: pw.Font.helvetica(),
-              ),
-            ),
-            pw.SizedBox(height: 20),
-            batchesTable,
-            pw.SizedBox(height: 20),
-            _buildPDFFooter(),
-          ],
+          build:
+              (context) => [
+                _buildPDFHeader('Reporte de Lotes de Inventario'),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Producto: $productName',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    font: pw.Font.helvetica(),
+                  ),
+                ),
+                pw.SizedBox(height: 20),
+                batchesTable,
+                pw.SizedBox(height: 20),
+                _buildPDFFooter(),
+              ],
         ),
       );
-      
-      return await _savePDFWithPicker(pdf, 'lotes_${productName.replaceAll(' ', '_')}');
-      
+
+      return await _savePDFWithPicker(
+        pdf,
+        'lotes_${productName.replaceAll(' ', '_')}',
+      );
     } catch (e) {
       throw Exception('Error descargando lotes a PDF: $e');
     }
   }
 
-  static Future<pw.Widget> _buildBatchesTable(List<InventoryBatch> batches) async {
+  static Future<pw.Widget> _buildBatchesTable(
+    List<InventoryBatch> batches,
+  ) async {
     // Obtain real supplier names and purchase order numbers
     final supplierNames = await _getSupplierNames(batches);
     final orderNumbers = await _getPurchaseOrderNumbers(batches);
-    
+
     return pw.Table(
       border: pw.TableBorder.all(width: 0.5),
       columnWidths: {
@@ -1789,24 +2054,42 @@ class InventoryExportService {
           ],
         ),
         // Data rows
-        ...batches.map((batch) => pw.TableRow(
-          children: [
-            _buildTableCell(batch.batchNumber),
-            _buildTableCell(AppFormatters.formatDate(batch.entryDate)),
-            _buildTableCell(batch.hasExpiry ? AppFormatters.formatDate(batch.expiryDate!) : 'Sin vencimiento'),
-            _buildTableCell(batch.originalQuantity.toString()),
-            _buildTableCell(batch.currentQuantity.toString()),
-            _buildTableCell((batch.originalQuantity - batch.currentQuantity).toString()),
-            _buildTableCell(AppFormatters.formatCurrency(batch.unitCost)),
-            _buildTableCell(AppFormatters.formatCurrency(batch.totalCost)),
-            _buildTableCell(AppFormatters.formatCurrency(batch.consumedValue)),
-            _buildTableCell(AppFormatters.formatCurrency(batch.currentValue)),
-            _buildTableCell(_getBatchStatusText(batch)),
-            _buildTableCell(batch.daysInStock.toString()),
-            _buildTableCell(supplierNames[batch.id] ?? batch.supplierName ?? 'N/A'),
-            _buildTableCell(batch.purchaseOrderId != null ? (orderNumbers[batch.purchaseOrderId!] ?? batch.purchaseOrderNumber ?? 'N/A') : 'N/A'),
-          ],
-        )),
+        ...batches.map(
+          (batch) => pw.TableRow(
+            children: [
+              _buildTableCell(batch.batchNumber),
+              _buildTableCell(AppFormatters.formatDate(batch.entryDate)),
+              _buildTableCell(
+                batch.hasExpiry
+                    ? AppFormatters.formatDate(batch.expiryDate!)
+                    : 'Sin vencimiento',
+              ),
+              _buildTableCell(batch.originalQuantity.toString()),
+              _buildTableCell(batch.currentQuantity.toString()),
+              _buildTableCell(
+                (batch.originalQuantity - batch.currentQuantity).toString(),
+              ),
+              _buildTableCell(AppFormatters.formatCurrency(batch.unitCost)),
+              _buildTableCell(AppFormatters.formatCurrency(batch.totalCost)),
+              _buildTableCell(
+                AppFormatters.formatCurrency(batch.consumedValue),
+              ),
+              _buildTableCell(AppFormatters.formatCurrency(batch.currentValue)),
+              _buildTableCell(_getBatchStatusText(batch)),
+              _buildTableCell(batch.daysInStock.toString()),
+              _buildTableCell(
+                supplierNames[batch.id] ?? batch.supplierName ?? 'N/A',
+              ),
+              _buildTableCell(
+                batch.purchaseOrderId != null
+                    ? (orderNumbers[batch.purchaseOrderId!] ??
+                        batch.purchaseOrderNumber ??
+                        'N/A')
+                    : 'N/A',
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -1822,32 +2105,40 @@ class InventoryExportService {
   // ==================== FILE PICKER METHODS ====================
 
   /// Procesa movimientos de transferencia para evitar duplicados y mejorar claridad
-  static List<InventoryMovement> _processTransferMovements(List<InventoryMovement> movements) {
+  static List<InventoryMovement> _processTransferMovements(
+    List<InventoryMovement> movements,
+  ) {
     final Map<String, InventoryMovement> processedTransfers = {};
     final List<InventoryMovement> nonTransferMovements = [];
-    
+
     for (final movement in movements) {
-      if (movement.type == InventoryMovementType.transferOut || movement.type == InventoryMovementType.transferIn) {
+      if (movement.type == InventoryMovementType.transferOut ||
+          movement.type == InventoryMovementType.transferIn) {
         // Para transferencias, usar un identificador único basado en metadata o fecha+producto
         String transferKey = '';
-        
+
         if (movement.metadata != null) {
           // Intentar usar transferId o combinación de almacenes
           final transferId = movement.metadata!['transferId'] as String?;
-          final originWarehouse = movement.metadata!['originWarehouse'] as String?;
-          final destinationWarehouse = movement.metadata!['destinationWarehouse'] as String?;
-          
+          final originWarehouse =
+              movement.metadata!['originWarehouse'] as String?;
+          final destinationWarehouse =
+              movement.metadata!['destinationWarehouse'] as String?;
+
           if (transferId != null) {
             transferKey = transferId;
           } else if (originWarehouse != null && destinationWarehouse != null) {
-            transferKey = '${movement.productId}_${originWarehouse}_${destinationWarehouse}_${movement.createdAt.millisecondsSinceEpoch ~/ 1000}';
+            transferKey =
+                '${movement.productId}_${originWarehouse}_${destinationWarehouse}_${movement.createdAt.millisecondsSinceEpoch ~/ 1000}';
           } else {
-            transferKey = '${movement.productId}_${movement.createdAt.millisecondsSinceEpoch ~/ 1000}';
+            transferKey =
+                '${movement.productId}_${movement.createdAt.millisecondsSinceEpoch ~/ 1000}';
           }
         } else {
-          transferKey = '${movement.productId}_${movement.createdAt.millisecondsSinceEpoch ~/ 1000}';
+          transferKey =
+              '${movement.productId}_${movement.createdAt.millisecondsSinceEpoch ~/ 1000}';
         }
-        
+
         // Solo agregar el primer movimiento de transferencia encontrado
         if (!processedTransfers.containsKey(transferKey)) {
           // Preferir transfer_out sobre transfer_in para mostrar la perspectiva del origen
@@ -1855,7 +2146,8 @@ class InventoryExportService {
         } else {
           // Si ya existe, preferir transfer_out
           final existing = processedTransfers[transferKey]!;
-          if (existing.type == InventoryMovementType.transferIn && movement.type == InventoryMovementType.transferOut) {
+          if (existing.type == InventoryMovementType.transferIn &&
+              movement.type == InventoryMovementType.transferOut) {
             processedTransfers[transferKey] = movement;
           }
         }
@@ -1864,43 +2156,57 @@ class InventoryExportService {
         nonTransferMovements.add(movement);
       }
     }
-    
+
     // Combinar transferencias procesadas con otros movimientos
-    final result = <InventoryMovement>[...processedTransfers.values, ...nonTransferMovements];
-    
+    final result = <InventoryMovement>[
+      ...processedTransfers.values,
+      ...nonTransferMovements,
+    ];
+
     // Ordenar por fecha de creación descendente
     result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    
+
     return result;
   }
 
   /// Extrae el nombre del almacén para transferencias considerando origen/destino
-  static String _extractWarehouseName(InventoryMovement movement, {required bool isOrigin, List<Warehouse>? warehouses}) {
+  static String _extractWarehouseName(
+    InventoryMovement movement, {
+    required bool isOrigin,
+    List<Warehouse>? warehouses,
+  }) {
     try {
-      print('🏢 DEBUG: Extrayendo nombre de almacén - isOrigin: $isOrigin, tipo: ${movement.type.name}');
+      print(
+        '🏢 DEBUG: Extrayendo nombre de almacén - isOrigin: $isOrigin, tipo: ${movement.type.name}',
+      );
       print('🏢 DEBUG: Movement warehouseName: ${movement.warehouseName}');
       print('🏢 DEBUG: Movement metadata: ${movement.metadata}');
       print('🏢 DEBUG: Warehouses disponibles: ${warehouses?.length ?? 0}');
-      
+
       // Helper function para buscar almacén por ID
       String? getWarehouseNameById(String? warehouseId) {
-        if (warehouseId == null || warehouseId.isEmpty || warehouses == null || warehouses.isEmpty) {
+        if (warehouseId == null ||
+            warehouseId.isEmpty ||
+            warehouses == null ||
+            warehouses.isEmpty) {
           return null;
         }
-        
+
         try {
           final warehouse = warehouses.firstWhere((w) => w.id == warehouseId);
-          print('🏢 DEBUG: Encontrado almacén para ID $warehouseId: ${warehouse.name}');
+          print(
+            '🏢 DEBUG: Encontrado almacén para ID $warehouseId: ${warehouse.name}',
+          );
           return warehouse.name;
         } catch (e) {
           print('🏢 DEBUG: No se encontró almacén para ID: $warehouseId');
           return null;
         }
       }
-      
+
       // Para transferencias, necesitamos manejar la lógica específica
-      if (movement.type == InventoryMovementType.transferOut || movement.type == InventoryMovementType.transferIn) {
-        
+      if (movement.type == InventoryMovementType.transferOut ||
+          movement.type == InventoryMovementType.transferIn) {
         if (movement.metadata != null) {
           if (isOrigin) {
             // Para obtener el almacén de origen
@@ -1914,7 +2220,8 @@ class InventoryExportService {
               return movement.warehouseName ?? 'Almacén origen';
             } else if (movement.type == InventoryMovementType.transferIn) {
               // Para transfer_in, el origen está en metadata
-              final originWarehouseId = movement.metadata!['originWarehouse'] as String?;
+              final originWarehouseId =
+                  movement.metadata!['originWarehouse'] as String?;
               final warehouseName = getWarehouseNameById(originWarehouseId);
               if (warehouseName != null) {
                 print('🏢 DEBUG: Origen (transfer_in): $warehouseName');
@@ -1926,8 +2233,11 @@ class InventoryExportService {
             // Para obtener el almacén de destino
             if (movement.type == InventoryMovementType.transferOut) {
               // Para transfer_out, el destino está en metadata
-              final destinationWarehouseId = movement.metadata!['destinationWarehouse'] as String?;
-              final warehouseName = getWarehouseNameById(destinationWarehouseId);
+              final destinationWarehouseId =
+                  movement.metadata!['destinationWarehouse'] as String?;
+              final warehouseName = getWarehouseNameById(
+                destinationWarehouseId,
+              );
               if (warehouseName != null) {
                 print('🏢 DEBUG: Destino (transfer_out): $warehouseName');
                 return warehouseName;
@@ -1944,7 +2254,7 @@ class InventoryExportService {
             }
           }
         }
-        
+
         // Fallback para transferencias sin metadata
         if (isOrigin) {
           return movement.warehouseName ?? 'Almacén origen';
@@ -1952,7 +2262,7 @@ class InventoryExportService {
           return 'Almacén destino';
         }
       }
-      
+
       // Para movimientos que no son transferencias
       if (isOrigin) {
         final warehouseName = getWarehouseNameById(movement.warehouseId);
@@ -1960,14 +2270,16 @@ class InventoryExportService {
       } else {
         return 'N/A'; // No aplica destino para movimientos no-transferencia
       }
-      
     } catch (e) {
       print('❌ Error extrayendo nombre de almacén: $e');
       return isOrigin ? 'Error en origen' : 'Error en destino';
     }
   }
 
-  static Future<String> _saveExcelWithPicker(Excel excel, String filename) async {
+  static Future<String> _saveExcelWithPicker(
+    Excel excel,
+    String filename,
+  ) async {
     try {
       final bytes = excel.encode();
       if (bytes == null) throw Exception('No se pudo generar el archivo Excel');
@@ -1986,14 +2298,17 @@ class InventoryExportService {
 
       final file = File(outputPath);
       await file.writeAsBytes(bytes);
-      
+
       return outputPath;
     } catch (e) {
       throw Exception('Error guardando archivo Excel: $e');
     }
   }
 
-  static Future<String> _savePDFWithPicker(pw.Document pdf, String filename) async {
+  static Future<String> _savePDFWithPicker(
+    pw.Document pdf,
+    String filename,
+  ) async {
     try {
       final bytes = await pdf.save();
 
@@ -2011,7 +2326,7 @@ class InventoryExportService {
 
       final file = File(outputPath);
       await file.writeAsBytes(bytes);
-      
+
       return outputPath;
     } catch (e) {
       throw Exception('Error guardando archivo PDF: $e');
@@ -2020,94 +2335,152 @@ class InventoryExportService {
 
   // ==================== NEW KARDEX REPORT EXPORTS ====================
 
-  static Future<void> exportKardexReportToExcel(KardexReport kardexReport) async {
+  static Future<void> exportKardexReportToExcel(
+    KardexReport kardexReport,
+  ) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Kardex - ${kardexReport.product.name}'];
-      
+
       // Remove default sheet
       excel.delete('Sheet1');
-      
+
       int currentRow = 0;
-      
+
       // Company header
-      final companyCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+      final companyCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
       companyCell.value = TextCellValue(companyName);
       companyCell.cellStyle = CellStyle(bold: true, fontSize: 16);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: currentRow),
+      );
       currentRow++;
-      
+
       // Title
-      final titleCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+      final titleCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
       titleCell.value = TextCellValue('KARDEX DE PRODUCTO');
       titleCell.cellStyle = CellStyle(bold: true, fontSize: 14);
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-                 CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: currentRow));
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: currentRow),
+      );
       currentRow += 2;
-      
+
       // Product info
       final productInfoRows = [
         ['Producto:', kardexReport.product.name],
         ['SKU:', kardexReport.product.sku],
         ['Categoría:', kardexReport.product.categoryName ?? 'N/A'],
-        ['Período:', '${AppFormatters.formatDate(kardexReport.period.startDate)} - ${AppFormatters.formatDate(kardexReport.period.endDate)}'],
+        [
+          'Período:',
+          '${AppFormatters.formatDate(kardexReport.period.startDate)} - ${AppFormatters.formatDate(kardexReport.period.endDate)}',
+        ],
       ];
-      
+
       for (final row in productInfoRows) {
-        final labelCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+        final labelCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        );
         labelCell.value = TextCellValue(row[0]);
         labelCell.cellStyle = CellStyle(bold: true);
-        
-        final valueCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow));
+
+        final valueCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow),
+        );
         valueCell.value = TextCellValue(row[1]);
         currentRow++;
       }
       currentRow++;
-      
+
       // Summary section
-      final summaryCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+      final summaryCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      );
       summaryCell.value = TextCellValue('RESUMEN');
       summaryCell.cellStyle = CellStyle(bold: true, fontSize: 12);
       currentRow++;
-      
+
       final summaryRows = [
-        ['Saldo Inicial:', '${kardexReport.initialBalance.quantity.toInt()}', AppFormatters.formatCurrency(kardexReport.initialBalance.value)],
-        ['Total Entradas:', '${kardexReport.summary.totalEntries}', AppFormatters.formatCurrency(kardexReport.summary.totalPurchases)],
-        ['Total Salidas:', '${kardexReport.summary.totalExits}', AppFormatters.formatCurrency(kardexReport.summary.totalSales)],
-        ['Saldo Final:', '${kardexReport.finalBalance.quantity.toInt()}', AppFormatters.formatCurrency(kardexReport.finalBalance.value)],
+        [
+          'Saldo Inicial:',
+          '${kardexReport.initialBalance.quantity.toInt()}',
+          AppFormatters.formatCurrency(kardexReport.initialBalance.value),
+        ],
+        [
+          'Total Entradas:',
+          '${kardexReport.summary.totalEntries}',
+          AppFormatters.formatCurrency(kardexReport.summary.totalPurchases),
+        ],
+        [
+          'Total Salidas:',
+          '${kardexReport.summary.totalExits}',
+          AppFormatters.formatCurrency(kardexReport.summary.totalSales),
+        ],
+        [
+          'Saldo Final:',
+          '${kardexReport.finalBalance.quantity.toInt()}',
+          AppFormatters.formatCurrency(kardexReport.finalBalance.value),
+        ],
       ];
-      
+
       for (final row in summaryRows) {
-        final labelCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+        final labelCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        );
         labelCell.value = TextCellValue(row[0]);
         labelCell.cellStyle = CellStyle(bold: true);
-        
-        final qtyCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow));
+
+        final qtyCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow),
+        );
         qtyCell.value = TextCellValue(row[1]);
-        
-        final valueCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow));
+
+        final valueCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow),
+        );
         valueCell.value = TextCellValue(row[2]);
         currentRow++;
       }
       currentRow += 2;
-      
+
       // Movements header
       if (kardexReport.hasMovements) {
-        final movementsHeaderCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+        final movementsHeaderCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+        );
         movementsHeaderCell.value = TextCellValue('MOVIMIENTOS');
         movementsHeaderCell.cellStyle = CellStyle(bold: true, fontSize: 12);
         currentRow++;
-        
+
         // Column headers
-        final headers = ['Fecha', 'N° Movimiento', 'Tipo', 'Descripción', 'Entrada', 'Salida', 'Balance', 'Costo Unit.', 'Valor'];
+        final headers = [
+          'Fecha',
+          'N° Movimiento',
+          'Tipo',
+          'Descripción',
+          'Entrada',
+          'Salida',
+          'Balance',
+          'Costo Unit.',
+          'Valor',
+        ];
         for (int i = 0; i < headers.length; i++) {
-          final headerCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow));
+          final headerCell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow),
+          );
           headerCell.value = TextCellValue(headers[i]);
-          headerCell.cellStyle = CellStyle(bold: true, backgroundColorHex: ExcelColor.fromHexString('#D3D3D3'));
+          headerCell.cellStyle = CellStyle(
+            bold: true,
+            backgroundColorHex: ExcelColor.fromHexString('#D3D3D3'),
+          );
         }
         currentRow++;
-        
+
         // Movement rows
         for (final movement in kardexReport.movements) {
           final rowData = [
@@ -2115,17 +2488,23 @@ class InventoryExportService {
             movement.movementNumber,
             movement.displayType,
             movement.description,
-            movement.entryQuantity > 0 ? movement.entryQuantity.toInt().toString() : '',
-            movement.exitQuantity > 0 ? movement.exitQuantity.toInt().toString() : '',
+            movement.entryQuantity > 0
+                ? movement.entryQuantity.toInt().toString()
+                : '',
+            movement.exitQuantity > 0
+                ? movement.exitQuantity.toInt().toString()
+                : '',
             movement.balance.toInt().toString(),
             AppFormatters.formatCurrency(movement.unitCost),
             AppFormatters.formatCurrency(movement.balanceValue),
           ];
-          
+
           for (int i = 0; i < rowData.length; i++) {
-            final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow));
+            final cell = sheet.cell(
+              CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow),
+            );
             cell.value = TextCellValue(rowData[i]);
-            
+
             // Color code entries and exits
             if (i == 4 && movement.entryQuantity > 0) {
               cell.cellStyle = CellStyle(fontColorHex: ExcelColor.green);
@@ -2136,9 +2515,12 @@ class InventoryExportService {
           currentRow++;
         }
       }
-      
+
       // Save and share
-      await _saveAndShareExcel(excel, 'Kardex_${kardexReport.product.name}_${DateTime.now().millisecondsSinceEpoch}');
+      await _saveAndShareExcel(
+        excel,
+        'Kardex_${kardexReport.product.name}_${DateTime.now().millisecondsSinceEpoch}',
+      );
     } catch (e) {
       throw Exception('Error exportando kardex a Excel: $e');
     }
@@ -2147,7 +2529,7 @@ class InventoryExportService {
   static Future<void> exportKardexReportToPDF(KardexReport kardexReport) async {
     try {
       final pdf = pw.Document();
-      
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
@@ -2158,11 +2540,23 @@ class InventoryExportService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text(companyName, style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+                  pw.Text(
+                    companyName,
+                    style: pw.TextStyle(
+                      fontSize: 20,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
                   pw.SizedBox(height: 5),
-                  pw.Text('KARDEX DE PRODUCTO', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                  pw.Text(
+                    'KARDEX DE PRODUCTO',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
                   pw.SizedBox(height: 20),
-                  
+
                   // Product info
                   pw.Table(
                     columnWidths: {
@@ -2172,14 +2566,26 @@ class InventoryExportService {
                     children: [
                       _buildInfoRow('Producto:', kardexReport.product.name),
                       _buildInfoRow('SKU:', kardexReport.product.sku),
-                      _buildInfoRow('Categoría:', kardexReport.product.categoryName ?? 'N/A'),
-                      _buildInfoRow('Período:', '${AppFormatters.formatDate(kardexReport.period.startDate)} - ${AppFormatters.formatDate(kardexReport.period.endDate)}'),
+                      _buildInfoRow(
+                        'Categoría:',
+                        kardexReport.product.categoryName ?? 'N/A',
+                      ),
+                      _buildInfoRow(
+                        'Período:',
+                        '${AppFormatters.formatDate(kardexReport.period.startDate)} - ${AppFormatters.formatDate(kardexReport.period.endDate)}',
+                      ),
                     ],
                   ),
                   pw.SizedBox(height: 20),
-                  
+
                   // Summary
-                  pw.Text('RESUMEN', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                  pw.Text(
+                    'RESUMEN',
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
                   pw.SizedBox(height: 10),
                   pw.Table(
                     columnWidths: {
@@ -2189,35 +2595,73 @@ class InventoryExportService {
                     },
                     border: pw.TableBorder.all(),
                     children: [
-                      _buildSummaryRow('Concepto', 'Cantidad', 'Valor', isHeader: true),
-                      _buildSummaryRow('Saldo Inicial', '${kardexReport.initialBalance.quantity.toInt()}', AppFormatters.formatCurrency(kardexReport.initialBalance.value)),
-                      _buildSummaryRow('Total Entradas', '${kardexReport.summary.totalEntries}', AppFormatters.formatCurrency(kardexReport.summary.totalPurchases)),
-                      _buildSummaryRow('Total Salidas', '${kardexReport.summary.totalExits}', AppFormatters.formatCurrency(kardexReport.summary.totalSales)),
-                      _buildSummaryRow('Saldo Final', '${kardexReport.finalBalance.quantity.toInt()}', AppFormatters.formatCurrency(kardexReport.finalBalance.value), isTotal: true),
+                      _buildSummaryRow(
+                        'Concepto',
+                        'Cantidad',
+                        'Valor',
+                        isHeader: true,
+                      ),
+                      _buildSummaryRow(
+                        'Saldo Inicial',
+                        '${kardexReport.initialBalance.quantity.toInt()}',
+                        AppFormatters.formatCurrency(
+                          kardexReport.initialBalance.value,
+                        ),
+                      ),
+                      _buildSummaryRow(
+                        'Total Entradas',
+                        '${kardexReport.summary.totalEntries}',
+                        AppFormatters.formatCurrency(
+                          kardexReport.summary.totalPurchases,
+                        ),
+                      ),
+                      _buildSummaryRow(
+                        'Total Salidas',
+                        '${kardexReport.summary.totalExits}',
+                        AppFormatters.formatCurrency(
+                          kardexReport.summary.totalSales,
+                        ),
+                      ),
+                      _buildSummaryRow(
+                        'Saldo Final',
+                        '${kardexReport.finalBalance.quantity.toInt()}',
+                        AppFormatters.formatCurrency(
+                          kardexReport.finalBalance.value,
+                        ),
+                        isTotal: true,
+                      ),
                     ],
                   ),
                   pw.SizedBox(height: 20),
-                  
+
                   // Movements
                   if (kardexReport.hasMovements) ...[
-                    pw.Text('MOVIMIENTOS', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                    pw.Text(
+                      'MOVIMIENTOS',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
                     pw.SizedBox(height: 10),
                     pw.Table(
                       border: pw.TableBorder.all(),
                       columnWidths: {
-                        0: const pw.FixedColumnWidth(60),  // Fecha
-                        1: const pw.FixedColumnWidth(70),  // N° Movimiento
-                        2: const pw.FixedColumnWidth(60),  // Tipo
-                        3: const pw.FlexColumnWidth(2),    // Descripción
-                        4: const pw.FixedColumnWidth(50),  // Entrada
-                        5: const pw.FixedColumnWidth(50),  // Salida
-                        6: const pw.FixedColumnWidth(50),  // Balance
-                        7: const pw.FixedColumnWidth(60),  // Valor
+                        0: const pw.FixedColumnWidth(60), // Fecha
+                        1: const pw.FixedColumnWidth(70), // N° Movimiento
+                        2: const pw.FixedColumnWidth(60), // Tipo
+                        3: const pw.FlexColumnWidth(2), // Descripción
+                        4: const pw.FixedColumnWidth(50), // Entrada
+                        5: const pw.FixedColumnWidth(50), // Salida
+                        6: const pw.FixedColumnWidth(50), // Balance
+                        7: const pw.FixedColumnWidth(60), // Valor
                       },
                       children: [
                         // Header
                         pw.TableRow(
-                          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColors.grey300,
+                          ),
                           children: [
                             _buildMovementCell('Fecha', isHeader: true),
                             _buildMovementCell('N° Mov.', isHeader: true),
@@ -2230,18 +2674,47 @@ class InventoryExportService {
                           ],
                         ),
                         // Movements
-                        ...kardexReport.movements.map((movement) => pw.TableRow(
-                          children: [
-                            _buildMovementCell(AppFormatters.formatDate(movement.date)),
-                            _buildMovementCell(movement.movementNumber),
-                            _buildMovementCell(movement.displayType),
-                            _buildMovementCell(movement.description, maxLines: 2),
-                            _buildMovementCell(movement.entryQuantity > 0 ? movement.entryQuantity.toInt().toString() : '', color: movement.entryQuantity > 0 ? PdfColors.green : null),
-                            _buildMovementCell(movement.exitQuantity > 0 ? movement.exitQuantity.toInt().toString() : '', color: movement.exitQuantity > 0 ? PdfColors.red : null),
-                            _buildMovementCell(movement.balance.toInt().toString()),
-                            _buildMovementCell(AppFormatters.formatCurrency(movement.balanceValue)),
-                          ],
-                        )).toList(),
+                        ...kardexReport.movements.map(
+                          (movement) => pw.TableRow(
+                            children: [
+                              _buildMovementCell(
+                                AppFormatters.formatDate(movement.date),
+                              ),
+                              _buildMovementCell(movement.movementNumber),
+                              _buildMovementCell(movement.displayType),
+                              _buildMovementCell(
+                                movement.description,
+                                maxLines: 2,
+                              ),
+                              _buildMovementCell(
+                                movement.entryQuantity > 0
+                                    ? movement.entryQuantity.toInt().toString()
+                                    : '',
+                                color:
+                                    movement.entryQuantity > 0
+                                        ? PdfColors.green
+                                        : null,
+                              ),
+                              _buildMovementCell(
+                                movement.exitQuantity > 0
+                                    ? movement.exitQuantity.toInt().toString()
+                                    : '',
+                                color:
+                                    movement.exitQuantity > 0
+                                        ? PdfColors.red
+                                        : null,
+                              ),
+                              _buildMovementCell(
+                                movement.balance.toInt().toString(),
+                              ),
+                              _buildMovementCell(
+                                AppFormatters.formatCurrency(
+                                  movement.balanceValue,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -2251,8 +2724,11 @@ class InventoryExportService {
           },
         ),
       );
-      
-      await _saveAndSharePDF(pdf, 'Kardex_${kardexReport.product.name}_${DateTime.now().millisecondsSinceEpoch}');
+
+      await _saveAndSharePDF(
+        pdf,
+        'Kardex_${kardexReport.product.name}_${DateTime.now().millisecondsSinceEpoch}',
+      );
     } catch (e) {
       throw Exception('Error exportando kardex a PDF: $e');
     }
@@ -2263,23 +2739,31 @@ class InventoryExportService {
       children: [
         pw.Padding(
           padding: const pw.EdgeInsets.all(4),
-          child: pw.Text(label, style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          child: pw.Text(
+            label,
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          ),
         ),
-        pw.Padding(
-          padding: const pw.EdgeInsets.all(4),
-          child: pw.Text(value),
-        ),
+        pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(value)),
       ],
     );
   }
 
-  static pw.TableRow _buildSummaryRow(String concept, String quantity, String value, {bool isHeader = false, bool isTotal = false}) {
-    final textStyle = isHeader || isTotal 
-        ? pw.TextStyle(fontWeight: pw.FontWeight.bold)
-        : const pw.TextStyle();
-    final decoration = isHeader 
-        ? const pw.BoxDecoration(color: PdfColors.grey300)
-        : isTotal 
+  static pw.TableRow _buildSummaryRow(
+    String concept,
+    String quantity,
+    String value, {
+    bool isHeader = false,
+    bool isTotal = false,
+  }) {
+    final textStyle =
+        isHeader || isTotal
+            ? pw.TextStyle(fontWeight: pw.FontWeight.bold)
+            : const pw.TextStyle();
+    final decoration =
+        isHeader
+            ? const pw.BoxDecoration(color: PdfColors.grey300)
+            : isTotal
             ? const pw.BoxDecoration(color: PdfColors.grey100)
             : null;
 
@@ -2292,17 +2776,30 @@ class InventoryExportService {
         ),
         pw.Container(
           padding: const pw.EdgeInsets.all(4),
-          child: pw.Text(quantity, style: textStyle, textAlign: pw.TextAlign.right),
+          child: pw.Text(
+            quantity,
+            style: textStyle,
+            textAlign: pw.TextAlign.right,
+          ),
         ),
         pw.Container(
           padding: const pw.EdgeInsets.all(4),
-          child: pw.Text(value, style: textStyle, textAlign: pw.TextAlign.right),
+          child: pw.Text(
+            value,
+            style: textStyle,
+            textAlign: pw.TextAlign.right,
+          ),
         ),
       ],
     );
   }
 
-  static pw.Widget _buildMovementCell(String text, {bool isHeader = false, PdfColor? color, int maxLines = 1}) {
+  static pw.Widget _buildMovementCell(
+    String text, {
+    bool isHeader = false,
+    PdfColor? color,
+    int maxLines = 1,
+  }) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(4),
       child: pw.Text(
@@ -2320,161 +2817,223 @@ class InventoryExportService {
   }
 
   // ==================== ✅ NUEVOS MÉTODOS PROFESIONALES ====================
-  
+
   /// Descargar kardex con picker para que usuario escoja la ruta
   static Future<String> downloadKardexToExcel(KardexReport kardexReport) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Kardex'];
       excel.delete('Sheet1');
-      
+
       // Crear contenido del Excel (sin SKU)
       await _buildKardexExcelContent(sheet, kardexReport);
-      
+
       // Usar picker para que usuario escoja dónde guardar
       final productName = kardexReport.product.name.replaceAll(' ', '_');
-      final fileName = 'kardex_${productName}';
-      
+      final fileName = 'kardex_$productName';
+
       return await _saveExcelWithPicker(excel, fileName);
-      
     } catch (e) {
       throw Exception('Error descargando kardex a Excel: $e');
     }
   }
-  
+
   /// Descargar kardex como PDF con picker para que usuario escoja la ruta
   static Future<String> downloadKardexToPdf(KardexReport kardexReport) async {
     try {
       final pdf = pw.Document();
-      
+
       // Crear contenido del PDF (sin SKU)
       await _buildKardexPdfContent(pdf, kardexReport);
-      
+
       // Usar picker para que usuario escoja dónde guardar
       final productName = kardexReport.product.name.replaceAll(' ', '_');
-      final fileName = 'kardex_${productName}';
-      
+      final fileName = 'kardex_$productName';
+
       return await _savePDFWithPicker(pdf, fileName);
-      
     } catch (e) {
       throw Exception('Error descargando kardex a PDF: $e');
     }
   }
-  
+
   /// Compartir kardex como PDF
   static Future<void> shareKardexToPdf(KardexReport kardexReport) async {
     try {
       final pdf = pw.Document();
-      
+
       // Metadata del archivo (sin SKU)
       final productName = kardexReport.product.name;
-      final period = '${AppFormatters.formatDate(kardexReport.period.startDate)} - ${AppFormatters.formatDate(kardexReport.period.endDate)}';
-      final fileName = 'Kardex_${productName}_${DateTime.now().millisecondsSinceEpoch}';
-      
+      final period =
+          '${AppFormatters.formatDate(kardexReport.period.startDate)} - ${AppFormatters.formatDate(kardexReport.period.endDate)}';
+      final fileName =
+          'Kardex_${productName}_${DateTime.now().millisecondsSinceEpoch}';
+
       // Crear contenido del PDF (sin SKU)
       await _buildKardexPdfContent(pdf, kardexReport);
-      
+
       // Guardar temporalmente y compartir
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/$fileName.pdf');
       await file.writeAsBytes(await pdf.save());
-      
+
       // Compartir archivo
       await Share.shareXFiles(
         [XFile(file.path)],
         text: 'Kardex de $productName ($period)',
         subject: 'Kardex - $productName',
       );
-      
     } catch (e) {
       throw Exception('Error compartiendo kardex: $e');
     }
   }
-  
+
   /// Construir contenido del Excel para kardex
-  static Future<void> _buildKardexExcelContent(Sheet sheet, KardexReport kardexReport) async {
+  static Future<void> _buildKardexExcelContent(
+    Sheet sheet,
+    KardexReport kardexReport,
+  ) async {
     int currentRow = 0;
-    
+
     // Encabezado de la empresa
-    final companyCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+    final companyCell = sheet.cell(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+    );
     companyCell.value = TextCellValue(companyName);
     companyCell.cellStyle = CellStyle(bold: true, fontSize: 16);
-    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-               CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow));
+    sheet.merge(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+    );
     currentRow++;
-    
+
     // Título
-    final titleCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow));
+    final titleCell = sheet.cell(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+    );
     titleCell.value = TextCellValue('Kardex de Inventario');
     titleCell.cellStyle = CellStyle(bold: true, fontSize: 14);
-    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-               CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow));
+    sheet.merge(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+      CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+    );
     currentRow++;
-    
+
     // Información del producto (sin SKU)
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = 
-        TextCellValue('Producto: ${kardexReport.product.name}');
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow))
+        .value = TextCellValue('Producto: ${kardexReport.product.name}');
     currentRow++;
-    
-    final period = '${AppFormatters.formatDate(kardexReport.period.startDate)} - ${AppFormatters.formatDate(kardexReport.period.endDate)}';
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = 
-        TextCellValue('Período: $period');
+
+    final period =
+        '${AppFormatters.formatDate(kardexReport.period.startDate)} - ${AppFormatters.formatDate(kardexReport.period.endDate)}';
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow))
+        .value = TextCellValue('Período: $period');
     currentRow++;
-    
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = 
-        TextCellValue('Fecha: ${AppFormatters.formatDateTime(DateTime.now())}');
+
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow))
+        .value = TextCellValue(
+      'Fecha: ${AppFormatters.formatDateTime(DateTime.now())}',
+    );
     currentRow += 2;
-    
+
     // Resumen inicial
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = 
-        TextCellValue('SALDO INICIAL');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow)).value = 
-        IntCellValue(kardexReport.initialBalance.quantity.toInt());
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow)).value = 
-        TextCellValue(AppFormatters.formatCurrency(kardexReport.initialBalance.value));
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow))
+        .value = TextCellValue('SALDO INICIAL');
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow))
+        .value = IntCellValue(kardexReport.initialBalance.quantity.toInt());
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow))
+        .value = TextCellValue(
+      AppFormatters.formatCurrency(kardexReport.initialBalance.value),
+    );
     currentRow += 2;
-    
+
     // Encabezados de movimientos
-    final headers = ['Fecha', 'Tipo', 'Descripción', 'Entrada', 'Salida', 'Saldo', 'Valor Total'];
+    final headers = [
+      'Fecha',
+      'Tipo',
+      'Descripción',
+      'Entrada',
+      'Salida',
+      'Saldo',
+      'Valor Total',
+    ];
     for (int i = 0; i < headers.length; i++) {
-      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow));
+      final cell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow),
+      );
       cell.value = TextCellValue(headers[i]);
       cell.cellStyle = CellStyle(bold: true);
     }
     currentRow++;
-    
+
     // Datos de movimientos
     for (final movement in kardexReport.movements) {
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = 
-          TextCellValue(AppFormatters.formatDate(movement.date));
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow)).value = 
-          TextCellValue(movement.movementType.toString());
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow)).value = 
-          TextCellValue(movement.description);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = 
-          IntCellValue(movement.entryQuantity.toInt());
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: currentRow)).value = 
-          IntCellValue(movement.exitQuantity.toInt());
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: currentRow)).value = 
-          IntCellValue(movement.balance.toInt());
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow)).value = 
-          TextCellValue(AppFormatters.formatCurrency(movement.balanceValue));
+      sheet
+          .cell(
+            CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow),
+          )
+          .value = TextCellValue(AppFormatters.formatDate(movement.date));
+      sheet
+          .cell(
+            CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow),
+          )
+          .value = TextCellValue(movement.movementType.toString());
+      sheet
+          .cell(
+            CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow),
+          )
+          .value = TextCellValue(movement.description);
+      sheet
+          .cell(
+            CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow),
+          )
+          .value = IntCellValue(movement.entryQuantity.toInt());
+      sheet
+          .cell(
+            CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: currentRow),
+          )
+          .value = IntCellValue(movement.exitQuantity.toInt());
+      sheet
+          .cell(
+            CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: currentRow),
+          )
+          .value = IntCellValue(movement.balance.toInt());
+      sheet
+          .cell(
+            CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: currentRow),
+          )
+          .value = TextCellValue(
+        AppFormatters.formatCurrency(movement.balanceValue),
+      );
       currentRow++;
     }
-    
+
     currentRow++;
-    
+
     // Resumen final
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = 
-        TextCellValue('SALDO FINAL');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow)).value = 
-        IntCellValue(kardexReport.finalBalance.quantity.toInt());
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow)).value = 
-        TextCellValue(AppFormatters.formatCurrency(kardexReport.finalBalance.value));
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow))
+        .value = TextCellValue('SALDO FINAL');
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow))
+        .value = IntCellValue(kardexReport.finalBalance.quantity.toInt());
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow))
+        .value = TextCellValue(
+      AppFormatters.formatCurrency(kardexReport.finalBalance.value),
+    );
   }
-  
+
   /// Construir contenido del PDF para kardex
-  static Future<void> _buildKardexPdfContent(pw.Document pdf, KardexReport kardexReport) async {
+  static Future<void> _buildKardexPdfContent(
+    pw.Document pdf,
+    KardexReport kardexReport,
+  ) async {
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -2489,22 +3048,36 @@ class InventoryExportService {
                 children: [
                   pw.Text(
                     companyName,
-                    style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(
+                      fontSize: 20,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                   pw.SizedBox(height: 10),
                   pw.Text(
                     'Kardex de Inventario',
-                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                   pw.SizedBox(height: 15),
-                  pw.Text('Producto: ${kardexReport.product.name}', style: const pw.TextStyle(fontSize: 12)),
-                  pw.Text('Período: ${AppFormatters.formatDate(kardexReport.period.startDate)} - ${AppFormatters.formatDate(kardexReport.period.endDate)}', 
-                          style: const pw.TextStyle(fontSize: 12)),
-                  pw.Text('Fecha: ${AppFormatters.formatDateTime(DateTime.now())}', style: const pw.TextStyle(fontSize: 12)),
+                  pw.Text(
+                    'Producto: ${kardexReport.product.name}',
+                    style: const pw.TextStyle(fontSize: 12),
+                  ),
+                  pw.Text(
+                    'Período: ${AppFormatters.formatDate(kardexReport.period.startDate)} - ${AppFormatters.formatDate(kardexReport.period.endDate)}',
+                    style: const pw.TextStyle(fontSize: 12),
+                  ),
+                  pw.Text(
+                    'Fecha: ${AppFormatters.formatDateTime(DateTime.now())}',
+                    style: const pw.TextStyle(fontSize: 12),
+                  ),
                 ],
               ),
             ),
-            
+
             // Resumen inicial
             pw.Container(
               margin: const pw.EdgeInsets.only(bottom: 20),
@@ -2516,18 +3089,27 @@ class InventoryExportService {
               child: pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('SALDO INICIAL:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                  pw.Text('${kardexReport.initialBalance.quantity.toInt()} unidades'),
-                  pw.Text(AppFormatters.formatCurrency(kardexReport.initialBalance.value)),
+                  pw.Text(
+                    'SALDO INICIAL:',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.Text(
+                    '${kardexReport.initialBalance.quantity.toInt()} unidades',
+                  ),
+                  pw.Text(
+                    AppFormatters.formatCurrency(
+                      kardexReport.initialBalance.value,
+                    ),
+                  ),
                 ],
               ),
             ),
-            
+
             // Tabla de movimientos
             _buildKardexMovementsTable(kardexReport.movements),
-            
+
             pw.SizedBox(height: 20),
-            
+
             // Resumen final
             pw.Container(
               padding: const pw.EdgeInsets.all(10),
@@ -2538,9 +3120,18 @@ class InventoryExportService {
               child: pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('SALDO FINAL:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                  pw.Text('${kardexReport.finalBalance.quantity.toInt()} unidades'),
-                  pw.Text(AppFormatters.formatCurrency(kardexReport.finalBalance.value)),
+                  pw.Text(
+                    'SALDO FINAL:',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.Text(
+                    '${kardexReport.finalBalance.quantity.toInt()} unidades',
+                  ),
+                  pw.Text(
+                    AppFormatters.formatCurrency(
+                      kardexReport.finalBalance.value,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2549,7 +3140,7 @@ class InventoryExportService {
       ),
     );
   }
-  
+
   static pw.Widget _buildKardexMovementsTable(List<KardexMovement> movements) {
     return pw.Table(
       border: pw.TableBorder.all(width: 0.5),
@@ -2577,17 +3168,31 @@ class InventoryExportService {
           ],
         ),
         // Data rows
-        ...movements.map((movement) => pw.TableRow(
-          children: [
-            _buildMovementCell(AppFormatters.formatDate(movement.date)),
-            _buildMovementCell(movement.movementType.toString().split('.').last),
-            _buildMovementCell(movement.description, maxLines: 2),
-            _buildMovementCell(movement.entryQuantity > 0 ? movement.entryQuantity.toInt().toString() : ''),
-            _buildMovementCell(movement.exitQuantity > 0 ? movement.exitQuantity.toInt().toString() : ''),
-            _buildMovementCell(movement.balance.toInt().toString()),
-            _buildMovementCell(AppFormatters.formatCurrency(movement.balanceValue)),
-          ],
-        )),
+        ...movements.map(
+          (movement) => pw.TableRow(
+            children: [
+              _buildMovementCell(AppFormatters.formatDate(movement.date)),
+              _buildMovementCell(
+                movement.movementType.toString().split('.').last,
+              ),
+              _buildMovementCell(movement.description, maxLines: 2),
+              _buildMovementCell(
+                movement.entryQuantity > 0
+                    ? movement.entryQuantity.toInt().toString()
+                    : '',
+              ),
+              _buildMovementCell(
+                movement.exitQuantity > 0
+                    ? movement.exitQuantity.toInt().toString()
+                    : '',
+              ),
+              _buildMovementCell(movement.balance.toInt().toString()),
+              _buildMovementCell(
+                AppFormatters.formatCurrency(movement.balanceValue),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

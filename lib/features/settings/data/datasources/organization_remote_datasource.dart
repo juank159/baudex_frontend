@@ -1,15 +1,16 @@
 // lib/features/settings/data/datasources/organization_remote_datasource.dart
 import 'package:dio/dio.dart';
-import '../../../../app/config/constants/api_constants.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../models/organization_model.dart';
 
 abstract class OrganizationRemoteDataSource {
   Future<OrganizationModel> getCurrentOrganization();
-  Future<OrganizationModel> updateCurrentOrganization(Map<String, dynamic> updates);
+  Future<OrganizationModel> updateCurrentOrganization(
+    Map<String, dynamic> updates,
+  );
   Future<OrganizationModel> getOrganizationById(String id);
-  
+
   /// ✅ NUEVO: Actualizar margen de ganancia para productos temporales
   Future<bool> updateProfitMargin(double marginPercentage);
 }
@@ -22,9 +23,7 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
   @override
   Future<OrganizationModel> getCurrentOrganization() async {
     try {
-      final response = await dioClient.get(
-        '/organizations/current',
-      );
+      final response = await dioClient.get('/organizations/current');
 
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
@@ -40,10 +39,10 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
     }
   }
 
-
-
   @override
-  Future<OrganizationModel> updateCurrentOrganization(Map<String, dynamic> updates) async {
+  Future<OrganizationModel> updateCurrentOrganization(
+    Map<String, dynamic> updates,
+  ) async {
     try {
       final response = await dioClient.patch(
         '/organizations/current', // Usar el endpoint 'current' que no requiere admin
@@ -64,13 +63,10 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
     }
   }
 
-
   @override
   Future<OrganizationModel> getOrganizationById(String id) async {
     try {
-      final response = await dioClient.get(
-        '/organizations/$id',
-      );
+      final response = await dioClient.get('/organizations/$id');
 
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
@@ -89,20 +85,20 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
   @override
   Future<bool> updateProfitMargin(double marginPercentage) async {
     try {
-      print('🌐 Enviando PUT a /organizations/current/profit-margin con margen: $marginPercentage%');
-      
+      print(
+        '🌐 Enviando PUT a /organizations/current/profit-margin con margen: $marginPercentage%',
+      );
+
       final response = await dioClient.put(
         '/organizations/current/profit-margin',
-        data: {
-          'marginPercentage': marginPercentage,
-        },
+        data: {'marginPercentage': marginPercentage},
       );
 
       // El backend devuelve: { success: boolean, marginPercentage: number, message: string }
       final success = response.data['success'] as bool? ?? false;
-      
+
       print('✅ Respuesta del servidor: ${response.data}');
-      
+
       return success;
     } on DioException catch (e) {
       print('❌ Error DioException: ${e.response?.data}');

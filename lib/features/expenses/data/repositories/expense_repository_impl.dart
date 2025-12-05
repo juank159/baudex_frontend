@@ -1,8 +1,10 @@
 // lib/features/expenses/data/repositories/expense_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart' as dio;
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
+import '../../../../app/core/services/file_service.dart';
 
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_category.dart';
@@ -452,6 +454,70 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
   }
 
   @override
+  Future<Either<Failure, PaginatedResponse<ExpenseCategory>>> getExpenseCategoriesWithStats({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String? status,
+    String? orderBy,
+    String? orderDirection,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final categoriesResponse = await remoteDataSource.getExpenseCategoriesWithStats(
+          page: page,
+          limit: limit,
+          search: search,
+          status: status,
+          orderBy: orderBy,
+          orderDirection: orderDirection,
+        );
+
+        final domainCategories = categoriesResponse.data
+            .map((category) => category.toEntity())
+            .toList();
+
+        return Right(
+          PaginatedResponse<ExpenseCategory>(
+            data: domainCategories,
+            meta: categoriesResponse.meta != null
+                ? PaginationMeta(
+                    page: categoriesResponse.meta!.page,
+                    limit: categoriesResponse.meta!.limit,
+                    total: categoriesResponse.meta!.totalItems,
+                    totalPages: categoriesResponse.meta!.totalPages,
+                    hasNext: categoriesResponse.meta!.hasNextPage,
+                    hasPrev: categoriesResponse.meta!.hasPreviousPage,
+                  )
+                : PaginationMeta(
+                    page: page,
+                    limit: limit,
+                    total: domainCategories.length,
+                    totalPages: (domainCategories.length / limit).ceil(),
+                    hasNext: false,
+                    hasPrev: false,
+                  ),
+          ),
+        );
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
+      } catch (e) {
+        return Left(ServerFailure('Error inesperado: $e'));
+      }
+    } else {
+      // Fallback to regular categories without stats when offline
+      return getExpenseCategories(
+        page: page,
+        limit: limit,
+        search: search,
+        status: status,
+        orderBy: orderBy,
+        orderDirection: orderDirection,
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, ExpenseCategory>> getExpenseCategoryById(String id) async {
     if (await networkInfo.isConnected) {
       try {
@@ -584,6 +650,61 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       } catch (e) {
         return Left(CacheFailure('Error al buscar en cache: $e'));
       }
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<String>>> uploadAttachments(
+    String expenseId,
+    List<AttachmentFile> files,
+  ) async {
+    if (await networkInfo.isConnected) {
+      try {
+        // Convert AttachmentFile to MultipartFile
+        final multipartFiles = <dio.MultipartFile>[];
+
+        for (final file in files) {
+          if (file.bytes != null) {
+            multipartFiles.add(
+              dio.MultipartFile.fromBytes(
+                file.bytes!,
+                filename: file.name,
+              ),
+            );
+          }
+        }
+
+        final urls = await remoteDataSource.uploadAttachments(
+          expenseId,
+          multipartFiles,
+        );
+        return Right(urls);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
+      } catch (e) {
+        return Left(ServerFailure('Error al subir adjuntos: $e'));
+      }
+    } else {
+      return Left(NetworkFailure('No hay conexión a internet'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteAttachment(
+    String expenseId,
+    String filename,
+  ) async {
+    if (await networkInfo.isConnected) {
+      try {
+        await remoteDataSource.deleteAttachment(expenseId, filename);
+        return const Right(null);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
+      } catch (e) {
+        return Left(ServerFailure('Error al eliminar adjunto: $e'));
+      }
+    } else {
+      return Left(NetworkFailure('No hay conexión a internet'));
     }
   }
 }

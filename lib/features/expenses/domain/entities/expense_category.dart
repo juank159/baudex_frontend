@@ -17,6 +17,10 @@ class ExpenseCategory extends Equatable {
   final DateTime updatedAt;
   final DateTime? deletedAt;
 
+  // Estadísticas (opcionales, solo cuando se carga con stats)
+  final double? monthlySpent; // Gasto del mes actual
+  final double? budgetUtilization; // Porcentaje de utilización del presupuesto
+
   const ExpenseCategory({
     required this.id,
     required this.name,
@@ -29,6 +33,8 @@ class ExpenseCategory extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
+    this.monthlySpent,
+    this.budgetUtilization,
   });
 
   @override
@@ -44,6 +50,8 @@ class ExpenseCategory extends Equatable {
     createdAt,
     updatedAt,
     deletedAt,
+    monthlySpent,
+    budgetUtilization,
   ];
 
   // Getters útiles
@@ -63,6 +71,26 @@ class ExpenseCategory extends Equatable {
     return AppFormatters.formatCurrency(monthlyBudget);
   }
 
+  String get formattedMonthlySpent {
+    return AppFormatters.formatCurrency(monthlySpent ?? 0);
+  }
+
+  double get utilizationPercentage {
+    return budgetUtilization ?? 0;
+  }
+
+  bool get hasStats {
+    return monthlySpent != null && budgetUtilization != null;
+  }
+
+  bool get isOverBudget {
+    return hasStats && (monthlySpent! > monthlyBudget);
+  }
+
+  bool get isNearBudgetLimit {
+    return hasStats && utilizationPercentage >= 80 && utilizationPercentage < 100;
+  }
+
   ExpenseCategory copyWith({
     String? id,
     String? name,
@@ -75,6 +103,8 @@ class ExpenseCategory extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
+    double? monthlySpent,
+    double? budgetUtilization,
   }) {
     return ExpenseCategory(
       id: id ?? this.id,
@@ -88,6 +118,8 @@ class ExpenseCategory extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      monthlySpent: monthlySpent ?? this.monthlySpent,
+      budgetUtilization: budgetUtilization ?? this.budgetUtilization,
     );
   }
 

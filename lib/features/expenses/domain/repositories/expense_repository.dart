@@ -1,5 +1,6 @@
 // lib/features/expenses/domain/repositories/expense_repository.dart
 import 'package:baudex_desktop/app/core/errors/failures.dart';
+import 'package:baudex_desktop/app/core/services/file_service.dart';
 import 'package:dartz/dartz.dart';
 import '../entities/expense.dart';
 import '../entities/expense_category.dart';
@@ -90,6 +91,16 @@ abstract class ExpenseRepository {
     String? orderDirection,
   });
 
+  Future<Either<Failure, PaginatedResponse<ExpenseCategory>>>
+  getExpenseCategoriesWithStats({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String? status,
+    String? orderBy,
+    String? orderDirection,
+  });
+
   Future<Either<Failure, ExpenseCategory>> getExpenseCategoryById(String id);
 
   Future<Either<Failure, ExpenseCategory>> createExpenseCategory({
@@ -114,6 +125,17 @@ abstract class ExpenseRepository {
 
   Future<Either<Failure, List<ExpenseCategory>>> searchExpenseCategories(
     String query,
+  );
+
+  // Attachment operations
+  Future<Either<Failure, List<String>>> uploadAttachments(
+    String expenseId,
+    List<AttachmentFile> files,
+  );
+
+  Future<Either<Failure, void>> deleteAttachment(
+    String expenseId,
+    String filename,
   );
 }
 

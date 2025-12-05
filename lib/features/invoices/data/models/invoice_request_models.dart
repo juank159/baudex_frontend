@@ -124,15 +124,17 @@ class UpdateInvoiceRequestModel {
     if (dueDate != null) json['dueDate'] = dueDate;
     if (paymentMethod != null) json['paymentMethod'] = paymentMethod;
     if (taxPercentage != null) json['taxPercentage'] = taxPercentage;
-    if (discountPercentage != null)
+    if (discountPercentage != null) {
       json['discountPercentage'] = discountPercentage;
+    }
     if (discountAmount != null) json['discountAmount'] = discountAmount;
     if (notes != null) json['notes'] = notes;
     if (terms != null) json['terms'] = terms;
     if (metadata != null) json['metadata'] = metadata;
     if (customerId != null) json['customerId'] = customerId;
-    if (items != null)
+    if (items != null) {
       json['items'] = items!.map((item) => item.toJson()).toList();
+    }
 
     return json;
   }

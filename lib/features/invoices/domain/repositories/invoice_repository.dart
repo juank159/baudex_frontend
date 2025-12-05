@@ -3,8 +3,6 @@ import 'package:dartz/dartz.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../entities/invoice.dart';
-import '../entities/invoice_item.dart';
-import '../entities/invoice_payment.dart';
 import '../entities/invoice_stats.dart';
 
 abstract class InvoiceRepository {
@@ -19,6 +17,8 @@ abstract class InvoiceRepository {
     PaymentMethod? paymentMethod,
     String? customerId,
     String? createdById,
+    String? bankAccountId, // Filtro por ID de cuenta bancaria (legacy)
+    String? bankAccountName, // ✅ NUEVO: Filtro por nombre de método de pago (Nequi, Bancolombia, etc.)
     DateTime? startDate,
     DateTime? endDate,
     double? minAmount,
@@ -64,6 +64,7 @@ abstract class InvoiceRepository {
     String? notes,
     String? terms,
     Map<String, dynamic>? metadata,
+    String? bankAccountId, // 🏦 ID de la cuenta bancaria para registrar el pago
   });
 
   /// Actualizar factura (solo si está en borrador)
@@ -95,13 +96,26 @@ abstract class InvoiceRepository {
     required String invoiceId,
     required double amount,
     required PaymentMethod paymentMethod,
+    String? bankAccountId,
     DateTime? paymentDate,
     String? reference,
     String? notes,
   });
 
+  /// Agregar múltiples pagos a factura (pagos divididos entre métodos)
+  Future<Either<Failure, MultiplePaymentsResult>> addMultiplePayments({
+    required String invoiceId,
+    required List<PaymentItemData> payments,
+    DateTime? paymentDate,
+    bool createCreditForRemaining = false,
+    String? generalNotes,
+  });
+
   /// Eliminar factura (soft delete)
   Future<Either<Failure, void>> deleteInvoice(String id);
+
+  /// ✅ NUEVO: Descargar PDF de factura
+  Future<Either<Failure, List<int>>> downloadInvoicePdf(String id);
 }
 
 // ==================== PARÁMETROS ====================
@@ -149,6 +163,8 @@ class InvoiceQueryParams {
   final PaymentMethod? paymentMethod;
   final String? customerId;
   final String? createdById;
+  final String? bankAccountId; // Filtro por ID de cuenta bancaria (legacy)
+  final String? bankAccountName; // ✅ NUEVO: Filtro por nombre de método de pago (Nequi, Bancolombia, etc.)
   final DateTime? startDate;
   final DateTime? endDate;
   final double? minAmount;
@@ -164,6 +180,8 @@ class InvoiceQueryParams {
     this.paymentMethod,
     this.customerId,
     this.createdById,
+    this.bankAccountId,
+    this.bankAccountName,
     this.startDate,
     this.endDate,
     this.minAmount,
@@ -195,6 +213,12 @@ class InvoiceQueryParams {
     if (createdById != null) {
       params['createdById'] = createdById;
     }
+    if (bankAccountId != null) {
+      params['bankAccountId'] = bankAccountId;
+    }
+    if (bankAccountName != null) {
+      params['bankAccountName'] = bankAccountName;
+    }
     if (startDate != null) {
       params['startDate'] = startDate!.toIso8601String();
     }
@@ -209,5 +233,66 @@ class InvoiceQueryParams {
     }
 
     return params;
+  }
+}
+
+// ==================== PAGOS MÚLTIPLES ====================
+
+/// Datos de un ítem de pago para pagos múltiples
+class PaymentItemData {
+  final double amount;
+  final PaymentMethod paymentMethod;
+  final String? bankAccountId;
+  final String? bankAccountName; // Para mostrar en UI
+  final String? reference;
+  final String? notes;
+
+  const PaymentItemData({
+    required this.amount,
+    required this.paymentMethod,
+    this.bankAccountId,
+    this.bankAccountName,
+    this.reference,
+    this.notes,
+  });
+
+  bool get isValid => amount > 0;
+
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{
+      'amount': amount,
+      'paymentMethod': paymentMethod.value,
+    };
+    if (bankAccountId != null) json['bankAccountId'] = bankAccountId;
+    if (reference != null) json['reference'] = reference;
+    if (notes != null) json['notes'] = notes;
+    return json;
+  }
+}
+
+/// Resultado de agregar múltiples pagos
+class MultiplePaymentsResult {
+  final Invoice invoice;
+  final int paymentsCreated;
+  final double remainingBalance;
+  final bool creditCreated;
+  final String? creditId;
+
+  const MultiplePaymentsResult({
+    required this.invoice,
+    required this.paymentsCreated,
+    required this.remainingBalance,
+    this.creditCreated = false,
+    this.creditId,
+  });
+
+  factory MultiplePaymentsResult.fromJson(Map<String, dynamic> json, Invoice invoice) {
+    return MultiplePaymentsResult(
+      invoice: invoice,
+      paymentsCreated: (json['payments'] as List?)?.length ?? 0,
+      remainingBalance: (json['remainingBalance'] as num?)?.toDouble() ?? 0.0,
+      creditCreated: json['creditCreated'] as bool? ?? false,
+      creditId: json['creditId'] as String?,
+    );
   }
 }

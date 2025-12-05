@@ -1,7 +1,6 @@
 // lib/features/reports/presentation/screens/profitability_categories_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_theme.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/reports_controller.dart';
@@ -20,7 +19,9 @@ class ProfitabilityCategoriesScreen extends GetView<ReportsController> {
           Expanded(
             child: Obx(() {
               if (controller.isLoadingProfitability.value) {
-                return const LoadingWidget(message: 'Cargando análisis por categorías...');
+                return const LoadingWidget(
+                  message: 'Cargando análisis por categorías...',
+                );
               }
 
               if (controller.error.value.isNotEmpty) {
@@ -74,17 +75,17 @@ class ProfitabilityCategoriesScreen extends GetView<ReportsController> {
             children: [
               Expanded(
                 flex: 2,
-                child: Obx(() => DateRangePickerWidget(
-                  startDate: controller.startDate.value,
-                  endDate: controller.endDate.value,
-                  onDateRangeChanged: controller.setDateRange,
-                  label: 'Período de Análisis',
-                )),
+                child: Obx(
+                  () => DateRangePickerWidget(
+                    startDate: controller.startDate.value,
+                    endDate: controller.endDate.value,
+                    onDateRangeChanged: controller.setDateRange,
+                    label: 'Período de Análisis',
+                  ),
+                ),
               ),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildWarehouseDropdown(),
-              ),
+              Expanded(child: _buildWarehouseDropdown()),
             ],
           ),
         ],
@@ -93,23 +94,26 @@ class ProfitabilityCategoriesScreen extends GetView<ReportsController> {
   }
 
   Widget _buildWarehouseDropdown() {
-    return Obx(() => DropdownButtonFormField<String>(
-      value: controller.selectedWarehouseId.value.isEmpty 
-          ? null 
-          : controller.selectedWarehouseId.value,
-      decoration: const InputDecoration(
-        labelText: 'Almacén',
-        prefixIcon: Icon(Icons.warehouse),
-        border: OutlineInputBorder(),
-      ),
-      items: [
-        const DropdownMenuItem<String>(
-          value: '',
-          child: Text('Todos los almacenes'),
+    return Obx(
+      () => DropdownButtonFormField<String>(
+        value:
+            controller.selectedWarehouseId.value.isEmpty
+                ? null
+                : controller.selectedWarehouseId.value,
+        decoration: const InputDecoration(
+          labelText: 'Almacén',
+          prefixIcon: Icon(Icons.warehouse),
+          border: OutlineInputBorder(),
         ),
-      ],
-      onChanged: (value) => controller.setWarehouseFilter(value ?? ''),
-    ));
+        items: [
+          const DropdownMenuItem<String>(
+            value: '',
+            child: Text('Todos los almacenes'),
+          ),
+        ],
+        onChanged: (value) => controller.setWarehouseFilter(value ?? ''),
+      ),
+    );
   }
 
   Widget _buildContentSection() {
@@ -129,9 +133,15 @@ class ProfitabilityCategoriesScreen extends GetView<ReportsController> {
   Widget _buildSummaryCards() {
     return Obx(() {
       final categories = controller.profitabilityByCategories;
-      final totalRevenue = categories.fold(0.0, (sum, cat) => sum + cat.totalRevenue);
+      final totalRevenue = categories.fold(
+        0.0,
+        (sum, cat) => sum + cat.totalRevenue,
+      );
       final totalCost = categories.fold(0.0, (sum, cat) => sum + cat.totalCost);
-      final totalProfit = categories.fold(0.0, (sum, cat) => sum + cat.grossProfit);
+      final totalProfit = categories.fold(
+        0.0,
+        (sum, cat) => sum + cat.grossProfit,
+      );
 
       return Row(
         children: [
@@ -216,7 +226,7 @@ class ProfitabilityCategoriesScreen extends GetView<ReportsController> {
   Widget _buildCategoriesGrid() {
     return Obx(() {
       final categories = controller.profitabilityByCategories;
-      
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -289,7 +299,9 @@ class ProfitabilityCategoriesScreen extends GetView<ReportsController> {
                       Row(
                         children: [
                           Icon(
-                            isPositive ? Icons.trending_up : Icons.trending_down,
+                            isPositive
+                                ? Icons.trending_up
+                                : Icons.trending_down,
                             color: marginColor,
                             size: 16,
                           ),
@@ -343,11 +355,7 @@ class ProfitabilityCategoriesScreen extends GetView<ReportsController> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red.shade300,
-          ),
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
           const SizedBox(height: 16),
           Text(
             'Error al cargar los datos',

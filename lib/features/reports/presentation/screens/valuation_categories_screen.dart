@@ -1,7 +1,6 @@
 // lib/features/reports/presentation/screens/valuation_categories_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_theme.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/reports_controller.dart';
@@ -20,7 +19,9 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
           Expanded(
             child: Obx(() {
               if (controller.isLoadingValuation.value) {
-                return const LoadingWidget(message: 'Cargando valoración por categorías...');
+                return const LoadingWidget(
+                  message: 'Cargando valoración por categorías...',
+                );
               }
 
               if (controller.error.value.isNotEmpty) {
@@ -72,20 +73,18 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildDateSelector(),
-              ),
+              Expanded(child: _buildDateSelector()),
               const SizedBox(width: 16),
               Expanded(
-                child: Obx(() => ValuationMethodSelector(
-                  selectedMethod: controller.valuationMethod.value,
-                  onMethodChanged: controller.setValuationMethod,
-                )),
+                child: Obx(
+                  () => ValuationMethodSelector(
+                    selectedMethod: controller.valuationMethod.value,
+                    onMethodChanged: controller.setValuationMethod,
+                  ),
+                ),
               ),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildWarehouseDropdown(),
-              ),
+              Expanded(child: _buildWarehouseDropdown()),
             ],
           ),
         ],
@@ -94,43 +93,48 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
   }
 
   Widget _buildDateSelector() {
-    return Obx(() => InkWell(
-      onTap: () => _showDatePicker(),
-      borderRadius: BorderRadius.circular(8),
-      child: InputDecorator(
-        decoration: const InputDecoration(
-          labelText: 'Fecha de Valoración',
-          prefixIcon: Icon(Icons.calendar_today),
-          border: OutlineInputBorder(),
-        ),
-        child: Text(
-          controller.asOfDate.value != null
-              ? controller.formatDate(controller.asOfDate.value!)
-              : 'Seleccionar fecha',
-          style: Get.textTheme.bodyMedium,
+    return Obx(
+      () => InkWell(
+        onTap: () => _showDatePicker(),
+        borderRadius: BorderRadius.circular(8),
+        child: InputDecorator(
+          decoration: const InputDecoration(
+            labelText: 'Fecha de Valoración',
+            prefixIcon: Icon(Icons.calendar_today),
+            border: OutlineInputBorder(),
+          ),
+          child: Text(
+            controller.asOfDate.value != null
+                ? controller.formatDate(controller.asOfDate.value!)
+                : 'Seleccionar fecha',
+            style: Get.textTheme.bodyMedium,
+          ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildWarehouseDropdown() {
-    return Obx(() => DropdownButtonFormField<String>(
-      value: controller.selectedWarehouseId.value.isEmpty 
-          ? null 
-          : controller.selectedWarehouseId.value,
-      decoration: const InputDecoration(
-        labelText: 'Almacén',
-        prefixIcon: Icon(Icons.warehouse),
-        border: OutlineInputBorder(),
-      ),
-      items: [
-        const DropdownMenuItem<String>(
-          value: '',
-          child: Text('Todos los almacenes'),
+    return Obx(
+      () => DropdownButtonFormField<String>(
+        value:
+            controller.selectedWarehouseId.value.isEmpty
+                ? null
+                : controller.selectedWarehouseId.value,
+        decoration: const InputDecoration(
+          labelText: 'Almacén',
+          prefixIcon: Icon(Icons.warehouse),
+          border: OutlineInputBorder(),
         ),
-      ],
-      onChanged: (value) => controller.setWarehouseFilter(value ?? ''),
-    ));
+        items: [
+          const DropdownMenuItem<String>(
+            value: '',
+            child: Text('Todos los almacenes'),
+          ),
+        ],
+        onChanged: (value) => controller.setWarehouseFilter(value ?? ''),
+      ),
+    );
   }
 
   Widget _buildContentSection() {
@@ -153,7 +157,10 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
     return Obx(() {
       final categories = controller.valuationByCategories;
       final totalValue = categories.fold(0.0, (sum, c) => sum + c.totalValue);
-      final totalQuantity = categories.fold(0.0, (sum, c) => sum + c.currentQuantity);
+      final totalQuantity = categories.fold(
+        0.0,
+        (sum, c) => sum + c.currentQuantity,
+      );
 
       return Container(
         padding: const EdgeInsets.all(20),
@@ -177,11 +184,7 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
                 color: AppColors.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                Icons.pie_chart,
-                size: 32,
-                color: AppColors.primary,
-              ),
+              child: Icon(Icons.pie_chart, size: 32, color: AppColors.primary),
             ),
             const SizedBox(width: 20),
             Expanded(
@@ -222,7 +225,7 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
     return Obx(() {
       final categories = controller.valuationByCategories;
       final totalValue = categories.fold(0.0, (sum, c) => sum + c.totalValue);
-      
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -245,9 +248,10 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
             itemCount: categories.length,
             itemBuilder: (context, index) {
               final category = categories[index];
-              final percentage = totalValue > 0 
-                  ? (category.totalValue / totalValue) * 100 
-                  : 0.0;
+              final percentage =
+                  totalValue > 0
+                      ? (category.totalValue / totalValue) * 100
+                      : 0.0;
               final color = _getCategoryColor(index);
 
               return Card(
@@ -349,7 +353,7 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
   Widget _buildComparisonChart() {
     return Obx(() {
       final categories = controller.valuationByCategories;
-      
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -367,11 +371,7 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
                 children: [
                   Row(
                     children: [
-                      Icon(
-                        Icons.bar_chart,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
+                      Icon(Icons.bar_chart, color: AppColors.primary, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         'Distribución de Valor por Categoría',
@@ -395,75 +395,79 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
   Widget _buildHorizontalBarChart(List categories) {
     if (categories.isEmpty) return const SizedBox.shrink();
 
-    final maxValue = categories.fold<double>(0, (max, cat) => 
-        cat.totalValue > max ? cat.totalValue : max);
+    final maxValue = categories.fold<double>(
+      0,
+      (max, cat) => cat.totalValue > max ? cat.totalValue : max,
+    );
 
     return Column(
-      children: categories.asMap().entries.map((entry) {
-        final index = entry.key;
-        final category = entry.value;
-        final percentage = maxValue > 0 ? (category.totalValue / maxValue) : 0.0;
-        final color = _getCategoryColor(index);
+      children:
+          categories.asMap().entries.map((entry) {
+            final index = entry.key;
+            final category = entry.value;
+            final percentage =
+                maxValue > 0 ? (category.totalValue / maxValue) : 0.0;
+            final color = _getCategoryColor(index);
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      category.categoryName ?? 'Sin categoría',
-                      style: Get.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
+                  Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          category.categoryName ?? 'Sin categoría',
+                          style: Get.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        controller.formatCurrency(category.totalValue),
+                        style: Get.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    controller.formatCurrency(category.totalValue),
-                    style: Get.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
+                  const SizedBox(height: 6),
+                  Stack(
+                    children: [
+                      Container(
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: AppColors.borderColor.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      FractionallySizedBox(
+                        widthFactor: percentage,
+                        child: Container(
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Stack(
-                children: [
-                  Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: AppColors.borderColor.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  FractionallySizedBox(
-                    widthFactor: percentage,
-                    child: Container(
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 
@@ -492,9 +496,9 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: AppColors.primary,
-            ),
+            colorScheme: Theme.of(
+              context,
+            ).colorScheme.copyWith(primary: AppColors.primary),
           ),
           child: child!,
         );
@@ -511,11 +515,7 @@ class ValuationCategoriesScreen extends GetView<ReportsController> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red.shade300,
-          ),
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
           const SizedBox(height: 16),
           Text(
             'Error al cargar los datos',

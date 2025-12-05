@@ -14,6 +14,7 @@ import '../widgets/invoice_payment_form_widget.dart';
 import '../widgets/invoice_items_list_widget.dart';
 import '../widgets/payment_history_widget.dart';
 import '../../domain/entities/invoice.dart';
+import '../../../credit_notes/presentation/widgets/invoice_credit_notes_widget.dart';
 
 class InvoiceDetailScreen extends StatelessWidget {
   const InvoiceDetailScreen({super.key});
@@ -59,7 +60,10 @@ class InvoiceDetailScreen extends StatelessWidget {
           },
         ),
       ),
-      floatingActionButton: _buildFuturisticFloatingActionButton(context, controller),
+      floatingActionButton: _buildFuturisticFloatingActionButton(
+        context,
+        controller,
+      ),
     );
   }
 
@@ -107,7 +111,9 @@ class InvoiceDetailScreen extends StatelessWidget {
             SizedBox(
               width: 200,
               child: LinearProgressIndicator(
-                backgroundColor: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+                backgroundColor: ElegantLightTheme.textSecondary.withValues(
+                  alpha: 0.2,
+                ),
                 valueColor: AlwaysStoppedAnimation<Color>(
                   ElegantLightTheme.primaryGradient.colors.first,
                 ),
@@ -184,7 +190,9 @@ class InvoiceDetailScreen extends StatelessWidget {
           gradient: ElegantLightTheme.primaryGradient,
           boxShadow: [
             BoxShadow(
-              color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.3),
+              color: ElegantLightTheme.primaryGradient.colors.first.withValues(
+                alpha: 0.3,
+              ),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -196,10 +204,6 @@ class InvoiceDetailScreen extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: ElegantLightTheme.glassGradient,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.3),
-            width: 1,
-          ),
         ),
         child: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -208,69 +212,64 @@ class InvoiceDetailScreen extends StatelessWidget {
         ),
       ),
       title: GetBuilder<InvoiceDetailController>(
-        builder: (controller) => AnimatedContainer(
-          duration: ElegantLightTheme.normalAnimation,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                controller.invoice?.number ?? 'Factura',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              if (controller.hasInvoice)
-                Container(
-                  margin: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    controller.invoice!.customerName,
+        builder:
+            (controller) => AnimatedContainer(
+              duration: ElegantLightTheme.normalAnimation,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    controller.invoice?.number ?? 'Factura',
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white70,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
                     ),
                   ),
-                ),
-            ],
-          ),
-        ),
+                  if (controller.hasInvoice)
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        controller.invoice!.customerName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
       ),
       actions: [
-        // Editar con diseño futurístico
+        // Editar
         GetBuilder<InvoiceDetailController>(
-          builder: (controller) => controller.canEdit
-              ? Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.glassGradient,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.white),
-                    onPressed: controller.goToEditInvoice,
-                    tooltip: 'Editar factura',
-                  ),
-                )
-              : const SizedBox.shrink(),
+          builder:
+              (controller) =>
+                  controller.canEdit
+                      ? Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          gradient: ElegantLightTheme.glassGradient,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.white),
+                          onPressed: controller.goToEditInvoice,
+                          tooltip: 'Editar factura',
+                        ),
+                      )
+                      : const SizedBox.shrink(),
         ),
-        
-        // Refrescar con diseño futurístico
+
+        // Refrescar
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             gradient: ElegantLightTheme.glassGradient,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.3),
-              width: 1,
-            ),
           ),
           child: IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
@@ -278,70 +277,89 @@ class InvoiceDetailScreen extends StatelessWidget {
             tooltip: 'Refrescar',
           ),
         ),
-        
-        // Menú con diseño futurístico
+
+        // Menú
         GetBuilder<InvoiceDetailController>(
-          builder: (controller) => Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.glassGradient,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
-                width: 1,
+          builder:
+              (controller) => Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.glassGradient,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  color: ElegantLightTheme.cardColor,
+                  elevation: 8,
+                  shadowColor: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                  surfaceTintColor: Colors.transparent,
+                  onSelected:
+                      (value) => _handleMenuAction(value, context, controller),
+                  itemBuilder:
+                      (context) => _buildFuturisticMenuItems(controller),
+                ),
               ),
-            ),
-            child: PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.white),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              color: Colors.transparent,
-              elevation: 0,
-              onSelected: (value) => _handleMenuAction(value, context, controller),
-              itemBuilder: (context) => _buildFuturisticMenuItems(controller),
-            ),
-          ),
         ),
       ],
     );
   }
 
-  List<PopupMenuEntry<String>> _buildFuturisticMenuItems(InvoiceDetailController controller) {
+  List<PopupMenuEntry<String>> _buildFuturisticMenuItems(
+    InvoiceDetailController controller,
+  ) {
     return [
       if (controller.canPrint)
         PopupMenuItem(
           value: 'print',
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: _buildFuturisticMenuItem(
             icon: Icons.print,
             text: 'Imprimir',
-            color: Colors.green,
+            color: Colors.teal,
           ),
         ),
       PopupMenuItem(
-        value: 'share',
+        value: 'download_pdf',
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: _buildFuturisticMenuItem(
-          icon: Icons.share,
-          text: 'Compartir',
-          color: Colors.blue,
+          icon: Icons.picture_as_pdf,
+          text: 'Descargar PDF',
+          color: Colors.red.shade600,
         ),
       ),
-      const PopupMenuDivider(),
-      if (controller.canConfirm)
+      PopupMenuItem(
+        value: 'share',
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: _buildFuturisticMenuItem(
+          icon: Icons.share,
+          text: 'Compartir PDF',
+          color: Colors.blue.shade600,
+        ),
+      ),
+      if (controller.canConfirm) ...[
+        const PopupMenuDivider(height: 16),
         PopupMenuItem(
           value: 'confirm',
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: _buildFuturisticMenuItem(
             icon: Icons.check_circle,
-            text: 'Confirmar',
-            color: Colors.green,
+            text: 'Confirmar Factura',
+            color: Colors.green.shade600,
           ),
         ),
+      ],
       if (controller.canDelete) ...[
-        const PopupMenuDivider(),
+        const PopupMenuDivider(height: 16),
         PopupMenuItem(
           value: 'delete',
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: _buildFuturisticMenuItem(
-            icon: Icons.delete,
-            text: 'Eliminar',
-            color: Colors.red,
+            icon: Icons.delete_forever,
+            text: 'Eliminar Factura',
+            color: Colors.red.shade700,
           ),
         ),
       ],
@@ -354,36 +372,48 @@ class InvoiceDetailScreen extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        gradient: ElegantLightTheme.glassGradient,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [color, color.withValues(alpha: 0.8)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Icon(icon, color: Colors.white, size: 16),
+            child: Icon(icon, color: Colors.white, size: 18),
           ),
-          const SizedBox(width: 12),
-          Text(
-            text,
-            style: const TextStyle(
-              color: ElegantLightTheme.textPrimary,
-              fontWeight: FontWeight.w600,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
             ),
+          ),
+          Icon(
+            Icons.chevron_right,
+            color: color.withValues(alpha: 0.5),
+            size: 20,
           ),
         ],
       ),
@@ -418,7 +448,7 @@ class InvoiceDetailScreen extends StatelessWidget {
 
           // ✅ NUEVO: Contenido del tab seleccionado
           Obx(() => _buildTabContent(context, controller, isMobile: true)),
-          
+
           // Espacio adicional para el floating action button
           const SizedBox(height: 80),
         ],
@@ -477,11 +507,9 @@ class InvoiceDetailScreen extends StatelessWidget {
           // Header futurístico optimizado para desktop
           _buildFuturisticDesktopHeader(context, controller),
           const SizedBox(height: 20), // ✅ DRÁSTICO: Spacing mucho más pequeño
-
           // ✅ NUEVO: Sistema de tabs optimizado para desktop
           _buildFuturisticTabs(context, controller, isDesktop: true),
           const SizedBox(height: 20), // ✅ DRÁSTICO: Spacing mucho más pequeño
-
           // ✅ NUEVO: Contenido del tab seleccionado optimizado para desktop
           Obx(() => _buildTabContent(context, controller, isDesktop: true)),
         ],
@@ -499,14 +527,39 @@ class InvoiceDetailScreen extends StatelessWidget {
     bool isDesktop = false,
   }) {
     final invoice = controller.invoice!;
-    
+
     // ✅ DIFERENCIACIÓN REAL: Tamaños específicos para header
-    final numberSize = isMobile ? 18.0 : isTablet ? 24.0 : 16.0; // Mobile: 18, Tablet: 24, Desktop: 16
-    final totalSize = isMobile ? 16.0 : isTablet ? 20.0 : 14.0;  // Mobile: 16, Tablet: 20, Desktop: 14
-    final iconSize = isMobile ? 28.0 : isTablet ? 36.0 : 24.0;   // Mobile: 28, Tablet: 36, Desktop: 24
-    final iconPadding = isMobile ? 14.0 : isTablet ? 18.0 : 10.0; // Mobile: 14, Tablet: 18, Desktop: 10
-    final spacing = isMobile ? 16.0 : isTablet ? 20.0 : 12.0;    // Mobile: 16, Tablet: 20, Desktop: 12
-    
+    final numberSize =
+        isMobile
+            ? 18.0
+            : isTablet
+            ? 24.0
+            : 16.0; // Mobile: 18, Tablet: 24, Desktop: 16
+    final totalSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 20.0
+            : 14.0; // Mobile: 16, Tablet: 20, Desktop: 14
+    final iconSize =
+        isMobile
+            ? 28.0
+            : isTablet
+            ? 36.0
+            : 24.0; // Mobile: 28, Tablet: 36, Desktop: 24
+    final iconPadding =
+        isMobile
+            ? 14.0
+            : isTablet
+            ? 18.0
+            : 10.0; // Mobile: 14, Tablet: 18, Desktop: 10
+    final spacing =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 20.0
+            : 12.0; // Mobile: 16, Tablet: 20, Desktop: 12
+
     return FuturisticContainer(
       hasGlow: true,
       child: Column(
@@ -518,7 +571,13 @@ class InvoiceDetailScreen extends StatelessWidget {
                 padding: EdgeInsets.all(iconPadding),
                 decoration: BoxDecoration(
                   gradient: ElegantLightTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(isMobile ? 16 : isTablet ? 18 : 12),
+                  borderRadius: BorderRadius.circular(
+                    isMobile
+                        ? 16
+                        : isTablet
+                        ? 18
+                        : 12,
+                  ),
                   boxShadow: ElegantLightTheme.glowShadow,
                 ),
                 child: Icon(
@@ -555,10 +614,10 @@ class InvoiceDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Estado de la factura
           InvoiceStatusWidget(invoice: invoice, showDescription: true),
-          
+
           // Información de vencimiento si aplica
           if (controller.isOverdue) ...[
             const SizedBox(height: 12),
@@ -566,10 +625,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Colors.red.shade50,
-                    Colors.red.shade100,
-                  ],
+                  colors: [Colors.red.shade50, Colors.red.shade100],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -614,22 +670,14 @@ class InvoiceDetailScreen extends StatelessWidget {
     BuildContext context,
     InvoiceDetailController controller,
   ) {
-    return _buildFuturisticMobileHeader(
-      context, 
-      controller, 
-      isTablet: true,
-    );
+    return _buildFuturisticMobileHeader(context, controller, isTablet: true);
   }
 
   Widget _buildFuturisticDesktopHeader(
     BuildContext context,
     InvoiceDetailController controller,
   ) {
-    return _buildFuturisticMobileHeader(
-      context, 
-      controller, 
-      isDesktop: true,
-    );
+    return _buildFuturisticMobileHeader(context, controller, isDesktop: true);
   }
 
   // ==================== FUTURISTIC CARDS ====================
@@ -644,44 +692,97 @@ class InvoiceDetailScreen extends StatelessWidget {
   }) {
     final invoice = controller.invoice!;
     final customer = invoice.customer;
-    
+
     // ✅ DIFERENCIACIÓN REAL: Tamaños específicos para cada dispositivo
-    final titleSize = isMobile ? 14.0 : isTablet ? 18.0 : 12.0; // Mobile: 14, Tablet: 18, Desktop: 12
-    final textSize = isMobile ? 12.0 : isTablet ? 15.0 : 10.0;  // Mobile: 12, Tablet: 15, Desktop: 10
-    final iconSize = isMobile ? 16.0 : isTablet ? 20.0 : 14.0;  // Mobile: 16, Tablet: 20, Desktop: 14
-    final cardPadding = isMobile ? 16.0 : isTablet ? 18.0 : 10.0; // Mobile: 16, Tablet: 18, Desktop: 10
-    final itemSpacing = isMobile ? 12.0 : isTablet ? 14.0 : 8.0;  // Mobile: 12, Tablet: 14, Desktop: 8
-    final sectionSpacing = isMobile ? 16.0 : isTablet ? 18.0 : 10.0; // Mobile: 16, Tablet: 18, Desktop: 10
+    final titleSize =
+        isMobile
+            ? 14.0
+            : isTablet
+            ? 18.0
+            : 12.0; // Mobile: 14, Tablet: 18, Desktop: 12
+    final textSize =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 15.0
+            : 10.0; // Mobile: 12, Tablet: 15, Desktop: 10
+    final iconSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 20.0
+            : 14.0; // Mobile: 16, Tablet: 20, Desktop: 14
+    final cardPadding =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 18.0
+            : 10.0; // Mobile: 16, Tablet: 18, Desktop: 10
+    final itemSpacing =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 14.0
+            : 8.0; // Mobile: 12, Tablet: 14, Desktop: 8
+    final sectionSpacing =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 18.0
+            : 10.0; // Mobile: 16, Tablet: 18, Desktop: 10
 
     return FuturisticContainer(
       padding: EdgeInsets.all(cardPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.start, // ✅ Alinear contenido al inicio
+        mainAxisAlignment:
+            MainAxisAlignment.start, // ✅ Alinear contenido al inicio
         children: [
           // === SECCIÓN CLIENTE ===
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : isDesktop ? 6 : 12),
+                padding: EdgeInsets.all(
+                  isMobile
+                      ? 8
+                      : isTablet
+                      ? 10
+                      : isDesktop
+                      ? 6
+                      : 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: ElegantLightTheme.infoGradient,
-                  borderRadius: BorderRadius.circular(isMobile ? 10 : isTablet ? 12 : isDesktop ? 8 : 14),
+                  borderRadius: BorderRadius.circular(
+                    isMobile
+                        ? 10
+                        : isTablet
+                        ? 12
+                        : isDesktop
+                        ? 8
+                        : 14,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.infoGradient.colors.first
+                          .withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
                   ],
                 ),
-                child: Icon(
-                  Icons.person,
-                  color: Colors.white,
-                  size: iconSize,
-                ),
+                child: Icon(Icons.person, color: Colors.white, size: iconSize),
               ),
-              SizedBox(width: isMobile ? 12 : isTablet ? 14 : isDesktop ? 8 : 18),
+              SizedBox(
+                width:
+                    isMobile
+                        ? 12
+                        : isTablet
+                        ? 14
+                        : isDesktop
+                        ? 8
+                        : 18,
+              ),
               Expanded(
                 child: Text(
                   'Cliente',
@@ -699,8 +800,8 @@ class InvoiceDetailScreen extends StatelessWidget {
           // Información del cliente
           if (customer != null) ...[
             _buildFuturisticInfoRow(
-              'Nombre', 
-              invoice.customerName, 
+              'Nombre',
+              invoice.customerName,
               Icons.person_outline,
               Colors.blue,
               textSize,
@@ -708,10 +809,10 @@ class InvoiceDetailScreen extends StatelessWidget {
               actionIcon: Icons.visibility_outlined,
               onActionPressed: controller.goToCustomerDetail,
             ),
-            if (customer.email?.isNotEmpty == true)
+            if (customer.email.isNotEmpty == true)
               _buildFuturisticInfoRow(
-                'Email', 
-                customer.email ?? '', 
+                'Email',
+                customer.email ?? '',
                 Icons.email_outlined,
                 Colors.green,
                 textSize,
@@ -719,8 +820,8 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
             if (customer.phone?.isNotEmpty == true)
               _buildFuturisticInfoRow(
-                'Teléfono', 
-                customer.phone ?? '', 
+                'Teléfono',
+                customer.phone ?? '',
                 Icons.phone_outlined,
                 Colors.orange,
                 textSize,
@@ -733,7 +834,8 @@ class InvoiceDetailScreen extends StatelessWidget {
                 gradient: ElegantLightTheme.glassGradient,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.3),
+                  color: ElegantLightTheme.warningGradient.colors.first
+                      .withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
@@ -764,13 +866,30 @@ class InvoiceDetailScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : isDesktop ? 6 : 12),
+                padding: EdgeInsets.all(
+                  isMobile
+                      ? 8
+                      : isTablet
+                      ? 10
+                      : isDesktop
+                      ? 6
+                      : 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: ElegantLightTheme.successGradient,
-                  borderRadius: BorderRadius.circular(isMobile ? 10 : isTablet ? 12 : isDesktop ? 8 : 14),
+                  borderRadius: BorderRadius.circular(
+                    isMobile
+                        ? 10
+                        : isTablet
+                        ? 12
+                        : isDesktop
+                        ? 8
+                        : 14,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: ElegantLightTheme.successGradient.colors.first.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.successGradient.colors.first
+                          .withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
@@ -782,7 +901,16 @@ class InvoiceDetailScreen extends StatelessWidget {
                   size: iconSize,
                 ),
               ),
-              SizedBox(width: isMobile ? 12 : isTablet ? 14 : isDesktop ? 8 : 18),
+              SizedBox(
+                width:
+                    isMobile
+                        ? 12
+                        : isTablet
+                        ? 14
+                        : isDesktop
+                        ? 8
+                        : 18,
+              ),
               Expanded(
                 child: Text(
                   'Totales',
@@ -823,7 +951,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               textSize,
               isDesktop: isDesktop,
             ),
-          
+
           // Total destacado
           Container(
             margin: EdgeInsets.only(top: itemSpacing),
@@ -833,7 +961,8 @@ class InvoiceDetailScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.3),
+                  color: ElegantLightTheme.primaryGradient.colors.first
+                      .withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -875,9 +1004,30 @@ class InvoiceDetailScreen extends StatelessWidget {
     bool isTablet = false,
     bool isDesktop = false,
   }) {
-    final iconSize = isMobile ? 22.0 : isTablet ? 20.0 : isDesktop ? 18.0 : 24.0;
-    final textSize = isMobile ? 16.0 : isTablet ? 14.0 : isDesktop ? 12.0 : 16.0;
-    final cardPadding = isMobile ? 20.0 : isTablet ? 18.0 : isDesktop ? 16.0 : 24.0;
+    final iconSize =
+        isMobile
+            ? 22.0
+            : isTablet
+            ? 20.0
+            : isDesktop
+            ? 18.0
+            : 24.0;
+    final textSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 14.0
+            : isDesktop
+            ? 12.0
+            : 16.0;
+    final cardPadding =
+        isMobile
+            ? 20.0
+            : isTablet
+            ? 18.0
+            : isDesktop
+            ? 16.0
+            : 24.0;
 
     return FuturisticContainer(
       padding: EdgeInsets.all(cardPadding),
@@ -924,13 +1074,48 @@ class InvoiceDetailScreen extends StatelessWidget {
   }) {
     final invoice = controller.invoice!;
     final customer = invoice.customer;
-    
+
     // ✅ RESPONSIVE: Desktop < Tablet < Mobile
-    final titleSize = isMobile ? 20.0 : isTablet ? 18.0 : isDesktop ? 16.0 : 24.0;
-    final textSize = isMobile ? 16.0 : isTablet ? 14.0 : isDesktop ? 12.0 : 16.0;
-    final iconSize = isMobile ? 22.0 : isTablet ? 20.0 : isDesktop ? 18.0 : 26.0;
-    final cardPadding = isMobile ? 20.0 : isTablet ? 18.0 : isDesktop ? 16.0 : 24.0;
-    final itemSpacing = isMobile ? 12.0 : isTablet ? 16.0 : isDesktop ? 6.0 : 20.0;
+    final titleSize =
+        isMobile
+            ? 20.0
+            : isTablet
+            ? 18.0
+            : isDesktop
+            ? 16.0
+            : 24.0;
+    final textSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 14.0
+            : isDesktop
+            ? 12.0
+            : 16.0;
+    final iconSize =
+        isMobile
+            ? 22.0
+            : isTablet
+            ? 20.0
+            : isDesktop
+            ? 18.0
+            : 26.0;
+    final cardPadding =
+        isMobile
+            ? 20.0
+            : isTablet
+            ? 18.0
+            : isDesktop
+            ? 16.0
+            : 24.0;
+    final itemSpacing =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 16.0
+            : isDesktop
+            ? 6.0
+            : 20.0;
 
     return FuturisticContainer(
       padding: EdgeInsets.all(cardPadding),
@@ -940,25 +1125,47 @@ class InvoiceDetailScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : isDesktop ? 6 : 12),
+                padding: EdgeInsets.all(
+                  isMobile
+                      ? 8
+                      : isTablet
+                      ? 10
+                      : isDesktop
+                      ? 6
+                      : 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: ElegantLightTheme.infoGradient,
-                  borderRadius: BorderRadius.circular(isMobile ? 10 : isTablet ? 12 : isDesktop ? 8 : 14),
+                  borderRadius: BorderRadius.circular(
+                    isMobile
+                        ? 10
+                        : isTablet
+                        ? 12
+                        : isDesktop
+                        ? 8
+                        : 14,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: ElegantLightTheme.infoGradient.colors.first.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.infoGradient.colors.first
+                          .withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
                   ],
                 ),
-                child: Icon(
-                  Icons.person,
-                  color: Colors.white,
-                  size: iconSize,
-                ),
+                child: Icon(Icons.person, color: Colors.white, size: iconSize),
               ),
-              SizedBox(width: isMobile ? 12 : isTablet ? 14 : isDesktop ? 8 : 18),
+              SizedBox(
+                width:
+                    isMobile
+                        ? 12
+                        : isTablet
+                        ? 14
+                        : isDesktop
+                        ? 8
+                        : 18,
+              ),
               Expanded(
                 child: Text(
                   'Cliente',
@@ -975,8 +1182,8 @@ class InvoiceDetailScreen extends StatelessWidget {
 
           if (customer != null) ...[
             _buildFuturisticInfoRow(
-              'Nombre', 
-              invoice.customerName, 
+              'Nombre',
+              invoice.customerName,
               Icons.person_outline,
               Colors.blue,
               textSize,
@@ -984,10 +1191,10 @@ class InvoiceDetailScreen extends StatelessWidget {
               actionIcon: Icons.visibility_outlined,
               onActionPressed: controller.goToCustomerDetail,
             ),
-            if (customer.email?.isNotEmpty == true)
+            if (customer.email.isNotEmpty == true)
               _buildFuturisticInfoRow(
-                'Email', 
-                customer.email ?? '', 
+                'Email',
+                customer.email ?? '',
                 Icons.email_outlined,
                 Colors.green,
                 textSize,
@@ -995,8 +1202,8 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
             if (customer.phone?.isNotEmpty == true)
               _buildFuturisticInfoRow(
-                'Teléfono', 
-                customer.phone ?? '', 
+                'Teléfono',
+                customer.phone ?? '',
                 Icons.phone_outlined,
                 Colors.orange,
                 textSize,
@@ -1004,8 +1211,8 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
             if (customer.address?.isNotEmpty == true)
               _buildFuturisticInfoRow(
-                'Dirección', 
-                customer.address!, 
+                'Dirección',
+                customer.address!,
                 Icons.location_on_outlined,
                 Colors.purple,
                 textSize,
@@ -1055,13 +1262,38 @@ class InvoiceDetailScreen extends StatelessWidget {
     bool isDesktop = false,
   }) {
     final invoice = controller.invoice!;
-    
+
     // ✅ DIFERENCIACIÓN REAL: Tamaños específicos para cada dispositivo
-    final titleSize = isMobile ? 14.0 : isTablet ? 18.0 : 12.0; // Mobile: 14, Tablet: 18, Desktop: 12
-    final textSize = isMobile ? 12.0 : isTablet ? 15.0 : 10.0;  // Mobile: 12, Tablet: 15, Desktop: 10
-    final iconSize = isMobile ? 16.0 : isTablet ? 20.0 : 14.0;  // Mobile: 16, Tablet: 20, Desktop: 14
-    final cardPadding = isMobile ? 16.0 : isTablet ? 18.0 : 10.0; // Mobile: 16, Tablet: 18, Desktop: 10
-    final itemSpacing = isMobile ? 12.0 : isTablet ? 14.0 : 8.0;  // Mobile: 12, Tablet: 14, Desktop: 8
+    final titleSize =
+        isMobile
+            ? 14.0
+            : isTablet
+            ? 18.0
+            : 12.0; // Mobile: 14, Tablet: 18, Desktop: 12
+    final textSize =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 15.0
+            : 10.0; // Mobile: 12, Tablet: 15, Desktop: 10
+    final iconSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 20.0
+            : 14.0; // Mobile: 16, Tablet: 20, Desktop: 14
+    final cardPadding =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 18.0
+            : 10.0; // Mobile: 16, Tablet: 18, Desktop: 10
+    final itemSpacing =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 14.0
+            : 8.0; // Mobile: 12, Tablet: 14, Desktop: 8
 
     return FuturisticContainer(
       child: Column(
@@ -1070,13 +1302,26 @@ class InvoiceDetailScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
+                padding: EdgeInsets.all(
+                  isMobile
+                      ? 8
+                      : isTablet
+                      ? 10
+                      : 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: ElegantLightTheme.warningGradient,
-                  borderRadius: BorderRadius.circular(isMobile ? 10 : isTablet ? 12 : 14),
+                  borderRadius: BorderRadius.circular(
+                    isMobile
+                        ? 10
+                        : isTablet
+                        ? 12
+                        : 14,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.warningGradient.colors.first
+                          .withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
@@ -1088,7 +1333,14 @@ class InvoiceDetailScreen extends StatelessWidget {
                   size: iconSize,
                 ),
               ),
-              SizedBox(width: isMobile ? 12 : isTablet ? 16 : 20),
+              SizedBox(
+                width:
+                    isMobile
+                        ? 12
+                        : isTablet
+                        ? 16
+                        : 20,
+              ),
               Expanded(
                 child: Text(
                   'Información de la Factura',
@@ -1101,11 +1353,18 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : isTablet ? 20 : 24),
+          SizedBox(
+            height:
+                isMobile
+                    ? 16
+                    : isTablet
+                    ? 20
+                    : 24,
+          ),
 
           _buildFuturisticInfoRow(
-            'Número', 
-            invoice.number, 
+            'Número',
+            invoice.number,
             Icons.numbers,
             Colors.blue,
             textSize,
@@ -1125,16 +1384,16 @@ class InvoiceDetailScreen extends StatelessWidget {
             textSize,
           ),
           _buildFuturisticInfoRow(
-            'Método de Pago', 
-            invoice.paymentMethodDisplayName, 
+            'Método de Pago',
+            invoice.paymentMethodDisplayName,
             Icons.payment,
             Colors.purple,
             textSize,
           ),
           if (invoice.createdBy?.firstName != null)
             _buildFuturisticInfoRow(
-              'Creada por', 
-              invoice.createdBy!.firstName, 
+              'Creada por',
+              invoice.createdBy!.firstName,
               Icons.person_add,
               Colors.indigo,
               textSize,
@@ -1152,10 +1411,20 @@ class InvoiceDetailScreen extends StatelessWidget {
     bool isDesktop = false,
   }) {
     final invoice = controller.invoice!;
-    
+
     // Tamaños responsivos
-    final titleSize = isMobile ? 18.0 : isTablet ? 20.0 : 22.0;
-    final iconSize = isMobile ? 20.0 : isTablet ? 22.0 : 24.0;
+    final titleSize =
+        isMobile
+            ? 18.0
+            : isTablet
+            ? 20.0
+            : 22.0;
+    final iconSize =
+        isMobile
+            ? 20.0
+            : isTablet
+            ? 22.0
+            : 24.0;
 
     return FuturisticContainer(
       child: Column(
@@ -1164,13 +1433,26 @@ class InvoiceDetailScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
+                padding: EdgeInsets.all(
+                  isMobile
+                      ? 8
+                      : isTablet
+                      ? 10
+                      : 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: ElegantLightTheme.successGradient,
-                  borderRadius: BorderRadius.circular(isMobile ? 10 : isTablet ? 12 : 14),
+                  borderRadius: BorderRadius.circular(
+                    isMobile
+                        ? 10
+                        : isTablet
+                        ? 12
+                        : 14,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: ElegantLightTheme.successGradient.colors.first.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.successGradient.colors.first
+                          .withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
@@ -1182,7 +1464,14 @@ class InvoiceDetailScreen extends StatelessWidget {
                   size: iconSize,
                 ),
               ),
-              SizedBox(width: isMobile ? 12 : isTablet ? 16 : 20),
+              SizedBox(
+                width:
+                    isMobile
+                        ? 12
+                        : isTablet
+                        ? 16
+                        : 20,
+              ),
               Expanded(
                 child: Text(
                   'Items de la Factura',
@@ -1194,12 +1483,16 @@ class InvoiceDetailScreen extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   gradient: ElegantLightTheme.glassGradient,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: ElegantLightTheme.successGradient.colors.first.withValues(alpha: 0.3),
+                    color: ElegantLightTheme.successGradient.colors.first
+                        .withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -1214,11 +1507,24 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : isTablet ? 20 : 24),
+          SizedBox(
+            height:
+                isMobile
+                    ? 16
+                    : isTablet
+                    ? 20
+                    : 24,
+          ),
 
           if (invoice.items.isEmpty)
             Container(
-              padding: EdgeInsets.all(isMobile ? 20 : isTablet ? 24 : 32),
+              padding: EdgeInsets.all(
+                isMobile
+                    ? 20
+                    : isTablet
+                    ? 24
+                    : 32,
+              ),
               decoration: BoxDecoration(
                 gradient: ElegantLightTheme.glassGradient,
                 borderRadius: BorderRadius.circular(16),
@@ -1237,15 +1543,32 @@ class InvoiceDetailScreen extends StatelessWidget {
                     ),
                     child: Icon(
                       Icons.shopping_cart_outlined,
-                      size: isMobile ? 32 : isTablet ? 40 : 48,
+                      size:
+                          isMobile
+                              ? 32
+                              : isTablet
+                              ? 40
+                              : 48,
                       color: Colors.white,
                     ),
                   ),
-                  SizedBox(height: isMobile ? 12 : isTablet ? 16 : 20),
+                  SizedBox(
+                    height:
+                        isMobile
+                            ? 12
+                            : isTablet
+                            ? 16
+                            : 20,
+                  ),
                   Text(
                     'No hay items en esta factura',
                     style: TextStyle(
-                      fontSize: isMobile ? 16 : isTablet ? 18 : 20,
+                      fontSize:
+                          isMobile
+                              ? 16
+                              : isTablet
+                              ? 18
+                              : 20,
                       color: ElegantLightTheme.textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1273,17 +1596,46 @@ class InvoiceDetailScreen extends StatelessWidget {
     InvoiceDetailController controller, {
     bool isMobile = false,
     bool isTablet = false,
-    bool isDesktop = false,
   }) {
     final invoice = controller.invoice!;
-    
+
     // ✅ DIFERENCIACIÓN REAL: Tamaños específicos para cada dispositivo
-    final titleSize = isMobile ? 16.0 : isTablet ? 20.0 : 14.0; // Mobile: 16, Tablet: 20, Desktop: 14
-    final textSize = isMobile ? 13.0 : isTablet ? 16.0 : 11.0;  // Mobile: 13, Tablet: 16, Desktop: 11
-    final totalSize = isMobile ? 16.0 : isTablet ? 20.0 : 14.0; // Mobile: 16, Tablet: 20, Desktop: 14
-    final iconSize = isMobile ? 18.0 : isTablet ? 24.0 : 16.0;  // Mobile: 18, Tablet: 24, Desktop: 16
-    final cardPadding = isMobile ? 16.0 : isTablet ? 18.0 : 10.0; // Mobile: 16, Tablet: 18, Desktop: 10
-    final itemSpacing = isMobile ? 12.0 : isTablet ? 14.0 : 8.0;  // Mobile: 12, Tablet: 14, Desktop: 8
+    final titleSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 20.0
+            : 14.0; // Mobile: 16, Tablet: 20, Desktop: 14
+    final textSize =
+        isMobile
+            ? 13.0
+            : isTablet
+            ? 16.0
+            : 11.0; // Mobile: 13, Tablet: 16, Desktop: 11
+    final totalSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 20.0
+            : 14.0; // Mobile: 16, Tablet: 20, Desktop: 14
+    final iconSize =
+        isMobile
+            ? 18.0
+            : isTablet
+            ? 24.0
+            : 16.0; // Mobile: 18, Tablet: 24, Desktop: 16
+    final cardPadding =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 18.0
+            : 10.0; // Mobile: 16, Tablet: 18, Desktop: 10
+    final itemSpacing =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 14.0
+            : 8.0; // Mobile: 12, Tablet: 14, Desktop: 8
 
     return FuturisticContainer(
       child: Column(
@@ -1292,13 +1644,26 @@ class InvoiceDetailScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
+                padding: EdgeInsets.all(
+                  isMobile
+                      ? 8
+                      : isTablet
+                      ? 10
+                      : 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: ElegantLightTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(isMobile ? 10 : isTablet ? 12 : 14),
+                  borderRadius: BorderRadius.circular(
+                    isMobile
+                        ? 10
+                        : isTablet
+                        ? 12
+                        : 14,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.primaryGradient.colors.first
+                          .withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
@@ -1310,7 +1675,14 @@ class InvoiceDetailScreen extends StatelessWidget {
                   size: iconSize,
                 ),
               ),
-              SizedBox(width: isMobile ? 12 : isTablet ? 16 : 20),
+              SizedBox(
+                width:
+                    isMobile
+                        ? 12
+                        : isTablet
+                        ? 16
+                        : 20,
+              ),
               Expanded(
                 child: Text(
                   'Totales',
@@ -1323,9 +1695,21 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : isTablet ? 20 : 24),
+          SizedBox(
+            height:
+                isMobile
+                    ? 16
+                    : isTablet
+                    ? 20
+                    : 24,
+          ),
 
-          _buildFuturisticTotalRow('Subtotal', invoice.subtotal, textSize, false),
+          _buildFuturisticTotalRow(
+            'Subtotal',
+            invoice.subtotal,
+            textSize,
+            false,
+          ),
 
           if (invoice.discountAmount > 0 || invoice.discountPercentage > 0) ...[
             if (invoice.discountPercentage > 0)
@@ -1338,9 +1722,9 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
             if (invoice.discountAmount > 0 && invoice.discountPercentage == 0)
               _buildFuturisticTotalRow(
-                'Descuento', 
-                -invoice.discountAmount, 
-                textSize, 
+                'Descuento',
+                -invoice.discountAmount,
+                textSize,
                 false,
                 color: Colors.orange,
               ),
@@ -1355,32 +1739,40 @@ class InvoiceDetailScreen extends StatelessWidget {
           ),
 
           const Divider(height: 24),
-          
+
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: ElegantLightTheme.glassGradient,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.3),
+                color: ElegantLightTheme.primaryGradient.colors.first
+                    .withValues(alpha: 0.3),
                 width: 2,
               ),
             ),
             child: _buildFuturisticTotalRow(
-              'Total', 
-              invoice.total, 
-              totalSize, 
+              'Total',
+              invoice.total,
+              totalSize,
               true,
             ),
           ),
 
           if (invoice.paidAmount > 0) ...[
-            SizedBox(height: isMobile ? 12 : isTablet ? 16 : 20),
+            SizedBox(
+              height:
+                  isMobile
+                      ? 12
+                      : isTablet
+                      ? 16
+                      : 20,
+            ),
             _buildFuturisticTotalRow(
-              'Pagado', 
-              invoice.paidAmount, 
-              textSize, 
-              false, 
+              'Pagado',
+              invoice.paidAmount,
+              textSize,
+              false,
               color: Colors.green,
             ),
             _buildFuturisticTotalRow(
@@ -1404,13 +1796,38 @@ class InvoiceDetailScreen extends StatelessWidget {
     bool isDesktop = false,
   }) {
     final invoice = controller.invoice!;
-    
+
     // ✅ DIFERENCIACIÓN REAL: Tamaños específicos para cada dispositivo
-    final titleSize = isMobile ? 14.0 : isTablet ? 18.0 : 12.0; // Mobile: 14, Tablet: 18, Desktop: 12
-    final textSize = isMobile ? 12.0 : isTablet ? 15.0 : 10.0;  // Mobile: 12, Tablet: 15, Desktop: 10
-    final iconSize = isMobile ? 16.0 : isTablet ? 20.0 : 14.0;  // Mobile: 16, Tablet: 20, Desktop: 14
-    final cardPadding = isMobile ? 16.0 : isTablet ? 18.0 : 10.0; // Mobile: 16, Tablet: 18, Desktop: 10
-    final itemSpacing = isMobile ? 12.0 : isTablet ? 14.0 : 8.0;  // Mobile: 12, Tablet: 14, Desktop: 8
+    final titleSize =
+        isMobile
+            ? 14.0
+            : isTablet
+            ? 18.0
+            : 12.0; // Mobile: 14, Tablet: 18, Desktop: 12
+    final textSize =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 15.0
+            : 10.0; // Mobile: 12, Tablet: 15, Desktop: 10
+    final iconSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 20.0
+            : 14.0; // Mobile: 16, Tablet: 20, Desktop: 14
+    final cardPadding =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 18.0
+            : 10.0; // Mobile: 16, Tablet: 18, Desktop: 10
+    final itemSpacing =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 14.0
+            : 8.0; // Mobile: 12, Tablet: 14, Desktop: 8
 
     return FuturisticContainer(
       padding: EdgeInsets.all(cardPadding),
@@ -1421,14 +1838,33 @@ class InvoiceDetailScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : isDesktop ? 6 : 12),
+                padding: EdgeInsets.all(
+                  isMobile
+                      ? 8
+                      : isTablet
+                      ? 10
+                      : isDesktop
+                      ? 6
+                      : 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.purple, Colors.purple.withValues(alpha: 0.8)],
+                    colors: [
+                      Colors.purple,
+                      Colors.purple.withValues(alpha: 0.8),
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(isMobile ? 10 : isTablet ? 12 : isDesktop ? 8 : 14),
+                  borderRadius: BorderRadius.circular(
+                    isMobile
+                        ? 10
+                        : isTablet
+                        ? 12
+                        : isDesktop
+                        ? 8
+                        : 14,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.purple.withValues(alpha: 0.3),
@@ -1437,11 +1873,7 @@ class InvoiceDetailScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(
-                  Icons.info,
-                  color: Colors.white,
-                  size: iconSize,
-                ),
+                child: Icon(Icons.info, color: Colors.white, size: iconSize),
               ),
               SizedBox(width: itemSpacing),
               Expanded(
@@ -1460,105 +1892,198 @@ class InvoiceDetailScreen extends StatelessWidget {
 
           if (invoice.notes?.isNotEmpty == true) ...[
             Container(
-              padding: EdgeInsets.all(cardPadding),
+              padding: EdgeInsets.all(cardPadding * 1.2),
               decoration: BoxDecoration(
-                gradient: ElegantLightTheme.glassGradient,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.blue.withValues(alpha: 0.3),
-                  width: 1,
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.blue.withValues(alpha: 0.08),
+                    Colors.blue.withValues(alpha: 0.03),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.blue.withValues(alpha: 0.2),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Header con icono destacado
                   Row(
                     children: [
-                      Icon(
-                        Icons.note_alt,
-                        color: Colors.blue,
-                        size: iconSize * 0.9,
-                      ),
-                      SizedBox(width: itemSpacing * 0.7),
-                      Expanded(
-                        child: Text(
-                          'Notas:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: ElegantLightTheme.textPrimary,
-                            fontSize: textSize,
+                      Container(
+                        padding: EdgeInsets.all(itemSpacing * 0.6),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.blue.shade500,
+                              Colors.blue.shade600,
+                            ],
                           ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.sticky_note_2_rounded,
+                          color: Colors.white,
+                          size: iconSize,
+                        ),
+                      ),
+                      SizedBox(width: itemSpacing),
+                      Text(
+                        'Notas',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.blue.shade700,
+                          fontSize: textSize + 2,
+                          letterSpacing: 0.3,
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: itemSpacing * 0.7),
-                  Text(
-                    invoice.notes!,
-                    style: TextStyle(
-                      color: ElegantLightTheme.textSecondary,
-                      fontSize: textSize,
-                      height: 1.4,
+                  SizedBox(height: itemSpacing),
+                  // Contenido de las notas con estilo quote
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.only(
+                      left: itemSpacing,
+                      top: itemSpacing * 0.5,
+                      bottom: itemSpacing * 0.5,
                     ),
-                    overflow: TextOverflow.fade,
-                    maxLines: null,
-                    softWrap: true,
+                    decoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(
+                          color: Colors.blue.shade400,
+                          width: 3,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      invoice.notes!,
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: textSize + 1,
+                        height: 1.6,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            SizedBox(height: itemSpacing),
+            SizedBox(height: itemSpacing * 1.2),
           ],
 
           if (invoice.terms?.isNotEmpty == true) ...[
             Container(
-              padding: EdgeInsets.all(cardPadding),
+              padding: EdgeInsets.all(cardPadding * 1.2),
               decoration: BoxDecoration(
-                gradient: ElegantLightTheme.glassGradient,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.green.withValues(alpha: 0.3),
-                  width: 1,
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.amber.withValues(alpha: 0.08),
+                    Colors.amber.withValues(alpha: 0.03),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.amber.withValues(alpha: 0.25),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.amber.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Header con icono destacado
                   Row(
                     children: [
-                      Icon(
-                        Icons.gavel,
-                        color: Colors.green,
-                        size: iconSize * 0.9,
+                      Container(
+                        padding: EdgeInsets.all(itemSpacing * 0.6),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.amber.shade600,
+                              Colors.amber.shade700,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.amber.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.gavel_rounded,
+                          color: Colors.white,
+                          size: iconSize,
+                        ),
                       ),
-                      SizedBox(width: itemSpacing * 0.7),
+                      SizedBox(width: itemSpacing),
                       Expanded(
                         child: Text(
-                          'Términos y Condiciones:',
+                          'Términos y Condiciones',
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
-                            color: ElegantLightTheme.textPrimary,
-                            fontSize: textSize,
+                            color: Colors.amber.shade800,
+                            fontSize: textSize + 2,
+                            letterSpacing: 0.3,
                           ),
                           overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: itemSpacing * 0.7),
-                  Text(
-                    invoice.terms!,
-                    style: TextStyle(
-                      color: ElegantLightTheme.textSecondary,
-                      fontSize: textSize,
-                      height: 1.4,
+                  SizedBox(height: itemSpacing),
+                  // Contenido de los términos con estilo quote
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.only(
+                      left: itemSpacing,
+                      top: itemSpacing * 0.5,
+                      bottom: itemSpacing * 0.5,
                     ),
-                    overflow: TextOverflow.fade,
-                    maxLines: null,
-                    softWrap: true,
+                    decoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(
+                          color: Colors.amber.shade500,
+                          width: 3,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      invoice.terms!,
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: textSize + 1,
+                        height: 1.6,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1583,13 +2108,26 @@ class InvoiceDetailScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
+                padding: EdgeInsets.all(
+                  isMobile
+                      ? 8
+                      : isTablet
+                      ? 10
+                      : 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: ElegantLightTheme.successGradient,
-                  borderRadius: BorderRadius.circular(isMobile ? 10 : isTablet ? 12 : 14),
+                  borderRadius: BorderRadius.circular(
+                    isMobile
+                        ? 10
+                        : isTablet
+                        ? 12
+                        : 14,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: ElegantLightTheme.successGradient.colors.first.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.successGradient.colors.first
+                          .withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
@@ -1598,15 +2136,32 @@ class InvoiceDetailScreen extends StatelessWidget {
                 child: Icon(
                   Icons.payment,
                   color: Colors.white,
-                  size: isMobile ? 20.0 : isTablet ? 22.0 : 24.0,
+                  size:
+                      isMobile
+                          ? 20.0
+                          : isTablet
+                          ? 22.0
+                          : 24.0,
                 ),
               ),
-              SizedBox(width: isMobile ? 12 : isTablet ? 16 : 20),
+              SizedBox(
+                width:
+                    isMobile
+                        ? 12
+                        : isTablet
+                        ? 16
+                        : 20,
+              ),
               Expanded(
                 child: Text(
                   'Procesar Pago',
                   style: TextStyle(
-                    fontSize: isMobile ? 18.0 : isTablet ? 20.0 : 22.0,
+                    fontSize:
+                        isMobile
+                            ? 18.0
+                            : isTablet
+                            ? 20.0
+                            : 22.0,
                     fontWeight: FontWeight.w700,
                     color: ElegantLightTheme.textPrimary,
                   ),
@@ -1614,8 +2169,15 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : isTablet ? 20 : 24),
-          
+          SizedBox(
+            height:
+                isMobile
+                    ? 16
+                    : isTablet
+                    ? 20
+                    : 24,
+          ),
+
           InvoicePaymentFormWidget(
             controller: controller,
             onCancel: controller.hidePaymentForm,
@@ -1631,11 +2193,20 @@ class InvoiceDetailScreen extends StatelessWidget {
     InvoiceDetailController controller, {
     bool isMobile = false,
     bool isTablet = false,
-    bool isDesktop = false,
   }) {
     // Tamaños responsivos
-    final titleSize = isMobile ? 18.0 : isTablet ? 20.0 : 22.0;
-    final iconSize = isMobile ? 20.0 : isTablet ? 22.0 : 24.0;
+    final titleSize =
+        isMobile
+            ? 18.0
+            : isTablet
+            ? 20.0
+            : 22.0;
+    final iconSize =
+        isMobile
+            ? 20.0
+            : isTablet
+            ? 22.0
+            : 24.0;
 
     return FuturisticContainer(
       child: Column(
@@ -1644,13 +2215,26 @@ class InvoiceDetailScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
+                padding: EdgeInsets.all(
+                  isMobile
+                      ? 8
+                      : isTablet
+                      ? 10
+                      : 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: ElegantLightTheme.warningGradient,
-                  borderRadius: BorderRadius.circular(isMobile ? 10 : isTablet ? 12 : 14),
+                  borderRadius: BorderRadius.circular(
+                    isMobile
+                        ? 10
+                        : isTablet
+                        ? 12
+                        : 14,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: ElegantLightTheme.warningGradient.colors.first.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.warningGradient.colors.first
+                          .withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
@@ -1662,7 +2246,14 @@ class InvoiceDetailScreen extends StatelessWidget {
                   size: iconSize,
                 ),
               ),
-              SizedBox(width: isMobile ? 12 : isTablet ? 16 : 20),
+              SizedBox(
+                width:
+                    isMobile
+                        ? 12
+                        : isTablet
+                        ? 16
+                        : 20,
+              ),
               Expanded(
                 child: Text(
                   'Acciones',
@@ -1675,7 +2266,14 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : isTablet ? 20 : 24),
+          SizedBox(
+            height:
+                isMobile
+                    ? 16
+                    : isTablet
+                    ? 20
+                    : 24,
+          ),
 
           // Acciones para facturas con pagos pendientes
           if (controller.canAddPayment) ...[
@@ -1683,10 +2281,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Colors.blue.shade50,
-                    Colors.blue.shade100,
-                  ],
+                  colors: [Colors.blue.shade50, Colors.blue.shade100],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -1713,7 +2308,8 @@ class InvoiceDetailScreen extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          controller.invoice?.status == InvoiceStatus.partiallyPaid
+                          controller.invoice?.status ==
+                                  InvoiceStatus.partiallyPaid
                               ? 'Continuar Pago'
                               : 'Procesar Pago',
                           style: TextStyle(
@@ -1743,14 +2339,16 @@ class InvoiceDetailScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FuturisticButton(
-                  text: controller.invoice?.status == InvoiceStatus.partiallyPaid
-                      ? 'Continuar Pago a Crédito'
-                      : 'Agregar Pago a Crédito',
+                  text:
+                      controller.invoice?.status == InvoiceStatus.partiallyPaid
+                          ? 'Continuar Pago a Crédito'
+                          : 'Agregar Pago a Crédito',
                   icon: Icons.account_balance_wallet,
                   onPressed: controller.showCreditPaymentDialog,
                 ),
               ),
-            ] else if (controller.invoice!.paymentMethod == PaymentMethod.check &&
+            ] else if (controller.invoice!.paymentMethod ==
+                    PaymentMethod.check &&
                 controller.invoice?.status == InvoiceStatus.pending) ...[
               SizedBox(
                 width: double.infinity,
@@ -1780,8 +2378,32 @@ class InvoiceDetailScreen extends StatelessWidget {
               ),
             ],
 
+            // ✅ NUEVO: Botón de pagos múltiples (siempre disponible si canAddPayment)
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FuturisticButton(
+                text: 'Pagos Múltiples',
+                icon: Icons.payments,
+                onPressed: controller.showMultiplePaymentsDialog,
+                gradient: ElegantLightTheme.glassGradient,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Divide el pago entre varios métodos',
+              style: TextStyle(
+                fontSize: 11,
+                color: ElegantLightTheme.textSecondary,
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+
             const SizedBox(height: 20),
-            Divider(color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3)),
+            Divider(
+              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 20),
           ],
 
@@ -1826,20 +2448,52 @@ class InvoiceDetailScreen extends StatelessWidget {
             const SizedBox(height: 12),
           ],
 
-          // Compartir
+          // Descargar PDF
           SizedBox(
             width: double.infinity,
-            child: FuturisticButton(
-              text: 'Compartir',
-              icon: Icons.share,
-              onPressed: controller.shareInvoice,
-              gradient: ElegantLightTheme.glassGradient,
+            child: Obx(
+              () => FuturisticButton(
+                text:
+                    controller.isExportingPdf
+                        ? 'Descargando...'
+                        : 'Descargar PDF',
+                icon:
+                    controller.isExportingPdf
+                        ? Icons.hourglass_empty
+                        : Icons.picture_as_pdf,
+                onPressed:
+                    controller.isExportingPdf ? null : controller.downloadPdf,
+                gradient: ElegantLightTheme.glassGradient,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Compartir PDF
+          SizedBox(
+            width: double.infinity,
+            child: Obx(
+              () => FuturisticButton(
+                text:
+                    controller.isExportingPdf
+                        ? 'Compartiendo...'
+                        : 'Compartir PDF',
+                icon:
+                    controller.isExportingPdf
+                        ? Icons.hourglass_empty
+                        : Icons.share,
+                onPressed:
+                    controller.isExportingPdf ? null : controller.shareInvoice,
+                gradient: ElegantLightTheme.glassGradient,
+              ),
             ),
           ),
 
           if (controller.canCancel || controller.canDelete) ...[
             const SizedBox(height: 20),
-            Divider(color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3)),
+            Divider(
+              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 20),
 
             // Eliminar
@@ -1864,84 +2518,27 @@ class InvoiceDetailScreen extends StatelessWidget {
     BuildContext context,
     InvoiceDetailController controller,
   ) {
-    if (!context.isMobile) return null;
+    // Mostrar en móvil y tablet, ocultar en desktop
+    final isMobile = Responsive.isMobile(context);
+    final isTablet = Responsive.isTablet(context);
+
+    if (!isMobile && !isTablet) return null;
 
     return GetBuilder<InvoiceDetailController>(
-      builder: (controller) {
-        if (controller.showPaymentForm) {
-          return Container(
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.glassGradient,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.grey.withValues(alpha: 0.3),
-                width: 1,
-              ),
-              boxShadow: ElegantLightTheme.elevatedShadow,
-            ),
-            child: FloatingActionButton(
-              onPressed: controller.hidePaymentForm,
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              child: const Icon(Icons.close, color: Colors.white),
-            ),
-          );
-        }
+      builder: (ctrl) {
+        final invoice = ctrl.invoice;
+        if (invoice == null) return const SizedBox.shrink();
 
-        // Lógica de pagos con diseño futurístico
-        if (controller.canAddPayment) {
-          // Para facturas PENDING o PARTIALLY_PAID con método CREDIT
-          if ((controller.invoice?.status == InvoiceStatus.pending ||
-                  controller.invoice?.status == InvoiceStatus.partiallyPaid) &&
-              controller.invoice?.paymentMethod == PaymentMethod.credit) {
-            return _buildFuturisticPaymentFAB(
-              onPressed: controller.showCreditPaymentDialog,
-              icon: Icons.add_card_sharp,
-              label: 'Pago',
-              gradient: ElegantLightTheme.infoGradient,
-            );
-          }
-
-          // Para facturas PENDING con método CHECK
-          if (controller.invoice?.status == InvoiceStatus.pending &&
-              controller.invoice?.paymentMethod == PaymentMethod.check) {
-            return _buildFuturisticPaymentFAB(
-              onPressed: controller.confirmCheckPayment,
-              icon: Icons.receipt,
-              label: 'Cheque',
-              gradient: ElegantLightTheme.warningGradient,
-            );
-          }
-
-          // Para facturas PENDING con otros métodos
-          if (controller.invoice?.status == InvoiceStatus.pending &&
-              (controller.invoice?.paymentMethod == PaymentMethod.cash ||
-                  controller.invoice?.paymentMethod == PaymentMethod.creditCard ||
-                  controller.invoice?.paymentMethod == PaymentMethod.debitCard ||
-                  controller.invoice?.paymentMethod == PaymentMethod.bankTransfer)) {
-            return _buildFuturisticPaymentFAB(
-              onPressed: controller.confirmFullPayment,
-              icon: Icons.check_circle,
-              label: 'Confirmar',
-              gradient: ElegantLightTheme.successGradient,
-            );
-          }
-
-          // Para cualquier otra factura que puede recibir pagos
-          return _buildFuturisticPaymentFAB(
-            onPressed: controller.togglePaymentForm,
-            icon: Icons.payment,
-            label: 'Pago',
-            gradient: ElegantLightTheme.primaryGradient,
-          );
-        }
-
-        if (controller.canPrint) {
-          return _buildFuturisticPaymentFAB(
-            onPressed: controller.goToPrintInvoice,
+        // Solo mostrar FAB para imprimir cuando la factura está pagada
+        // El botón de agregar pago ya está en la sección de pagos
+        if (ctrl.canPrint && invoice.status == InvoiceStatus.paid) {
+          return _buildAdaptiveFAB(
+            context: context,
+            onPressed: ctrl.goToPrintInvoice,
             icon: Icons.print,
             label: 'Imprimir',
-            gradient: ElegantLightTheme.successGradient,
+            color: Colors.green,
+            isMobile: isMobile,
           );
         }
 
@@ -1950,34 +2547,59 @@ class InvoiceDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFuturisticPaymentFAB({
+  /// FAB adaptativo que se ajusta al tamaño de pantalla
+  Widget _buildAdaptiveFAB({
+    required BuildContext context,
     required VoidCallback onPressed,
     required IconData icon,
     required String label,
-    required LinearGradient gradient,
+    required Color color,
+    required bool isMobile,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: gradient.colors.first.withValues(alpha: 0.4),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+    // Tamaños adaptativos
+    final fabHeight = isMobile ? 48.0 : 52.0;
+    final iconSize = isMobile ? 20.0 : 22.0;
+    final fontSize = isMobile ? 13.0 : 14.0;
+    final horizontalPadding = isMobile ? 16.0 : 20.0;
+    final borderRadius = fabHeight / 2;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: Container(
+          height: fabHeight,
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(borderRadius),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: FloatingActionButton.extended(
-        onPressed: onPressed,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        icon: Icon(icon, color: Colors.white),
-        label: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: Colors.white,
+                size: iconSize,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -2002,17 +2624,14 @@ class InvoiceDetailScreen extends StatelessWidget {
     final iconPadding = isDesktop ? 4.0 : 8.0;
     final iconSize = isDesktop ? 12.0 : 16.0;
     final horizontalSpacing = isDesktop ? 8.0 : 12.0;
-    
+
     return Container(
       margin: EdgeInsets.only(bottom: verticalMargin),
       padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
       ),
       child: Row(
         children: [
@@ -2063,21 +2682,26 @@ class InvoiceDetailScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.1),
-                      ElegantLightTheme.primaryGradient.colors.last.withValues(alpha: 0.1),
+                      ElegantLightTheme.primaryGradient.colors.first.withValues(
+                        alpha: 0.1,
+                      ),
+                      ElegantLightTheme.primaryGradient.colors.last.withValues(
+                        alpha: 0.1,
+                      ),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.3),
+                    color: ElegantLightTheme.primaryGradient.colors.first
+                        .withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
                 child: Icon(
-                  actionIcon, 
-                  color: ElegantLightTheme.primaryGradient.colors.first, 
+                  actionIcon,
+                  color: ElegantLightTheme.primaryGradient.colors.first,
                   size: iconSize + 2,
                 ),
               ),
@@ -2388,10 +3012,12 @@ class InvoiceDetailScreen extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.1),
+                    color: ElegantLightTheme.primaryGradient.colors.first
+                        .withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.3),
+                      color: ElegantLightTheme.primaryGradient.colors.first
+                          .withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -2408,8 +3034,8 @@ class InvoiceDetailScreen extends StatelessWidget {
 
         if (customer != null) ...[
           _buildInfoRow('Nombre', invoice.customerName),
-          if (customer.email?.isNotEmpty == true)
-            _buildInfoRow('Email', customer.email!),
+          if (customer.email.isNotEmpty == true)
+            _buildInfoRow('Email', customer.email),
           if (customer.phone?.isNotEmpty == true)
             _buildInfoRow('Teléfono', customer.phone!),
           if (customer.address?.isNotEmpty == true)
@@ -2787,6 +3413,28 @@ class InvoiceDetailScreen extends StatelessWidget {
             ),
           ],
 
+          // ✅ NUEVO: Botón de pagos múltiples (siempre disponible si canAddPayment)
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: CustomButton(
+              text: 'Pagos Múltiples',
+              icon: Icons.payments,
+              type: ButtonType.outline,
+              onPressed: controller.showMultiplePaymentsDialog,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Divide el pago entre varios métodos (efectivo + Nequi, etc.)',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade600,
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 16),
@@ -2833,14 +3481,46 @@ class InvoiceDetailScreen extends StatelessWidget {
           const SizedBox(height: 12),
         ],
 
-        // Compartir
+        // Descargar PDF
         SizedBox(
           width: double.infinity,
-          child: CustomButton(
-            text: 'Compartir',
-            icon: Icons.share,
-            type: ButtonType.outline,
-            onPressed: controller.shareInvoice,
+          child: Obx(
+            () => CustomButton(
+              text:
+                  controller.isExportingPdf
+                      ? 'Descargando...'
+                      : 'Descargar PDF',
+              icon:
+                  controller.isExportingPdf
+                      ? Icons.hourglass_empty
+                      : Icons.picture_as_pdf,
+              type: ButtonType.outline,
+              onPressed:
+                  controller.isExportingPdf ? null : controller.downloadPdf,
+              isLoading: controller.isExportingPdf,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Compartir PDF
+        SizedBox(
+          width: double.infinity,
+          child: Obx(
+            () => CustomButton(
+              text:
+                  controller.isExportingPdf
+                      ? 'Compartiendo...'
+                      : 'Compartir PDF',
+              icon:
+                  controller.isExportingPdf
+                      ? Icons.hourglass_empty
+                      : Icons.share,
+              type: ButtonType.outline,
+              onPressed:
+                  controller.isExportingPdf ? null : controller.shareInvoice,
+              isLoading: controller.isExportingPdf,
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -3131,6 +3811,9 @@ class InvoiceDetailScreen extends StatelessWidget {
       case 'print':
         controller.goToPrintInvoice();
         break;
+      case 'download_pdf':
+        controller.downloadPdf();
+        break;
       case 'share':
         controller.shareInvoice();
         break;
@@ -3362,10 +4045,25 @@ class InvoiceDetailScreen extends StatelessWidget {
     bool isDesktop = false,
   }) {
     // ✅ DIFERENCIACIÓN REAL: Tabs con alturas ajustadas para evitar overflow
-    final tabHeight = isMobile ? 55.0 : isTablet ? 70.0 : 50.0; // Mobile: 55, Tablet: 70, Desktop: 50 (aumentado)
-    final iconSize = isMobile ? 16.0 : isTablet ? 22.0 : 14.0;  // Mobile: 16, Tablet: 22, Desktop: 14
-    final fontSize = isMobile ? 10.0 : isTablet ? 13.0 : 9.0;   // Mobile: 10, Tablet: 13, Desktop: 9
-    
+    final tabHeight =
+        isMobile
+            ? 55.0
+            : isTablet
+            ? 70.0
+            : 50.0; // Mobile: 55, Tablet: 70, Desktop: 50 (aumentado)
+    final iconSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 22.0
+            : 14.0; // Mobile: 16, Tablet: 22, Desktop: 14
+    final fontSize =
+        isMobile
+            ? 10.0
+            : isTablet
+            ? 13.0
+            : 9.0; // Mobile: 10, Tablet: 13, Desktop: 9
+
     return FuturisticContainer(
       child: SizedBox(
         height: tabHeight,
@@ -3407,6 +4105,15 @@ class InvoiceDetailScreen extends StatelessWidget {
               iconSize,
               fontSize,
             ),
+            _buildTabHeader(
+              context,
+              'Créditos',
+              4,
+              Icons.receipt_long,
+              controller,
+              iconSize,
+              fontSize,
+            ),
           ],
         ),
       ),
@@ -3424,18 +4131,31 @@ class InvoiceDetailScreen extends StatelessWidget {
     double fontSize,
   ) {
     // ✅ RESPONSIVE: Spacing que se ajusta al tamaño del contenedor
-    final spacing = fontSize < 10 ? 2.0 : fontSize < 12 ? 3.0 : 4.0;
-    final verticalPadding = fontSize < 10 ? 4.0 : fontSize < 12 ? 6.0 : 8.0;
-    
+    final spacing =
+        fontSize < 10
+            ? 2.0
+            : fontSize < 12
+            ? 3.0
+            : 4.0;
+    final verticalPadding =
+        fontSize < 10
+            ? 4.0
+            : fontSize < 12
+            ? 6.0
+            : 8.0;
+
     return Expanded(
       child: Obx(() {
         final isSelected = controller.selectedTab.value == index;
-        
+
         return GestureDetector(
           onTap: () => controller.switchTab(index),
           child: AnimatedContainer(
             duration: ElegantLightTheme.normalAnimation,
-            padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 4),
+            padding: EdgeInsets.symmetric(
+              vertical: verticalPadding,
+              horizontal: 4,
+            ),
             margin: const EdgeInsets.all(1), // ✅ Reducido de 2 a 1
             decoration: BoxDecoration(
               gradient: isSelected ? ElegantLightTheme.primaryGradient : null,
@@ -3444,21 +4164,30 @@ class InvoiceDetailScreen extends StatelessWidget {
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min, // ✅ CLAVE: Minimizar el tamaño de la Column
+              mainAxisSize:
+                  MainAxisSize.min, // ✅ CLAVE: Minimizar el tamaño de la Column
               children: [
                 Icon(
                   icon,
-                  color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+                  color:
+                      isSelected
+                          ? Colors.white
+                          : ElegantLightTheme.textSecondary,
                   size: iconSize,
                 ),
                 SizedBox(height: spacing), // ✅ Espaciado responsivo
-                Flexible( // ✅ CLAVE: Usar Flexible en lugar de Text directo
+                Flexible(
+                  // ✅ CLAVE: Usar Flexible en lugar de Text directo
                   child: Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : ElegantLightTheme.textSecondary,
+                      color:
+                          isSelected
+                              ? Colors.white
+                              : ElegantLightTheme.textSecondary,
                       fontSize: fontSize,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 1,
@@ -3474,6 +4203,8 @@ class InvoiceDetailScreen extends StatelessWidget {
   }
 
   /// ✅ NUEVO: Contenido del tab seleccionado
+  /// IMPORTANTE: Este método se llama dentro de un Obx, por lo que debe
+  /// acceder a TODOS los observables que quiere escuchar
   Widget _buildTabContent(
     BuildContext context,
     InvoiceDetailController controller, {
@@ -3481,20 +4212,81 @@ class InvoiceDetailScreen extends StatelessWidget {
     bool isTablet = false,
     bool isDesktop = false,
   }) {
+    // ✅ CRÍTICO: Leer los observables para que Obx los escuche
+    // Sin esto, Obx no detecta cambios en la factura
+    final currentInvoice = controller.invoiceRx.value;
+    final showPaymentForm = controller.showPaymentFormRx.value;
+    final currentTab = controller.selectedTab.value;
+
+    // Log para debug (quitar después de verificar que funciona)
+    // ignore: avoid_print
+    print('🔄 _buildTabContent rebuild - Tab: $currentTab, Invoice: ${currentInvoice?.id}, ShowForm: $showPaymentForm, Pagos: ${currentInvoice?.payments.length}, PaidAmount: ${currentInvoice?.paidAmount}');
+
     // ✅ RESPONSIVE: Spacing progresivo Desktop < Tablet < Mobile
-    final spacing = isMobile ? 20.0 : isTablet ? 18.0 : isDesktop ? 16.0 : 24.0;
-    
-    switch (controller.selectedTab.value) {
+    final spacing =
+        isMobile
+            ? 20.0
+            : isTablet
+            ? 18.0
+            : isDesktop
+            ? 16.0
+            : 24.0;
+
+    switch (currentTab) {
       case 0: // General
-        return _buildGeneralTabContent(context, controller, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop, spacing: spacing);
+        return _buildGeneralTabContent(
+          context,
+          controller,
+          isMobile: isMobile,
+          isTablet: isTablet,
+          isDesktop: isDesktop,
+          spacing: spacing,
+        );
       case 1: // Items
-        return _buildItemsTabContent(context, controller, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop, spacing: spacing);
+        return _buildItemsTabContent(
+          context,
+          controller,
+          isMobile: isMobile,
+          isTablet: isTablet,
+          isDesktop: isDesktop,
+          spacing: spacing,
+        );
       case 2: // Pagos
-        return _buildPaymentsTabContent(context, controller, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop, spacing: spacing);
+        return _buildPaymentsTabContent(
+          context,
+          controller,
+          isMobile: isMobile,
+          isTablet: isTablet,
+          isDesktop: isDesktop,
+          spacing: spacing,
+        );
       case 3: // Historial
-        return _buildHistorialTabContent(context, controller, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop, spacing: spacing);
+        return _buildHistorialTabContent(
+          context,
+          controller,
+          isMobile: isMobile,
+          isTablet: isTablet,
+          isDesktop: isDesktop,
+          spacing: spacing,
+        );
+      case 4: // Notas de Crédito
+        return _buildCreditNotesTabContent(
+          context,
+          controller,
+          isMobile: isMobile,
+          isTablet: isTablet,
+          isDesktop: isDesktop,
+          spacing: spacing,
+        );
       default:
-        return _buildGeneralTabContent(context, controller, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop, spacing: spacing);
+        return _buildGeneralTabContent(
+          context,
+          controller,
+          isMobile: isMobile,
+          isTablet: isTablet,
+          isDesktop: isDesktop,
+          spacing: spacing,
+        );
     }
   }
 
@@ -3508,101 +4300,218 @@ class InvoiceDetailScreen extends StatelessWidget {
     required double spacing,
   }) {
     final invoice = controller.invoice!;
-    
+
     if (isDesktop) {
-      // ✅ NUEVO Layout desktop: 3 columnas con altura uniforme
-      final hasAdditionalInfo = invoice.notes?.isNotEmpty == true || invoice.terms?.isNotEmpty == true;
-      const desktopCardHeight = 480.0; // ✅ Altura fija para desktop
-      
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Columna 1: Cliente + Totales fusionados
-          Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: desktopCardHeight),
-              child: _buildFuturisticCustomerAndTotalsCard(context, controller, isDesktop: true),
+      // ✅ Layout desktop: 3 columnas con ancho y altura uniforme
+      final hasAdditionalInfo =
+          invoice.notes?.isNotEmpty == true ||
+          invoice.terms?.isNotEmpty == true;
+      const desktopCardHeight = 480.0;
+
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Columna 1: Cliente + Totales fusionados
+            Expanded(
+              flex: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: desktopCardHeight),
+                child: _buildFuturisticCustomerAndTotalsCard(
+                  context,
+                  controller,
+                  isDesktop: true,
+                ),
+              ),
             ),
-          ),
-          SizedBox(width: spacing),
-          // Columna 2: Información de la factura
-          Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: desktopCardHeight),
-              child: _buildFuturisticInvoiceInfoCard(context, controller, isDesktop: true),
+            SizedBox(width: spacing),
+            // Columna 2: Información de la factura
+            Expanded(
+              flex: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: desktopCardHeight),
+                child: _buildFuturisticInvoiceInfoCard(
+                  context,
+                  controller,
+                  isDesktop: true,
+                ),
+              ),
             ),
-          ),
-          SizedBox(width: spacing),
-          // Columna 3: Información adicional
-          Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: desktopCardHeight),
-              child: hasAdditionalInfo 
-                ? _buildFuturisticAdditionalInfoCard(context, controller, isDesktop: true)
-                : _buildFuturisticPlaceholderCard(context, 'Sin información adicional', Icons.info_outline, isDesktop: true),
+            SizedBox(width: spacing),
+            // Columna 3: Información adicional
+            Expanded(
+              flex: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: desktopCardHeight),
+                child:
+                    hasAdditionalInfo
+                        ? _buildFuturisticAdditionalInfoCard(
+                          context,
+                          controller,
+                          isDesktop: true,
+                        )
+                        : _buildFuturisticPlaceholderCard(
+                          context,
+                          'Sin información adicional',
+                          Icons.info_outline,
+                          isDesktop: true,
+                        ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     } else if (isTablet) {
-      // ✅ NUEVO Layout tablet: 3 columnas con altura uniforme
-      final hasAdditionalInfo = invoice.notes?.isNotEmpty == true || invoice.terms?.isNotEmpty == true;
-      const tabletCardHeight = 420.0; // ✅ Altura fija para tablet
-      
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Columna 1: Cliente + Totales fusionados
-          Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: tabletCardHeight),
-              child: _buildFuturisticCustomerAndTotalsCard(context, controller, isTablet: true),
+      // ✅ Layout tablet adaptativo según ancho de pantalla
+      final hasAdditionalInfo =
+          invoice.notes?.isNotEmpty == true ||
+          invoice.terms?.isNotEmpty == true;
+      final screenWidth = MediaQuery.of(context).size.width;
+
+      // Para tablets pequeñas (< 850px): layout de 2 filas
+      // Para tablets grandes (>= 850px): layout de 3 columnas
+      final isSmallTablet = screenWidth < 850;
+
+      if (isSmallTablet) {
+        // Layout para tablets pequeñas: 2 columnas arriba + 1 fila abajo
+        return Column(
+          children: [
+            // Primera fila: 2 columnas
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Columna 1: Cliente + Totales
+                  Expanded(
+                    flex: 1,
+                    child: _buildFuturisticCustomerAndTotalsCard(
+                      context,
+                      controller,
+                      isTablet: true,
+                    ),
+                  ),
+                  SizedBox(width: spacing),
+                  // Columna 2: Información de la factura
+                  Expanded(
+                    flex: 1,
+                    child: _buildFuturisticInvoiceInfoCard(
+                      context,
+                      controller,
+                      isTablet: true,
+                    ),
+                  ),
+                ],
+              ),
             ),
+            // Segunda fila: Información adicional (ancho completo)
+            if (hasAdditionalInfo) ...[
+              SizedBox(height: spacing),
+              _buildFuturisticAdditionalInfoCard(
+                context,
+                controller,
+                isTablet: true,
+              ),
+            ],
+          ],
+        );
+      } else {
+        // Layout para tablets grandes: 3 columnas
+        const tabletCardHeight = 420.0;
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Columna 1: Cliente + Totales fusionados
+              Expanded(
+                flex: 1,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: tabletCardHeight),
+                  child: _buildFuturisticCustomerAndTotalsCard(
+                    context,
+                    controller,
+                    isTablet: true,
+                  ),
+                ),
+              ),
+              SizedBox(width: spacing),
+              // Columna 2: Información de la factura
+              Expanded(
+                flex: 1,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: tabletCardHeight),
+                  child: _buildFuturisticInvoiceInfoCard(
+                    context,
+                    controller,
+                    isTablet: true,
+                  ),
+                ),
+              ),
+              SizedBox(width: spacing),
+              // Columna 3: Información adicional
+              Expanded(
+                flex: 1,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: tabletCardHeight),
+                  child:
+                      hasAdditionalInfo
+                          ? _buildFuturisticAdditionalInfoCard(
+                            context,
+                            controller,
+                            isTablet: true,
+                          )
+                          : _buildFuturisticPlaceholderCard(
+                            context,
+                            'Sin información adicional',
+                            Icons.info_outline,
+                            isTablet: true,
+                          ),
+                ),
+              ),
+            ],
           ),
-          SizedBox(width: spacing),
-          // Columna 2: Información de la factura
-          Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: tabletCardHeight),
-              child: _buildFuturisticInvoiceInfoCard(context, controller, isTablet: true),
-            ),
-          ),
-          SizedBox(width: spacing),
-          // Columna 3: Información adicional
-          Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: tabletCardHeight),
-              child: hasAdditionalInfo 
-                ? _buildFuturisticAdditionalInfoCard(context, controller, isTablet: true)
-                : _buildFuturisticPlaceholderCard(context, 'Sin información adicional', Icons.info_outline, isTablet: true),
-            ),
-          ),
-        ],
-      );
+        );
+      }
     } else {
       // ✅ NUEVO Layout mobile: Una columna con altura uniforme por card
-      final hasAdditionalInfo = invoice.notes?.isNotEmpty == true || invoice.terms?.isNotEmpty == true;
+      final hasAdditionalInfo =
+          invoice.notes?.isNotEmpty == true ||
+          invoice.terms?.isNotEmpty == true;
       const mobileCardHeight = 320.0; // ✅ Altura fija para mobile
-      
+
       return Column(
         children: [
           // Card fusionada Cliente + Totales
           ConstrainedBox(
             constraints: const BoxConstraints(minHeight: mobileCardHeight),
-            child: _buildFuturisticCustomerAndTotalsCard(context, controller, isMobile: true),
+            child: _buildFuturisticCustomerAndTotalsCard(
+              context,
+              controller,
+              isMobile: true,
+            ),
           ),
           SizedBox(height: spacing),
           // Información de la factura
           ConstrainedBox(
             constraints: const BoxConstraints(minHeight: mobileCardHeight),
-            child: _buildFuturisticInvoiceInfoCard(context, controller, isMobile: true),
+            child: _buildFuturisticInvoiceInfoCard(
+              context,
+              controller,
+              isMobile: true,
+            ),
           ),
           // Información adicional (si existe)
           if (hasAdditionalInfo) ...[
             SizedBox(height: spacing),
             ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 200.0), // ✅ Altura menor para info adicional
-              child: _buildFuturisticAdditionalInfoCard(context, controller, isMobile: true),
+              constraints: const BoxConstraints(
+                minHeight: 200.0,
+              ), // ✅ Altura menor para info adicional
+              child: _buildFuturisticAdditionalInfoCard(
+                context,
+                controller,
+                isMobile: true,
+              ),
             ),
           ],
         ],
@@ -3621,12 +4530,20 @@ class InvoiceDetailScreen extends StatelessWidget {
   }) {
     return Column(
       children: [
-        _buildFuturisticItemsCard(context, controller, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop),
+        _buildFuturisticItemsCard(
+          context,
+          controller,
+          isMobile: isMobile,
+          isTablet: isTablet,
+          isDesktop: isDesktop,
+        ),
       ],
     );
   }
 
   /// ✅ NUEVO: Tab Pagos - Historial completo y formulario de pagos
+  /// NOTA: Ya no usa Obx interno porque el Obx padre en _buildTabContent
+  /// ahora escucha invoiceRx y showPaymentFormRx
   Widget _buildPaymentsTabContent(
     BuildContext context,
     InvoiceDetailController controller, {
@@ -3635,24 +4552,46 @@ class InvoiceDetailScreen extends StatelessWidget {
     bool isDesktop = false,
     required double spacing,
   }) {
+    final invoice = controller.invoiceRx.value;
+    final showForm = controller.showPaymentFormRx.value;
+
+    if (invoice == null) return const SizedBox.shrink();
+
+    // ✅ CRITICAL FIX: Generar una key única basada en datos que cambian
+    // Esto FUERZA a Flutter a reconstruir el widget cuando cambia el invoice
+    final paymentKey = ValueKey('payments_${invoice.id}_${invoice.payments.length}_${invoice.paidAmount.toStringAsFixed(2)}');
+
+    print('🔑 PaymentHistoryWidget Key: $paymentKey');
+
     return Column(
       children: [
-        // ✅ NUEVO: Historial de pagos completo con resumen
+        // Historial de pagos con resumen - se actualiza automáticamente
+        // ✅ KEY ÚNICA: Fuerza rebuild cuando cambia el número de pagos o monto pagado
         PaymentHistoryWidget(
-          invoice: controller.invoice!,
+          key: paymentKey,
+          invoice: invoice,
           showSummary: true,
         ),
         SizedBox(height: spacing),
-        
-        // Formulario de pago si está visible
-        Obx(() {
-          if (controller.showPaymentForm) {
-            return _buildFuturisticPaymentForm(context, controller, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop);
-          } else {
-            // ✅ NUEVO: Botón para agregar pago integrado en el diseño
-            return _buildAddPaymentCard(context, controller, isMobile: isMobile, isTablet: isTablet, isDesktop: isDesktop, spacing: spacing);
-          }
-        }),
+
+        // Formulario de pago o botón para agregar
+        if (showForm)
+          _buildFuturisticPaymentForm(
+            context,
+            controller,
+            isMobile: isMobile,
+            isTablet: isTablet,
+            isDesktop: isDesktop,
+          )
+        else
+          _buildAddPaymentCard(
+            context,
+            controller,
+            isMobile: isMobile,
+            isTablet: isTablet,
+            isDesktop: isDesktop,
+            spacing: spacing,
+          ),
       ],
     );
   }
@@ -3667,14 +4606,39 @@ class InvoiceDetailScreen extends StatelessWidget {
     required double spacing,
   }) {
     final invoice = controller.invoice!;
-    
+
     // ✅ CORRECCIÓN: Tamaños diferenciados correctamente (Desktop más pequeño)
-    final titleSize = isMobile ? 16.0 : isTablet ? 20.0 : 14.0;    // Mobile: 16, Tablet: 20, Desktop: 14
-    final textSize = isMobile ? 13.0 : isTablet ? 16.0 : 11.0;     // Mobile: 13, Tablet: 16, Desktop: 11
-    final subtitleSize = isMobile ? 11.0 : isTablet ? 14.0 : 9.0;  // Mobile: 11, Tablet: 14, Desktop: 9
-    final iconSizeMain = isMobile ? 24.0 : isTablet ? 28.0 : 20.0; // Mobile: 24, Tablet: 28, Desktop: 20
-    final iconSizeSmall = isMobile ? 18.0 : isTablet ? 22.0 : 16.0; // Mobile: 18, Tablet: 22, Desktop: 16
-    
+    final titleSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 20.0
+            : 14.0; // Mobile: 16, Tablet: 20, Desktop: 14
+    final textSize =
+        isMobile
+            ? 13.0
+            : isTablet
+            ? 16.0
+            : 11.0; // Mobile: 13, Tablet: 16, Desktop: 11
+    final subtitleSize =
+        isMobile
+            ? 11.0
+            : isTablet
+            ? 14.0
+            : 9.0; // Mobile: 11, Tablet: 14, Desktop: 9
+    final iconSizeMain =
+        isMobile
+            ? 24.0
+            : isTablet
+            ? 28.0
+            : 20.0; // Mobile: 24, Tablet: 28, Desktop: 20
+    final iconSizeSmall =
+        isMobile
+            ? 18.0
+            : isTablet
+            ? 22.0
+            : 16.0; // Mobile: 18, Tablet: 22, Desktop: 16
+
     if (isDesktop) {
       // ✅ NUEVO: Layout desktop - Una sola columna con contenido completo
       return FuturisticContainer(
@@ -3701,7 +4665,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               ],
             ),
             SizedBox(height: spacing),
-            
+
             _buildTimelineItem(
               icon: Icons.add_circle_outline,
               title: 'Factura Creada',
@@ -3711,7 +4675,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               subtitleSize: subtitleSize,
               iconSize: iconSizeSmall,
             ),
-            
+
             if (invoice.status != InvoiceStatus.draft)
               _buildTimelineItem(
                 icon: Icons.check_circle_outline,
@@ -3722,18 +4686,19 @@ class InvoiceDetailScreen extends StatelessWidget {
                 subtitleSize: subtitleSize,
                 iconSize: iconSizeSmall,
               ),
-            
+
             if (invoice.isPaid)
               _buildTimelineItem(
                 icon: Icons.payment,
                 title: 'Factura Pagada',
-                subtitle: 'Monto: ${AppFormatters.formatCurrency(invoice.paidAmount)}',
+                subtitle:
+                    'Monto: ${AppFormatters.formatCurrency(invoice.paidAmount)}',
                 color: ElegantLightTheme.successGradient.colors.first,
                 textSize: textSize,
                 subtitleSize: subtitleSize,
                 iconSize: iconSizeSmall,
               ),
-            
+
             if (invoice.status == InvoiceStatus.cancelled)
               _buildTimelineItem(
                 icon: Icons.cancel_outlined,
@@ -3744,9 +4709,9 @@ class InvoiceDetailScreen extends StatelessWidget {
                 subtitleSize: subtitleSize,
                 iconSize: iconSizeSmall,
               ),
-            
+
             SizedBox(height: spacing * 1.5),
-            
+
             // === SECCIÓN INFORMACIÓN DETALLADA ===
             Row(
               children: [
@@ -3767,7 +4732,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               ],
             ),
             SizedBox(height: spacing),
-            
+
             _buildInfoStatItem(
               'ID de Factura',
               invoice.id,
@@ -3798,7 +4763,7 @@ class InvoiceDetailScreen extends StatelessWidget {
                 subtitleSize,
                 color: ElegantLightTheme.errorGradient.colors.first,
               ),
-            
+
             _buildInfoStatItem(
               'Creado por',
               invoice.createdBy?.firstName ?? 'Usuario',
@@ -3812,9 +4777,10 @@ class InvoiceDetailScreen extends StatelessWidget {
               Icons.schedule,
               textSize,
               subtitleSize,
-              color: invoice.isOverdue 
-                  ? ElegantLightTheme.errorGradient.colors.first 
-                  : null,
+              color:
+                  invoice.isOverdue
+                      ? ElegantLightTheme.errorGradient.colors.first
+                      : null,
             ),
           ],
         ),
@@ -3845,7 +4811,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               ],
             ),
             SizedBox(height: spacing),
-            
+
             _buildTimelineItem(
               icon: Icons.add_circle_outline,
               title: 'Factura Creada',
@@ -3855,7 +4821,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               subtitleSize: subtitleSize,
               iconSize: iconSizeSmall,
             ),
-            
+
             if (invoice.status != InvoiceStatus.draft)
               _buildTimelineItem(
                 icon: Icons.check_circle_outline,
@@ -3866,18 +4832,19 @@ class InvoiceDetailScreen extends StatelessWidget {
                 subtitleSize: subtitleSize,
                 iconSize: iconSizeSmall,
               ),
-            
+
             if (invoice.isPaid)
               _buildTimelineItem(
                 icon: Icons.payment,
                 title: 'Factura Pagada',
-                subtitle: 'Monto: ${AppFormatters.formatCurrency(invoice.paidAmount)}',
+                subtitle:
+                    'Monto: ${AppFormatters.formatCurrency(invoice.paidAmount)}',
                 color: ElegantLightTheme.successGradient.colors.first,
                 textSize: textSize,
                 subtitleSize: subtitleSize,
                 iconSize: iconSizeSmall,
               ),
-            
+
             if (invoice.status == InvoiceStatus.cancelled)
               _buildTimelineItem(
                 icon: Icons.cancel_outlined,
@@ -3888,9 +4855,9 @@ class InvoiceDetailScreen extends StatelessWidget {
                 subtitleSize: subtitleSize,
                 iconSize: iconSizeSmall,
               ),
-            
+
             SizedBox(height: spacing * 1.5),
-            
+
             // === SECCIÓN INFORMACIÓN DETALLADA ===
             Row(
               children: [
@@ -3911,7 +4878,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               ],
             ),
             SizedBox(height: spacing),
-            
+
             _buildInfoStatItem(
               'ID de Factura',
               invoice.id,
@@ -3942,7 +4909,7 @@ class InvoiceDetailScreen extends StatelessWidget {
                 subtitleSize,
                 color: ElegantLightTheme.errorGradient.colors.first,
               ),
-            
+
             _buildInfoStatItem(
               'Creado por',
               invoice.createdBy?.firstName ?? 'Usuario',
@@ -3956,9 +4923,10 @@ class InvoiceDetailScreen extends StatelessWidget {
               Icons.schedule,
               textSize,
               subtitleSize,
-              color: invoice.isOverdue 
-                  ? ElegantLightTheme.errorGradient.colors.first 
-                  : null,
+              color:
+                  invoice.isOverdue
+                      ? ElegantLightTheme.errorGradient.colors.first
+                      : null,
             ),
           ],
         ),
@@ -3989,7 +4957,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               ],
             ),
             SizedBox(height: spacing),
-            
+
             _buildTimelineItem(
               icon: Icons.add_circle_outline,
               title: 'Factura Creada',
@@ -3999,7 +4967,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               subtitleSize: subtitleSize,
               iconSize: iconSizeSmall,
             ),
-            
+
             if (invoice.status != InvoiceStatus.draft)
               _buildTimelineItem(
                 icon: Icons.check_circle_outline,
@@ -4010,18 +4978,19 @@ class InvoiceDetailScreen extends StatelessWidget {
                 subtitleSize: subtitleSize,
                 iconSize: iconSizeSmall,
               ),
-            
+
             if (invoice.isPaid)
               _buildTimelineItem(
                 icon: Icons.payment,
                 title: 'Factura Pagada',
-                subtitle: 'Monto: ${AppFormatters.formatCurrency(invoice.paidAmount)}',
+                subtitle:
+                    'Monto: ${AppFormatters.formatCurrency(invoice.paidAmount)}',
                 color: ElegantLightTheme.successGradient.colors.first,
                 textSize: textSize,
                 subtitleSize: subtitleSize,
                 iconSize: iconSizeSmall,
               ),
-            
+
             if (invoice.status == InvoiceStatus.cancelled)
               _buildTimelineItem(
                 icon: Icons.cancel_outlined,
@@ -4032,9 +5001,9 @@ class InvoiceDetailScreen extends StatelessWidget {
                 subtitleSize: subtitleSize,
                 iconSize: iconSizeSmall,
               ),
-            
+
             SizedBox(height: spacing * 1.5),
-            
+
             // === SECCIÓN INFORMACIÓN DETALLADA ===
             Row(
               children: [
@@ -4055,7 +5024,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               ],
             ),
             SizedBox(height: spacing),
-            
+
             _buildInfoStatItem(
               'ID de Factura',
               invoice.id,
@@ -4086,7 +5055,7 @@ class InvoiceDetailScreen extends StatelessWidget {
                 subtitleSize,
                 color: ElegantLightTheme.errorGradient.colors.first,
               ),
-            
+
             _buildInfoStatItem(
               'Creado por',
               invoice.createdBy?.firstName ?? 'Usuario',
@@ -4100,16 +5069,17 @@ class InvoiceDetailScreen extends StatelessWidget {
               Icons.schedule,
               textSize,
               subtitleSize,
-              color: invoice.isOverdue 
-                  ? ElegantLightTheme.errorGradient.colors.first 
-                  : null,
+              color:
+                  invoice.isOverdue
+                      ? ElegantLightTheme.errorGradient.colors.first
+                      : null,
             ),
           ],
         ),
       );
     }
   }
-  
+
   Widget _buildTimelineItem({
     required IconData icon,
     required String title,
@@ -4124,7 +5094,7 @@ class InvoiceDetailScreen extends StatelessWidget {
     final padding = (textSize * 0.6).clamp(6.0, 10.0);
     final spacing = (textSize * 0.8).clamp(10.0, 14.0);
     final bottomPadding = (textSize * 1.2).clamp(12.0, 18.0);
-    
+
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
       child: Row(
@@ -4169,6 +5139,25 @@ class InvoiceDetailScreen extends StatelessWidget {
     );
   }
 
+  /// ✅ NUEVO: Tab Notas de Crédito - Muestra las notas de crédito de la factura
+  Widget _buildCreditNotesTabContent(
+    BuildContext context,
+    InvoiceDetailController controller, {
+    bool isMobile = false,
+    bool isTablet = false,
+    bool isDesktop = false,
+    required double spacing,
+  }) {
+    final invoice = controller.invoice!;
+
+    return FuturisticContainer(
+      child: Padding(
+        padding: EdgeInsets.all(spacing),
+        child: InvoiceCreditNotesWidget(invoiceId: invoice.id),
+      ),
+    );
+  }
+
   /// ✅ NUEVO: Grid de métricas optimizado para el tab historial
   Widget _buildMetricsGrid(
     BuildContext context,
@@ -4177,7 +5166,7 @@ class InvoiceDetailScreen extends StatelessWidget {
     double subtitleSize,
   ) {
     final invoice = controller.invoice!;
-    
+
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -4206,9 +5195,9 @@ class InvoiceDetailScreen extends StatelessWidget {
           'Balance Pendiente',
           AppFormatters.formatCurrency(invoice.balanceDue),
           Icons.account_balance_wallet,
-          invoice.balanceDue > 0 
-            ? ElegantLightTheme.warningGradient.colors.first
-            : ElegantLightTheme.successGradient.colors.first,
+          invoice.balanceDue > 0
+              ? ElegantLightTheme.warningGradient.colors.first
+              : ElegantLightTheme.successGradient.colors.first,
           textSize,
           subtitleSize,
         ),
@@ -4238,10 +5227,7 @@ class InvoiceDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
         boxShadow: [
           BoxShadow(
             color: color.withValues(alpha: 0.1),
@@ -4256,11 +5242,7 @@ class InvoiceDetailScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                icon,
-                color: color,
-                size: 18,
-              ),
+              Icon(icon, color: color, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -4291,7 +5273,7 @@ class InvoiceDetailScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildInfoStatItem(
     String label,
     String value,
@@ -4304,7 +5286,7 @@ class InvoiceDetailScreen extends StatelessWidget {
     final iconSize = (textSize * 1.3).clamp(14.0, 22.0);
     final spacing = (textSize * 0.8).clamp(8.0, 14.0);
     final bottomPadding = (textSize * 0.9).clamp(8.0, 16.0);
-    
+
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
       child: Row(
@@ -4356,10 +5338,25 @@ class InvoiceDetailScreen extends StatelessWidget {
     required double spacing,
   }) {
     final invoice = controller.invoice!;
-    final textSize = isMobile ? 16.0 : isTablet ? 18.0 : 14.0;
-    final titleSize = isMobile ? 18.0 : isTablet ? 20.0 : 16.0;
-    final iconSize = isMobile ? 24.0 : isTablet ? 28.0 : 22.0;
-    
+    final textSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 18.0
+            : 14.0;
+    final titleSize =
+        isMobile
+            ? 18.0
+            : isTablet
+            ? 20.0
+            : 16.0;
+    final iconSize =
+        isMobile
+            ? 24.0
+            : isTablet
+            ? 28.0
+            : 22.0;
+
     return FuturisticContainer(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4367,11 +5364,18 @@ class InvoiceDetailScreen extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 8.0 : isTablet ? 10.0 : 8.0),
+                padding: EdgeInsets.all(
+                  isMobile
+                      ? 8.0
+                      : isTablet
+                      ? 10.0
+                      : 8.0,
+                ),
                 decoration: BoxDecoration(
-                  gradient: invoice.isPaid 
-                    ? ElegantLightTheme.successGradient 
-                    : ElegantLightTheme.warningGradient,
+                  gradient:
+                      invoice.isPaid
+                          ? ElegantLightTheme.successGradient
+                          : ElegantLightTheme.warningGradient,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: ElegantLightTheme.glowShadow,
                 ),
@@ -4396,13 +5400,19 @@ class InvoiceDetailScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      invoice.isPaid ? 'Pagada Completamente' : 'Pago Pendiente',
+                      invoice.isPaid
+                          ? 'Pagada Completamente'
+                          : 'Pago Pendiente',
                       style: TextStyle(
                         fontSize: textSize,
                         fontWeight: FontWeight.w500,
-                        color: invoice.isPaid 
-                          ? ElegantLightTheme.successGradient.colors.first
-                          : ElegantLightTheme.warningGradient.colors.first,
+                        color:
+                            invoice.isPaid
+                                ? ElegantLightTheme.successGradient.colors.first
+                                : ElegantLightTheme
+                                    .warningGradient
+                                    .colors
+                                    .first,
                       ),
                     ),
                   ],
@@ -4411,7 +5421,7 @@ class InvoiceDetailScreen extends StatelessWidget {
             ],
           ),
           SizedBox(height: spacing),
-          
+
           // Métricas de pago
           Row(
             children: [
@@ -4444,9 +5454,9 @@ class InvoiceDetailScreen extends StatelessWidget {
                   'Saldo',
                   AppFormatters.formatCurrency(invoice.balanceDue),
                   Icons.account_balance_wallet,
-                  invoice.balanceDue > 0 
-                    ? ElegantLightTheme.warningGradient.colors.first
-                    : ElegantLightTheme.successGradient.colors.first,
+                  invoice.balanceDue > 0
+                      ? ElegantLightTheme.warningGradient.colors.first
+                      : ElegantLightTheme.successGradient.colors.first,
                   isMobile: isMobile,
                   isTablet: isTablet,
                   isDesktop: isDesktop,
@@ -4468,27 +5478,41 @@ class InvoiceDetailScreen extends StatelessWidget {
     required bool isTablet,
     required bool isDesktop,
   }) {
-    final textSize = isMobile ? 14.0 : isTablet ? 16.0 : 12.0;
-    final valueSize = isMobile ? 16.0 : isTablet ? 18.0 : 14.0;
-    final iconSize = isMobile ? 18.0 : isTablet ? 20.0 : 16.0;
-    
+    final textSize =
+        isMobile
+            ? 14.0
+            : isTablet
+            ? 16.0
+            : 12.0;
+    final valueSize =
+        isMobile
+            ? 16.0
+            : isTablet
+            ? 18.0
+            : 14.0;
+    final iconSize =
+        isMobile
+            ? 18.0
+            : isTablet
+            ? 20.0
+            : 16.0;
+
     return Container(
-      padding: EdgeInsets.all(isMobile ? 12.0 : isTablet ? 14.0 : 10.0),
+      padding: EdgeInsets.all(
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 14.0
+            : 10.0,
+      ),
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: iconSize,
-          ),
+          Icon(icon, color: color, size: iconSize),
           SizedBox(height: 6),
           Text(
             label,
@@ -4528,7 +5552,7 @@ class InvoiceDetailScreen extends StatelessWidget {
     required double spacing,
   }) {
     final invoice = controller.invoice!;
-    
+
     return PaymentHistoryWidget(
       invoice: invoice,
       showSummary: false, // Summary is shown in separate card
@@ -4555,14 +5579,24 @@ class InvoiceDetailScreen extends StatelessWidget {
         children: [
           Icon(
             Icons.payment_outlined,
-            size: isMobile ? 32.0 : isTablet ? 40.0 : 28.0,
+            size:
+                isMobile
+                    ? 32.0
+                    : isTablet
+                    ? 40.0
+                    : 28.0,
             color: ElegantLightTheme.textTertiary,
           ),
           SizedBox(height: spacing * 0.5),
           Text(
             'No hay pagos registrados',
             style: TextStyle(
-              fontSize: isMobile ? 16.0 : isTablet ? 18.0 : 14.0,
+              fontSize:
+                  isMobile
+                      ? 16.0
+                      : isTablet
+                      ? 18.0
+                      : 14.0,
               color: ElegantLightTheme.textSecondary,
               fontWeight: FontWeight.w500,
             ),
@@ -4572,7 +5606,12 @@ class InvoiceDetailScreen extends StatelessWidget {
           Text(
             'Los pagos aparecerán aquí una vez sean procesados',
             style: TextStyle(
-              fontSize: isMobile ? 14.0 : isTablet ? 16.0 : 12.0,
+              fontSize:
+                  isMobile
+                      ? 14.0
+                      : isTablet
+                      ? 16.0
+                      : 12.0,
               color: ElegantLightTheme.textTertiary,
             ),
             textAlign: TextAlign.center,
@@ -4588,17 +5627,40 @@ class InvoiceDetailScreen extends StatelessWidget {
     required bool isTablet,
     required bool isDesktop,
   }) {
-    final textSize = isMobile ? 14.0 : isTablet ? 16.0 : 12.0;
-    final subtitleSize = isMobile ? 12.0 : isTablet ? 14.0 : 11.0;
-    final iconSize = isMobile ? 18.0 : isTablet ? 20.0 : 16.0;
-    
+    final textSize =
+        isMobile
+            ? 14.0
+            : isTablet
+            ? 16.0
+            : 12.0;
+    final subtitleSize =
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 14.0
+            : 11.0;
+    final iconSize =
+        isMobile
+            ? 18.0
+            : isTablet
+            ? 20.0
+            : 16.0;
+
     return Container(
-      padding: EdgeInsets.all(isMobile ? 12.0 : isTablet ? 14.0 : 10.0),
+      padding: EdgeInsets.all(
+        isMobile
+            ? 12.0
+            : isTablet
+            ? 14.0
+            : 10.0,
+      ),
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ElegantLightTheme.successGradient.colors.first.withValues(alpha: 0.3),
+          color: ElegantLightTheme.successGradient.colors.first.withValues(
+            alpha: 0.3,
+          ),
           width: 1,
         ),
       ),
@@ -4607,7 +5669,9 @@ class InvoiceDetailScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: ElegantLightTheme.successGradient.colors.first.withValues(alpha: 0.1),
+              color: ElegantLightTheme.successGradient.colors.first.withValues(
+                alpha: 0.1,
+              ),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -4616,7 +5680,14 @@ class InvoiceDetailScreen extends StatelessWidget {
               size: iconSize,
             ),
           ),
-          SizedBox(width: isMobile ? 12.0 : isTablet ? 14.0 : 10.0),
+          SizedBox(
+            width:
+                isMobile
+                    ? 12.0
+                    : isTablet
+                    ? 14.0
+                    : 10.0,
+          ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -4660,7 +5731,8 @@ class InvoiceDetailScreen extends StatelessWidget {
                         color: ElegantLightTheme.textSecondary,
                       ),
                     ),
-                    if (payment['reference'] != null && payment['reference'].isNotEmpty) ...[
+                    if (payment['reference'] != null &&
+                        payment['reference'].isNotEmpty) ...[
                       SizedBox(width: 8),
                       Icon(
                         Icons.receipt,
@@ -4689,7 +5761,7 @@ class InvoiceDetailScreen extends StatelessWidget {
     );
   }
 
-  /// ✅ NUEVO: Card para agregar nuevo pago
+  /// ✅ REDISEÑADO: Card para agregar nuevo pago - estilo consistente con historial
   Widget _buildAddPaymentCard(
     BuildContext context,
     InvoiceDetailController controller, {
@@ -4700,75 +5772,295 @@ class InvoiceDetailScreen extends StatelessWidget {
   }) {
     final invoice = controller.invoice!;
     final canAddPayment = invoice.canAddPayment;
-    
+
+    // Tamaños adaptativos consistentes con PaymentHistoryWidget
+    final cardPadding = isMobile ? 12.0 : (isTablet ? 16.0 : 20.0);
+    final iconSize = isMobile ? 20.0 : (isTablet ? 22.0 : 24.0);
+    final titleFontSize = isMobile ? 15.0 : (isTablet ? 16.0 : 18.0);
+
     if (!canAddPayment) {
-      return FuturisticContainer(
+      return CustomCard(
+        padding: EdgeInsets.all(cardPadding),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.check_circle,
-              size: isMobile ? 48.0 : isTablet ? 56.0 : 40.0,
-              color: ElegantLightTheme.successGradient.colors.first,
+            // Header consistente
+            Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: iconSize,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Estado de Pago',
+                    style: TextStyle(
+                      fontSize: titleFontSize,
+                      fontWeight: FontWeight.w700,
+                      color: ElegantLightTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 8 : 10,
+                    vertical: isMobile ? 3 : 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Completado',
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontSize: isMobile ? 10 : 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: spacing),
-            Text(
-              'Factura Pagada Completamente',
-              style: TextStyle(
-                fontSize: isMobile ? 18.0 : isTablet ? 20.0 : 16.0,
-                fontWeight: FontWeight.w700,
-                color: ElegantLightTheme.successGradient.colors.first,
+            SizedBox(height: isMobile ? 12 : 16),
+            // Contenido
+            Container(
+              padding: EdgeInsets.all(isMobile ? 12 : 16),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.green.withValues(alpha: 0.2),
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 8),
-            Text(
-              'No se requieren pagos adicionales',
-              style: TextStyle(
-                fontSize: isMobile ? 14.0 : isTablet ? 16.0 : 12.0,
-                color: ElegantLightTheme.textSecondary,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.verified,
+                    color: Colors.green,
+                    size: isMobile ? 32 : 40,
+                  ),
+                  SizedBox(width: isMobile ? 12 : 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Factura Pagada',
+                          style: TextStyle(
+                            fontSize: isMobile ? 14 : 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'No se requieren pagos adicionales',
+                          style: TextStyle(
+                            fontSize: isMobile ? 12 : 13,
+                            color: ElegantLightTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),
       );
     }
-    
-    return FuturisticContainer(
+
+    return CustomCard(
+      padding: EdgeInsets.all(cardPadding),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.add_circle_outline,
-            size: isMobile ? 48.0 : isTablet ? 56.0 : 40.0,
-            color: ElegantLightTheme.primaryGradient.colors.first,
+          // Header consistente con historial de pagos
+          Row(
+            children: [
+              Icon(
+                Icons.add_card,
+                color: ElegantLightTheme.primaryBlue,
+                size: iconSize,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Registrar Pago',
+                  style: TextStyle(
+                    fontSize: titleFontSize,
+                    fontWeight: FontWeight.w700,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+              ),
+              // Badge de saldo pendiente
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 8 : 10,
+                  vertical: isMobile ? 3 : 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  AppFormatters.formatCurrency(invoice.balanceDue),
+                  style: TextStyle(
+                    color: Colors.orange.shade700,
+                    fontSize: isMobile ? 10 : 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: spacing),
-          Text(
-            'Registrar Nuevo Pago',
-            style: TextStyle(
-              fontSize: isMobile ? 18.0 : isTablet ? 20.0 : 16.0,
-              fontWeight: FontWeight.w700,
-              color: ElegantLightTheme.textPrimary,
+          SizedBox(height: isMobile ? 12 : 16),
+
+          // Info del saldo pendiente
+          Container(
+            padding: EdgeInsets.all(isMobile ? 10 : 12),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.backgroundColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Saldo pendiente: ${AppFormatters.formatCurrency(invoice.balanceDue)}',
-            style: TextStyle(
-              fontSize: isMobile ? 14.0 : isTablet ? 16.0 : 12.0,
-              color: ElegantLightTheme.textSecondary,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.account_balance_wallet_outlined,
+                  color: Colors.orange,
+                  size: isMobile ? 20 : 24,
+                ),
+                SizedBox(width: isMobile ? 10 : 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Saldo Pendiente',
+                        style: TextStyle(
+                          fontSize: isMobile ? 11 : 12,
+                          color: ElegantLightTheme.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        AppFormatters.formatCurrency(invoice.balanceDue),
+                        style: TextStyle(
+                          fontSize: isMobile ? 16 : 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            textAlign: TextAlign.center,
           ),
-          SizedBox(height: spacing),
-          FuturisticButton(
-            text: 'Agregar Pago',
+          SizedBox(height: isMobile ? 12 : 16),
+
+          // Botón de agregar pago
+          _buildPaymentActionButton(
+            context,
             icon: Icons.payment,
-            onPressed: () => controller.togglePaymentForm(),
-            gradient: ElegantLightTheme.primaryGradient,
+            label: 'Agregar Pago',
+            subtitle: 'Registrar un pago a esta factura',
+            onTap: () => controller.togglePaymentForm(),
+            isPrimary: true,
+            isMobile: isMobile,
           ),
         ],
+      ),
+    );
+  }
+
+  /// Botón de acción para pagos con estilo consistente
+  Widget _buildPaymentActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required VoidCallback onTap,
+    required bool isPrimary,
+    required bool isMobile,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: EdgeInsets.all(isMobile ? 12 : 14),
+          decoration: BoxDecoration(
+            color: isPrimary
+                ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.1)
+                : ElegantLightTheme.backgroundColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isPrimary
+                  ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+                  : ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(isMobile ? 8 : 10),
+                decoration: BoxDecoration(
+                  color: isPrimary
+                      ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.15)
+                      : ElegantLightTheme.textTertiary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: isPrimary
+                      ? ElegantLightTheme.primaryBlue
+                      : ElegantLightTheme.textSecondary,
+                  size: isMobile ? 20 : 22,
+                ),
+              ),
+              SizedBox(width: isMobile ? 10 : 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: isMobile ? 13 : 14,
+                        fontWeight: FontWeight.w600,
+                        color: isPrimary
+                            ? ElegantLightTheme.primaryBlue
+                            : ElegantLightTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: isMobile ? 10 : 11,
+                        color: ElegantLightTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: isPrimary
+                    ? ElegantLightTheme.primaryBlue
+                    : ElegantLightTheme.textTertiary,
+                size: isMobile ? 20 : 22,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -4776,7 +6068,7 @@ class InvoiceDetailScreen extends StatelessWidget {
   /// ✅ SIMULACIÓN: Genera historial de pagos basado en el estado actual
   List<Map<String, dynamic>> _generatePaymentHistory(Invoice invoice) {
     final payments = <Map<String, dynamic>>[];
-    
+
     // ✅ CORREGIDO: Solo mostrar datos reales, sin simulaciones
     // Si hay monto pagado, crear UNA SOLA entrada con el pago real
     if (invoice.paidAmount > 0) {
@@ -4784,22 +6076,23 @@ class InvoiceDetailScreen extends StatelessWidget {
         'id': '1',
         'amount': invoice.paidAmount,
         'method': {
-          'name': invoice.paymentMethod.displayName,
-          'icon': invoice.paymentMethod.icon,
+          // ✅ Usar paymentMethodDisplayName que incluye el banco si existe
+          'name': invoice.paymentMethodDisplayName,
+          'icon': invoice.paymentMethodIcon,
         },
         'date': invoice.updatedAt, // Usar fecha real de última actualización
         'reference': 'REF-${invoice.number}-001',
         'notes': 'Pago registrado',
       });
     }
-    
+
     // ❌ ELIMINADO: No crear pagos simulados adicionales
     // En una implementación real, aquí se consultarían los pagos del backend:
     // return await paymentRepository.getPaymentsByInvoiceId(invoice.id);
-    
+
     return payments;
   }
-  
+
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }

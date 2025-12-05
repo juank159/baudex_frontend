@@ -1520,7 +1520,7 @@ class ThermalPrinterController extends GetxController {
       printer.hr();
     } catch (e) {
       print('❌ Error imprimiendo info factura: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -1546,7 +1546,7 @@ class ThermalPrinterController extends GetxController {
       printer.hr();
     } catch (e) {
       print('❌ Error imprimiendo info cliente: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -1646,7 +1646,7 @@ class ThermalPrinterController extends GetxController {
       printer.feed(1);
     } catch (e) {
       print('❌ Error imprimiendo items: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -1737,7 +1737,7 @@ class ThermalPrinterController extends GetxController {
       printer.feed(1);
     } catch (e) {
       print('❌ Error imprimiendo totales: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -1938,7 +1938,7 @@ class ThermalPrinterController extends GetxController {
       );
     } catch (e) {
       print('❌ Error imprimiendo footer: $e');
-      throw e;
+      rethrow;
     }
   }
 

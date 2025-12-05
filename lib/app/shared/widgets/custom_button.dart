@@ -3,6 +3,7 @@ import '../../core/utils/responsive.dart';
 import '../../core/utils/responsive_helper.dart';
 
 enum ButtonType { primary, secondary, outline, text }
+
 enum ButtonSize { small, medium, large, compact }
 
 // Alias para compatibilidad con código existente
@@ -24,7 +25,7 @@ class CustomButton extends StatelessWidget {
   final bool isCompact;
 
   const CustomButton({
-    Key? key,
+    super.key,
     required this.text,
     this.onPressed,
     this.type = ButtonType.primary,
@@ -38,13 +39,12 @@ class CustomButton extends StatelessWidget {
     this.textColor,
     this.fontSize,
     this.isCompact = false,
-  }) : super(key: key);
-
+  });
 
   @override
   Widget build(BuildContext context) {
     final dimensions = _getButtonDimensions(context);
-    
+
     if (isLoading) {
       return _buildLoadingButton(context, dimensions);
     }
@@ -83,8 +83,14 @@ class CustomButton extends StatelessWidget {
           fontContext: FontContext.caption,
         );
         basePadding = EdgeInsets.symmetric(
-          horizontal: ResponsiveHelper.getHorizontalSpacing(context, size: SpacingSize.small),
-          vertical: ResponsiveHelper.getVerticalSpacing(context, size: SpacingSize.tiny),
+          horizontal: ResponsiveHelper.getHorizontalSpacing(
+            context,
+            size: SpacingSize.small,
+          ),
+          vertical: ResponsiveHelper.getVerticalSpacing(
+            context,
+            size: SpacingSize.tiny,
+          ),
         );
         break;
 
@@ -103,7 +109,10 @@ class CustomButton extends StatelessWidget {
         );
         basePadding = EdgeInsets.symmetric(
           horizontal: ResponsiveHelper.getHorizontalSpacing(context),
-          vertical: ResponsiveHelper.getVerticalSpacing(context, size: SpacingSize.small),
+          vertical: ResponsiveHelper.getVerticalSpacing(
+            context,
+            size: SpacingSize.small,
+          ),
         );
         break;
 
@@ -122,7 +131,10 @@ class CustomButton extends StatelessWidget {
           fontContext: FontContext.subtitle,
         );
         basePadding = EdgeInsets.symmetric(
-          horizontal: ResponsiveHelper.getHorizontalSpacing(context, size: SpacingSize.large),
+          horizontal: ResponsiveHelper.getHorizontalSpacing(
+            context,
+            size: SpacingSize.large,
+          ),
           vertical: ResponsiveHelper.getVerticalSpacing(context),
         );
         break;
@@ -142,8 +154,14 @@ class CustomButton extends StatelessWidget {
           fontContext: FontContext.caption,
         );
         basePadding = EdgeInsets.symmetric(
-          horizontal: ResponsiveHelper.getHorizontalSpacing(context, size: SpacingSize.tiny),
-          vertical: ResponsiveHelper.getVerticalSpacing(context, size: SpacingSize.tiny),
+          horizontal: ResponsiveHelper.getHorizontalSpacing(
+            context,
+            size: SpacingSize.tiny,
+          ),
+          vertical: ResponsiveHelper.getVerticalSpacing(
+            context,
+            size: SpacingSize.tiny,
+          ),
         );
         break;
     }
@@ -165,7 +183,10 @@ class CustomButton extends StatelessWidget {
     );
   }
 
-  Widget _buildPrimaryButton(BuildContext context, ButtonDimensions dimensions) {
+  Widget _buildPrimaryButton(
+    BuildContext context,
+    ButtonDimensions dimensions,
+  ) {
     final borderRadius = ResponsiveHelper.getBorderRadius(
       context,
       radiusContext: BorderRadiusContext.button,
@@ -196,7 +217,10 @@ class CustomButton extends StatelessWidget {
     );
   }
 
-  Widget _buildSecondaryButton(BuildContext context, ButtonDimensions dimensions) {
+  Widget _buildSecondaryButton(
+    BuildContext context,
+    ButtonDimensions dimensions,
+  ) {
     final borderRadius = ResponsiveHelper.getBorderRadius(
       context,
       radiusContext: BorderRadiusContext.button,
@@ -224,7 +248,10 @@ class CustomButton extends StatelessWidget {
     );
   }
 
-  Widget _buildOutlineButton(BuildContext context, ButtonDimensions dimensions) {
+  Widget _buildOutlineButton(
+    BuildContext context,
+    ButtonDimensions dimensions,
+  ) {
     final borderRadius = ResponsiveHelper.getBorderRadius(
       context,
       radiusContext: BorderRadiusContext.button,
@@ -238,10 +265,7 @@ class CustomButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: textColor ?? borderColor,
-          side: BorderSide(
-            color: borderColor,
-            width: 1.5,
-          ),
+          side: BorderSide(color: borderColor, width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius),
           ),
@@ -279,7 +303,10 @@ class CustomButton extends StatelessWidget {
     );
   }
 
-  Widget _buildLoadingButton(BuildContext context, ButtonDimensions dimensions) {
+  Widget _buildLoadingButton(
+    BuildContext context,
+    ButtonDimensions dimensions,
+  ) {
     final borderRadius = ResponsiveHelper.getBorderRadius(
       context,
       radiusContext: BorderRadiusContext.button,
@@ -315,11 +342,11 @@ class CustomButton extends StatelessWidget {
   Widget _buildButtonContent(double fontSize) {
     // Calculate icon size based on font size
     final iconSize = fontSize * 1.2;
-    
+
     if (icon != null) {
       // Determine spacing based on button size
       final spacing = size == ButtonSize.compact || isCompact ? 4.0 : 8.0;
-      
+
       return Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -345,10 +372,7 @@ class CustomButton extends StatelessWidget {
 
     return Text(
       text,
-      style: TextStyle(
-        fontSize: fontSize,
-        fontWeight: FontWeight.w600,
-      ),
+      style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
       overflow: TextOverflow.ellipsis,
       maxLines: 1,
       textAlign: TextAlign.center,

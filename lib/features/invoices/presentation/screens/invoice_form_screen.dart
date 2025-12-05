@@ -5,6 +5,7 @@ import 'package:baudex_desktop/features/invoices/presentation/widgets/enhanced_p
 import 'package:baudex_desktop/features/products/domain/entities/product.dart';
 import 'package:baudex_desktop/app/core/utils/responsive.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
+import 'package:baudex_desktop/app/core/theme/elegant_light_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -26,15 +27,19 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   int _selectedIndex = -1;
   bool _isShiftPressed = false;
   bool _isCtrlPressed = false;
-  bool _isProductSearchActive = false; // ✅ NUEVO: Rastrear si ProductSearchWidget está activo
-  DateTime? _lastEnterEvent; // ✅ NUEVO: Rastrear último evento Enter para evitar propagación
+  final bool _isProductSearchActive =
+      false; // ✅ NUEVO: Rastrear si ProductSearchWidget está activo
+  DateTime?
+  _lastEnterEvent; // ✅ NUEVO: Rastrear último evento Enter para evitar propagación
 
   // ScrollController para la tabla de productos (para hacer scroll automático)
   final ScrollController _productsScrollController = ScrollController();
-  
+
   // ✅ NUEVO: GlobalKeys para coordinar focus entre widgets
-  final GlobalKey<ProductSearchWidgetState> _productSearchKey = GlobalKey<ProductSearchWidgetState>();
-  final GlobalKey<CustomerSelectorWidgetState> _customerSelectorKey = GlobalKey<CustomerSelectorWidgetState>();
+  final GlobalKey<ProductSearchWidgetState> _productSearchKey =
+      GlobalKey<ProductSearchWidgetState>();
+  final GlobalKey<CustomerSelectorWidgetState> _customerSelectorKey =
+      GlobalKey<CustomerSelectorWidgetState>();
 
   @override
   void initState() {
@@ -93,8 +98,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     // ✅ CRÍTICO: No procesar Enter si el ProductSearchWidget está activo
     if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
       final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
-      if (focusedWidget != null && focusedWidget.toString().contains('TextField')) {
-        print('🚫 SCREEN Enter ignorado - Focus está en campo de búsqueda de productos');
+      if (focusedWidget != null &&
+          focusedWidget.toString().contains('TextField')) {
+        print(
+          '🚫 SCREEN Enter ignorado - Focus está en campo de búsqueda de productos',
+        );
         return false;
       }
     }
@@ -127,10 +135,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       // ✅ SHORTCUTS ACTUALIZADOS: Solo con Control presionado (NATIVO)
       if (_selectedIndex >= 0 &&
           _selectedIndex < controller.invoiceItems.length) {
-        
         // ✅ USAR FLUTTER NATIVO para detectar Ctrl presionado
         final isCtrlPressed = HardwareKeyboard.instance.isControlPressed;
-        
+
         // Shortcuts SOLO con Control presionado (NATIVO)
         if (isCtrlPressed) {
           // Ctrl + = (tecla +) para incrementar en 1 - NATIVO
@@ -182,23 +189,29 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           // Ctrl + Enter para procesar venta - NATIVO
           if (event.logicalKey == LogicalKeyboardKey.enter) {
             print('🔍 SCREEN Enter detectado - Ctrl nativo: $isCtrlPressed');
-            
+
             // ✅ VERIFICACIÓN: Asegurar que no haya focus en TextField
-            final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
-            if (focusedWidget != null && focusedWidget.toString().contains('TextField')) {
-              print('🚫 SCREEN Ctrl+Enter cancelado - Focus en campo de búsqueda');
+            final focusedWidget =
+                FocusManager.instance.primaryFocus?.context?.widget;
+            if (focusedWidget != null &&
+                focusedWidget.toString().contains('TextField')) {
+              print(
+                '🚫 SCREEN Ctrl+Enter cancelado - Focus en campo de búsqueda',
+              );
               return false;
             }
-            
+
             // ✅ NUEVO: Evitar eventos Enter duplicados o propagados
             final now = DateTime.now();
-            if (_lastEnterEvent != null && 
+            if (_lastEnterEvent != null &&
                 now.difference(_lastEnterEvent!).inMilliseconds < 500) {
-              print('🚫 SCREEN Ctrl+Enter ignorado - Evento muy reciente (${now.difference(_lastEnterEvent!).inMilliseconds}ms)');
+              print(
+                '🚫 SCREEN Ctrl+Enter ignorado - Evento muy reciente (${now.difference(_lastEnterEvent!).inMilliseconds}ms)',
+              );
               return false;
             }
             _lastEnterEvent = now;
-            
+
             print(
               '🎹 SCREEN Ctrl+Enter detectado (NATIVO) - canSave: ${controller.canSave}, isSaving: ${controller.isSaving}',
             );
@@ -488,13 +501,68 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     // ✅ Usar el controlador específico con Obx para reactividad
     return Scaffold(
       appBar: _buildAppBar(context, controller),
-      body: Obx(
-        () =>
-            controller.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : context.isMobile
-                ? _buildMobileLayout(context, controller)
-                : _buildDesktopLayout(context, controller),
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              ElegantLightTheme.backgroundColor,
+              ElegantLightTheme.cardColor,
+            ],
+          ),
+        ),
+        child: Obx(
+          () =>
+              controller.isLoading
+                  ? _buildLoadingView()
+                  : context.isMobile
+                  ? _buildMobileLayout(context, controller)
+                  : _buildDesktopLayout(context, controller),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: ElegantLightTheme.glowShadow,
+            ),
+            child: const Icon(
+              Icons.point_of_sale,
+              color: Colors.white,
+              size: 40,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Preparando POS...',
+            style: TextStyle(
+              color: ElegantLightTheme.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(ElegantLightTheme.primaryBlue),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -645,8 +713,15 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           context.isMobile
               ? _buildMobileTitle(context, controller)
               : _buildDesktopTitle(context, controller),
-      backgroundColor: Theme.of(context).primaryColor,
+      backgroundColor: Colors.transparent,
       foregroundColor: Colors.white,
+      elevation: 0,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          boxShadow: ElegantLightTheme.elevatedShadow,
+        ),
+      ),
       actions: _buildAppBarActions(context, controller),
     );
   }
@@ -655,30 +730,62 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     BuildContext context,
     InvoiceFormController controller,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          controller.isEditMode ? 'Editar' : 'POS',
-          style: const TextStyle(fontSize: 16),
+        // Icono elegante
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.point_of_sale,
+            color: Colors.white,
+            size: 18,
+          ),
         ),
-        if (controller.isEditMode)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              'BORRADOR',
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.blue.shade800,
-                fontWeight: FontWeight.bold,
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              controller.isEditMode ? 'Editar Factura' : 'Punto de Venta',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
               ),
             ),
-          ),
+            if (controller.isEditMode)
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.warningGradient,
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.accentOrange.withValues(alpha: 0.4),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Text(
+                  'BORRADOR',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -690,22 +797,67 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(controller.pageTitle),
-        if (controller.isEditMode) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade100,
-              borderRadius: BorderRadius.circular(12),
+        // Icono elegante para desktop
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.3),
+              width: 1,
             ),
-            child: Text(
-              'BORRADOR',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.blue.shade800,
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+          child: const Icon(
+            Icons.point_of_sale,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          controller.pageTitle,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+            letterSpacing: 0.3,
+          ),
+        ),
+        if (controller.isEditMode) ...[
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.warningGradient,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: ElegantLightTheme.accentOrange.withValues(alpha: 0.4),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(
+                  Icons.edit_note,
+                  color: Colors.white,
+                  size: 14,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  'BORRADOR',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -721,17 +873,41 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
     if (!controller.isEditMode && !context.isMobile) {
       actions.add(
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: controller.clearFormForNewSale,
-          tooltip: 'Nueva Venta',
+        Tooltip(
+          message: 'Nueva Venta',
+          child: Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: controller.clearFormForNewSale,
+                child: const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: Icon(
+                    Icons.add_circle_outline,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
 
     actions.add(
       Container(
-        margin: EdgeInsets.only(right: context.isMobile ? 4 : 8),
+        margin: EdgeInsets.only(right: context.isMobile ? 4 : 12),
         child:
             context.isMobile
                 ? _buildMobileSaveButton(context, controller)
@@ -747,28 +923,55 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     InvoiceFormController controller,
   ) {
     return Obx(
-      () => ElevatedButton(
-        onPressed:
-            controller.canSave && !controller.isSaving
-                ? () => _showPaymentDialog(context, controller)
-                : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-        child:
-            controller.isSaving
-                ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+      () {
+        final canSave = controller.canSave && !controller.isSaving;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: canSave
+                ? ElegantLightTheme.successGradient
+                : LinearGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: 0.2),
+                      Colors.white.withValues(alpha: 0.1),
+                    ],
                   ),
-                )
-                : const Icon(Icons.point_of_sale, size: 20),
-      ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: canSave
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: canSave ? () => _showPaymentDialog(context, controller) : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: controller.isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.shopping_cart_checkout,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -777,33 +980,79 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     InvoiceFormController controller,
   ) {
     return Obx(
-      () => Tooltip(
-        message: 'Procesar Venta (Ctrl+Enter)',
-        child: ElevatedButton.icon(
-          onPressed:
-              controller.canSave && !controller.isSaving
-                  ? () => _showPaymentDialog(context, controller)
-                  : null,
-          icon:
-              controller.isSaving
-                  ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+      () {
+        final canSave = controller.canSave && !controller.isSaving;
+        return Tooltip(
+          message: 'Procesar Venta (Ctrl+Enter)',
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: canSave
+                  ? ElegantLightTheme.successGradient
+                  : LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.2),
+                        Colors.white.withValues(alpha: 0.1),
+                      ],
                     ),
-                  )
-                  : const Icon(Icons.point_of_sale),
-          label: Text(
-            controller.isSaving ? 'Guardando...' : controller.saveButtonText,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: canSave
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
+              border: Border.all(
+                color: canSave
+                    ? Colors.white.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.1),
+                width: 1,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: canSave ? () => _showPaymentDialog(context, controller) : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      controller.isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.shopping_cart_checkout,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                      const SizedBox(width: 8),
+                      Text(
+                        controller.isSaving ? 'Procesando...' : controller.saveButtonText,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -813,18 +1062,14 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   ) {
     return Obx(() {
       return Container(
-        padding: EdgeInsets.all(context.isMobile ? 6 : 8),
+        padding: EdgeInsets.all(context.isMobile ? 10 : 14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 6,
-              offset: const Offset(0, -2),
-            ),
-          ],
+          gradient: ElegantLightTheme.glassGradient,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: ElegantLightTheme.textSecondary.withOpacity(0.2),
+          ),
+          boxShadow: ElegantLightTheme.elevatedShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -832,32 +1077,47 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.receipt_long,
-                  color: Theme.of(context).primaryColor,
-                  size: context.isMobile ? 14 : 16,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: ElegantLightTheme.glowShadow,
+                  ),
+                  child: Icon(
+                    Icons.receipt_long,
+                    color: Colors.white,
+                    size: context.isMobile ? 12 : 14,
+                  ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Text(
                   'Resumen',
                   style: TextStyle(
-                    fontSize: context.isMobile ? 12 : 14,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
+                    fontSize: context.isMobile ? 13 : 15,
+                    fontWeight: FontWeight.w700,
+                    color: ElegantLightTheme.textPrimary,
                   ),
                 ),
                 const Spacer(),
-                Text(
-                  '${controller.invoiceItems.length}',
-                  style: TextStyle(
-                    fontSize: context.isMobile ? 8 : 9,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${controller.invoiceItems.length} items',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: context.isMobile ? 3 : 4),
+            SizedBox(height: context.isMobile ? 8 : 10),
             _buildTotalRow(context, 'Subtotal', controller.subtotalWithoutTax),
             if (controller.totalDiscountAmount > 0)
               _buildTotalRow(
@@ -872,7 +1132,21 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 'IVA (${controller.taxPercentage}%)',
                 controller.taxAmount,
               ),
-            Divider(height: context.isMobile ? 6 : 8, thickness: 0.5),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: context.isMobile ? 4 : 6),
+              child: Container(
+                height: 1,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      ElegantLightTheme.textSecondary.withOpacity(0.3),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
             _buildTotalRow(context, 'TOTAL', controller.total, isTotal: true),
           ],
         ),
@@ -887,8 +1161,14 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     bool isTotal = false,
     bool isDiscount = false,
   }) {
+    final Color amountColor = isTotal
+        ? const Color(0xFF10B981) // Verde elegante
+        : isDiscount
+            ? const Color(0xFFEF4444) // Rojo elegante
+            : ElegantLightTheme.textPrimary;
+
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: context.isMobile ? 1 : 1.5),
+      padding: EdgeInsets.symmetric(vertical: context.isMobile ? 2 : 3),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -899,34 +1179,52 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               style: TextStyle(
                 fontSize:
                     isTotal
-                        ? (context.isMobile ? 11 : 13)
-                        : (context.isMobile ? 8 : 10),
-                fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
-                color: isTotal ? Colors.black : Colors.grey.shade700,
+                        ? (context.isMobile ? 12 : 14)
+                        : (context.isMobile ? 10 : 11),
+                fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
+                color: isTotal
+                    ? ElegantLightTheme.textPrimary
+                    : ElegantLightTheme.textSecondary,
               ),
             ),
           ),
           Expanded(
             flex: 2,
-            child: Text(
-              isDiscount
-                  ? '-${AppFormatters.formatCurrency(amount.abs())}'
-                  : AppFormatters.formatCurrency(amount.abs()),
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize:
-                    isTotal
-                        ? (context.isMobile ? 13 : 15)
-                        : (context.isMobile ? 9 : 11),
-                fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-                color:
-                    isTotal
-                        ? Colors.green.shade600
-                        : isDiscount
-                        ? Colors.red.shade600
-                        : Colors.black,
-              ),
-            ),
+            child: isTotal
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.successGradient,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      AppFormatters.formatCurrency(amount.abs()),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: context.isMobile ? 13 : 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                : Text(
+                    isDiscount
+                        ? '-${AppFormatters.formatCurrency(amount.abs())}'
+                        : AppFormatters.formatCurrency(amount.abs()),
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: context.isMobile ? 10 : 12,
+                      fontWeight: FontWeight.w600,
+                      color: amountColor,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -943,17 +1241,27 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       builder:
           (context) => EnhancedPaymentDialog(
             total: controller.total,
+            customerName: controller.selectedCustomer?.displayName,
+            customerId: controller.selectedCustomer?.id, // ✅ NUEVO: ID del cliente para verificar saldo a favor
             onPaymentConfirmed: (
               amount,
               change,
               paymentMethod,
               status,
-              shouldPrint,
-            ) async {
+              shouldPrint, {
+              String? bankAccountId,
+              List<MultiplePaymentData>? multiplePayments,
+              bool? createCreditForRemaining,
+              double? balanceApplied, // ✅ NUEVO: Saldo a favor aplicado
+            }) async {
               print('🎯 === PROCESANDO VENTA ===');
               print('📋 Estado: ${status.displayName}');
               print('💰 Método: ${paymentMethod.displayName}');
               print('🖨️ Imprimir: $shouldPrint');
+              print('🏦 Cuenta: $bankAccountId');
+              print('💳 Pagos múltiples: ${multiplePayments?.length ?? 0}');
+              print('📋 Crear crédito: $createCreditForRemaining');
+              print('💰 Saldo aplicado: ${balanceApplied ?? 0}');
 
               try {
                 // Guardar la factura con el estado y método de pago correctos
@@ -963,6 +1271,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   paymentMethod,
                   status,
                   shouldPrint,
+                  bankAccountId: bankAccountId,
+                  multiplePayments: multiplePayments,
+                  createCreditForRemaining: createCreditForRemaining ?? false,
+                  balanceApplied: balanceApplied, // ✅ NUEVO: Pasar saldo aplicado
                 );
 
                 print('🔍 SCREEN: saveInvoiceWithPayment returned: $success');

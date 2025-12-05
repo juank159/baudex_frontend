@@ -8,11 +8,7 @@ class FloatingActionMenu extends StatefulWidget {
   final PurchaseOrder order;
   final Function(String action)? onAction;
 
-  const FloatingActionMenu({
-    Key? key,
-    required this.order,
-    this.onAction,
-  }) : super(key: key);
+  const FloatingActionMenu({super.key, required this.order, this.onAction});
 
   @override
   State<FloatingActionMenu> createState() => _FloatingActionMenuState();
@@ -23,72 +19,58 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
   late AnimationController _animationController;
   late AnimationController _hoverController;
   late AnimationController _pulseController;
-  
+
   late Animation<double> _scaleAnimation;
   late Animation<double> _rotationAnimation;
   late Animation<double> _hoverScaleAnimation;
   late Animation<double> _hoverGlowAnimation;
   late Animation<double> _pulseAnimation;
-  
+
   bool _isExpanded = false;
   bool _isHovered = false;
 
   @override
   void initState() {
     super.initState();
-    
+
     // Animación principal del menú
     _animationController = AnimationController(
       duration: ElegantLightTheme.normalAnimation,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: ElegantLightTheme.elasticCurve,
-    ));
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: 0.75,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: ElegantLightTheme.smoothCurve,
-    ));
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: ElegantLightTheme.elasticCurve,
+      ),
+    );
+    _rotationAnimation = Tween<double>(begin: 0.0, end: 0.75).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: ElegantLightTheme.smoothCurve,
+      ),
+    );
 
     // Animaciones de hover espectaculares
     _hoverController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _hoverScaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.15,
-    ).animate(CurvedAnimation(
-      parent: _hoverController,
-      curve: Curves.elasticOut,
-    ));
-    _hoverGlowAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _hoverController,
-      curve: Curves.easeInOut,
-    ));
+    _hoverScaleAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.elasticOut),
+    );
+    _hoverGlowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
 
     // Animación de respiración elegante
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1800),
       vsync: this,
     );
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.08,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
 
     // Iniciar animación de respiración
     _pulseController.repeat(reverse: true);
@@ -125,10 +107,10 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
               );
             },
           ),
-        
+
         // Menu items
         ..._buildMenuItems(),
-        
+
         // Main button
         _buildMainButton(),
       ],
@@ -138,7 +120,7 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
   List<Widget> _buildMenuItems() {
     final actions = _getAvailableActions();
     final List<Widget> items = [];
-    
+
     for (int i = 0; i < actions.length; i++) {
       final action = actions[i];
       items.add(
@@ -147,7 +129,10 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
           builder: (context, child) {
             final offset = (i + 1) * 70.0;
             return Transform.translate(
-              offset: Offset(0, -offset * _scaleAnimation.value.clamp(0.0, 1.0)),
+              offset: Offset(
+                0,
+                -offset * _scaleAnimation.value.clamp(0.0, 1.0),
+              ),
               child: Transform.scale(
                 scale: _scaleAnimation.value.clamp(0.0, 1.0),
                 child: _buildMenuItem(
@@ -162,7 +147,7 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
         ),
       );
     }
-    
+
     return items;
   }
 
@@ -201,7 +186,7 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
                 children: [
                   // Resplandor holográfico
                   _buildHolographicGlow(),
-                  
+
                   // Botón principal con efectos elegantes
                   Transform.scale(
                     scale: _hoverScaleAnimation.value * _pulseAnimation.value,
@@ -230,7 +215,7 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
                           // Sombra de hover espectacular
                           BoxShadow(
                             color: ElegantLightTheme.primaryBlue.withOpacity(
-                              0.4 + (_hoverGlowAnimation.value * 0.4)
+                              0.4 + (_hoverGlowAnimation.value * 0.4),
                             ),
                             blurRadius: 15 + (_hoverGlowAnimation.value * 25),
                             spreadRadius: 2 + (_hoverGlowAnimation.value * 8),
@@ -239,7 +224,7 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
                           // Resplandor mágico
                           BoxShadow(
                             color: Colors.white.withOpacity(
-                              _hoverGlowAnimation.value * 0.3
+                              _hoverGlowAnimation.value * 0.3,
                             ),
                             blurRadius: 30 + (_hoverGlowAnimation.value * 20),
                             spreadRadius: -5,
@@ -252,7 +237,7 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
                         children: [
                           // Efectos de brillo interno
                           _buildInternalShimmer(),
-                          
+
                           // Icono con rotación y efectos
                           Transform.rotate(
                             angle: _rotationAnimation.value * 3.14159,
@@ -301,8 +286,6 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
     }
   }
 
-
-
   Widget _buildHolographicGlow() {
     return Container(
       width: 80 + (_hoverGlowAnimation.value * 40),
@@ -313,7 +296,7 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
           colors: [
             Colors.transparent,
             ElegantLightTheme.primaryBlue.withOpacity(
-              _hoverGlowAnimation.value * 0.1
+              _hoverGlowAnimation.value * 0.1,
             ),
             Colors.purple.withOpacity(_hoverGlowAnimation.value * 0.05),
             Colors.transparent,
@@ -348,10 +331,9 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
     );
   }
 
-
   List<Map<String, dynamic>> _getAvailableActions() {
     final List<Map<String, dynamic>> actions = [];
-    
+
     switch (widget.order.status) {
       case PurchaseOrderStatus.draft:
         actions.addAll([
@@ -369,7 +351,7 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
           },
         ]);
         break;
-        
+
       case PurchaseOrderStatus.pending:
         actions.addAll([
           {
@@ -386,16 +368,18 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
           },
         ]);
         break;
-        
+
       case PurchaseOrderStatus.approved:
         actions.add({
           'title': 'Enviar al Proveedor',
           'icon': Icons.send,
-          'gradient': const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+          'gradient': const LinearGradient(
+            colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+          ),
           'action': 'send',
         });
         break;
-        
+
       case PurchaseOrderStatus.sent:
         actions.addAll([
           {
@@ -412,13 +396,15 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
           },
         ]);
         break;
-        
+
       case PurchaseOrderStatus.partiallyReceived:
         // Verificar si realmente quedan productos por recibir
-        final hasPendingItems = widget.order.items.any((item) => 
-          item.receivedQuantity == null || item.receivedQuantity! < item.quantity
+        final hasPendingItems = widget.order.items.any(
+          (item) =>
+              item.receivedQuantity == null ||
+              item.receivedQuantity! < item.quantity,
         );
-        
+
         if (hasPendingItems && !widget.order.isFullyReceived) {
           // Aún quedan productos por recibir
           actions.addAll([
@@ -453,7 +439,7 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
           ]);
         }
         break;
-        
+
       case PurchaseOrderStatus.received:
         actions.addAll([
           {
@@ -470,11 +456,11 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
           },
         ]);
         break;
-        
+
       default:
         break;
     }
-    
+
     return actions;
   }
 
@@ -482,7 +468,7 @@ class _FloatingActionMenuState extends State<FloatingActionMenu>
     setState(() {
       _isExpanded = !_isExpanded;
     });
-    
+
     if (_isExpanded) {
       _animationController.forward();
     } else {
@@ -521,65 +507,49 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
   late AnimationController _hoverController;
   late AnimationController _pulseController;
   late AnimationController _rippleController;
-  
+
   late Animation<double> _scaleAnimation;
   late Animation<double> _glowAnimation;
   late Animation<double> _pulseAnimation;
   late Animation<double> _rippleAnimation;
-  
+
   bool _isHovered = false;
   bool _isPressed = false;
 
   @override
   void initState() {
     super.initState();
-    
+
     _hoverController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    
+
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    
+
     _rippleController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _hoverController,
-      curve: Curves.elasticOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.elasticOut),
+    );
 
-    _glowAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _hoverController,
-      curve: Curves.easeInOut,
-    ));
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
 
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.05,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
 
-    _rippleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _rippleController,
-      curve: Curves.easeOut,
-    ));
+    _rippleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _rippleController, curve: Curves.easeOut),
+    );
 
     _pulseController.repeat(reverse: true);
   }
@@ -616,12 +586,27 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     // Tamaños responsive para el FloatingActionMenu
-    double fontSize = screenWidth >= 1200 ? 14 : screenWidth >= 800 ? 12 : 10;
-    double horizontalPadding = screenWidth >= 1200 ? 12 : screenWidth >= 800 ? 10 : 8;
-    double verticalPadding = screenWidth >= 1200 ? 8 : screenWidth >= 800 ? 6 : 4;
-    
+    double fontSize =
+        screenWidth >= 1200
+            ? 14
+            : screenWidth >= 800
+            ? 12
+            : 10;
+    double horizontalPadding =
+        screenWidth >= 1200
+            ? 12
+            : screenWidth >= 800
+            ? 10
+            : 8;
+    double verticalPadding =
+        screenWidth >= 1200
+            ? 8
+            : screenWidth >= 800
+            ? 6
+            : 4;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16, right: 8),
       child: AnimatedBuilder(
@@ -639,7 +624,10 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
               Transform.scale(
                 scale: _scaleAnimation.value * 0.95 + 0.05,
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontalPadding,
+                    vertical: verticalPadding,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -656,18 +644,19 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
                     ),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Color.lerp(
-                        ElegantLightTheme.textSecondary.withOpacity(0.1),
-                        widget.gradient.colors.first.withOpacity(0.3),
-                        _glowAnimation.value,
-                      )!,
+                      color:
+                          Color.lerp(
+                            ElegantLightTheme.textSecondary.withOpacity(0.1),
+                            widget.gradient.colors.first.withOpacity(0.3),
+                            _glowAnimation.value,
+                          )!,
                       width: 1,
                     ),
                     boxShadow: [
                       ...ElegantLightTheme.elevatedShadow,
                       BoxShadow(
                         color: widget.gradient.colors.first.withOpacity(
-                          _glowAnimation.value * 0.3
+                          _glowAnimation.value * 0.3,
                         ),
                         blurRadius: 15,
                         spreadRadius: 2,
@@ -685,15 +674,17 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
                       ),
                       fontSize: fontSize,
                       fontWeight: FontWeight.w600,
-                      shadows: _glowAnimation.value > 0.5
-                          ? [
-                              Shadow(
-                                color: widget.gradient.colors.first.withOpacity(0.5),
-                                blurRadius: 8,
-                                offset: const Offset(0, 0),
-                              ),
-                            ]
-                          : null,
+                      shadows:
+                          _glowAnimation.value > 0.5
+                              ? [
+                                Shadow(
+                                  color: widget.gradient.colors.first
+                                      .withOpacity(0.5),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 0),
+                                ),
+                              ]
+                              : null,
                     ),
                   ),
                 ),
@@ -721,13 +712,13 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: widget.gradient.colors.first.withOpacity(
-                                  (1 - _rippleAnimation.value) * 0.6
+                                  (1 - _rippleAnimation.value) * 0.6,
                                 ),
                                 width: 2,
                               ),
                             ),
                           ),
-                        
+
                         // Resplandor de fondo
                         Container(
                           width: 70 + (_glowAnimation.value * 20),
@@ -738,14 +729,14 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
                               colors: [
                                 Colors.transparent,
                                 widget.gradient.colors.first.withOpacity(
-                                  _glowAnimation.value * 0.1
+                                  _glowAnimation.value * 0.1,
                                 ),
                                 Colors.transparent,
                               ],
                             ),
                           ),
                         ),
-                        
+
                         // Botón principal
                         Container(
                           width: 50,
@@ -769,7 +760,7 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
                             boxShadow: [
                               BoxShadow(
                                 color: widget.gradient.colors.first.withOpacity(
-                                  0.4 + (_glowAnimation.value * 0.3)
+                                  0.4 + (_glowAnimation.value * 0.3),
                                 ),
                                 offset: const Offset(0, 4),
                                 blurRadius: 12 + (_glowAnimation.value * 15),
@@ -777,7 +768,7 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
                               ),
                               BoxShadow(
                                 color: Colors.white.withOpacity(
-                                  _glowAnimation.value * 0.4
+                                  _glowAnimation.value * 0.4,
                                 ),
                                 offset: const Offset(0, 0),
                                 blurRadius: 20,
@@ -798,12 +789,18 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(25),
                                       gradient: LinearGradient(
-                                        begin: Alignment(-1.0 + _pulseAnimation.value * 2, 0),
-                                        end: Alignment(1.0 + _pulseAnimation.value * 2, 0),
+                                        begin: Alignment(
+                                          -1.0 + _pulseAnimation.value * 2,
+                                          0,
+                                        ),
+                                        end: Alignment(
+                                          1.0 + _pulseAnimation.value * 2,
+                                          0,
+                                        ),
                                         colors: [
                                           Colors.transparent,
                                           Colors.white.withOpacity(
-                                            _glowAnimation.value * 0.3
+                                            _glowAnimation.value * 0.3,
                                           ),
                                           Colors.transparent,
                                         ],
@@ -812,7 +809,7 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
                                   );
                                 },
                               ),
-                              
+
                               // Icono con efectos
                               Transform.scale(
                                 scale: _isPressed ? 0.9 : 1.0,
@@ -838,11 +835,13 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
                             ],
                           ),
                         ),
-                        
+
                         // Efectos de destello en hover
                         if (_isHovered && _glowAnimation.value > 0.5)
                           ...List.generate(4, (i) {
-                            final angle = (i * math.pi * 0.5) + (_pulseAnimation.value * math.pi);
+                            final angle =
+                                (i * math.pi * 0.5) +
+                                (_pulseAnimation.value * math.pi);
                             return Transform.translate(
                               offset: Offset(
                                 25 * math.cos(angle),
@@ -853,7 +852,7 @@ class _SpectacularMenuItemState extends State<_SpectacularMenuItem>
                                 child: Icon(
                                   Icons.auto_awesome,
                                   color: Colors.white.withOpacity(
-                                    _glowAnimation.value * 0.7
+                                    _glowAnimation.value * 0.7,
                                   ),
                                   size: 8,
                                 ),

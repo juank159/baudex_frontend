@@ -17,6 +17,7 @@ class CreateInvoiceRequestModel {
   final String? notes;
   final String? terms;
   final Map<String, dynamic>? metadata;
+  final String? bankAccountId; // 🏦 ID de la cuenta bancaria para registrar el pago
 
   const CreateInvoiceRequestModel({
     required this.customerId,
@@ -32,6 +33,7 @@ class CreateInvoiceRequestModel {
     this.notes,
     this.terms,
     this.metadata,
+    this.bankAccountId,
   });
 
   Map<String, dynamic> toJson() {
@@ -52,6 +54,7 @@ class CreateInvoiceRequestModel {
     if (notes != null) json['notes'] = notes;
     if (terms != null) json['terms'] = terms;
     if (metadata != null) json['metadata'] = metadata;
+    if (bankAccountId != null) json['bankAccountId'] = bankAccountId;
 
     return json;
   }

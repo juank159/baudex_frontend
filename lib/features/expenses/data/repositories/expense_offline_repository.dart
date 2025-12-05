@@ -2,6 +2,7 @@
 import 'package:dartz/dartz.dart';
 // import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
+import '../../../../app/core/services/file_service.dart';
 // import '../../../../app/data/local/base_offline_repository.dart';
 // import '../../../../app/data/local/database_service.dart';
 import '../../domain/entities/expense.dart';
@@ -191,7 +192,32 @@ class ExpenseOfflineRepository implements ExpenseRepository {
         hasNext: false,
         hasPrev: false,
       );
-      
+
+      return Right(PaginatedResponse(data: <ExpenseCategory>[], meta: meta));
+    } catch (e) {
+      return Left(CacheFailure('Stub implementation: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, PaginatedResponse<ExpenseCategory>>> getExpenseCategoriesWithStats({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String? status,
+    String? orderBy,
+    String? orderDirection,
+  }) async {
+    try {
+      final meta = PaginationMeta(
+        page: page,
+        limit: limit,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false,
+      );
+
       return Right(PaginatedResponse(data: <ExpenseCategory>[], meta: meta));
     } catch (e) {
       return Left(CacheFailure('Stub implementation: ${e.toString()}'));
@@ -269,5 +295,21 @@ class ExpenseOfflineRepository implements ExpenseRepository {
 
   Future<void> deleteLocally(String id) async {
     // Stub implementation - no operation
+  }
+
+  @override
+  Future<Either<Failure, List<String>>> uploadAttachments(
+    String expenseId,
+    List<AttachmentFile> files,
+  ) async {
+    return Left(ServerFailure('Stub implementation - Upload not supported offline'));
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteAttachment(
+    String expenseId,
+    String filename,
+  ) async {
+    return Left(ServerFailure('Stub implementation - Delete not supported offline'));
   }
 }

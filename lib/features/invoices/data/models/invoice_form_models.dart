@@ -11,6 +11,7 @@ class InvoiceItemFormData {
   final String? unit;
   final String? notes;
   final String? productId;
+  final double taxPercentage; // ✅ IVA individual del item basado en el producto
 
   const InvoiceItemFormData({
     required this.id,
@@ -22,9 +23,10 @@ class InvoiceItemFormData {
     this.unit,
     this.notes,
     this.productId,
+    this.taxPercentage = 0, // ✅ Por defecto 0 (NO_GRAVADO)
   });
 
-  /// Calcular subtotal
+  /// Calcular subtotal CON IVA (precio de venta al público)
   double get subtotal {
     final baseAmount = quantity * unitPrice; // El precio ya tiene IVA
     final percentageDiscount = (baseAmount * discountPercentage) / 100;
@@ -32,8 +34,16 @@ class InvoiceItemFormData {
     return baseAmount - totalDiscount;
   }
 
-  /// ✅ NUEVO: Calcular subtotal SIN IVA (para cálculos internos)
-  double subtotalWithoutTax(double taxPercentage) {
+  /// ✅ Calcular subtotal SIN IVA (base gravable)
+  double get subtotalWithoutTax {
+    if (taxPercentage <= 0) {
+      // ✅ Si NO hay IVA (NO_GRAVADO), el precio ES la base
+      final baseAmount = quantity * unitPrice;
+      final percentageDiscount = (baseAmount * discountPercentage) / 100;
+      final totalDiscount = percentageDiscount + discountAmount;
+      return baseAmount - totalDiscount;
+    }
+    // ✅ Si hay IVA, extraer la base del precio
     final priceWithoutTax = unitPrice / (1 + (taxPercentage / 100));
     final baseAmount = quantity * priceWithoutTax;
     final percentageDiscount = (baseAmount * discountPercentage) / 100;
@@ -41,8 +51,15 @@ class InvoiceItemFormData {
     return baseAmount - totalDiscount;
   }
 
-  /// ✅ NUEVO: Obtener precio unitario sin IVA
-  double unitPriceWithoutTax(double taxPercentage) {
+  /// ✅ Calcular el monto del IVA para este item
+  double get taxAmount {
+    if (taxPercentage <= 0) return 0;
+    return subtotalWithoutTax * (taxPercentage / 100);
+  }
+
+  /// ✅ Obtener precio unitario sin IVA
+  double get unitPriceWithoutTax {
+    if (taxPercentage <= 0) return unitPrice;
     return unitPrice / (1 + (taxPercentage / 100));
   }
 
@@ -67,6 +84,7 @@ class InvoiceItemFormData {
     String? unit,
     String? notes,
     String? productId,
+    double? taxPercentage,
   }) {
     return InvoiceItemFormData(
       id: id ?? this.id,
@@ -78,6 +96,7 @@ class InvoiceItemFormData {
       unit: unit ?? this.unit,
       notes: notes ?? this.notes,
       productId: productId ?? this.productId,
+      taxPercentage: taxPercentage ?? this.taxPercentage,
     );
   }
 
@@ -93,6 +112,7 @@ class InvoiceItemFormData {
       unit: item.unit,
       notes: item.notes,
       productId: item.productId,
+      taxPercentage: item.taxPercentage?.toDouble() ?? 0.0,
     );
   }
 
@@ -124,7 +144,8 @@ class InvoiceItemFormData {
         other.discountAmount == discountAmount &&
         other.unit == unit &&
         other.notes == notes &&
-        other.productId == productId;
+        other.productId == productId &&
+        other.taxPercentage == taxPercentage;
   }
 
   @override
@@ -139,6 +160,7 @@ class InvoiceItemFormData {
       unit,
       notes,
       productId,
+      taxPercentage,
     );
   }
 }
@@ -171,9 +193,9 @@ class InvoiceFormData {
     this.terms,
   });
 
-  /// Calcular subtotal de todos los items
+  /// ✅ Calcular subtotal SIN IVA de todos los items (base gravable)
   double get subtotal {
-    return items.fold(0.0, (sum, item) => sum + item.subtotal);
+    return items.fold(0.0, (sum, item) => sum + item.subtotalWithoutTax);
   }
 
   /// Calcular descuento total
@@ -182,10 +204,24 @@ class InvoiceFormData {
     return percentageDiscount + discountAmount;
   }
 
-  /// Calcular impuestos
+  /// ✅ Calcular impuestos sumando el IVA de cada item
   double get taxAmount {
-    final taxableAmount = subtotal - totalDiscount;
-    return taxableAmount * (taxPercentage / 100);
+    // Calcular el IVA proporcional al descuento
+    final baseSubtotal = items.fold(0.0, (sum, item) => sum + item.subtotalWithoutTax);
+    if (baseSubtotal <= 0) return 0;
+
+    final subtotalAfterDiscount = baseSubtotal - totalDiscount;
+    final discountRatio = subtotalAfterDiscount / baseSubtotal;
+
+    // Sumar el IVA de cada item, ajustado por el descuento
+    return items.fold(0.0, (sum, item) => sum + (item.taxAmount * discountRatio));
+  }
+
+  /// ✅ Calcular IVA promedio ponderado (para mostrar)
+  double get calculatedTaxPercentage {
+    final subtotalAfterDiscount = subtotal - totalDiscount;
+    if (subtotalAfterDiscount <= 0) return 0;
+    return (taxAmount / subtotalAfterDiscount) * 100;
   }
 
   /// Calcular total final

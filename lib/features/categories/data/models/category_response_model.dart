@@ -56,6 +56,7 @@ class PaginationMetaModel extends PaginationMeta {
     );
   }
 
+  @override
   Map<String, dynamic> toJson() {
     return {
       'page': page,

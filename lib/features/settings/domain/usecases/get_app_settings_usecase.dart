@@ -1,6 +1,5 @@
 // lib/features/settings/domain/usecases/get_app_settings_usecase.dart
 import 'package:dartz/dartz.dart';
-import 'package:equatable/equatable.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../entities/app_settings.dart';

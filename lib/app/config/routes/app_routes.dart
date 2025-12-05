@@ -199,6 +199,33 @@ abstract class AppRoutes {
   static const String reportsMovementsSummary = '/reports/movements/summary';
   static const String reportsInventoryAging = '/reports/inventory/aging';
 
+  // ==================== CREDIT NOTES ROUTES ====================
+  static const String creditNotes = '/credit-notes';
+  static const String creditNotesCreate = '/credit-notes/create';
+  static const String creditNotesEdit = '/credit-notes/edit';
+  static const String creditNotesDetail = '/credit-notes/detail';
+
+  // Credit Notes with parameters
+  static String creditNoteEdit(String id) => '/credit-notes/edit/$id';
+  static String creditNoteDetail(String id) => '/credit-notes/detail/$id';
+  static String creditNoteCreate({String? invoiceId}) =>
+      invoiceId != null ? '/credit-notes/create?invoiceId=$invoiceId' : '/credit-notes/create';
+  static String creditNotesByInvoice(String invoiceId) =>
+      '/credit-notes/invoice/$invoiceId';
+
+  // ==================== BANK ACCOUNTS ROUTES ====================
+  static const String bankAccounts = '/bank-accounts';
+
+  // ==================== CUSTOMER CREDITS ROUTES ====================
+  static const String customerCredits = '/customer-credits';
+  static const String customerCreditsDetail = '/customer-credits/detail';
+  static const String clientBalances = '/client-balances';
+
+  // Customer Credits with parameters
+  static String customerCreditDetail(String id) => '/customer-credits/detail/$id';
+  static String customerCreditsByCustomer(String customerId) =>
+      '/customer-credits/customer/$customerId';
+
   // ==================== SETTINGS ROUTES ====================
   static const String settings = '/settings';
   static const String settingsApp = '/settings/app';

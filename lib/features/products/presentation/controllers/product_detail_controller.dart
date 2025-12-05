@@ -56,6 +56,9 @@ class ProductDetailController extends GetxController
   late TabController tabController;
   final stockController = TextEditingController();
 
+  // Observable para el índice del tab actual
+  final _currentTabIndex = 0.obs;
+
   // ==================== GETTERS PÚBLICOS ====================
 
   // Estados de carga - Solo lectura para la UI
@@ -83,6 +86,10 @@ class ProductDetailController extends GetxController
 
   // Información adicional - Nullable apropiadamente
   String? get primaryImage => product?.primaryImage;
+
+  // Getter para el índice actual del tab
+  int get currentTabIndex => _currentTabIndex.value;
+
   // ==================== LIFECYCLE METHODS ====================
 
   @override
@@ -92,6 +99,11 @@ class ProductDetailController extends GetxController
 
     // Inicializar TabController para 3 pestañas: Detalles, Precios, Movimientos
     tabController = TabController(length: 3, vsync: this);
+
+    // Escuchar cambios en el tabController para actualizar el observable
+    tabController.addListener(() {
+      _currentTabIndex.value = tabController.index;
+    });
 
     // Validar que tenemos un ID válido antes de cargar
     if (productId.isNotEmpty) {
@@ -110,7 +122,9 @@ class ProductDetailController extends GetxController
     // ✅ AÑADIDO: Refrescar datos cuando el controller está listo
     // Esto asegura que los datos se actualicen al navegar de vuelta a la pantalla
     if (productId.isNotEmpty) {
-      print('🔄 ProductDetailController: onReady - Refrescando datos del producto');
+      print(
+        '🔄 ProductDetailController: onReady - Refrescando datos del producto',
+      );
       refreshData();
     }
   }
@@ -224,12 +238,7 @@ class ProductDetailController extends GetxController
 
       // Validar lista de precios si existe
       if (product.prices != null) {
-        for (int i = 0; i < product.prices!.length; i++) {
-          if (product.prices![i] == null) {
-            print('❌ Precio null encontrado en posición $i');
-            return false;
-          }
-        }
+        for (int i = 0; i < product.prices!.length; i++) {}
       }
 
       // Validar valores numéricos básicos
@@ -412,7 +421,11 @@ class ProductDetailController extends GetxController
               children: [
                 Row(
                   children: [
-                    Icon(Icons.inventory, color: ElegantLightTheme.primaryBlue, size: 28),
+                    Icon(
+                      Icons.inventory,
+                      color: ElegantLightTheme.primaryBlue,
+                      size: 28,
+                    ),
                     const SizedBox(width: 12),
                     Text(
                       'Actualizar Stock',
@@ -452,14 +465,22 @@ class ProductDetailController extends GetxController
                     labelStyle: TextStyle(color: ElegantLightTheme.primaryBlue),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: ElegantLightTheme.primaryBlue),
+                      borderSide: BorderSide(
+                        color: ElegantLightTheme.primaryBlue,
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: ElegantLightTheme.primaryBlue, width: 2),
+                      borderSide: BorderSide(
+                        color: ElegantLightTheme.primaryBlue,
+                        width: 2,
+                      ),
                     ),
                     hintText: 'Ingrese la cantidad',
-                    prefixIcon: Icon(Icons.numbers, color: ElegantLightTheme.primaryBlue),
+                    prefixIcon: Icon(
+                      Icons.numbers,
+                      color: ElegantLightTheme.primaryBlue,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -470,7 +491,10 @@ class ProductDetailController extends GetxController
                       height: 48,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: ElegantLightTheme.textTertiary, width: 2),
+                        border: Border.all(
+                          color: ElegantLightTheme.textTertiary,
+                          width: 2,
+                        ),
                         color: Colors.white,
                       ),
                       child: Material(
@@ -479,11 +503,18 @@ class ProductDetailController extends GetxController
                           borderRadius: BorderRadius.circular(12),
                           onTap: () => Get.back(),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.close, color: ElegantLightTheme.textSecondary, size: 18),
+                                Icon(
+                                  Icons.close,
+                                  color: ElegantLightTheme.textSecondary,
+                                  size: 18,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Cancelar',
@@ -599,7 +630,11 @@ class ProductDetailController extends GetxController
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red.shade700,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -629,7 +664,10 @@ class ProductDetailController extends GetxController
                       height: 48,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: ElegantLightTheme.textTertiary, width: 2),
+                        border: Border.all(
+                          color: ElegantLightTheme.textTertiary,
+                          width: 2,
+                        ),
                         color: Colors.white,
                       ),
                       child: Material(
@@ -638,11 +676,18 @@ class ProductDetailController extends GetxController
                           borderRadius: BorderRadius.circular(12),
                           onTap: () => Get.back(),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.close, color: ElegantLightTheme.textSecondary, size: 18),
+                                Icon(
+                                  Icons.close,
+                                  color: ElegantLightTheme.textSecondary,
+                                  size: 18,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Cancelar',
@@ -741,7 +786,10 @@ class ProductDetailController extends GetxController
                       height: 48,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: ElegantLightTheme.textTertiary, width: 2),
+                        border: Border.all(
+                          color: ElegantLightTheme.textTertiary,
+                          width: 2,
+                        ),
                         color: Colors.white,
                       ),
                       child: Material(
@@ -750,11 +798,18 @@ class ProductDetailController extends GetxController
                           borderRadius: BorderRadius.circular(12),
                           onTap: () => Get.back(),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.close, color: ElegantLightTheme.textSecondary, size: 18),
+                                Icon(
+                                  Icons.close,
+                                  color: ElegantLightTheme.textSecondary,
+                                  size: 18,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Cancelar',
@@ -774,7 +829,10 @@ class ProductDetailController extends GetxController
                     ElegantButton(
                       text: isActive ? 'Desactivar' : 'Activar',
                       icon: isActive ? Icons.toggle_off : Icons.toggle_on,
-                      gradient: isActive ? ElegantLightTheme.warningGradient : ElegantLightTheme.successGradient,
+                      gradient:
+                          isActive
+                              ? ElegantLightTheme.warningGradient
+                              : ElegantLightTheme.successGradient,
                       onPressed: () {
                         Get.back();
                         _showInfo(

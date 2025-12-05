@@ -20,14 +20,25 @@ class GetExpenseCategoriesUseCase
   Future<Either<Failure, PaginatedResponse<ExpenseCategory>>> call(
     GetExpenseCategoriesParams params,
   ) async {
-    return await repository.getExpenseCategories(
-      page: params.page,
-      limit: params.limit,
-      search: params.search,
-      status: params.status,
-      orderBy: params.orderBy,
-      orderDirection: params.orderDirection,
-    );
+    if (params.withStats) {
+      return await repository.getExpenseCategoriesWithStats(
+        page: params.page,
+        limit: params.limit,
+        search: params.search,
+        status: params.status,
+        orderBy: params.orderBy,
+        orderDirection: params.orderDirection,
+      );
+    } else {
+      return await repository.getExpenseCategories(
+        page: params.page,
+        limit: params.limit,
+        search: params.search,
+        status: params.status,
+        orderBy: params.orderBy,
+        orderDirection: params.orderDirection,
+      );
+    }
   }
 }
 
@@ -38,6 +49,7 @@ class GetExpenseCategoriesParams {
   final String? status;
   final String? orderBy;
   final String? orderDirection;
+  final bool withStats;
 
   GetExpenseCategoriesParams({
     this.page = 1,
@@ -46,5 +58,6 @@ class GetExpenseCategoriesParams {
     this.status,
     this.orderBy,
     this.orderDirection,
+    this.withStats = false,
   });
 }

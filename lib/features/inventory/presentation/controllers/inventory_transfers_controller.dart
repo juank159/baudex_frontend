@@ -163,8 +163,8 @@ class InventoryTransfersController extends GetxController {
       print('   • TransferOut: $transferOutCount');
       print('   • TransferIn: $transferInCount');
       print('   • Grupos únicos: ${grouped.length}');
-      print('   • Total agrupado: ${totalTransfers}');
-      print('   • Hoy agrupado: ${todayTransfers}');
+      print('   • Total agrupado: $totalTransfers');
+      print('   • Hoy agrupado: $todayTransfers');
     } catch (e) {
       print('❌ Error cargando transferencias: $e');
       error.value = 'Error inesperado: $e';
@@ -824,7 +824,7 @@ class InventoryTransfersController extends GetxController {
             ? 'batch_transfer' // Agrupar transferencias automáticas
             : transfer.notes ?? 'no_notes';
 
-    return '${fromWarehouse}_${toWarehouse}_${timeWindow}_${notesKey}';
+    return '${fromWarehouse}_${toWarehouse}_${timeWindow}_$notesKey';
   }
 
   void setFilter(String filter) {

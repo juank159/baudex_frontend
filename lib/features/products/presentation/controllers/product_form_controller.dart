@@ -132,7 +132,8 @@ class ProductFormController extends GetxController {
   TaxCategory get selectedTaxCategory => _selectedTaxCategory.value;
   bool get isTaxable => _isTaxable.value;
   bool get hasRetention => _hasRetention.value;
-  RetentionCategory? get selectedRetentionCategory => _selectedRetentionCategory.value;
+  RetentionCategory? get selectedRetentionCategory =>
+      _selectedRetentionCategory.value;
 
   String get productId => Get.parameters['id'] ?? '';
   bool get isEditMode => productId.isNotEmpty;
@@ -246,8 +247,8 @@ class ProductFormController extends GetxController {
 
   /// Cargar categorías disponibles
   // ✅ Cache específico por tenant para evitar mezclar categorías de diferentes organizaciones
-  static Map<String, List<Category>> _categoriesCache = {};
-  static Map<String, DateTime> _cacheTimeMap = {};
+  static final Map<String, List<Category>> _categoriesCache = {};
+  static final Map<String, DateTime> _cacheTimeMap = {};
   static const Duration _cacheExpiry = Duration(minutes: 5);
 
   /// Limpiar cache de categorías (útil cuando se crean/actualizan categorías)
@@ -331,7 +332,9 @@ class ProductFormController extends GetxController {
             print(
               '📂 ProductFormController: No se encontraron categorías para tenant: $tenantSlug',
             );
-            print('🆕 ProductFormController: Creando categoría "General" automáticamente...');
+            print(
+              '🆕 ProductFormController: Creando categoría "General" automáticamente...',
+            );
 
             await _createDefaultCategory(tenantSlug);
           } else {
@@ -361,7 +364,9 @@ class ProductFormController extends GetxController {
   /// Crear categoría "General" por defecto cuando no hay categorías
   Future<void> _createDefaultCategory(String tenantSlug) async {
     try {
-      print('🔄 ProductFormController: Iniciando creación de categoría "General"...');
+      print(
+        '🔄 ProductFormController: Iniciando creación de categoría "General"...',
+      );
 
       final result = await _createCategoryUseCase(
         CreateCategoryParams(
@@ -569,8 +574,12 @@ class ProductFormController extends GetxController {
     _selectedTaxCategory.value = category;
     // Auto-actualizar la tasa según la categoría
     taxRateController.text = category.defaultRate.toString();
-    print('💰 ProductFormController: Categoría de impuesto - ${category.displayName}');
-    print('💰 ProductFormController: Tasa por defecto - ${category.defaultRate}%');
+    print(
+      '💰 ProductFormController: Categoría de impuesto - ${category.displayName}',
+    );
+    print(
+      '💰 ProductFormController: Tasa por defecto - ${category.defaultRate}%',
+    );
     update(['tax_selector']);
   }
 
@@ -600,8 +609,12 @@ class ProductFormController extends GetxController {
       // Auto-actualizar la tasa según la categoría
       retentionRateController.text = category.defaultRate.toString();
       _hasRetention.value = true;
-      print('💰 ProductFormController: Categoría de retención - ${category.displayName}');
-      print('💰 ProductFormController: Tasa por defecto - ${category.defaultRate}%');
+      print(
+        '💰 ProductFormController: Categoría de retención - ${category.displayName}',
+      );
+      print(
+        '💰 ProductFormController: Tasa por defecto - ${category.defaultRate}%',
+      );
     }
     update(['retention_selector']);
   }
@@ -1067,13 +1080,11 @@ class ProductFormController extends GetxController {
     heightController.text = product.height?.toString() ?? '';
 
     // ✅ ACTUALIZADO: Configurar categoría con ID y nombre
-    if (product.categoryId != null) {
-      final categoryName =
-          getCategoryNameById(product.categoryId!) ??
-          product.category?.name ??
-          'Categoría desconocida';
-      setCategorySelection(product.categoryId!, categoryName);
-    }
+    final categoryName =
+        getCategoryNameById(product.categoryId!) ??
+        product.category?.name ??
+        'Categoría desconocida';
+    setCategorySelection(product.categoryId!, categoryName);
 
     _productType.value = product.type;
     _productStatus.value = product.status;
@@ -1122,7 +1133,9 @@ class ProductFormController extends GetxController {
     _hasRetention.value = product.hasRetention;
 
     print('✅ ProductFormController: Formulario poblado exitosamente');
-    print('💰 Impuestos cargados: ${product.taxCategory.displayName} (${product.taxRate}%)');
+    print(
+      '💰 Impuestos cargados: ${product.taxCategory.displayName} (${product.taxRate}%)',
+    );
     if (product.hasRetention && product.retentionCategory != null) {
       print(
         '💰 Retención cargada: ${product.retentionCategory!.displayName} (${product.retentionRate}%)',
@@ -1361,7 +1374,7 @@ class ProductFormController extends GetxController {
         );
         prices.add(price);
         print(
-          '✅ Agregado price1: \$${amount} ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
+          '✅ Agregado price1: \$$amount ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
         );
       }
     }
@@ -1380,7 +1393,7 @@ class ProductFormController extends GetxController {
         );
         prices.add(price);
         print(
-          '✅ Agregado price2: \$${amount} ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
+          '✅ Agregado price2: \$$amount ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
         );
       }
     }
@@ -1399,7 +1412,7 @@ class ProductFormController extends GetxController {
         );
         prices.add(price);
         print(
-          '✅ Agregado price3: \$${amount} ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
+          '✅ Agregado price3: \$$amount ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
         );
       }
     }
@@ -1418,7 +1431,7 @@ class ProductFormController extends GetxController {
         );
         prices.add(price);
         print(
-          '✅ Agregado special: \$${amount} ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
+          '✅ Agregado special: \$$amount ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
         );
       }
     }
@@ -1437,7 +1450,7 @@ class ProductFormController extends GetxController {
         );
         prices.add(price);
         print(
-          '✅ Agregado cost: \$${amount} ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
+          '✅ Agregado cost: \$$amount ${priceId != null ? "(UPDATE)" : "(CREATE)"}',
         );
       }
     }

@@ -477,10 +477,10 @@ class CategoryStatsWidget extends StatelessWidget {
   final bool isCompact;
 
   const CategoryStatsWidget({
-    Key? key,
+    super.key,
     required this.stats,
     this.isCompact = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -558,7 +558,6 @@ class CategoryStatsWidget extends StatelessWidget {
         ),
 
         const SizedBox(height: 8), // ✅ Reducido de 12 a 8
-
         // Fila 2: Padres y Subcategorías
         Row(
           children: [
@@ -586,7 +585,6 @@ class CategoryStatsWidget extends StatelessWidget {
 
         if (stats.inactive > 0 || stats.deleted > 0) ...[
           const SizedBox(height: 8), // ✅ Reducido de 12 a 8
-
           // Fila 3: Inactivas y Eliminadas (si existen)
           Row(
             children: [
@@ -658,7 +656,6 @@ class CategoryStatsWidget extends StatelessWidget {
         ),
 
         const SizedBox(height: 10), // ✅ Reducido de 16 a 10
-
         // Estadísticas secundarias
         Row(
           children: [
@@ -795,7 +792,8 @@ class CategoryStatsWidget extends StatelessWidget {
                 child: Icon(
                   icon,
                   color: color,
-                  size: context.isMobile ? 14 : 16, // ✅ Reducido de 20/24 a 14/16
+                  size:
+                      context.isMobile ? 14 : 16, // ✅ Reducido de 20/24 a 14/16
                 ),
               ),
               const SizedBox(width: 6), // ✅ Reducido de 8 a 6
@@ -817,7 +815,9 @@ class CategoryStatsWidget extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: context.isMobile ? 4 : 6), // ✅ Reducido de 8/12 a 4/6
+          SizedBox(
+            height: context.isMobile ? 4 : 6,
+          ), // ✅ Reducido de 8/12 a 4/6
           Text(
             title,
             style: TextStyle(
@@ -867,7 +867,10 @@ class CategoryStatsWidget extends StatelessWidget {
         ),
         Text(
           label,
-          style: TextStyle(fontSize: 8, color: Colors.grey.shade600), // ✅ Reducido de 10 a 8
+          style: TextStyle(
+            fontSize: 8,
+            color: Colors.grey.shade600,
+          ), // ✅ Reducido de 10 a 8
           textAlign: TextAlign.center,
         ),
       ],
@@ -875,7 +878,11 @@ class CategoryStatsWidget extends StatelessWidget {
   }
 
   Widget _buildVerticalDivider() {
-    return Container(height: 25, width: 1, color: Colors.grey.shade300); // ✅ Reducido de 40 a 25
+    return Container(
+      height: 25,
+      width: 1,
+      color: Colors.grey.shade300,
+    ); // ✅ Reducido de 40 a 25
   }
 
   // ✅ NUEVO: Método para debugging de estadísticas

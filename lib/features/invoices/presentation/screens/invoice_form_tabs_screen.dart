@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/shared/widgets/app_scaffold.dart';
 import '../../../../app/config/routes/app_routes.dart';
@@ -55,7 +56,8 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     if (event is KeyDownEvent) {
       // ✅ CRÍTICO: No procesar shortcuts cuando el focus está en un TextField (búsqueda de productos)
       final focusedWidget = FocusManager.instance.primaryFocus?.context?.widget;
-      if (focusedWidget != null && focusedWidget.toString().contains('TextField')) {
+      if (focusedWidget != null &&
+          focusedWidget.toString().contains('TextField')) {
         print('🚫 TABS Shortcuts deshabilitados - Focus en campo de búsqueda');
         return false;
       }
@@ -116,17 +118,23 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     return AppBar(
       title: null, // Quitamos el título para fusionar
       elevation: 0,
-      backgroundColor: Theme.of(context).primaryColor,
+      backgroundColor: Colors.transparent,
       foregroundColor: Colors.white,
-      iconTheme: const IconThemeData(color: Colors.white, size: 16),
+      iconTheme: const IconThemeData(color: Colors.white, size: 18),
       titleTextStyle: TextStyle(
         color: Colors.white,
         fontSize: context.isMobile ? 12 : 14,
         fontWeight: FontWeight.w600,
       ),
       toolbarHeight:
-          context.isMobile ? 40 : 44, // Un poco más alto para fusionar
-      flexibleSpace: _buildFusedAppBarContent(), // Contenido fusionado
+          context.isMobile ? 44 : 48, // Un poco más alto para el tema elegante
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          boxShadow: ElegantLightTheme.elevatedShadow,
+        ),
+        child: _buildFusedAppBarContent(),
+      ),
       automaticallyImplyLeading: true, // Mantener el drawer
       actions: [], // Movemos las acciones al flexibleSpace
     );
@@ -136,13 +144,13 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.symmetric(
-          horizontal: context.isMobile ? 8 : 12,
+          horizontal: context.isMobile ? 8 : 14,
           vertical: context.isMobile ? 4 : 6,
         ),
         child: Row(
           children: [
             // Espaciado después del drawer icon (que se agrega automáticamente)
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
 
             // Pestañas en el centro
             Expanded(child: _buildCenterTabs()),
@@ -158,30 +166,50 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
   Widget _buildCenterTabs() {
     if (!tabsController.hasTabs) {
       return Center(
-        child: Text(
-          'Facturas',
-          style: TextStyle(
-            fontSize: context.isMobile ? 12 : 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.receipt_long,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Facturas',
+              style: TextStyle(
+                fontSize: context.isMobile ? 13 : 15,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
         ),
       );
     }
 
     return Obx(
-      () => Container(
-        height: context.isMobile ? 28 : 32,
+      () => SizedBox(
+        height: context.isMobile ? 30 : 34,
         child: TabBar(
           controller: tabsController.tabController,
           isScrollable: true,
           tabAlignment: TabAlignment.center, // Centrar las pestañas
           labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
+          unselectedLabelColor: Colors.white.withValues(alpha: 0.7),
           indicatorColor: Colors.white,
-          indicatorWeight: 1.5,
+          indicatorWeight: 2,
+          indicatorSize: TabBarIndicatorSize.label,
           labelPadding: EdgeInsets.symmetric(
-            horizontal: context.isMobile ? 6 : 8,
+            horizontal: context.isMobile ? 8 : 10,
           ),
           dividerColor: Colors.transparent,
           tabs:
@@ -197,33 +225,71 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Botón para nueva pestaña
-        IconButton(
-          icon: const Icon(Icons.add, size: 14, color: Colors.white),
-          tooltip: 'Nueva (Ctrl+T)',
-          padding: EdgeInsets.all(context.isMobile ? 3 : 4),
-          constraints: BoxConstraints(
-            minWidth: context.isMobile ? 20 : 24,
-            minHeight: context.isMobile ? 20 : 24,
+        // Botón para nueva pestaña con estilo elegante
+        Tooltip(
+          message: 'Nueva pestaña (Ctrl+T)',
+          child: Container(
+            margin: const EdgeInsets.only(right: 6),
+            decoration: BoxDecoration(
+              color: tabsController.canAddMoreTabs
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: tabsController.canAddMoreTabs
+                    ? () => tabsController.addNewTab()
+                    : null,
+                child: Padding(
+                  padding: EdgeInsets.all(context.isMobile ? 6 : 8),
+                  child: Icon(
+                    Icons.add,
+                    size: context.isMobile ? 16 : 18,
+                    color: tabsController.canAddMoreTabs
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ),
           ),
-          onPressed:
-              tabsController.canAddMoreTabs
-                  ? () => tabsController.addNewTab()
-                  : null,
         ),
 
-        // Menú de opciones
-
-        // Botón de configuraciones
-        IconButton(
-          icon: const Icon(Icons.settings, size: 14, color: Colors.white),
-          tooltip: 'Config',
-          padding: EdgeInsets.all(context.isMobile ? 3 : 4),
-          constraints: BoxConstraints(
-            minWidth: context.isMobile ? 20 : 24,
-            minHeight: context.isMobile ? 20 : 24,
+        // Botón de configuraciones con estilo elegante
+        Tooltip(
+          message: 'Configuraciones',
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => _showConfigurationsMenu(context),
+                child: Padding(
+                  padding: EdgeInsets.all(context.isMobile ? 6 : 8),
+                  child: Icon(
+                    Icons.settings,
+                    size: context.isMobile ? 16 : 18,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
           ),
-          onPressed: () => _showConfigurationsMenu(context),
         ),
       ],
     );
@@ -235,19 +301,32 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
 
     return Tab(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: isActive
+            ? BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              )
+            : null,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Indicador de cambios sin guardar
+            // Indicador de cambios sin guardar con gradiente
             if (hasUnsavedChanges)
               Container(
-                width: 4,
-                height: 4,
-                margin: const EdgeInsets.only(right: 3),
-                decoration: const BoxDecoration(
-                  color: Colors.orange,
+                width: 6,
+                height: 6,
+                margin: const EdgeInsets.only(right: 5),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.warningGradient,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.accentOrange.withValues(alpha: 0.5),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
               ),
 
@@ -257,20 +336,29 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                 tab.title,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 11,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  letterSpacing: 0.2,
                 ),
               ),
             ),
 
-            // Botón para cerrar pestaña
+            // Botón para cerrar pestaña con hover effect
             if (tabsController.tabs.length > 1)
               GestureDetector(
                 onTap: () => tabsController.closeTab(tab.id),
                 child: Container(
-                  margin: const EdgeInsets.only(left: 2),
-                  padding: const EdgeInsets.all(1),
-                  child: Icon(Icons.close, size: 12, color: Colors.white70),
+                  margin: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(
+                    Icons.close,
+                    size: 12,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
                 ),
               ),
           ],
@@ -325,56 +413,64 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     ScrollController scrollController,
   ) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
-          // Handle para arrastrar
+          // Handle para arrastrar elegante
           Container(
             width: 40,
             height: 4,
             margin: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              gradient: ElegantLightTheme.glassGradient,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
 
-          // Header
+          // Header con gradiente elegante
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Theme.of(context).primaryColor,
-                  Theme.of(context).primaryColor.withOpacity(0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: ElegantLightTheme.primaryGradient,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(20),
               ),
+              boxShadow: ElegantLightTheme.elevatedShadow,
             ),
             child: Row(
               children: [
-                const Icon(Icons.settings, color: Colors.white, size: 24),
-                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.settings, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 14),
                 const Expanded(
                   child: Text(
                     'Configuraciones',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: Colors.white),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  ),
                 ),
               ],
             ),
@@ -453,21 +549,74 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Theme.of(context).primaryColor),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.15),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: onTap,
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: ElegantLightTheme.glowShadow,
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: ElegantLightTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1571,7 +1720,7 @@ class _InvoiceFormTabsScreenState extends State<InvoiceFormTabsScreen> {
                                   final index = entry.key;
                                   final tab = entry.value;
                                   return _buildTabCard(context, tab, index);
-                                }).toList(),
+                                }),
                               ],
                             ),
                           );

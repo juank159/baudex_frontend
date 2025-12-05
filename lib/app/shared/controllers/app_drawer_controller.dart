@@ -72,6 +72,14 @@ class AppDrawerController extends GetxController {
       ),
 
       const DrawerMenuItem(
+        id: 'credit_notes',
+        title: 'Notas de Crédito',
+        icon: Icons.note_alt_outlined,
+        route: AppRoutes.creditNotes,
+        subtitle: 'Gestión de notas de crédito',
+      ),
+
+      const DrawerMenuItem(
         id: 'products',
         title: 'Productos',
         icon: Icons.inventory_2,
@@ -85,6 +93,22 @@ class AppDrawerController extends GetxController {
         icon: Icons.people,
         route: AppRoutes.customers,
         subtitle: 'Gestión de clientes',
+      ),
+
+      const DrawerMenuItem(
+        id: 'customer_credits',
+        title: 'Créditos',
+        icon: Icons.credit_card,
+        route: AppRoutes.customerCredits,
+        subtitle: 'Deudas de clientes',
+      ),
+
+      const DrawerMenuItem(
+        id: 'client_balances',
+        title: 'Saldos a Favor',
+        icon: Icons.account_balance_wallet,
+        route: AppRoutes.clientBalances,
+        subtitle: 'Créditos de clientes',
       ),
 
       const DrawerMenuItem(
@@ -206,6 +230,16 @@ class AppDrawerController extends GetxController {
         icon: Icons.notifications_outlined,
         route: AppRoutes.settingsNotifications,
         subtitle: 'Configuración de notificaciones',
+        isInSettings: true,
+        isInConfigurationGroup: true,
+      ),
+
+      const DrawerMenuItem(
+        id: 'bank_accounts',
+        title: 'Cuentas Bancarias',
+        icon: Icons.account_balance_wallet,
+        route: AppRoutes.bankAccounts,
+        subtitle: 'Métodos de pago',
         isInSettings: true,
         isInConfigurationGroup: true,
       ),

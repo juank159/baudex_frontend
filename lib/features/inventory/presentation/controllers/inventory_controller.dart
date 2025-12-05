@@ -507,7 +507,7 @@ class InventoryController extends GetxController {
       // Usar fallback si hay error
     }
 
-    return '${fromWarehouse}_${toWarehouse}_${timeWindow}_${notesKey}';
+    return '${fromWarehouse}_${toWarehouse}_${timeWindow}_$notesKey';
   }
 
   // Cargar TODAS las estadísticas semanales

@@ -1,8 +1,6 @@
 // lib/features/inventory/presentation/widgets/inventory_alerts_summary.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/config/themes/app_colors.dart';
-import '../../../../app/core/widgets/responsive_layout.dart';
 import '../controllers/inventory_controller.dart';
 
 class InventoryAlertsSummary extends GetView<InventoryController> {
@@ -17,36 +15,57 @@ class InventoryAlertsSummary extends GetView<InventoryController> {
           'count': controller.lowStockProducts.length,
           'color': Colors.orange,
           'icon': Icons.warning,
-          'action': () => Get.toNamed('/inventory/balances', arguments: {'filter': 'low_stock'}),
+          'action':
+              () => Get.toNamed(
+                '/inventory/balances',
+                arguments: {'filter': 'low_stock'},
+              ),
         },
         {
           'title': 'Sin Stock',
           'count': controller.outOfStockProducts.length,
           'color': Colors.red,
           'icon': Icons.error,
-          'action': () => Get.toNamed('/inventory/balances', arguments: {'filter': 'out_of_stock'}),
+          'action':
+              () => Get.toNamed(
+                '/inventory/balances',
+                arguments: {'filter': 'out_of_stock'},
+              ),
         },
         {
           'title': 'Por Vencer',
           'count': controller.nearExpiryProducts.length,
           'color': Colors.amber,
           'icon': Icons.schedule,
-          'action': () => Get.toNamed('/inventory/balances', arguments: {'filter': 'near_expiry'}),
+          'action':
+              () => Get.toNamed(
+                '/inventory/balances',
+                arguments: {'filter': 'near_expiry'},
+              ),
         },
         {
           'title': 'Vencidos',
           'count': controller.expiredProducts.length,
           'color': Colors.red.shade800,
           'icon': Icons.dangerous,
-          'action': () => Get.toNamed('/inventory/balances', arguments: {'filter': 'expired'}),
+          'action':
+              () => Get.toNamed(
+                '/inventory/balances',
+                arguments: {'filter': 'expired'},
+              ),
         },
       ];
 
-      final totalAlerts = alerts.fold<int>(0, (sum, alert) => sum + (alert['count'] as int));
+      final totalAlerts = alerts.fold<int>(
+        0,
+        (sum, alert) => sum + (alert['count'] as int),
+      );
 
       if (totalAlerts == 0) {
         return Container(
-          padding: EdgeInsets.all(MediaQuery.of(context).size.width < 600 ? 12 : 16),
+          padding: EdgeInsets.all(
+            MediaQuery.of(context).size.width < 600 ? 12 : 16,
+          ),
           decoration: BoxDecoration(
             color: Colors.green.shade50,
             borderRadius: BorderRadius.circular(12),
@@ -55,7 +74,9 @@ class InventoryAlertsSummary extends GetView<InventoryController> {
           child: Row(
             children: [
               Container(
-                padding: EdgeInsets.all(MediaQuery.of(context).size.width < 600 ? 6 : 8),
+                padding: EdgeInsets.all(
+                  MediaQuery.of(context).size.width < 600 ? 6 : 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.green.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -72,13 +93,16 @@ class InventoryAlertsSummary extends GetView<InventoryController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      MediaQuery.of(context).size.width < 600 ? 'Todo en orden' : 'Todo está en orden',
-                      style: (MediaQuery.of(context).size.width < 600 
-                          ? Get.textTheme.titleSmall 
-                          : Get.textTheme.titleMedium)?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade700,
-                      ),
+                      MediaQuery.of(context).size.width < 600
+                          ? 'Todo en orden'
+                          : 'Todo está en orden',
+                      style: (MediaQuery.of(context).size.width < 600
+                              ? Get.textTheme.titleSmall
+                              : Get.textTheme.titleMedium)
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                          ),
                     ),
                     if (MediaQuery.of(context).size.width >= 600) ...[
                       const SizedBox(height: 4),
@@ -98,7 +122,9 @@ class InventoryAlertsSummary extends GetView<InventoryController> {
       }
 
       return Container(
-        padding: EdgeInsets.all(MediaQuery.of(context).size.width < 600 ? 12 : 16),
+        padding: EdgeInsets.all(
+          MediaQuery.of(context).size.width < 600 ? 12 : 16,
+        ),
         decoration: BoxDecoration(
           color: Colors.red.shade50,
           borderRadius: BorderRadius.circular(12),
@@ -110,7 +136,9 @@ class InventoryAlertsSummary extends GetView<InventoryController> {
             Row(
               children: [
                 Container(
-                  padding: EdgeInsets.all(MediaQuery.of(context).size.width < 600 ? 6 : 8),
+                  padding: EdgeInsets.all(
+                    MediaQuery.of(context).size.width < 600 ? 6 : 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -127,13 +155,16 @@ class InventoryAlertsSummary extends GetView<InventoryController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        MediaQuery.of(context).size.width < 600 ? 'Alertas' : 'Alertas de Inventario',
-                        style: (MediaQuery.of(context).size.width < 600 
-                            ? Get.textTheme.titleSmall 
-                            : Get.textTheme.titleMedium)?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red.shade700,
-                        ),
+                        MediaQuery.of(context).size.width < 600
+                            ? 'Alertas'
+                            : 'Alertas de Inventario',
+                        style: (MediaQuery.of(context).size.width < 600
+                                ? Get.textTheme.titleSmall
+                                : Get.textTheme.titleMedium)
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade700,
+                            ),
                       ),
                       if (MediaQuery.of(context).size.width >= 600) ...[
                         const SizedBox(height: 4),
@@ -157,9 +188,13 @@ class InventoryAlertsSummary extends GetView<InventoryController> {
     });
   }
 
-  Widget _buildAlertButtons(BuildContext context, List<Map<String, dynamic>> alerts) {
-    final alertsWithCounts = alerts.where((alert) => (alert['count'] as int) > 0).toList();
-    
+  Widget _buildAlertButtons(
+    BuildContext context,
+    List<Map<String, dynamic>> alerts,
+  ) {
+    final alertsWithCounts =
+        alerts.where((alert) => (alert['count'] as int) > 0).toList();
+
     if (MediaQuery.of(context).size.width < 600) {
       return GridView.builder(
         shrinkWrap: true,
@@ -185,21 +220,22 @@ class InventoryAlertsSummary extends GetView<InventoryController> {
       );
     } else {
       return Row(
-        children: alertsWithCounts.map((alert) {
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _buildAlertButton(
-                context: context,
-                title: alert['title'] as String,
-                count: alert['count'] as int,
-                color: alert['color'] as Color,
-                icon: alert['icon'] as IconData,
-                onTap: alert['action'] as VoidCallback,
-              ),
-            ),
-          );
-        }).toList(),
+        children:
+            alertsWithCounts.map((alert) {
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _buildAlertButton(
+                    context: context,
+                    title: alert['title'] as String,
+                    count: alert['count'] as int,
+                    color: alert['color'] as Color,
+                    icon: alert['icon'] as IconData,
+                    onTap: alert['action'] as VoidCallback,
+                  ),
+                ),
+              );
+            }).toList(),
       );
     }
   }
@@ -213,13 +249,13 @@ class InventoryAlertsSummary extends GetView<InventoryController> {
     required VoidCallback onTap,
   }) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: EdgeInsets.symmetric(
-          vertical: isMobile ? 8 : 12, 
+          vertical: isMobile ? 8 : 12,
           horizontal: isMobile ? 6 : 8,
         ),
         decoration: BoxDecoration(
@@ -230,20 +266,14 @@ class InventoryAlertsSummary extends GetView<InventoryController> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: color,
-              size: isMobile ? 18 : 20,
-            ),
+            Icon(icon, color: color, size: isMobile ? 18 : 20),
             SizedBox(height: isMobile ? 2 : 4),
             Text(
               '$count',
-              style: (isMobile 
-                  ? Get.textTheme.titleSmall 
-                  : Get.textTheme.titleMedium)?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+              style: (isMobile
+                      ? Get.textTheme.titleSmall
+                      : Get.textTheme.titleMedium)
+                  ?.copyWith(fontWeight: FontWeight.bold, color: color),
             ),
             SizedBox(height: isMobile ? 1 : 2),
             Text(

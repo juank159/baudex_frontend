@@ -29,8 +29,9 @@ class CustomerQueryModel {
 
     if (search?.isNotEmpty == true) params['search'] = search!;
     if (status?.isNotEmpty == true) params['status'] = status!;
-    if (documentType?.isNotEmpty == true)
+    if (documentType?.isNotEmpty == true) {
       params['documentType'] = documentType!;
+    }
     if (city?.isNotEmpty == true) params['city'] = city!;
     if (state?.isNotEmpty == true) params['state'] = state!;
     if (sortBy?.isNotEmpty == true) params['sortBy'] = sortBy!;

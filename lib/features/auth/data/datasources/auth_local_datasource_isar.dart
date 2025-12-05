@@ -1,14 +1,12 @@
 // lib/features/auth/data/datasources/auth_local_datasource_isar.dart
-import 'dart:convert';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
-import '../../domain/entities/user.dart';
 import '../models/user_model.dart';
 import '../models/auth_response_model.dart';
 import 'auth_local_datasource.dart';
 
 /// Implementación híbrida del datasource local de autenticación
-/// 
+///
 /// Usa SecureStorage para datos sensibles persistentes (tokens)
 /// y permite extensión futura a ISAR para datos complejos
 class AuthLocalDataSourceIsar implements AuthLocalDataSource {
@@ -27,20 +25,22 @@ class AuthLocalDataSourceIsar implements AuthLocalDataSource {
     try {
       // Save token
       await _secureStorage.saveToken(authResponse.token);
-      
+
       // Save refresh token if exists
       if (authResponse.refreshToken != null) {
         await _secureStorage.saveRefreshToken(authResponse.refreshToken!);
       }
-      
+
       // Save user data as JSON using the secure method with fallback
       final userJson = authResponse.user.toJson();
       await _secureStorage.saveUserData(userJson);
-      
+
       // Mark as authenticated - using isAuthenticated() method from SecureStorageService
       // No need to mark separately as isAuthenticated() checks token and user data existence
 
-      print('🔐 AuthLocalDataSourceHybrid: Datos de auth guardados en SecureStorage para ${authResponse.user.email}');
+      print(
+        '🔐 AuthLocalDataSourceHybrid: Datos de auth guardados en SecureStorage para ${authResponse.user.email}',
+      );
     } catch (e) {
       print('❌ AuthLocalDataSourceHybrid: Error al guardar datos - $e');
       throw CacheException('Error al guardar datos de autenticación: $e');
@@ -161,7 +161,9 @@ class AuthLocalDataSourceIsar implements AuthLocalDataSource {
       }
       return null;
     } catch (e) {
-      throw CacheException('Error al obtener datos de autenticación desde ISAR: $e');
+      throw CacheException(
+        'Error al obtener datos de autenticación desde ISAR: $e',
+      );
     }
   }
 
@@ -190,9 +192,5 @@ class AuthLocalData {
   final String? refreshToken;
   final UserModel user;
 
-  AuthLocalData({
-    required this.token,
-    this.refreshToken,
-    required this.user,
-  });
+  AuthLocalData({required this.token, this.refreshToken, required this.user});
 }

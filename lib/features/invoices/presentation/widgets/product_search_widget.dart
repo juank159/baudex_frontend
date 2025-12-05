@@ -4,6 +4,7 @@ import 'package:baudex_desktop/app/shared/screens/barcode_scanner_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/services/audio_notification_service.dart';
@@ -194,46 +195,59 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-          // Header
+          // Header con tema elegante
           Row(
             children: [
-              Icon(
-                Icons.qr_code_scanner,
-                color: Theme.of(context).primaryColor,
-                size: 12,
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: ElegantLightTheme.glowShadow,
+                ),
+                child: const Icon(
+                  Icons.qr_code_scanner,
+                  color: Colors.white,
+                  size: 12,
+                ),
               ),
-              const SizedBox(width: 4),
-              Text(
+              const SizedBox(width: 6),
+              const Text(
                 'Productos',
                 style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: ElegantLightTheme.textPrimary,
                 ),
               ),
               const Spacer(),
               if (_isSearching)
-                const SizedBox(
-                  width: 10,
-                  height: 10,
-                  child: CircularProgressIndicator(strokeWidth: 1),
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      ElegantLightTheme.primaryBlue,
+                    ),
+                  ),
                 ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
 
           // Campo de búsqueda principal con escáner
           _buildSearchField(context),
 
           // Resultados de búsqueda
           if (_showResults && _searchResults.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             _buildSearchResults(context),
           ],
 
           // Opción de producto sin registrar o mensaje de no resultados
           if (_showResults && _searchResults.isEmpty && !_isSearching) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             _buildUnregisteredProductOption(context),
           ],
 
@@ -247,127 +261,107 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   }
 
   Widget _buildSearchField(BuildContext context) {
+    final isMobileOrTablet = context.isMobile || Responsive.isTablet(context);
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: ElegantLightTheme.cardGradient,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color:
-              _focusNode.hasFocus
-                  ? Theme.of(context).primaryColor
-                  : Colors.grey.shade300,
+          color: _focusNode.hasFocus
+              ? ElegantLightTheme.primaryBlue.withOpacity(0.5)
+              : ElegantLightTheme.textTertiary.withOpacity(0.2),
           width: _focusNode.hasFocus ? 2 : 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
-      child: Row(
-        children: [
-          // Campo de texto principal
-          Expanded(
-            child: Focus(
-              onKeyEvent: (FocusNode node, KeyEvent event) {
-                // ✅ CRÍTICO: Interceptar Enter ANTES de que llegue al TextField
-                if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
-                  if (_showResults && _searchResults.isNotEmpty && _selectedResultIndex >= 0) {
-                    print('🚫 INTERCEPTANDO Enter - hay selección activa ($_selectedResultIndex)');
-                    final selectedProduct = _searchResults[_selectedResultIndex];
-                    if (selectedProduct.stock > 0) {
-                      _selectProduct(selectedProduct);
-                    }
-                    return KeyEventResult.handled; // ✅ Bloquear propagación
-                  }
+      child: Focus(
+        onKeyEvent: (FocusNode node, KeyEvent event) {
+          // ✅ CRÍTICO: Interceptar Enter ANTES de que llegue al TextField
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+            if (_showResults && _searchResults.isNotEmpty && _selectedResultIndex >= 0) {
+              print('🚫 INTERCEPTANDO Enter - hay selección activa ($_selectedResultIndex)');
+              final selectedProduct = _searchResults[_selectedResultIndex];
+              if (selectedProduct.stock > 0) {
+                _selectProduct(selectedProduct);
+              }
+              return KeyEventResult.handled; // ✅ Bloquear propagación
+            }
+          }
+          return KeyEventResult.ignored; // ✅ Permitir propagación normal
+        },
+        child: RawKeyboardListener(
+          focusNode: _keyboardFocusNode, // ✅ NUEVO: FocusNode separado para navegación
+          onKey: _handleKeyboardNavigation,
+          child: TextField(
+            controller: _searchController,
+            focusNode: _focusNode,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: ElegantLightTheme.textPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: widget.hint ?? 'Buscar...',
+              hintStyle: const TextStyle(
+                color: ElegantLightTheme.textTertiary,
+                fontSize: 11,
+              ),
+              // Icono de búsqueda a la izquierda
+              prefixIcon: const Padding(
+                padding: EdgeInsets.all(10),
+                child: Icon(
+                  Icons.search,
+                  color: ElegantLightTheme.primaryBlue,
+                  size: 22,
+                ),
+              ),
+              // Icono de escáner QR DENTRO del search a la derecha
+              suffixIcon: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: isMobileOrTablet ? _openBarcodeScanner : null,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: ElegantLightTheme.glowShadow,
+                      ),
+                      child: const Icon(
+                        Icons.qr_code_scanner,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
+            ),
+            onSubmitted: (value) {
+              // ✅ CRÍTICO: Solo procesar onSubmitted si no hay selección activa
+              if (_selectedResultIndex < 0) {
+                print('🔍 SUBMIT: Procesando sin selección activa');
+                _handleDirectSearch(value);
+              } else {
+                print('🔍 SUBMIT: Hay selección activa ($_selectedResultIndex) - procesando producto seleccionado');
+                // Si hay selección activa, procesar ese producto en lugar de buscar
+                final selectedProduct = _searchResults[_selectedResultIndex];
+                if (selectedProduct.stock > 0) {
+                  _selectProduct(selectedProduct);
                 }
-                return KeyEventResult.ignored; // ✅ Permitir propagación normal
-              },
-              child: RawKeyboardListener(
-                focusNode: _keyboardFocusNode, // ✅ NUEVO: FocusNode separado para navegación
-                onKey: _handleKeyboardNavigation,
-                child: TextField(
-                controller: _searchController,
-                focusNode: _focusNode,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-                decoration: InputDecoration(
-                  hintText: widget.hint ?? 'Buscar...',
-                  hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-                  prefixIcon: Container(
-                    padding: const EdgeInsets.all(12),
-                    child: Icon(
-                      Icons.search,
-                      color: Theme.of(context).primaryColor,
-                      size: 24,
-                    ),
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                ),
-                onSubmitted: (value) {
-                  // ✅ CRÍTICO: Solo procesar onSubmitted si no hay selección activa
-                  if (_selectedResultIndex < 0) {
-                    print('🔍 SUBMIT: Procesando sin selección activa');
-                    _handleDirectSearch(value);
-                  } else {
-                    print('🔍 SUBMIT: Hay selección activa ($_selectedResultIndex) - procesando producto seleccionado');
-                    // Si hay selección activa, procesar ese producto en lugar de buscar
-                    final selectedProduct = _searchResults[_selectedResultIndex];
-                    if (selectedProduct.stock > 0) {
-                      _selectProduct(selectedProduct);
-                    }
-                  }
-                },
-                ),
-              ),
-            ),
+              }
+            },
           ),
-
-          // Botón de limpiar (cuando hay texto)
-          if (_searchController.text.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.clear),
-              onPressed: () {
-                _searchController.clear();
-                _ensureSearchFieldFocus();
-              },
-            ),
-
-          // Botón de escáner (solo en móvil)
-          if (context.isMobile)
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              child: Material(
-                color: Theme.of(context).primaryColor,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: _openBarcodeScanner,
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-          // Icono de código de barras (desktop)
-          if (!context.isMobile)
-            Container(
-              padding: const EdgeInsets.all(8),
-              margin: const EdgeInsets.only(right: 8),
-              child: Icon(Icons.qr_code, color: Colors.grey.shade400),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -376,28 +370,27 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
     return Container(
       constraints: const BoxConstraints(maxHeight: 300),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textTertiary.withOpacity(0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
-      child: ListView.builder(
-        controller: _resultsScrollController, // ✅ NUEVO: Usar scroll controller
-        shrinkWrap: true,
-        itemCount: _searchResults.length,
-        itemBuilder: (context, index) {
-          final product = _searchResults[index];
-          final isSelected =
-              index ==
-              _selectedResultIndex; // ✅ NUEVO: Verificar si está seleccionado
-          return _buildProductTile(context, product, isSelected: isSelected);
-        },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: ListView.builder(
+          controller: _resultsScrollController, // ✅ NUEVO: Usar scroll controller
+          shrinkWrap: true,
+          itemCount: _searchResults.length,
+          itemBuilder: (context, index) {
+            final product = _searchResults[index];
+            final isSelected =
+                index ==
+                _selectedResultIndex; // ✅ NUEVO: Verificar si está seleccionado
+            return _buildProductTile(context, product, isSelected: isSelected);
+          },
+        ),
       ),
     );
   }
@@ -410,152 +403,124 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
     final hasStock = product.stock > 0;
     final price = product.sellingPrice ?? 0.0;
 
+    // Tamaños responsive
+    final isMobile = Responsive.isMobile(context);
+    final isTablet = Responsive.isTablet(context);
+
+    // Configuración de tamaños según pantalla
+    final double iconSize = isMobile ? 32 : (isTablet ? 36 : 40);
+    final double iconInnerSize = isMobile ? 16 : (isTablet ? 18 : 20);
+    final double nameSize = isMobile ? 12 : (isTablet ? 13 : 14);
+    final double priceSize = isMobile ? 12 : (isTablet ? 13 : 14);
+    final double stockSize = isMobile ? 8 : (isTablet ? 9 : 10);
+    final double padding = isMobile ? 6 : (isTablet ? 8 : 10);
+    final double actionSize = isMobile ? 28 : (isTablet ? 32 : 36);
+    final double actionIconSize = isMobile ? 14 : (isTablet ? 16 : 18);
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      margin: EdgeInsets.symmetric(horizontal: isMobile ? 2 : 4, vertical: 1),
       child: Material(
-        color:
-            isSelected
-                ? Theme.of(context).primaryColor.withOpacity(
-                  0.1,
-                ) // ✅ NUEVO: Color cuando está seleccionado
-                : hasStock
-                ? Colors.white
-                : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
+        color: isSelected
+            ? ElegantLightTheme.primaryBlue.withOpacity(0.08)
+            : hasStock
+                ? ElegantLightTheme.surfaceColor
+                : ElegantLightTheme.cardColor,
+        borderRadius: BorderRadius.circular(isMobile ? 8 : 10),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(isMobile ? 8 : 10),
           onTap: hasStock ? () => _selectProduct(product) : () {
-            // Solo mensaje de log para productos sin stock (SIN audio)
             print('🔊 Producto sin stock: ${product.name}');
           },
           child: Container(
-            decoration:
-                isSelected
-                    ? BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Theme.of(context).primaryColor,
-                        width: 2,
-                      ), // ✅ NUEVO: Borde cuando está seleccionado
-                    )
-                    : null,
+            decoration: isSelected
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(isMobile ? 8 : 10),
+                    border: Border.all(
+                      color: ElegantLightTheme.primaryBlue,
+                      width: 1.5,
+                    ),
+                  )
+                : null,
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(padding),
               child: Row(
                 children: [
-                  // Icono de producto
+                  // Icono de producto compacto
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: iconSize,
+                    height: iconSize,
                     decoration: BoxDecoration(
-                      color:
-                          hasStock
-                              ? Theme.of(context).primaryColor.withOpacity(0.1)
-                              : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
+                      gradient: hasStock
+                          ? ElegantLightTheme.primaryGradient
+                          : ElegantLightTheme.glassGradient,
+                      borderRadius: BorderRadius.circular(isMobile ? 6 : 8),
                     ),
                     child: Icon(
                       Icons.inventory_2,
-                      color:
-                          hasStock
-                              ? Theme.of(context).primaryColor
-                              : Colors.grey.shade400,
+                      color: hasStock
+                          ? Colors.white
+                          : ElegantLightTheme.textTertiary,
+                      size: iconInnerSize,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: isMobile ? 8 : 10),
 
-                  // Información del producto
+                  // Información del producto - DOS FILAS
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Nombre del producto
+                        // FILA 1: Nombre del producto
                         Text(
                           product.name,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                            color:
-                                hasStock ? Colors.black : Colors.grey.shade500,
+                            fontSize: nameSize,
+                            color: hasStock
+                                ? ElegantLightTheme.textPrimary
+                                : ElegantLightTheme.textTertiary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: isMobile ? 2 : 3),
 
-                        // SKU y código de barras
+                        // FILA 2: Precio + Stock
                         Row(
                           children: [
-                            Text(
-                              'SKU: ${product.sku}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            if (product.barcode != null) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  'CB: ${product.barcode}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.blue.shade700,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-
-                        // Precio y stock
-                        Row(
-                          children: [
+                            // Precio
                             Text(
                               AppFormatters.formatCurrency(price),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color:
-                                    hasStock
-                                        ? Theme.of(context).primaryColor
-                                        : Colors.grey.shade500,
+                                fontSize: priceSize,
+                                color: hasStock
+                                    ? ElegantLightTheme.primaryBlue
+                                    : ElegantLightTheme.textTertiary,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: isMobile ? 6 : 8),
+                            // Stock badge
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isMobile ? 5 : 6,
+                                vertical: isMobile ? 2 : 3,
                               ),
                               decoration: BoxDecoration(
-                                color:
-                                    hasStock
-                                        ? Colors.green.shade100
-                                        : Colors.red.shade100,
-                                borderRadius: BorderRadius.circular(10),
+                                gradient: hasStock
+                                    ? ElegantLightTheme.successGradient
+                                    : ElegantLightTheme.errorGradient,
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 hasStock
-                                    ? 'Stock: ${AppFormatters.formatStock(product.stock)}'
+                                    ? '${AppFormatters.formatStock(product.stock)}'
                                     : 'Sin stock',
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: stockSize,
                                   fontWeight: FontWeight.w600,
-                                  color:
-                                      hasStock
-                                          ? Colors.green.shade800
-                                          : Colors.red.shade800,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -565,14 +530,21 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
                     ),
                   ),
 
-                  // Icono de acción
-                  Icon(
-                    hasStock ? Icons.add_circle : Icons.block,
-                    color:
-                        hasStock
-                            ? Theme.of(context).primaryColor
-                            : Colors.red.shade400,
-                    size: 28,
+                  // Botón de acción compacto
+                  Container(
+                    width: actionSize,
+                    height: actionSize,
+                    decoration: BoxDecoration(
+                      gradient: hasStock
+                          ? ElegantLightTheme.successGradient
+                          : ElegantLightTheme.errorGradient,
+                      borderRadius: BorderRadius.circular(isMobile ? 6 : 8),
+                    ),
+                    child: Icon(
+                      hasStock ? Icons.add : Icons.block,
+                      color: Colors.white,
+                      size: actionIconSize,
+                    ),
                   ),
                 ],
               ),
@@ -596,30 +568,39 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
     return Container(
       margin: const EdgeInsets.only(top: 4),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
+        gradient: LinearGradient(
+          colors: [
+            ElegantLightTheme.primaryBlue.withOpacity(0.08),
+            ElegantLightTheme.primaryBlue.withOpacity(0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           onTap: () => _createUnregisteredProduct(price),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                // Icono
+                // Icono con gradiente
                 Container(
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade100,
-                    borderRadius: BorderRadius.circular(6),
+                    gradient: ElegantLightTheme.infoGradient,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: ElegantLightTheme.glowShadow,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.add_shopping_cart,
-                    color: Colors.blue.shade600,
+                    color: Colors.white,
                     size: 20,
                   ),
                 ),
@@ -630,31 +611,39 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Producto sin registrar',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          color: Colors.blue.shade800,
+                          fontSize: 14,
+                          color: ElegantLightTheme.primaryBlue,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Precio: ${AppFormatters.formatCurrency(price)}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.blue.shade600,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // Icono de acción
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.blue.shade600,
-                  size: 16,
+                // Icono de acción con gradiente
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white,
+                    size: 14,
+                  ),
                 ),
               ],
             ),
@@ -666,20 +655,42 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
 
   Widget _buildNoResultsMessage() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.shade200),
+        gradient: LinearGradient(
+          colors: [
+            ElegantLightTheme.accentOrange.withOpacity(0.1),
+            ElegantLightTheme.accentOrange.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.accentOrange.withOpacity(0.3),
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.search_off, color: Colors.orange.shade600, size: 20),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.warningGradient,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.search_off,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               'No se encontraron productos para "${_searchController.text}"',
-              style: TextStyle(fontSize: 14, color: Colors.orange.shade800),
+              style: const TextStyle(
+                fontSize: 12,
+                color: ElegantLightTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -730,7 +741,9 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
 
   void _scrollToSelected() {
     if (_selectedResultIndex >= 0 && _resultsScrollController.hasClients) {
-      const double itemHeight = 70.0; // Altura estimada de cada item
+      // Altura compacta según responsive
+      final isMobile = Responsive.isMobile(context);
+      final double itemHeight = isMobile ? 48.0 : 56.0; // Altura más compacta
       final double targetOffset = _selectedResultIndex * itemHeight;
 
       _resultsScrollController.animateTo(

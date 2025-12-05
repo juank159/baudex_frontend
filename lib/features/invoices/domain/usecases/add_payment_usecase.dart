@@ -15,6 +15,7 @@ class AddPaymentUseCase implements UseCase<Invoice, AddPaymentParams> {
       invoiceId: params.invoiceId,
       amount: params.amount,
       paymentMethod: params.paymentMethod,
+      bankAccountId: params.bankAccountId,
       paymentDate: params.paymentDate,
       reference: params.reference,
       notes: params.notes,
@@ -26,6 +27,7 @@ class AddPaymentParams {
   final String invoiceId;
   final double amount;
   final PaymentMethod paymentMethod;
+  final String? bankAccountId;
   final DateTime? paymentDate;
   final String? reference;
   final String? notes;
@@ -34,6 +36,7 @@ class AddPaymentParams {
     required this.invoiceId,
     required this.amount,
     required this.paymentMethod,
+    this.bankAccountId,
     this.paymentDate,
     this.reference,
     this.notes,
