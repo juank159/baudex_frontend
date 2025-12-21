@@ -3,11 +3,13 @@ import 'package:equatable/equatable.dart';
 
 class DashboardStats extends Equatable {
   final SalesStats sales;
-  final InvoiceStats invoices;  
+  final InvoiceStats invoices;
   final ProductStats products;
   final CustomerStats customers;
   final ExpenseStats expenses;
   final ProfitabilityStats profitability; // 🆕 Métricas FIFO de rentabilidad
+  final List<PaymentMethodStats> paymentMethodsBreakdown; // 🆕 NUEVO: Desglose por método de pago
+  final IncomeTypeBreakdown incomeTypeBreakdown; // 🆕 NUEVO: Desglose por tipo de ingreso
 
   const DashboardStats({
     required this.sales,
@@ -16,10 +18,21 @@ class DashboardStats extends Equatable {
     required this.customers,
     required this.expenses,
     required this.profitability,
+    required this.paymentMethodsBreakdown,
+    required this.incomeTypeBreakdown,
   });
 
   @override
-  List<Object?> get props => [sales, invoices, products, customers, expenses, profitability];
+  List<Object?> get props => [
+    sales,
+    invoices,
+    products,
+    customers,
+    expenses,
+    profitability,
+    paymentMethodsBreakdown,
+    incomeTypeBreakdown,
+  ];
 }
 
 class SalesStats extends Equatable {
@@ -304,4 +317,38 @@ class DailyMarginPoint extends Equatable {
 
   @override
   List<Object?> get props => [date, grossMarginPercentage, dailyRevenue, dailyCOGS];
+}
+
+// 🆕 NUEVO: Estadísticas por método de pago
+class PaymentMethodStats extends Equatable {
+  final String method;
+  final int count;
+  final double totalAmount;
+  final double percentage;
+
+  const PaymentMethodStats({
+    required this.method,
+    required this.count,
+    required this.totalAmount,
+    required this.percentage,
+  });
+
+  @override
+  List<Object?> get props => [method, count, totalAmount, percentage];
+}
+
+// 🆕 NUEVO: Desglose por tipo de ingreso
+class IncomeTypeBreakdown extends Equatable {
+  final double invoices;
+  final double credits;
+  final double total;
+
+  const IncomeTypeBreakdown({
+    required this.invoices,
+    required this.credits,
+    required this.total,
+  });
+
+  @override
+  List<Object?> get props => [invoices, credits, total];
 }

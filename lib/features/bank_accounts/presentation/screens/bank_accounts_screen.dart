@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../domain/entities/bank_account.dart';
 import '../controllers/bank_accounts_controller.dart';
@@ -18,6 +19,7 @@ class BankAccountsScreen extends GetView<BankAccountsController> {
     return Scaffold(
       backgroundColor: ElegantLightTheme.backgroundColor,
       appBar: _buildAppBar(context),
+      drawer: const AppDrawer(currentRoute: '/bank-accounts'),
       body: _buildBody(context),
       floatingActionButton: _buildFloatingActionButton(context),
     );
@@ -28,49 +30,67 @@ class BankAccountsScreen extends GetView<BankAccountsController> {
       title: const Text(
         'Cuentas Bancarias',
         style: TextStyle(
-          color: ElegantLightTheme.textPrimary,
+          color: Colors.white,
+          fontSize: 18,
           fontWeight: FontWeight.w700,
-          fontSize: 20,
         ),
       ),
-      backgroundColor: ElegantLightTheme.surfaceColor,
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      surfaceTintColor: Colors.transparent,
-      shadowColor: Colors.black.withOpacity(0.1),
-      iconTheme: const IconThemeData(color: ElegantLightTheme.textPrimary),
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          boxShadow: ElegantLightTheme.elevatedShadow,
+        ),
+      ),
       actions: [
         // Filtro por tipo
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: ElegantLightTheme.cardColor,
-            borderRadius: BorderRadius.circular(10),
+        PopupMenuButton<BankAccountType?>(
+          icon: const Icon(
+            Icons.filter_list_rounded,
+            color: Colors.white,
           ),
-          child: PopupMenuButton<BankAccountType?>(
-            icon: const Icon(
-              Icons.filter_list_rounded,
-              color: ElegantLightTheme.primaryBlue,
+          tooltip: 'Filtrar por tipo',
+          onSelected: controller.setFilterType,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          color: ElegantLightTheme.surfaceColor,
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: null,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.all_inclusive,
+                    size: 20,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Todos los tipos',
+                    style: TextStyle(
+                      color: ElegantLightTheme.textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            tooltip: 'Filtrar por tipo',
-            onSelected: controller.setFilterType,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            color: ElegantLightTheme.surfaceColor,
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: null,
+            ...BankAccountType.values.map(
+              (type) => PopupMenuItem(
+                value: type,
                 child: Row(
                   children: [
                     Icon(
-                      Icons.all_inclusive,
+                      type.icon,
                       size: 20,
                       color: ElegantLightTheme.primaryBlue,
                     ),
                     const SizedBox(width: 12),
-                    const Text(
-                      'Todos los tipos',
-                      style: TextStyle(
+                    Text(
+                      type.displayName,
+                      style: const TextStyle(
                         color: ElegantLightTheme.textPrimary,
                         fontWeight: FontWeight.w500,
                       ),
@@ -78,77 +98,34 @@ class BankAccountsScreen extends GetView<BankAccountsController> {
                   ],
                 ),
               ),
-              ...BankAccountType.values.map(
-                (type) => PopupMenuItem(
-                  value: type,
-                  child: Row(
-                    children: [
-                      Icon(
-                        type.icon,
-                        size: 20,
-                        color: ElegantLightTheme.primaryBlue,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        type.displayName,
-                        style: const TextStyle(
-                          color: ElegantLightTheme.textPrimary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
 
         // Mostrar inactivos
-        Obx(() => Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: controller.showInactive.value
-                    ? ElegantLightTheme.primaryBlue.withOpacity(0.1)
-                    : ElegantLightTheme.cardColor,
-                borderRadius: BorderRadius.circular(10),
+        Obx(() => IconButton(
+              icon: Icon(
+                controller.showInactive.value
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
+                color: Colors.white,
               ),
-              child: IconButton(
-                icon: Icon(
-                  controller.showInactive.value
-                      ? Icons.visibility_rounded
-                      : Icons.visibility_off_rounded,
-                  color: controller.showInactive.value
-                      ? ElegantLightTheme.primaryBlue
-                      : ElegantLightTheme.textSecondary,
-                ),
-                tooltip: controller.showInactive.value
-                    ? 'Ocultar inactivas'
-                    : 'Mostrar inactivas',
-                onPressed: () =>
-                    controller.setShowInactive(!controller.showInactive.value),
-              ),
+              tooltip: controller.showInactive.value
+                  ? 'Ocultar inactivas'
+                  : 'Mostrar inactivas',
+              onPressed: () =>
+                  controller.setShowInactive(!controller.showInactive.value),
             )),
-        const SizedBox(width: 8),
 
         // Refrescar
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: ElegantLightTheme.cardColor,
-            borderRadius: BorderRadius.circular(10),
+        IconButton(
+          icon: const Icon(
+            Icons.refresh_rounded,
+            color: Colors.white,
           ),
-          child: IconButton(
-            icon: const Icon(
-              Icons.refresh_rounded,
-              color: ElegantLightTheme.primaryBlue,
-            ),
-            tooltip: 'Refrescar',
-            onPressed: () => controller.loadBankAccounts(refresh: true),
-          ),
+          tooltip: 'Refrescar',
+          onPressed: () => controller.loadBankAccounts(refresh: true),
         ),
-        const SizedBox(width: 12),
       ],
     );
   }

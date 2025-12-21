@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:baudex_desktop/app/core/models/pagination_meta.dart';
 import 'package:baudex_desktop/features/categories/domain/repositories/category_repository.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product_stats.dart';
-import 'package:baudex_desktop/app/core/widgets/safe_text_editing_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
@@ -82,8 +81,8 @@ class ProductsController extends GetxController {
   // ✅ Contador para forzar reconstrucción del campo de búsqueda solo cuando se limpia
   final _searchFieldRebuildKey = 0.obs;
 
-  // UI Controllers - usando SafeTextEditingController
-  final searchController = SafeTextEditingController();
+  // UI Controllers - TextEditingController normal (el controller es permanente)
+  final searchController = TextEditingController();
   final scrollController = ScrollController();
 
   // Debounce timer for search
@@ -156,8 +155,26 @@ class ProductsController extends GetxController {
   void onInit() {
     super.onInit();
     _setupScrollListener();
+    _setupSearchListener();
     // ❌ NO cargar datos automáticamente - esperar a que esté autenticado
     // loadInitialData(); // Se llamará cuando sea necesario
+  }
+
+  /// Configurar listener de búsqueda con debounce
+  void _setupSearchListener() {
+    searchController.addListener(() {
+      _searchDebounceTimer?.cancel();
+      _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+        final query = searchController.text;
+        _searchTerm.value = query;
+        if (query.trim().isEmpty) {
+          _searchResults.clear();
+          loadProducts();
+        } else if (query.trim().length >= 2) {
+          searchProducts(query);
+        }
+      });
+    });
   }
 
   @override
@@ -239,37 +256,12 @@ class ProductsController extends GetxController {
 
   @override
   void onClose() {
-    try {
-      print('🔚 ProductsController: Iniciando proceso de dispose...');
-
-      // Cancel debounce timer first
-      _searchDebounceTimer?.cancel();
-      _searchDebounceTimer = null;
-      print('  ✅ Timer de búsqueda cancelado');
-
-      // Safe disposal of SafeTextEditingController
-      try {
-        if (!searchController.isDisposed && searchController.isSafeToUse) {
-          searchController.dispose();
-          print('  ✅ SafeSearchController disposed');
-        } else {
-          print('  ⚠️ SafeSearchController already disposed or unsafe');
-        }
-      } catch (e) {
-        print('  ⚠️ SafeSearchController disposal error: $e');
-      }
-
-      try {
-        scrollController.dispose();
-        print('  ✅ ScrollController disposed');
-      } catch (e) {
-        print('  ⚠️ Error al dispose scrollController: $e');
-      }
-
-      print('✅ ProductsController: Controllers and timers disposed safely');
-    } catch (e) {
-      print('⚠️ ProductsController: Error during disposal - $e');
-    }
+    // Solo cancelar el timer, NO disponer los controllers
+    // porque este controller es permanente y se reutiliza
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = null;
+    // NO llamar dispose en searchController y scrollController
+    // porque el controller es permanente
     super.onClose();
   }
 

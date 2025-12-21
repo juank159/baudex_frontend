@@ -10,15 +10,12 @@ CreatePurchaseOrderRequestModel _$CreatePurchaseOrderRequestModelFromJson(
         Map<String, dynamic> json) =>
     CreatePurchaseOrderRequestModel(
       supplierId: json['supplierId'] as String,
+      warehouseId: json['warehouseId'] as String?,
       expectedDeliveryDate: json['expectedDeliveryDate'] as String?,
       currency: json['currency'] as String?,
       taxPercentage: (json['taxPercentage'] as num?)?.toDouble(),
-      discountPercentage: (json['discountPercentage'] as num?)?.toDouble(),
-      discountAmount: (json['discountAmount'] as num?)?.toDouble(),
       shippingCost: (json['shippingCost'] as num?)?.toDouble(),
       notes: json['notes'] as String?,
-      terms: json['terms'] as String?,
-      supplierReference: json['supplierReference'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
       items: (json['items'] as List<dynamic>)
           .map((e) => CreatePurchaseOrderItemRequestModel.fromJson(
@@ -30,15 +27,12 @@ Map<String, dynamic> _$CreatePurchaseOrderRequestModelToJson(
         CreatePurchaseOrderRequestModel instance) =>
     <String, dynamic>{
       'supplierId': instance.supplierId,
+      'warehouseId': instance.warehouseId,
       'expectedDeliveryDate': instance.expectedDeliveryDate,
       'currency': instance.currency,
       'taxPercentage': instance.taxPercentage,
-      'discountPercentage': instance.discountPercentage,
-      'discountAmount': instance.discountAmount,
       'shippingCost': instance.shippingCost,
       'notes': instance.notes,
-      'terms': instance.terms,
-      'supplierReference': instance.supplierReference,
       'metadata': instance.metadata,
       'items': instance.items,
     };
@@ -71,16 +65,13 @@ UpdatePurchaseOrderRequestModel _$UpdatePurchaseOrderRequestModelFromJson(
         Map<String, dynamic> json) =>
     UpdatePurchaseOrderRequestModel(
       supplierId: json['supplierId'] as String?,
+      warehouseId: json['warehouseId'] as String?,
       expectedDeliveryDate: json['expectedDeliveryDate'] as String?,
       status: json['status'] as String?,
       currency: json['currency'] as String?,
       taxPercentage: (json['taxPercentage'] as num?)?.toDouble(),
-      discountPercentage: (json['discountPercentage'] as num?)?.toDouble(),
-      discountAmount: (json['discountAmount'] as num?)?.toDouble(),
       shippingCost: (json['shippingCost'] as num?)?.toDouble(),
       notes: json['notes'] as String?,
-      terms: json['terms'] as String?,
-      supplierReference: json['supplierReference'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
       items: (json['items'] as List<dynamic>?)
           ?.map((e) => UpdatePurchaseOrderItemRequestModel.fromJson(
@@ -92,16 +83,13 @@ Map<String, dynamic> _$UpdatePurchaseOrderRequestModelToJson(
         UpdatePurchaseOrderRequestModel instance) =>
     <String, dynamic>{
       'supplierId': instance.supplierId,
+      'warehouseId': instance.warehouseId,
       'expectedDeliveryDate': instance.expectedDeliveryDate,
       'status': instance.status,
       'currency': instance.currency,
       'taxPercentage': instance.taxPercentage,
-      'discountPercentage': instance.discountPercentage,
-      'discountAmount': instance.discountAmount,
       'shippingCost': instance.shippingCost,
       'notes': instance.notes,
-      'terms': instance.terms,
-      'supplierReference': instance.supplierReference,
       'metadata': instance.metadata,
       'items': instance.items,
     };

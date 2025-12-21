@@ -249,14 +249,17 @@ class CustomerBinding extends Bindings {
     // ==================== CONTROLLERS ====================
 
     // Controller principal de listado de clientes
-    Get.lazyPut<CustomersController>(
-      () => CustomersController(
-        getCustomersUseCase: Get.find<GetCustomersUseCase>(),
-        deleteCustomerUseCase: Get.find<DeleteCustomerUseCase>(),
-        searchCustomersUseCase: Get.find<SearchCustomersUseCase>(),
-      ),
-      fenix: true,
-    );
+    // PERMANENTE para que no se disponga al navegar a otras pantallas
+    if (!Get.isRegistered<CustomersController>()) {
+      Get.put<CustomersController>(
+        CustomersController(
+          getCustomersUseCase: Get.find<GetCustomersUseCase>(),
+          deleteCustomerUseCase: Get.find<DeleteCustomerUseCase>(),
+          searchCustomersUseCase: Get.find<SearchCustomersUseCase>(),
+        ),
+        permanent: true,
+      );
+    }
 
     // Controller de estadísticas (NUEVO)
     Get.lazyPut<CustomerStatsController>(

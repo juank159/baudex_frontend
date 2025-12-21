@@ -889,38 +889,44 @@ class _SidebarHeader extends StatelessWidget {
 class _SearchField extends StatelessWidget {
   final InvoiceListController controller;
 
-  const _SearchField({
-    required this.controller,
-  });
+  const _SearchField({required this.controller});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Container(
+        height: 44,
         decoration: BoxDecoration(
-          gradient: ElegantLightTheme.glassGradient,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
+            color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
           ),
           boxShadow: [
             BoxShadow(
-              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
-              blurRadius: 4,
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: CustomTextFieldSafe(
+        child: TextField(
           controller: controller.searchController,
-          label: '',
-          hint: 'Buscar por número, cliente o monto...',
-          prefixIcon: Icons.search,
-          suffixIcon: controller.searchController.text.isNotEmpty ? Icons.clear : null,
-          onSuffixIconPressed: controller.searchController.text.isNotEmpty
-              ? controller.clearFilters
-              : null,
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Buscar por número, cliente o monto...',
+            hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            prefixIcon: Icon(Icons.search_rounded, size: 20, color: Colors.grey.shade500),
+            suffixIcon: Obx(() => controller.searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: Icon(Icons.close, size: 18, color: Colors.grey.shade500),
+                    onPressed: () => controller.searchController.clear(),
+                  )
+                : const SizedBox.shrink()),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
         ),
       ),
     );

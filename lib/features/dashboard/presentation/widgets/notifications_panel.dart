@@ -48,16 +48,32 @@ class NotificationsPanel extends GetView<DashboardController> {
               ],
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildFuturisticHeader(),
-                const SizedBox(height: 24),
-                Obx(() => _buildNotificationsContent()),
-              ],
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 600;
+              final padding = isMobile ? 16.0 : 24.0;
+              final headerSpacing = isMobile ? 16.0 : 24.0;
+
+              // Si tiene altura definida (está dentro de SizedBox), usar Expanded
+              // Si no tiene altura definida (móvil sin SizedBox), usar tamaño mínimo
+              final hasDefinedHeight = constraints.maxHeight != double.infinity;
+
+              return Padding(
+                padding: EdgeInsets.all(padding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: hasDefinedHeight ? MainAxisSize.max : MainAxisSize.min,
+                  children: [
+                    _buildFuturisticHeader(),
+                    SizedBox(height: headerSpacing),
+                    if (hasDefinedHeight)
+                      Expanded(child: Obx(() => _buildNotificationsContent()))
+                    else
+                      Obx(() => _buildNotificationsContent()),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -225,20 +241,23 @@ class NotificationsPanel extends GetView<DashboardController> {
     final hasError = controller.notificationsError != null;
 
     if (isLoading && !hasAdvancedData && !hasBasicData) {
-      return _buildModernShimmerList();
+      return Center(child: _buildModernShimmerList());
     }
 
     if (hasError && !hasAdvancedData && !hasBasicData) {
-      return _buildModernErrorState();
+      return Center(child: _buildModernErrorState());
     }
 
     if (!hasAdvancedData && !hasBasicData) {
-      return _buildModernEmptyState();
+      return Center(child: _buildModernEmptyState());
     }
 
-    return hasAdvancedData
-        ? _buildAdvancedNotificationsList()
-        : _buildNotificationsList();
+    // Usar SingleChildScrollView para permitir scroll cuando hay muchos items
+    return SingleChildScrollView(
+      child: hasAdvancedData
+          ? _buildAdvancedNotificationsList()
+          : _buildNotificationsList(),
+    );
   }
 
   Widget _buildNotificationsList() {

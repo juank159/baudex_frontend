@@ -255,6 +255,7 @@ class InventoryAdjustmentsScreen extends GetView<InventoryAdjustmentsController>
                   return DropdownMenuItem<String>(
                     value: warehouse.id,
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.location_on,
@@ -262,7 +263,8 @@ class InventoryAdjustmentsScreen extends GetView<InventoryAdjustmentsController>
                           color: Colors.grey.shade600,
                         ),
                         const SizedBox(width: AppDimensions.paddingSmall),
-                        Expanded(
+                        Flexible(
+                          fit: FlexFit.loose,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,

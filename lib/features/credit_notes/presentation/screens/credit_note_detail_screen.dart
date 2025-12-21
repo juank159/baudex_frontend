@@ -91,41 +91,23 @@ class CreditNoteDetailScreen extends GetView<CreditNoteDetailController> {
   }
 
   Widget _buildAppBarButton(IconData icon, VoidCallback onTap, bool isSmall) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: isSmall ? 3 : 4, vertical: isSmall ? 10 : 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: EdgeInsets.all(isSmall ? 7 : 8),
-          child: Icon(icon, color: Colors.white, size: isSmall ? 18 : 20),
-        ),
-      ),
+    return IconButton(
+      icon: Icon(icon, color: Colors.white, size: isSmall ? 18 : 20),
+      onPressed: onTap,
     );
   }
 
   Widget _buildMoreMenu(BuildContext context, bool isSmall) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: isSmall ? 3 : 4, vertical: isSmall ? 10 : 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: PopupMenuButton<String>(
-        padding: EdgeInsets.zero,
-        icon: Icon(Icons.more_vert, color: Colors.white, size: isSmall ? 18 : 20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        onSelected: _handleMenuAction,
-        itemBuilder: (context) => [
-          _buildMenuItem('pdf', 'Descargar PDF', Icons.picture_as_pdf, Colors.red),
-          _buildMenuItem('invoice', 'Ver Factura', Icons.receipt, Colors.orange),
-          _buildMenuItem('customer', 'Ver Cliente', Icons.person, Colors.blue),
-        ],
-      ),
+    return PopupMenuButton<String>(
+      padding: EdgeInsets.zero,
+      icon: Icon(Icons.more_vert, color: Colors.white, size: isSmall ? 18 : 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: _handleMenuAction,
+      itemBuilder: (context) => [
+        _buildMenuItem('pdf', 'Descargar PDF', Icons.picture_as_pdf, Colors.red),
+        _buildMenuItem('invoice', 'Ver Factura', Icons.receipt, Colors.orange),
+        _buildMenuItem('customer', 'Ver Cliente', Icons.person, Colors.blue),
+      ],
     );
   }
 

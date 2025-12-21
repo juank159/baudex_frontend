@@ -2,6 +2,7 @@
 import 'package:dartz/dartz.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../entities/bank_account.dart';
+import '../entities/bank_account_transaction.dart';
 
 /// Contrato del repositorio de cuentas bancarias
 abstract class BankAccountRepository {
@@ -22,6 +23,17 @@ abstract class BankAccountRepository {
 
   /// Obtener cuenta predeterminada
   Future<Either<Failure, BankAccount?>> getDefaultBankAccount();
+
+  /// Obtener transacciones de una cuenta bancaria
+  Future<Either<Failure, BankAccountTransactionsResponse>>
+      getBankAccountTransactions(
+    String accountId, {
+    String? startDate,
+    String? endDate,
+    int? page,
+    int? limit,
+    String? search,
+  });
 
   // ==================== WRITE OPERATIONS ====================
 

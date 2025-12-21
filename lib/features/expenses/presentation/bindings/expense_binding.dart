@@ -139,17 +139,19 @@ class ExpenseBinding extends Bindings {
 
     // ==================== CONTROLLERS ====================
 
-    // ✅ Usar EnhancedExpensesController como controlador principal
-    Get.lazyPut<EnhancedExpensesController>(
-      () => EnhancedExpensesController(
-        getExpensesUseCase: Get.find<GetExpensesUseCase>(),
-        deleteExpenseUseCase: Get.find<DeleteExpenseUseCase>(),
-        getExpenseStatsUseCase: Get.find<GetExpenseStatsUseCase>(),
-        approveExpenseUseCase: Get.find<ApproveExpenseUseCase>(),
-        submitExpenseUseCase: Get.find<SubmitExpenseUseCase>(),
-      ),
-      fenix: true,
-    );
+    // ✅ EnhancedExpensesController - PERMANENTE para evitar disposal al navegar
+    if (!Get.isRegistered<EnhancedExpensesController>()) {
+      Get.put<EnhancedExpensesController>(
+        EnhancedExpensesController(
+          getExpensesUseCase: Get.find<GetExpensesUseCase>(),
+          deleteExpenseUseCase: Get.find<DeleteExpenseUseCase>(),
+          getExpenseStatsUseCase: Get.find<GetExpenseStatsUseCase>(),
+          approveExpenseUseCase: Get.find<ApproveExpenseUseCase>(),
+          submitExpenseUseCase: Get.find<SubmitExpenseUseCase>(),
+        ),
+        permanent: true, // ✅ PERMANENTE para evitar disposal al navegar
+      );
+    }
 
     // ✅ Mantener el controlador original como fallback si es necesario
     Get.lazyPut<ExpensesController>(

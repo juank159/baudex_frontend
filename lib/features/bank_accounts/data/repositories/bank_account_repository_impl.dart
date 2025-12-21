@@ -4,9 +4,11 @@ import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../domain/entities/bank_account.dart';
+import '../../domain/entities/bank_account_transaction.dart';
 import '../../domain/repositories/bank_account_repository.dart';
 import '../datasources/bank_account_remote_datasource.dart';
 import '../models/bank_account_model.dart';
+import '../models/bank_account_transaction_model.dart';
 
 /// Implementación del repositorio de cuentas bancarias
 class BankAccountRepositoryImpl implements BankAccountRepository {
@@ -212,6 +214,46 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
     try {
       final account = await remoteDataSource.toggleBankAccountActive(id);
       return Right(account.toEntity());
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(UnknownFailure('Error inesperado: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, BankAccountTransactionsResponse>>
+      getBankAccountTransactions(
+    String accountId, {
+    String? startDate,
+    String? endDate,
+    int? page,
+    int? limit,
+    String? search,
+  }) async {
+    if (!await networkInfo.isConnected) {
+      return Left(NetworkFailure('Sin conexión a internet'));
+    }
+
+    try {
+      final response = await remoteDataSource.getBankAccountTransactions(
+        accountId,
+        startDate: startDate,
+        endDate: endDate,
+        page: page,
+        limit: limit,
+        search: search,
+      );
+
+      // Extraer los datos si vienen envueltos en { success: true, data: {...} }
+      final data = response is Map<String, dynamic> &&
+              response.containsKey('data')
+          ? response['data']
+          : response;
+
+      final transactionsResponse =
+          BankAccountTransactionsResponseModel.fromJson(data);
+      return Right(transactionsResponse);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
     } catch (e) {

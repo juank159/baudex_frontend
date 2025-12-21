@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
-import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/products_controller.dart';
 import '../widgets/product_stats_widget.dart';
@@ -16,7 +16,8 @@ class ProductStatsScreen extends GetView<ProductsController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _buildAppBar(context),
+      appBar: _buildElegantAppBar(context),
+      backgroundColor: ElegantLightTheme.backgroundColor,
       body: Obx(() {
         if (controller.isLoading) {
           return const LoadingWidget(message: 'Cargando estadísticas...');
@@ -35,178 +36,202 @@ class ProductStatsScreen extends GetView<ProductsController> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
+  // ==================== ELEGANT APP BAR ====================
+
+  PreferredSizeWidget _buildElegantAppBar(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
+
     return AppBar(
-      title: Text(
-        'Estadísticas de Productos',
-        style: TextStyle(
-          fontSize: ResponsiveHelper.getFontSize(
-            context,
-            mobile: 18,
-            tablet: 20,
-            desktop: 22,
-          ),
+      backgroundColor: Colors.transparent,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      centerTitle: false,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
         ),
       ),
-      elevation: 0,
-      actions: [
-        // Refrescar estadísticas - Solo en desktop/tablet
-        if (!ResponsiveHelper.isMobile(context))
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: controller.loadInitialData,
-            tooltip: 'Actualizar estadísticas',
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Icon(
+              Icons.bar_chart_rounded,
+              size: isMobile ? 18 : 20,
+              color: Colors.white,
+            ),
           ),
-
-        // Filtrar por periodo - Solo en desktop/tablet
-        if (!ResponsiveHelper.isMobile(context))
-          IconButton(
-            icon: const Icon(Icons.date_range),
-            onPressed: () => _showPeriodSelector(context),
-            tooltip: 'Seleccionar período',
-          ),
-
-        // Menú de opciones - Siempre visible
-        PopupMenuButton<String>(
-          onSelected: (value) => _handleMenuAction(value, context),
-          itemBuilder:
-              (context) => [
-                const PopupMenuItem(
-                  value: 'refresh',
-                  child: Row(
-                    children: [
-                      Icon(Icons.refresh),
-                      SizedBox(width: 8),
-                      Text('Actualizar'),
-                    ],
+          const SizedBox(width: 12),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Estadísticas de Productos',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: isMobile ? 16 : 18,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const PopupMenuItem(
-                  value: 'period',
-                  child: Row(
-                    children: [
-                      Icon(Icons.date_range),
-                      SizedBox(width: 8),
-                      Text('Seleccionar Período'),
-                    ],
+                Text(
+                  'Panel de análisis e inventario',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white.withValues(alpha: 0.8),
                   ),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'export_pdf',
-                  child: Row(
-                    children: [
-                      Icon(Icons.picture_as_pdf),
-                      SizedBox(width: 8),
-                      Text('Exportar PDF'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'export_excel',
-                  child: Row(
-                    children: [
-                      Icon(Icons.table_chart),
-                      SizedBox(width: 8),
-                      Text('Exportar Excel'),
-                    ],
-                  ),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'detailed_report',
-                  child: Row(
-                    children: [
-                      Icon(Icons.analytics),
-                      SizedBox(width: 8),
-                      Text('Reporte Detallado'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'share',
-                  child: Row(
-                    children: [
-                      Icon(Icons.share),
-                      SizedBox(width: 8),
-                      Text('Compartir'),
-                    ],
-                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, size: 20),
+        onPressed: () => Get.back(),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, size: 20),
+          onPressed: controller.loadInitialData,
+          tooltip: 'Actualizar estadísticas',
         ),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, size: 20, color: Colors.white),
+          onSelected: (value) => _handleMenuAction(value, context),
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 8,
+          itemBuilder: (context) => [
+            _buildElegantPopupMenuItem('refresh', Icons.refresh, 'Actualizar', ElegantLightTheme.primaryGradient),
+            _buildElegantPopupMenuItem('period', Icons.date_range, 'Seleccionar Período', ElegantLightTheme.infoGradient),
+            const PopupMenuDivider(),
+            _buildElegantPopupMenuItem('export_pdf', Icons.picture_as_pdf, 'Exportar PDF', ElegantLightTheme.errorGradient),
+            _buildElegantPopupMenuItem('export_excel', Icons.table_chart, 'Exportar Excel', ElegantLightTheme.successGradient),
+            const PopupMenuDivider(),
+            _buildElegantPopupMenuItem('detailed_report', Icons.analytics, 'Reporte Detallado', ElegantLightTheme.warningGradient),
+            _buildElegantPopupMenuItem('share', Icons.share, 'Compartir', ElegantLightTheme.primaryGradient),
+          ],
+        ),
+        const SizedBox(width: 8),
       ],
     );
   }
 
-  Widget _buildMobileLayout(BuildContext context) {
-    return SingleChildScrollView(
-      padding: ResponsiveHelper.getPadding(context),
-      child: Column(
+  PopupMenuItem<String> _buildElegantPopupMenuItem(
+    String value,
+    IconData icon,
+    String label,
+    LinearGradient gradient,
+  ) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
         children: [
-          // Resumen general compacto
-          _buildOverviewCard(context),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-
-          // Widget principal de estadísticas
-          ProductStatsWidget(stats: controller.stats!, isCompact: true),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-
-          // Acciones rápidas
-          _buildQuickActions(context),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-
-          // Alertas y recomendaciones
-          _buildAlertsSection(context),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) * 2),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: gradient,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: gradient.colors.first.withValues(alpha: 0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(icon, size: 16, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: ElegantLightTheme.textPrimary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTabletLayout(BuildContext context) {
-    return SingleChildScrollView(
-      child: AdaptiveContainer(
-        maxWidth: ResponsiveHelper.isTablet(context) ? 1000 : 1200,
+  // ==================== LAYOUTS ====================
+
+  Widget _buildMobileLayout(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () async => controller.loadInitialData(),
+      color: ElegantLightTheme.primaryBlue,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-
-            // Resumen en cards horizontales
-            _buildOverviewCards(context),
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-
-            // Estadísticas principales en dos columnas
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: ProductStatsWidget(
-                      stats: controller.stats!,
-                      isCompact: false,
-                    ),
-                  ),
-                  SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        _buildTopProductsCard(context),
-                        SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-                        _buildAlertsSection(context),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-
-            // Acciones
-            _buildActions(context),
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
+            _buildStatsHeader(context),
+            const SizedBox(height: 12),
+            _buildQuickMetricsRow(context),
+            const SizedBox(height: 12),
+            ProductStatsWidget(stats: controller.stats!, isCompact: true),
+            const SizedBox(height: 12),
+            _buildAlertsSection(context),
+            const SizedBox(height: 12),
+            _buildQuickActions(context),
+            const SizedBox(height: 80),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabletLayout(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () async => controller.loadInitialData(),
+      color: ElegantLightTheme.primaryBlue,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: Column(
+              children: [
+                _buildStatsHeader(context),
+                const SizedBox(height: 16),
+                _buildQuickMetricsRow(context),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: ProductStatsWidget(stats: controller.stats!, isCompact: false),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _buildAlertsSection(context),
+                          const SizedBox(height: 16),
+                          _buildQuickActions(context),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -215,84 +240,68 @@ class ProductStatsScreen extends GetView<ProductsController> {
   Widget _buildDesktopLayout(BuildContext context) {
     return Row(
       children: [
-        // Contenido principal
         Expanded(
-          flex: 3,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(ResponsiveHelper.getHorizontalSpacing(context) * 1.5),
-            child: Column(
-              children: [
-                // Cards de resumen
-                _buildOverviewCards(context),
-                SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-
-                // Estadísticas principales
-                ProductStatsWidget(stats: controller.stats!, isCompact: false),
-                SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-
-                // Gráficos adicionales
-                _buildAdditionalCharts(context),
-              ],
+          child: RefreshIndicator(
+            onRefresh: () async => controller.loadInitialData(),
+            color: ElegantLightTheme.primaryBlue,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  _buildStatsHeader(context),
+                  const SizedBox(height: 14),
+                  _buildQuickMetricsRow(context),
+                  const SizedBox(height: 14),
+                  ProductStatsWidget(stats: controller.stats!, isCompact: false),
+                ],
+              ),
             ),
           ),
         ),
-
-        // Panel lateral derecho
         Container(
-          width: MediaQuery.of(context).size.width * 0.25,
-          constraints: const BoxConstraints(minWidth: 300, maxWidth: 400),
+          width: 300,
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            border: Border(left: BorderSide(color: Colors.grey.shade300)),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                ElegantLightTheme.cardColor,
+                ElegantLightTheme.backgroundColor,
+              ],
+            ),
+            border: Border(
+              left: BorderSide(
+                color: ElegantLightTheme.textTertiary.withValues(alpha: 0.12),
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(-2, 0),
+              ),
+            ],
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header del panel
-              Container(
-                padding: EdgeInsets.all(ResponsiveHelper.getHorizontalSpacing(context)),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade300),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.analytics,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Panel de Control',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
-                          fontSize: ResponsiveHelper.getFontSize(
-                            context,
-                            mobile: 14,
-                            tablet: 16,
-                            desktop: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Contenido del panel
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.all(ResponsiveHelper.getHorizontalSpacing(context)),
+                  padding: const EdgeInsets.all(12),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildTopProductsCard(context),
-                      SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
+                      _buildSidebarHeader(context),
+                      const SizedBox(height: 12),
+                      _buildQuickSummary(context),
+                      const SizedBox(height: 12),
+                      _buildStockDistribution(context),
+                      const SizedBox(height: 12),
                       _buildAlertsSection(context),
-                      SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
+                      const SizedBox(height: 12),
                       _buildQuickActions(context),
+                      const SizedBox(height: 12),
+                      _buildQuickFilters(context),
                     ],
                   ),
                 ),
@@ -304,444 +313,66 @@ class ProductStatsScreen extends GetView<ProductsController> {
     );
   }
 
-  // ==================== OVERVIEW CARDS ====================
+  // ==================== STATS HEADER ====================
 
-  Widget _buildOverviewCard(BuildContext context) {
-    final stats = controller.stats!;
+  Widget _buildStatsHeader(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
+    final isDesktop = Responsive.isDesktop(context);
 
-    return CustomCard(
-      child: Column(
-        children: [
-          Text(
-            'Resumen del Inventario',
-            style: TextStyle(
-              fontSize: ResponsiveHelper.getFontSize(
-                context,
-                mobile: 18,
-                tablet: 20,
-                desktop: 20,
-              ),
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
-            ),
-          ),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-          Row(
-            children: [
-              _buildMiniStatCard(
-                'Total',
-                stats.total.toString(),
-                Icons.inventory_2,
-                Colors.blue,
-                context,
-              ),
-              SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context) * 0.75),
-              _buildMiniStatCard(
-                'Activos',
-                stats.active.toString(),
-                Icons.check_circle,
-                Colors.green,
-                context,
-              ),
-              SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context) * 0.75),
-              _buildMiniStatCard(
-                'Alertas',
-                (stats.lowStock + stats.outOfStock).toString(),
-                Icons.warning,
-                Colors.orange,
-                context,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOverviewCards(BuildContext context) {
-    final stats = controller.stats!;
-    final spacing = ResponsiveHelper.getHorizontalSpacing(context);
-
-    if (ResponsiveHelper.isMobile(context)) {
-      // En móvil: layout vertical con 2 columnas
-      return Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  'Total',
-                  stats.total.toString(),
-                  Icons.inventory_2,
-                  Colors.blue,
-                  'Productos',
-                  context,
-                ),
-              ),
-              SizedBox(width: spacing),
-              Expanded(
-                child: _buildStatCard(
-                  'Valor',
-                  '\$${stats.totalValue.toStringAsFixed(0)}',
-                  Icons.attach_money,
-                  Colors.green,
-                  'Inventario',
-                  context,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: spacing),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  'Activos',
-                  stats.active.toString(),
-                  Icons.check_circle,
-                  Colors.teal,
-                  '${((stats.active / stats.total) * 100).toStringAsFixed(1)}%',
-                  context,
-                ),
-              ),
-              SizedBox(width: spacing),
-              Expanded(
-                child: _buildStatCard(
-                  'Alertas',
-                  (stats.lowStock + stats.outOfStock).toString(),
-                  Icons.warning,
-                  Colors.orange,
-                  'Atención',
-                  context,
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-
-    // En tablet/desktop: layout horizontal
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            'Total de Productos',
-            stats.total.toString(),
-            Icons.inventory_2,
-            Colors.blue,
-            'Productos registrados',
-            context,
-          ),
-        ),
-        SizedBox(width: spacing),
-        Expanded(
-          child: _buildStatCard(
-            'Valor del Inventario',
-            '\$${stats.totalValue.toStringAsFixed(0)}',
-            Icons.attach_money,
-            Colors.green,
-            'Valor total estimado',
-            context,
-          ),
-        ),
-        SizedBox(width: spacing),
-        Expanded(
-          child: _buildStatCard(
-            'Productos Activos',
-            stats.active.toString(),
-            Icons.check_circle,
-            Colors.teal,
-            '${((stats.active / stats.total) * 100).toStringAsFixed(1)}% del total',
-            context,
-          ),
-        ),
-        SizedBox(width: spacing),
-        Expanded(
-          child: _buildStatCard(
-            'Alertas de Stock',
-            (stats.lowStock + stats.outOfStock).toString(),
-            Icons.warning,
-            Colors.orange,
-            'Requieren atención',
-            context,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-    String subtitle,
-    BuildContext context,
-  ) {
-    final isMobile = ResponsiveHelper.isMobile(context);
-    
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(isMobile ? 6 : 8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  icon, 
-                  color: color, 
-                  size: isMobile ? 20 : 24,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: ResponsiveHelper.getFontSize(
-                    context,
-                    mobile: 18,
-                    tablet: 22,
-                    desktop: 24,
-                  ),
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: isMobile ? 8 : 12),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: ResponsiveHelper.getFontSize(
-                context,
-                mobile: 14,
-                tablet: 16,
-                desktop: 16,
-              ),
-              fontWeight: FontWeight.w600,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          SizedBox(height: isMobile ? 2 : 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: ResponsiveHelper.getFontSize(
-                context,
-                mobile: 11,
-                tablet: 12,
-                desktop: 12,
-              ),
-              color: Colors.grey.shade600,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniStatCard(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-    BuildContext context,
-  ) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.all(
-          ResponsiveHelper.isMobile(context) ? 10 : 12,
-        ),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon, 
-              color: color, 
-              size: ResponsiveHelper.isMobile(context) ? 18 : 20,
-            ),
-            SizedBox(
-              height: ResponsiveHelper.isMobile(context) ? 6 : 8,
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: ResponsiveHelper.getFontSize(
-                  context,
-                  mobile: 16,
-                  tablet: 18,
-                  desktop: 18,
-                ),
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: ResponsiveHelper.getFontSize(
-                  context,
-                  mobile: 11,
-                  tablet: 12,
-                  desktop: 12,
-                ),
-                color: Colors.grey.shade600,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-//   // ==================== ADDITIONAL SECTIONS ====================
-
-  Widget _buildTopProductsCard(BuildContext context) {
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.trending_up, color: Colors.green),
-              SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context) * 0.5),
-              Expanded(
-                child: Text(
-                  'Productos Destacados',
-                  style: TextStyle(
-                    fontSize: ResponsiveHelper.getFontSize(
-                      context,
-                      mobile: 14,
-                      tablet: 16,
-                      desktop: 16,
-                    ),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () => Get.toNamed('/products'),
-                child: Text(
-                  ResponsiveHelper.isMobile(context) ? 'Ver' : 'Ver todos',
-                  style: TextStyle(
-                    fontSize: ResponsiveHelper.getFontSize(
-                      context,
-                      mobile: 12,
-                      tablet: 14,
-                      desktop: 14,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-          _buildProductListItem(
-            'Producto más vendido',
-            'No disponible',
-            Icons.star,
-            Colors.amber,
-            context,
-          ),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) * 0.5),
-          _buildProductListItem(
-            'Mayor valor en stock',
-            'No disponible',
-            Icons.attach_money,
-            Colors.green,
-            context,
-          ),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) * 0.5),
-          _buildProductListItem(
-            'Último agregado',
-            'No disponible',
-            Icons.new_releases,
-            Colors.blue,
-            context,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductListItem(
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    BuildContext context,
-  ) {
     return Container(
-      padding: EdgeInsets.all(
-        ResponsiveHelper.isMobile(context) ? 6 : 8,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 14 : (isDesktop ? 12 : 16),
+        vertical: isMobile ? 12 : (isDesktop ? 10 : 14),
       ),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(6),
+        gradient: ElegantLightTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(
-              ResponsiveHelper.isMobile(context) ? 4 : 6,
-            ),
+            padding: EdgeInsets.all(isMobile ? 8 : (isDesktop ? 8 : 10)),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(4),
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
             ),
             child: Icon(
-              icon, 
-              color: color, 
-              size: ResponsiveHelper.isMobile(context) ? 14 : 16,
+              Icons.inventory_2,
+              color: Colors.white,
+              size: isMobile ? 20 : (isDesktop ? 20 : 22),
             ),
           ),
-          SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context) * 0.5),
+          SizedBox(width: isMobile ? 10 : 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  title,
+                  'Panel de Estadísticas',
                   style: TextStyle(
-                    fontSize: ResponsiveHelper.getFontSize(
-                      context,
-                      mobile: 11,
-                      tablet: 12,
-                      desktop: 12,
-                    ),
-                    fontWeight: FontWeight.w600,
+                    fontSize: isMobile ? 15 : (isDesktop ? 15 : 16),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  subtitle,
+                  'Análisis completo del inventario y productos',
                   style: TextStyle(
-                    fontSize: ResponsiveHelper.getFontSize(
-                      context,
-                      mobile: 10,
-                      tablet: 11,
-                      desktop: 11,
-                    ),
-                    color: Colors.grey.shade600,
+                    fontSize: isMobile ? 10 : (isDesktop ? 10 : 11),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -751,105 +382,337 @@ class ProductStatsScreen extends GetView<ProductsController> {
     );
   }
 
+  Widget _buildSidebarHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(6),
+              boxShadow: [
+                BoxShadow(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.dashboard, color: Colors.white, size: 16),
+          ),
+          const SizedBox(width: 10),
+          const Text(
+            'Panel de Control',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: ElegantLightTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== QUICK METRICS ROW ====================
+
+  Widget _buildQuickMetricsRow(BuildContext context) {
+    final stats = controller.stats!;
+    final isMobile = context.isMobile;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildMetricCard(
+            'Total Productos',
+            stats.total.toString(),
+            Icons.inventory_2,
+            ElegantLightTheme.primaryBlue,
+            isMobile,
+            context,
+          ),
+        ),
+        SizedBox(width: isMobile ? 8 : 12),
+        Expanded(
+          child: _buildMetricCard(
+            'Valor Inventario',
+            '\$${(stats.totalValue / 1000).toStringAsFixed(1)}K',
+            Icons.attach_money,
+            const Color(0xFF10B981),
+            isMobile,
+            context,
+          ),
+        ),
+        SizedBox(width: isMobile ? 8 : 12),
+        Expanded(
+          child: _buildMetricCard(
+            'Activos',
+            stats.active.toString(),
+            Icons.check_circle,
+            const Color(0xFF3B82F6),
+            isMobile,
+            context,
+          ),
+        ),
+        SizedBox(width: isMobile ? 8 : 12),
+        Expanded(
+          child: _buildMetricCard(
+            'Alertas',
+            (stats.lowStock + stats.outOfStock).toString(),
+            Icons.warning_rounded,
+            const Color(0xFFF59E0B),
+            isMobile,
+            context,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    bool isMobile,
+    BuildContext context,
+  ) {
+    final isDesktop = Responsive.isDesktop(context);
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 10 : (isDesktop ? 10 : 12)),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            color.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.15),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.all(isMobile ? 8 : (isDesktop ? 8 : 9)),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color, color.withValues(alpha: 0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: isMobile ? 20 : (isDesktop ? 22 : 24),
+            ),
+          ),
+          SizedBox(height: isMobile ? 8 : (isDesktop ? 10 : 12)),
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+            builder: (context, animValue, child) {
+              return Opacity(
+                opacity: animValue,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: isMobile ? 18 : (isDesktop ? 19 : 20),
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isMobile ? 10.5 : (isDesktop ? 11 : 11.5),
+              color: ElegantLightTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== ALERTS SECTION ====================
+
   Widget _buildAlertsSection(BuildContext context) {
     final stats = controller.stats!;
-    final spacing = ResponsiveHelper.getVerticalSpacing(context);
+    final isMobile = ResponsiveHelper.isMobile(context);
+    final isDesktop = Responsive.isDesktop(context);
 
-    return CustomCard(
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 14 : (isDesktop ? 14 : 16)),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.notification_important, color: Colors.orange),
-              SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context) * 0.5),
+              Container(
+                padding: EdgeInsets.all(isMobile ? 7 : 8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.warningGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.notification_important,
+                  color: Colors.white,
+                  size: isMobile ? 16 : (isDesktop ? 17 : 18),
+                ),
+              ),
+              SizedBox(width: isMobile ? 10 : 12),
               Expanded(
                 child: Text(
-                  ResponsiveHelper.isMobile(context) 
-                      ? 'Alertas' 
-                      : 'Alertas y Notificaciones',
+                  'Alertas y Notificaciones',
                   style: TextStyle(
-                    fontSize: ResponsiveHelper.getFontSize(
-                      context,
-                      mobile: 14,
-                      tablet: 16,
-                      desktop: 16,
-                    ),
+                    fontSize: isMobile ? 15 : (isDesktop ? 15.5 : 16),
                     fontWeight: FontWeight.bold,
+                    color: ElegantLightTheme.textPrimary,
                   ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: spacing),
-
-          // Stock bajo
+          SizedBox(height: isMobile ? 14 : (isDesktop ? 14 : 16)),
           if (stats.lowStock > 0)
             _buildAlertItem(
               'Stock Bajo',
               '${stats.lowStock} productos requieren reposición',
-              Icons.warning,
-              Colors.orange,
+              Icons.warning_rounded,
+              const Color(0xFFF59E0B),
               () => controller.applyStockFilter(lowStock: true),
               context,
             ),
-
-          // Sin stock
           if (stats.outOfStock > 0) ...[
-            if (stats.lowStock > 0) SizedBox(height: spacing * 0.5),
+            if (stats.lowStock > 0) const SizedBox(height: 12),
             _buildAlertItem(
               'Sin Stock',
               '${stats.outOfStock} productos agotados',
-              Icons.error,
-              Colors.red,
+              Icons.error_rounded,
+              const Color(0xFFEF4444),
               () => controller.applyStockFilter(inStock: false),
               context,
             ),
           ],
-
-          // Productos inactivos
           if (stats.inactive > 0) ...[
-            if (stats.lowStock > 0 || stats.outOfStock > 0)
-              SizedBox(height: spacing * 0.5),
+            if (stats.lowStock > 0 || stats.outOfStock > 0) const SizedBox(height: 12),
             _buildAlertItem(
               'Productos Inactivos',
               '${stats.inactive} productos desactivados',
-              Icons.pause_circle,
-              Colors.grey,
+              Icons.pause_circle_rounded,
+              const Color(0xFF6B7280),
               () => controller.applyStatusFilter(ProductStatus.inactive),
               context,
             ),
           ],
-
-          // Si no hay alertas
-          if (stats.lowStock == 0 &&
-              stats.outOfStock == 0 &&
-              stats.inactive == 0)
+          if (stats.lowStock == 0 && stats.outOfStock == 0 && stats.inactive == 0)
             Container(
-              padding: EdgeInsets.all(
-                ResponsiveHelper.isMobile(context) ? 12 : 16,
-              ),
+              padding: EdgeInsets.all(isMobile ? 14 : 16),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(8),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF10B981).withValues(alpha: 0.1),
+                    const Color(0xFF10B981).withValues(alpha: 0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green.shade600),
-                  SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context) * 0.5),
-                  Expanded(
-                    child: Text(
-                      ResponsiveHelper.isMobile(context)
-                          ? 'Todo está en orden.'
-                          : 'Todo está en orden. No hay alertas pendientes.',
-                      style: TextStyle(
-                        fontSize: ResponsiveHelper.getFontSize(
-                          context,
-                          mobile: 12,
-                          tablet: 14,
-                          desktop: 14,
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.successGradient,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
                         ),
-                        fontWeight: FontWeight.w500,
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.check_circle_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Text(
+                      'Todo está en orden. No hay alertas pendientes.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF10B981),
                       ),
                     ),
                   ),
@@ -870,25 +733,51 @@ class ProductStatsScreen extends GetView<ProductsController> {
     BuildContext context,
   ) {
     final isMobile = ResponsiveHelper.isMobile(context);
-    
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: EdgeInsets.all(isMobile ? 10 : 12),
+        padding: EdgeInsets.all(isMobile ? 12 : 14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.2)),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              color.withValues(alpha: 0.1),
+              color.withValues(alpha: 0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.15),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            Icon(
-              icon, 
-              color: color, 
-              size: isMobile ? 18 : 20,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [color, color.withValues(alpha: 0.8)],
+                ),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: Colors.white, size: isMobile ? 18 : 20),
             ),
-            SizedBox(width: isMobile ? 10 : 12),
+            SizedBox(width: isMobile ? 12 : 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -896,26 +785,17 @@ class ProductStatsScreen extends GetView<ProductsController> {
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: ResponsiveHelper.getFontSize(
-                        context,
-                        mobile: 12,
-                        tablet: 14,
-                        desktop: 14,
-                      ),
-                      fontWeight: FontWeight.w600,
+                      fontSize: isMobile ? 13 : 14,
+                      fontWeight: FontWeight.bold,
                       color: color,
                     ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     description,
                     style: TextStyle(
-                      fontSize: ResponsiveHelper.getFontSize(
-                        context,
-                        mobile: 11,
-                        tablet: 12,
-                        desktop: 12,
-                      ),
-                      color: Colors.grey.shade600,
+                      fontSize: isMobile ? 11 : 12,
+                      color: ElegantLightTheme.textSecondary,
                     ),
                     maxLines: isMobile ? 1 : 2,
                     overflow: TextOverflow.ellipsis,
@@ -924,9 +804,9 @@ class ProductStatsScreen extends GetView<ProductsController> {
               ),
             ),
             Icon(
-              Icons.arrow_forward_ios, 
-              size: isMobile ? 12 : 14, 
-              color: color,
+              Icons.arrow_forward_ios_rounded,
+              size: isMobile ? 12 : 14,
+              color: color.withValues(alpha: 0.5),
             ),
           ],
         ),
@@ -934,34 +814,64 @@ class ProductStatsScreen extends GetView<ProductsController> {
     );
   }
 
+  // ==================== QUICK ACTIONS ====================
+
   Widget _buildQuickActions(BuildContext context) {
     final isMobile = ResponsiveHelper.isMobile(context);
-    final spacing = ResponsiveHelper.getHorizontalSpacing(context);
-    
-    return CustomCard(
+    final isDesktop = Responsive.isDesktop(context);
+    final spacing = ResponsiveHelper.getHorizontalSpacing(context) * 0.75;
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 14 : (isDesktop ? 14 : 16)),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Acciones Rápidas',
-            style: TextStyle(
-              fontSize: ResponsiveHelper.getFontSize(
-                context,
-                mobile: 14,
-                tablet: 16,
-                desktop: 16,
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(isMobile ? 7 : 8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.flash_on,
+                  color: Colors.white,
+                  size: isMobile ? 16 : (isDesktop ? 17 : 18),
+                ),
               ),
-              fontWeight: FontWeight.bold,
-            ),
+              SizedBox(width: isMobile ? 10 : 12),
+              Text(
+                'Acciones Rápidas',
+                style: TextStyle(
+                  fontSize: isMobile ? 15 : (isDesktop ? 15.5 : 16),
+                  fontWeight: FontWeight.bold,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-
+          SizedBox(height: isMobile ? 14 : (isDesktop ? 14 : 16)),
           if (isMobile) ...[
-            // En móvil: layout vertical compacto
             CustomButton(
               text: 'Ver Productos',
               icon: Icons.inventory_2,
-              type: ButtonType.outline,
+              type: ButtonType.primary,
               onPressed: () => Get.toNamed('/products'),
               width: double.infinity,
             ),
@@ -969,6 +879,7 @@ class ProductStatsScreen extends GetView<ProductsController> {
             CustomButton(
               text: 'Agregar Producto',
               icon: Icons.add,
+              type: ButtonType.primary,
               onPressed: () => Get.toNamed('/products/create'),
               width: double.infinity,
             ),
@@ -995,48 +906,40 @@ class ProductStatsScreen extends GetView<ProductsController> {
               ],
             ),
           ] else ...[
-            // En tablet/desktop: layout en grid 2x2
-            Row(
-              children: [
-                Expanded(
-                  child: CustomButton(
-                    text: 'Ver Productos',
-                    icon: Icons.inventory_2,
-                    type: ButtonType.outline,
-                    onPressed: () => Get.toNamed('/products'),
-                  ),
-                ),
-                SizedBox(width: spacing),
-                Expanded(
-                  child: CustomButton(
-                    text: 'Agregar Producto',
-                    icon: Icons.add,
-                    onPressed: () => Get.toNamed('/products/create'),
-                  ),
-                ),
-              ],
+            CustomButton(
+              text: 'Ver Productos',
+              icon: Icons.inventory_2,
+              type: ButtonType.primary,
+              backgroundColor: ElegantLightTheme.primaryBlue,
+              onPressed: () => Get.toNamed('/products'),
+              width: double.infinity,
             ),
             SizedBox(height: spacing),
-            Row(
-              children: [
-                Expanded(
-                  child: CustomButton(
-                    text: 'Stock Bajo',
-                    icon: Icons.warning,
-                    type: ButtonType.outline,
-                    onPressed: () => controller.applyStockFilter(lowStock: true),
-                  ),
-                ),
-                SizedBox(width: spacing),
-                Expanded(
-                  child: CustomButton(
-                    text: 'Actualizar',
-                    icon: Icons.refresh,
-                    type: ButtonType.outline,
-                    onPressed: controller.refreshProducts,
-                  ),
-                ),
-              ],
+            CustomButton(
+              text: 'Agregar Producto',
+              icon: Icons.add,
+              type: ButtonType.primary,
+              backgroundColor: const Color(0xFF10B981),
+              onPressed: () => Get.toNamed('/products/create'),
+              width: double.infinity,
+            ),
+            SizedBox(height: spacing),
+            CustomButton(
+              text: 'Stock Bajo',
+              icon: Icons.warning,
+              type: ButtonType.outline,
+              backgroundColor: const Color(0xFFF59E0B),
+              onPressed: () => controller.applyStockFilter(lowStock: true),
+              width: double.infinity,
+            ),
+            SizedBox(height: spacing),
+            CustomButton(
+              text: 'Actualizar',
+              icon: Icons.refresh,
+              type: ButtonType.outline,
+              backgroundColor: const Color(0xFF3B82F6),
+              onPressed: controller.refreshProducts,
+              width: double.infinity,
             ),
           ],
         ],
@@ -1044,144 +947,368 @@ class ProductStatsScreen extends GetView<ProductsController> {
     );
   }
 
-  Widget _buildAdditionalCharts(BuildContext context) {
-    final spacing = ResponsiveHelper.getHorizontalSpacing(context);
-    
+  // ==================== QUICK SUMMARY ====================
+
+  Widget _buildQuickSummary(BuildContext context) {
+    final stats = controller.stats!;
+    final inStock = stats.total - stats.lowStock - stats.outOfStock;
+    final stockPercentage = stats.total > 0 ? (inStock / stats.total * 100).toStringAsFixed(0) : '0';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
+            ElegantLightTheme.primaryBlue.withValues(alpha: 0.02),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.insights, color: Colors.white, size: 14),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Resumen Rápido',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildSummaryItem('Total Productos', stats.total.toString(), Icons.inventory_2, ElegantLightTheme.primaryBlue),
+          const SizedBox(height: 8),
+          _buildSummaryItem('Disponibilidad', '$stockPercentage%', Icons.pie_chart, const Color(0xFF10B981)),
+          const SizedBox(height: 8),
+          _buildSummaryItem('Valor Total', '\$${(stats.totalValue / 1000).toStringAsFixed(1)}K', Icons.attach_money, const Color(0xFFF59E0B)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryItem(String label, String value, IconData icon, Color color) {
     return Row(
       children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
         Expanded(
-          child: CustomCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tendencias',
-                  style: TextStyle(
-                    fontSize: ResponsiveHelper.getFontSize(
-                      context,
-                      mobile: 16,
-                      tablet: 18,
-                      desktop: 18,
-                    ),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-                Container(
-                  height: ResponsiveHelper.isMobile(context) ? 150 : 200,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Gráfico de tendencias\n(Próximamente)',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: ResponsiveHelper.getFontSize(
-                          context,
-                          mobile: 12,
-                          tablet: 14,
-                          desktop: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: ElegantLightTheme.textSecondary,
             ),
           ),
         ),
-        SizedBox(width: spacing),
-        Expanded(
-          child: CustomCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Análisis por Categoría',
-                  style: TextStyle(
-                    fontSize: ResponsiveHelper.getFontSize(
-                      context,
-                      mobile: 16,
-                      tablet: 18,
-                      desktop: 18,
-                    ),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-                Container(
-                  height: ResponsiveHelper.isMobile(context) ? 150 : 200,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Análisis por categorías\n(Próximamente)',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: ResponsiveHelper.getFontSize(
-                          context,
-                          mobile: 12,
-                          tablet: 14,
-                          desktop: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: color,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildActions(BuildContext context) {
-    final isMobile = ResponsiveHelper.isMobile(context);
-    
-    if (isMobile) {
-      return Column(
-        children: [
-          CustomButton(
-            text: 'Generar Reporte',
-            icon: Icons.analytics,
-            onPressed: () => _showReportOptions(context),
-            width: double.infinity,
-          ),
-          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) * 0.75),
-          CustomButton(
-            text: 'Exportar Datos',
-            icon: Icons.download,
-            type: ButtonType.outline,
-            onPressed: () => _showExportOptions(context),
-            width: double.infinity,
-          ),
-        ],
-      );
-    }
-    
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        CustomButton(
-          text: 'Generar Reporte',
-          icon: Icons.analytics,
-          onPressed: () => _showReportOptions(context),
+  // ==================== STOCK DISTRIBUTION ====================
+
+  Widget _buildStockDistribution(BuildContext context) {
+    final stats = controller.stats!;
+    final inStock = stats.total - stats.lowStock - stats.outOfStock;
+
+    final total = stats.total > 0 ? stats.total : 1;
+    final inStockPercent = (inStock / total);
+    final lowStockPercent = (stats.lowStock / total);
+    final outStockPercent = (stats.outOfStock / total);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            ElegantLightTheme.backgroundColor,
+          ],
         ),
-        SizedBox(width: ResponsiveHelper.getHorizontalSpacing(context)),
-        CustomButton(
-          text: 'Exportar Datos',
-          icon: Icons.download,
-          type: ButtonType.outline,
-          onPressed: () => _showExportOptions(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF10B981),
+                      const Color(0xFF10B981).withValues(alpha: 0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.pie_chart_rounded, color: Colors.white, size: 14),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Distribución de Stock',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Barra de distribución
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              height: 10,
+              child: Row(
+                children: [
+                  if (inStockPercent > 0)
+                    Expanded(
+                      flex: (inStockPercent * 100).round(),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF10B981),
+                              const Color(0xFF10B981).withValues(alpha: 0.8),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (lowStockPercent > 0)
+                    Expanded(
+                      flex: (lowStockPercent * 100).round(),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFFF59E0B),
+                              const Color(0xFFF59E0B).withValues(alpha: 0.8),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (outStockPercent > 0)
+                    Expanded(
+                      flex: (outStockPercent * 100).round(),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFFEF4444),
+                              const Color(0xFFEF4444).withValues(alpha: 0.8),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Leyenda
+          _buildLegendItem('En Stock', inStock.toString(), const Color(0xFF10B981)),
+          const SizedBox(height: 6),
+          _buildLegendItem('Stock Bajo', stats.lowStock.toString(), const Color(0xFFF59E0B)),
+          const SizedBox(height: 6),
+          _buildLegendItem('Sin Stock', stats.outOfStock.toString(), const Color(0xFFEF4444)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendItem(String label, String value, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                color,
+                color.withValues(alpha: 0.8),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(3),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.3),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: ElegantLightTheme.textSecondary,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
       ],
+    );
+  }
+
+  // ==================== QUICK FILTERS ====================
+
+  Widget _buildQuickFilters(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.infoGradient,
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.filter_list, color: Colors.white, size: 14),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Filtros Rápidos',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildFilterChip('Todos', Icons.inventory_2, ElegantLightTheme.primaryBlue, () {
+            Get.toNamed('/products');
+          }),
+          const SizedBox(height: 6),
+          _buildFilterChip('Activos', Icons.check_circle, const Color(0xFF10B981), () {
+            Get.toNamed('/products');
+          }),
+          const SizedBox(height: 6),
+          _buildFilterChip('Stock Bajo', Icons.warning, const Color(0xFFF59E0B), () {
+            Get.toNamed('/products');
+          }),
+          const SizedBox(height: 6),
+          _buildFilterChip('Sin Stock', Icons.error, const Color(0xFFEF4444), () {
+            Get.toNamed('/products');
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: color.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 10, color: color.withValues(alpha: 0.5)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1189,51 +1316,63 @@ class ProductStatsScreen extends GetView<ProductsController> {
 
   Widget _buildEmptyState(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: ResponsiveHelper.getPadding(context),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 400),
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.glassGradient,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
+          ),
+          boxShadow: ElegantLightTheme.elevatedShadow,
+        ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.analytics_outlined,
-              size: ResponsiveHelper.isMobile(context) ? 80 : 100,
-              color: Colors.grey.shade400,
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
+                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                Icons.analytics_outlined,
+                size: 64,
+                color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.7),
+              ),
             ),
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-            Text(
+            const SizedBox(height: 24),
+            const Text(
               'No hay estadísticas disponibles',
               style: TextStyle(
-                fontSize: ResponsiveHelper.getFontSize(
-                  context,
-                  mobile: 16,
-                  tablet: 18,
-                  desktop: 18,
-                ),
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
+                fontSize: 20,
+                color: ElegantLightTheme.textPrimary,
+                fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) * 0.5),
-            Text(
+            const SizedBox(height: 8),
+            const Text(
               'Agrega algunos productos para ver las estadísticas',
               style: TextStyle(
-                color: Colors.grey.shade500,
-                fontSize: ResponsiveHelper.getFontSize(
-                  context,
-                  mobile: 12,
-                  tablet: 14,
-                  desktop: 14,
-                ),
+                color: ElegantLightTheme.textSecondary,
+                fontSize: 14,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context) * 2),
+            const SizedBox(height: 24),
             CustomButton(
               text: 'Agregar Primer Producto',
               icon: Icons.add,
               onPressed: () => Get.toNamed('/products/create'),
-              width: ResponsiveHelper.isMobile(context) ? double.infinity : null,
+              width: double.infinity,
             ),
           ],
         ),
@@ -1292,26 +1431,17 @@ class ProductStatsScreen extends GetView<ProductsController> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Exportar estadísticas en formato ${format ?? "seleccionado"}:',
-            ),
+            Text('Exportar estadísticas en formato ${format ?? "seleccionado"}:'),
             const SizedBox(height: 16),
             const Text('Funcionalidad pendiente de implementar'),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancelar')),
           TextButton(
             onPressed: () {
               Get.back();
-              Get.snackbar(
-                'Exportar',
-                'Funcionalidad pendiente de implementar',
-                snackPosition: SnackPosition.TOP,
-              );
+              Get.snackbar('Exportar', 'Funcionalidad pendiente de implementar', snackPosition: SnackPosition.TOP);
             },
             child: const Text('Exportar'),
           ),
@@ -1333,18 +1463,11 @@ class ProductStatsScreen extends GetView<ProductsController> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancelar')),
           TextButton(
             onPressed: () {
               Get.back();
-              Get.snackbar(
-                'Reporte',
-                'Funcionalidad pendiente de implementar',
-                snackPosition: SnackPosition.TOP,
-              );
+              Get.snackbar('Reporte', 'Funcionalidad pendiente de implementar', snackPosition: SnackPosition.TOP);
             },
             child: const Text('Generar'),
           ),
@@ -1366,18 +1489,11 @@ class ProductStatsScreen extends GetView<ProductsController> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancelar')),
           TextButton(
             onPressed: () {
               Get.back();
-              Get.snackbar(
-                'Compartir',
-                'Funcionalidad pendiente de implementar',
-                snackPosition: SnackPosition.TOP,
-              );
+              Get.snackbar('Compartir', 'Funcionalidad pendiente de implementar', snackPosition: SnackPosition.TOP);
             },
             child: const Text('Compartir'),
           ),

@@ -40,6 +40,16 @@ abstract class BankAccountRemoteDataSource {
 
   /// Activar/desactivar cuenta
   Future<BankAccountModel> toggleBankAccountActive(String id);
+
+  /// Obtener transacciones de una cuenta bancaria
+  Future<Map<String, dynamic>> getBankAccountTransactions(
+    String accountId, {
+    String? startDate,
+    String? endDate,
+    int? page,
+    int? limit,
+    String? search,
+  });
 }
 
 /// Implementación del datasource remoto usando Dio
@@ -266,6 +276,43 @@ class BankAccountRemoteDataSourceImpl implements BankAccountRemoteDataSource {
     }
     // Si no tiene wrapper, devolver tal cual
     return responseData;
+  }
+
+  @override
+  Future<Map<String, dynamic>> getBankAccountTransactions(
+    String accountId, {
+    String? startDate,
+    String? endDate,
+    int? page,
+    int? limit,
+    String? search,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (startDate != null) queryParams['startDate'] = startDate;
+      if (endDate != null) queryParams['endDate'] = endDate;
+      if (page != null) queryParams['page'] = page;
+      if (limit != null) queryParams['limit'] = limit;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final response = await dioClient.get(
+        '${ApiConstants.bankAccounts}/$accountId/transactions',
+        queryParameters: queryParams,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data is Map<String, dynamic>
+            ? response.data
+            : {'data': response.data};
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw ServerException('Error al obtener transacciones: $e');
+    }
   }
 
   ServerException _handleErrorResponse(Response response) {

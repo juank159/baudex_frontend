@@ -544,40 +544,12 @@ class _SidebarHeader extends StatelessWidget {
 }
 
 // ==================== SEARCH FIELD ====================
+// IGUAL que credit notes - StatelessWidget simple
 
-class _SearchField extends StatefulWidget {
+class _SearchField extends StatelessWidget {
   final CustomersController controller;
 
   const _SearchField({required this.controller});
-
-  @override
-  State<_SearchField> createState() => _SearchFieldState();
-}
-
-class _SearchFieldState extends State<_SearchField> {
-  bool _hasText = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _hasText = widget.controller.searchController.text.isNotEmpty;
-    widget.controller.searchController.addListener(_onTextChanged);
-  }
-
-  @override
-  void dispose() {
-    widget.controller.searchController.removeListener(_onTextChanged);
-    super.dispose();
-  }
-
-  void _onTextChanged() {
-    final hasText = widget.controller.searchController.text.isNotEmpty;
-    if (hasText != _hasText) {
-      setState(() {
-        _hasText = hasText;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -598,20 +570,18 @@ class _SearchFieldState extends State<_SearchField> {
         ],
       ),
       child: TextField(
-        controller: widget.controller.searchController,
+        controller: controller.searchController,
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           hintText: 'Buscar por nombre, email o documento...',
           hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
           prefixIcon: Icon(Icons.search_rounded, size: 20, color: Colors.grey.shade500),
-          suffixIcon: _hasText
+          suffixIcon: Obx(() => controller.searchTerm.isNotEmpty
               ? IconButton(
                   icon: Icon(Icons.close, size: 18, color: Colors.grey.shade500),
-                  onPressed: () {
-                    widget.controller.searchController.clear();
-                  },
+                  onPressed: () => controller.searchController.clear(),
                 )
-              : const SizedBox.shrink(),
+              : const SizedBox.shrink()),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),

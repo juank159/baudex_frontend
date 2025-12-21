@@ -67,7 +67,7 @@ class EnhancedExpensesController extends GetxController {
   // ✅ NUEVO: Indicador de búsqueda en progreso
   final _isSearching = false.obs;
 
-  // UI Controllers
+  // UI Controllers - TextEditingController normal (el controller es permanente)
   final searchController = TextEditingController();
   final scrollController = ScrollController();
 
@@ -127,12 +127,11 @@ class EnhancedExpensesController extends GetxController {
 
   @override
   void onClose() {
-    print('🧮 EnhancedExpensesController: Cerrando y limpiando recursos...');
-
-    // ✅ Limpiar controladores
-    searchController.dispose();
-    scrollController.dispose();
-
+    // Solo cancelar el timer, NO disponer los controllers
+    // porque este controller es permanente y se reutiliza
+    _searchTimer?.cancel();
+    _searchTimer = null;
+    // NO llamar dispose en searchController y scrollController
     super.onClose();
   }
 
@@ -493,7 +492,7 @@ class EnhancedExpensesController extends GetxController {
 
   void showExpenseDetails(String expenseId) {
     print('👀 Mostrando detalles del gasto: $expenseId');
-    Get.toNamed('/expenses/$expenseId');
+    Get.toNamed('/expenses/detail/$expenseId');
   }
 
   void goToCreateExpense() {
@@ -503,7 +502,7 @@ class EnhancedExpensesController extends GetxController {
 
   void goToEditExpense(String expenseId) {
     print('✏️ Navegando a editar gasto: $expenseId');
-    Get.toNamed('/expenses/$expenseId/edit');
+    Get.toNamed('/expenses/edit/$expenseId');
   }
 
   void goToExpenseAnalytics() {

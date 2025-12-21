@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
-import '../../../../app/shared/widgets/custom_text_field_safe.dart';
-import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/app_scaffold.dart';
 import '../../../../app/config/routes/app_routes.dart';
@@ -12,7 +10,6 @@ import '../controllers/enhanced_expenses_controller.dart';
 import '../widgets/modern_expense_card_widget.dart';
 import '../widgets/modern_expense_stats_widget.dart';
 import '../widgets/modern_expense_filter_widget.dart';
-import '../../domain/entities/expense.dart';
 
 class ExpensesListScreen extends GetView<EnhancedExpensesController> {
   const ExpensesListScreen({super.key});

@@ -1,6 +1,7 @@
 // lib/features/products/presentation/widgets/product_stats_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../domain/entities/product_stats.dart';
 
 class ProductStatsWidget extends StatelessWidget {
@@ -23,32 +24,36 @@ class ProductStatsWidget extends StatelessWidget {
   }
 
   Widget _buildCompactLayout(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: ResponsiveHelper.getPadding(context),
-        child: Column(
-          children: [
-            Text(
-              'Resumen de Inventario',
-              style: TextStyle(
-                fontSize: ResponsiveHelper.getFontSize(
-                  context,
-                  mobile: 14,
-                  tablet: 16,
-                  desktop: 16,
-                ),
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
-              ),
-            ),
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-            ResponsiveHelper.isMobile(context)
-                ? _buildMobileStatsColumn(context)
-                : _buildStatsRow(context),
-          ],
+    return Container(
+      padding: ResponsiveHelper.getPadding(context),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
         ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Resumen de Inventario',
+            style: TextStyle(
+              fontSize: ResponsiveHelper.getFontSize(
+                context,
+                mobile: 14,
+                tablet: 16,
+                desktop: 16,
+              ),
+              fontWeight: FontWeight.bold,
+              color: ElegantLightTheme.textPrimary,
+            ),
+          ),
+          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
+          ResponsiveHelper.isMobile(context)
+              ? _buildMobileStatsColumn(context)
+              : _buildStatsRow(context),
+        ],
       ),
     );
   }
@@ -189,22 +194,24 @@ class ProductStatsWidget extends StatelessWidget {
 
   Widget _buildStatsGrid(BuildContext context) {
     final inStock = stats.total - stats.lowStock - stats.outOfStock;
+    final isDesktop = ResponsiveHelper.isDesktop(context);
 
+    // Textos adaptados según el tamaño de pantalla
     final statsData = [
       _StatData(
-        'Total de Productos',
+        isDesktop ? 'Total de Productos' : 'Total',
         stats.total.toString(),
         Icons.inventory_2,
         Colors.blue,
       ),
       _StatData(
-        'Productos Activos',
+        isDesktop ? 'Productos Activos' : 'Activos',
         stats.active.toString(),
         Icons.check_circle,
         Colors.green,
       ),
       _StatData(
-        'Productos Inactivos',
+        isDesktop ? 'Productos Inactivos' : 'Inactivos',
         stats.inactive.toString(),
         Icons.cancel,
         Colors.grey,
@@ -234,9 +241,9 @@ class ProductStatsWidget extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: ResponsiveHelper.isMobile(context) ? 2 : 3,
-        childAspectRatio: ResponsiveHelper.isMobile(context) ? 1.2 : 1.5,
+        childAspectRatio: ResponsiveHelper.isMobile(context) ? 1.2 : 2.0,
         crossAxisSpacing: ResponsiveHelper.getHorizontalSpacing(context),
-        mainAxisSpacing: ResponsiveHelper.getVerticalSpacing(context),
+        mainAxisSpacing: ResponsiveHelper.getVerticalSpacing(context) * 0.75,
       ),
       itemCount: statsData.length,
       itemBuilder: (context, index) {
@@ -247,71 +254,79 @@ class ProductStatsWidget extends StatelessWidget {
   }
 
   Widget _buildStatCard(BuildContext context, _StatData stat) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: ResponsiveHelper.getPadding(context),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Container(
-                padding: const EdgeInsets.all(8.0),
-                decoration: BoxDecoration(
-                  color: stat.color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  stat.icon,
-                  color: stat.color,
-                  size: ResponsiveHelper.getFontSize(
-                    context,
-                    mobile: 16,
-                    tablet: 20,
-                    desktop: 24,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: Text(
-                stat.value,
-                style: TextStyle(
-                  fontSize: ResponsiveHelper.getFontSize(
-                    context,
-                    mobile: 16,
-                    tablet: 20,
-                    desktop: 22,
-                  ),
-                  fontWeight: FontWeight.bold,
-                  color: stat.color,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Flexible(
-              child: Text(
-                stat.label,
-                style: TextStyle(
-                  fontSize: ResponsiveHelper.getFontSize(
-                    context,
-                    mobile: 9,
-                    tablet: 10,
-                    desktop: 11,
-                  ),
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+    final isMobile = ResponsiveHelper.isMobile(context);
+    final isDesktop = ResponsiveHelper.isDesktop(context);
+
+    // Tamaños específicos para cada pantalla
+    final iconSize = isMobile ? 18.0 : (isDesktop ? 20.0 : 19.0);
+    final valueSize = isMobile ? 16.0 : (isDesktop ? 19.0 : 17.0);
+    final labelSize = isMobile ? 9.5 : (isDesktop ? 10.5 : 10.0);
+    final paddingVertical = isMobile ? 10.0 : (isDesktop ? 8.0 : 9.0);
+    final iconPadding = isMobile ? 7.0 : (isDesktop ? 8.0 : 7.5);
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: paddingVertical,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(iconPadding),
+            decoration: BoxDecoration(
+              color: stat.color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              stat.icon,
+              color: stat.color,
+              size: iconSize,
+            ),
+          ),
+          SizedBox(width: isMobile ? 10 : 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  stat.value,
+                  style: TextStyle(
+                    fontSize: valueSize,
+                    fontWeight: FontWeight.bold,
+                    color: stat.color,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  stat.label,
+                  style: TextStyle(
+                    fontSize: labelSize,
+                    color: ElegantLightTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -326,96 +341,106 @@ class ProductStatsWidget extends StatelessWidget {
     final lowStockPercentage = (stats.lowStock / total * 100);
     final outOfStockPercentage = (stats.outOfStock / total * 100);
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: ResponsiveHelper.getPadding(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Distribución del Stock',
-              style: TextStyle(
-                fontSize: ResponsiveHelper.getFontSize(
-                  context,
-                  mobile: 16,
-                  tablet: 18,
-                  desktop: 18,
-                ),
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
-              ),
-            ),
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-
-            // Barra de progreso visual
-            Container(
-              height: ResponsiveHelper.getHeight(
+    return Container(
+      padding: ResponsiveHelper.getPadding(context),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Distribución del Stock',
+            style: TextStyle(
+              fontSize: ResponsiveHelper.getFontSize(
                 context,
                 mobile: 16,
-                tablet: 20,
-                desktop: 24,
+                tablet: 18,
+                desktop: 18,
               ),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                color: Colors.grey.shade200,
-              ),
-              child: Row(
-                children: [
-                  if (inStockPercentage > 0)
-                    Expanded(
-                      flex: inStock,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.horizontal(
-                            left: const Radius.circular(10),
-                            right: lowStockPercentage == 0 && outOfStockPercentage == 0
-                                ? const Radius.circular(10)
-                                : Radius.zero,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (lowStockPercentage > 0)
-                    Expanded(
-                      flex: stats.lowStock,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius: BorderRadius.horizontal(
-                            right: outOfStockPercentage == 0
-                                ? const Radius.circular(10)
-                                : Radius.zero,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (outOfStockPercentage > 0)
-                    Expanded(
-                      flex: stats.outOfStock,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.horizontal(
-                            right: Radius.circular(10),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              fontWeight: FontWeight.bold,
+              color: ElegantLightTheme.textPrimary,
             ),
+          ),
+          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
 
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
+          // Barra de progreso visual
+          Container(
+            height: ResponsiveHelper.getHeight(
+              context,
+              mobile: 16,
+              tablet: 20,
+              desktop: 24,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: Colors.grey.shade200,
+            ),
+            child: Row(
+              children: [
+                if (inStockPercentage > 0)
+                  Expanded(
+                    flex: inStock,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.horizontal(
+                          left: const Radius.circular(10),
+                          right: lowStockPercentage == 0 && outOfStockPercentage == 0
+                              ? const Radius.circular(10)
+                              : Radius.zero,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (lowStockPercentage > 0)
+                  Expanded(
+                    flex: stats.lowStock,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.horizontal(
+                          right: outOfStockPercentage == 0
+                              ? const Radius.circular(10)
+                              : Radius.zero,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (outOfStockPercentage > 0)
+                  Expanded(
+                    flex: stats.outOfStock,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.horizontal(
+                          right: Radius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
 
-            // Leyenda
-            ResponsiveHelper.isMobile(context)
-                ? _buildMobileLegend(inStockPercentage, lowStockPercentage, outOfStockPercentage)
-                : _buildDesktopLegend(inStockPercentage, lowStockPercentage, outOfStockPercentage),
-          ],
-        ),
+          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
+
+          // Leyenda
+          ResponsiveHelper.isMobile(context)
+              ? _buildMobileLegend(inStockPercentage, lowStockPercentage, outOfStockPercentage)
+              : _buildDesktopLegend(inStockPercentage, lowStockPercentage, outOfStockPercentage),
+        ],
       ),
     );
   }
@@ -501,33 +526,43 @@ class ProductStatsWidget extends StatelessWidget {
   }
 
   Widget _buildAdditionalInfo(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: ResponsiveHelper.getPadding(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Información Adicional',
-              style: TextStyle(
-                fontSize: ResponsiveHelper.getFontSize(
-                  context,
-                  mobile: 16,
-                  tablet: 18,
-                  desktop: 18,
-                ),
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
-              ),
-            ),
-            SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
-            _buildInfoRow('Valor Total del Inventario', 'Calculando...'),
-            _buildInfoRow('Productos Más Vendidos', 'Ver detalles'),
-            _buildInfoRow('Última Actualización', 'Hace 5 minutos'),
-          ],
+    return Container(
+      padding: ResponsiveHelper.getPadding(context),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Información Adicional',
+            style: TextStyle(
+              fontSize: ResponsiveHelper.getFontSize(
+                context,
+                mobile: 16,
+                tablet: 18,
+                desktop: 18,
+              ),
+              fontWeight: FontWeight.bold,
+              color: ElegantLightTheme.textPrimary,
+            ),
+          ),
+          SizedBox(height: ResponsiveHelper.getVerticalSpacing(context)),
+          _buildInfoRow('Valor Total del Inventario', 'Calculando...'),
+          _buildInfoRow('Productos Más Vendidos', 'Ver detalles'),
+          _buildInfoRow('Última Actualización', 'Hace 5 minutos'),
+        ],
       ),
     );
   }

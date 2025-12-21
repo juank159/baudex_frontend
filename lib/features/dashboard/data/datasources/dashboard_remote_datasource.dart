@@ -122,6 +122,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         queryParameters: queryParams,
       );
 
+      // El backend envuelve la respuesta con SmartResponseInterceptor:
+      // {success: true, data: {...}, timestamp: "..."}
+      print('📊 [DASHBOARD] Full response: ${response.data}');
+      print('📊 [DASHBOARD] Data portion: ${response.data['data']}');
       return DashboardStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       throw ServerException(

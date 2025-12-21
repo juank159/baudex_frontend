@@ -53,6 +53,14 @@ class InventoryBatchesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // No llamar _initializeData aquí porque los parámetros de ruta
+    // aún no están disponibles
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    // Llamar aquí cuando los parámetros de ruta ya están disponibles
     _initializeData();
   }
 
@@ -65,21 +73,30 @@ class InventoryBatchesController extends GetxController {
   // ==================== INITIALIZATION ====================
 
   void _initializeData() async {
-    // Obtener el productId desde los argumentos
+    // Obtener el productId desde los argumentos o parámetros de ruta
     final args = Get.arguments as Map<String, dynamic>?;
     final paramId = Get.parameters['productId'];
+
+    print('🔍 [BATCHES] Inicializando datos...');
+    print('🔍 [BATCHES] Get.arguments: $args');
+    print('🔍 [BATCHES] Get.parameters: ${Get.parameters}');
+    print('🔍 [BATCHES] paramId from parameters: $paramId');
 
     if (args != null && args.containsKey('productId')) {
       productId.value = args['productId'] as String;
       productName.value = args['productName'] as String? ?? '';
       productSku.value = args['productSku'] as String? ?? '';
-    } else if (paramId != null) {
+      print('✅ [BATCHES] ProductId obtenido de arguments: ${productId.value}');
+    } else if (paramId != null && paramId.isNotEmpty) {
       productId.value = paramId;
+      print('✅ [BATCHES] ProductId obtenido de parameters: ${productId.value}');
     }
 
     if (productId.value.isNotEmpty) {
+      print('✅ [BATCHES] Cargando lotes para producto: ${productId.value}');
       loadInventoryBatches();
     } else {
+      print('❌ [BATCHES] No se encontró productId válido');
       error.value = 'ID de producto no válido';
     }
   }

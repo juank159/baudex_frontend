@@ -61,7 +61,7 @@ class DashboardController extends GetxController {
   // Filters
   final _selectedDateRange = Rxn<DateTimeRange>();
   final _selectedActivityTypes = <ActivityType>[].obs;
-  final _selectedPeriod = 'hoy'.obs;
+  final _selectedPeriod = 'este_mes'.obs; // ✅ PERÍODO POR DEFECTO: ESTE MES (tiene más datos)
 
   // Getters
   bool get isLoadingStats => _isLoadingStats.value;
@@ -118,70 +118,82 @@ class DashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    print('🚀 DashboardController: Iniciando controlador...');
-    
+    print('🚀 DashboardController: onInit() - Controlador iniciado');
+
+    // ✅ Establecer el rango de fechas para ESTE MES directamente (sin llamar a setPredefinedPeriod)
+    final now = DateTime.now();
+    _selectedDateRange.value = DateTimeRange(
+      start: DateTime(now.year, now.month, 1),
+      end: DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+    );
+    print('🔄 Rango de fechas inicial (ESTE MES): ${_selectedDateRange.value?.start} - ${_selectedDateRange.value?.end}');
+
     // ✅ Marcar como cargando desde el inicio
     _isLoadingStats.value = true;
     _isLoadingActivity.value = true;
     _isLoadingNotifications.value = true;
     _isLoadingProfitability.value = true;
-    
-    // Cargar datos con pequeño delay para evitar problemas de navegación
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _loadInitialData();
-    });
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    print('🚀 DashboardController: onReady() - Widget construido, cargando datos...');
+
+    // ✅ Cargar datos inmediatamente cuando el widget está listo (SIN DELAY, SIN DOBLE CARGA)
+    _loadInitialData();
   }
 
   Future<void> _loadInitialData() async {
     try {
-      print('📊 Dashboard: Iniciando carga de datos...');
-      
-      // Aplicar el período inicial seleccionado (hoy) antes de cargar datos
-      setPredefinedPeriod(_selectedPeriod.value);
-      
-      // ✅ CRÍTICO: Cargar estadísticas principales primero (son las más importantes)
-      print('📊 Dashboard: Cargando estadísticas principales...');
-      await loadDashboardStats(
-        startDate: _selectedDateRange.value?.start,
-        endDate: _selectedDateRange.value?.end,
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => print('⏰ Timeout en estadísticas del dashboard'),
-      );
-      
-      // Ejecutar datos secundarios en paralelo con timeout
-      print('📊 Dashboard: Cargando datos secundarios...');
+      print('📊 Dashboard: Iniciando carga de datos con rango: ${_selectedDateRange.value?.start} - ${_selectedDateRange.value?.end}');
+
+      // ✅ CARGAR TODO EN PARALELO (una sola vez)
       await Future.wait([
-        loadRecentActivity().timeout(
-          const Duration(seconds: 8),
-          onTimeout: () => print('⏰ Timeout en actividad reciente'),
-        ).catchError((e) => print('❌ Error loading activity: $e')),
-        
-        loadNotifications().timeout(
-          const Duration(seconds: 8),
-          onTimeout: () => print('⏰ Timeout en notificaciones'),
-        ).catchError((e) => print('❌ Error loading notifications: $e')),
-        
-        loadUnreadNotificationsCount().timeout(
-          const Duration(seconds: 5),
-          onTimeout: () => print('⏰ Timeout en conteo de notificaciones'),
-        ).catchError((e) => print('❌ Error loading unread count: $e')),
-        
-        _loadExpensesByCategory().timeout(
-          const Duration(seconds: 8),
-          onTimeout: () => print('⏰ Timeout en gastos por categoría'),
-        ).catchError((e) => print('❌ Error loading expenses by category: $e')),
-        
+        // Datos principales (críticos)
+        loadDashboardStats(
+          startDate: _selectedDateRange.value?.start,
+          endDate: _selectedDateRange.value?.end,
+        ).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => print('⏰ Timeout en estadísticas del dashboard'),
+        ),
+
         loadProfitabilityStats(
           startDate: _selectedDateRange.value?.start,
           endDate: _selectedDateRange.value?.end,
         ).timeout(
           const Duration(seconds: 8),
           onTimeout: () => print('⏰ Timeout en métricas de rentabilidad'),
-        ).catchError((e) => print('❌ Error loading profitability: $e')),
+        ),
+
+        // Datos secundarios
+        loadRecentActivity().timeout(
+          const Duration(seconds: 8),
+          onTimeout: () => print('⏰ Timeout en actividad reciente'),
+        ).catchError((e) => print('❌ Error loading activity: $e')),
+
+        loadNotifications().timeout(
+          const Duration(seconds: 8),
+          onTimeout: () => print('⏰ Timeout en notificaciones'),
+        ).catchError((e) => print('❌ Error loading notifications: $e')),
+
+        loadUnreadNotificationsCount().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => print('⏰ Timeout en conteo de notificaciones'),
+        ).catchError((e) => print('❌ Error loading unread count: $e')),
+
+        _loadExpensesByCategory().timeout(
+          const Duration(seconds: 8),
+          onTimeout: () => print('⏰ Timeout en gastos por categoría'),
+        ).catchError((e) => print('❌ Error loading expenses by category: $e')),
       ]);
-      
+
       print('✅ Dashboard: Carga inicial completada exitosamente');
+
+      // ✅ CRÍTICO: Forzar actualización de TODOS los widgets que usan GetBuilder
+      update();
+      print('🔄 UI actualizada - Todos los widgets notificados');
     } catch (e) {
       print('❌ Error crítico en _loadInitialData: $e');
       // Asegurar que todos los estados de loading se reseteen
@@ -190,6 +202,9 @@ class DashboardController extends GetxController {
       _isLoadingNotifications.value = false;
       _isLoadingExpenseChart.value = false;
       _isLoadingProfitability.value = false;
+
+      // Forzar actualización incluso si hay error
+      update();
     }
   }
 
@@ -200,13 +215,27 @@ class DashboardController extends GetxController {
     _isLoadingStats.value = true;
     _statsError.value = null;
 
+    print('📊 Cargando dashboard stats...');
     final result = await _getDashboardStatsUseCase(
       GetDashboardStatsParams(startDate: startDate, endDate: endDate),
     );
 
     result.fold(
-      (failure) => _statsError.value = _mapFailureToMessage(failure),
-      (stats) => _dashboardStats.value = stats,
+      (failure) {
+        print('❌ Error cargando dashboard stats: $failure');
+        _statsError.value = _mapFailureToMessage(failure);
+      },
+      (stats) {
+        print('✅ Dashboard stats cargados exitosamente!');
+        print('   💰 Total Revenue: ${stats.profitability.totalRevenue}');
+        print('   💸 Total Expenses: ${stats.expenses.totalAmount}');
+        print('   💵 Gross Profit: ${stats.profitability.grossProfit}');
+        print('   📊 Payment Methods: ${stats.paymentMethodsBreakdown.length} métodos');
+        print('   💳 Income Breakdown - Facturas: ${stats.incomeTypeBreakdown.invoices}, Créditos: ${stats.incomeTypeBreakdown.credits}');
+        _dashboardStats.value = stats;
+        // ✅ Notificar a widgets GetBuilder
+        update();
+      },
     );
 
     _isLoadingStats.value = false;
@@ -238,7 +267,11 @@ class DashboardController extends GetxController {
       },
       (stats) {
         print('✅ ÉXITO loadProfitabilityStats: Revenue=${stats.totalRevenue}, COGS=${stats.totalCOGS}');
+        print('   📊 Gross Profit: ${stats.grossProfit}, Margin: ${stats.grossMarginPercentage}%');
+        print('   📈 Top Products: ${stats.topProfitableProducts.length}');
         _profitabilityStats.value = stats;
+        // ✅ Notificar a widgets GetBuilder
+        update();
       },
     );
 
@@ -503,7 +536,7 @@ class DashboardController extends GetxController {
   void clearFilters() {
     _selectedDateRange.value = null;
     _selectedActivityTypes.clear();
-    _selectedPeriod.value = 'hoy';
+    _selectedPeriod.value = 'este_mes';
     _loadInitialData();
   }
 
@@ -550,7 +583,10 @@ class DashboardController extends GetxController {
 
     _selectedDateRange.value = dateRange;
     print('🔄 Nuevo rango de fechas: ${dateRange?.start} - ${dateRange?.end}');
-    
+
+    // ✅ Notificar a los widgets que usan GetBuilder
+    update();
+
     // Cargar todos los datos en paralelo para mejor rendimiento
     Future.wait([
       loadDashboardStats(startDate: dateRange?.start, endDate: dateRange?.end),
@@ -735,6 +771,8 @@ class DashboardController extends GetxController {
           customers: currentStats.customers,
           expenses: updatedExpenseStats,
           profitability: currentStats.profitability,
+          paymentMethodsBreakdown: currentStats.paymentMethodsBreakdown,
+          incomeTypeBreakdown: currentStats.incomeTypeBreakdown,
         );
         
         print('🔍 DEBUG _dashboardStats.value después de actualizar:');

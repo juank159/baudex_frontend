@@ -354,50 +354,47 @@ class SmartNotification extends Equatable {
   // Factory constructor for creating from JSON
   factory SmartNotification.fromJson(Map<String, dynamic> json) {
     return SmartNotification(
-      id: json['id'] as String,
-      type: NotificationType.fromString(json['type'] as String),
-      priority: NotificationPriority.fromString(json['priority'] as String),
-      status: NotificationStatus.fromString(json['status'] as String),
+      id: json['id']?.toString() ?? '',
+      type: NotificationType.fromString(json['type']?.toString() ?? 'payment_received'),
+      priority: NotificationPriority.fromString(json['priority']?.toString() ?? 'medium'),
+      status: NotificationStatus.fromString(json['status']?.toString() ?? 'pending'),
       channels: (json['channels'] as List<dynamic>?)
-          ?.map((channel) => NotificationChannel.fromString(channel as String))
+          ?.map((channel) => NotificationChannel.fromString(channel?.toString() ?? 'in_app'))
           .toList() ?? [NotificationChannel.inApp],
-      title: json['title'] as String,
-      message: json['message'] as String,
-      richContent: json['richContent'] as String?,
-      entityId: json['entityId'] as String?,
-      entityType: json['entityType'] as String?,
-      actionUrl: json['actionUrl'] as String?,
-      actionLabel: json['actionLabel'] as String?,
+      title: json['title']?.toString() ?? 'Notificación',
+      message: json['message']?.toString() ?? '',
+      richContent: json['richContent']?.toString(),
+      entityId: json['entityId']?.toString(),
+      entityType: json['entityType']?.toString(),
+      actionUrl: json['actionUrl']?.toString(),
+      actionLabel: json['actionLabel']?.toString(),
       metadata: json['metadata'] as Map<String, dynamic>?,
-      icon: json['icon'] as String? ?? 'notifications',
+      icon: json['icon']?.toString() ?? 'notifications',
       color: _parseColor(json['color']),
-      scheduledFor: json['scheduledFor'] != null 
-          ? DateTime.parse(json['scheduledFor'] as String)
-          : null,
-      expiresAt: json['expiresAt'] != null 
-          ? DateTime.parse(json['expiresAt'] as String)
-          : null,
-      retryCount: json['retryCount'] as int? ?? 0,
-      maxRetries: json['maxRetries'] as int? ?? 3,
-      sentAt: json['sentAt'] != null 
-          ? DateTime.parse(json['sentAt'] as String)
-          : null,
-      deliveredAt: json['deliveredAt'] != null 
-          ? DateTime.parse(json['deliveredAt'] as String)
-          : null,
-      readAt: json['readAt'] != null 
-          ? DateTime.parse(json['readAt'] as String)
-          : null,
-      archivedAt: json['archivedAt'] != null 
-          ? DateTime.parse(json['archivedAt'] as String)
-          : null,
+      scheduledFor: _parseDateTime(json['scheduledFor']),
+      expiresAt: _parseDateTime(json['expiresAt']),
+      retryCount: (json['retryCount'] as num?)?.toInt() ?? 0,
+      maxRetries: (json['maxRetries'] as num?)?.toInt() ?? 3,
+      sentAt: _parseDateTime(json['sentAt']),
+      deliveredAt: _parseDateTime(json['deliveredAt']),
+      readAt: _parseDateTime(json['readAt']),
+      archivedAt: _parseDateTime(json['archivedAt']),
       isGrouped: json['isGrouped'] as bool? ?? false,
-      groupKey: json['groupKey'] as String?,
-      userId: json['userId'] as String? ?? '',
-      organizationId: json['organizationId'] as String? ?? '',
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      groupKey: json['groupKey']?.toString(),
+      userId: json['userId']?.toString() ?? '',
+      organizationId: json['organizationId']?.toString() ?? json['organization_id']?.toString() ?? '',
+      createdAt: _parseDateTime(json['createdAt']) ?? _parseDateTime(json['created_at']) ?? DateTime.now(),
+      updatedAt: _parseDateTime(json['updatedAt']) ?? _parseDateTime(json['updated_at']) ?? DateTime.now(),
     );
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    try {
+      return DateTime.parse(value.toString());
+    } catch (e) {
+      return null;
+    }
   }
 
   static Color _parseColor(dynamic colorValue) {

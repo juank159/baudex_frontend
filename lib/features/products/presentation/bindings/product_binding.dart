@@ -200,10 +200,10 @@ SOLUCIÓN RECOMENDADA:
   void _registerControllers() {
     print('🎮 ProductBinding: Registrando controladores...');
 
-    // ProductsController
+    // ProductsController - PERMANENTE para evitar disposal al navegar
     if (!Get.isRegistered<ProductsController>()) {
-      Get.lazyPut<ProductsController>(
-        () => ProductsController(
+      Get.put<ProductsController>(
+        ProductsController(
           getProductsUseCase: Get.find<GetProductsUseCase>(),
           searchProductsUseCase: Get.find<SearchProductsUseCase>(),
           getProductStatsUseCase: Get.find<GetProductStatsUseCase>(),
@@ -212,9 +212,9 @@ SOLUCIÓN RECOMENDADA:
               Get.find<GetProductsByCategoryUseCase>(),
           deleteProductUseCase: Get.find<DeleteProductUseCase>(),
         ),
-        fenix: true,
+        permanent: true, // ✅ PERMANENTE para evitar disposal al navegar
       );
-      print('  ✅ ProductsController registrado');
+      print('  ✅ ProductsController registrado (permanente)');
     }
 
     // ProductDetailController

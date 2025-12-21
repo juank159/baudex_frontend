@@ -1,4 +1,5 @@
 // lib/features/dashboard/presentation/widgets/recent_activity_card.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'dart:math' as math;
@@ -15,60 +16,58 @@ class RecentActivityCard extends GetView<DashboardController> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: ElegantLightTheme.cardGradient,
-        border: Border.all(
-          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
-          width: 1.5,
-        ),
-        boxShadow: [
-          ...ElegantLightTheme.elevatedShadow,
-          BoxShadow(
-            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
-            blurRadius: 25,
-            offset: const Offset(0, 10),
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                ElegantLightTheme.primaryBlue.withValues(alpha: 0.02),
-                Colors.transparent,
-                ElegantLightTheme.warningGradient.colors.first.withValues(
-                  alpha: 0.01,
-                ),
-              ],
-            ),
+          decoration: ElegantLightTheme.glassDecoration(
+            borderColor: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+            gradient: ElegantLightTheme.glassGradient,
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isMobile = constraints.maxWidth < 600;
-              final isTablet =
-                  constraints.maxWidth >= 600 && constraints.maxWidth < 900;
-              final padding = isMobile ? 16.0 : (isTablet ? 20.0 : 24.0);
-              final headerSpacing = isMobile ? 16.0 : (isTablet ? 20.0 : 24.0);
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  ElegantLightTheme.primaryBlue.withValues(alpha: 0.02),
+                  Colors.transparent,
+                  ElegantLightTheme.warningGradient.colors.first.withValues(
+                    alpha: 0.01,
+                  ),
+                ],
+              ),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 600;
+                final isTablet =
+                    constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+                final padding = isMobile ? 16.0 : (isTablet ? 20.0 : 24.0);
+                final headerSpacing = isMobile ? 12.0 : (isTablet ? 16.0 : 18.0);
 
-              return Padding(
-                padding: EdgeInsets.all(padding), // Responsive padding
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildFuturisticHeader(),
-                    SizedBox(height: headerSpacing), // Responsive spacing
-                    Obx(() => _buildActivityContent()),
-                  ],
-                ),
-              );
-            },
+                // Si tiene altura definida (está dentro de SizedBox), usar Expanded
+                // Si no tiene altura definida (móvil sin SizedBox), usar tamaño mínimo
+                final hasDefinedHeight = constraints.maxHeight != double.infinity;
+
+                return Padding(
+                  padding: EdgeInsets.all(padding), // Responsive padding
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: hasDefinedHeight ? MainAxisSize.max : MainAxisSize.min,
+                    children: [
+                      _buildFuturisticHeader(),
+                      SizedBox(height: headerSpacing), // Responsive spacing
+                      if (hasDefinedHeight)
+                        Expanded(child: Obx(() => _buildActivityContent()))
+                      else
+                        Obx(() => _buildActivityContent()),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -134,24 +133,35 @@ class RecentActivityCard extends GetView<DashboardController> {
   Widget _buildFuturisticHeader() {
     return Row(
       children: [
-        // Icono principal futurístico
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.warningGradient,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              ...ElegantLightTheme.glowShadow,
-              BoxShadow(
-                color: ElegantLightTheme.warningGradient.colors.first
-                    .withValues(alpha: 0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
+        // Icono principal futurístico con glassmorfismo
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.warningGradient,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.4),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  ...ElegantLightTheme.glassShadow,
+                  BoxShadow(
+                    color: ElegantLightTheme.warningGradient.colors.first
+                        .withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 5),
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
-            ],
+              child: const Icon(Icons.electric_bolt, color: Colors.white, size: 24),
+            ),
           ),
-          child: const Icon(Icons.electric_bolt, color: Colors.white, size: 24),
         ),
         const SizedBox(width: 16),
         // Título futurístico con degradado
@@ -167,7 +177,7 @@ class RecentActivityCard extends GetView<DashboardController> {
                   'Actividad Reciente',
                   style: AppTextStyles.titleMedium.copyWith(
                     fontWeight: FontWeight.w800,
-                    fontSize: 22,
+                    fontSize: 20,
                     letterSpacing: 0.5,
                     color: Colors.white,
                   ),
@@ -182,6 +192,13 @@ class RecentActivityCard extends GetView<DashboardController> {
                     decoration: const BoxDecoration(
                       gradient: ElegantLightTheme.successGradient,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x4010B981),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -211,20 +228,23 @@ class RecentActivityCard extends GetView<DashboardController> {
     final hasError = controller.activityError != null;
 
     if (isLoading && !hasAdvancedData && !hasBasicData) {
-      return _buildModernShimmerList();
+      return Center(child: _buildModernShimmerList());
     }
 
     if (hasError && !hasAdvancedData && !hasBasicData) {
-      return _buildModernErrorState();
+      return Center(child: _buildModernErrorState());
     }
 
     if (!hasAdvancedData && !hasBasicData) {
-      return _buildModernEmptyState();
+      return Center(child: _buildModernEmptyState());
     }
 
-    return hasAdvancedData
-        ? _buildAdvancedActivityList()
-        : _buildActivityList();
+    // Usar SingleChildScrollView para permitir scroll cuando hay muchos items
+    return SingleChildScrollView(
+      child: hasAdvancedData
+          ? _buildAdvancedActivityList()
+          : _buildActivityList(),
+    );
   }
 
   Widget _buildActivityList() {

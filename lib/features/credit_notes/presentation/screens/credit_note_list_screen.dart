@@ -5,6 +5,7 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../domain/entities/credit_note.dart';
 import '../controllers/credit_note_list_controller.dart';
 
@@ -16,6 +17,7 @@ class CreditNoteListScreen extends GetView<CreditNoteListController> {
     return Scaffold(
       backgroundColor: ElegantLightTheme.backgroundColor,
       appBar: _buildAppBar(context),
+      drawer: const AppDrawer(currentRoute: '/credit-notes'),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -47,12 +49,8 @@ class CreditNoteListScreen extends GetView<CreditNoteListController> {
           boxShadow: ElegantLightTheme.elevatedShadow,
         ),
       ),
-      leading: Navigator.canPop(context)
-          ? IconButton(
-              icon: Icon(Icons.arrow_back, color: Colors.white, size: isSmall ? 20 : 22),
-              onPressed: () => Get.back(),
-            )
-          : null,
+      // El icono del drawer se muestra automáticamente
+      iconTheme: const IconThemeData(color: Colors.white),
       title: Text(
         'Notas de Crédito',
         style: TextStyle(

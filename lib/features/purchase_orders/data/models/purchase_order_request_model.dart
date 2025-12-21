@@ -7,29 +7,23 @@ part 'purchase_order_request_model.g.dart';
 @JsonSerializable()
 class CreatePurchaseOrderRequestModel {
   final String supplierId;
+  final String? warehouseId;
   final String? expectedDeliveryDate;
   final String? currency;
   final double? taxPercentage;
-  final double? discountPercentage;
-  final double? discountAmount;
   final double? shippingCost;
   final String? notes;
-  final String? terms;
-  final String? supplierReference;
   final Map<String, dynamic>? metadata;
   final List<CreatePurchaseOrderItemRequestModel> items;
 
   const CreatePurchaseOrderRequestModel({
     required this.supplierId,
+    this.warehouseId,
     this.expectedDeliveryDate,
     this.currency,
     this.taxPercentage,
-    this.discountPercentage,
-    this.discountAmount,
     this.shippingCost,
     this.notes,
-    this.terms,
-    this.supplierReference,
     this.metadata,
     required this.items,
   });
@@ -38,8 +32,21 @@ class CreatePurchaseOrderRequestModel {
       _$CreatePurchaseOrderRequestModelFromJson(json);
 
   Map<String, dynamic> toJson() {
-    final json = _$CreatePurchaseOrderRequestModelToJson(this);
-    json['items'] = items.map((item) => item.toJson()).toList();
+    // Build JSON manually to only include what the backend DTO accepts
+    final Map<String, dynamic> json = {
+      'supplierId': supplierId,
+      'items': items.map((item) => item.toJson()).toList(),
+    };
+
+    // Only add optional fields if they have values
+    if (warehouseId != null) json['warehouseId'] = warehouseId;
+    if (expectedDeliveryDate != null) json['expectedDeliveryDate'] = expectedDeliveryDate;
+    if (currency != null) json['currency'] = currency;
+    if (taxPercentage != null) json['taxPercentage'] = taxPercentage;
+    if (shippingCost != null) json['shippingCost'] = shippingCost;
+    if (notes != null) json['notes'] = notes;
+    if (metadata != null) json['metadata'] = metadata;
+
     return json;
   }
 
@@ -110,31 +117,25 @@ class CreatePurchaseOrderItemRequestModel {
 class UpdatePurchaseOrderRequestModel {
   // Solo campos permitidos por el backend DTO
   final String? supplierId;
+  final String? warehouseId;
   final String? expectedDeliveryDate;
   final String? status;
   final String? currency;
   final double? taxPercentage;
-  final double? discountPercentage;
-  final double? discountAmount;
   final double? shippingCost;
   final String? notes;
-  final String? terms;
-  final String? supplierReference;
   final Map<String, dynamic>? metadata;
   final List<UpdatePurchaseOrderItemRequestModel>? items;
 
   const UpdatePurchaseOrderRequestModel({
     this.supplierId,
+    this.warehouseId,
     this.expectedDeliveryDate,
     this.status,
     this.currency,
     this.taxPercentage,
-    this.discountPercentage,
-    this.discountAmount,
     this.shippingCost,
     this.notes,
-    this.terms,
-    this.supplierReference,
     this.metadata,
     this.items,
   });
@@ -143,13 +144,20 @@ class UpdatePurchaseOrderRequestModel {
       _$UpdatePurchaseOrderRequestModelFromJson(json);
 
   Map<String, dynamic> toJson() {
-    final json = _$UpdatePurchaseOrderRequestModelToJson(this);
-    // Serializar items manualmente si existen
-    if (items != null) {
-      json['items'] = items!.map((item) => item.toJson()).toList();
-    }
-    // Remover campos null para evitar errores de validación
-    json.removeWhere((key, value) => value == null);
+    // Build JSON manually to only include what the backend DTO accepts
+    final Map<String, dynamic> json = {};
+
+    if (supplierId != null) json['supplierId'] = supplierId;
+    if (warehouseId != null) json['warehouseId'] = warehouseId;
+    if (expectedDeliveryDate != null) json['expectedDeliveryDate'] = expectedDeliveryDate;
+    if (status != null) json['status'] = status;
+    if (currency != null) json['currency'] = currency;
+    if (taxPercentage != null) json['taxPercentage'] = taxPercentage;
+    if (shippingCost != null) json['shippingCost'] = shippingCost;
+    if (notes != null) json['notes'] = notes;
+    if (metadata != null) json['metadata'] = metadata;
+    if (items != null) json['items'] = items!.map((item) => item.toJson()).toList();
+
     return json;
   }
 

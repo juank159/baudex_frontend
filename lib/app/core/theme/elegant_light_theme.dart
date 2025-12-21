@@ -1,4 +1,5 @@
 // lib/app/core/theme/elegant_light_theme.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 class ElegantLightTheme {
@@ -9,6 +10,11 @@ class ElegantLightTheme {
 
   // Colores de acento
   static const Color accentOrange = Color(0xFFF59E0B); // Amber 500
+
+  // Colores de estado (sólidos)
+  static const Color successGreen = Color(0xFF10B981); // Green 500
+  static const Color warningOrange = Color(0xFFF59E0B); // Amber 500
+  static const Color errorRed = Color(0xFFEF4444); // Red 500
 
   // Colores de fondo claros
   static const Color backgroundColor = Color(0xFFF8FAFC); // Slate 50
@@ -36,10 +42,32 @@ class ElegantLightTheme {
     colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC)],
   );
 
+  // 🪟 Glassmorfismo - Gradientes con transparencia
   static const LinearGradient glassGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0x10000000), Color(0x05000000)],
+    colors: [
+      Color(0xCCFFFFFF), // Blanco 80% opacidad
+      Color(0xB3F8FAFC), // Slate 50 70% opacidad
+    ],
+  );
+
+  static const LinearGradient glassPrimaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0x803B82F6), // Blue 500 50% opacidad
+      Color(0x662563EB), // Blue 600 40% opacidad
+    ],
+  );
+
+  static const LinearGradient glassSuccessGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0x8010B981), // Green 50% opacidad
+      Color(0x66059669), // Green dark 40% opacidad
+    ],
   );
 
   // Gradientes de estado
@@ -98,6 +126,46 @@ class ElegantLightTheme {
       spreadRadius: 2,
     ),
   ];
+
+  // 🪟 Glassmorfismo - Sombras suaves con color
+  static List<BoxShadow> get glassShadow => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.05),
+      offset: const Offset(0, 8),
+      blurRadius: 32,
+      spreadRadius: 0,
+    ),
+    BoxShadow(
+      color: const Color(0xFF3B82F6).withOpacity(0.08),
+      offset: const Offset(0, 4),
+      blurRadius: 16,
+      spreadRadius: -2,
+    ),
+    BoxShadow(
+      color: Colors.white.withOpacity(0.6),
+      offset: const Offset(0, -2),
+      blurRadius: 8,
+      spreadRadius: 0,
+    ),
+  ];
+
+  // 🪟 Método helper para crear decoración glassmorphism
+  static BoxDecoration glassDecoration({
+    Color? borderColor,
+    double borderRadius = 20,
+    LinearGradient? gradient,
+    List<BoxShadow>? customShadows,
+  }) {
+    return BoxDecoration(
+      gradient: gradient ?? glassGradient,
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(
+        color: borderColor ?? Colors.white.withOpacity(0.4),
+        width: 1.5,
+      ),
+      boxShadow: customShadows ?? glassShadow,
+    );
+  }
 
   // Animaciones
   static const Duration fastAnimation = Duration(milliseconds: 200);
@@ -506,6 +574,59 @@ class _ElegantProgressIndicatorState extends State<ElegantProgressIndicator>
           },
         ),
       ],
+    );
+  }
+}
+
+// 🪟 Widget GlassCard con efecto glassmorfismo completo
+class GlassCard extends StatelessWidget {
+  final Widget child;
+  final double? width;
+  final double? height;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final double borderRadius;
+  final LinearGradient? gradient;
+  final Color? borderColor;
+  final double blurIntensity;
+
+  const GlassCard({
+    super.key,
+    required this.child,
+    this.width,
+    this.height,
+    this.padding,
+    this.margin,
+    this.borderRadius = 20,
+    this.gradient,
+    this.borderColor,
+    this.blurIntensity = 10,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: blurIntensity,
+            sigmaY: blurIntensity,
+          ),
+          child: Container(
+            padding: padding ?? const EdgeInsets.all(24),
+            decoration: ElegantLightTheme.glassDecoration(
+              borderColor: borderColor,
+              borderRadius: borderRadius,
+              gradient: gradient,
+            ),
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 }

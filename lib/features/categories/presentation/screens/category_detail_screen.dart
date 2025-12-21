@@ -60,105 +60,65 @@ class CategoryDetailScreen extends GetView<CategoryDetailController> {
       ),
       actions: [
         // Editar
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.glassGradient,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.3),
-              width: 1,
-            ),
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.edit, color: Colors.white),
-            onPressed: controller.goToEditCategory,
-            tooltip: 'Editar categoría',
-          ),
+        IconButton(
+          icon: const Icon(Icons.edit, color: Colors.white, size: 20),
+          onPressed: controller.goToEditCategory,
+          tooltip: 'Editar categoría',
         ),
 
         // Cambiar estado
-        Obx(() => Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            gradient: controller.category?.isActive == true
-                ? ElegantLightTheme.successGradient
-                : ElegantLightTheme.warningGradient,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: (controller.category?.isActive == true
-                    ? ElegantLightTheme.successGradient.colors.first
-                    : ElegantLightTheme.warningGradient.colors.first)
-                    .withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
+        Obx(() => IconButton(
+          icon: Icon(
+            controller.category?.isActive == true
+                ? Icons.toggle_on
+                : Icons.toggle_off,
+            color: Colors.white,
+            size: 24,
           ),
-          child: IconButton(
-            icon: Icon(
-              controller.category?.isActive == true
-                  ? Icons.toggle_on
-                  : Icons.toggle_off,
-              color: Colors.white,
-            ),
-            onPressed: controller.showStatusDialog,
-            tooltip: 'Cambiar estado',
-          ),
+          onPressed: controller.showStatusDialog,
+          tooltip: 'Cambiar estado',
         )),
 
         // Menú de opciones
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.glassGradient,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.3),
-              width: 1,
-            ),
+        PopupMenuButton<String>(
+          onSelected: (value) => _handleMenuAction(value, context),
+          icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: PopupMenuButton<String>(
-            onSelected: (value) => _handleMenuAction(value, context),
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'create_subcategory',
+              child: Row(
+                children: [
+                  Icon(Icons.add, color: ElegantLightTheme.primaryBlue),
+                  SizedBox(width: 8),
+                  Text('Crear Subcategoría'),
+                ],
+              ),
             ),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'create_subcategory',
-                child: Row(
-                  children: [
-                    Icon(Icons.add, color: ElegantLightTheme.primaryBlue),
-                    SizedBox(width: 8),
-                    Text('Crear Subcategoría'),
-                  ],
-                ),
+            const PopupMenuItem(
+              value: 'refresh',
+              child: Row(
+                children: [
+                  Icon(Icons.refresh, color: ElegantLightTheme.primaryBlue),
+                  SizedBox(width: 8),
+                  Text('Actualizar'),
+                ],
               ),
-              const PopupMenuItem(
-                value: 'refresh',
-                child: Row(
-                  children: [
-                    Icon(Icons.refresh, color: ElegantLightTheme.primaryBlue),
-                    SizedBox(width: 8),
-                    Text('Actualizar'),
-                  ],
-                ),
+            ),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Eliminar', style: TextStyle(color: Colors.red)),
+                ],
               ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Eliminar', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
     );

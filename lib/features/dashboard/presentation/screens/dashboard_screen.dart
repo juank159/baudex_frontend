@@ -8,6 +8,9 @@ import '../widgets/profitability_section.dart';
 import '../widgets/recent_activity_card.dart';
 import '../widgets/notifications_panel.dart';
 import '../widgets/period_selector.dart';
+import '../widgets/expense_pie_chart.dart';
+import '../widgets/bank_accounts_summary.dart';
+import '../widgets/income_breakdown_widget.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
@@ -255,10 +258,43 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         const SizedBox(height: AppDimensions.spacingMedium),
 
+        // Income Breakdown Widget con animación
+        Obx(() {
+          if (controller.dashboardStats != null) {
+            return Column(
+              children: [
+                _buildAnimatedCard(
+                  IncomeBreakdownWidget(stats: controller.dashboardStats!),
+                  delay: 250,
+                ),
+                const SizedBox(height: AppDimensions.spacingMedium),
+              ],
+            );
+          }
+          return const SizedBox.shrink();
+        }),
+
+        // Expense Pie Chart con animación (sin altura fija para móvil)
+        _buildAnimatedCard(
+          const ExpensePieChart(),
+          delay: 300,
+        ),
+        const SizedBox(height: AppDimensions.spacingMedium),
+
         // Profitability Section con animación
         _buildAnimatedCard(
           const ProfitabilitySection(),
           delay: 400,
+        ),
+        const SizedBox(height: AppDimensions.spacingMedium),
+
+        // Bank Accounts Summary con animación
+        _buildAnimatedCard(
+          Obx(() => BankAccountsSummaryWidget(
+            startDate: controller.selectedDateRange?.start,
+            endDate: controller.selectedDateRange?.end,
+          )),
+          delay: 500,
         ),
         const SizedBox(height: AppDimensions.spacingMedium),
 
@@ -292,33 +328,73 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         const SizedBox(height: AppDimensions.spacingLarge),
 
-        // Profitability Section - Segunda fila con animación
+        // Income Breakdown Widget - Segunda fila con animación
+        Obx(() {
+          if (controller.dashboardStats != null) {
+            return Column(
+              children: [
+                _buildAnimatedCard(
+                  IncomeBreakdownWidget(stats: controller.dashboardStats!),
+                  delay: 250,
+                ),
+                const SizedBox(height: AppDimensions.spacingLarge),
+              ],
+            );
+          }
+          return const SizedBox.shrink();
+        }),
+
+        // Expense Pie Chart - Tercera fila con animación
+        _buildAnimatedCard(
+          const SizedBox(
+            height: 350,
+            child: ExpensePieChart(),
+          ),
+          delay: 300,
+        ),
+        const SizedBox(height: AppDimensions.spacingLarge),
+
+        // Profitability Section - Tercera fila con animación
         _buildAnimatedCard(
           const ProfitabilitySection(),
           delay: 400,
         ),
         const SizedBox(height: AppDimensions.spacingLarge),
 
-        // Two column layout for activity and notifications - Tercera fila con animaciones en paralelo
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 4,
-              child: _buildAnimatedCard(
-                const RecentActivityCard(),
-                delay: 600,
+        // Bank Accounts Summary - Cuarta fila con animación
+        _buildAnimatedCard(
+          Obx(() => BankAccountsSummaryWidget(
+            startDate: controller.selectedDateRange?.start,
+            endDate: controller.selectedDateRange?.end,
+          )),
+          delay: 500,
+        ),
+        const SizedBox(height: AppDimensions.spacingLarge),
+
+        // Two column layout for activity and notifications
+        // Usar altura fija para que ambas columnas tengan el mismo tamaño
+        SizedBox(
+          height: 450, // Altura fija para ambas columnas en tablet
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 4,
+                child: _buildAnimatedCard(
+                  const RecentActivityCard(),
+                  delay: 600,
+                ),
               ),
-            ),
-            const SizedBox(width: AppDimensions.spacingMedium),
-            Expanded(
-              flex: 3,
-              child: _buildAnimatedCard(
-                const NotificationsPanel(),
-                delay: 700,
+              const SizedBox(width: AppDimensions.spacingMedium),
+              Expanded(
+                flex: 3,
+                child: _buildAnimatedCard(
+                  const NotificationsPanel(),
+                  delay: 700,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -328,46 +404,94 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Primera fila: Resumen Financiero unificado con animación futurística
-        _buildAnimatedCard(
-          const SizedBox(
-            height: 580,
-            child: DashboardChartsSection(),
+        // Primera fila: Análisis Financiero y Desglose de Ingresos en 2 columnas
+        SizedBox(
+          height: 580,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Columna 1: Análisis Financiero (Dashboard Charts)
+              Expanded(
+                flex: 3,
+                child: _buildAnimatedCard(
+                  const DashboardChartsSection(),
+                  delay: 200,
+                ),
+              ),
+              const SizedBox(width: AppDimensions.spacingLarge),
+
+              // Columna 2: Desglose de Ingresos
+              Expanded(
+                flex: 2,
+                child: Obx(() {
+                  if (controller.dashboardStats != null) {
+                    return _buildAnimatedCard(
+                      IncomeBreakdownWidget(stats: controller.dashboardStats!),
+                      delay: 250,
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }),
+              ),
+            ],
           ),
-          delay: 200,
         ),
         const SizedBox(height: AppDimensions.spacingLarge),
 
-        // Segunda fila: Profitabilidad FIFO con animación
+        // Segunda fila: Expense Pie Chart con animación
+        _buildAnimatedCard(
+          const SizedBox(
+            height: 350,
+            child: ExpensePieChart(),
+          ),
+          delay: 300,
+        ),
+        const SizedBox(height: AppDimensions.spacingLarge),
+
+        // Tercera fila: Análisis de Rentabilidad con animación
         _buildAnimatedCard(
           const ProfitabilitySection(),
           delay: 400,
         ),
         const SizedBox(height: AppDimensions.spacingLarge),
 
-        // Tercera fila: Grid de componentes adicionales con animaciones en paralelo
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Columna izquierda
-            Expanded(
-              flex: 6,
-              child: _buildAnimatedCard(
-                const RecentActivityCard(),
-                delay: 600,
+        // Cuarta fila: Bank Accounts Summary con animación
+        _buildAnimatedCard(
+          Obx(() => BankAccountsSummaryWidget(
+            startDate: controller.selectedDateRange?.start,
+            endDate: controller.selectedDateRange?.end,
+          )),
+          delay: 500,
+        ),
+        const SizedBox(height: AppDimensions.spacingLarge),
+
+        // Quinta fila: Grid de componentes adicionales con animaciones en paralelo
+        // Usar altura fija para que ambas columnas tengan el mismo tamaño
+        SizedBox(
+          height: 480, // Altura fija para ambas columnas
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Columna izquierda
+              Expanded(
+                flex: 6,
+                child: _buildAnimatedCard(
+                  const RecentActivityCard(),
+                  delay: 600,
+                ),
               ),
-            ),
-            const SizedBox(width: AppDimensions.spacingMedium),
-            
-            // Columna derecha
-            Expanded(
-              flex: 4,
-              child: _buildAnimatedCard(
-                const NotificationsPanel(),
-                delay: 700,
+              const SizedBox(width: AppDimensions.spacingMedium),
+
+              // Columna derecha
+              Expanded(
+                flex: 4,
+                child: _buildAnimatedCard(
+                  const NotificationsPanel(),
+                  delay: 700,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );

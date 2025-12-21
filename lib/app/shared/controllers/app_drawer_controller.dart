@@ -46,7 +46,7 @@ class AppDrawerController extends GetxController {
 
   void _initializeMenuItems() {
     _menuItems.value = [
-      // ==================== MÓDULOS PRINCIPALES ====================
+      // ==================== ACCESO DIRECTO ====================
       const DrawerMenuItem(
         id: 'dashboard',
         title: 'Dashboard',
@@ -55,100 +55,135 @@ class AppDrawerController extends GetxController {
         subtitle: 'Panel principal',
       ),
 
-      const DrawerMenuItem(
-        id: 'invoices',
-        title: 'Facturas',
-        icon: Icons.receipt_long,
-        route: AppRoutes.invoices,
-        subtitle: 'Gestión de facturas',
+      // ==================== GESTIÓN COMERCIAL ====================
+      DrawerMenuItem(
+        id: 'sales_group',
+        title: 'Gestión Comercial',
+        icon: Icons.business_center_rounded,
+        subtitle: 'Ventas y facturación',
+        submenu: const [
+          DrawerMenuItem(
+            id: 'invoices',
+            title: 'Facturas',
+            icon: Icons.receipt_long,
+            route: AppRoutes.invoices,
+            subtitle: 'Gestión de facturas',
+          ),
+          DrawerMenuItem(
+            id: 'invoices_create',
+            title: 'Crear Factura',
+            icon: Icons.add_box,
+            route: AppRoutes.invoicesWithTabs,
+            subtitle: 'Nueva factura',
+          ),
+          DrawerMenuItem(
+            id: 'credit_notes',
+            title: 'Notas de Crédito',
+            icon: Icons.note_alt_outlined,
+            route: AppRoutes.creditNotes,
+            subtitle: 'Gestión de notas de crédito',
+          ),
+          DrawerMenuItem(
+            id: 'customers',
+            title: 'Clientes',
+            icon: Icons.people,
+            route: AppRoutes.customers,
+            subtitle: 'Gestión de clientes',
+          ),
+          DrawerMenuItem(
+            id: 'customer_credits',
+            title: 'Créditos',
+            icon: Icons.credit_card,
+            route: AppRoutes.customerCredits,
+            subtitle: 'Deudas de clientes',
+          ),
+          DrawerMenuItem(
+            id: 'client_balances',
+            title: 'Saldos a Favor',
+            icon: Icons.account_balance_wallet,
+            route: AppRoutes.clientBalances,
+            subtitle: 'Créditos de clientes',
+          ),
+        ],
       ),
 
-      const DrawerMenuItem(
-        id: 'invoices_create',
-        title: 'Crear Factura',
-        icon: Icons.add_box,
-        route: AppRoutes.invoicesWithTabs,
-        subtitle: 'Nueva factura',
-      ),
-
-      const DrawerMenuItem(
-        id: 'credit_notes',
-        title: 'Notas de Crédito',
-        icon: Icons.note_alt_outlined,
-        route: AppRoutes.creditNotes,
-        subtitle: 'Gestión de notas de crédito',
-      ),
-
-      const DrawerMenuItem(
-        id: 'products',
-        title: 'Productos',
-        icon: Icons.inventory_2,
-        route: AppRoutes.products,
-        subtitle: 'Catálogo de productos',
-      ),
-
-      const DrawerMenuItem(
-        id: 'customers',
-        title: 'Clientes',
-        icon: Icons.people,
-        route: AppRoutes.customers,
-        subtitle: 'Gestión de clientes',
-      ),
-
-      const DrawerMenuItem(
-        id: 'customer_credits',
-        title: 'Créditos',
-        icon: Icons.credit_card,
-        route: AppRoutes.customerCredits,
-        subtitle: 'Deudas de clientes',
-      ),
-
-      const DrawerMenuItem(
-        id: 'client_balances',
-        title: 'Saldos a Favor',
-        icon: Icons.account_balance_wallet,
-        route: AppRoutes.clientBalances,
-        subtitle: 'Créditos de clientes',
-      ),
-
-      const DrawerMenuItem(
-        id: 'categories',
-        title: 'Categorías',
-        icon: Icons.category,
-        route: AppRoutes.categories,
-        subtitle: 'Organizar productos',
-      ),
-
-      const DrawerMenuItem(
-        id: 'expenses',
-        title: 'Gastos',
-        icon: Icons.attach_money,
-        route: AppRoutes.expenses,
-        subtitle: 'Gestión de gastos',
-      ),
-
-      const DrawerMenuItem(
-        id: 'suppliers',
-        title: 'Proveedores',
-        icon: Icons.local_shipping,
-        route: AppRoutes.suppliers,
-        subtitle: 'Gestión de proveedores',
-      ),
-
-      const DrawerMenuItem(
-        id: 'purchase_orders',
-        title: 'Órdenes de Compra',
-        icon: Icons.shopping_cart_rounded,
-        route: AppRoutes.purchaseOrders,
-        subtitle: 'Gestión de compras',
-      ),
-
-      const DrawerMenuItem(
-        id: 'inventory',
+      // ==================== INVENTARIO ====================
+      DrawerMenuItem(
+        id: 'inventory_group',
         title: 'Inventario',
-        icon: Icons.warehouse,
-        route: AppRoutes.inventory,
-        subtitle: 'Gestión completa de inventario',
+        icon: Icons.inventory_rounded,
+        subtitle: 'Productos y stock',
+        submenu: const [
+          DrawerMenuItem(
+            id: 'products',
+            title: 'Productos',
+            icon: Icons.inventory_2,
+            route: AppRoutes.products,
+            subtitle: 'Catálogo de productos',
+          ),
+          DrawerMenuItem(
+            id: 'categories',
+            title: 'Categorías',
+            icon: Icons.category,
+            route: AppRoutes.categories,
+            subtitle: 'Organizar productos',
+          ),
+          DrawerMenuItem(
+            id: 'inventory',
+            title: 'Gestión de Inventario',
+            icon: Icons.warehouse,
+            route: AppRoutes.inventory,
+            subtitle: 'Control de stock',
+          ),
+        ],
+      ),
+
+      // ==================== COMPRAS & PROVEEDORES ====================
+      DrawerMenuItem(
+        id: 'purchases_group',
+        title: 'Compras & Proveedores',
+        icon: Icons.shopping_cart_rounded,
+        subtitle: 'Gestión de compras',
+        submenu: const [
+          DrawerMenuItem(
+            id: 'suppliers',
+            title: 'Proveedores',
+            icon: Icons.local_shipping,
+            route: AppRoutes.suppliers,
+            subtitle: 'Gestión de proveedores',
+          ),
+          DrawerMenuItem(
+            id: 'purchase_orders',
+            title: 'Órdenes de Compra',
+            icon: Icons.shopping_bag_rounded,
+            route: AppRoutes.purchaseOrders,
+            subtitle: 'Gestión de compras',
+          ),
+        ],
+      ),
+
+      // ==================== FINANZAS ====================
+      DrawerMenuItem(
+        id: 'finance_group',
+        title: 'Finanzas',
+        icon: Icons.account_balance_rounded,
+        subtitle: 'Gestión financiera',
+        submenu: const [
+          DrawerMenuItem(
+            id: 'expenses',
+            title: 'Gastos',
+            icon: Icons.attach_money,
+            route: AppRoutes.expenses,
+            subtitle: 'Gestión de gastos',
+          ),
+          DrawerMenuItem(
+            id: 'bank_accounts',
+            title: 'Cuentas Bancarias',
+            icon: Icons.account_balance_wallet,
+            route: AppRoutes.bankAccounts,
+            subtitle: 'Métodos de pago',
+          ),
+        ],
       ),
 
       // ==================== CONFIGURACIÓN Y HERRAMIENTAS ====================
@@ -230,16 +265,6 @@ class AppDrawerController extends GetxController {
         icon: Icons.notifications_outlined,
         route: AppRoutes.settingsNotifications,
         subtitle: 'Configuración de notificaciones',
-        isInSettings: true,
-        isInConfigurationGroup: true,
-      ),
-
-      const DrawerMenuItem(
-        id: 'bank_accounts',
-        title: 'Cuentas Bancarias',
-        icon: Icons.account_balance_wallet,
-        route: AppRoutes.bankAccounts,
-        subtitle: 'Métodos de pago',
         isInSettings: true,
         isInConfigurationGroup: true,
       ),

@@ -23,74 +23,79 @@ const InvoicePaymentModelSchema = CollectionSchema(
       name: r'amount',
       type: IsarType.double,
     ),
-    r'createdAt': PropertySchema(
+    r'bankAccountId': PropertySchema(
       id: 1,
+      name: r'bankAccountId',
+      type: IsarType.string,
+    ),
+    r'createdAt': PropertySchema(
+      id: 2,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'createdAtIndex': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'createdAtIndex',
       type: IsarType.dateTime,
     ),
     r'createdById': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'createdById',
       type: IsarType.string,
     ),
     r'id': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'id',
       type: IsarType.string,
     ),
     r'invoiceId': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'invoiceId',
       type: IsarType.string,
     ),
     r'invoiceIdIndex': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'invoiceIdIndex',
       type: IsarType.string,
     ),
     r'notes': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'notes',
       type: IsarType.string,
     ),
     r'organizationId': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'organizationId',
       type: IsarType.string,
     ),
     r'organizationIdIndex': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'organizationIdIndex',
       type: IsarType.string,
     ),
     r'paymentDate': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'paymentDate',
       type: IsarType.dateTime,
     ),
     r'paymentDateIndex': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'paymentDateIndex',
       type: IsarType.dateTime,
     ),
     r'paymentMethod': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'paymentMethod',
       type: IsarType.byte,
       enumMap: _InvoicePaymentModelpaymentMethodEnumValueMap,
     ),
     r'reference': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'reference',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -168,6 +173,12 @@ int _invoicePaymentModelEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.bankAccountId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.createdById.length * 3;
   bytesCount += 3 + object.id.length * 3;
   bytesCount += 3 + object.invoiceId.length * 3;
@@ -196,20 +207,21 @@ void _invoicePaymentModelSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeDouble(offsets[0], object.amount);
-  writer.writeDateTime(offsets[1], object.createdAt);
-  writer.writeDateTime(offsets[2], object.createdAtIndex);
-  writer.writeString(offsets[3], object.createdById);
-  writer.writeString(offsets[4], object.id);
-  writer.writeString(offsets[5], object.invoiceId);
-  writer.writeString(offsets[6], object.invoiceIdIndex);
-  writer.writeString(offsets[7], object.notes);
-  writer.writeString(offsets[8], object.organizationId);
-  writer.writeString(offsets[9], object.organizationIdIndex);
-  writer.writeDateTime(offsets[10], object.paymentDate);
-  writer.writeDateTime(offsets[11], object.paymentDateIndex);
-  writer.writeByte(offsets[12], object.paymentMethod.index);
-  writer.writeString(offsets[13], object.reference);
-  writer.writeDateTime(offsets[14], object.updatedAt);
+  writer.writeString(offsets[1], object.bankAccountId);
+  writer.writeDateTime(offsets[2], object.createdAt);
+  writer.writeDateTime(offsets[3], object.createdAtIndex);
+  writer.writeString(offsets[4], object.createdById);
+  writer.writeString(offsets[5], object.id);
+  writer.writeString(offsets[6], object.invoiceId);
+  writer.writeString(offsets[7], object.invoiceIdIndex);
+  writer.writeString(offsets[8], object.notes);
+  writer.writeString(offsets[9], object.organizationId);
+  writer.writeString(offsets[10], object.organizationIdIndex);
+  writer.writeDateTime(offsets[11], object.paymentDate);
+  writer.writeDateTime(offsets[12], object.paymentDateIndex);
+  writer.writeByte(offsets[13], object.paymentMethod.index);
+  writer.writeString(offsets[14], object.reference);
+  writer.writeDateTime(offsets[15], object.updatedAt);
 }
 
 InvoicePaymentModel _invoicePaymentModelDeserialize(
@@ -220,18 +232,19 @@ InvoicePaymentModel _invoicePaymentModelDeserialize(
 ) {
   final object = InvoicePaymentModel();
   object.amount = reader.readDouble(offsets[0]);
-  object.createdAt = reader.readDateTime(offsets[1]);
-  object.createdById = reader.readString(offsets[3]);
-  object.id = reader.readString(offsets[4]);
-  object.invoiceId = reader.readString(offsets[5]);
-  object.notes = reader.readStringOrNull(offsets[7]);
-  object.organizationId = reader.readString(offsets[8]);
-  object.paymentDate = reader.readDateTime(offsets[10]);
+  object.bankAccountId = reader.readStringOrNull(offsets[1]);
+  object.createdAt = reader.readDateTime(offsets[2]);
+  object.createdById = reader.readString(offsets[4]);
+  object.id = reader.readString(offsets[5]);
+  object.invoiceId = reader.readString(offsets[6]);
+  object.notes = reader.readStringOrNull(offsets[8]);
+  object.organizationId = reader.readString(offsets[9]);
+  object.paymentDate = reader.readDateTime(offsets[11]);
   object.paymentMethod = _InvoicePaymentModelpaymentMethodValueEnumMap[
-          reader.readByteOrNull(offsets[12])] ??
+          reader.readByteOrNull(offsets[13])] ??
       PaymentMethod.cash;
-  object.reference = reader.readStringOrNull(offsets[13]);
-  object.updatedAt = reader.readDateTime(offsets[14]);
+  object.reference = reader.readStringOrNull(offsets[14]);
+  object.updatedAt = reader.readDateTime(offsets[15]);
   return object;
 }
 
@@ -245,11 +258,11 @@ P _invoicePaymentModelDeserializeProp<P>(
     case 0:
       return (reader.readDouble(offset)) as P;
     case 1:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
       return (reader.readDateTime(offset)) as P;
     case 3:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 4:
       return (reader.readString(offset)) as P;
     case 5:
@@ -257,22 +270,24 @@ P _invoicePaymentModelDeserializeProp<P>(
     case 6:
       return (reader.readString(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
-    case 8:
       return (reader.readString(offset)) as P;
+    case 8:
+      return (reader.readStringOrNull(offset)) as P;
     case 9:
       return (reader.readString(offset)) as P;
     case 10:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 11:
       return (reader.readDateTime(offset)) as P;
     case 12:
+      return (reader.readDateTime(offset)) as P;
+    case 13:
       return (_InvoicePaymentModelpaymentMethodValueEnumMap[
               reader.readByteOrNull(offset)] ??
           PaymentMethod.cash) as P;
-    case 13:
-      return (reader.readStringOrNull(offset)) as P;
     case 14:
+      return (reader.readStringOrNull(offset)) as P;
+    case 15:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -286,7 +301,8 @@ const _InvoicePaymentModelpaymentMethodEnumValueMap = {
   'debitCard': 3,
   'bankTransfer': 4,
   'check': 5,
-  'other': 6,
+  'clientBalance': 6,
+  'other': 7,
 };
 const _InvoicePaymentModelpaymentMethodValueEnumMap = {
   0: PaymentMethod.cash,
@@ -295,7 +311,8 @@ const _InvoicePaymentModelpaymentMethodValueEnumMap = {
   3: PaymentMethod.debitCard,
   4: PaymentMethod.bankTransfer,
   5: PaymentMethod.check,
-  6: PaymentMethod.other,
+  6: PaymentMethod.clientBalance,
+  7: PaymentMethod.other,
 };
 
 Id _invoicePaymentModelGetId(InvoicePaymentModel object) {
@@ -749,6 +766,160 @@ extension InvoicePaymentModelQueryFilter on QueryBuilder<InvoicePaymentModel,
         upper: upper,
         includeUpper: includeUpper,
         epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'bankAccountId',
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'bankAccountId',
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'bankAccountId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'bankAccountId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'bankAccountId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'bankAccountId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'bankAccountId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'bankAccountId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'bankAccountId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'bankAccountId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'bankAccountId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterFilterCondition>
+      bankAccountIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'bankAccountId',
+        value: '',
       ));
     });
   }
@@ -2293,6 +2464,20 @@ extension InvoicePaymentModelQuerySortBy
   }
 
   QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterSortBy>
+      sortByBankAccountId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'bankAccountId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterSortBy>
+      sortByBankAccountIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'bankAccountId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterSortBy>
       sortByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
@@ -2502,6 +2687,20 @@ extension InvoicePaymentModelQuerySortThenBy
       thenByAmountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'amount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterSortBy>
+      thenByBankAccountId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'bankAccountId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QAfterSortBy>
+      thenByBankAccountIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'bankAccountId', Sort.desc);
     });
   }
 
@@ -2726,6 +2925,14 @@ extension InvoicePaymentModelQueryWhereDistinct
   }
 
   QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QDistinct>
+      distinctByBankAccountId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'bankAccountId',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, InvoicePaymentModel, QDistinct>
       distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdAt');
@@ -2838,6 +3045,13 @@ extension InvoicePaymentModelQueryProperty
   QueryBuilder<InvoicePaymentModel, double, QQueryOperations> amountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'amount');
+    });
+  }
+
+  QueryBuilder<InvoicePaymentModel, String?, QQueryOperations>
+      bankAccountIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'bankAccountId');
     });
   }
 

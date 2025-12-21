@@ -199,17 +199,10 @@ class InvoiceDetailScreen extends StatelessWidget {
           ],
         ),
       ),
-      leading: Container(
-        margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          gradient: ElegantLightTheme.glassGradient,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Get.offAllNamed(AppRoutes.invoices),
-          tooltip: 'Volver a facturas',
-        ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+        onPressed: () => Get.offAllNamed(AppRoutes.invoices),
+        tooltip: 'Volver a facturas',
       ),
       title: GetBuilder<InvoiceDetailController>(
         builder:
@@ -246,62 +239,36 @@ class InvoiceDetailScreen extends StatelessWidget {
       actions: [
         // Editar
         GetBuilder<InvoiceDetailController>(
-          builder:
-              (controller) =>
-                  controller.canEdit
-                      ? Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        decoration: BoxDecoration(
-                          gradient: ElegantLightTheme.glassGradient,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.white),
-                          onPressed: controller.goToEditInvoice,
-                          tooltip: 'Editar factura',
-                        ),
-                      )
-                      : const SizedBox.shrink(),
+          builder: (controller) => controller.canEdit
+              ? IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.white, size: 20),
+                  onPressed: controller.goToEditInvoice,
+                  tooltip: 'Editar factura',
+                )
+              : const SizedBox.shrink(),
         ),
 
         // Refrescar
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.glassGradient,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => controller.refreshInvoice(),
-            tooltip: 'Refrescar',
-          ),
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
+          onPressed: () => controller.refreshInvoice(),
+          tooltip: 'Refrescar',
         ),
 
         // Menú
         GetBuilder<InvoiceDetailController>(
-          builder:
-              (controller) => Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.glassGradient,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  color: ElegantLightTheme.cardColor,
-                  elevation: 8,
-                  shadowColor: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
-                  surfaceTintColor: Colors.transparent,
-                  onSelected:
-                      (value) => _handleMenuAction(value, context, controller),
-                  itemBuilder:
-                      (context) => _buildFuturisticMenuItems(controller),
-                ),
-              ),
+          builder: (controller) => PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            color: ElegantLightTheme.cardColor,
+            elevation: 8,
+            shadowColor: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+            surfaceTintColor: Colors.transparent,
+            onSelected: (value) => _handleMenuAction(value, context, controller),
+            itemBuilder: (context) => _buildFuturisticMenuItems(controller),
+          ),
         ),
       ],
     );

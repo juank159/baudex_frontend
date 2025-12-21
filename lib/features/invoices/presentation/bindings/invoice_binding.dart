@@ -289,107 +289,50 @@ class InvoiceBinding extends Bindings {
 
   // ==================== MÉTODOS PARA CONTROLADORES ESPECÍFICOS ====================
 
-  /// ✅ SOLUCIÓN: Registrar controlador de lista SIN TAG con validaciones
+  /// ✅ SOLUCIÓN: Registrar controlador de lista como PERMANENTE
+  /// Esto evita que el controller se disponga al navegar entre pantallas
   static void registerListController() {
     if (!Get.isRegistered<InvoiceListController>()) {
       try {
-        print('🔧 Iniciando registro de InvoiceListController...');
+        print('🔧 Iniciando registro de InvoiceListController (permanente)...');
 
-        // ✅ Validar dependencias antes de crear el controlador
-        print('🔍 Validando dependencias requeridas...');
-        final requiredDependencies = [
-          'GetInvoicesUseCase',
-          'SearchInvoicesUseCase',
-          'DeleteInvoiceUseCase',
-          'ConfirmInvoiceUseCase',
-          'CancelInvoiceUseCase',
-          'GetInvoiceByIdUseCase',
-        ];
+        // Validar dependencias antes de crear el controlador
+        final requiredDeps = {
+          'GetInvoicesUseCase': Get.isRegistered<GetInvoicesUseCase>(),
+          'SearchInvoicesUseCase': Get.isRegistered<SearchInvoicesUseCase>(),
+          'DeleteInvoiceUseCase': Get.isRegistered<DeleteInvoiceUseCase>(),
+          'ConfirmInvoiceUseCase': Get.isRegistered<ConfirmInvoiceUseCase>(),
+          'CancelInvoiceUseCase': Get.isRegistered<CancelInvoiceUseCase>(),
+          'GetInvoiceByIdUseCase': Get.isRegistered<GetInvoiceByIdUseCase>(),
+        };
 
-        for (final dep in requiredDependencies) {
-          switch (dep) {
-            case 'GetInvoicesUseCase':
-              if (!Get.isRegistered<GetInvoicesUseCase>()) {
-                throw Exception('$dep no está registrado');
-              }
-              break;
-            case 'SearchInvoicesUseCase':
-              if (!Get.isRegistered<SearchInvoicesUseCase>()) {
-                throw Exception('$dep no está registrado');
-              }
-              break;
-            case 'DeleteInvoiceUseCase':
-              if (!Get.isRegistered<DeleteInvoiceUseCase>()) {
-                throw Exception('$dep no está registrado');
-              }
-              break;
-            case 'ConfirmInvoiceUseCase':
-              if (!Get.isRegistered<ConfirmInvoiceUseCase>()) {
-                throw Exception('$dep no está registrado');
-              }
-              break;
-            case 'CancelInvoiceUseCase':
-              if (!Get.isRegistered<CancelInvoiceUseCase>()) {
-                throw Exception('$dep no está registrado');
-              }
-              break;
-            case 'GetInvoiceByIdUseCase':
-              if (!Get.isRegistered<GetInvoiceByIdUseCase>()) {
-                throw Exception('$dep no está registrado');
-              }
-              break;
+        for (final entry in requiredDeps.entries) {
+          if (!entry.value) {
+            throw Exception('${entry.key} no está registrado');
           }
-          print('✅ $dep validado');
         }
 
-        print('🛠️ Creando InvoiceListController...');
-        final controller = InvoiceListController(
-          getInvoicesUseCase: Get.find<GetInvoicesUseCase>(),
-          searchInvoicesUseCase: Get.find<SearchInvoicesUseCase>(),
-          deleteInvoiceUseCase: Get.find<DeleteInvoiceUseCase>(),
-          confirmInvoiceUseCase: Get.find<ConfirmInvoiceUseCase>(),
-          cancelInvoiceUseCase: Get.find<CancelInvoiceUseCase>(),
-          getInvoiceByIdUseCase: Get.find<GetInvoiceByIdUseCase>(),
+        // Crear y registrar como PERMANENTE
+        Get.put<InvoiceListController>(
+          InvoiceListController(
+            getInvoicesUseCase: Get.find<GetInvoicesUseCase>(),
+            searchInvoicesUseCase: Get.find<SearchInvoicesUseCase>(),
+            deleteInvoiceUseCase: Get.find<DeleteInvoiceUseCase>(),
+            confirmInvoiceUseCase: Get.find<ConfirmInvoiceUseCase>(),
+            cancelInvoiceUseCase: Get.find<CancelInvoiceUseCase>(),
+            getInvoiceByIdUseCase: Get.find<GetInvoiceByIdUseCase>(),
+          ),
+          permanent: true, // ✅ PERMANENTE para evitar disposal al navegar
         );
 
-        print('📝 Registrando controlador en GetX...');
-        Get.put(
-          controller,
-          permanent: false, // ✅ No permanente para permitir disposal correcto
-        );
-
-        // ✅ Verificar que se registró correctamente
-        if (!Get.isRegistered<InvoiceListController>()) {
-          throw Exception('Controlador no se registró correctamente en GetX');
-        }
-
-        final registeredController = Get.find<InvoiceListController>();
-
-        print('✅ InvoiceListController registrado y validado exitosamente');
+        print('✅ InvoiceListController registrado como permanente');
       } catch (e, stackTrace) {
         print('❌ Error registrando InvoiceListController: $e');
         print('📍 Stack trace: $stackTrace');
         throw Exception('No se pudo registrar InvoiceListController: $e');
       }
     } else {
-      print('ℹ️ InvoiceListController ya está registrado');
-
-      try {
-        // ✅ Verificar que el controlador existente no sea null
-        final existingController = Get.find<InvoiceListController>();
-        // ✅ NOTA: El ScrollController ahora es manejado por el StatefulWidget (InvoiceListScreen)
-        // No es necesario verificar ni recrear ScrollController aquí
-        print('✅ InvoiceListController existente verificado');
-      } catch (e) {
-        print('❌ Error verificando controlador existente: $e');
-        print('🗺 Forzando limpieza y re-registro...');
-        try {
-          Get.delete<InvoiceListController>(force: true);
-        } catch (deleteError) {
-          print('❌ Error en limpieza forzada: $deleteError');
-        }
-        registerListController(); // Re-registrar
-      }
+      print('ℹ️ InvoiceListController ya está registrado (permanente)');
     }
   }
 

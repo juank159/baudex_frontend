@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/models/pagination_meta.dart';
-import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/usecases/get_customers_usecase.dart';
 import '../../domain/usecases/delete_customer_usecase.dart';
@@ -52,10 +51,8 @@ class CustomersController extends GetxController {
   final _sortBy = 'createdAt'.obs;
   final _sortOrder = 'DESC'.obs;
 
-  // UI Controllers - Using SafeTextEditingController to prevent disposal errors
-  final searchController = SafeTextEditingController(
-    debugLabel: 'CustomersSearch',
-  );
+  // UI Controllers - Igual que credit notes
+  final searchController = TextEditingController();
   final scrollController = ScrollController();
 
   // Timer para debounce de búsqueda
@@ -115,25 +112,12 @@ class CustomersController extends GetxController {
 
   @override
   void onClose() {
-    print('🔧 CustomersController: Iniciando dispose...');
-
-    // Cancelar timer de búsqueda
+    // Solo cancelar el timer, NO disponer los controllers
+    // porque este controller es permanente
     _searchDebounceTimer?.cancel();
-
-    // Dispose seguro del searchController
-    if (!searchController.isDisposed) {
-      searchController.dispose();
-      print('✅ CustomersController: searchController disposed');
-    } else {
-      print('⚠️ CustomersController: searchController ya estaba disposed');
-    }
-
-    // Dispose del scrollController
-    scrollController.dispose();
-    print('✅ CustomersController: scrollController disposed');
-
+    // NO llamar dispose en searchController y scrollController
+    // porque el controller es permanente y se reutiliza
     super.onClose();
-    print('✅ CustomersController: Dispose completado');
   }
 
   // ==================== INITIALIZATION ====================
@@ -583,41 +567,14 @@ class CustomersController extends GetxController {
 
   // ==================== PRIVATE METHODS ====================
 
-  /// Configurar listener del scroll para paginación infinita
-  /// Configurar listener de búsqueda con debounce
+  /// Configurar listener de búsqueda con debounce - IGUAL que credit notes
   void _setupSearchListener() {
     searchController.addListener(() {
-      // Verificar que el controller sea seguro de usar
-      if (!searchController.isSafeToUse) {
-        print('⚠️ SearchController no es seguro, ignorando evento');
-        return;
-      }
-
       _searchDebounceTimer?.cancel();
       _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
-        // Doble verificación después del delay
-        if (!searchController.isSafeToUse) {
-          print(
-            '⚠️ SearchController no es seguro después del delay, ignorando',
-          );
-          return;
-        }
-
-        final query = searchController.text.trim();
-        print(
-          '🔍 Search listener triggered: query="$query", current="_searchTerm=${_searchTerm.value}"',
-        );
-
-        if (query != _searchTerm.value) {
-          print(
-            '🔄 Updating search term from "${_searchTerm.value}" to "$query"',
-          );
-          _searchTerm.value = query;
-          _currentPage.value = 1;
-          loadCustomers();
-        } else {
-          print('⏭️ Search term unchanged, skipping reload');
-        }
+        _searchTerm.value = searchController.text;
+        _currentPage.value = 1;
+        loadCustomers();
       });
     });
   }

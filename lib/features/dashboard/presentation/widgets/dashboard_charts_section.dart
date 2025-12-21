@@ -1,6 +1,7 @@
 // lib/features/dashboard/presentation/widgets/dashboard_charts_section.dart
 
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/config/themes/app_colors.dart';
@@ -10,8 +11,46 @@ import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive_text.dart';
 import '../controllers/dashboard_controller.dart';
 
-class DashboardChartsSection extends StatelessWidget {
+class DashboardChartsSection extends StatefulWidget {
   const DashboardChartsSection({super.key});
+
+  @override
+  State<DashboardChartsSection> createState() => _DashboardChartsSectionState();
+}
+
+class _DashboardChartsSectionState extends State<DashboardChartsSection>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+  int _hoveredBarIndex = -1; // -1 = ninguno, 0 = ingresos, 1 = gastos
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _setHoveredBar(int index) {
+    if (_hoveredBarIndex != index) {
+      setState(() {
+        _hoveredBarIndex = index;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,25 +130,17 @@ class DashboardChartsSection extends StatelessWidget {
         );
       }
 
-      return Container(
-        decoration: BoxDecoration(
-          gradient: ElegantLightTheme.cardGradient,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
-            width: 1,
-          ),
-          boxShadow: [
-            ...ElegantLightTheme.elevatedShadow,
-            BoxShadow(
-              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.1),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: ElegantLightTheme.glassDecoration(
+              borderColor: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+              gradient: ElegantLightTheme.glassGradient,
             ),
-          ],
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
-        child: Column(
+            padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -119,6 +150,8 @@ class DashboardChartsSection extends StatelessWidget {
               child: _buildChart(totalSales, totalExpenses, maxValue, isMobile),
             ),
           ],
+            ),
+          ),
         ),
       );
     });
@@ -524,14 +557,24 @@ class DashboardChartsSection extends StatelessWidget {
     double totalExpenses,
     double maxValue,
   ) {
+    // Porcentajes para la altura de las barras (relativo al valor máximo)
     final percentage1 = maxValue > 0 ? (totalSales / maxValue) : 0;
     final percentage2 = maxValue > 0 ? (totalExpenses / maxValue) : 0;
+
+    // Porcentajes reales para mostrar en el badge (relativo al total)
+    final total = totalSales + totalExpenses;
+    final double salesPercentage = total > 0 ? (totalSales / total * 100) : 0.0;
+    final double expensesPercentage = total > 0 ? (totalExpenses / total * 100) : 0.0;
+
     final screenWidth = MediaQuery.of(Get.context!).size.width;
     final isMobile = screenWidth < 600;
-    final maxBarHeight =
-        isMobile
-            ? 120.0
-            : 360.0; // Barras más cortas en móvil para vista compacta
+
+    // Altura máxima de las barras: debe dejar espacio para el label superior
+    // Container total: 160px (mobile) o 300px (desktop)
+    // Espacio para label + padding superior: ~50px
+    // Máxima altura de barra = Container - Espacio para label
+    final maxBarHeight = isMobile ? 100.0 : 230.0;
+
     final barHeight1 = maxBarHeight * percentage1;
     final barHeight2 = maxBarHeight * percentage2;
     final minHeight = 4.0;
@@ -553,156 +596,192 @@ class DashboardChartsSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Flexible(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.success.withOpacity(0.1),
-                        AppColors.success.withOpacity(0.05),
-                      ],
+            child: MouseRegion(
+              onEnter: (_) => _setHoveredBar(0),
+              onExit: (_) => _setHoveredBar(-1),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.success.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    AppFormatters.formatCurrency(totalSales.toInt()),
-                    style: TextStyle(
-                      color: AppColors.success,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 10,
-                      letterSpacing: 0.5,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                SizedBox(
-                  height: isMobile ? 0 : 8,
-                ), // Espacio adicional en desktop entre valor y barra
-                _build3DBar(finalHeight1, AppColors.success, isMobile),
-                SizedBox(
-                  height: isMobile ? 0 : 6,
-                ), // Espacio adicional en desktop entre barra y etiqueta
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.white, Colors.grey.shade50],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.success.withOpacity(0.2),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.success.withOpacity(0.1),
+                          AppColors.success.withOpacity(0.05),
+                        ],
                       ),
-                    ],
-                    border: Border.all(
-                      color: AppColors.success.withOpacity(0.1),
-                      width: 1,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.success.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      AppFormatters.formatCurrency(totalSales.toInt()),
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
+                        letterSpacing: 0.5,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  child: Text(
-                    'Ingresos',
-                    style: TextStyle(
-                      color: AppColors.success,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                      letterSpacing: 0.8,
+                  SizedBox(
+                    height: isMobile ? 0 : 8,
+                  ), // Espacio adicional en desktop entre valor y barra
+                  AnimatedBuilder(
+                    animation: _animation,
+                    builder: (context, child) {
+                      return _build3DBar(
+                        finalHeight1 * _animation.value,
+                        AppColors.success,
+                        isMobile,
+                        isHovered: _hoveredBarIndex == 0,
+                        barIndex: 0,
+                        totalValue: totalSales,
+                        percentage: salesPercentage,
+                        label: 'Ingresos',
+                      );
+                    },
+                  ),
+                  SizedBox(
+                    height: isMobile ? 0 : 6,
+                  ), // Espacio adicional en desktop entre barra y etiqueta
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.white, Colors.grey.shade50],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.success.withOpacity(0.2),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: AppColors.success.withOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      'Ingresos',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        letterSpacing: 0.8,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 16),
           Flexible(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.error.withOpacity(0.1),
-                        AppColors.error.withOpacity(0.05),
-                      ],
+            child: MouseRegion(
+              onEnter: (_) => _setHoveredBar(1),
+              onExit: (_) => _setHoveredBar(-1),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.error.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    AppFormatters.formatCurrency(totalExpenses.toInt()),
-                    style: TextStyle(
-                      color: AppColors.error,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 10,
-                      letterSpacing: 0.5,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                SizedBox(
-                  height: isMobile ? 0 : 8,
-                ), // Espacio adicional en desktop entre valor y barra
-                _build3DBar(finalHeight2, AppColors.error, isMobile),
-                SizedBox(
-                  height: isMobile ? 0 : 6,
-                ), // Espacio adicional en desktop entre barra y etiqueta
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.white, Colors.grey.shade50],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.error.withOpacity(0.2),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.error.withOpacity(0.1),
+                          AppColors.error.withOpacity(0.05),
+                        ],
                       ),
-                    ],
-                    border: Border.all(
-                      color: AppColors.error.withOpacity(0.1),
-                      width: 1,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.error.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      AppFormatters.formatCurrency(totalExpenses.toInt()),
+                      style: TextStyle(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
+                        letterSpacing: 0.5,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  child: Text(
-                    'Gastos',
-                    style: TextStyle(
-                      color: AppColors.error,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                      letterSpacing: 0.8,
+                  SizedBox(
+                    height: isMobile ? 0 : 8,
+                  ), // Espacio adicional en desktop entre valor y barra
+                  AnimatedBuilder(
+                    animation: _animation,
+                    builder: (context, child) {
+                      return _build3DBar(
+                        finalHeight2 * _animation.value,
+                        AppColors.error,
+                        isMobile,
+                        isHovered: _hoveredBarIndex == 1,
+                        barIndex: 1,
+                        totalValue: totalExpenses,
+                        percentage: expensesPercentage,
+                        label: 'Gastos',
+                      );
+                    },
+                  ),
+                  SizedBox(
+                    height: isMobile ? 0 : 6,
+                  ), // Espacio adicional en desktop entre barra y etiqueta
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.white, Colors.grey.shade50],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.error.withOpacity(0.2),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: AppColors.error.withOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      'Gastos',
+                      style: TextStyle(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        letterSpacing: 0.8,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -710,144 +789,253 @@ class DashboardChartsSection extends StatelessWidget {
     );
   }
 
-  Widget _build3DBar(double height, Color baseColor, bool isMobile) {
-    // Usar la altura real sin forzar mínimos para alineación correcta
-    final safeHeight = height;
+  Widget _build3DBar(
+    double height,
+    Color baseColor,
+    bool isMobile, {
+    bool isHovered = false,
+    int barIndex = 0,
+    double totalValue = 0,
+    double percentage = 0,
+    String label = '',
+  }) {
+    // Altura total del contenedor
+    final double fixedContainerHeight = isMobile ? 160.0 : 300.0;
 
-    // Mapear colores a gradientes futurísticos
-    LinearGradient gradient;
+    // Espacio reservado para el label superior (padding + text + spacing)
+    final double labelSpace = 50.0;
+
+    // Altura máxima permitida para la barra visual
+    final double maxAllowedBarHeight = fixedContainerHeight - labelSpace;
+
+    // Aplicar límite estricto: la barra NUNCA puede exceder maxAllowedBarHeight
+    final safeHeight = height.clamp(0.0, maxAllowedBarHeight);
+
+    // Efectos de hover
+    final double hoverScale = isHovered ? 1.05 : 1.0;
+    final double hoverElevation = isHovered ? 10.0 : 0.0;
+    final double glowIntensity = isHovered ? 0.6 : 0.3;
+
+    // Mapear colores
+    Color glowColor;
     if (baseColor == AppColors.success) {
-      gradient = ElegantLightTheme.successGradient;
+      glowColor = const Color(0xFF10B981); // Green
     } else if (baseColor == AppColors.error) {
-      gradient = ElegantLightTheme.errorGradient;
+      glowColor = const Color(0xFFEF4444); // Red
     } else {
-      gradient = ElegantLightTheme.primaryGradient;
+      glowColor = const Color(0xFF3B82F6); // Blue
     }
 
-    // Usar altura fija del contenedor para garantizar alineación (ajustada para evitar overflow)
-    final double fixedContainerHeight =
-        isMobile ? 140.0 : 340.0; // Altura más compacta en móvil
+    final double barWidth = 70.0;
 
-    return SizedBox(
-      width: 85,
-      height: fixedContainerHeight,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      transform: Matrix4.identity()
+        ..scale(hoverScale)
+        ..translate(0.0, -hoverElevation, 0.0),
       child: Stack(
-        alignment: Alignment.bottomCenter,
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
         children: [
-          // Sombra PERFECTAMENTE SUAVE sin esquinas cuadradas
-          Positioned(
-            bottom: -1,
-            left: 12.5,
-            child: Container(
-              width: 60,
-              height: 12,
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.center,
-                  radius: 1.0,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.06),
-                    Colors.black.withValues(alpha: 0.03),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
-                ),
-                borderRadius: BorderRadius.circular(
-                  30,
-                ), // COMPLETAMENTE REDONDEADO - sin esquinas cuadradas
-              ),
-            ),
-          ),
-          // Base del cilindro futurística
-          Positioned(
-            bottom: 5, // Posición fija desde el fondo
-            child: Container(
-              width: 80,
-              height: 15,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    gradient.colors.first.withValues(alpha: 0.7),
-                    gradient.colors.last,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(40),
-                // Eliminadas boxShadow que interfieren con la sombra principal
-              ),
-            ),
-          ),
-          // Cuerpo principal del cilindro con perspectiva futurística
-          Positioned(
-            bottom:
-                15, // Posición fija desde el fondo para alineación consistente
-            child: Transform(
-              alignment: Alignment.center,
-              transform:
-                  Matrix4.identity()
-                    ..setEntry(3, 2, 0.001) // Perspectiva
-                    ..rotateY(0.1), // Ligera rotación para mostrar volumen
-              child: Container(
-                width: 70,
-                height: safeHeight,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      gradient.colors.first.withValues(
-                        alpha: 0.6,
-                      ), // Sombra izquierda
-                      gradient.colors.first.withValues(alpha: 0.8),
-                      gradient.colors.last, // Centro brillante
-                      gradient.colors.first.withValues(alpha: 0.9),
-                      gradient.colors.first.withValues(
-                        alpha: 0.5,
-                      ), // Sombra derecha
-                    ],
-                    stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    topRight: Radius.circular(4),
+          // BARRA PRINCIPAL
+          SizedBox(
+            width: 90,
+            height: fixedContainerHeight,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              clipBehavior: Clip.none,
+              children: [
+                // 1. SOMBRA DE GLOW GRANDE (intensificada con hover)
+                Positioned(
+                  bottom: 0,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    width: barWidth + 20,
+                    height: safeHeight + 40,
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment.bottomCenter,
+                        radius: 1.0,
+                        colors: [
+                          glowColor.withOpacity(glowIntensity),
+                          glowColor.withOpacity(glowIntensity * 0.5),
+                          glowColor.withOpacity(glowIntensity * 0.15),
+                          Colors.transparent,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(50),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          // Reflejo lateral con perspectiva
-          Positioned(
-            bottom:
-                15 +
-                (safeHeight *
-                    0.3), // Posicionado relativo a la altura de la barra
-            left: 18,
-            child: Transform(
-              alignment: Alignment.center,
-              transform:
-                  Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateY(0.1),
-              child: Container(
-                width: 20,
-                height: safeHeight * 0.7,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white.withValues(alpha: 0.4),
-                      Colors.white.withValues(alpha: 0.2),
-                      Colors.white.withValues(alpha: 0.1),
-                      Colors.transparent,
-                    ],
+
+                // 2. SOMBRA BASE OSCURA
+                Positioned(
+                  bottom: 0,
+                  child: Container(
+                    width: barWidth - 5,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment.center,
+                        radius: 1.0,
+                        colors: [
+                          Colors.black.withOpacity(0.2),
+                          Colors.black.withOpacity(0.1),
+                          Colors.transparent,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(50),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(10),
                 ),
-              ),
+
+                // 3. CILINDRO PRINCIPAL GLASSMORPHIC
+                Positioned(
+                  bottom: 8,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(barWidth / 2),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        width: barWidth,
+                        height: safeHeight + 8,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.white.withOpacity(0.3),
+                              glowColor.withOpacity(0.2),
+                              glowColor.withOpacity(0.5),
+                              glowColor.withOpacity(0.8),
+                              glowColor,
+                            ],
+                            stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
+                          ),
+                          borderRadius: BorderRadius.circular(barWidth / 2),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.5),
+                            width: 2.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: glowColor.withOpacity(isHovered ? 0.6 : 0.4),
+                              blurRadius: isHovered ? 35 : 25,
+                              offset: const Offset(0, 4),
+                              spreadRadius: isHovered ? 4 : 2,
+                            ),
+                            BoxShadow(
+                              color: Colors.white.withOpacity(0.3),
+                              blurRadius: 15,
+                              offset: const Offset(-5, -5),
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          children: [
+                            // REFLEJO LATERAL IZQUIERDO
+                            if (safeHeight > 10)
+                              Positioned(
+                                left: 8,
+                                top: safeHeight * 0.15,
+                                child: Container(
+                                  width: 20,
+                                  height: safeHeight * 0.6,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Colors.white.withOpacity(0.7),
+                                        Colors.white.withOpacity(0.4),
+                                        Colors.white.withOpacity(0.1),
+                                        Colors.transparent,
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+
+          // BADGE FLOTANTE (solo desktop y cuando hover)
+          if (isHovered && !isMobile)
+            Positioned(
+              // Posición adaptativa: encima de la barra si es grande, o en posición fija si es pequeña
+              top: safeHeight > 80
+                  ? fixedContainerHeight - safeHeight - 80
+                  : fixedContainerHeight - 150, // Posición fija para barras pequeñas
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 300),
+                tween: Tween<double>(begin: 0.0, end: 1.0),
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: Opacity(
+                      opacity: value,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: glowColor,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: glowColor.withOpacity(0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              AppFormatters.formatCurrency(totalValue.toInt()),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${percentage.toStringAsFixed(1)}%',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -879,6 +1067,7 @@ class DashboardChartsSection extends StatelessWidget {
           '${salesPercentage.toStringAsFixed(1)}%',
           AppColors.success,
           Icons.trending_up_rounded,
+          0, // barIndex: sincronizar con la barra de Ingresos
         ),
         const SizedBox(height: 12),
 
@@ -889,6 +1078,7 @@ class DashboardChartsSection extends StatelessWidget {
           '${expensesPercentage.toStringAsFixed(1)}%',
           AppColors.error,
           Icons.trending_down_rounded,
+          1, // barIndex: sincronizar con la barra de Gastos
         ),
         const SizedBox(height: 12),
 
@@ -899,6 +1089,7 @@ class DashboardChartsSection extends StatelessWidget {
           '${totalSales > 0 ? (totalCOGS / totalSales * 100).toStringAsFixed(1) : "0.0"}%',
           AppColors.warning,
           Icons.inventory_rounded,
+          -2, // barIndex: -2 = no tiene barra correspondiente
         ),
         const SizedBox(height: 12),
 
@@ -991,98 +1182,248 @@ class DashboardChartsSection extends StatelessWidget {
     String percentage,
     Color color,
     IconData icon,
+    int barIndex,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.2), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Indicador de color circular
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(6),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.4),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
+    return _LegendItemCard(
+      label: label,
+      value: value,
+      percentage: percentage,
+      color: color,
+      icon: icon,
+      barIndex: barIndex,
+      onHover: _setHoveredBar,
+      isExternallyHovered: _hoveredBarIndex == barIndex,
+    );
+  }
+}
 
-          // Contenido
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(icon, color: color, size: 16),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+// Widget animado para los items de la leyenda
+class _LegendItemCard extends StatefulWidget {
+  final String label;
+  final String value;
+  final String percentage;
+  final Color color;
+  final IconData icon;
+  final int barIndex;
+  final Function(int) onHover;
+  final bool isExternallyHovered;
+
+  const _LegendItemCard({
+    required this.label,
+    required this.value,
+    required this.percentage,
+    required this.color,
+    required this.icon,
+    required this.barIndex,
+    required this.onHover,
+    required this.isExternallyHovered,
+  });
+
+  @override
+  State<_LegendItemCard> createState() => _LegendItemCardState();
+}
+
+class _LegendItemCardState extends State<_LegendItemCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _glowAnimation;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_LegendItemCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sincronizar animación con hover externo (desde las barras)
+    if (widget.isExternallyHovered && !_isHovered) {
+      _controller.forward();
+    } else if (!widget.isExternallyHovered && !_isHovered) {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final bool isHighlighted = _isHovered || widget.isExternallyHovered;
+
+        return MouseRegion(
+          onEnter: (_) {
+            setState(() => _isHovered = true);
+            _controller.forward();
+            widget.onHover(widget.barIndex); // Sincronizar con las barras
+          },
+          onExit: (_) {
+            setState(() => _isHovered = false);
+            _controller.reverse();
+            widget.onHover(-1); // Quitar hover de las barras
+          },
+          child: Transform.scale(
+            scale: _scaleAnimation.value,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.glassGradient,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isHighlighted
+                          ? widget.color.withOpacity(0.5)
+                          : widget.color.withOpacity(0.2),
+                      width: isHighlighted ? 2.0 : 1.5,
                     ),
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
+                    boxShadow: [
+                      ...ElegantLightTheme.glassShadow,
+                      if (_glowAnimation.value > 0)
+                        BoxShadow(
+                          color: widget.color.withOpacity(
+                            _glowAnimation.value * 0.4,
+                          ),
+                          blurRadius: 20 * _glowAnimation.value,
+                          offset: const Offset(0, 4),
+                          spreadRadius: 2 * _glowAnimation.value,
+                        ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Icono con glassmorfismo
+                      ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        percentage,
-                        style: TextStyle(
-                          color: color,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 10,
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  widget.color.withOpacity(0.3),
+                                  widget.color.withOpacity(0.15),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: widget.color.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              widget.icon,
+                              color: widget.color,
+                              size: 18,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    letterSpacing: 0.2,
+                      const SizedBox(width: 12),
+
+                      // Contenido
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    widget.label,
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        widget.color.withOpacity(0.2),
+                                        widget.color.withOpacity(0.1),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: widget.color.withOpacity(0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    widget.percentage,
+                                    style: TextStyle(
+                                      color: widget.color,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.value,
+                              style: TextStyle(
+                                color: widget.color,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

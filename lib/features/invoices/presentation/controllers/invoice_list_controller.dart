@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/usecases/get_invoices_usecase.dart';
@@ -100,10 +99,8 @@ class InvoiceListController extends GetxController {
   final _selectedInvoices = <String>[].obs;
   final _isMultiSelectMode = false.obs;
 
-  // Controllers - USANDO SAFE CONTROLLERS PARA PREVENIR ERRORES DISPOSED
-  final searchController = SafeTextEditingController(
-    debugLabel: 'InvoiceListSearch',
-  );
+  // Controllers - TextEditingController normal (el controller es permanente)
+  final searchController = TextEditingController();
 
   // ✅ NOTA IMPORTANTE: El ScrollController ahora es manejado por InvoiceListScreen (StatefulWidget)
   // Esto garantiza un lifecycle correcto y evita el error "attached to more than one ScrollPosition"
@@ -291,47 +288,13 @@ class InvoiceListController extends GetxController {
 
   @override
   void onClose() {
-    // print('🔚 InvoiceListController: Liberando recursos...');
-
-    try {
-      // ✅ AUTO-REFRESH: Cancelar worker de rutas
-      _routeWorker?.dispose();
-      _routeWorker = null;
-
-      // ✅ CRÍTICO: Cancelar timer de debounce antes de liberar recursos
-      _searchDebounceTimer?.cancel();
-      _searchDebounceTimer = null;
-
-      // ✅ CRÍTICO: Remover listeners de forma segura usando SafeController
-      if (searchController.canSafelyAccess()) {
-        try {
-          searchController.removeListener(_onSearchChanged);
-          // print('✅ Search listener removido exitosamente');
-        } catch (e) {
-          // print('⚠️ Error removiendo search listener: $e');
-        }
-      }
-
-      // ✅ DISPOSE SEGURO de controllers
-      try {
-        searchController
-            .dispose(); // SafeController maneja dispose de forma segura
-        // print('✅ SafeSearchController disposed exitosamente');
-      } catch (e) {
-        // print('⚠️ Error al liberar searchController: $e');
-      }
-
-      // ✅ NOTA: El ScrollController ahora es manejado por el StatefulWidget (InvoiceListScreen)
-      // No es necesario disponer aquí - el widget gestiona su propio lifecycle
-      // Esto evita el error de "ScrollController attached to more than one position"
-      _scrollListener = null;
-      _scrollController = null;
-
-      // print('✅ InvoiceListController: Recursos marcados para liberación');
-    } catch (e) {
-      // print('❌ Error durante onClose: $e');
-    }
-
+    // Solo cancelar el timer y worker, NO disponer el searchController
+    // porque este controller es permanente y se reutiliza
+    _routeWorker?.dispose();
+    _routeWorker = null;
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = null;
+    // NO llamar dispose en searchController porque el controller es permanente
     super.onClose();
   }
 
@@ -731,15 +694,9 @@ class InvoiceListController extends GetxController {
       _maxAmount.value = null;
       _searchQuery.value = '';
 
-      // ✅ CRÍTICO: Usar SafeController para limpiar de forma segura
-      if (searchController.canSafelyAccess()) {
-        searchController.safeClear();
-      } else {
-        // print('⚠️ InvoiceListController: SearchController no seguro, recreando...');
-        _recreateSafeSearchController();
-      }
+      // Limpiar el campo de búsqueda
+      searchController.clear();
 
-      // print('🧹 InvoiceListController: Filtros limpiados');
       loadInvoices();
     } catch (e) {
       // print('⚠️ Error al limpiar filtros: $e');
@@ -996,139 +953,13 @@ class InvoiceListController extends GetxController {
   /// @deprecated El ScrollController ahora es manejado por InvoiceListScreen
   @Deprecated('ScrollController ahora es manejado por InvoiceListScreen. NO usar.')
   void _setupScrollListener() {
-    if (_isControllerSafe()) {
-      try {
-        // ✅ SOLUCIÓN: Remover listener existente antes de agregar nuevo
-        if (_scrollListener != null && _scrollController != null) {
-          try {
-            _scrollController!.removeListener(_scrollListener!);
-            // print('🧹 Listener anterior removido');
-          } catch (e) {
-            // print('⚠️ Error removiendo listener anterior: $e');
-          }
-        }
-
-        // ✅ Throttling para evitar múltiples llamadas
-        DateTime? lastScrollCall;
-        const scrollThrottleMs = 150; // Límite de llamadas cada 150ms
-
-        // Crear el listener como una función separada para poder removerla después
-        _scrollListener = () {
-          try {
-            final now = DateTime.now();
-            if (lastScrollCall != null &&
-                now.difference(lastScrollCall!).inMilliseconds <
-                    scrollThrottleMs) {
-              return; // Ignorar si es muy pronto desde la última llamada
-            }
-            lastScrollCall = now;
-
-            // ✅ OBTENER CONTROLADOR DINÁMICO
-            final controller = _scrollController;
-            if (controller == null) {
-              // print('⚠️ ScrollController es null, saltando scroll event');
-              return;
-            }
-
-            // ✅ VALIDAR ESTADO DEL CONTROLADOR ANTES DE USAR
-            if (!controller.hasClients) {
-              // print('⚠️ ScrollController no tiene clients, saltando scroll event');
-              return;
-            }
-
-            // ✅ VALIDAR QUE SOLO HAY UNA POSICIÓN ACTIVA
-            if (controller.positions.length != 1) {
-              // Múltiples posiciones = conflicto, simplemente ignorar este evento
-              // NO remover el listener, solo saltar este evento
-              return;
-            }
-
-            final position = controller.position;
-            final threshold =
-                position.maxScrollExtent -
-                300; // ✅ Umbral más grande para mejor UX
-
-            // ✅ Verificaciones múltiples antes de activar paginación
-            if (position.pixels >= threshold &&
-                hasNextPage &&
-                !_isLoadingMore.value &&
-                !_isLoading.value) {
-              // print('📜 SCROLL TRIGGER: Activando paginación');
-              // print('   - Posición actual: ${position.pixels.round()}');
-              // print('   - Umbral: ${threshold.round()}');
-              // print('   - Página actual: $currentPage/$totalPages');
-
-              loadMoreInvoices();
-            }
-          } catch (e) {
-            // print('❌ Error en scroll listener: $e');
-            // Remover listener problemático
-            try {
-              _scrollController?.removeListener(_scrollListener!);
-              _scrollListener = null;
-            } catch (removeError) {
-              // print('❌ Error removiendo listener problemático: $removeError');
-            }
-          }
-        };
-
-        // ✅ USAR EL SCROLL CONTROLLER DINÁMICO
-        final controller = mainScrollController;
-
-        // ✅ VALIDAR ANTES DE AGREGAR LISTENER
-        // Permitir agregar listener incluso con 0 posiciones (aún no conectado a ListView)
-        // Solo evitar si hay múltiples posiciones (conflicto real)
-        if (controller.positions.length > 1) {
-          // Hay conflicto, pero no impedir - el listener manejará esto internamente
-        }
-
-        // ✅ AGREGAR LISTENER CON VALIDACIÓN
-        controller.addListener(_scrollListener!);
-        // print('✅ PAGINACIÓN: Scroll listener configurado con validación exhaustiva');
-      } catch (e) {
-        // print('❌ Error configurando scroll listener: $e');
-        _scrollListener = null;
-      }
-    } else {
-      // print('⚠️ Controller no es seguro, saltando configuración de scroll listener');
-    }
+    // Método deprecado - no hacer nada
   }
 
   /// @deprecated El ScrollController ahora es manejado por InvoiceListScreen
   @Deprecated('ScrollController ahora es manejado por InvoiceListScreen. NO usar.')
   void _createFreshScrollController() {
-    try {
-      // ✅ Si ya existe un controller válido, no crear otro
-      if (_scrollController != null) {
-        // Verificar si tiene múltiples posiciones (problema)
-        if (_scrollController!.hasClients && _scrollController!.positions.length > 1) {
-          // HAY CONFLICTO - necesitamos esperar a que se limpien las posiciones
-          // No disponer inmediatamente, dejar que Flutter lo maneje
-          _scrollController = null;
-        } else if (_scrollController!.hasClients && _scrollController!.positions.length == 1) {
-          // Controller válido con una posición - NO RECREAR
-          return;
-        } else if (!_scrollController!.hasClients) {
-          // No tiene clients, podemos disponer y recrear
-          try {
-            if (_scrollListener != null) {
-              _scrollController!.removeListener(_scrollListener!);
-            }
-            _scrollController!.dispose();
-          } catch (e) {
-            // Ignorar errores de dispose
-          }
-          _scrollController = null;
-        }
-      }
-
-      // ✅ Crear nuevo ScrollController solo si es necesario
-      if (_scrollController == null) {
-        _scrollController = ScrollController();
-      }
-    } catch (e) {
-      _scrollController = ScrollController(); // Fallback seguro
-    }
+    // Método deprecado - no hacer nada
   }
 
   /// @deprecated El ScrollController ahora es manejado por InvoiceListScreen (StatefulWidget)
@@ -1242,62 +1073,15 @@ class InvoiceListController extends GetxController {
     await loadInvoices();
   }
 
-  /// ✅ MÉTODO ULTRA-SEGURO: Manejo de cambios de búsqueda con SafeController
-  void _onSearchChanged() {
-    // Verificación: Estado del SafeController
-    if (!searchController.canSafelyAccess()) {
-      // print('⚠️ InvoiceListController: SafeSearchController no accesible, cancelando búsqueda');
-      _searchDebounceTimer?.cancel();
-      return;
-    }
-
-    // Verificación de estado del GetxController
-    if (!isClosed) {
-      try {
-        final query = searchController.safeText(); // Uso de método seguro
-        if (query != _searchQuery.value) {
-          // Cancelar timer anterior si existe
-          _searchDebounceTimer?.cancel();
-
-          // Crear nuevo timer con debounce de 500ms
-          _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
-            // Triple verificación antes de ejecutar búsqueda
-            if (!isClosed && searchController.canSafelyAccess()) {
-              final currentQuery = searchController.safeText();
-              if (currentQuery == query) {
-                searchInvoices(query);
-              }
-            } else {
-              // print('⚠️ Controlador cerrado o unsafe durante timer de búsqueda');
-            }
-          });
-        }
-      } catch (e) {
-        // print('⚠️ Error en _onSearchChanged: $e');
-        // Si hay error, cancelar timer para evitar futuros problemas
-        _searchDebounceTimer?.cancel();
-        _searchDebounceTimer = null;
-      }
-    } else {
-      // print('⚠️ GetxController cerrado, ignorando cambio de búsqueda');
-      _searchDebounceTimer?.cancel();
-    }
-  }
-
-  /// Configurar listener de búsqueda con SafeController
+  /// Configurar listener de búsqueda con debounce - IGUAL que credit notes
   void _setupSearchListener() {
-    if (searchController.canSafelyAccess()) {
-      try {
-        searchController.addListener(_onSearchChanged);
-        // print('✅ InvoiceListController: Search listener agregado exitosamente');
-      } catch (e) {
-        // print('❌ Error configurando search listener: $e');
-        _recreateSafeSearchController();
-      }
-    } else {
-      // print('⚠️ SearchController no seguro en _setupSearchListener, recreando...');
-      _recreateSafeSearchController();
-    }
+    searchController.addListener(() {
+      _searchDebounceTimer?.cancel();
+      _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+        _searchQuery.value = searchController.text;
+        loadInvoices();
+      });
+    });
   }
 
   // //Aplicar filtros locales a la lista de facturas
@@ -1410,41 +1194,4 @@ class InvoiceListController extends GetxController {
     _loadInvoiceStatsIfAvailable();
   }
 
-  /// @deprecated El ScrollController ahora es manejado por InvoiceListScreen (StatefulWidget)
-  /// Este método se mantiene solo por compatibilidad pero NO hace nada
-  @Deprecated('ScrollController ahora es manejado por InvoiceListScreen. Este método no hace nada.')
-  void recreateScrollController() {
-    // ⚠️ ADVERTENCIA: Este método está deprecado y no hace nada
-    // El ScrollController real está en InvoiceListScreen._scrollController
-    // y su lifecycle es manejado por el StatefulWidget (initState/dispose)
-  }
-
-  /// ✅ MÉTODO SIMPLIFICADO: Verificar estado usando SafeController
-  bool _isControllerSafe() {
-    return searchController.canSafelyAccess();
-  }
-
-  /// ✅ NUEVO: Recrear SafeSearchController de forma segura
-  void _recreateSafeSearchController() {
-    try {
-      // print('🔧 InvoiceListController: Recreando SafeSearchController...');
-
-      // Cancelar cualquier timer pendiente
-      _searchDebounceTimer?.cancel();
-      _searchDebounceTimer = null;
-
-      // Como searchController es final, necesitamos reinicializar internamente
-      // El SafeController ya maneja esto de forma segura
-      if (searchController.canSafelyAccess()) {
-        searchController.removeListener(_onSearchChanged);
-      }
-
-      // Volver a configurar el listener
-      _setupSearchListener();
-
-      // print('✅ SafeSearchController recreado exitosamente');
-    } catch (e) {
-      // print('❌ Error recreando SafeSearchController: $e');
-    }
-  }
 }

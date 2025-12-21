@@ -17,6 +17,7 @@ import 'package:baudex_desktop/features/customers/presentation/screens/customer_
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_form_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_stats_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/modern_customers_list_screen.dart';
+import 'package:baudex_desktop/features/inventory/domain/repositories/inventory_repository.dart';
 import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_controller.dart';
 import 'package:baudex_desktop/features/invoices/presentation/bindings/invoice_binding.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_detail_screen.dart';
@@ -103,7 +104,9 @@ import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit
 import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_detail_screen.dart';
 import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_form_screen.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/bindings/bank_accounts_binding.dart';
+import 'package:baudex_desktop/features/bank_accounts/presentation/bindings/bank_account_movements_binding.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_accounts_screen.dart';
+import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_account_movements_screen.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/bindings/customer_credit_binding.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/pages/customer_credits_page.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/pages/client_balances_page.dart';
@@ -720,13 +723,26 @@ class AppPages {
       page: () => const InventoryBatchesScreen(),
       binding: BindingsBuilder(() {
         print('🔧 [LOTES] Inicializando bindings...');
+        print('🔧 [LOTES] Get.parameters: ${Get.parameters}');
 
-        // Registrar binding completo de inventario
-        if (!Get.isRegistered<InventoryBatchesController>()) {
-          print('📦 [LOTES] Registrando InventoryBinding...');
+        // Primero asegurar que las dependencias base estén registradas
+        if (!Get.isRegistered<InventoryRepository>()) {
+          print('📦 [LOTES] Registrando InventoryBinding base...');
           InventoryBinding().dependencies();
-          print('✅ [LOTES] InventoryBinding registrado');
         }
+
+        // Siempre eliminar y re-crear el controller para esta ruta
+        // porque necesita el productId de los parámetros de ruta
+        if (Get.isRegistered<InventoryBatchesController>()) {
+          print('🔄 [LOTES] Eliminando controller anterior...');
+          Get.delete<InventoryBatchesController>();
+        }
+
+        print('📦 [LOTES] Creando nuevo InventoryBatchesController...');
+        Get.put<InventoryBatchesController>(
+          InventoryBatchesController(getInventoryBatchesUseCase: Get.find()),
+        );
+        print('✅ [LOTES] InventoryBatchesController creado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
@@ -1673,6 +1689,16 @@ class AppPages {
       name: AppRoutes.bankAccounts,
       page: () => const BankAccountsScreen(),
       binding: BankAccountsBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 💳 MOVIMIENTOS DE CUENTA BANCARIA
+    GetPage(
+      name: '${AppRoutes.bankAccounts}/:id/movements',
+      page: () => const BankAccountMovementsScreen(),
+      binding: BankAccountMovementsBinding(),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],

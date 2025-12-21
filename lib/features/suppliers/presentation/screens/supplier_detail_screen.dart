@@ -28,15 +28,7 @@ class SupplierDetailScreen extends GetView<SupplierDetailController> {
             ),
           PopupMenuButton<String>(
             onSelected: _handleMenuAction,
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: ElegantLightTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: ElegantLightTheme.elevatedShadow,
-              ),
-              child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
-            ),
+            icon: const Icon(Icons.more_vert, size: 20),
             itemBuilder:
                 (context) => [
                   PopupMenuItem(

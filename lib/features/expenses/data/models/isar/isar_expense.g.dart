@@ -542,6 +542,7 @@ const _IsarExpensepaymentMethodEnumValueMap = {
   r'debitCard': r'debitCard',
   r'bankTransfer': r'bankTransfer',
   r'check': r'check',
+  r'clientBalance': r'clientBalance',
   r'other': r'other',
 };
 const _IsarExpensepaymentMethodValueEnumMap = {
@@ -551,6 +552,7 @@ const _IsarExpensepaymentMethodValueEnumMap = {
   r'debitCard': IsarPaymentMethod.debitCard,
   r'bankTransfer': IsarPaymentMethod.bankTransfer,
   r'check': IsarPaymentMethod.check,
+  r'clientBalance': IsarPaymentMethod.clientBalance,
   r'other': IsarPaymentMethod.other,
 };
 const _IsarExpensestatusEnumValueMap = {

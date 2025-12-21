@@ -106,54 +106,34 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
           ],
         ),
       ),
-      leading: Container(
-        margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 20),
-          onPressed: () => Get.offAllNamed(AppRoutes.customers),
-        ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, size: 20),
+        onPressed: () => Get.offAllNamed(AppRoutes.customers),
       ),
       actions: [
         if (controller.hasCustomer) ...[
-          Container(
-            margin: const EdgeInsets.only(right: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.edit, size: 20),
-              onPressed: controller.goToEditCustomer,
-              tooltip: 'Editar cliente',
-            ),
+          IconButton(
+            icon: const Icon(Icons.edit, size: 20),
+            onPressed: controller.goToEditCustomer,
+            tooltip: 'Editar cliente',
           ),
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 20, color: Colors.white),
+            onSelected: (value) => _handleMenuAction(value, context),
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 20, color: Colors.white),
-              onSelected: (value) => _handleMenuAction(value, context),
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 8,
-              itemBuilder: (context) => [
-                _buildPopupMenuItem('status', Icons.toggle_on, 'Cambiar Estado', ElegantLightTheme.infoGradient),
-                _buildPopupMenuItem('purchase', Icons.credit_card, 'Verificar Compra', ElegantLightTheme.successGradient),
-                _buildPopupMenuItem('refresh', Icons.refresh, 'Actualizar', ElegantLightTheme.primaryGradient),
-                const PopupMenuDivider(),
-                _buildPopupMenuItem('delete', Icons.delete, 'Eliminar', ElegantLightTheme.errorGradient, isDestructive: true),
-              ],
-            ),
+            elevation: 8,
+            itemBuilder: (context) => [
+              _buildPopupMenuItem('status', Icons.toggle_on, 'Cambiar Estado', ElegantLightTheme.infoGradient),
+              _buildPopupMenuItem('purchase', Icons.credit_card, 'Verificar Compra', ElegantLightTheme.successGradient),
+              _buildPopupMenuItem('refresh', Icons.refresh, 'Actualizar', ElegantLightTheme.primaryGradient),
+              const PopupMenuDivider(),
+              _buildPopupMenuItem('delete', Icons.delete, 'Eliminar', ElegantLightTheme.errorGradient, isDestructive: true),
+            ],
           ),
+          const SizedBox(width: 8),
         ],
       ],
     );

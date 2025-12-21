@@ -1009,12 +1009,35 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       if (warehouseId != null) queryParams['warehouseId'] = warehouseId;
 
       final response = await dio.get(
-        '/reports/inventory-aging',
+        '/reports/inventory/aging',
         queryParameters: queryParams,
       );
 
-      final data = response.data['data'] as List;
-      return data.map((item) => item as Map<String, dynamic>).toList();
+      // El backend devuelve: { summary, ageRanges, slowMovingItems }
+      // Transformamos ageRanges al formato esperado por el controller
+      final responseData = response.data;
+      final ageRanges = responseData['ageRanges'] as List? ?? [];
+
+      // Convertir cada rango a un formato compatible con el controller
+      return ageRanges.map((range) {
+        final rangeData = range as Map<String, dynamic>;
+        // Calcular averageAgeDays basado en el rango
+        final minDays = rangeData['minDays'] ?? 0;
+        final maxDays = rangeData['maxDays'] ?? minDays;
+        final avgDays = maxDays != null ? ((minDays + maxDays) / 2).round() : minDays;
+
+        return {
+          'range': rangeData['range'] ?? '',
+          'minDays': minDays,
+          'maxDays': maxDays,
+          'itemsCount': rangeData['itemsCount'] ?? 0,
+          'totalQuantity': rangeData['totalQuantity'] ?? 0,
+          'totalValue': rangeData['totalValue'] ?? 0.0,
+          'percentage': rangeData['percentage'] ?? 0.0,
+          'averageCost': rangeData['averageCost'] ?? 0.0,
+          'averageAgeDays': avgDays,
+        };
+      }).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {

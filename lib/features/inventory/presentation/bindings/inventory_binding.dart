@@ -64,64 +64,64 @@ class InventoryBinding extends Bindings {
     Get.lazyPut<FlutterSecureStorage>(() => const FlutterSecureStorage());
     Get.lazyPut<NetworkInfo>(() => Get.find());
 
-    // Data sources - use global DioClient instead of local Dio
-    Get.lazyPut<InventoryRemoteDataSource>(
-      () => InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
+    // Data sources - use put for immediate availability
+    Get.put<InventoryRemoteDataSource>(
+      InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
     );
-    Get.lazyPut<InventoryLocalDataSource>(
-      () => InventoryLocalDataSourceImpl(secureStorage: Get.find()),
+    Get.put<InventoryLocalDataSource>(
+      InventoryLocalDataSourceImpl(secureStorage: Get.find()),
     );
 
-    // Repository - register as interface directly
-    Get.lazyPut<InventoryRepository>(
-      () => InventoryRepositoryImpl(
+    // Repository - register with put for immediate availability
+    Get.put<InventoryRepository>(
+      InventoryRepositoryImpl(
         remoteDataSource: Get.find(),
         localDataSource: Get.find(),
         networkInfo: Get.find(),
       ),
     );
 
-    // Use cases - Query operations
-    Get.lazyPut(() => GetInventoryBalancesUseCase(Get.find()));
-    Get.lazyPut(() => GetInventoryMovementsUseCase(Get.find()));
-    Get.lazyPut(() => GetWarehouseMovementsUseCase(Get.find()));
-    Get.lazyPut(() => GetInventoryStatsUseCase(Get.find()));
-    Get.lazyPut(() => inventory_usecases.GetLowStockProductsUseCase(Get.find()), tag: 'inventory');
-    Get.lazyPut(() => GetInventoryMovementByIdUseCase(Get.find()));
-    Get.lazyPut(() => SearchInventoryMovementsUseCase(Get.find()));
+    // Use cases - Query operations (usar Get.put para disponibilidad inmediata)
+    Get.put(GetInventoryBalancesUseCase(Get.find()));
+    Get.put(GetInventoryMovementsUseCase(Get.find()));
+    Get.put(GetWarehouseMovementsUseCase(Get.find()));
+    Get.put(GetInventoryStatsUseCase(Get.find()));
+    Get.put(inventory_usecases.GetLowStockProductsUseCase(Get.find()), tag: 'inventory');
+    Get.put(GetInventoryMovementByIdUseCase(Get.find()));
+    Get.put(SearchInventoryMovementsUseCase(Get.find()));
     Get.put(GetInventoryBalanceByProductUseCase(Get.find()));
-    Get.lazyPut(() => GetBalancesByProductsUseCase(Get.find()));
-    Get.lazyPut(() => GetOutOfStockProductsUseCase(Get.find()));
-    Get.lazyPut(() => GetExpiredProductsUseCase(Get.find()));
-    Get.lazyPut(() => GetNearExpiryProductsUseCase(Get.find()));
+    Get.put(GetBalancesByProductsUseCase(Get.find()));
+    Get.put(GetOutOfStockProductsUseCase(Get.find()));
+    Get.put(GetExpiredProductsUseCase(Get.find()));
+    Get.put(GetNearExpiryProductsUseCase(Get.find()));
 
-    // Use cases - Movement operations
-    Get.lazyPut<CreateInventoryMovementUseCase>(() => CreateInventoryMovementUseCase(Get.find()));
-    Get.lazyPut<UpdateInventoryMovementUseCase>(() => UpdateInventoryMovementUseCase(Get.find()));
-    Get.lazyPut<DeleteInventoryMovementUseCase>(() => DeleteInventoryMovementUseCase(Get.find()));
-    Get.lazyPut<ConfirmInventoryMovementUseCase>(() => ConfirmInventoryMovementUseCase(Get.find()));
-    Get.lazyPut<CancelInventoryMovementUseCase>(() => CancelInventoryMovementUseCase(Get.find()));
+    // Use cases - Movement operations (usar Get.put para disponibilidad inmediata)
+    Get.put<CreateInventoryMovementUseCase>(CreateInventoryMovementUseCase(Get.find()));
+    Get.put<UpdateInventoryMovementUseCase>(UpdateInventoryMovementUseCase(Get.find()));
+    Get.put<DeleteInventoryMovementUseCase>(DeleteInventoryMovementUseCase(Get.find()));
+    Get.put<ConfirmInventoryMovementUseCase>(ConfirmInventoryMovementUseCase(Get.find()));
+    Get.put<CancelInventoryMovementUseCase>(CancelInventoryMovementUseCase(Get.find()));
 
     // Use cases - FIFO operations
-    Get.lazyPut<CalculateFifoConsumptionUseCase>(() => CalculateFifoConsumptionUseCase(Get.find()));
-    Get.lazyPut<ProcessOutboundMovementFifoUseCase>(() => ProcessOutboundMovementFifoUseCase(Get.find()));
-    Get.lazyPut<ProcessBulkOutboundMovementFifoUseCase>(() => ProcessBulkOutboundMovementFifoUseCase(Get.find()));
+    Get.put<CalculateFifoConsumptionUseCase>(CalculateFifoConsumptionUseCase(Get.find()));
+    Get.put<ProcessOutboundMovementFifoUseCase>(ProcessOutboundMovementFifoUseCase(Get.find()));
+    Get.put<ProcessBulkOutboundMovementFifoUseCase>(ProcessBulkOutboundMovementFifoUseCase(Get.find()));
 
     // Use cases - Stock operations
-    Get.lazyPut<CreateStockAdjustmentUseCase>(() => CreateStockAdjustmentUseCase(Get.find()));
-    Get.lazyPut<CreateBulkStockAdjustmentsUseCase>(() => CreateBulkStockAdjustmentsUseCase(Get.find()));
+    Get.put<CreateStockAdjustmentUseCase>(CreateStockAdjustmentUseCase(Get.find()));
+    Get.put<CreateBulkStockAdjustmentsUseCase>(CreateBulkStockAdjustmentsUseCase(Get.find()));
 
     // Use cases - Transfer operations
-    Get.lazyPut<CreateInventoryTransferUseCase>(() => CreateInventoryTransferUseCase(Get.find()));
-    Get.lazyPut<ConfirmInventoryTransferUseCase>(() => ConfirmInventoryTransferUseCase(Get.find()));
+    Get.put<CreateInventoryTransferUseCase>(CreateInventoryTransferUseCase(Get.find()));
+    Get.put<ConfirmInventoryTransferUseCase>(ConfirmInventoryTransferUseCase(Get.find()));
 
     // Use cases - Reports
-    Get.lazyPut(() => GetInventoryValuationUseCase(Get.find()));
-    Get.lazyPut(() => GetKardexReportUseCase(Get.find()));
-    Get.lazyPut(() => GetInventoryAgingUseCase(Get.find()));
-    
+    Get.put(GetInventoryValuationUseCase(Get.find()));
+    Get.put(GetKardexReportUseCase(Get.find()));
+    Get.put(GetInventoryAgingUseCase(Get.find()));
+
     // Use cases - Batches
-    Get.lazyPut(() => GetInventoryBatchesUseCase(Get.find()));
+    Get.put(GetInventoryBatchesUseCase(Get.find()));
     
     // Use cases - Warehouses (usar Get.put para disponibilidad inmediata)
     Get.put(GetWarehousesUseCase(Get.find()));
@@ -134,9 +134,9 @@ class InventoryBinding extends Bindings {
     Get.put(GetActiveWarehousesCountUseCase(Get.find()));
     Get.put(GetWarehouseStatsUseCase(Get.find()));
 
-    // Controllers
-    Get.lazyPut<InventoryController>(
-      () => InventoryController(
+    // Controllers (usar Get.put para disponibilidad inmediata)
+    Get.put<InventoryController>(
+      InventoryController(
         getInventoryBalancesUseCase: Get.find(),
         getInventoryMovementsUseCase: Get.find(),
         getInventoryStatsUseCase: Get.find(),
@@ -147,8 +147,8 @@ class InventoryBinding extends Bindings {
       ),
     );
 
-    Get.lazyPut<InventoryMovementsController>(
-      () => InventoryMovementsController(
+    Get.put<InventoryMovementsController>(
+      InventoryMovementsController(
         getInventoryMovementsUseCase: Get.find(),
         getWarehouseMovementsUseCase: Get.find(),
         createInventoryMovementUseCase: Get.find(),
@@ -160,8 +160,8 @@ class InventoryBinding extends Bindings {
       ),
     );
 
-    Get.lazyPut<InventoryAdjustmentsController>(
-      () => InventoryAdjustmentsController(
+    Get.put<InventoryAdjustmentsController>(
+      InventoryAdjustmentsController(
         createStockAdjustmentUseCase: Get.find(),
         getInventoryBalanceByProductUseCase: Get.find(),
         searchProductsUseCase: Get.find(), // From products module
@@ -169,8 +169,8 @@ class InventoryBinding extends Bindings {
       ),
     );
 
-    Get.lazyPut<InventoryBulkAdjustmentsController>(
-      () => InventoryBulkAdjustmentsController(
+    Get.put<InventoryBulkAdjustmentsController>(
+      InventoryBulkAdjustmentsController(
         createBulkStockAdjustmentsUseCase: Get.find<CreateBulkStockAdjustmentsUseCase>(),
         getInventoryBalanceByProductUseCase: Get.find<GetInventoryBalanceByProductUseCase>(),
         searchProductsUseCase: Get.find(), // From products module
@@ -179,28 +179,28 @@ class InventoryBinding extends Bindings {
     );
 
     // New controllers for the complete inventory system
-    Get.lazyPut<KardexController>(
-      () => KardexController(
+    Get.put<KardexController>(
+      KardexController(
         getKardexReportUseCase: Get.find(),
       ),
     );
 
-    Get.lazyPut<InventoryBalanceController>(
-      () => InventoryBalanceController(
+    Get.put<InventoryBalanceController>(
+      InventoryBalanceController(
         getInventoryBalancesUseCase: Get.find(),
         getInventoryValuationUseCase: Get.find(),
       ),
     );
 
-    Get.lazyPut<InventoryBatchesController>(
-      () => InventoryBatchesController(
+    Get.put<InventoryBatchesController>(
+      InventoryBatchesController(
         getInventoryBatchesUseCase: Get.find(),
       ),
     );
 
     // New controllers for transfers and aging reports
-    Get.lazyPut<InventoryTransfersController>(
-      () => InventoryTransfersController(
+    Get.put<InventoryTransfersController>(
+      InventoryTransfersController(
         createTransferUseCase: Get.find(),
         confirmTransferUseCase: Get.find(),
         getMovementsUseCase: Get.find(),
@@ -211,8 +211,8 @@ class InventoryBinding extends Bindings {
       ),
     );
 
-    Get.lazyPut<InventoryAgingController>(
-      () => InventoryAgingController(
+    Get.put<InventoryAgingController>(
+      InventoryAgingController(
         getInventoryAgingUseCase: Get.find(),
       ),
     );
@@ -226,8 +226,8 @@ class InventoryBinding extends Bindings {
       permanent: true, // Mantener el controlador en memoria
     );
 
-    Get.lazyPut<WarehouseFormController>(
-      () => WarehouseFormController(
+    Get.put<WarehouseFormController>(
+      WarehouseFormController(
         createWarehouseUseCase: Get.find(),
         updateWarehouseUseCase: Get.find(),
         getWarehouseByIdUseCase: Get.find(),
@@ -235,8 +235,8 @@ class InventoryBinding extends Bindings {
       ),
     );
 
-    Get.lazyPut<WarehouseDetailController>(
-      () => WarehouseDetailController(
+    Get.put<WarehouseDetailController>(
+      WarehouseDetailController(
         getWarehouseByIdUseCase: Get.find(),
         deleteWarehouseUseCase: Get.find(),
         checkWarehouseHasMovementsUseCase: Get.find(),

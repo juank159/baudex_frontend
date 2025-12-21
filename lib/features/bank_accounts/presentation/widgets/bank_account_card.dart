@@ -1,5 +1,7 @@
 // lib/features/bank_accounts/presentation/widgets/bank_account_card.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../domain/entities/bank_account.dart';
@@ -396,7 +398,25 @@ class _BankAccountCardState extends State<BankAccountCard>
     if (ResponsiveHelper.isMobile(context)) {
       return Row(
         children: [
-          if (widget.onSetDefault != null && !widget.account.isDefault)
+          // Botón Ver Movimientos
+          Expanded(
+            child: _buildActionButton(
+              icon: Icons.receipt_long_rounded,
+              label: 'Movimientos',
+              onPressed: () => Get.toNamed(
+                '/bank-accounts/${widget.account.id}/movements',
+                arguments: widget.account.id,
+              ),
+              gradient: LinearGradient(
+                colors: [
+                  ElegantLightTheme.successGreen,
+                  ElegantLightTheme.successGreen.withOpacity(0.8),
+                ],
+              ),
+            ),
+          ),
+          if (widget.onSetDefault != null && !widget.account.isDefault) ...[
+            const SizedBox(width: 8),
             Expanded(
               child: _buildActionButton(
                 icon: Icons.star_outline_rounded,
@@ -405,9 +425,9 @@ class _BankAccountCardState extends State<BankAccountCard>
                 gradient: ElegantLightTheme.warningGradient,
               ),
             ),
+          ],
           if (widget.onEdit != null) ...[
-            if (widget.onSetDefault != null && !widget.account.isDefault)
-              const SizedBox(width: 8),
+            const SizedBox(width: 8),
             Expanded(
               child: _buildActionButton(
                 icon: Icons.edit_rounded,
@@ -436,6 +456,16 @@ class _BankAccountCardState extends State<BankAccountCard>
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        // Botón Ver Movimientos
+        _buildIconButton(
+          icon: Icons.receipt_long_rounded,
+          tooltip: 'Ver movimientos',
+          onPressed: () => Get.toNamed(
+            '/bank-accounts/${widget.account.id}/movements',
+            arguments: widget.account.id,
+          ),
+          color: ElegantLightTheme.successGreen,
+        ),
         if (widget.onToggleActive != null)
           _buildIconButton(
             icon: widget.account.isActive

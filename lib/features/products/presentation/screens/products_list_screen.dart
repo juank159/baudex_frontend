@@ -598,26 +598,37 @@ class _SearchField extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Container(
+        height: 44,
         decoration: BoxDecoration(
-          gradient: ElegantLightTheme.glassGradient,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
+            color: ElegantLightTheme.textSecondary.withValues(alpha: 0.2),
           ),
           boxShadow: [
             BoxShadow(
-              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
-              blurRadius: 4,
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: CustomTextFieldSafe(
+        child: TextField(
           controller: controller.searchController,
-          label: '',
-          hint: 'Buscar por nombre, SKU o código de barras...',
-          prefixIcon: Icons.search,
-          onChanged: (value) => controller.debouncedSearch(value),
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Buscar por nombre, SKU o código de barras...',
+            hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            prefixIcon: Icon(Icons.search_rounded, size: 20, color: Colors.grey.shade500),
+            suffixIcon: Obx(() => controller.searchTerm.isNotEmpty
+                ? IconButton(
+                    icon: Icon(Icons.close, size: 18, color: Colors.grey.shade500),
+                    onPressed: () => controller.searchController.clear(),
+                  )
+                : const SizedBox.shrink()),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
         ),
       ),
     );

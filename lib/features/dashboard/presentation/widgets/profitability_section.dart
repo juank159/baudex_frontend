@@ -1,10 +1,11 @@
 // lib/features/dashboard/presentation/widgets/profitability_section.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_text_styles.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
-import '../../../../app/core/utils/responsive_text.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../controllers/dashboard_controller.dart';
 
@@ -17,7 +18,7 @@ class ProfitabilitySection extends GetWidget<DashboardController> {
   Widget build(BuildContext context) {
     return Obx(() {
       final profitability = controller.profitabilityStats;
-      
+
       if (profitability == null) {
         if (controller.isLoadingProfitability) {
           return _buildLoadingState();
@@ -25,256 +26,313 @@ class ProfitabilitySection extends GetWidget<DashboardController> {
         return _buildErrorState();
       }
 
-      return Container(
-        decoration: _buildCardDecoration(),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildSectionHeader(),
-            const SizedBox(height: 20),
-            _buildProfitabilityMetrics(profitability),
-          ],
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: ElegantLightTheme.glassDecoration(
+              borderColor: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+              gradient: ElegantLightTheme.glassGradient,
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 18, 24, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildSectionHeader(),
+                const SizedBox(height: 20),
+                _buildProfitabilityMetrics(profitability, context),
+              ],
+            ),
+          ),
         ),
       );
     });
   }
 
   Widget _buildSectionHeader() {
-    return Builder(
-      builder: (context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF8B5CF6), // Violet
+                Color(0xFF7C3AED), // Violet dark
+              ],
             ),
-            child: Icon(
-              Icons.analytics_outlined,
-              color: AppColors.primary,
-              size: ResponsiveText.getIconSize(context),
-            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8B5CF6).withOpacity(0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+                spreadRadius: 1,
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Column(
+          child: const Icon(
+            Icons.analytics_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Análisis de Rentabilidad',
                 style: AppTextStyles.titleLarge.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                  fontSize: ResponsiveText.getTitleLargeSize(context),
+                  fontWeight: FontWeight.w800,
+                  color: ElegantLightTheme.textPrimary,
+                  fontSize: 18,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Métricas de rentabilidad FIFO',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: ElegantLightTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildProfitabilityMetrics(ProfitabilityStats profitability) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Si la pantalla es muy pequeña (móvil), usar diseño vertical
-        final isMobile = constraints.maxWidth < 600;
-        
-        if (isMobile) {
-          return _buildMobileMetrics(profitability);
-        } else {
-          return _buildDesktopMetrics(profitability);
-        }
-      },
-    );
+  Widget _buildProfitabilityMetrics(ProfitabilityStats profitability, BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    if (isMobile) {
+      return _buildMobileMetrics(profitability);
+    } else {
+      return _buildDesktopMetrics(profitability);
+    }
   }
 
   Widget _buildMobileMetrics(ProfitabilityStats profitability) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.08)),
-      ),
-      child: Column(
-        children: [
-          // Primera fila - 2 métricas
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactMetric(
-                  'Margen Bruto',
-                  '${profitability.grossMarginPercentage.toStringAsFixed(1)}%',
-                  AppColors.primary,
-                  Icons.percent,
-                ),
+    return Column(
+      children: [
+        // Primera fila - 2 métricas
+        Row(
+          children: [
+            Expanded(
+              child: _buildMetricCard(
+                title: 'Margen Bruto',
+                value: '${profitability.grossMarginPercentage.toStringAsFixed(1)}%',
+                subtitle: AppFormatters.formatCurrency(profitability.grossProfit),
+                color: const Color(0xFF8B5CF6),
+                icon: Icons.pie_chart_rounded,
+                isMobile: true,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildCompactMetric(
-                  'COGS',
-                  AppFormatters.formatCurrency(profitability.totalCOGS),
-                  AppColors.warning,
-                  Icons.inventory_2_outlined,
-                ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildMetricCard(
+                title: 'COGS',
+                value: AppFormatters.formatCurrency(profitability.totalCOGS),
+                subtitle: 'Costo Ventas',
+                color: const Color(0xFFF59E0B),
+                icon: Icons.inventory_rounded,
+                isMobile: true,
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Segunda fila - 2 métricas
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactMetric(
-                  'Ganancia Neta',
-                  AppFormatters.formatCurrency(profitability.netProfit),
-                  profitability.netProfit >= 0 ? AppColors.success : AppColors.error,
-                  Icons.account_balance_wallet_outlined,
-                ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Segunda fila - 2 métricas
+        Row(
+          children: [
+            Expanded(
+              child: _buildMetricCard(
+                title: 'Ganancia Neta',
+                value: AppFormatters.formatCurrency(profitability.netProfit),
+                subtitle: '${profitability.netMarginPercentage.toStringAsFixed(1)}% neto',
+                color: profitability.netProfit >= 0
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFFEF4444),
+                icon: Icons.account_balance_wallet_rounded,
+                isMobile: true,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildCompactMetric(
-                  'Promedio/Venta',
-                  '${profitability.averageMarginPerSale.toStringAsFixed(1)}%',
-                  AppColors.info,
-                  Icons.trending_up,
-                ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildMetricCard(
+                title: 'Promedio/Venta',
+                value: '${profitability.averageMarginPerSale.toStringAsFixed(1)}%',
+                subtitle: profitability.trend.isImproving ? 'Mejorando' : 'Estable',
+                color: const Color(0xFF3B82F6),
+                icon: Icons.trending_up_rounded,
+                isMobile: true,
               ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildDesktopMetrics(ProfitabilityStats profitability) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.08)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildMetricColumn(
-              'Margen Bruto',
-              '${profitability.grossMarginPercentage.toStringAsFixed(1)}%',
-              AppFormatters.formatCurrency(profitability.grossProfit),
-              AppColors.primary,
-              Icons.percent,
-            ),
+    return Row(
+      children: [
+        Expanded(
+          child: _buildMetricCard(
+            title: 'Margen Bruto',
+            value: '${profitability.grossMarginPercentage.toStringAsFixed(1)}%',
+            subtitle: AppFormatters.formatCurrency(profitability.grossProfit),
+            color: const Color(0xFF8B5CF6),
+            icon: Icons.pie_chart_rounded,
+            isMobile: false,
           ),
-          Container(
-            width: 1,
-            height: 50,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            color: AppColors.primary.withOpacity(0.15),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildMetricCard(
+            title: 'COGS Total',
+            value: AppFormatters.formatCurrency(profitability.totalCOGS),
+            subtitle: 'Costo de Ventas',
+            color: const Color(0xFFF59E0B),
+            icon: Icons.inventory_rounded,
+            isMobile: false,
           ),
-          Expanded(
-            child: _buildMetricColumn(
-              'COGS Total',
-              AppFormatters.formatCurrency(profitability.totalCOGS),
-              'Costo de Ventas',
-              AppColors.warning,
-              Icons.inventory_2_outlined,
-            ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildMetricCard(
+            title: 'Ganancia Neta',
+            value: AppFormatters.formatCurrency(profitability.netProfit),
+            subtitle: '${profitability.netMarginPercentage.toStringAsFixed(1)}% neto',
+            color: profitability.netProfit >= 0
+                ? const Color(0xFF10B981)
+                : const Color(0xFFEF4444),
+            icon: Icons.account_balance_wallet_rounded,
+            isMobile: false,
           ),
-          Container(
-            width: 1,
-            height: 50,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            color: AppColors.primary.withOpacity(0.15),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildMetricCard(
+            title: 'Promedio/Venta',
+            value: '${profitability.averageMarginPerSale.toStringAsFixed(1)}%',
+            subtitle: profitability.trend.isImproving ? 'Mejorando ↑' : 'Estable →',
+            color: const Color(0xFF3B82F6),
+            icon: Icons.trending_up_rounded,
+            isMobile: false,
           ),
-          Expanded(
-            child: _buildMetricColumn(
-              'Ganancia Neta',
-              AppFormatters.formatCurrency(profitability.netProfit),
-              '${profitability.netMarginPercentage.toStringAsFixed(1)}% neto',
-              profitability.netProfit >= 0 ? AppColors.success : AppColors.error,
-              Icons.account_balance_wallet_outlined,
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 50,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            color: AppColors.primary.withOpacity(0.15),
-          ),
-          Expanded(
-            child: _buildMetricColumn(
-              'Promedio/Venta',
-              '${profitability.averageMarginPerSale.toStringAsFixed(1)}%',
-              _getTrendText(profitability.trend.isImproving),
-              AppColors.info,
-              Icons.trending_up,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildMetricColumn(
-    String title,
-    String value,
-    String subtitle,
-    Color color,
-    IconData icon,
-  ) {
-    return Builder(
-      builder: (context) => Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon, 
-                color: color, 
-                size: ResponsiveText.getSmallIconSize(context),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                    fontSize: ResponsiveText.getBodySmallSize(context),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+  Widget _buildMetricCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required Color color,
+    required IconData icon,
+    required bool isMobile,
+  }) {
+    // Tamaños MUCHO más compactos para reducir altura
+    final iconSize = isMobile ? 18.0 : 22.0;  // Reducido de 24/32
+    final titleSize = isMobile ? 10.0 : 11.0;  // Reducido de 11/12
+    final valueSize = isMobile ? 14.0 : 16.0;  // Reducido de 16/20
+    final subtitleSize = isMobile ? 9.0 : 10.0;  // Reducido de 10/11
+    final padding = isMobile ? 8.0 : 10.0;  // Reducido de 12/16
+
+    return Container(
+      padding: EdgeInsets.all(padding),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withOpacity(0.12),
+            color.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(isMobile ? 10 : 12),  // Reducido de 12/14
+        border: Border.all(
+          color: color.withOpacity(0.25),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.15),
+            blurRadius: 6,  // Reducido de 8
+            offset: const Offset(0, 2),  // Reducido de (0, 3)
           ),
-          const SizedBox(height: 10),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Icono con badge circular
+          Container(
+            padding: EdgeInsets.all(isMobile ? 5 : 6),  // Reducido de 8/10
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: color.withOpacity(0.3),
+                width: 1.5,  // Reducido de 2
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: iconSize,
+            ),
+          ),
+          SizedBox(height: isMobile ? 5 : 6),  // Reducido de 8/12
+          // Título
+          Text(
+            title,
+            style: TextStyle(
+              color: ElegantLightTheme.textSecondary,
+              fontSize: titleSize,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: isMobile ? 3 : 4),  // Reducido de 6/8
+          // Valor principal
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               value,
-              style: AppTextStyles.titleMedium.copyWith(
+              style: TextStyle(
                 color: color,
-                fontWeight: FontWeight.w700,
-                fontSize: ResponsiveText.getValueTextSize(context),
+                fontSize: valueSize,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
               ),
               textAlign: TextAlign.center,
               maxLines: 1,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: isMobile ? 2 : 3),  // Reducido de 4/6
+          // Subtítulo
           Text(
             subtitle,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textSecondary,
-              fontSize: ResponsiveText.getCaptionSize(context),
+            style: TextStyle(
+              color: ElegantLightTheme.textSecondary.withOpacity(0.8),
+              fontSize: subtitleSize,
+              fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
             maxLines: 1,
@@ -285,132 +343,94 @@ class ProfitabilitySection extends GetWidget<DashboardController> {
     );
   }
 
-  // Métrica compacta para móviles con tipografía responsiva
-  Widget _buildCompactMetric(
-    String title,
-    String value,
-    Color color,
-    IconData icon,
-  ) {
-    return Builder(
-      builder: (context) => Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon, 
-                color: color, 
-                size: ResponsiveText.getCaptionSize(context) + 4,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                    fontSize: ResponsiveText.getCaptionSize(context),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              value,
-              style: AppTextStyles.titleMedium.copyWith(
-                color: color,
-                fontWeight: FontWeight.w700,
-                fontSize: ResponsiveText.getBodyMediumSize(context),
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getTrendText(bool isImproving) {
-    return isImproving ? 'Mejorando' : 'Estable';
-  }
-
   Widget _buildLoadingState() {
-    return Container(
-      height: 200,
-      decoration: _buildCardDecoration(),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              color: AppColors.primary,
-              strokeWidth: 3,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          height: 200,
+          decoration: ElegantLightTheme.glassDecoration(
+            borderColor: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+            gradient: ElegantLightTheme.glassGradient,
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  color: ElegantLightTheme.primaryBlue,
+                  strokeWidth: 3,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Cargando análisis de rentabilidad...',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: ElegantLightTheme.textSecondary,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Cargando análisis de rentabilidad...',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildErrorState() {
-    return Container(
-      height: 200,
-      decoration: _buildCardDecoration(),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              color: AppColors.error,
-              size: 48,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          height: 200,
+          decoration: ElegantLightTheme.glassDecoration(
+            borderColor: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+            gradient: ElegantLightTheme.glassGradient,
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.error_outline_rounded,
+                    color: const Color(0xFFEF4444),
+                    size: 48,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error al cargar datos de rentabilidad',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: ElegantLightTheme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: () => controller.refreshAll(),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Reintentar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ElegantLightTheme.primaryBlue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Error al cargar datos de rentabilidad',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => controller.refreshAll(),
-              child: Text('Reintentar'),
-            ),
-          ],
+          ),
         ),
       ),
-    );
-  }
-
-  BoxDecoration _buildCardDecoration() {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: AppColors.primary.withOpacity(0.08)),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.06),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ],
     );
   }
 }

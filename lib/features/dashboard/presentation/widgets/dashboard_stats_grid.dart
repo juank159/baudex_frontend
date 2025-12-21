@@ -1,10 +1,12 @@
 // lib/features/dashboard/presentation/widgets/dashboard_stats_grid.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/dashboard_controller.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/config/themes/app_text_styles.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../../../../app/shared/widgets/shimmer_loading.dart';
@@ -327,53 +329,34 @@ class _StatCardState extends State<_StatCard>
                     ..setEntry(3, 2, 0.001)
                     ..rotateX(_rotationAnimation.value)
                     ..rotateY(_rotationAnimation.value * 0.5),
-              child: Container(
-                height: 150, // Aumentado para evitar overflow
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.surface,
-                      AppColors.surface.withOpacity(0.8),
-                    ],
-                  ),
-                  boxShadow: [
-                    // Sombra principal profunda
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                      spreadRadius: 0,
-                    ),
-                    // Sombra secundaria para efecto de elevación
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                      spreadRadius: 0,
-                    ),
-                    // Brillo interno sutil (simulado con brillo superior)
-                    BoxShadow(
-                      color: Colors.white.withOpacity(0.1),
-                      blurRadius: 1,
-                      offset: const Offset(0, -1),
-                      spreadRadius: 0,
-                    ),
-                    // Efecto glow cuando hover
-                    if (_glowAnimation.value > 0)
-                      BoxShadow(
-                        color: widget.color.withOpacity(
-                          _glowAnimation.value * 0.3,
-                        ),
-                        blurRadius: 25 * _glowAnimation.value,
-                        offset: const Offset(0, 5),
-                        spreadRadius: 2 * _glowAnimation.value,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    height: 150, // Aumentado para evitar overflow
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: ElegantLightTheme.glassGradient,
+                      border: Border.all(
+                        color: widget.color.withOpacity(0.3),
+                        width: 1.5,
                       ),
-                  ],
-                ),
-                child: Material(
+                      boxShadow: [
+                        ...ElegantLightTheme.glassShadow,
+                        // Efecto glow cuando hover
+                        if (_glowAnimation.value > 0)
+                          BoxShadow(
+                            color: widget.color.withOpacity(
+                              _glowAnimation.value * 0.4,
+                            ),
+                            blurRadius: 25 * _glowAnimation.value,
+                            offset: const Offset(0, 5),
+                            spreadRadius: 3 * _glowAnimation.value,
+                          ),
+                      ],
+                    ),
+                    child: Material(
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(20),
                   child: InkWell(
@@ -403,31 +386,42 @@ class _StatCardState extends State<_StatCard>
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              // Icono con efecto 3D
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      widget.color.withOpacity(0.2),
-                                      widget.color.withOpacity(0.1),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: widget.color.withOpacity(0.2),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
+                              // Icono con efecto glassmórfico
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          widget.color.withOpacity(0.3),
+                                          widget.color.withOpacity(0.15),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: widget.color.withOpacity(0.3),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  widget.icon,
-                                  color: widget.color,
-                                  size: 24,
+                                    child: Icon(
+                                      widget.icon,
+                                      color: widget.color,
+                                      size: 24,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -511,6 +505,8 @@ class _StatCardState extends State<_StatCard>
                           ],
                         ],
                       ),
+                    ),
+                  ),
                     ),
                   ),
                 ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/utils/responsive.dart';
 import '../../core/utils/responsive_helper.dart';
 
 enum ButtonType { primary, secondary, outline, text }
@@ -97,22 +96,22 @@ class CustomButton extends StatelessWidget {
       case ButtonSize.medium:
         baseHeight = ResponsiveHelper.responsiveValue(
           context,
-          mobile: 44,
-          tablet: 48,
-          desktop: 48,
+          mobile: 42,
+          tablet: 44,
+          desktop: 42,
         );
         baseFontSize = ResponsiveHelper.getFontSize(
           context,
-          mobile: 14,
-          tablet: 16,
-          desktop: 16,
+          mobile: 13,
+          tablet: 14,
+          desktop: 13.5,
         );
         basePadding = EdgeInsets.symmetric(
-          horizontal: ResponsiveHelper.getHorizontalSpacing(context),
+          horizontal: ResponsiveHelper.getHorizontalSpacing(context) * 0.8,
           vertical: ResponsiveHelper.getVerticalSpacing(
             context,
             size: SpacingSize.small,
-          ),
+          ) * 0.8,
         );
         break;
 
@@ -195,24 +194,43 @@ class CustomButton extends StatelessWidget {
     return SizedBox(
       width: width,
       height: dimensions.height,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? Theme.of(context).primaryColor,
-          foregroundColor: textColor ?? Colors.white,
-          elevation: ResponsiveHelper.getElevation(
-            context,
-            elevationContext: ElevationContext.normal,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              backgroundColor ?? Theme.of(context).primaryColor,
+              (backgroundColor ?? Theme.of(context).primaryColor)
+                  .withValues(alpha: 0.8),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          shadowColor: Colors.black26,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
-          ),
-          padding: dimensions.padding,
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          borderRadius: BorderRadius.circular(borderRadius),
+          boxShadow: [
+            BoxShadow(
+              color: (backgroundColor ?? Theme.of(context).primaryColor)
+                  .withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: _buildButtonContent(dimensions.fontSize),
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: textColor ?? Colors.white,
+            shadowColor: Colors.transparent,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(borderRadius),
+            ),
+            padding: dimensions.padding,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: _buildButtonContent(dimensions.fontSize),
+        ),
       ),
     );
   }
@@ -261,19 +279,41 @@ class CustomButton extends StatelessWidget {
     return SizedBox(
       width: width,
       height: dimensions.height,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: textColor ?? borderColor,
-          side: BorderSide(color: borderColor, width: 1.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              borderColor.withValues(alpha: 0.08),
+              borderColor.withValues(alpha: 0.03),
+            ],
           ),
-          padding: dimensions.padding,
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          borderRadius: BorderRadius.circular(borderRadius),
+          border: Border.all(color: borderColor.withValues(alpha: 0.4), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: borderColor.withValues(alpha: 0.15),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-        child: _buildButtonContent(dimensions.fontSize),
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: textColor ?? borderColor,
+            side: BorderSide.none,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(borderRadius),
+            ),
+            padding: dimensions.padding,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: _buildButtonContent(dimensions.fontSize),
+        ),
       ),
     );
   }
@@ -319,7 +359,7 @@ class CustomButton extends StatelessWidget {
         onPressed: null,
         style: ElevatedButton.styleFrom(
           backgroundColor: (backgroundColor ?? Theme.of(context).primaryColor)
-              .withOpacity(0.6),
+              .withValues(alpha: 0.6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius),
           ),
@@ -340,12 +380,12 @@ class CustomButton extends StatelessWidget {
   }
 
   Widget _buildButtonContent(double fontSize) {
-    // Calculate icon size based on font size
-    final iconSize = fontSize * 1.2;
+    // Calculate icon size based on font size - reduced for better proportions
+    final iconSize = fontSize * 1.1;
 
     if (icon != null) {
       // Determine spacing based on button size
-      final spacing = size == ButtonSize.compact || isCompact ? 4.0 : 8.0;
+      final spacing = size == ButtonSize.compact || isCompact ? 4.0 : 6.0;
 
       return Row(
         mainAxisSize: MainAxisSize.min,

@@ -476,6 +476,7 @@ const _IsarInvoicepaymentMethodEnumValueMap = {
   r'debitCard': r'debitCard',
   r'bankTransfer': r'bankTransfer',
   r'check': r'check',
+  r'clientBalance': r'clientBalance',
   r'other': r'other',
 };
 const _IsarInvoicepaymentMethodValueEnumMap = {
@@ -485,6 +486,7 @@ const _IsarInvoicepaymentMethodValueEnumMap = {
   r'debitCard': IsarPaymentMethod.debitCard,
   r'bankTransfer': IsarPaymentMethod.bankTransfer,
   r'check': IsarPaymentMethod.check,
+  r'clientBalance': IsarPaymentMethod.clientBalance,
   r'other': IsarPaymentMethod.other,
 };
 const _IsarInvoicestatusEnumValueMap = {
@@ -494,6 +496,8 @@ const _IsarInvoicestatusEnumValueMap = {
   r'overdue': r'overdue',
   r'cancelled': r'cancelled',
   r'partiallyPaid': r'partiallyPaid',
+  r'credited': r'credited',
+  r'partiallyCredited': r'partiallyCredited',
 };
 const _IsarInvoicestatusValueEnumMap = {
   r'draft': IsarInvoiceStatus.draft,
@@ -502,6 +506,8 @@ const _IsarInvoicestatusValueEnumMap = {
   r'overdue': IsarInvoiceStatus.overdue,
   r'cancelled': IsarInvoiceStatus.cancelled,
   r'partiallyPaid': IsarInvoiceStatus.partiallyPaid,
+  r'credited': IsarInvoiceStatus.credited,
+  r'partiallyCredited': IsarInvoiceStatus.partiallyCredited,
 };
 
 Id _isarInvoiceGetId(IsarInvoice object) {
