@@ -48,6 +48,11 @@ class IsarBankAccount {
   late bool isSynced;
   DateTime? lastSyncAt;
 
+  // ⭐ FASE 1: Campos de versionamiento para detección de conflictos
+  late int version;
+  DateTime? lastModifiedAt;
+  String? lastModifiedBy;
+
   // Constructores
   IsarBankAccount();
 
@@ -72,6 +77,9 @@ class IsarBankAccount {
     this.deletedAt,
     required this.isSynced,
     this.lastSyncAt,
+    this.version = 0,
+    this.lastModifiedAt,
+    this.lastModifiedBy,
   });
 
   // Mappers
@@ -198,8 +206,31 @@ class IsarBankAccount {
     markAsUnsynced();
   }
 
+  // ⭐ FASE 1: Métodos de versionamiento y detección de conflictos
+  void incrementVersion({String? modifiedBy}) {
+    version++;
+    lastModifiedAt = DateTime.now();
+    if (modifiedBy != null) {
+      lastModifiedBy = modifiedBy;
+    }
+    isSynced = false;
+  }
+
+  bool hasConflictWith(IsarBankAccount serverVersion) {
+    if (version == serverVersion.version &&
+        lastModifiedAt != null &&
+        serverVersion.lastModifiedAt != null &&
+        lastModifiedAt != serverVersion.lastModifiedAt) {
+      return true;
+    }
+    if (version > serverVersion.version) {
+      return true;
+    }
+    return false;
+  }
+
   @override
   String toString() {
-    return 'IsarBankAccount{serverId: $serverId, name: $name, type: $type, isSynced: $isSynced}';
+    return 'IsarBankAccount{serverId: $serverId, name: $name, type: $type, version: $version, isSynced: $isSynced}';
   }
 }

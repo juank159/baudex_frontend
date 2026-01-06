@@ -41,6 +41,11 @@ class IsarCategory {
   late bool isSynced;
   DateTime? lastSyncAt;
 
+  // ⭐ FASE 1: Campos de versionamiento para detección de conflictos
+  late int version;
+  DateTime? lastModifiedAt;
+  String? lastModifiedBy;
+
   // Constructores
   IsarCategory();
 
@@ -59,6 +64,9 @@ class IsarCategory {
     this.deletedAt,
     required this.isSynced,
     this.lastSyncAt,
+    this.version = 0,
+    this.lastModifiedAt,
+    this.lastModifiedBy,
   });
 
   // Mappers
@@ -180,10 +188,36 @@ class IsarCategory {
     deletedAt = model.deletedAt;
     isSynced = true; // Updated from server means it's synced
     lastSyncAt = DateTime.now();
+
+    // ⭐ FASE 1: Incrementar versión al actualizar desde servidor
+    incrementVersion(modifiedBy: 'server');
+  }
+
+  // ⭐ FASE 1: Métodos de versionamiento y detección de conflictos
+  void incrementVersion({String? modifiedBy}) {
+    version++;
+    lastModifiedAt = DateTime.now();
+    if (modifiedBy != null) {
+      lastModifiedBy = modifiedBy;
+    }
+    isSynced = false;
+  }
+
+  bool hasConflictWith(IsarCategory serverVersion) {
+    if (version == serverVersion.version &&
+        lastModifiedAt != null &&
+        serverVersion.lastModifiedAt != null &&
+        lastModifiedAt != serverVersion.lastModifiedAt) {
+      return true;
+    }
+    if (version > serverVersion.version) {
+      return true;
+    }
+    return false;
   }
 
   @override
   String toString() {
-    return 'IsarCategory{serverId: $serverId, name: $name, slug: $slug, parentId: $parentId, isSynced: $isSynced}';
+    return 'IsarCategory{serverId: $serverId, name: $name, slug: $slug, parentId: $parentId, version: $version, isSynced: $isSynced}';
   }
 }

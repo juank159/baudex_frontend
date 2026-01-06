@@ -46,6 +46,11 @@ class IsarCustomerCredit {
   bool isSynced;
   DateTime? lastSyncAt;
 
+  // ⭐ FASE 1: Campos de versionamiento para detección de conflictos
+  late int version;
+  DateTime? lastModifiedAt;
+  String? lastModifiedBy;
+
   /// Metadatos serializados como JSON (para payments y datos adicionales)
   String? metadataJson;
 
@@ -71,8 +76,34 @@ class IsarCustomerCredit {
     this.deletedAt,
     this.isSynced = false,
     this.lastSyncAt,
+    this.version = 0,
+    this.lastModifiedAt,
+    this.lastModifiedBy,
     this.metadataJson,
   });
+
+  // ⭐ FASE 1: Métodos de versionamiento y detección de conflictos
+  void incrementVersion({String? modifiedBy}) {
+    version++;
+    lastModifiedAt = DateTime.now();
+    if (modifiedBy != null) {
+      lastModifiedBy = modifiedBy;
+    }
+    isSynced = false;
+  }
+
+  bool hasConflictWith(IsarCustomerCredit serverVersion) {
+    if (version == serverVersion.version &&
+        lastModifiedAt != null &&
+        serverVersion.lastModifiedAt != null &&
+        lastModifiedAt != serverVersion.lastModifiedAt) {
+      return true;
+    }
+    if (version > serverVersion.version) {
+      return true;
+    }
+    return false;
+  }
 }
 
 /// Estado del crédito para ISAR

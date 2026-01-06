@@ -127,77 +127,92 @@ const IsarPurchaseOrderSchema = CollectionSchema(
       name: r'isSynced',
       type: IsarType.bool,
     ),
-    r'lastSyncAt': PropertySchema(
+    r'lastModifiedAt': PropertySchema(
       id: 22,
+      name: r'lastModifiedAt',
+      type: IsarType.dateTime,
+    ),
+    r'lastModifiedBy': PropertySchema(
+      id: 23,
+      name: r'lastModifiedBy',
+      type: IsarType.string,
+    ),
+    r'lastSyncAt': PropertySchema(
+      id: 24,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'needsSync': PropertySchema(
-      id: 23,
+      id: 25,
       name: r'needsSync',
       type: IsarType.bool,
     ),
     r'notes': PropertySchema(
-      id: 24,
+      id: 26,
       name: r'notes',
       type: IsarType.string,
     ),
     r'orderDate': PropertySchema(
-      id: 25,
+      id: 27,
       name: r'orderDate',
       type: IsarType.dateTime,
     ),
     r'orderNumber': PropertySchema(
-      id: 26,
+      id: 28,
       name: r'orderNumber',
       type: IsarType.string,
     ),
     r'priority': PropertySchema(
-      id: 27,
+      id: 29,
       name: r'priority',
       type: IsarType.string,
       enumMap: _IsarPurchaseOrderpriorityEnumValueMap,
     ),
     r'serverId': PropertySchema(
-      id: 28,
+      id: 30,
       name: r'serverId',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 29,
+      id: 31,
       name: r'status',
       type: IsarType.string,
       enumMap: _IsarPurchaseOrderstatusEnumValueMap,
     ),
     r'subtotal': PropertySchema(
-      id: 30,
+      id: 32,
       name: r'subtotal',
       type: IsarType.double,
     ),
     r'supplierId': PropertySchema(
-      id: 31,
+      id: 33,
       name: r'supplierId',
       type: IsarType.string,
     ),
     r'supplierName': PropertySchema(
-      id: 32,
+      id: 34,
       name: r'supplierName',
       type: IsarType.string,
     ),
     r'taxAmount': PropertySchema(
-      id: 33,
+      id: 35,
       name: r'taxAmount',
       type: IsarType.double,
     ),
     r'totalAmount': PropertySchema(
-      id: 34,
+      id: 36,
       name: r'totalAmount',
       type: IsarType.double,
     ),
     r'updatedAt': PropertySchema(
-      id: 35,
+      id: 37,
       name: r'updatedAt',
       type: IsarType.dateTime,
+    ),
+    r'version': PropertySchema(
+      id: 38,
+      name: r'version',
+      type: IsarType.long,
     )
   },
   estimateSize: _isarPurchaseOrderEstimateSize,
@@ -335,6 +350,12 @@ int _isarPurchaseOrderEstimateSize(
     }
   }
   {
+    final value = object.lastModifiedBy;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.notes;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -392,20 +413,23 @@ void _isarPurchaseOrderSerialize(
   writer.writeBool(offsets[19], object.isPending);
   writer.writeBool(offsets[20], object.isReceived);
   writer.writeBool(offsets[21], object.isSynced);
-  writer.writeDateTime(offsets[22], object.lastSyncAt);
-  writer.writeBool(offsets[23], object.needsSync);
-  writer.writeString(offsets[24], object.notes);
-  writer.writeDateTime(offsets[25], object.orderDate);
-  writer.writeString(offsets[26], object.orderNumber);
-  writer.writeString(offsets[27], object.priority.name);
-  writer.writeString(offsets[28], object.serverId);
-  writer.writeString(offsets[29], object.status.name);
-  writer.writeDouble(offsets[30], object.subtotal);
-  writer.writeString(offsets[31], object.supplierId);
-  writer.writeString(offsets[32], object.supplierName);
-  writer.writeDouble(offsets[33], object.taxAmount);
-  writer.writeDouble(offsets[34], object.totalAmount);
-  writer.writeDateTime(offsets[35], object.updatedAt);
+  writer.writeDateTime(offsets[22], object.lastModifiedAt);
+  writer.writeString(offsets[23], object.lastModifiedBy);
+  writer.writeDateTime(offsets[24], object.lastSyncAt);
+  writer.writeBool(offsets[25], object.needsSync);
+  writer.writeString(offsets[26], object.notes);
+  writer.writeDateTime(offsets[27], object.orderDate);
+  writer.writeString(offsets[28], object.orderNumber);
+  writer.writeString(offsets[29], object.priority.name);
+  writer.writeString(offsets[30], object.serverId);
+  writer.writeString(offsets[31], object.status.name);
+  writer.writeDouble(offsets[32], object.subtotal);
+  writer.writeString(offsets[33], object.supplierId);
+  writer.writeString(offsets[34], object.supplierName);
+  writer.writeDouble(offsets[35], object.taxAmount);
+  writer.writeDouble(offsets[36], object.totalAmount);
+  writer.writeDateTime(offsets[37], object.updatedAt);
+  writer.writeLong(offsets[38], object.version);
 }
 
 IsarPurchaseOrder _isarPurchaseOrderDeserialize(
@@ -432,23 +456,26 @@ IsarPurchaseOrder _isarPurchaseOrderDeserialize(
   object.id = id;
   object.internalNotes = reader.readStringOrNull(offsets[14]);
   object.isSynced = reader.readBool(offsets[21]);
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[22]);
-  object.notes = reader.readStringOrNull(offsets[24]);
-  object.orderDate = reader.readDateTimeOrNull(offsets[25]);
-  object.orderNumber = reader.readStringOrNull(offsets[26]);
+  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[22]);
+  object.lastModifiedBy = reader.readStringOrNull(offsets[23]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[24]);
+  object.notes = reader.readStringOrNull(offsets[26]);
+  object.orderDate = reader.readDateTimeOrNull(offsets[27]);
+  object.orderNumber = reader.readStringOrNull(offsets[28]);
   object.priority = _IsarPurchaseOrderpriorityValueEnumMap[
-          reader.readStringOrNull(offsets[27])] ??
-      IsarPurchaseOrderPriority.low;
-  object.serverId = reader.readString(offsets[28]);
-  object.status = _IsarPurchaseOrderstatusValueEnumMap[
           reader.readStringOrNull(offsets[29])] ??
+      IsarPurchaseOrderPriority.low;
+  object.serverId = reader.readString(offsets[30]);
+  object.status = _IsarPurchaseOrderstatusValueEnumMap[
+          reader.readStringOrNull(offsets[31])] ??
       IsarPurchaseOrderStatus.draft;
-  object.subtotal = reader.readDouble(offsets[30]);
-  object.supplierId = reader.readStringOrNull(offsets[31]);
-  object.supplierName = reader.readStringOrNull(offsets[32]);
-  object.taxAmount = reader.readDouble(offsets[33]);
-  object.totalAmount = reader.readDouble(offsets[34]);
-  object.updatedAt = reader.readDateTime(offsets[35]);
+  object.subtotal = reader.readDouble(offsets[32]);
+  object.supplierId = reader.readStringOrNull(offsets[33]);
+  object.supplierName = reader.readStringOrNull(offsets[34]);
+  object.taxAmount = reader.readDouble(offsets[35]);
+  object.totalAmount = reader.readDouble(offsets[36]);
+  object.updatedAt = reader.readDateTime(offsets[37]);
+  object.version = reader.readLong(offsets[38]);
   return object;
 }
 
@@ -506,35 +533,41 @@ P _isarPurchaseOrderDeserializeProp<P>(
     case 22:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 23:
-      return (reader.readBool(offset)) as P;
-    case 24:
       return (reader.readStringOrNull(offset)) as P;
-    case 25:
+    case 24:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 25:
+      return (reader.readBool(offset)) as P;
     case 26:
       return (reader.readStringOrNull(offset)) as P;
     case 27:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 28:
+      return (reader.readStringOrNull(offset)) as P;
+    case 29:
       return (_IsarPurchaseOrderpriorityValueEnumMap[
               reader.readStringOrNull(offset)] ??
           IsarPurchaseOrderPriority.low) as P;
-    case 28:
+    case 30:
       return (reader.readString(offset)) as P;
-    case 29:
+    case 31:
       return (_IsarPurchaseOrderstatusValueEnumMap[
               reader.readStringOrNull(offset)] ??
           IsarPurchaseOrderStatus.draft) as P;
-    case 30:
-      return (reader.readDouble(offset)) as P;
-    case 31:
-      return (reader.readStringOrNull(offset)) as P;
     case 32:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 33:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 34:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 35:
+      return (reader.readDouble(offset)) as P;
+    case 36:
+      return (reader.readDouble(offset)) as P;
+    case 37:
       return (reader.readDateTime(offset)) as P;
+    case 38:
+      return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -2961,6 +2994,234 @@ extension IsarPurchaseOrderQueryFilter
   }
 
   QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastModifiedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastModifiedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastModifiedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastModifiedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastModifiedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastModifiedBy',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lastModifiedBy',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      lastModifiedByIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lastModifiedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
       lastSyncAtIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -4395,6 +4656,62 @@ extension IsarPurchaseOrderQueryFilter
       ));
     });
   }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      versionEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      versionGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      versionLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      versionBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'version',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension IsarPurchaseOrderQueryObject
@@ -4775,6 +5092,34 @@ extension IsarPurchaseOrderQuerySortBy
   }
 
   QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByLastModifiedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByLastModifiedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByLastModifiedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
       sortByLastSyncAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastSyncAt', Sort.asc);
@@ -4967,6 +5312,20 @@ extension IsarPurchaseOrderQuerySortBy
       sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
     });
   }
 }
@@ -5295,6 +5654,34 @@ extension IsarPurchaseOrderQuerySortThenBy
   }
 
   QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByLastModifiedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByLastModifiedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByLastModifiedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
       thenByLastSyncAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastSyncAt', Sort.asc);
@@ -5489,6 +5876,20 @@ extension IsarPurchaseOrderQuerySortThenBy
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
+    });
+  }
 }
 
 extension IsarPurchaseOrderQueryWhereDistinct
@@ -5652,6 +6053,21 @@ extension IsarPurchaseOrderQueryWhereDistinct
   }
 
   QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QDistinct>
+      distinctByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastModifiedAt');
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QDistinct>
+      distinctByLastModifiedBy({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastModifiedBy',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QDistinct>
       distinctByLastSyncAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastSyncAt');
@@ -5746,6 +6162,13 @@ extension IsarPurchaseOrderQueryWhereDistinct
       distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QDistinct>
+      distinctByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'version');
     });
   }
 }
@@ -5907,6 +6330,20 @@ extension IsarPurchaseOrderQueryProperty
   }
 
   QueryBuilder<IsarPurchaseOrder, DateTime?, QQueryOperations>
+      lastModifiedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastModifiedAt');
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, String?, QQueryOperations>
+      lastModifiedByProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastModifiedBy');
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, DateTime?, QQueryOperations>
       lastSyncAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastSyncAt');
@@ -5997,6 +6434,12 @@ extension IsarPurchaseOrderQueryProperty
       updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, int, QQueryOperations> versionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'version');
     });
   }
 }

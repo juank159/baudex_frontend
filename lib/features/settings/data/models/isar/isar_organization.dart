@@ -50,6 +50,11 @@ class IsarOrganization {
   late bool isSynced;
   DateTime? lastSyncAt;
 
+  // ⭐ FASE 1: Campos de versionamiento para detección de conflictos
+  late int version;
+  DateTime? lastModifiedAt;
+  String? lastModifiedBy;
+
   // Constructores
   IsarOrganization();
 
@@ -74,6 +79,9 @@ class IsarOrganization {
     required this.updatedAt,
     required this.isSynced,
     this.lastSyncAt,
+    this.version = 0,
+    this.lastModifiedAt,
+    this.lastModifiedBy,
   });
 
   // Mappers
@@ -238,8 +246,31 @@ class IsarOrganization {
     markAsUnsynced();
   }
 
+
+  // ⭐ FASE 1: Métodos de versionamiento y detección de conflictos
+  void incrementVersion({String? modifiedBy}) {
+    version++;
+    lastModifiedAt = DateTime.now();
+    if (modifiedBy != null) {
+      lastModifiedBy = modifiedBy;
+    }
+    isSynced = false;
+  }
+
+  bool hasConflictWith(IsarOrganization serverVersion) {
+    if (version == serverVersion.version &&
+        lastModifiedAt != null &&
+        serverVersion.lastModifiedAt != null &&
+        lastModifiedAt != serverVersion.lastModifiedAt) {
+      return true;
+    }
+    if (version > serverVersion.version) {
+      return true;
+    }
+    return false;
+  }
   @override
   String toString() {
-    return 'IsarOrganization{serverId: $serverId, name: $name, plan: $subscriptionPlan, status: $subscriptionStatus, isSynced: $isSynced}';
+    return 'IsarOrganization{serverId: $serverId, name: $name, plan: $subscriptionPlan, status: $subscriptionStatus, version: $version, isSynced: $isSynced}';
   }
 }

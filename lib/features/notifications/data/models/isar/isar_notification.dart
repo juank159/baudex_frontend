@@ -45,6 +45,11 @@ class IsarNotification {
   late bool isSynced;
   DateTime? lastSyncAt;
 
+  // ⭐ FASE 1: Campos de versionamiento para detección de conflictos
+  late int version;
+  DateTime? lastModifiedAt;
+  String? lastModifiedBy;
+
   // Constructores
   IsarNotification();
 
@@ -63,6 +68,9 @@ class IsarNotification {
     this.deletedAt,
     required this.isSynced,
     this.lastSyncAt,
+    this.version = 0,
+    this.lastModifiedAt,
+    this.lastModifiedBy,
   });
 
   // Mappers
@@ -351,9 +359,32 @@ class IsarNotification {
     return _mapIsarNotificationPriority(priority).displayName;
   }
 
+  // ⭐ FASE 1: Métodos de versionamiento y detección de conflictos
+  void incrementVersion({String? modifiedBy}) {
+    version++;
+    lastModifiedAt = DateTime.now();
+    if (modifiedBy != null) {
+      lastModifiedBy = modifiedBy;
+    }
+    isSynced = false;
+  }
+
+  bool hasConflictWith(IsarNotification serverVersion) {
+    if (version == serverVersion.version &&
+        lastModifiedAt != null &&
+        serverVersion.lastModifiedAt != null &&
+        lastModifiedAt != serverVersion.lastModifiedAt) {
+      return true;
+    }
+    if (version > serverVersion.version) {
+      return true;
+    }
+    return false;
+  }
+
   @override
   String toString() {
-    return 'IsarNotification{serverId: $serverId, title: $title, type: $type, isRead: $isRead, isSynced: $isSynced}';
+    return 'IsarNotification{serverId: $serverId, title: $title, type: $type, isRead: $isRead, version: $version, isSynced: $isSynced}';
   }
 
   @override

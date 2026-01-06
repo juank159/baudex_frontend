@@ -103,79 +103,94 @@ const IsarSupplierSchema = CollectionSchema(
       name: r'isSynced',
       type: IsarType.bool,
     ),
-    r'lastSyncAt': PropertySchema(
+    r'lastModifiedAt': PropertySchema(
       id: 17,
+      name: r'lastModifiedAt',
+      type: IsarType.dateTime,
+    ),
+    r'lastModifiedBy': PropertySchema(
+      id: 18,
+      name: r'lastModifiedBy',
+      type: IsarType.string,
+    ),
+    r'lastSyncAt': PropertySchema(
+      id: 19,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'metadataJson': PropertySchema(
-      id: 18,
+      id: 20,
       name: r'metadataJson',
       type: IsarType.string,
     ),
     r'mobile': PropertySchema(
-      id: 19,
+      id: 21,
       name: r'mobile',
       type: IsarType.string,
     ),
     r'name': PropertySchema(
-      id: 20,
+      id: 22,
       name: r'name',
       type: IsarType.string,
     ),
     r'needsSync': PropertySchema(
-      id: 21,
+      id: 23,
       name: r'needsSync',
       type: IsarType.bool,
     ),
     r'notes': PropertySchema(
-      id: 22,
+      id: 24,
       name: r'notes',
       type: IsarType.string,
     ),
     r'organizationId': PropertySchema(
-      id: 23,
+      id: 25,
       name: r'organizationId',
       type: IsarType.string,
     ),
     r'paymentTermsDays': PropertySchema(
-      id: 24,
+      id: 26,
       name: r'paymentTermsDays',
       type: IsarType.long,
     ),
     r'phone': PropertySchema(
-      id: 25,
+      id: 27,
       name: r'phone',
       type: IsarType.string,
     ),
     r'postalCode': PropertySchema(
-      id: 26,
+      id: 28,
       name: r'postalCode',
       type: IsarType.string,
     ),
     r'serverId': PropertySchema(
-      id: 27,
+      id: 29,
       name: r'serverId',
       type: IsarType.string,
     ),
     r'state': PropertySchema(
-      id: 28,
+      id: 30,
       name: r'state',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 29,
+      id: 31,
       name: r'status',
       type: IsarType.string,
       enumMap: _IsarSupplierstatusEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 30,
+      id: 32,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
+    r'version': PropertySchema(
+      id: 33,
+      name: r'version',
+      type: IsarType.long,
+    ),
     r'website': PropertySchema(
-      id: 31,
+      id: 34,
       name: r'website',
       type: IsarType.string,
     )
@@ -306,6 +321,12 @@ int _isarSupplierEstimateSize(
     }
   }
   {
+    final value = object.lastModifiedBy;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.metadataJson;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -377,21 +398,24 @@ void _isarSupplierSerialize(
   writer.writeBool(offsets[14], object.isBlocked);
   writer.writeBool(offsets[15], object.isDeleted);
   writer.writeBool(offsets[16], object.isSynced);
-  writer.writeDateTime(offsets[17], object.lastSyncAt);
-  writer.writeString(offsets[18], object.metadataJson);
-  writer.writeString(offsets[19], object.mobile);
-  writer.writeString(offsets[20], object.name);
-  writer.writeBool(offsets[21], object.needsSync);
-  writer.writeString(offsets[22], object.notes);
-  writer.writeString(offsets[23], object.organizationId);
-  writer.writeLong(offsets[24], object.paymentTermsDays);
-  writer.writeString(offsets[25], object.phone);
-  writer.writeString(offsets[26], object.postalCode);
-  writer.writeString(offsets[27], object.serverId);
-  writer.writeString(offsets[28], object.state);
-  writer.writeString(offsets[29], object.status.name);
-  writer.writeDateTime(offsets[30], object.updatedAt);
-  writer.writeString(offsets[31], object.website);
+  writer.writeDateTime(offsets[17], object.lastModifiedAt);
+  writer.writeString(offsets[18], object.lastModifiedBy);
+  writer.writeDateTime(offsets[19], object.lastSyncAt);
+  writer.writeString(offsets[20], object.metadataJson);
+  writer.writeString(offsets[21], object.mobile);
+  writer.writeString(offsets[22], object.name);
+  writer.writeBool(offsets[23], object.needsSync);
+  writer.writeString(offsets[24], object.notes);
+  writer.writeString(offsets[25], object.organizationId);
+  writer.writeLong(offsets[26], object.paymentTermsDays);
+  writer.writeString(offsets[27], object.phone);
+  writer.writeString(offsets[28], object.postalCode);
+  writer.writeString(offsets[29], object.serverId);
+  writer.writeString(offsets[30], object.state);
+  writer.writeString(offsets[31], object.status.name);
+  writer.writeDateTime(offsets[32], object.updatedAt);
+  writer.writeLong(offsets[33], object.version);
+  writer.writeString(offsets[34], object.website);
 }
 
 IsarSupplier _isarSupplierDeserialize(
@@ -418,22 +442,25 @@ IsarSupplier _isarSupplierDeserialize(
   object.email = reader.readStringOrNull(offsets[12]);
   object.id = id;
   object.isSynced = reader.readBool(offsets[16]);
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[17]);
-  object.metadataJson = reader.readStringOrNull(offsets[18]);
-  object.mobile = reader.readStringOrNull(offsets[19]);
-  object.name = reader.readString(offsets[20]);
-  object.notes = reader.readStringOrNull(offsets[22]);
-  object.organizationId = reader.readString(offsets[23]);
-  object.paymentTermsDays = reader.readLong(offsets[24]);
-  object.phone = reader.readStringOrNull(offsets[25]);
-  object.postalCode = reader.readStringOrNull(offsets[26]);
-  object.serverId = reader.readString(offsets[27]);
-  object.state = reader.readStringOrNull(offsets[28]);
+  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[17]);
+  object.lastModifiedBy = reader.readStringOrNull(offsets[18]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[19]);
+  object.metadataJson = reader.readStringOrNull(offsets[20]);
+  object.mobile = reader.readStringOrNull(offsets[21]);
+  object.name = reader.readString(offsets[22]);
+  object.notes = reader.readStringOrNull(offsets[24]);
+  object.organizationId = reader.readString(offsets[25]);
+  object.paymentTermsDays = reader.readLong(offsets[26]);
+  object.phone = reader.readStringOrNull(offsets[27]);
+  object.postalCode = reader.readStringOrNull(offsets[28]);
+  object.serverId = reader.readString(offsets[29]);
+  object.state = reader.readStringOrNull(offsets[30]);
   object.status =
-      _IsarSupplierstatusValueEnumMap[reader.readStringOrNull(offsets[29])] ??
+      _IsarSupplierstatusValueEnumMap[reader.readStringOrNull(offsets[31])] ??
           IsarSupplierStatus.active;
-  object.updatedAt = reader.readDateTime(offsets[30]);
-  object.website = reader.readStringOrNull(offsets[31]);
+  object.updatedAt = reader.readDateTime(offsets[32]);
+  object.version = reader.readLong(offsets[33]);
+  object.website = reader.readStringOrNull(offsets[34]);
   return object;
 }
 
@@ -485,32 +512,38 @@ P _isarSupplierDeserializeProp<P>(
     case 18:
       return (reader.readStringOrNull(offset)) as P;
     case 19:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 20:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 21:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 22:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 23:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 24:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 25:
-      return (reader.readStringOrNull(offset)) as P;
-    case 26:
-      return (reader.readStringOrNull(offset)) as P;
-    case 27:
       return (reader.readString(offset)) as P;
+    case 26:
+      return (reader.readLong(offset)) as P;
+    case 27:
+      return (reader.readStringOrNull(offset)) as P;
     case 28:
       return (reader.readStringOrNull(offset)) as P;
     case 29:
+      return (reader.readString(offset)) as P;
+    case 30:
+      return (reader.readStringOrNull(offset)) as P;
+    case 31:
       return (_IsarSupplierstatusValueEnumMap[
               reader.readStringOrNull(offset)] ??
           IsarSupplierStatus.active) as P;
-    case 30:
+    case 32:
       return (reader.readDateTime(offset)) as P;
-    case 31:
+    case 33:
+      return (reader.readLong(offset)) as P;
+    case 34:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -2616,6 +2649,234 @@ extension IsarSupplierQueryFilter
   }
 
   QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastModifiedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastModifiedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastModifiedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastModifiedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastModifiedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastModifiedBy',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lastModifiedBy',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      lastModifiedByIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lastModifiedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
       lastSyncAtIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -4270,6 +4531,62 @@ extension IsarSupplierQueryFilter
   }
 
   QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      versionEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      versionGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      versionLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
+      versionBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'version',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterFilterCondition>
       websiteIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -4643,6 +4960,34 @@ extension IsarSupplierQuerySortBy
     });
   }
 
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy>
+      sortByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy>
+      sortByLastModifiedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy>
+      sortByLastModifiedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy>
+      sortByLastModifiedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy> sortByLastSyncAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastSyncAt', Sort.asc);
@@ -4815,6 +5160,18 @@ extension IsarSupplierQuerySortBy
   QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy> sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy> sortByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy> sortByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
     });
   }
 
@@ -5056,6 +5413,34 @@ extension IsarSupplierQuerySortThenBy
     });
   }
 
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy>
+      thenByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy>
+      thenByLastModifiedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy>
+      thenByLastModifiedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy>
+      thenByLastModifiedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy> thenByLastSyncAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastSyncAt', Sort.asc);
@@ -5231,6 +5616,18 @@ extension IsarSupplierQuerySortThenBy
     });
   }
 
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy> thenByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy> thenByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarSupplier, IsarSupplier, QAfterSortBy> thenByWebsite() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'website', Sort.asc);
@@ -5360,6 +5757,21 @@ extension IsarSupplierQueryWhereDistinct
     });
   }
 
+  QueryBuilder<IsarSupplier, IsarSupplier, QDistinct>
+      distinctByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastModifiedAt');
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QDistinct> distinctByLastModifiedBy(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastModifiedBy',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<IsarSupplier, IsarSupplier, QDistinct> distinctByLastSyncAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastSyncAt');
@@ -5453,6 +5865,12 @@ extension IsarSupplierQueryWhereDistinct
   QueryBuilder<IsarSupplier, IsarSupplier, QDistinct> distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<IsarSupplier, IsarSupplier, QDistinct> distinctByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'version');
     });
   }
 
@@ -5578,6 +5996,20 @@ extension IsarSupplierQueryProperty
     });
   }
 
+  QueryBuilder<IsarSupplier, DateTime?, QQueryOperations>
+      lastModifiedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastModifiedAt');
+    });
+  }
+
+  QueryBuilder<IsarSupplier, String?, QQueryOperations>
+      lastModifiedByProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastModifiedBy');
+    });
+  }
+
   QueryBuilder<IsarSupplier, DateTime?, QQueryOperations> lastSyncAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastSyncAt');
@@ -5661,6 +6093,12 @@ extension IsarSupplierQueryProperty
   QueryBuilder<IsarSupplier, DateTime, QQueryOperations> updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<IsarSupplier, int, QQueryOperations> versionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'version');
     });
   }
 
