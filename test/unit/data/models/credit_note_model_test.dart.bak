@@ -1,0 +1,506 @@
+// test/unit/data/models/credit_note_model_test.dart
+import 'package:baudex_desktop/features/credit_notes/data/models/credit_note_model.dart';
+import 'package:baudex_desktop/features/credit_notes/domain/entities/credit_note.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../../fixtures/credit_note_fixtures.dart';
+
+void main() {
+  group('CreditNoteModel', () {
+    final tCreditNote = CreditNoteFixtures.createCreditNoteEntity();
+    final tCreditNoteModel = CreditNoteModel.fromEntity(tCreditNote);
+
+    group('fromJson', () {
+      test('should create valid CreditNoteModel from JSON', () {
+        // Arrange
+        final json = {
+          'id': 'cn-001',
+          'number': 'CN-001',
+          'date': '2024-01-05T00:00:00.000',
+          'type': 'PARTIAL',
+          'reason': 'RETURNED_GOODS',
+          'reasonDescription': null,
+          'status': 'DRAFT',
+          'subtotal': 50000.0,
+          'taxPercentage': 19.0,
+          'taxAmount': 9500.0,
+          'total': 59500.0,
+          'notes': null,
+          'terms': null,
+          'metadata': null,
+          'restoreInventory': true,
+          'inventoryRestored': false,
+          'inventoryRestoredAt': null,
+          'appliedAt': null,
+          'appliedById': null,
+          'invoiceId': 'inv-001',
+          'customerId': 'cust-001',
+          'createdById': 'user-001',
+          'items': [
+            {
+              'id': 'cn-item-001',
+              'description': 'Test Product',
+              'quantity': 1.0,
+              'unitPrice': 50000.0,
+              'discountPercentage': 0.0,
+              'discountAmount': 0.0,
+              'subtotal': 50000.0,
+              'unit': 'pcs',
+              'notes': null,
+              'creditNoteId': 'cn-001',
+              'productId': 'prod-001',
+              'invoiceItemId': 'inv-item-001',
+              'createdAt': '2024-01-05T00:00:00.000',
+              'updatedAt': '2024-01-05T00:00:00.000',
+            }
+          ],
+          'createdAt': '2024-01-05T00:00:00.000',
+          'updatedAt': '2024-01-05T00:00:00.000',
+          'deletedAt': null,
+        };
+
+        // Act
+        final result = CreditNoteModel.fromJson(json);
+
+        // Assert
+        expect(result, isA<CreditNoteModel>());
+        expect(result.id, 'cn-001');
+        expect(result.number, 'CN-001');
+        expect(result.type, CreditNoteType.partial);
+        expect(result.reason, CreditNoteReason.returnedGoods);
+        expect(result.status, CreditNoteStatus.draft);
+        expect(result.subtotal, 50000.0);
+        expect(result.taxPercentage, 19.0);
+        expect(result.taxAmount, 9500.0);
+        expect(result.total, 59500.0);
+        expect(result.restoreInventory, true);
+        expect(result.inventoryRestored, false);
+        expect(result.items.length, 1);
+      });
+
+      test('should parse numeric fields from String values', () {
+        // Arrange
+        final json = {
+          'id': 'cn-001',
+          'number': 'CN-001',
+          'date': '2024-01-05T00:00:00.000',
+          'type': 'PARTIAL',
+          'reason': 'RETURNED_GOODS',
+          'status': 'DRAFT',
+          'subtotal': '50000.0',
+          'taxPercentage': '19.0',
+          'taxAmount': '9500.0',
+          'total': '59500.0',
+          'invoiceId': 'inv-001',
+          'customerId': 'cust-001',
+          'createdById': 'user-001',
+          'items': [],
+          'createdAt': '2024-01-05T00:00:00.000',
+          'updatedAt': '2024-01-05T00:00:00.000',
+        };
+
+        // Act
+        final result = CreditNoteModel.fromJson(json);
+
+        // Assert
+        expect(result.subtotal, 50000.0);
+        expect(result.taxPercentage, 19.0);
+        expect(result.taxAmount, 9500.0);
+        expect(result.total, 59500.0);
+      });
+
+      test('should handle null optional fields', () {
+        // Arrange
+        final json = {
+          'id': 'cn-001',
+          'number': 'CN-001',
+          'date': '2024-01-05T00:00:00.000',
+          'type': 'PARTIAL',
+          'reason': 'RETURNED_GOODS',
+          'status': 'DRAFT',
+          'subtotal': 50000.0,
+          'taxPercentage': 19.0,
+          'taxAmount': 9500.0,
+          'total': 59500.0,
+          'invoiceId': 'inv-001',
+          'customerId': 'cust-001',
+          'createdById': 'user-001',
+          'items': [],
+          'createdAt': '2024-01-05T00:00:00.000',
+          'updatedAt': '2024-01-05T00:00:00.000',
+        };
+
+        // Act
+        final result = CreditNoteModel.fromJson(json);
+
+        // Assert
+        expect(result.reasonDescription, isNull);
+        expect(result.notes, isNull);
+        expect(result.terms, isNull);
+        expect(result.metadata, isNull);
+        expect(result.appliedAt, isNull);
+        expect(result.appliedById, isNull);
+        expect(result.deletedAt, isNull);
+      });
+
+      test('should parse CreditNoteType enum correctly', () {
+        // Arrange - FULL type
+        final jsonFull = {
+          'id': 'cn-001',
+          'number': 'CN-001',
+          'date': '2024-01-05T00:00:00.000',
+          'type': 'FULL',
+          'reason': 'RETURNED_GOODS',
+          'status': 'DRAFT',
+          'subtotal': 50000.0,
+          'taxPercentage': 19.0,
+          'taxAmount': 9500.0,
+          'total': 59500.0,
+          'invoiceId': 'inv-001',
+          'customerId': 'cust-001',
+          'createdById': 'user-001',
+          'items': [],
+          'createdAt': '2024-01-05T00:00:00.000',
+          'updatedAt': '2024-01-05T00:00:00.000',
+        };
+
+        // Act
+        final resultFull = CreditNoteModel.fromJson(jsonFull);
+
+        // Assert
+        expect(resultFull.type, CreditNoteType.full);
+      });
+
+      test('should parse CreditNoteStatus enum correctly', () {
+        // Test all statuses
+        final statuses = ['DRAFT', 'CONFIRMED', 'CANCELLED'];
+        final expectedStatuses = [
+          CreditNoteStatus.draft,
+          CreditNoteStatus.confirmed,
+          CreditNoteStatus.cancelled,
+        ];
+
+        for (var i = 0; i < statuses.length; i++) {
+          final json = {
+            'id': 'cn-001',
+            'number': 'CN-001',
+            'date': '2024-01-05T00:00:00.000',
+            'type': 'PARTIAL',
+            'reason': 'RETURNED_GOODS',
+            'status': statuses[i],
+            'subtotal': 50000.0,
+            'taxPercentage': 19.0,
+            'taxAmount': 9500.0,
+            'total': 59500.0,
+            'invoiceId': 'inv-001',
+            'customerId': 'cust-001',
+            'createdById': 'user-001',
+            'items': [],
+            'createdAt': '2024-01-05T00:00:00.000',
+            'updatedAt': '2024-01-05T00:00:00.000',
+          };
+
+          final result = CreditNoteModel.fromJson(json);
+          expect(result.status, expectedStatuses[i]);
+        }
+      });
+
+      test('should parse CreditNoteReason enum correctly', () {
+        // Test different reasons
+        final reasons = [
+          'RETURNED_GOODS',
+          'DAMAGED_GOODS',
+          'BILLING_ERROR',
+          'PRICE_ADJUSTMENT',
+        ];
+        final expectedReasons = [
+          CreditNoteReason.returnedGoods,
+          CreditNoteReason.damagedGoods,
+          CreditNoteReason.billingError,
+          CreditNoteReason.priceAdjustment,
+        ];
+
+        for (var i = 0; i < reasons.length; i++) {
+          final json = {
+            'id': 'cn-001',
+            'number': 'CN-001',
+            'date': '2024-01-05T00:00:00.000',
+            'type': 'PARTIAL',
+            'reason': reasons[i],
+            'status': 'DRAFT',
+            'subtotal': 50000.0,
+            'taxPercentage': 19.0,
+            'taxAmount': 9500.0,
+            'total': 59500.0,
+            'invoiceId': 'inv-001',
+            'customerId': 'cust-001',
+            'createdById': 'user-001',
+            'items': [],
+            'createdAt': '2024-01-05T00:00:00.000',
+            'updatedAt': '2024-01-05T00:00:00.000',
+          };
+
+          final result = CreditNoteModel.fromJson(json);
+          expect(result.reason, expectedReasons[i]);
+        }
+      });
+    });
+
+    group('toJson', () {
+      test('should convert CreditNoteModel to valid JSON', () {
+        // Act
+        final json = tCreditNoteModel.toJson();
+
+        // Assert
+        expect(json, isA<Map<String, dynamic>>());
+        expect(json['id'], tCreditNote.id);
+        expect(json['number'], tCreditNote.number);
+        expect(json['type'], 'partial');
+        expect(json['reason'], 'returned_goods');
+        expect(json['status'], 'draft');
+        expect(json['subtotal'], tCreditNote.subtotal);
+        expect(json['taxPercentage'], tCreditNote.taxPercentage);
+        expect(json['taxAmount'], tCreditNote.taxAmount);
+        expect(json['total'], tCreditNote.total);
+        expect(json['restoreInventory'], tCreditNote.restoreInventory);
+        expect(json['inventoryRestored'], tCreditNote.inventoryRestored);
+      });
+
+      test('should include items array in JSON', () {
+        // Act
+        final json = tCreditNoteModel.toJson();
+
+        // Assert
+        expect(json['items'], isA<List>());
+        expect(json['items'].length, greaterThan(0));
+      });
+
+      test('should format dates as ISO8601 strings', () {
+        // Act
+        final json = tCreditNoteModel.toJson();
+
+        // Assert
+        expect(json['createdAt'], isA<String>());
+        expect(json['updatedAt'], isA<String>());
+        expect(json['createdAt'], contains('T'));
+        expect(json['updatedAt'], contains('T'));
+      });
+
+      test('should handle null optional date fields', () {
+        // Arrange
+        final creditNote = CreditNoteFixtures.createCreditNoteEntity(
+          appliedAt: null,
+          inventoryRestoredAt: null,
+        );
+        final model = CreditNoteModel.fromEntity(creditNote);
+
+        // Act
+        final json = model.toJson();
+
+        // Assert
+        expect(json['appliedAt'], isNull);
+        expect(json['inventoryRestoredAt'], isNull);
+      });
+    });
+
+    group('fromEntity', () {
+      test('should convert CreditNote entity to CreditNoteModel', () {
+        // Act
+        final model = CreditNoteModel.fromEntity(tCreditNote);
+
+        // Assert
+        expect(model, isA<CreditNoteModel>());
+        expect(model.id, tCreditNote.id);
+        expect(model.number, tCreditNote.number);
+        expect(model.type, tCreditNote.type);
+        expect(model.reason, tCreditNote.reason);
+        expect(model.status, tCreditNote.status);
+        expect(model.subtotal, tCreditNote.subtotal);
+        expect(model.total, tCreditNote.total);
+      });
+
+      test('should preserve all entity properties', () {
+        // Arrange
+        final creditNote = CreditNoteFixtures.createCreditNoteEntity(
+          notes: 'Test notes',
+          reasonDescription: 'Test reason',
+        );
+
+        // Act
+        final model = CreditNoteModel.fromEntity(creditNote);
+
+        // Assert
+        expect(model.notes, creditNote.notes);
+        expect(model.terms, creditNote.terms);
+        expect(model.reasonDescription, creditNote.reasonDescription);
+        expect(model.metadata, creditNote.metadata);
+      });
+    });
+
+    group('JSON roundtrip', () {
+      test('should maintain data integrity through toJson -> fromJson', () {
+        // Arrange
+        final originalModel = tCreditNoteModel;
+
+        // Act
+        final json = originalModel.toJson();
+        final reconstructedModel = CreditNoteModel.fromJson(json);
+
+        // Assert
+        expect(reconstructedModel.id, originalModel.id);
+        expect(reconstructedModel.number, originalModel.number);
+        expect(reconstructedModel.type, originalModel.type);
+        expect(reconstructedModel.reason, originalModel.reason);
+        expect(reconstructedModel.status, originalModel.status);
+        expect(reconstructedModel.subtotal, originalModel.subtotal);
+        expect(reconstructedModel.taxPercentage, originalModel.taxPercentage);
+        expect(reconstructedModel.taxAmount, originalModel.taxAmount);
+        expect(reconstructedModel.total, originalModel.total);
+      });
+    });
+  });
+
+  // NOTE: CreateCreditNoteRequestModel and UpdateCreditNoteRequestModel classes don't exist
+  // These tests are commented out until the request models are implemented
+  /*
+  group('CreateCreditNoteRequestModel', () {
+    test('should convert to JSON correctly', () {
+      // Arrange
+      final request = CreateCreditNoteRequestModel(
+        invoiceId: 'inv-001',
+        type: 'PARTIAL',
+        reason: 'RETURNED_GOODS',
+        reasonDescription: 'Customer returned products',
+        items: [
+          CreateCreditNoteItemRequestModel(
+            productId: 'prod-001',
+            invoiceItemId: 'inv-item-001',
+            description: 'Test Product',
+            quantity: 1.0,
+            unitPrice: 50000.0,
+          ),
+        ],
+        restoreInventory: true,
+        notes: 'Test notes',
+      );
+
+      // Act
+      final json = request.toJson();
+
+      // Assert
+      expect(json['invoiceId'], 'inv-001');
+      expect(json['type'], 'PARTIAL');
+      expect(json['reason'], 'RETURNED_GOODS');
+      expect(json['reasonDescription'], 'Customer returned products');
+      expect(json['items'], isA<List>());
+      expect(json['items'].length, 1);
+      expect(json['restoreInventory'], true);
+      expect(json['notes'], 'Test notes');
+    });
+
+    test('should omit null optional fields from JSON', () {
+      // Arrange
+      final request = CreateCreditNoteRequestModel(
+        invoiceId: 'inv-001',
+        type: 'PARTIAL',
+        reason: 'RETURNED_GOODS',
+        items: [],
+      );
+
+      // Act
+      final json = request.toJson();
+
+      // Assert
+      expect(json.containsKey('reasonDescription'), false);
+      expect(json.containsKey('notes'), false);
+    });
+  });
+  */
+
+  /* group('UpdateCreditNoteRequestModel', () {
+    test('should convert to JSON correctly with all fields', () {
+      // Arrange
+      final request = UpdateCreditNoteRequestModel(
+        reason: 'DAMAGED_GOODS',
+        reasonDescription: 'Updated reason',
+        restoreInventory: false,
+        notes: 'Updated notes',
+        terms: 'Updated terms',
+      );
+
+      // Act
+      final json = request.toJson();
+
+      // Assert
+      expect(json['reason'], 'DAMAGED_GOODS');
+      expect(json['reasonDescription'], 'Updated reason');
+      expect(json['restoreInventory'], false);
+      expect(json['notes'], 'Updated notes');
+      expect(json['terms'], 'Updated terms');
+    });
+
+    test('should only include non-null fields in JSON', () {
+      // Arrange
+      final request = UpdateCreditNoteRequestModel(
+        notes: 'Updated notes',
+      );
+
+      // Act
+      final json = request.toJson();
+
+      // Assert
+      expect(json.containsKey('notes'), true);
+      expect(json.containsKey('reason'), false);
+      expect(json.containsKey('reasonDescription'), false);
+      expect(json.containsKey('restoreInventory'), false);
+      expect(json.containsKey('terms'), false);
+    });
+  });
+  */
+
+  group('CreditNotePaginatedResponseModel', () {
+    test('should parse paginated response correctly', () {
+      // Arrange
+      final json = {
+        'data': [
+          {
+            'id': 'cn-001',
+            'number': 'CN-001',
+            'date': '2024-01-05T00:00:00.000',
+            'type': 'PARTIAL',
+            'reason': 'RETURNED_GOODS',
+            'status': 'DRAFT',
+            'subtotal': 50000.0,
+            'taxPercentage': 19.0,
+            'taxAmount': 9500.0,
+            'total': 59500.0,
+            'invoiceId': 'inv-001',
+            'customerId': 'cust-001',
+            'createdById': 'user-001',
+            'items': [],
+            'createdAt': '2024-01-05T00:00:00.000',
+            'updatedAt': '2024-01-05T00:00:00.000',
+          }
+        ],
+        'meta': {
+          'page': 1,
+          'limit': 10,
+          'totalItems': 1,
+          'totalPages': 1,
+          'hasNextPage': false,
+          'hasPreviousPage': false,
+        },
+      };
+
+      // Act
+      final result = CreditNotePaginatedResponseModel.fromJson(json);
+
+      // Assert
+      expect(result.data, isA<List<CreditNoteModel>>());
+      expect(result.data.length, 1);
+      expect(result.meta, isA<Map<String, dynamic>>());
+      expect(result.meta['page'], 1);
+      expect(result.meta['totalItems'], 1);
+    });
+  });
+}

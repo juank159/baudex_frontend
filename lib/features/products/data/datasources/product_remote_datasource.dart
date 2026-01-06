@@ -38,6 +38,9 @@ abstract class ProductRemoteDataSource {
   Future<ProductModel> restoreProduct(String id);
   Future<bool> validateStockForSale(String productId, double quantity);
   Future<void> reduceStockForSale(String productId, double quantity);
+  Future<bool> existsByName(String name, {String? excludeId});
+  Future<bool> existsBySku(String sku, {String? excludeId});
+  Future<bool> existsByBarcode(String barcode, {String? excludeId});
 }
 
 /// Implementación del datasource remoto usando Dio
@@ -319,7 +322,6 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
         throw _handleErrorResponse(response);
       }
     } catch (e) {
-      print('❌ Error en getProductStats: $e');
       rethrow;
     }
   }
@@ -433,11 +435,8 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
-      print('❌ DioException en createProduct: $e');
       throw _handleDioException(e);
     } catch (e, stackTrace) {
-      print('❌ Error inesperado en createProduct: $e');
-      print('🔍 StackTrace: $stackTrace');
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
         rethrow; // Re-throw with original statusCode
@@ -549,13 +548,8 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
-      print('❌ DioException en updateProduct: $e');
-      print('   Response data: ${e.response?.data}');
-      print('   Status code: ${e.response?.statusCode}');
       throw _handleDioException(e);
     } catch (e, stackTrace) {
-      print('❌ Error inesperado en updateProduct: $e');
-      print('🔍 StackTrace: $stackTrace');
       // 🔒 CRITICAL FIX: Check if it's a ServerException and preserve statusCode
       if (e is ServerException) {
         rethrow; // Re-throw with original statusCode
@@ -693,6 +687,98 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       throw _handleDioException(e);
     } catch (e) {
       throw ServerException('Error inesperado al reducir stock: $e');
+    }
+  }
+
+  // ==================== VALIDATION ====================
+
+  /// Verificar si existe un producto con el mismo nombre en el servidor
+  @override
+  Future<bool> existsByName(String name, {String? excludeId}) async {
+    try {
+      final queryParams = <String, dynamic>{'name': name};
+      if (excludeId != null) {
+        queryParams['excludeId'] = excludeId;
+      }
+
+      final response = await dioClient.get(
+        '/products/check/name',
+        queryParameters: queryParams,
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        return responseData['exists'] as bool? ?? false;
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('Error al verificar nombre: $e');
+    }
+  }
+
+  /// Verificar si existe un producto con el mismo SKU en el servidor
+  @override
+  Future<bool> existsBySku(String sku, {String? excludeId}) async {
+    try {
+      final queryParams = <String, dynamic>{'sku': sku};
+      if (excludeId != null) {
+        queryParams['excludeId'] = excludeId;
+      }
+
+      final response = await dioClient.get(
+        '/products/check/sku',
+        queryParameters: queryParams,
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        return responseData['exists'] as bool? ?? false;
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('Error al verificar SKU: $e');
+    }
+  }
+
+  /// Verificar si existe un producto con el mismo código de barras en el servidor
+  @override
+  Future<bool> existsByBarcode(String barcode, {String? excludeId}) async {
+    try {
+      final queryParams = <String, dynamic>{'barcode': barcode};
+      if (excludeId != null) {
+        queryParams['excludeId'] = excludeId;
+      }
+
+      final response = await dioClient.get(
+        '/products/check/barcode',
+        queryParameters: queryParams,
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        return responseData['exists'] as bool? ?? false;
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('Error al verificar código de barras: $e');
     }
   }
 

@@ -3,8 +3,11 @@ import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:isar/isar.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../models/supplier_model.dart';
 import '../models/supplier_stats_model.dart';
+import '../models/isar/isar_supplier.dart';
 import '../../domain/repositories/supplier_repository.dart';
 
 abstract class SupplierLocalDataSource {
@@ -295,6 +298,32 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
   @override
   Future<void> cacheSupplier(SupplierModel supplier) async {
     try {
+      // GUARDAR EN ISAR PRIMERO (persistencia offline real)
+      try {
+        final isar = IsarDatabase.instance.database;
+        await isar.writeTxn(() async {
+          // Buscar si existe
+          var isarSupplier = await isar.isarSuppliers
+              .filter()
+              .serverIdEqualTo(supplier.id)
+              .findFirst();
+
+          if (isarSupplier != null) {
+            // Actualizar existente
+            isarSupplier.updateFromModel(supplier);
+          } else {
+            // Crear nuevo
+            isarSupplier = IsarSupplier.fromModel(supplier);
+          }
+
+          await isar.isarSuppliers.put(isarSupplier);
+        });
+        print('✅ Supplier guardado en ISAR: ${supplier.id}');
+      } catch (e) {
+        print('⚠️ Error guardando en ISAR (continuando...): $e');
+      }
+
+      // Guardar en SecureStorage (fallback legacy)
       await secureStorage.write(
         key: '$_supplierPrefix${supplier.id}',
         value: json.encode(supplier.toJson()),

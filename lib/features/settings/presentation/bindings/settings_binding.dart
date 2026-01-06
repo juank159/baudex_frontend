@@ -1,6 +1,5 @@
 // lib/features/settings/presentation/bindings/settings_binding.dart
 import 'package:get/get.dart';
-import '../../../../app/core/database/isar_service.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../data/datasources/settings_local_datasource.dart';
 import '../../data/datasources/organization_remote_datasource.dart';
@@ -22,9 +21,6 @@ class SettingsBinding extends Bindings {
   void dependencies() {
     print('🔧 SettingsBinding: Registrando dependencias...');
 
-    // Core Services
-    _registerCoreServices();
-
     // Data Sources
     _registerDataSources();
 
@@ -40,21 +36,11 @@ class SettingsBinding extends Bindings {
     print('✅ SettingsBinding: Todas las dependencias registradas exitosamente');
   }
 
-  void _registerCoreServices() {
-    // Isar Service (Singleton)
-    if (!Get.isRegistered<IsarService>()) {
-      Get.put<IsarService>(IsarService.instance, permanent: true);
-      print('✅ IsarService registrado como singleton');
-    }
-  }
-
   void _registerDataSources() {
     // Settings Local DataSource
     if (!Get.isRegistered<SettingsLocalDataSource>()) {
       Get.lazyPut<SettingsLocalDataSource>(
-        () => SettingsLocalDataSourceImpl(
-          isarService: Get.find<IsarService>(),
-        ),
+        () => SettingsLocalDataSourceImpl(),
       );
       print('✅ SettingsLocalDataSource registrado');
     }
@@ -193,8 +179,7 @@ class SettingsBinding extends Bindings {
 
   /// Método estático para verificar si las dependencias base están registradas
   static bool areBaseDependenciesRegistered() {
-    return Get.isRegistered<IsarService>() &&
-        Get.isRegistered<SettingsLocalDataSource>() &&
+    return Get.isRegistered<SettingsLocalDataSource>() &&
         Get.isRegistered<SettingsRepository>();
   }
 

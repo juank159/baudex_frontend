@@ -196,13 +196,19 @@ class OrganizationController extends GetxController {
   @override
   void onReady() {
     super.onReady();
-    // Cargar datos de organización y luego inicializar el valor temporal
-    loadCurrentOrganization().then((_) {
+    // ✅ Solo recargar si no hay organización cargada (evita doble carga)
+    // Si onInit() ya cargó la organización o falló con error de conexión, no reintentar
+    if (_currentOrganization.value == null && !_isLoading.value) {
+      loadCurrentOrganization().then((_) {
+        _tempProfitMargin.value = profitMarginPercentage;
+        print(
+          '🏢 Margen de ganancia cargado desde backend: $profitMarginPercentage%',
+        );
+      });
+    } else {
+      // Ya está cargada o cargando, solo inicializar el valor temporal
       _tempProfitMargin.value = profitMarginPercentage;
-      print(
-        '🏢 Margen de ganancia cargado desde backend: $profitMarginPercentage%',
-      );
-    });
+    }
   }
 
   /// ✅ NUEVO: Actualizar margen temporal (para el slider) - SIN snackbar
@@ -304,14 +310,19 @@ class OrganizationController extends GetxController {
   }
 
   void _handleFailure(Failure failure) {
+    // ✅ NO mostrar snackbars de error de conexión cuando backend está offline
+    // El usuario ya sabe que está trabajando offline
+    if (failure is ConnectionFailure) {
+      print('⚠️ OrganizationController: Sin conexión - trabajando offline');
+      _error.value = null; // No mostrar error en UI
+      return; // NO mostrar snackbar
+    }
+
     String message;
 
     switch (failure.runtimeType) {
       case ServerFailure:
         message = 'Error del servidor. Intente nuevamente.';
-        break;
-      case ConnectionFailure:
-        message = 'Sin conexión a internet. Verifique su conexión.';
         break;
       case ValidationFailure:
         message = 'Error de validación. Verifique los datos ingresados.';

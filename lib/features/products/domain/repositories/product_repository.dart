@@ -175,6 +175,17 @@ abstract class ProductRepository {
 
   /// Limpiar cache de productos
   Future<Either<Failure, Unit>> clearProductCache();
+
+  // ==================== VALIDATION OPERATIONS ====================
+
+  /// Verificar si existe un producto con el mismo nombre
+  Future<Either<Failure, bool>> existsByName(String name, {String? excludeId});
+
+  /// Verificar si existe un producto con el mismo SKU
+  Future<Either<Failure, bool>> existsBySku(String sku, {String? excludeId});
+
+  /// Verificar si existe un producto con el mismo código de barras
+  Future<Either<Failure, bool>> existsByBarcode(String barcode, {String? excludeId});
 }
 
 // Parámetros para crear precios

@@ -526,8 +526,10 @@ import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
+import '../../../../app/core/errors/failures.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/entities/category_tree.dart';
+import '../../domain/repositories/category_repository.dart';
 import '../../domain/usecases/create_category_usecase.dart';
 import '../../domain/usecases/update_category_usecase.dart';
 import '../../domain/usecases/get_category_tree_usecase.dart';
@@ -540,16 +542,19 @@ class CategoryFormController extends GetxController {
   final UpdateCategoryUseCase _updateCategoryUseCase;
   final GetCategoryTreeUseCase _getCategoryTreeUseCase;
   final GetCategoryByIdUseCase _getCategoryByIdUseCase;
+  final CategoryRepository _categoryRepository;
 
   CategoryFormController({
     required CreateCategoryUseCase createCategoryUseCase,
     required UpdateCategoryUseCase updateCategoryUseCase,
     required GetCategoryTreeUseCase getCategoryTreeUseCase,
     required GetCategoryByIdUseCase getCategoryByIdUseCase,
+    required CategoryRepository categoryRepository,
   }) : _createCategoryUseCase = createCategoryUseCase,
        _updateCategoryUseCase = updateCategoryUseCase,
        _getCategoryTreeUseCase = getCategoryTreeUseCase,
-       _getCategoryByIdUseCase = getCategoryByIdUseCase;
+       _getCategoryByIdUseCase = getCategoryByIdUseCase,
+       _categoryRepository = categoryRepository;
 
   // ==================== OBSERVABLES ====================
 
@@ -671,18 +676,19 @@ class CategoryFormController extends GetxController {
   /// Guardar categoría (crear o actualizar)
   Future<void> saveCategory() async {
     print('🚀 CategoryFormController: Iniciando saveCategory()');
-    
+
     // Log tenant information for debugging
     await _logTenantInfo();
-    
+
     // Validar campos manualmente si FormKey no está disponible
-    if (!_validateFieldsManually()) {
+    final isValid = await _validateFieldsManually();
+    if (!isValid) {
       print('❌ Validación manual falló');
       return;
     }
-    
+
     print('✅ Validación exitosa, procediendo con la creación');
-    
+
     // Generar slug automáticamente si está vacío
     if (slugController.text.trim().isEmpty) {
       final generatedSlug = _generateSlugFromName(nameController.text.trim());
@@ -713,8 +719,11 @@ class CategoryFormController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error loading parent categories: ${failure.message}');
-          _showError('Error al cargar categorías padre', failure.message);
+          // NO mostrar error si es fallo de cache (es normal cuando no hay cache)
+          if (failure is! CacheFailure) {
+            print('❌ Error loading parent categories: ${failure.message}');
+            _showError('Error al cargar categorías padre', failure.message);
+          }
           _parentCategories.clear();
         },
         (categories) {
@@ -1141,27 +1150,59 @@ class CategoryFormController extends GetxController {
   // ==================== VALIDATION METHODS ====================
 
   /// Validar campos manualmente (sin depender del FormKey)
-  bool _validateFieldsManually() {
+  Future<bool> _validateFieldsManually() async {
     List<String> errors = [];
-    
+
     // Validar nombre (requerido)
     if (nameController.text.trim().isEmpty) {
       errors.add('El nombre es requerido');
     } else if (nameController.text.trim().length < 2) {
       errors.add('El nombre debe tener al menos 2 caracteres');
     }
-    
+
+    // ✅ VALIDACIÓN: Nombre único en la organización (solo si cambió)
+    if (nameController.text.trim().isNotEmpty) {
+      final categoryName = nameController.text.trim();
+      final excludeId = _isEditMode.value ? _currentCategory.value?.id : null;
+      final originalName = _currentCategory.value?.name;
+
+      print('🔍 Validando nombre único: "$categoryName" (excludeId: $excludeId, original: "$originalName")');
+
+      // ✅ IMPORTANTE: Solo validar si el nombre cambió respecto al original
+      if (!_isEditMode.value || categoryName != originalName) {
+        final nameExistsResult = await _categoryRepository.existsByName(
+          categoryName,
+          excludeId: excludeId,
+        );
+
+        final nameExists = nameExistsResult.fold(
+          (failure) => false, // En caso de error, permitir continuar
+          (exists) => exists,
+        );
+
+        if (nameExists) {
+          print('❌ CategoryFormController: Nombre de categoría duplicado - "$categoryName"');
+          _showError('Categoría duplicada', 'Ya existe una categoría con el nombre "$categoryName"');
+          return false;
+        } else {
+          print('✅ Nombre de categoría único - "$categoryName"');
+        }
+      } else {
+        print('✅ Nombre no cambió, omitiendo validación');
+      }
+    }
+
     // Validar slug (se genera automáticamente, pero verificar)
     if (slugController.text.trim().isEmpty) {
       errors.add('El slug es requerido');
     }
-    
+
     // Si hay errores, mostrarlos
     if (errors.isNotEmpty) {
       _showError('Validación', errors.join('\n'));
       return false;
     }
-    
+
     return true;
   }
 

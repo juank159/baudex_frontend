@@ -36,6 +36,7 @@ class ProductFormController extends GetxController {
   final GetCategoriesUseCase _getCategoriesUseCase;
   final CreateCategoryUseCase _createCategoryUseCase;
   final SecureStorageService _secureStorageService;
+  final ProductRepository _productRepository;
 
   // ✅ CONSTRUCTOR CORREGIDO
   ProductFormController({
@@ -45,12 +46,14 @@ class ProductFormController extends GetxController {
     required GetCategoriesUseCase getCategoriesUseCase,
     required CreateCategoryUseCase createCategoryUseCase,
     required SecureStorageService secureStorageService,
+    required ProductRepository productRepository,
   }) : _createProductUseCase = createProductUseCase,
        _updateProductUseCase = updateProductUseCase,
        _getProductByIdUseCase = getProductByIdUseCase,
        _getCategoriesUseCase = getCategoriesUseCase,
        _createCategoryUseCase = createCategoryUseCase,
-       _secureStorageService = secureStorageService {
+       _secureStorageService = secureStorageService,
+       _productRepository = productRepository {
     print('🎮 ProductFormController: Instancia creada correctamente');
   }
 
@@ -496,7 +499,7 @@ class ProductFormController extends GetxController {
   Future<void> saveProduct() async {
     print('💾 ProductFormController: Iniciando guardado de producto...');
 
-    if (!_validateForm()) {
+    if (!await _validateForm()) {
       print('❌ ProductFormController: Validación de formulario falló');
       return;
     }
@@ -521,8 +524,8 @@ class ProductFormController extends GetxController {
   }
 
   /// Validar formulario
-  bool validateForm() {
-    return _validateForm();
+  Future<bool> validateForm() async {
+    return await _validateForm();
   }
 
   /// Limpiar formulario
@@ -732,8 +735,8 @@ class ProductFormController extends GetxController {
   }
 
   /// Previsualizar producto
-  void previewProduct() {
-    if (!_validateForm()) return;
+  Future<void> previewProduct() async {
+    if (!await _validateForm()) return;
 
     Get.dialog(
       AlertDialog(
@@ -1025,8 +1028,8 @@ class ProductFormController extends GetxController {
     }
   }
 
-  /// Validar formulario
-  bool _validateForm() {
+  /// Validar formulario (ahora async para validar duplicados)
+  Future<bool> _validateForm() async {
     if (!formKey.currentState!.validate()) {
       print('❌ ProductFormController: Validación de campos falló');
       return false;
@@ -1054,7 +1057,77 @@ class ProductFormController extends GetxController {
       return false;
     }
 
-    print('✅ ProductFormController: Validación exitosa');
+    // ==================== ✅ VALIDACIÓN DE DUPLICADOS ====================
+
+    final productName = nameController.text.trim();
+    final productSku = skuController.text.trim();
+    final productBarcode = barcodeController.text.trim();
+    final excludeId = isEditMode ? productId : null;
+
+    print('🔍 ProductFormController: Validando duplicados...');
+    print('   isEditMode: $isEditMode');
+    print('   productId: "$productId"');
+    print('   excludeId: $excludeId');
+    print('   Nombre: "$productName"');
+    print('   SKU: "$productSku"');
+
+    // ✅ IMPORTANTE: Solo validar si el valor cambió respecto al original
+    final originalProductName = _originalProduct.value?.name;
+    final originalProductSku = _originalProduct.value?.sku;
+    final originalProductBarcode = _originalProduct.value?.barcode;
+
+    // Validar nombre duplicado (solo si cambió)
+    if (!isEditMode || productName != originalProductName) {
+      final nameExistsResult = await _productRepository.existsByName(productName, excludeId: excludeId);
+      final nameExists = nameExistsResult.fold(
+        (failure) => false, // Si falla la validación, permitir continuar
+        (exists) => exists,
+      );
+
+      if (nameExists) {
+        print('❌ ProductFormController: Nombre de producto duplicado - "$productName"');
+        _showError('Producto duplicado', 'Ya existe un producto con el nombre "$productName"');
+        return false;
+      }
+    } else {
+      print('✅ Nombre no cambió, omitiendo validación');
+    }
+
+    // Validar SKU duplicado (solo si cambió)
+    if (!isEditMode || productSku != originalProductSku) {
+      final skuExistsResult = await _productRepository.existsBySku(productSku, excludeId: excludeId);
+      final skuExists = skuExistsResult.fold(
+        (failure) => false,
+        (exists) => exists,
+      );
+
+      if (skuExists) {
+        print('❌ ProductFormController: SKU duplicado - "$productSku"');
+        _showError('SKU duplicado', 'Ya existe un producto con el SKU "$productSku"');
+        return false;
+      }
+    } else {
+      print('✅ SKU no cambió, omitiendo validación');
+    }
+
+    // Validar código de barras duplicado (solo si se proporcionó Y si cambió)
+    if (productBarcode.isNotEmpty && (!isEditMode || productBarcode != originalProductBarcode)) {
+      final barcodeExistsResult = await _productRepository.existsByBarcode(productBarcode, excludeId: excludeId);
+      final barcodeExists = barcodeExistsResult.fold(
+        (failure) => false,
+        (exists) => exists,
+      );
+
+      if (barcodeExists) {
+        print('❌ ProductFormController: Código de barras duplicado - "$productBarcode"');
+        _showError('Código de barras duplicado', 'Ya existe un producto con el código de barras "$productBarcode"');
+        return false;
+      }
+    } else if (isEditMode && productBarcode == originalProductBarcode) {
+      print('✅ Código de barras no cambió, omitiendo validación');
+    }
+
+    print('✅ ProductFormController: Validación exitosa (sin duplicados)');
     return true;
   }
 

@@ -1,0 +1,529 @@
+// test/e2e/offline_first/customer_online_offline_online_test.dart
+import 'package:baudex_desktop/app/core/network/network_info.dart';
+import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
+import 'package:baudex_desktop/app/data/local/isar_database.dart';
+import 'package:baudex_desktop/features/customers/data/datasources/customer_local_datasource.dart';
+import 'package:baudex_desktop/features/customers/data/datasources/customer_remote_datasource.dart';
+import 'package:baudex_desktop/features/customers/data/models/isar/isar_customer.dart';
+import 'package:baudex_desktop/features/customers/data/models/customer_model.dart';
+import 'package:baudex_desktop/features/customers/data/models/create_customer_request_model.dart';
+import 'package:baudex_desktop/features/customers/data/repositories/customer_repository_impl.dart';
+import 'package:baudex_desktop/features/customers/domain/entities/customer.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+import '../../mocks/mock_isar.dart';
+import '../../fixtures/customer_fixtures.dart';
+
+// Mocks
+class MockCustomerRemoteDataSource extends Mock
+    implements CustomerRemoteDataSource {}
+
+class MockCustomerLocalDataSource extends Mock
+    implements CustomerLocalDataSource {}
+
+class MockNetworkInfo extends Mock implements NetworkInfo {}
+
+// Fake classes for mocktail fallback values
+class FakeCreateCustomerRequestModel extends Fake
+    implements CreateCustomerRequestModel {}
+
+class FakeCustomerModel extends Fake implements CustomerModel {}
+
+void main() {
+  setUpAll(() {
+    // Register fallback values for mocktail
+    registerFallbackValue(FakeCreateCustomerRequestModel());
+    registerFallbackValue(FakeCustomerModel());
+  });
+
+  late CustomerRepositoryImpl repository;
+  late MockCustomerLocalDataSource mockLocalDataSource;
+  late MockCustomerRemoteDataSource mockRemoteDataSource;
+  late MockNetworkInfo mockNetworkInfo;
+  late MockIsar mockIsar;
+  late MockIsarDatabase mockIsarDatabase;
+
+  setUp(() {
+    mockIsar = MockIsar();
+    mockIsarDatabase = MockIsarDatabase(mockIsar);
+    mockLocalDataSource = MockCustomerLocalDataSource();
+    mockRemoteDataSource = MockCustomerRemoteDataSource();
+    mockNetworkInfo = MockNetworkInfo();
+
+    repository = CustomerRepositoryImpl(
+      remoteDataSource: mockRemoteDataSource,
+      localDataSource: mockLocalDataSource,
+      networkInfo: mockNetworkInfo,
+      database: mockIsar, // Use mockIsar directly
+    );
+  });
+
+  tearDown(() async {
+    await mockIsar.clear();
+    await mockIsar.close();
+  });
+
+  group('Customer E2E: Online → Offline → Online', () {
+    test(
+      'complete flow: online create → offline read → online sync',
+      () async {
+        // ========== PHASE 1: ONLINE - Create Customer ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+
+        final tCustomer = CustomerFixtures.createCustomerEntity();
+        final tCustomerModel = CustomerModel.fromEntity(tCustomer);
+
+        when(() => mockRemoteDataSource.createCustomer(any()))
+            .thenAnswer((_) async => tCustomerModel);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        final createResult = await repository.createCustomer(
+          firstName: tCustomer.firstName,
+          lastName: tCustomer.lastName,
+          email: tCustomer.email,
+          documentType: tCustomer.documentType,
+          documentNumber: tCustomer.documentNumber,
+        );
+
+        expect(createResult.isRight(), true);
+
+        String? customerId;
+        createResult.fold(
+          (failure) => fail('Online create should succeed'),
+          (customer) {
+            customerId = customer.id;
+            expect(customer.firstName, tCustomer.firstName);
+          },
+        );
+
+        // Verify cached locally
+        verify(() => mockLocalDataSource.cacheCustomer(any())).called(1);
+
+        // Add customer to ISAR for offline operations
+        final isarCustomer = IsarCustomer.fromEntity(tCustomer);
+        await mockIsar.writeTxn(() async {
+          await mockIsar.isarCustomers.put(isarCustomer);
+        });
+
+        // ========== PHASE 2: OFFLINE - Read Customer ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+        when(() => mockLocalDataSource.getCachedCustomer(any()))
+            .thenAnswer((_) async => tCustomerModel);
+
+        final offlineReadResult = await repository.getCustomerById(customerId!);
+
+        expect(offlineReadResult.isRight(), true);
+        offlineReadResult.fold(
+          (failure) => fail('Offline read should succeed from cache'),
+          (customer) {
+            expect(customer.id, customerId);
+            expect(customer.firstName, tCustomer.firstName);
+          },
+        );
+
+        // ========== PHASE 3: OFFLINE - Update Customer ==========
+        final updatedCustomer = CustomerFixtures.createCustomerEntity(
+          id: customerId!,
+          firstName: 'Updated Offline',
+        );
+        final updatedCustomerModel = CustomerModel.fromEntity(updatedCustomer);
+
+        when(() => mockLocalDataSource.getCachedCustomer(any()))
+            .thenAnswer((_) async => tCustomerModel);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        final offlineUpdateResult = await repository.updateCustomer(
+          id: customerId!,
+          firstName: 'Updated Offline',
+        );
+
+        expect(offlineUpdateResult.isRight(), true);
+
+        // Verify marked as unsynced
+        final updatedCachedCustomer = await mockIsar.isarCustomers
+            .filter()
+            .serverIdEqualTo(customerId!)
+            .findFirst();
+
+        expect(updatedCachedCustomer!.isSynced, false);
+        expect(updatedCachedCustomer.firstName, 'Updated Offline');
+
+        // ========== PHASE 4: ONLINE AGAIN - Sync Changes ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+
+        when(() => mockRemoteDataSource.getCustomerById(any()))
+            .thenAnswer((_) async => updatedCustomerModel);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        final onlineReadResult = await repository.getCustomerById(customerId!);
+
+        expect(onlineReadResult.isRight(), true);
+        onlineReadResult.fold(
+          (failure) => fail('Online read should succeed'),
+          (customer) {
+            expect(customer.firstName, 'Updated Offline');
+          },
+        );
+      },
+    );
+
+    test(
+      'offline customer creation then online sync with server ID replacement',
+      () async {
+        // ========== PHASE 1: OFFLINE - Create Customer ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        // Create customer offline
+        final offlineCreateResult = await repository.createCustomer(
+          firstName: 'Offline',
+          lastName: 'Customer',
+          email: 'offline@test.com',
+          documentType: DocumentType.cc,
+          documentNumber: '1234567890',
+        );
+
+        expect(offlineCreateResult.isRight(), true);
+
+        String? offlineId;
+        offlineCreateResult.fold(
+          (failure) => fail('Offline create should succeed'),
+          (customer) {
+            offlineId = customer.id;
+            expect(customer.id.startsWith('customer'), true);
+            expect(customer.firstName, 'Offline');
+          },
+        );
+
+        // Verify cached with offline ID
+        verify(() => mockLocalDataSource.cacheCustomer(any())).called(1);
+
+        // ========== PHASE 2: ONLINE - Sync with Server ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+
+        // Simulate server assigning real ID
+        final serverCustomer = CustomerModel.fromEntity(
+          CustomerFixtures.createCustomerEntity(
+            id: 'cust-server-456',
+            firstName: 'Offline',
+            lastName: 'Customer',
+            email: 'offline@test.com',
+            documentNumber: '1234567890',
+          ),
+        );
+
+        when(() => mockRemoteDataSource.getCustomerById(any()))
+            .thenAnswer((_) async => serverCustomer);
+        when(() => mockLocalDataSource.getCachedCustomer(any()))
+            .thenAnswer((_) async => null);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        // Read with server ID would return the synced version
+        final syncedResult = await repository.getCustomerById('cust-server-456');
+
+        expect(syncedResult.isRight(), true);
+        syncedResult.fold(
+          (failure) => fail('Should get synced customer'),
+          (customer) {
+            expect(customer.id, 'cust-server-456');
+            expect(customer.firstName, 'Offline');
+          },
+        );
+      },
+    );
+
+    test(
+      'network interruption during operation with graceful degradation',
+      () async {
+        // ========== PHASE 1: ONLINE - Initial State ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+
+        final tCustomer = CustomerFixtures.createCustomerEntity();
+        final tCustomerModel = CustomerModel.fromEntity(tCustomer);
+
+        when(() => mockRemoteDataSource.createCustomer(any()))
+            .thenAnswer((_) async => tCustomerModel);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        await repository.createCustomer(
+          firstName: tCustomer.firstName,
+          lastName: tCustomer.lastName,
+          email: tCustomer.email,
+          documentType: tCustomer.documentType,
+          documentNumber: tCustomer.documentNumber,
+        );
+
+        // ========== PHASE 2: NETWORK INTERRUPTION ==========
+        // Simulate network failure during read
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+        when(() => mockRemoteDataSource.getCustomerById(any()))
+            .thenThrow(Exception('Network timeout'));
+        when(() => mockLocalDataSource.getCachedCustomer(any()))
+            .thenAnswer((_) async => tCustomerModel);
+
+        // Should fallback to cache gracefully
+        final result = await repository.getCustomerById(tCustomer.id);
+
+        expect(result.isRight(), true);
+        result.fold(
+          (failure) => fail('Should fallback to cache'),
+          (customer) => expect(customer.id, tCustomer.id),
+        );
+
+        // Verify fallback was used
+        verify(() => mockRemoteDataSource.getCustomerById(any())).called(1);
+        verify(() => mockLocalDataSource.getCachedCustomer(any())).called(1);
+      },
+    );
+
+    test(
+      'offline customer update with balance and credit changes',
+      () async {
+        // ========== PHASE 1: ONLINE - Create Customer ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+
+        final tCustomer = CustomerFixtures.createCustomerEntity(
+          creditLimit: 1000000.0,
+          currentBalance: 0.0,
+        );
+        final tCustomerModel = CustomerModel.fromEntity(tCustomer);
+
+        when(() => mockRemoteDataSource.createCustomer(any()))
+            .thenAnswer((_) async => tCustomerModel);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        final createResult = await repository.createCustomer(
+          firstName: tCustomer.firstName,
+          lastName: tCustomer.lastName,
+          email: tCustomer.email,
+          documentType: tCustomer.documentType,
+          documentNumber: tCustomer.documentNumber,
+          creditLimit: 1000000.0,
+        );
+
+        String? customerId;
+        createResult.fold(
+          (failure) => fail('Create should succeed'),
+          (customer) => customerId = customer.id,
+        );
+
+        // Add to ISAR
+        final isarCustomer = IsarCustomer.fromEntity(tCustomer);
+        await mockIsar.writeTxn(() async {
+          await mockIsar.isarCustomers.put(isarCustomer);
+        });
+
+        // ========== PHASE 2: OFFLINE - Update Balance ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+        when(() => mockLocalDataSource.getCachedCustomer(any()))
+            .thenAnswer((_) async => tCustomerModel);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        // Update balance offline
+        await repository.updateCustomerBalance(
+          id: customerId!,
+          amount: 500000.0,
+          operation: 'add',
+        );
+
+        // Verify balance updated in cache
+        final updatedCustomer = await mockIsar.isarCustomers
+            .filter()
+            .serverIdEqualTo(customerId!)
+            .findFirst();
+
+        expect(updatedCustomer!.currentBalance, 500000.0);
+        expect(updatedCustomer.isSynced, false);
+
+        // ========== PHASE 3: ONLINE - Sync Balance ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+
+        final syncedCustomer = CustomerModel.fromEntity(
+          CustomerFixtures.createCustomerEntity(
+            id: customerId!,
+            currentBalance: 500000.0,
+            creditLimit: 1000000.0,
+          ),
+        );
+
+        when(() => mockRemoteDataSource.getCustomerById(any()))
+            .thenAnswer((_) async => syncedCustomer);
+
+        final result = await repository.getCustomerById(customerId!);
+
+        result.fold(
+          (failure) => fail('Should get synced customer'),
+          (customer) {
+            expect(customer.currentBalance, 500000.0);
+          },
+        );
+      },
+    );
+
+    test(
+      'offline credit limit update and purchase validation',
+      () async {
+        // ========== PHASE 1: ONLINE - Create Customer ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+
+        final tCustomer = CustomerFixtures.createCustomerEntity(
+          creditLimit: 1000000.0,
+          currentBalance: 0.0,
+        );
+        final tCustomerModel = CustomerModel.fromEntity(tCustomer);
+
+        when(() => mockRemoteDataSource.createCustomer(any()))
+            .thenAnswer((_) async => tCustomerModel);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        final createResult = await repository.createCustomer(
+          firstName: tCustomer.firstName,
+          lastName: tCustomer.lastName,
+          email: tCustomer.email,
+          documentType: tCustomer.documentType,
+          documentNumber: tCustomer.documentNumber,
+          creditLimit: 1000000.0,
+        );
+
+        String? customerId;
+        createResult.fold(
+          (failure) => fail('Create should succeed'),
+          (customer) => customerId = customer.id,
+        );
+
+        // Add to ISAR
+        final isarCustomer = IsarCustomer.fromEntity(tCustomer);
+        await mockIsar.writeTxn(() async {
+          await mockIsar.isarCustomers.put(isarCustomer);
+        });
+
+        // ========== PHASE 2: OFFLINE - Increase Credit Limit ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+        when(() => mockLocalDataSource.getCachedCustomer(any()))
+            .thenAnswer((_) async => tCustomerModel);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        // Increase credit limit
+        await repository.updateCustomer(
+          id: customerId!,
+          creditLimit: 2000000.0,
+        );
+
+        // Verify limit updated
+        final updatedCustomer = await mockIsar.isarCustomers
+            .filter()
+            .serverIdEqualTo(customerId!)
+            .findFirst();
+
+        expect(updatedCustomer!.creditLimit, 2000000.0);
+
+        // Check can make larger purchase now
+        final canPurchaseResult = await repository.canMakePurchase(
+          customerId: customerId!,
+          amount: 1500000.0,
+        );
+
+        canPurchaseResult.fold(
+          (failure) => fail('Check should succeed'),
+          (result) {
+            expect(result['canPurchase'], true);
+            expect(result['availableCredit'], 2000000.0);
+          },
+        );
+      },
+    );
+
+    test(
+      'complete offline workflow with multiple customers and sync',
+      () async {
+        // ========== PHASE 1: OFFLINE - Create Multiple Customers ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => false);
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        final customerIds = <String>[];
+
+        // Create 3 customers offline
+        for (int i = 1; i <= 3; i++) {
+          final result = await repository.createCustomer(
+            firstName: 'Offline$i',
+            lastName: 'Customer',
+            email: 'offline$i@test.com',
+            documentType: DocumentType.cc,
+            documentNumber: '${1000000000 + i}',
+          );
+
+          result.fold(
+            (failure) => fail('Create should succeed'),
+            (customer) => customerIds.add(customer.id),
+          );
+        }
+
+        // Verify all have offline IDs
+        expect(customerIds.every((id) => id.startsWith('customer')), true);
+
+        // ========== PHASE 2: OFFLINE - Update Some Customers ==========
+        when(() => mockLocalDataSource.getCachedCustomer(any()))
+            .thenAnswer((_) async => null);
+
+        await repository.updateCustomer(
+          id: customerIds[0],
+          firstName: 'Updated1',
+        );
+
+        await repository.updateCustomerBalance(
+          id: customerIds[1],
+          amount: 100000.0,
+          operation: 'add',
+        );
+
+        // ========== PHASE 3: ONLINE - Sync All Changes ==========
+        when(() => mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+
+        // Simulate server response with real IDs
+        for (int i = 0; i < customerIds.length; i++) {
+          final serverCustomer = CustomerModel.fromEntity(
+            CustomerFixtures.createCustomerEntity(
+              id: 'cust-server-${i + 1}',
+              firstName: i == 0 ? 'Updated1' : 'Offline${i + 1}',
+              lastName: 'Customer',
+              email: 'offline${i + 1}@test.com',
+              documentNumber: '${1000000000 + i + 1}',
+              currentBalance: i == 1 ? 100000.0 : 0.0,
+            ),
+          );
+
+          when(() => mockRemoteDataSource.getCustomerById('cust-server-${i + 1}'))
+              .thenAnswer((_) async => serverCustomer);
+        }
+
+        when(() => mockLocalDataSource.cacheCustomer(any()))
+            .thenAnswer((_) async => {});
+
+        // Verify synced data
+        final result1 = await repository.getCustomerById('cust-server-1');
+        result1.fold(
+          (failure) => fail('Should get synced customer'),
+          (customer) => expect(customer.firstName, 'Updated1'),
+        );
+
+        final result2 = await repository.getCustomerById('cust-server-2');
+        result2.fold(
+          (failure) => fail('Should get synced customer'),
+          (customer) => expect(customer.currentBalance, 100000.0),
+        );
+      },
+    );
+  });
+}

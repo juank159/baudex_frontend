@@ -146,4 +146,21 @@ class PrinterSettings extends Equatable {
       updatedAt: now,
     );
   }
+
+  factory PrinterSettings.defaultSettings() {
+    final now = DateTime.now();
+    return PrinterSettings(
+      id: 'default',
+      name: 'Impresora Predeterminada',
+      connectionType: PrinterConnectionType.network,
+      ipAddress: '192.168.1.100',
+      port: 9100,
+      paperSize: PaperSize.mm80,
+      autoCut: true,
+      cashDrawer: false,
+      isDefault: true,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
 }

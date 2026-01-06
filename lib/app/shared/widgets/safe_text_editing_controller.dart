@@ -264,6 +264,24 @@ class SafeTextEditingController extends TextEditingController {
       return SafeTextEditingController(debugLabel: debugLabel);
     }
 
+    // Verificar si el controlador está disposed intentando agregar un listener
+    bool isDisposed = false;
+    void testListener() {}
+
+    try {
+      existing.addListener(testListener);
+      existing.removeListener(testListener);
+    } catch (e) {
+      isDisposed = true;
+    }
+
+    if (isDisposed) {
+      print(
+        '⚠️ SafeTextEditingController.fromExisting: Controlador fuente disposed, creando nuevo vacío',
+      );
+      return SafeTextEditingController(debugLabel: debugLabel);
+    }
+
     // Intentar copiar el valor si el controlador existente es seguro
     try {
       final currentText = existing.text;
@@ -273,7 +291,7 @@ class SafeTextEditingController extends TextEditingController {
       );
     } catch (e) {
       print(
-        '⚠️ SafeTextEditingController.fromExisting: Controlador fuente unsafe, creando nuevo vacío',
+        '⚠️ SafeTextEditingController.fromExisting: Error copiando texto, creando nuevo vacío',
       );
       return SafeTextEditingController(debugLabel: debugLabel);
     }
@@ -284,10 +302,13 @@ class SafeTextEditingController extends TextEditingController {
 extension TextEditingControllerSafeExtension on TextEditingController {
   /// Verificar si el controlador es seguro para usar
   bool get isSafe {
+    // La forma más confiable de verificar si está disposed es intentar
+    // agregar y remover un listener - esto SÍ falla si está disposed
+    void testListener() {}
+
     try {
-      final _ = text;
-      final __ = selection;
-      final ___ = value;
+      addListener(testListener);
+      removeListener(testListener);
       return true;
     } catch (e) {
       return false;

@@ -1,9 +1,16 @@
 // lib/features/inventory/data/repositories/inventory_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:get/get.dart';
+import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
+import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/core/models/paginated_result.dart' as core;
+import '../../../../app/data/local/sync_service.dart';
+import '../../../../app/data/local/sync_queue.dart';
+import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/enums/isar_enums.dart';
 import '../../domain/entities/inventory_movement.dart';
 import '../../domain/entities/inventory_balance.dart';
 import '../../domain/entities/inventory_batch.dart';
@@ -16,6 +23,7 @@ import '../datasources/inventory_remote_datasource.dart';
 import '../datasources/inventory_local_datasource.dart';
 import '../models/inventory_movement_model.dart';
 import '../models/inventory_batch_model.dart';
+import '../models/isar/isar_inventory_movement.dart';
 
 class InventoryRepositoryImpl implements InventoryRepository {
   final InventoryRemoteDataSource remoteDataSource;
@@ -28,12 +36,14 @@ class InventoryRepositoryImpl implements InventoryRepository {
     required this.networkInfo,
   });
 
+  // ==================== READ OPERATIONS ====================
+
   @override
   Future<Either<Failure, core.PaginatedResult<InventoryMovement>>> getMovements(
     InventoryMovementQueryParams params,
   ) async {
-    try {
-      if (await networkInfo.isConnected) {
+    if (await networkInfo.isConnected) {
+      try {
         final remoteMovements = await remoteDataSource.getMovements(params);
         // Cache successful result
         await localDataSource.cacheMovements(params, remoteMovements);
@@ -44,93 +54,155 @@ class InventoryRepositoryImpl implements InventoryRepository {
             meta: remoteMovements.meta,
           ),
         );
-      } else {
-        // Try to get from cache when offline
-        final cachedMovements = await localDataSource.getCachedMovements(
-          params,
-        );
-        if (cachedMovements != null) {
-          return Right(
-            core.PaginatedResult(
-              data:
-                  cachedMovements.data
-                      .map((model) => model.toEntity())
-                      .toList(),
-              meta: cachedMovements.meta,
-            ),
-          );
-        }
-        return Left(NetworkFailure('Sin conexión y sin datos en cache'));
+      } on ServerException catch (e) {
+        print('⚠️ ServerException en getMovements: ${e.message} - Usando cache...');
+        return _getMovementsFromCache(params);
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException en getMovements: ${e.message} - Usando cache...');
+        return _getMovementsFromCache(params);
+      } catch (e) {
+        print('❌ Error inesperado en getMovements: $e - Usando cache...');
+        return _getMovementsFromCache(params);
       }
-    } catch (e) {
-      // Try cache as fallback
-      final cachedMovements = await localDataSource.getCachedMovements(params);
-      if (cachedMovements != null) {
-        return Right(
-          core.PaginatedResult(
-            data:
-                cachedMovements.data.map((model) => model.toEntity()).toList(),
-            meta: cachedMovements.meta,
-          ),
-        );
-      }
-      return Left(
-        ServerFailure('Error al obtener movimientos: ${e.toString()}'),
-      );
+    } else {
+      // Sin conexión, intentar obtener desde cache
+      return _getMovementsFromCache(params);
     }
   }
 
   @override
   Future<Either<Failure, InventoryMovement>> getMovementById(String id) async {
-    try {
-      if (await networkInfo.isConnected) {
+    if (await networkInfo.isConnected) {
+      try {
         final remoteMovement = await remoteDataSource.getMovementById(id);
         // Cache successful result
         await localDataSource.cacheMovement(remoteMovement);
         return Right(remoteMovement.toEntity());
-      } else {
-        // Try to get from cache when offline
-        final cachedMovement = await localDataSource.getCachedMovementById(id);
-        if (cachedMovement != null) {
-          return Right(cachedMovement.toEntity());
-        }
-        return Left(NetworkFailure('Sin conexión y sin datos en cache'));
+      } on ServerException catch (e) {
+        print('⚠️ ServerException en getMovementById: ${e.message} - Usando cache...');
+        return _getMovementFromCache(id);
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException en getMovementById: ${e.message} - Usando cache...');
+        return _getMovementFromCache(id);
+      } catch (e) {
+        print('❌ Error inesperado en getMovementById: $e - Usando cache...');
+        return _getMovementFromCache(id);
       }
-    } catch (e) {
-      // Try cache as fallback
-      final cachedMovement = await localDataSource.getCachedMovementById(id);
-      if (cachedMovement != null) {
-        return Right(cachedMovement.toEntity());
-      }
-      return Left(
-        ServerFailure('Error al obtener movimiento: ${e.toString()}'),
-      );
+    } else {
+      // Sin conexión, ir directo al cache
+      return _getMovementFromCache(id);
     }
   }
+
+  // ==================== WRITE OPERATIONS ====================
 
   @override
   Future<Either<Failure, InventoryMovement>> createMovement(
     CreateInventoryMovementParams params,
   ) async {
-    if (!await networkInfo.isConnected) {
-      return Left(
-        NetworkFailure('Se requiere conexión para crear movimientos'),
-      );
+    if (await networkInfo.isConnected) {
+      try {
+        final request = CreateInventoryMovementRequest.fromParams(params);
+        final movement = await remoteDataSource.createMovement(request);
+
+        // Cache the new movement
+        await localDataSource.cacheMovement(movement);
+
+        // Clear movements cache to force refresh on next fetch
+        await localDataSource.clearMovementsCache();
+
+        return Right(movement.toEntity());
+      } on ServerException catch (e) {
+        print('⚠️ ServerException al crear movimiento: ${e.message} - Creando offline...');
+        return _createMovementOffline(params);
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException al crear movimiento: ${e.message} - Creando offline...');
+        return _createMovementOffline(params);
+      } catch (e) {
+        print('❌ Error inesperado al crear movimiento: $e - Creando offline...');
+        return _createMovementOffline(params);
+      }
+    } else {
+      // Sin conexión, crear movimiento offline
+      return _createMovementOffline(params);
     }
+  }
 
+  /// Crear movimiento offline (usado como fallback cuando falla el servidor o no hay conexión)
+  Future<Either<Failure, InventoryMovement>> _createMovementOffline(
+    CreateInventoryMovementParams params,
+  ) async {
+    print('📱 InventoryRepository: Creating movement offline');
     try {
-      final request = CreateInventoryMovementRequest.fromParams(params);
-      final movement = await remoteDataSource.createMovement(request);
+      final now = DateTime.now();
+      final tempId = 'movement_offline_${now.millisecondsSinceEpoch}_${params.productId.hashCode}';
 
-      // Cache the new movement
-      await localDataSource.cacheMovement(movement);
+      // Note: productName, productSku, warehouseName, userId, userName will be filled when synced
+      // params doesn't have unitPrice, only unitCost exists
+      final tempMovement = InventoryMovement(
+        id: tempId,
+        productId: params.productId,
+        productName: '',  // Will be filled from server when synced (required String)
+        productSku: '',  // Will be filled from server when synced (required String)
+        type: params.type,
+        status: InventoryMovementStatus.pending,
+        reason: params.reason,
+        quantity: params.quantity,
+        unitCost: params.unitCost,
+        totalCost: params.unitCost * params.quantity,
+        unitPrice: null,  // Only unitCost exists in params
+        totalPrice: null,
+        lotNumber: params.lotNumber,
+        expiryDate: params.expiryDate,
+        warehouseId: params.warehouseId,
+        warehouseName: null,  // Will be filled from server when synced
+        referenceId: params.referenceId,
+        referenceType: params.referenceType,
+        notes: params.notes,
+        userId: null,  // Will be filled from server when synced
+        userName: null,  // Will be filled from server when synced
+        metadata: null,
+        movementDate: params.movementDate ?? now,
+        createdAt: now,
+        updatedAt: now,
+      );
 
-      // Clear movements cache to force refresh on next fetch
-      await localDataSource.clearMovementsCache();
+      // Cache localmente
+      await localDataSource.cacheMovement(InventoryMovementModel.fromEntity(tempMovement));
 
-      return Right(movement.toEntity());
+      // Agregar a cola de sincronización
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'InventoryMovement',
+          entityId: tempId,
+          operationType: SyncOperationType.create,
+          data: {
+            'productId': params.productId,
+            'type': params.type.name,
+            'reason': params.reason.name,
+            'quantity': params.quantity,
+            'unitCost': params.unitCost,
+            'lotNumber': params.lotNumber,
+            'expiryDate': params.expiryDate?.toIso8601String(),
+            'warehouseId': params.warehouseId,
+            'referenceId': params.referenceId,
+            'referenceType': params.referenceType,
+            'notes': params.notes,
+            'movementDate': params.movementDate?.toIso8601String(),
+          },
+          priority: 1,
+        );
+        print('📤 InventoryRepository: Operación agregada a cola');
+      } catch (e) {
+        print('⚠️ Error agregando a cola: $e');
+      }
+
+      print('✅ Movement created offline successfully');
+      return Right(tempMovement);
     } catch (e) {
-      return Left(ServerFailure('Error al crear movimiento: ${e.toString()}'));
+      print('❌ Error creating movement offline: $e');
+      return Left(CacheFailure('Error al crear movimiento offline: $e'));
     }
   }
 
@@ -138,103 +210,291 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, InventoryMovement>> updateMovement(
     UpdateInventoryMovementParams params,
   ) async {
-    if (!await networkInfo.isConnected) {
-      return Left(
-        NetworkFailure('Se requiere conexión para actualizar movimientos'),
-      );
+    if (await networkInfo.isConnected) {
+      try {
+        final request = UpdateInventoryMovementRequest.fromParams(params);
+        final movement = await remoteDataSource.updateMovement(
+          params.id,
+          request,
+        );
+
+        // Cache the updated movement
+        await localDataSource.cacheMovement(movement);
+
+        // Clear movements cache to force refresh on next fetch
+        await localDataSource.clearMovementsCache();
+
+        return Right(movement.toEntity());
+      } on ServerException catch (e) {
+        print('⚠️ ServerException al actualizar movimiento: ${e.message} - Actualizando offline...');
+        return _updateMovementOffline(params);
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException al actualizar movimiento: ${e.message} - Actualizando offline...');
+        return _updateMovementOffline(params);
+      } catch (e) {
+        print('❌ Error inesperado al actualizar movimiento: $e - Actualizando offline...');
+        return _updateMovementOffline(params);
+      }
+    } else {
+      // Sin conexión, actualizar offline
+      return _updateMovementOffline(params);
     }
+  }
 
+  /// Actualizar movimiento offline (usado como fallback cuando falla el servidor o no hay conexión)
+  Future<Either<Failure, InventoryMovement>> _updateMovementOffline(
+    UpdateInventoryMovementParams params,
+  ) async {
+    print('📱 InventoryRepository: Updating movement offline: ${params.id}');
     try {
-      final request = UpdateInventoryMovementRequest.fromParams(params);
-      final movement = await remoteDataSource.updateMovement(
-        params.id,
-        request,
+      // PASO 1: Actualizar en ISAR primero
+      final isar = IsarDatabase.instance.database;
+      final isarMovement = await isar.isarInventoryMovements
+          .filter()
+          .serverIdEqualTo(params.id)
+          .findFirst();
+
+      if (isarMovement == null) {
+        return Left(CacheFailure('Movimiento no encontrado en ISAR: ${params.id}'));
+      }
+
+      // Actualizar campos en ISAR
+      if (params.quantity != null) isarMovement.quantity = params.quantity!;
+      if (params.unitCost != null) {
+        isarMovement.unitCost = params.unitCost!;
+        isarMovement.totalCost = params.unitCost! * isarMovement.quantity;
+      }
+      // Note: params doesn't have unitPrice field
+      if (params.lotNumber != null) isarMovement.lotNumber = params.lotNumber;
+      if (params.expiryDate != null) isarMovement.expiryDate = params.expiryDate;
+      if (params.warehouseId != null) isarMovement.warehouseId = params.warehouseId;
+      if (params.notes != null) isarMovement.notes = params.notes;
+      if (params.movementDate != null) isarMovement.movementDate = params.movementDate!;
+
+      // Marcar como no sincronizado
+      isarMovement.markAsUnsynced();
+
+      // Guardar en ISAR
+      await isar.writeTxn(() async {
+        await isar.isarInventoryMovements.put(isarMovement);
+      });
+      print('✅ InventoryRepository: Movimiento actualizado en ISAR');
+
+      // PASO 2: Actualizar en SecureStorage
+      final cachedMovementModel = await localDataSource.getCachedMovementById(params.id);
+      if (cachedMovementModel == null) {
+        return Left(CacheFailure('Movimiento no encontrado en cache: ${params.id}'));
+      }
+      final cachedMovement = cachedMovementModel.toEntity();
+
+      final updatedMovement = InventoryMovement(
+        id: params.id,
+        productId: cachedMovement.productId,
+        productName: cachedMovement.productName,
+        productSku: cachedMovement.productSku,
+        type: cachedMovement.type,
+        status: cachedMovement.status,
+        reason: cachedMovement.reason,
+        quantity: params.quantity ?? cachedMovement.quantity,
+        unitCost: params.unitCost ?? cachedMovement.unitCost,
+        totalCost: (params.unitCost ?? cachedMovement.unitCost) * (params.quantity ?? cachedMovement.quantity),
+        unitPrice: cachedMovement.unitPrice,  // params doesn't have unitPrice
+        totalPrice: cachedMovement.totalPrice,
+        lotNumber: params.lotNumber ?? cachedMovement.lotNumber,
+        expiryDate: params.expiryDate ?? cachedMovement.expiryDate,
+        warehouseId: params.warehouseId ?? cachedMovement.warehouseId,
+        warehouseName: cachedMovement.warehouseName,
+        referenceId: cachedMovement.referenceId,
+        referenceType: cachedMovement.referenceType,
+        notes: params.notes ?? cachedMovement.notes,
+        userId: cachedMovement.userId,
+        userName: cachedMovement.userName,
+        metadata: cachedMovement.metadata,
+        movementDate: params.movementDate ?? cachedMovement.movementDate,
+        createdAt: cachedMovement.createdAt,
+        updatedAt: DateTime.now(),
       );
 
-      // Cache the updated movement
-      await localDataSource.cacheMovement(movement);
+      await localDataSource.cacheMovement(InventoryMovementModel.fromEntity(updatedMovement));
 
-      // Clear movements cache to force refresh on next fetch
-      await localDataSource.clearMovementsCache();
+      // Agregar a cola
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'InventoryMovement',
+          entityId: params.id,
+          operationType: SyncOperationType.update,
+          data: {
+            'quantity': params.quantity,
+            'unitCost': params.unitCost,
+            'lotNumber': params.lotNumber,
+            'expiryDate': params.expiryDate?.toIso8601String(),
+            'warehouseId': params.warehouseId,
+            'notes': params.notes,
+            'movementDate': params.movementDate?.toIso8601String(),
+          },
+          priority: 1,
+        );
+        print('📤 Actualización agregada a cola');
+      } catch (e) {
+        print('⚠️ Error agregando a cola: $e');
+      }
 
-      return Right(movement.toEntity());
+      print('✅ Movement updated offline successfully');
+      return Right(updatedMovement);
     } catch (e) {
-      return Left(
-        ServerFailure('Error al actualizar movimiento: ${e.toString()}'),
-      );
+      print('❌ Error updating movement offline: $e');
+      return Left(CacheFailure('Error al actualizar movimiento offline: $e'));
     }
   }
 
   @override
   Future<Either<Failure, void>> deleteMovement(String id) async {
-    if (!await networkInfo.isConnected) {
-      return Left(
-        NetworkFailure('Se requiere conexión para eliminar movimientos'),
-      );
-    }
+    if (await networkInfo.isConnected) {
+      try {
+        await remoteDataSource.deleteMovement(id);
 
+        // Soft delete en ISAR después de eliminar en servidor
+        try {
+          final isar = IsarDatabase.instance.database;
+          final isarMovement = await isar.isarInventoryMovements
+              .filter()
+              .serverIdEqualTo(id)
+              .findFirst();
+
+          if (isarMovement != null) {
+            isarMovement.softDelete();
+            await isar.writeTxn(() async {
+              await isar.isarInventoryMovements.put(isarMovement);
+            });
+            print('✅ Movement marcado como eliminado en ISAR: $id');
+          }
+        } catch (e) {
+          print('⚠️ Error actualizando ISAR (no crítico): $e');
+        }
+
+        // Clear related caches
+        await localDataSource.clearMovementsCache();
+
+        return const Right(null);
+      } on ServerException catch (e) {
+        print('⚠️ ServerException al eliminar: ${e.message} - Fallback offline...');
+        return _deleteMovementOffline(id);
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException al eliminar: ${e.message} - Fallback offline...');
+        return _deleteMovementOffline(id);
+      } catch (e) {
+        print('⚠️ Exception al eliminar: $e - Fallback offline...');
+        return _deleteMovementOffline(id);
+      }
+    } else {
+      // Sin conexión, eliminar offline
+      return _deleteMovementOffline(id);
+    }
+  }
+
+  Future<Either<Failure, void>> _deleteMovementOffline(String id) async {
+    print('📱 InventoryRepository: Deleting movement offline: $id');
     try {
-      await remoteDataSource.deleteMovement(id);
+      // Soft delete en ISAR
+      try {
+        final isar = IsarDatabase.instance.database;
+        final isarMovement = await isar.isarInventoryMovements
+            .filter()
+            .serverIdEqualTo(id)
+            .findFirst();
+
+        if (isarMovement != null) {
+          isarMovement.softDelete();
+          await isar.writeTxn(() async {
+            await isar.isarInventoryMovements.put(isarMovement);
+          });
+          print('✅ Movement marcado como eliminado en ISAR (offline): $id');
+        }
+      } catch (e) {
+        print('⚠️ Error actualizando ISAR (no crítico): $e');
+      }
 
       // Clear related caches
       await localDataSource.clearMovementsCache();
 
+      // Agregar a cola de sincronización
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'InventoryMovement',
+          entityId: id,
+          operationType: SyncOperationType.delete,
+          data: {'id': id},
+          priority: 1,
+        );
+        print('📤 Eliminación agregada a cola');
+      } catch (e) {
+        print('⚠️ Error agregando a cola: $e');
+      }
+
+      print('✅ Movement deleted offline successfully');
       return const Right(null);
     } catch (e) {
-      return Left(
-        ServerFailure('Error al eliminar movimiento: ${e.toString()}'),
-      );
+      print('❌ Error deleting movement offline: $e');
+      return Left(CacheFailure('Error al eliminar movimiento offline: $e'));
     }
   }
 
   @override
   Future<Either<Failure, InventoryMovement>> confirmMovement(String id) async {
-    if (!await networkInfo.isConnected) {
-      return Left(
-        NetworkFailure('Se requiere conexión para confirmar movimientos'),
-      );
-    }
+    if (await networkInfo.isConnected) {
+      try {
+        final movement = await remoteDataSource.confirmMovement(id);
 
-    try {
-      final movement = await remoteDataSource.confirmMovement(id);
+        // Cache the confirmed movement
+        await localDataSource.cacheMovement(movement);
 
-      // Cache the confirmed movement
-      await localDataSource.cacheMovement(movement);
+        // Clear caches to force refresh
+        await localDataSource.clearMovementsCache();
+        await localDataSource.clearBalancesCache();
 
-      // Clear caches to force refresh
-      await localDataSource.clearMovementsCache();
-      await localDataSource.clearBalancesCache();
-
-      return Right(movement.toEntity());
-    } catch (e) {
-      return Left(
-        ServerFailure('Error al confirmar movimiento: ${e.toString()}'),
-      );
+        return Right(movement.toEntity());
+      } on ServerException catch (e) {
+        print('⚠️ ServerException al confirmar: ${e.message}');
+        return Left(_mapServerExceptionToFailure(e));
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException al confirmar: ${e.message}');
+        return Left(ConnectionFailure(e.message));
+      } catch (e) {
+        print('❌ Error inesperado al confirmar: $e');
+        return Left(UnknownFailure('Error al confirmar movimiento: ${e.toString()}'));
+      }
+    } else {
+      return const Left(ConnectionFailure.noInternet);
     }
   }
 
   @override
   Future<Either<Failure, InventoryMovement>> cancelMovement(String id) async {
-    if (!await networkInfo.isConnected) {
-      return Left(
-        NetworkFailure('Se requiere conexión para cancelar movimientos'),
-      );
-    }
+    if (await networkInfo.isConnected) {
+      try {
+        final movement = await remoteDataSource.cancelMovement(id);
 
-    try {
-      final movement = await remoteDataSource.cancelMovement(id);
+        // Cache the cancelled movement
+        await localDataSource.cacheMovement(movement);
 
-      // Cache the cancelled movement
-      await localDataSource.cacheMovement(movement);
+        // Clear movements cache to force refresh
+        await localDataSource.clearMovementsCache();
 
-      // Clear movements cache to force refresh
-      await localDataSource.clearMovementsCache();
-
-      return Right(movement.toEntity());
-    } catch (e) {
-      return Left(
-        ServerFailure('Error al cancelar movimiento: ${e.toString()}'),
-      );
+        return Right(movement.toEntity());
+      } on ServerException catch (e) {
+        print('⚠️ ServerException al cancelar: ${e.message}');
+        return Left(_mapServerExceptionToFailure(e));
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException al cancelar: ${e.message}');
+        return Left(ConnectionFailure(e.message));
+      } catch (e) {
+        print('❌ Error inesperado al cancelar: $e');
+        return Left(UnknownFailure('Error al cancelar movimiento: ${e.toString()}'));
+      }
+    } else {
+      return const Left(ConnectionFailure.noInternet);
     }
   }
 
@@ -242,32 +502,34 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, List<InventoryMovement>>> searchMovements(
     SearchInventoryMovementsParams params,
   ) async {
-    try {
-      if (await networkInfo.isConnected) {
+    if (await networkInfo.isConnected) {
+      try {
         final remoteMovements = await remoteDataSource.searchMovements(params);
         return Right(remoteMovements.map((model) => model.toEntity()).toList());
-      } else {
-        // Try to get from cache when offline
-        final cachedMovements = await localDataSource.searchCachedMovements(
-          params,
-        );
-        return Right(cachedMovements.map((model) => model.toEntity()).toList());
+      } on ServerException catch (e) {
+        print('⚠️ ServerException en search: ${e.message} - Usando cache...');
+        return _searchMovementsFromCache(params);
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException en search: ${e.message} - Usando cache...');
+        return _searchMovementsFromCache(params);
+      } catch (e) {
+        print('❌ Error inesperado en search: $e - Usando cache...');
+        return _searchMovementsFromCache(params);
       }
-    } catch (e) {
-      // Try cache as fallback
-      final cachedMovements = await localDataSource.searchCachedMovements(
-        params,
-      );
-      return Right(cachedMovements.map((model) => model.toEntity()).toList());
+    } else {
+      // Sin conexión, buscar en cache
+      return _searchMovementsFromCache(params);
     }
   }
+
+  // ==================== BALANCE OPERATIONS ====================
 
   @override
   Future<Either<Failure, core.PaginatedResult<InventoryBalance>>> getBalances(
     InventoryBalanceQueryParams params,
   ) async {
-    try {
-      if (await networkInfo.isConnected) {
+    if (await networkInfo.isConnected) {
+      try {
         final remoteBalances = await remoteDataSource.getBalances(params);
         // Cache successful result
         await localDataSource.cacheBalances(params, remoteBalances);
@@ -277,32 +539,19 @@ class InventoryRepositoryImpl implements InventoryRepository {
             meta: remoteBalances.meta,
           ),
         );
-      } else {
-        // Try to get from cache when offline
-        final cachedBalances = await localDataSource.getCachedBalances(params);
-        if (cachedBalances != null) {
-          return Right(
-            core.PaginatedResult(
-              data:
-                  cachedBalances.data.map((model) => model.toEntity()).toList(),
-              meta: cachedBalances.meta,
-            ),
-          );
-        }
-        return Left(NetworkFailure('Sin conexión y sin datos en cache'));
+      } on ServerException catch (e) {
+        print('⚠️ ServerException en getBalances: ${e.message} - Usando cache...');
+        return _getBalancesFromCache(params);
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException en getBalances: ${e.message} - Usando cache...');
+        return _getBalancesFromCache(params);
+      } catch (e) {
+        print('❌ Error inesperado en getBalances: $e - Usando cache...');
+        return _getBalancesFromCache(params);
       }
-    } catch (e) {
-      // Try cache as fallback
-      final cachedBalances = await localDataSource.getCachedBalances(params);
-      if (cachedBalances != null) {
-        return Right(
-          core.PaginatedResult(
-            data: cachedBalances.data.map((model) => model.toEntity()).toList(),
-            meta: cachedBalances.meta,
-          ),
-        );
-      }
-      return Left(ServerFailure('Error al obtener balances: ${e.toString()}'));
+    } else {
+      // Sin conexión, obtener desde cache
+      return _getBalancesFromCache(params);
     }
   }
 
@@ -311,8 +560,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
     String productId, {
     String? warehouseId,
   }) async {
-    try {
-      if (await networkInfo.isConnected) {
+    if (await networkInfo.isConnected) {
+      try {
         final remoteBalance = await remoteDataSource.getBalanceByProduct(
           productId,
           warehouseId: warehouseId,
@@ -320,29 +569,19 @@ class InventoryRepositoryImpl implements InventoryRepository {
         // Cache successful result
         await localDataSource.cacheBalance(remoteBalance);
         return Right(remoteBalance.toEntity());
-      } else {
-        // Try to get from cache when offline
-        final cachedBalance = await localDataSource.getCachedBalanceByProduct(
-          productId,
-          warehouseId: warehouseId,
-        );
-        if (cachedBalance != null) {
-          return Right(cachedBalance.toEntity());
-        }
-        return Left(NetworkFailure('Sin conexión y sin datos en cache'));
+      } on ServerException catch (e) {
+        print('⚠️ ServerException en getBalanceByProduct: ${e.message} - Usando cache...');
+        return _getBalanceByProductFromCache(productId, warehouseId: warehouseId);
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException en getBalanceByProduct: ${e.message} - Usando cache...');
+        return _getBalanceByProductFromCache(productId, warehouseId: warehouseId);
+      } catch (e) {
+        print('❌ Error inesperado en getBalanceByProduct: $e - Usando cache...');
+        return _getBalanceByProductFromCache(productId, warehouseId: warehouseId);
       }
-    } catch (e) {
-      // Try cache as fallback
-      final cachedBalance = await localDataSource.getCachedBalanceByProduct(
-        productId,
-        warehouseId: warehouseId,
-      );
-      if (cachedBalance != null) {
-        return Right(cachedBalance.toEntity());
-      }
-      return Left(
-        ServerFailure('Error al obtener balance del producto: ${e.toString()}'),
-      );
+    } else {
+      // Sin conexión, obtener desde cache
+      return _getBalanceByProductFromCache(productId, warehouseId: warehouseId);
     }
   }
 
@@ -350,8 +589,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, List<InventoryBalance>>> getLowStockProducts({
     String? warehouseId,
   }) async {
-    try {
-      if (await networkInfo.isConnected) {
+    if (await networkInfo.isConnected) {
+      try {
         final remoteBalances = await remoteDataSource.getLowStockProducts(
           warehouseId: warehouseId,
         );
@@ -361,19 +600,19 @@ class InventoryRepositoryImpl implements InventoryRepository {
           warehouseId: warehouseId,
         );
         return Right(remoteBalances.map((model) => model.toEntity()).toList());
-      } else {
-        // Try to get from cache when offline
-        final cachedBalances = await localDataSource.getCachedLowStockProducts(
-          warehouseId: warehouseId,
-        );
-        return Right(cachedBalances.map((model) => model.toEntity()).toList());
+      } on ServerException catch (e) {
+        print('⚠️ ServerException en getLowStockProducts: ${e.message} - Usando cache...');
+        return _getLowStockProductsFromCache(warehouseId: warehouseId);
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException en getLowStockProducts: ${e.message} - Usando cache...');
+        return _getLowStockProductsFromCache(warehouseId: warehouseId);
+      } catch (e) {
+        print('❌ Error inesperado en getLowStockProducts: $e - Usando cache...');
+        return _getLowStockProductsFromCache(warehouseId: warehouseId);
       }
-    } catch (e) {
-      // Try cache as fallback
-      final cachedBalances = await localDataSource.getCachedLowStockProducts(
-        warehouseId: warehouseId,
-      );
-      return Right(cachedBalances.map((model) => model.toEntity()).toList());
+    } else {
+      // Sin conexión, obtener desde cache
+      return _getLowStockProductsFromCache(warehouseId: warehouseId);
     }
   }
 
@@ -410,8 +649,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, InventoryStats>> getInventoryStats(
     InventoryStatsParams params,
   ) async {
-    try {
-      if (await networkInfo.isConnected) {
+    if (await networkInfo.isConnected) {
+      try {
         print(
           '🔍 REPOSITORY DEBUG: About to call remoteDataSource.getInventoryStats',
         );
@@ -422,28 +661,19 @@ class InventoryRepositoryImpl implements InventoryRepository {
         // Cache successful result
         await localDataSource.cacheStats(params, remoteStats);
         return Right(remoteStats.toEntity());
-      } else {
-        // Try to get from cache when offline
-        final cachedStats = await localDataSource.getCachedStats(params);
-        if (cachedStats != null) {
-          return Right(cachedStats.toEntity());
-        }
-        return Left(NetworkFailure('Sin conexión y sin datos en cache'));
+      } on ServerException catch (e) {
+        print('⚠️ ServerException en getInventoryStats: ${e.message} - Usando cache...');
+        return _getInventoryStatsFromCache(params);
+      } on ConnectionException catch (e) {
+        print('⚠️ ConnectionException en getInventoryStats: ${e.message} - Usando cache...');
+        return _getInventoryStatsFromCache(params);
+      } catch (e) {
+        print('❌ Error inesperado en getInventoryStats: $e - Usando cache...');
+        return _getInventoryStatsFromCache(params);
       }
-    } catch (e) {
-      print('❌ REPOSITORY DEBUG: Exception caught in getInventoryStats');
-      print('❌ REPOSITORY DEBUG: Exception type: ${e.runtimeType}');
-      print('❌ REPOSITORY DEBUG: Exception details: $e');
-      print('❌ REPOSITORY DEBUG: Exception toString: ${e.toString()}');
-
-      // Try cache as fallback
-      final cachedStats = await localDataSource.getCachedStats(params);
-      if (cachedStats != null) {
-        return Right(cachedStats.toEntity());
-      }
-      return Left(
-        ServerFailure('Error al obtener estadísticas: ${e.toString()}'),
-      );
+    } else {
+      // Sin conexión, obtener desde cache
+      return _getInventoryStatsFromCache(params);
     }
   }
 
@@ -1118,6 +1348,136 @@ class InventoryRepositoryImpl implements InventoryRepository {
     }
   }
 
+  // ==================== PRIVATE HELPER METHODS ====================
+
+  /// Obtener movimientos desde cache local
+  Future<Either<Failure, core.PaginatedResult<InventoryMovement>>> _getMovementsFromCache(
+    InventoryMovementQueryParams params,
+  ) async {
+    try {
+      final cachedMovements = await localDataSource.getCachedMovements(params);
+      if (cachedMovements != null) {
+        return Right(
+          core.PaginatedResult(
+            data:
+                cachedMovements.data.map((model) => model.toEntity()).toList(),
+            meta: cachedMovements.meta,
+          ),
+        );
+      }
+      return const Left(CacheFailure('Datos no encontrados en cache'));
+    } on CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } catch (e) {
+      return Left(UnknownFailure('Error al obtener movimientos desde cache: $e'));
+    }
+  }
+
+  /// Obtener movimiento individual desde cache local
+  Future<Either<Failure, InventoryMovement>> _getMovementFromCache(String id) async {
+    try {
+      final cachedMovement = await localDataSource.getCachedMovementById(id);
+      if (cachedMovement != null) {
+        return Right(cachedMovement.toEntity());
+      }
+      return const Left(CacheFailure('Datos no encontrados en cache'));
+    } on CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } catch (e) {
+      return Left(UnknownFailure('Error al obtener movimiento desde cache: $e'));
+    }
+  }
+
+  /// Buscar movimientos desde cache local
+  Future<Either<Failure, List<InventoryMovement>>> _searchMovementsFromCache(
+    SearchInventoryMovementsParams params,
+  ) async {
+    try {
+      final cachedMovements = await localDataSource.searchCachedMovements(params);
+      return Right(cachedMovements.map((model) => model.toEntity()).toList());
+    } on CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } catch (e) {
+      return Left(UnknownFailure('Error al buscar movimientos desde cache: $e'));
+    }
+  }
+
+  /// Obtener balances desde cache local
+  Future<Either<Failure, core.PaginatedResult<InventoryBalance>>> _getBalancesFromCache(
+    InventoryBalanceQueryParams params,
+  ) async {
+    try {
+      final cachedBalances = await localDataSource.getCachedBalances(params);
+      if (cachedBalances != null) {
+        return Right(
+          core.PaginatedResult(
+            data: cachedBalances.data.map((model) => model.toEntity()).toList(),
+            meta: cachedBalances.meta,
+          ),
+        );
+      }
+      return const Left(CacheFailure('Datos no encontrados en cache'));
+    } on CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } catch (e) {
+      return Left(UnknownFailure('Error al obtener balances desde cache: $e'));
+    }
+  }
+
+  /// Obtener balance por producto desde cache local
+  Future<Either<Failure, InventoryBalance>> _getBalanceByProductFromCache(
+    String productId, {
+    String? warehouseId,
+  }) async {
+    try {
+      final cachedBalance = await localDataSource.getCachedBalanceByProduct(
+        productId,
+        warehouseId: warehouseId,
+      );
+      if (cachedBalance != null) {
+        return Right(cachedBalance.toEntity());
+      }
+      return const Left(CacheFailure('Datos no encontrados en cache'));
+    } on CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } catch (e) {
+      return Left(UnknownFailure('Error al obtener balance desde cache: $e'));
+    }
+  }
+
+  /// Obtener productos con bajo stock desde cache local
+  Future<Either<Failure, List<InventoryBalance>>> _getLowStockProductsFromCache({
+    String? warehouseId,
+  }) async {
+    try {
+      final cachedBalances = await localDataSource.getCachedLowStockProducts(
+        warehouseId: warehouseId,
+      );
+      return Right(cachedBalances.map((model) => model.toEntity()).toList());
+    } on CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } catch (e) {
+      return Left(UnknownFailure('Error al obtener productos con bajo stock desde cache: $e'));
+    }
+  }
+
+  /// Obtener estadísticas desde cache local
+  Future<Either<Failure, InventoryStats>> _getInventoryStatsFromCache(
+    InventoryStatsParams params,
+  ) async {
+    try {
+      final cachedStats = await localDataSource.getCachedStats(params);
+      if (cachedStats != null) {
+        return Right(cachedStats.toEntity());
+      }
+      return const Left(CacheFailure('Datos no encontrados en cache'));
+    } on CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } catch (e) {
+      return Left(UnknownFailure('Error al obtener estadísticas desde cache: $e'));
+    }
+  }
+
   void _sortBatchesIfNeeded(
     List<InventoryBatch> batches,
     String sortBy,
@@ -1213,6 +1573,18 @@ class InventoryRepositoryImpl implements InventoryRepository {
       print(
         '🔍 FILTER FALLBACK: Filtro Por Vencer aplicado - ${batches.length} lotes',
       );
+    }
+  }
+
+  /// Mapear ServerException a Failure específico
+  Failure _mapServerExceptionToFailure(ServerException exception) {
+    if (exception.statusCode != null) {
+      return ServerFailure.fromStatusCode(
+        exception.statusCode!,
+        exception.message,
+      );
+    } else {
+      return ServerFailure(exception.message);
     }
   }
 }

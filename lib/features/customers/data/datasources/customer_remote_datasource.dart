@@ -54,19 +54,30 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
   @override
   Future<CustomerResponseModel> getCustomers(CustomerQueryModel query) async {
     try {
+      print('🌐 CustomerRemoteDataSource: Llamando a ${ApiConstants.customers}');
+      print('🔍 Query params: ${query.toQueryParameters()}');
+
       final response = await dioClient.get(
         ApiConstants.customers,
         queryParameters: query.toQueryParameters(),
       );
 
+      print('📡 CustomerRemoteDataSource: Status ${response.statusCode}');
+      print('📦 CustomerRemoteDataSource: Response data: ${response.data}');
+
       if (response.statusCode == 200) {
-        return CustomerResponseModel.fromJson(response.data);
+        final result = CustomerResponseModel.fromJson(response.data);
+        print('✅ CustomerRemoteDataSource: Parsed ${result.data.length} customers');
+        return result;
       } else {
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
+      print('❌ CustomerRemoteDataSource: DioException - ${e.message}');
+      print('❌ CustomerRemoteDataSource: Response: ${e.response?.data}');
       throw _handleDioException(e);
     } catch (e) {
+      print('❌ CustomerRemoteDataSource: Exception - $e');
       throw ServerException('Error inesperado al obtener clientes: $e');
     }
   }

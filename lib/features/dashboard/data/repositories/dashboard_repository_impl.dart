@@ -40,6 +40,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
         
         return Right(remoteStats);
       } on ServerException catch (e) {
+        print('⚠️ [DASHBOARD_REPO] ServerException: ${e.message} - Fallback a cache...');
         // Si hay error del servidor, intentar usar cache
         if (startDate == null && endDate == null) {
           final cachedStats = await localDataSource.getCachedDashboardStats();
@@ -50,6 +51,18 @@ class DashboardRepositoryImpl implements DashboardRepository {
         return Left(ServerFailure(e.message));
       } on CacheException catch (e) {
         return Left(CacheFailure(e.message));
+      } catch (e) {
+        print('⚠️ [DASHBOARD_REPO] Exception: $e - Fallback a cache...');
+        // Para cualquier otro error (ConnectionException, etc), intentar cache
+        if (startDate == null && endDate == null) {
+          try {
+            final cachedStats = await localDataSource.getCachedDashboardStats();
+            if (cachedStats != null) {
+              return Right(cachedStats);
+            }
+          } catch (_) {}
+        }
+        return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
       // Sin conexión, usar cache si no hay filtros
@@ -88,6 +101,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
         
         return Right(remoteActivity);
       } on ServerException catch (e) {
+        print('⚠️ [DASHBOARD_REPO] ServerException en activities: ${e.message} - Fallback a cache...');
         // Si hay error, intentar usar cache
         if (types == null || types.isEmpty) {
           final cachedActivity = await localDataSource.getCachedRecentActivity();
@@ -98,6 +112,18 @@ class DashboardRepositoryImpl implements DashboardRepository {
         return Left(ServerFailure(e.message));
       } on CacheException catch (e) {
         return Left(CacheFailure(e.message));
+      } catch (e) {
+        print('⚠️ [DASHBOARD_REPO] Exception en activities: $e - Fallback a cache...');
+        // Para cualquier otro error (ConnectionException, etc), intentar cache
+        if (types == null || types.isEmpty) {
+          try {
+            final cachedActivity = await localDataSource.getCachedRecentActivity();
+            if (cachedActivity != null) {
+              return Right(cachedActivity);
+            }
+          } catch (_) {}
+        }
+        return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
       // Sin conexión, usar cache si no hay filtros
@@ -136,6 +162,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
         
         return Right(remoteNotifications);
       } on ServerException catch (e) {
+        print('⚠️ [DASHBOARD_REPO] ServerException en notifications: ${e.message} - Fallback a cache...');
         // Si hay error, intentar usar cache
         if (unreadOnly == null) {
           final cachedNotifications = await localDataSource.getCachedNotifications();
@@ -146,6 +173,18 @@ class DashboardRepositoryImpl implements DashboardRepository {
         return Left(ServerFailure(e.message));
       } on CacheException catch (e) {
         return Left(CacheFailure(e.message));
+      } catch (e) {
+        print('⚠️ [DASHBOARD_REPO] Exception en notifications: $e - Fallback a cache...');
+        // Para cualquier otro error (ConnectionException, etc), intentar cache
+        if (unreadOnly == null) {
+          try {
+            final cachedNotifications = await localDataSource.getCachedNotifications();
+            if (cachedNotifications != null) {
+              return Right(cachedNotifications);
+            }
+          } catch (_) {}
+        }
+        return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
       // Sin conexión, usar cache si no hay filtros
@@ -254,6 +293,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
         await localDataSource.cacheUnreadNotificationsCount(count);
         return Right(count);
       } on ServerException catch (e) {
+        print('⚠️ [DASHBOARD_REPO] ServerException en unread count: ${e.message} - Fallback a cache...');
         // Si hay error, intentar usar cache
         final cachedCount = await localDataSource.getCachedUnreadNotificationsCount();
         if (cachedCount != null) {
@@ -262,6 +302,16 @@ class DashboardRepositoryImpl implements DashboardRepository {
         return Left(ServerFailure(e.message));
       } on CacheException catch (e) {
         return Left(CacheFailure(e.message));
+      } catch (e) {
+        print('⚠️ [DASHBOARD_REPO] Exception en unread count: $e - Fallback a cache...');
+        // Para cualquier otro error (ConnectionException, etc), intentar cache
+        try {
+          final cachedCount = await localDataSource.getCachedUnreadNotificationsCount();
+          if (cachedCount != null) {
+            return Right(cachedCount);
+          }
+        } catch (_) {}
+        return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
       // Sin conexión, usar cache
@@ -290,9 +340,14 @@ class DashboardRepositoryImpl implements DashboardRepository {
         );
         return Right(stats);
       } on ServerException catch (e) {
+        print('⚠️ [DASHBOARD_REPO] ServerException en sales stats: ${e.message}');
         return Left(ServerFailure(e.message));
+      } catch (e) {
+        print('⚠️ [DASHBOARD_REPO] Exception en sales stats: $e');
+        return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
+      print('📴 [DASHBOARD_REPO] Sin conexión - sales stats no disponible offline');
       return Left(ConnectionFailure('Sin conexión a internet'));
     }
   }
@@ -310,9 +365,14 @@ class DashboardRepositoryImpl implements DashboardRepository {
         );
         return Right(stats);
       } on ServerException catch (e) {
+        print('⚠️ [DASHBOARD_REPO] ServerException en invoice stats: ${e.message}');
         return Left(ServerFailure(e.message));
+      } catch (e) {
+        print('⚠️ [DASHBOARD_REPO] Exception en invoice stats: $e');
+        return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
+      print('📴 [DASHBOARD_REPO] Sin conexión - invoice stats no disponible offline');
       return Left(ConnectionFailure('Sin conexión a internet'));
     }
   }
@@ -324,9 +384,14 @@ class DashboardRepositoryImpl implements DashboardRepository {
         final stats = await remoteDataSource.getProductStats();
         return Right(stats);
       } on ServerException catch (e) {
+        print('⚠️ [DASHBOARD_REPO] ServerException en product stats: ${e.message}');
         return Left(ServerFailure(e.message));
+      } catch (e) {
+        print('⚠️ [DASHBOARD_REPO] Exception en product stats: $e');
+        return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
+      print('📴 [DASHBOARD_REPO] Sin conexión - product stats no disponible offline');
       return Left(ConnectionFailure('Sin conexión a internet'));
     }
   }
@@ -344,9 +409,14 @@ class DashboardRepositoryImpl implements DashboardRepository {
         );
         return Right(stats);
       } on ServerException catch (e) {
+        print('⚠️ [DASHBOARD_REPO] ServerException en customer stats: ${e.message}');
         return Left(ServerFailure(e.message));
+      } catch (e) {
+        print('⚠️ [DASHBOARD_REPO] Exception en customer stats: $e');
+        return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
+      print('📴 [DASHBOARD_REPO] Sin conexión - customer stats no disponible offline');
       return Left(ConnectionFailure('Sin conexión a internet'));
     }
   }
@@ -364,9 +434,14 @@ class DashboardRepositoryImpl implements DashboardRepository {
         );
         return Right(stats);
       } on ServerException catch (e) {
+        print('⚠️ [DASHBOARD_REPO] ServerException en expense stats: ${e.message}');
         return Left(ServerFailure(e.message));
+      } catch (e) {
+        print('⚠️ [DASHBOARD_REPO] Exception en expense stats: $e');
+        return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
+      print('📴 [DASHBOARD_REPO] Sin conexión - expense stats no disponible offline');
       return Left(ConnectionFailure('Sin conexión a internet'));
     }
   }
@@ -388,9 +463,14 @@ class DashboardRepositoryImpl implements DashboardRepository {
         );
         return Right(stats);
       } on ServerException catch (e) {
+        print('⚠️ [DASHBOARD_REPO] ServerException en profitability: ${e.message}');
         return Left(ServerFailure(e.message));
+      } catch (e) {
+        print('⚠️ [DASHBOARD_REPO] Exception en profitability: $e');
+        return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
+      print('📴 [DASHBOARD_REPO] Sin conexión - profitability stats no disponible offline');
       return Left(ConnectionFailure('Sin conexión a internet'));
     }
   }

@@ -14,16 +14,29 @@ class NetworkInfoImpl implements NetworkInfo {
 
   @override
   Future<bool> get isConnected async {
-    // Obtiene el resultado de la conectividad actual
-    final connectivityResult = await _connectivity.checkConnectivity();
+    print('🌐 NetworkInfo: Verificando conectividad...');
+    try {
+      // Obtiene el resultado de la conectividad actual
+      final connectivityResult = await _connectivity.checkConnectivity();
+      print('🌐 NetworkInfo: connectivityResult = $connectivityResult');
 
-    // Verifica si la lista de resultados contiene Wi-Fi o conexión móvil
-    // Esto es más confiable que InternetAddress.lookup en algunos escenarios
-    return connectivityResult.contains(ConnectivityResult.wifi) ||
-        connectivityResult.contains(ConnectivityResult.mobile) ||
-        connectivityResult.contains(
-          ConnectivityResult.ethernet,
-        ); // Opcional: considerar Ethernet
+      // Verifica si la lista de resultados contiene Wi-Fi o conexión móvil
+      // Esto es más confiable que InternetAddress.lookup en algunos escenarios
+      final isWifi = connectivityResult.contains(ConnectivityResult.wifi);
+      final isMobile = connectivityResult.contains(ConnectivityResult.mobile);
+      final isEthernet = connectivityResult.contains(ConnectivityResult.ethernet);
+
+      print('🌐 NetworkInfo: WiFi=$isWifi, Mobile=$isMobile, Ethernet=$isEthernet');
+
+      final result = isWifi || isMobile || isEthernet;
+      print('🌐 NetworkInfo: Retornando isConnected=$result');
+
+      return result;
+    } catch (e, stackTrace) {
+      print('❌ NetworkInfo: Error verificando conectividad: $e');
+      print('📚 StackTrace: $stackTrace');
+      return false;
+    }
   }
 
   // Puedes mantener los otros métodos si los usas en otras partes de tu app,

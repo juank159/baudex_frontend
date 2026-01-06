@@ -16,6 +16,7 @@ class UpdateCustomerRequestModel {
   final String? country;
   final String? status;
   final double? creditLimit;
+  final double? currentBalance;
   final int? paymentTerms;
   final String? birthDate;
   final String? notes;
@@ -37,6 +38,7 @@ class UpdateCustomerRequestModel {
     this.country,
     this.status,
     this.creditLimit,
+    this.currentBalance,
     this.paymentTerms,
     this.birthDate,
     this.notes,
@@ -59,6 +61,7 @@ class UpdateCustomerRequestModel {
     String? country,
     CustomerStatus? status,
     double? creditLimit,
+    double? currentBalance,
     int? paymentTerms,
     DateTime? birthDate,
     String? notes,
@@ -80,6 +83,7 @@ class UpdateCustomerRequestModel {
       country: country,
       status: status?.name,
       creditLimit: creditLimit,
+      currentBalance: currentBalance,
       paymentTerms: paymentTerms,
       birthDate: birthDate?.toIso8601String(),
       notes: notes,
@@ -106,6 +110,7 @@ class UpdateCustomerRequestModel {
     if (country != null) data['country'] = country;
     if (status != null) data['status'] = status;
     if (creditLimit != null) data['creditLimit'] = creditLimit;
+    if (currentBalance != null) data['currentBalance'] = currentBalance;
     if (paymentTerms != null) data['paymentTerms'] = paymentTerms;
     if (birthDate != null) data['birthDate'] = birthDate;
     if (notes != null) data['notes'] = notes;

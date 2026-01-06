@@ -2,13 +2,21 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
-// Import all ISAR models
+// Import ISAR models
+import 'sync_queue.dart';
 import '../../../features/categories/data/models/isar/isar_category.dart';
 import '../../../features/customers/data/models/isar/isar_customer.dart';
+import '../../../features/customer_credits/data/models/isar/isar_customer_credit.dart';
 import '../../../features/products/data/models/isar/isar_product.dart';
 import '../../../features/expenses/data/models/isar/isar_expense.dart';
 import '../../../features/invoices/data/models/isar/isar_invoice.dart';
+import '../../../features/credit_notes/data/models/isar/isar_credit_note.dart';
 import '../../../features/notifications/data/models/isar/isar_notification.dart';
+import '../../../features/bank_accounts/data/models/isar/isar_bank_account.dart';
+import '../../../features/suppliers/data/models/isar/isar_supplier.dart';
+import '../../../features/purchase_orders/data/models/isar/isar_purchase_order.dart';
+import '../../../features/purchase_orders/data/models/isar/isar_purchase_order_item.dart';
+import '../../../features/inventory/data/models/isar/isar_inventory_movement.dart';
 
 /// Singleton para manejar la base de datos ISAR
 ///
@@ -50,15 +58,23 @@ class IsarDatabase {
       // Inicializar ISAR con todas las colecciones
       _isar = await Isar.open(
         [
+          SyncOperationSchema,
           IsarCategorySchema,
           IsarCustomerSchema,
+          IsarCustomerCreditSchema,
           IsarProductSchema,
           IsarExpenseSchema,
           IsarInvoiceSchema,
+          IsarCreditNoteSchema,
           IsarNotificationSchema,
+          IsarBankAccountSchema,
+          IsarSupplierSchema,
+          IsarPurchaseOrderSchema,
+          IsarPurchaseOrderItemSchema,
+          IsarInventoryMovementSchema,
         ],
         directory: dir.path,
-        name: 'baudex_business',
+        name: 'baudex_offline',
       );
 
       print('✅ Base de datos ISAR inicializada exitosamente');
@@ -101,22 +117,35 @@ class IsarDatabase {
   Future<Map<String, int>> getStats() async {
     if (_isar == null) {
       return {
+        'syncOperations': 0,
         'categories': 0,
         'customers': 0,
         'products': 0,
         'expenses': 0,
         'invoices': 0,
+        'creditNotes': 0,
         'notifications': 0,
+        'bankAccounts': 0,
+        'suppliers': 0,
+        'inventoryMovements': 0,
       };
     }
 
     return {
+      'syncOperations': await _isar!.syncOperations.count(),
       'categories': await _isar!.isarCategorys.count(),
       'customers': await _isar!.isarCustomers.count(),
+      'customerCredits': await _isar!.isarCustomerCredits.count(),
       'products': await _isar!.isarProducts.count(),
       'expenses': await _isar!.isarExpenses.count(),
       'invoices': await _isar!.isarInvoices.count(),
+      'creditNotes': await _isar!.isarCreditNotes.count(),
       'notifications': await _isar!.isarNotifications.count(),
+      'bankAccounts': await _isar!.isarBankAccounts.count(),
+      'suppliers': await _isar!.isarSuppliers.count(),
+      'purchaseOrders': await _isar!.isarPurchaseOrders.count(),
+      'purchaseOrderItems': await _isar!.isarPurchaseOrderItems.count(),
+      'inventoryMovements': await _isar!.isarInventoryMovements.count(),
     };
   }
 
@@ -154,12 +183,19 @@ class IsarDatabase {
 
     try {
       // Verificar que podemos leer de cada colección
+      await _isar!.syncOperations.count();
       await _isar!.isarCategorys.count();
       await _isar!.isarCustomers.count();
       await _isar!.isarProducts.count();
       await _isar!.isarExpenses.count();
       await _isar!.isarInvoices.count();
+      await _isar!.isarCreditNotes.count();
       await _isar!.isarNotifications.count();
+      await _isar!.isarBankAccounts.count();
+      await _isar!.isarSuppliers.count();
+      await _isar!.isarPurchaseOrders.count();
+      await _isar!.isarPurchaseOrderItems.count();
+      await _isar!.isarInventoryMovements.count();
 
       print('✅ Integridad de base de datos verificada');
       return true;
@@ -167,5 +203,196 @@ class IsarDatabase {
       print('❌ Error en verificación de integridad: $e');
       return false;
     }
+  }
+
+  // ==================== SYNC QUEUE HELPERS ====================
+
+  /// Obtener todas las operaciones pendientes
+  Future<List<SyncOperation>> getPendingSyncOperations() async {
+    if (_isar == null) return [];
+
+    // Incluir TANTO operaciones pending COMO failed para reintentarlas
+    return await _isar!.syncOperations
+        .filter()
+        .group((q) => q
+            .statusEqualTo(SyncStatus.pending)
+            .or()
+            .statusEqualTo(SyncStatus.failed))
+        .sortByPriority() // Mayor prioridad primero
+        .thenByCreatedAt() // Luego por antigüedad
+        .findAll();
+  }
+
+  /// Obtener operaciones pendientes por tipo de entidad
+  Future<List<SyncOperation>> getPendingSyncOperationsByType(
+    String entityType,
+  ) async {
+    if (_isar == null) return [];
+
+    return await _isar!.syncOperations
+        .filter()
+        .entityTypeEqualTo(entityType)
+        .and()
+        .statusEqualTo(SyncStatus.pending)
+        .sortByCreatedAt()
+        .findAll();
+  }
+
+  /// Agregar una operación a la cola de sincronización
+  Future<void> addSyncOperation(SyncOperation operation) async {
+    if (_isar == null) return;
+
+    await _isar!.writeTxn(() async {
+      await _isar!.syncOperations.put(operation);
+    });
+
+    print('🔄 Operación agregada a cola: ${operation.entityType} ${operation.operationType.name}');
+  }
+
+  /// Marcar una operación como completada
+  Future<void> markSyncOperationCompleted(int operationId) async {
+    if (_isar == null) return;
+
+    await _isar!.writeTxn(() async {
+      final operation = await _isar!.syncOperations.get(operationId);
+      if (operation != null) {
+        operation.status = SyncStatus.completed;
+        operation.syncedAt = DateTime.now();
+        await _isar!.syncOperations.put(operation);
+      }
+    });
+  }
+
+  /// Marcar una operación como fallida
+  Future<void> markSyncOperationFailed(int operationId, String error) async {
+    if (_isar == null) return;
+
+    await _isar!.writeTxn(() async {
+      final operation = await _isar!.syncOperations.get(operationId);
+      if (operation != null) {
+        operation.status = SyncStatus.failed;
+        operation.error = error;
+        operation.retryCount++;
+        await _isar!.syncOperations.put(operation);
+      }
+    });
+
+    // NO imprimir errores de conexión NI errores 409 (son esperados)
+    if (!error.contains('Connection refused') &&
+        !error.contains('Connection error') &&
+        !error.contains('Error de conexión') &&
+        !error.contains('SocketException') &&
+        !error.contains('Conflicto:') &&
+        !error.contains('409')) {
+      print('❌ Operación falló: ID $operationId, Error: $error');
+    }
+  }
+
+  /// Limpiar operaciones completadas antiguas (más de 7 días)
+  Future<void> cleanOldSyncOperations() async {
+    if (_isar == null) return;
+
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+
+    await _isar!.writeTxn(() async {
+      final oldOperations = await _isar!.syncOperations
+          .filter()
+          .statusEqualTo(SyncStatus.completed)
+          .and()
+          .syncedAtLessThan(sevenDaysAgo)
+          .findAll();
+
+      final ids = oldOperations.map((op) => op.id).toList();
+      await _isar!.syncOperations.deleteAll(ids);
+
+      print('🧹 Limpiadas ${ids.length} operaciones antiguas');
+    });
+  }
+
+  /// Eliminar una operación de sync específica por ID
+  Future<void> deleteSyncOperation(int operationId) async {
+    if (_isar == null) return;
+
+    await _isar!.writeTxn(() async {
+      final deleted = await _isar!.syncOperations.delete(operationId);
+      if (deleted) {
+        print('🗑️ Operación de sync eliminada: ID $operationId');
+      } else {
+        print('⚠️ No se encontró operación de sync con ID $operationId');
+      }
+    });
+  }
+
+  /// Eliminar operaciones de sync por entityId
+  Future<void> deleteSyncOperationsByEntityId(String entityId) async {
+    if (_isar == null) return;
+
+    await _isar!.writeTxn(() async {
+      final operations = await _isar!.syncOperations
+          .filter()
+          .entityIdEqualTo(entityId)
+          .findAll();
+
+      final ids = operations.map((op) => op.id).toList();
+      await _isar!.syncOperations.deleteAll(ids);
+
+      print('🗑️ Eliminadas ${ids.length} operaciones de sync para entityId: $entityId');
+    });
+  }
+
+  /// Listar todas las operaciones de sync con detalles (para debugging)
+  Future<void> listAllSyncOperations() async {
+    if (_isar == null) return;
+
+    final operations = await _isar!.syncOperations.where().findAll();
+
+    print('📋 ==================== OPERACIONES DE SYNC ====================');
+    print('📊 Total: ${operations.length}');
+    print('');
+
+    for (final op in operations) {
+      print('🔄 ID: ${op.id}');
+      print('   Entity: ${op.entityType} (${op.entityId})');
+      print('   Operation: ${op.operationType.name}');
+      print('   Status: ${op.status.name}');
+      print('   Retries: ${op.retryCount}');
+      if (op.error != null) {
+        print('   Error: ${op.error}');
+      }
+      print('   Created: ${op.createdAt}');
+      print('');
+    }
+    print('📋 ==================== FIN ====================');
+  }
+
+  /// Obtener conteo de operaciones por estado
+  Future<Map<String, int>> getSyncOperationsCounts() async {
+    if (_isar == null) {
+      return {
+        'pending': 0,
+        'inProgress': 0,
+        'completed': 0,
+        'failed': 0,
+      };
+    }
+
+    return {
+      'pending': await _isar!.syncOperations
+          .filter()
+          .statusEqualTo(SyncStatus.pending)
+          .count(),
+      'inProgress': await _isar!.syncOperations
+          .filter()
+          .statusEqualTo(SyncStatus.inProgress)
+          .count(),
+      'completed': await _isar!.syncOperations
+          .filter()
+          .statusEqualTo(SyncStatus.completed)
+          .count(),
+      'failed': await _isar!.syncOperations
+          .filter()
+          .statusEqualTo(SyncStatus.failed)
+          .count(),
+    };
   }
 }

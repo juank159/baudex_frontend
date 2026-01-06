@@ -2,18 +2,25 @@
 import 'package:baudex_desktop/app/core/models/pagination_meta.dart';
 import 'package:baudex_desktop/features/categories/domain/entities/category_stats.dart';
 import 'package:dartz/dartz.dart';
+import 'package:get/get.dart';
+import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
+import '../../../../app/data/local/sync_service.dart';
+import '../../../../app/data/local/sync_queue.dart';
+import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/enums/isar_enums.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/entities/category_tree.dart';
 import '../../domain/repositories/category_repository.dart';
 import '../datasources/category_remote_datasource.dart';
 import '../datasources/category_local_datasource.dart';
-
+import '../models/category_model.dart';
 import '../models/category_query_model.dart';
 import '../models/create_category_request_model.dart';
 import '../models/update_category_request_model.dart';
+import '../models/isar/isar_category.dart';
 
 /// Implementación del repositorio de categorías
 ///
@@ -23,11 +30,13 @@ class CategoryRepositoryImpl implements CategoryRepository {
   final CategoryRemoteDataSource remoteDataSource;
   final CategoryLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
+  final dynamic database;
 
   const CategoryRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
     required this.networkInfo,
+    required this.database,
   });
 
   // ==================== READ OPERATIONS ====================
@@ -85,14 +94,42 @@ class CategoryRepositoryImpl implements CategoryRepository {
           ),
         );
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        print('⚠️ ServerException en categorías: ${e.message} - Usando cache...');
+        return _getCategoriesFromCache(
+          page: page,
+          limit: limit,
+          search: search,
+          status: status,
+          parentId: parentId,
+          onlyParents: onlyParents,
+          sortBy: sortBy,
+          sortOrder: sortOrder,
+        );
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        print('⚠️ ConnectionException en categorías: ${e.message} - Usando cache...');
+        return _getCategoriesFromCache(
+          page: page,
+          limit: limit,
+          search: search,
+          status: status,
+          parentId: parentId,
+          onlyParents: onlyParents,
+          sortBy: sortBy,
+          sortOrder: sortOrder,
+        );
       } on CacheException catch (e) {
         return Left(CacheFailure(e.message));
       } catch (e) {
-        return Left(
-          UnknownFailure('Error inesperado al obtener categorías: $e'),
+        print('❌ Error inesperado en categorías: $e - Usando cache...');
+        return _getCategoriesFromCache(
+          page: page,
+          limit: limit,
+          search: search,
+          status: status,
+          parentId: parentId,
+          onlyParents: onlyParents,
+          sortBy: sortBy,
+          sortOrder: sortOrder,
         );
       }
     } else {
@@ -259,19 +296,14 @@ class CategoryRepositoryImpl implements CategoryRepository {
         );
         return Right(categoryTrees);
       } on ServerException catch (e) {
-        print('❌ CategoryRepository: ServerException in getCategoryTree: $e');
-        return Left(_mapServerExceptionToFailure(e));
+        print('⚠️ ServerException en getCategoryTree - Usando cache...');
+        return _getCategoryTreeFromCache();
       } on ConnectionException catch (e) {
-        print(
-          '❌ CategoryRepository: ConnectionException in getCategoryTree: $e',
-        );
-        return Left(ConnectionFailure(e.message));
+        print('⚠️ ConnectionException en getCategoryTree - Usando cache...');
+        return _getCategoryTreeFromCache();
       } catch (e, stackTrace) {
-        print('❌ CategoryRepository: Unexpected error in getCategoryTree: $e');
-        print('   StackTrace: $stackTrace');
-        return Left(
-          UnknownFailure('Error inesperado al obtener árbol de categorías: $e'),
-        );
+        print('❌ Error inesperado en getCategoryTree - Usando cache...');
+        return _getCategoryTreeFromCache();
       }
     } else {
       // Sin conexión, intentar desde cache
@@ -294,13 +326,14 @@ class CategoryRepositoryImpl implements CategoryRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        print('⚠️ ServerException en stats de categorías: ${e.message} - Usando cache...');
+        return _getCategoryStatsFromCache();
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        print('⚠️ ConnectionException en stats de categorías: ${e.message} - Usando cache...');
+        return _getCategoryStatsFromCache();
       } catch (e) {
-        return Left(
-          UnknownFailure('Error inesperado al obtener estadísticas: $e'),
-        );
+        print('❌ Error inesperado en stats de categorías: $e - Usando cache...');
+        return _getCategoryStatsFromCache();
       }
     } else {
       // Sin conexión, intentar desde cache
@@ -367,21 +400,119 @@ class CategoryRepositoryImpl implements CategoryRepository {
         try {
           await localDataSource.cacheCategory(response);
           // Invalidar cache general para reflejar los cambios en listados
-          await _invalidateListCache();
+          // await _invalidateListCache(); // This would delete the category we just cached!
         } catch (e) {
           print('⚠️ Error al actualizar cache después de crear: $e');
         }
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        print('⚠️ ServerException al crear categoría: ${e.message} - Creando offline...');
+        return _createCategoryOffline(
+          name: name,
+          description: description,
+          slug: slug,
+          image: image,
+          status: status,
+          sortOrder: sortOrder,
+          parentId: parentId,
+        );
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        print('⚠️ ConnectionException al crear categoría: ${e.message} - Creando offline...');
+        return _createCategoryOffline(
+          name: name,
+          description: description,
+          slug: slug,
+          image: image,
+          status: status,
+          sortOrder: sortOrder,
+          parentId: parentId,
+        );
       } catch (e) {
-        return Left(UnknownFailure('Error inesperado al crear categoría: $e'));
+        print('❌ Error inesperado al crear categoría: $e - Creando offline...');
+        return _createCategoryOffline(
+          name: name,
+          description: description,
+          slug: slug,
+          image: image,
+          status: status,
+          sortOrder: sortOrder,
+          parentId: parentId,
+        );
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      // Sin conexión, crear categoría offline
+      return _createCategoryOffline(
+        name: name,
+        description: description,
+        slug: slug,
+        image: image,
+        status: status,
+        sortOrder: sortOrder,
+        parentId: parentId,
+      );
+    }
+  }
+
+  /// Crear categoría offline (usado como fallback cuando falla el servidor o no hay conexión)
+  Future<Either<Failure, Category>> _createCategoryOffline({
+    required String name,
+    String? description,
+    required String slug,
+    String? image,
+    CategoryStatus? status,
+    int? sortOrder,
+    String? parentId,
+  }) async {
+    print('📱 CategoryRepository: Creating category offline: $name');
+    try {
+      final now = DateTime.now();
+      final tempId = 'category_offline_${now.millisecondsSinceEpoch}_${name.hashCode}';
+
+      final tempCategory = Category(
+        id: tempId,
+        name: name,
+        description: description ?? '',
+        slug: slug,
+        image: image,
+        status: status ?? CategoryStatus.active,
+        sortOrder: sortOrder ?? 0,
+        parentId: parentId,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      // Cache localmente
+      await localDataSource.cacheCategory(CategoryModel.fromEntity(tempCategory));
+
+      // Agregar a cola de sincronización
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Category',
+          entityId: tempId,
+          operationType: SyncOperationType.create,
+          data: {
+            'name': name,
+            'description': description,
+            'slug': slug,
+            'image': image,
+            'status': status?.name,
+            'sortOrder': sortOrder,
+            'parentId': parentId,
+          },
+          priority: 1,
+        );
+        print('📤 CategoryRepository: Operación agregada a cola');
+      } catch (e) {
+        print('⚠️ Error agregando a cola: $e');
+      }
+
+      print('✅ Category created offline successfully');
+      return Right(tempCategory);
+    } catch (e) {
+      print('❌ Error creating category offline: $e');
+      return Left(CacheFailure('Error al crear categoría offline: $e'));
     }
   }
 
@@ -420,23 +551,142 @@ class CategoryRepositoryImpl implements CategoryRepository {
         // Actualizar cache
         try {
           await localDataSource.cacheCategory(response);
-          await _invalidateListCache();
+          // await _invalidateListCache(); // This would delete the category we just cached!
         } catch (e) {
           print('⚠️ Error al actualizar cache después de modificar: $e');
         }
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        print('⚠️ ServerException al actualizar categoría: ${e.message} - Actualizando offline...');
+        return _updateCategoryOffline(
+          id: id,
+          name: name,
+          description: description,
+          slug: slug,
+          image: image,
+          status: status,
+          sortOrder: sortOrder,
+          parentId: parentId,
+        );
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        print('⚠️ ConnectionException al actualizar categoría: ${e.message} - Actualizando offline...');
+        return _updateCategoryOffline(
+          id: id,
+          name: name,
+          description: description,
+          slug: slug,
+          image: image,
+          status: status,
+          sortOrder: sortOrder,
+          parentId: parentId,
+        );
       } catch (e) {
-        return Left(
-          UnknownFailure('Error inesperado al actualizar categoría: $e'),
+        print('❌ Error inesperado al actualizar categoría: $e - Actualizando offline...');
+        return _updateCategoryOffline(
+          id: id,
+          name: name,
+          description: description,
+          slug: slug,
+          image: image,
+          status: status,
+          sortOrder: sortOrder,
+          parentId: parentId,
         );
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      // Sin conexión, actualizar offline
+      return _updateCategoryOffline(
+        id: id,
+        name: name,
+        description: description,
+        slug: slug,
+        image: image,
+        status: status,
+        sortOrder: sortOrder,
+        parentId: parentId,
+      );
+    }
+  }
+
+  /// Actualizar categoría offline (usado como fallback cuando falla el servidor o no hay conexión)
+  Future<Either<Failure, Category>> _updateCategoryOffline({
+    required String id,
+    String? name,
+    String? description,
+    String? slug,
+    String? image,
+    CategoryStatus? status,
+    int? sortOrder,
+    String? parentId,
+  }) async {
+    print('📱 CategoryRepository: Updating category offline: $id');
+    try {
+      // Actualizar en ISAR
+      final isar = database;
+      final isarCategory = await isar.isarCategorys
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      if (isarCategory == null) {
+        return Left(CacheFailure('Categoría no encontrada en ISAR: $id'));
+      }
+
+      // Actualizar campos en ISAR
+      if (name != null) isarCategory.name = name;
+      if (description != null) isarCategory.description = description;
+      if (slug != null) isarCategory.slug = slug;
+      if (image != null) isarCategory.image = image;
+      if (status != null) {
+        isarCategory.status = status == CategoryStatus.active
+            ? IsarCategoryStatus.active
+            : IsarCategoryStatus.inactive;
+      }
+      if (sortOrder != null) isarCategory.sortOrder = sortOrder;
+      if (parentId != null) isarCategory.parentId = parentId;
+
+      // Marcar como no sincronizado
+      isarCategory.markAsUnsynced();
+
+      // Guardar en ISAR
+      await isar.writeTxn(() async {
+        await isar.isarCategorys.put(isarCategory);
+      });
+
+      final updatedCategory = isarCategory.toEntity();
+
+      // Guardar en cache también
+      await localDataSource.cacheCategory(CategoryModel.fromEntity(updatedCategory));
+
+      // Agregar a cola de sincronización
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Category',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {
+            'name': name,
+            'description': description,
+            'slug': slug,
+            'image': image,
+            'status': status?.name,
+            'sortOrder': sortOrder,
+            'parentId': parentId,
+          },
+          priority: 1,
+        );
+        print('📤 Actualización agregada a cola');
+      } catch (e) {
+        print('⚠️ Error agregando a cola: $e');
+      }
+
+      print('✅ Category updated offline successfully');
+      return Right(updatedCategory);
+    } catch (e) {
+      print('❌ Error updating category offline: $e');
+      return Left(CacheFailure('Error al actualizar categoría offline: $e'));
     }
   }
 
@@ -480,26 +730,95 @@ class CategoryRepositoryImpl implements CategoryRepository {
       try {
         await remoteDataSource.deleteCategory(id);
 
+        // Soft delete en ISAR después de eliminar en servidor
+        try {
+          final isar = IsarDatabase.instance.database;
+          final isarCategory = await isar.isarCategorys
+              .filter()
+              .serverIdEqualTo(id)
+              .findFirst();
+
+          if (isarCategory != null) {
+            isarCategory.softDelete();
+            await isar.writeTxn(() async {
+              await isar.isarCategorys.put(isarCategory);
+            });
+            print('✅ Category marcada como eliminada en ISAR: $id');
+          }
+        } catch (e) {
+          print('⚠️ Error actualizando ISAR (no crítico): $e');
+        }
+
         // Remover del cache
         try {
           await localDataSource.removeCachedCategory(id);
-          await _invalidateListCache();
+          // await _invalidateListCache(); // This would delete the category we just cached!
         } catch (e) {
           print('⚠️ Error al actualizar cache después de eliminar: $e');
         }
 
         return const Right(unit);
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        print('⚠️ [CATEGORY_REPO] ServerException al eliminar: ${e.message} - Fallback offline...');
+        return _deleteCategoryOffline(id);
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        print('⚠️ [CATEGORY_REPO] ConnectionException al eliminar: ${e.message} - Fallback offline...');
+        return _deleteCategoryOffline(id);
       } catch (e) {
-        return Left(
-          UnknownFailure('Error inesperado al eliminar categoría: $e'),
-        );
+        print('⚠️ [CATEGORY_REPO] Exception al eliminar: $e - Fallback offline...');
+        return _deleteCategoryOffline(id);
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      // Sin conexión, eliminar offline
+      return _deleteCategoryOffline(id);
+    }
+  }
+
+  Future<Either<Failure, Unit>> _deleteCategoryOffline(String id) async {
+    print('📱 CategoryRepository: Deleting category offline: $id');
+    try {
+      // Soft delete en ISAR
+      try {
+        final isar = IsarDatabase.instance.database;
+        final isarCategory = await isar.isarCategorys
+            .filter()
+            .serverIdEqualTo(id)
+            .findFirst();
+
+        if (isarCategory != null) {
+          isarCategory.softDelete();
+          await isar.writeTxn(() async {
+            await isar.isarCategorys.put(isarCategory);
+          });
+          print('✅ Category marcada como eliminada en ISAR (offline): $id');
+        }
+      } catch (e) {
+        print('⚠️ Error actualizando ISAR (no crítico): $e');
+      }
+
+      // Remover del cache
+      await localDataSource.removeCachedCategory(id);
+
+      // Agregar a cola de sincronización
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Category',
+          entityId: id,
+          operationType: SyncOperationType.delete,
+          data: {'id': id},
+          priority: 1,
+        );
+        print('📤 Eliminación agregada a cola');
+      } catch (e) {
+        print('⚠️ Error agregando a cola: $e');
+      }
+
+      print('✅ Category deleted offline successfully');
+      return const Right(unit);
+    } catch (e) {
+      print('❌ Error deleting category offline: $e');
+      return Left(CacheFailure('Error al eliminar categoría offline: $e'));
     }
   }
 
@@ -512,7 +831,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
         // Cache la categoría restaurada
         try {
           await localDataSource.cacheCategory(response);
-          await _invalidateListCache();
+          // await _invalidateListCache(); // This would delete the category we just cached!
         } catch (e) {
           print('⚠️ Error al actualizar cache después de restaurar: $e');
         }
@@ -577,6 +896,22 @@ class CategoryRepositoryImpl implements CategoryRepository {
   }
 
   @override
+  Future<Either<Failure, bool>> existsByName(
+    String name, {
+    String? excludeId,
+  }) async {
+    // ✅ Esta validación funciona offline usando el datasource local
+    try {
+      final exists = await localDataSource.existsByName(name, excludeId);
+      return Right(exists);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } catch (e) {
+      return Left(UnknownFailure('Error al verificar nombre: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, Unit>> reorderCategories(
     List<CategoryReorder> reorders,
   ) async {
@@ -597,7 +932,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
 
         // Invalidar cache después del reordenamiento
         try {
-          await _invalidateListCache();
+          // await _invalidateListCache(); // This would delete the category we just cached!
         } catch (e) {
           print('⚠️ Error al invalidar cache después de reordenar: $e');
         }
@@ -879,14 +1214,10 @@ class CategoryRepositoryImpl implements CategoryRepository {
       );
       return Right(categoryTrees);
     } on CacheException catch (e) {
-      print(
-        '❌ CategoryRepository: CacheException in _getCategoryTreeFromCache: $e',
-      );
+      // No imprimir error - es normal que no haya cache del árbol
       return Left(CacheFailure(e.message));
     } catch (e) {
-      print(
-        '❌ CategoryRepository: Unexpected error in _getCategoryTreeFromCache: $e',
-      );
+      // No imprimir error - es normal que no haya cache
       return Left(UnknownFailure('Error al obtener árbol desde cache: $e'));
     }
   }
@@ -906,6 +1237,117 @@ class CategoryRepositoryImpl implements CategoryRepository {
       return Left(
         UnknownFailure('Error al obtener estadísticas desde cache: $e'),
       );
+    }
+  }
+
+  // ==================== SYNC OPERATIONS ====================
+
+  /// Sincronizar categorías creadas offline con el servidor
+  Future<Either<Failure, List<Category>>> syncOfflineCategories() async {
+    if (!await networkInfo.isConnected) {
+      return const Left(ConnectionFailure.noInternet);
+    }
+
+    try {
+      print('🔄 CategoryRepository: Starting offline categories sync...');
+
+      // Obtener categorías no sincronizadas desde ISAR
+      final isar = IsarDatabase.instance.database;
+      final unsyncedCategories = await isar.isarCategorys
+          .filter()
+          .isSyncedEqualTo(false)
+          .and()
+          .deletedAtIsNull()
+          .findAll();
+
+      if (unsyncedCategories.isEmpty) {
+        print('✅ CategoryRepository: No categories to sync');
+        return const Right([]);
+      }
+
+      print('📤 CategoryRepository: Syncing ${unsyncedCategories.length} offline categories...');
+      final syncedCategories = <Category>[];
+
+      for (final isarCategory in unsyncedCategories) {
+        try {
+          // Determinar si es CREATE o UPDATE basándose en el serverId
+          final isCreate = isarCategory.serverId.startsWith('category_offline_');
+
+          if (isCreate) {
+            // CREATE: Enviar al servidor y actualizar con ID real
+            print('📝 Creating category: ${isarCategory.name}');
+
+            final request = CreateCategoryRequestModel.fromParams(
+              name: isarCategory.name,
+              description: isarCategory.description,
+              slug: isarCategory.slug,
+              image: isarCategory.image,
+              status: isarCategory.status == IsarCategoryStatus.active
+                  ? CategoryStatus.active
+                  : CategoryStatus.inactive,
+              sortOrder: isarCategory.sortOrder,
+              parentId: isarCategory.parentId,
+            );
+
+            final created = await remoteDataSource.createCategory(request);
+
+            // Actualizar ISAR con el ID real del servidor
+            isarCategory.serverId = created.id;
+            isarCategory.markAsSynced();
+
+            await isar.writeTxn(() async {
+              await isar.isarCategorys.put(isarCategory);
+            });
+
+            // También actualizar en SecureStorage
+            await localDataSource.cacheCategory(created);
+
+            syncedCategories.add(created.toEntity());
+            print('✅ Category created and synced: ${isarCategory.name} -> ${created.id}');
+          } else {
+            // UPDATE: Enviar actualización al servidor
+            print('📝 Updating category: ${isarCategory.name}');
+
+            final request = UpdateCategoryRequestModel.fromParams(
+              name: isarCategory.name,
+              description: isarCategory.description,
+              slug: isarCategory.slug,
+              image: isarCategory.image,
+              status: isarCategory.status == IsarCategoryStatus.active
+                  ? CategoryStatus.active
+                  : CategoryStatus.inactive,
+              sortOrder: isarCategory.sortOrder,
+              parentId: isarCategory.parentId,
+            );
+
+            final updated = await remoteDataSource.updateCategory(
+              isarCategory.serverId,
+              request,
+            );
+
+            isarCategory.markAsSynced();
+
+            await isar.writeTxn(() async {
+              await isar.isarCategorys.put(isarCategory);
+            });
+
+            // También actualizar en SecureStorage
+            await localDataSource.cacheCategory(updated);
+
+            syncedCategories.add(updated.toEntity());
+            print('✅ Category updated and synced: ${isarCategory.name}');
+          }
+        } catch (e) {
+          print('❌ Error sincronizando categoría ${isarCategory.name}: $e');
+          // Continuar con la siguiente
+        }
+      }
+
+      print('🎯 CategoryRepository: Sync completed. Success: ${syncedCategories.length}');
+      return Right(syncedCategories);
+    } catch (e) {
+      print('💥 CategoryRepository: Error during offline categories sync: $e');
+      return Left(UnknownFailure('Error al sincronizar categorías offline: $e'));
     }
   }
 

@@ -1,10 +1,13 @@
 // lib/features/invoices/data/repositories/invoice_offline_repository.dart
 import 'package:baudex_desktop/features/invoices/domain/entities/invoice_item.dart';
 import 'package:dartz/dartz.dart';
+import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/sync_service.dart';
+import '../../../../app/data/local/sync_queue.dart';
 
 import '../../domain/entities/invoice.dart';
 import '../../domain/entities/invoice_stats.dart';
@@ -85,85 +88,38 @@ class InvoiceOfflineRepository implements InvoiceRepository {
         filterQuery = filterQuery.and().dateLessThan(endDate);
       }
 
-      // Get total count for pagination
-      final totalItems = await filterQuery.count();
+      // Obtener todos los resultados (ordenar y paginar en Dart)
+      final allResults = await filterQuery.findAll();
+      final totalItems = allResults.length;
 
-      // Apply sorting and pagination
+      // Ordenar en Dart
+      allResults.sort((a, b) {
+        int comparison = 0;
+        switch (sortBy) {
+          case 'number':
+            comparison = a.number.compareTo(b.number);
+            break;
+          case 'date':
+            comparison = a.date.compareTo(b.date);
+            break;
+          case 'dueDate':
+            comparison = (a.dueDate ?? DateTime(0)).compareTo(b.dueDate ?? DateTime(0));
+            break;
+          case 'total':
+            comparison = a.total.compareTo(b.total);
+            break;
+          case 'createdAt':
+          default:
+            comparison = a.createdAt.compareTo(b.createdAt);
+        }
+        return sortOrder == 'DESC' ? -comparison : comparison;
+      });
+
+      // Paginar manualmente
       final offset = (page - 1) * limit;
-      List<IsarInvoice> isarInvoices;
-
-      switch (sortBy) {
-        case 'number':
-          isarInvoices =
-              sortOrder == 'DESC'
-                  ? await filterQuery
-                      .sortByNumberDesc()
-                      .offset(offset)
-                      .limit(limit)
-                      .findAll()
-                  : await filterQuery
-                      .sortByNumber()
-                      .offset(offset)
-                      .limit(limit)
-                      .findAll();
-          break;
-        case 'date':
-          isarInvoices =
-              sortOrder == 'DESC'
-                  ? await filterQuery
-                      .sortByDateDesc()
-                      .offset(offset)
-                      .limit(limit)
-                      .findAll()
-                  : await filterQuery
-                      .sortByDate()
-                      .offset(offset)
-                      .limit(limit)
-                      .findAll();
-          break;
-        case 'dueDate':
-          isarInvoices =
-              sortOrder == 'DESC'
-                  ? await filterQuery
-                      .sortByDueDateDesc()
-                      .offset(offset)
-                      .limit(limit)
-                      .findAll()
-                  : await filterQuery
-                      .sortByDueDate()
-                      .offset(offset)
-                      .limit(limit)
-                      .findAll();
-          break;
-        case 'total':
-          isarInvoices =
-              sortOrder == 'DESC'
-                  ? await filterQuery
-                      .sortByTotalDesc()
-                      .offset(offset)
-                      .limit(limit)
-                      .findAll()
-                  : await filterQuery
-                      .sortByTotal()
-                      .offset(offset)
-                      .limit(limit)
-                      .findAll();
-          break;
-        case 'createdAt':
-        default:
-          isarInvoices =
-              sortOrder == 'DESC'
-                  ? await filterQuery
-                      .sortByCreatedAtDesc()
-                      .offset(offset)
-                      .limit(limit)
-                      .findAll()
-                  : await filterQuery
-                      .sortByCreatedAt()
-                      .offset(offset)
-                      .limit(limit)
-                      .findAll();
-      }
+      final start = offset.clamp(0, allResults.length);
+      final end = (start + limit).clamp(0, allResults.length);
+      final isarInvoices = allResults.sublist(start, end);
 
       // Convert to domain entities
       final invoices = isarInvoices.map((isar) => isar.toEntity()).toList();
@@ -434,6 +390,24 @@ class InvoiceOfflineRepository implements InvoiceRepository {
         await _isar.isarInvoices.put(isarInvoice);
       });
 
+      // Add to sync queue
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Invoice',
+          entityId: serverId,
+          operationType: SyncOperationType.create,
+          data: {
+            'number': invoiceNumber,
+            'customerId': customerId,
+            'status': status?.name,
+            'total': total,
+          },
+        );
+      } catch (e) {
+        print('Warning: Could not add to sync queue: $e');
+      }
+
       return Right(isarInvoice.toEntity());
     } catch (e) {
       return Left(CacheFailure('Error creating invoice: ${e.toString()}'));
@@ -517,6 +491,19 @@ class InvoiceOfflineRepository implements InvoiceRepository {
         await _isar.isarInvoices.put(isarInvoice);
       });
 
+      // Add to sync queue
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Invoice',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {'updated': true},
+        );
+      } catch (e) {
+        print('Warning: Could not add to sync queue: $e');
+      }
+
       return Right(isarInvoice.toEntity());
     } catch (e) {
       return Left(CacheFailure('Error updating invoice: ${e.toString()}'));
@@ -546,6 +533,19 @@ class InvoiceOfflineRepository implements InvoiceRepository {
       await _isar.writeTxn(() async {
         await _isar.isarInvoices.put(isarInvoice);
       });
+
+      // Add to sync queue
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Invoice',
+          entityId: id,
+          operationType: SyncOperationType.delete,
+          data: {'deleted': true},
+        );
+      } catch (e) {
+        print('Warning: Could not add to sync queue: $e');
+      }
 
       return const Right(null);
     } catch (e) {

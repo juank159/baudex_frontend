@@ -1,11 +1,13 @@
 // lib/features/invoices/data/datasources/invoice_local_datasource.dart
 import 'dart:convert';
+import 'package:isar/isar.dart';
 import 'package:baudex_desktop/features/invoices/data/models/invoice_model.dart';
 import 'package:baudex_desktop/features/invoices/data/models/invoice_stats_model.dart';
 
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
-// Usando el nuevo barrel import
+import '../../../../app/data/local/isar_database.dart';
+import '../models/isar/isar_invoice.dart';
 
 /// Contrato para el datasource local de facturas
 abstract class InvoiceLocalDataSource {
@@ -70,10 +72,63 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   @override
   Future<void> cacheInvoice(InvoiceModel invoice) async {
     try {
-      print(
-        '💾 InvoiceLocalDataSource: Cacheando factura individual: ${invoice.id}',
-      );
+      // ✅ GUARDAR EN ISAR PRIMERO (persistencia offline real)
+      try {
+        final isar = IsarDatabase.instance.database;
+        await isar.writeTxn(() async {
+          // Buscar si existe
+          var isarInvoice = await isar.isarInvoices
+              .filter()
+              .serverIdEqualTo(invoice.id)
+              .findFirst();
 
+          if (isarInvoice != null) {
+            // Actualizar existente
+            isarInvoice.updateFromModel(invoice);
+          } else {
+            // Crear nuevo
+            isarInvoice = IsarInvoice.fromModel(invoice);
+          }
+
+          // ✅ IMPORTANTE: Guardar items y payments como JSON en metadataJson
+          // Ya que IsarInvoiceItem y IsarInvoicePayment no son colecciones separadas
+          final fullData = {
+            'items': invoice.items.map((item) => {
+              'id': item.id,
+              'description': item.description,
+              'quantity': item.quantity,
+              'unitPrice': item.unitPrice,
+              'discountPercentage': item.discountPercentage,
+              'discountAmount': item.discountAmount,
+              'subtotal': item.subtotal,
+              'unit': item.unit,
+              'notes': item.notes,
+              'invoiceId': item.invoiceId,
+              'productId': item.productId,
+            }).toList(),
+            'payments': invoice.payments.map((payment) => {
+              'id': payment.id,
+              'amount': payment.amount,
+              'paymentMethod': payment.paymentMethod.value,
+              'paymentDate': payment.paymentDate.toIso8601String(),
+              'reference': payment.reference,
+              'notes': payment.notes,
+              'invoiceId': payment.invoiceId,
+            }).toList(),
+            'metadata': invoice.metadata,
+          };
+
+          isarInvoice.metadataJson = jsonEncode(fullData);
+
+          // Guardar factura con items y payments embebidos
+          await isar.isarInvoices.put(isarInvoice);
+        });
+        print('✅ Invoice guardada en ISAR con ${invoice.items.length} items y ${invoice.payments.length} payments: ${invoice.id}');
+      } catch (e) {
+        print('⚠️ Error guardando en ISAR (continuando...): $e');
+      }
+
+      // Guardar en SecureStorage (fallback legacy)
       final invoiceJson = invoice.toJson();
       final cacheData = {
         'invoice': invoiceJson,
@@ -85,11 +140,10 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
         '$_invoiceDetailKey${invoice.id}',
         jsonEncode(cacheData),
       );
-
-      print('✅ InvoiceLocalDataSource: Factura individual cacheada');
     } catch (e) {
-      print('❌ Error al cachear factura individual: $e');
-      throw CacheException('Error al cachear factura individual: $e');
+      // Fallar silenciosamente en lugar de lanzar excepción
+      // Esto permite que la app funcione aunque el cache no esté disponible
+      print('⚠️ Cache no disponible (continuando sin cache): $e');
     }
   }
 

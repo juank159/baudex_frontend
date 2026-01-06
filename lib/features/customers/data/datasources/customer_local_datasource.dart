@@ -1,9 +1,12 @@
 // lib/features/customers/data/datasources/customer_local_datasource.dart
 import 'dart:convert';
+import 'package:isar/isar.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 import '../../../../app/core/errors/exceptions.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../models/customer_model.dart';
 import '../models/customer_stats_model.dart';
+import '../models/isar/isar_customer.dart';
 
 /// Contrato para el datasource local de clientes
 abstract class CustomerLocalDataSource {
@@ -96,6 +99,32 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
   @override
   Future<void> cacheCustomer(CustomerModel customer) async {
     try {
+      // ✅ GUARDAR EN ISAR PRIMERO (persistencia offline real)
+      try {
+        final isar = IsarDatabase.instance.database;
+        await isar.writeTxn(() async {
+          // Buscar si existe
+          var isarCustomer = await isar.isarCustomers
+              .filter()
+              .serverIdEqualTo(customer.id)
+              .findFirst();
+
+          if (isarCustomer != null) {
+            // Actualizar existente
+            isarCustomer.updateFromModel(customer);
+          } else {
+            // Crear nuevo
+            isarCustomer = IsarCustomer.fromModel(customer);
+          }
+
+          await isar.isarCustomers.put(isarCustomer);
+        });
+        print('✅ Customer guardado en ISAR: ${customer.id}');
+      } catch (e) {
+        print('⚠️ Error guardando en ISAR (continuando...): $e');
+      }
+
+      // Guardar en SecureStorage (fallback legacy)
       final customerKey = '$_customerKeyPrefix${customer.id}';
       await storageService.write(customerKey, json.encode(customer.toJson()));
       await _updateCacheTimestamp();

@@ -137,6 +137,75 @@ class IsarCustomer {
     );
   }
 
+  /// Create from CustomerModel (for caching server responses)
+  static IsarCustomer fromModel(dynamic model) {
+    return IsarCustomer.create(
+      serverId: model.id,
+      firstName: model.firstName,
+      lastName: model.lastName,
+      companyName: model.companyName,
+      email: model.email,
+      phone: model.phone,
+      mobile: model.mobile,
+      documentType: _mapDocumentType(model.documentType),
+      documentNumber: model.documentNumber,
+      address: model.address,
+      city: model.city,
+      state: model.state,
+      zipCode: model.zipCode,
+      country: model.country,
+      status: _mapCustomerStatus(model.status),
+      creditLimit: model.creditLimit,
+      currentBalance: model.currentBalance,
+      paymentTerms: model.paymentTerms,
+      birthDate: model.birthDate,
+      notes: model.notes,
+      metadataJson:
+          model.metadata != null ? _encodeMetadata(model.metadata!) : null,
+      lastPurchaseAt: model.lastPurchaseAt,
+      totalPurchases: model.totalPurchases,
+      totalOrders: model.totalOrders,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+      deletedAt: model.deletedAt,
+      isSynced: true,
+      lastSyncAt: DateTime.now(),
+    );
+  }
+
+  /// Update existing IsarCustomer from CustomerModel
+  void updateFromModel(dynamic model) {
+    serverId = model.id;
+    firstName = model.firstName;
+    lastName = model.lastName;
+    companyName = model.companyName;
+    email = model.email;
+    phone = model.phone;
+    mobile = model.mobile;
+    documentType = _mapDocumentType(model.documentType);
+    documentNumber = model.documentNumber;
+    address = model.address;
+    city = model.city;
+    state = model.state;
+    zipCode = model.zipCode;
+    country = model.country;
+    status = _mapCustomerStatus(model.status);
+    creditLimit = model.creditLimit;
+    currentBalance = model.currentBalance;
+    paymentTerms = model.paymentTerms;
+    birthDate = model.birthDate;
+    notes = model.notes;
+    metadataJson = model.metadata != null ? _encodeMetadata(model.metadata!) : null;
+    lastPurchaseAt = model.lastPurchaseAt;
+    totalPurchases = model.totalPurchases;
+    totalOrders = model.totalOrders;
+    createdAt = model.createdAt;
+    updatedAt = model.updatedAt;
+    deletedAt = model.deletedAt;
+    isSynced = true;
+    lastSyncAt = DateTime.now();
+  }
+
   Customer toEntity() {
     return Customer(
       id: serverId,

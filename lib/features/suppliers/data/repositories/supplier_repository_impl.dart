@@ -1,15 +1,24 @@
 // lib/features/suppliers/data/repositories/supplier_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:get/get.dart';
+import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/models/pagination_meta.dart';
+import '../../../../app/data/local/sync_service.dart';
+import '../../../../app/data/local/sync_queue.dart';
+import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/enums/isar_enums.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../domain/entities/supplier.dart';
 import '../../domain/repositories/supplier_repository.dart';
 import '../datasources/supplier_remote_datasource.dart';
 import '../datasources/supplier_local_datasource.dart';
 import '../models/create_supplier_request_model.dart';
 import '../models/update_supplier_request_model.dart';
+import '../models/supplier_model.dart';
+import '../models/isar/isar_supplier.dart';
 
 class SupplierRepositoryImpl implements SupplierRepository {
   final SupplierRemoteDataSource remoteDataSource;
@@ -127,101 +136,87 @@ class SupplierRepositoryImpl implements SupplierRepository {
     String searchTerm, {
     int limit = 10,
   }) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final supplierModels = await remoteDataSource.searchSuppliers(
-          searchTerm,
-          limit: limit,
-        );
-        
-        // Cachear los resultados
-        for (final supplier in supplierModels) {
-          await localDataSource.cacheSupplier(supplier);
-        }
-        
-        final suppliers = supplierModels.map((model) => model.toEntity()).toList();
-        return Right(suppliers);
-      } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
-      } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+    try {
+      final supplierModels = await remoteDataSource.searchSuppliers(
+        searchTerm,
+        limit: limit,
+      );
+
+      // Cachear los resultados
+      for (final supplier in supplierModels) {
+        await localDataSource.cacheSupplier(supplier);
       }
-    } else {
+
+      final suppliers = supplierModels.map((model) => model.toEntity()).toList();
+      return Right(suppliers);
+    } catch (e) {
+      print('⚠️ Error del servidor en searchSuppliers: $e - intentando cache local...');
       try {
         final supplierModels = await localDataSource.searchSuppliers(
           searchTerm,
           limit: limit,
         );
-        
+
         final suppliers = supplierModels.map((model) => model.toEntity()).toList();
+        if (suppliers.isNotEmpty) {
+          print('✅ ${suppliers.length} proveedores encontrados en cache local');
+        }
         return Right(suppliers);
-      } on CacheException catch (e) {
-        return Left(CacheFailure(e.message));
-      } catch (e) {
-        return Left(CacheFailure('Error en cache local: $e'));
+      } catch (cacheError) {
+        return Left(CacheFailure('Error al buscar en cache: $cacheError'));
       }
     }
   }
 
   @override
   Future<Either<Failure, List<Supplier>>> getActiveSuppliers() async {
-    if (await networkInfo.isConnected) {
-      try {
-        final supplierModels = await remoteDataSource.getActiveSuppliers();
-        
-        // Cachear los resultados
-        for (final supplier in supplierModels) {
-          await localDataSource.cacheSupplier(supplier);
-        }
-        
-        final suppliers = supplierModels.map((model) => model.toEntity()).toList();
-        return Right(suppliers);
-      } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
-      } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+    try {
+      final supplierModels = await remoteDataSource.getActiveSuppliers();
+
+      // Cachear los resultados
+      for (final supplier in supplierModels) {
+        await localDataSource.cacheSupplier(supplier);
       }
-    } else {
+
+      final suppliers = supplierModels.map((model) => model.toEntity()).toList();
+      return Right(suppliers);
+    } catch (e) {
+      print('⚠️ Error del servidor en getActiveSuppliers: $e - intentando cache local...');
       try {
         final supplierModels = await localDataSource.getActiveSuppliers();
         final suppliers = supplierModels.map((model) => model.toEntity()).toList();
+        if (suppliers.isNotEmpty) {
+          print('✅ ${suppliers.length} proveedores activos encontrados en cache local');
+        }
         return Right(suppliers);
-      } on CacheException catch (e) {
-        return Left(CacheFailure(e.message));
-      } catch (e) {
-        return Left(CacheFailure('Error en cache local: $e'));
+      } catch (cacheError) {
+        return Left(CacheFailure('Error al obtener del cache: $cacheError'));
       }
     }
   }
 
   @override
   Future<Either<Failure, SupplierStats>> getSupplierStats() async {
-    if (await networkInfo.isConnected) {
-      try {
-        final statsModel = await remoteDataSource.getSupplierStats();
-        
-        // Cachear las estadísticas
-        await localDataSource.cacheSupplierStats(statsModel);
-        
-        return Right(statsModel.toEntity());
-      } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
-      } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
-      }
-    } else {
+    try {
+      final statsModel = await remoteDataSource.getSupplierStats();
+
+      // Cachear las estadísticas
+      await localDataSource.cacheSupplierStats(statsModel);
+
+      return Right(statsModel.toEntity());
+    } catch (e) {
+      print('⚠️ Error del servidor en getSupplierStats: $e - intentando cache local...');
       try {
         final statsModel = await localDataSource.getCachedSupplierStats();
-        
+
         if (statsModel != null) {
+          print('✅ Estadísticas de proveedores obtenidas desde cache local');
           return Right(statsModel.toEntity());
         } else {
           return Left(CacheFailure('Estadísticas no disponibles en cache'));
         }
-      } on CacheException catch (e) {
-        return Left(CacheFailure(e.message));
-      } catch (e) {
-        return Left(CacheFailure('Error en cache local: $e'));
+      } catch (cacheError) {
+        return Left(CacheFailure('Error al obtener estadísticas del cache: $cacheError'));
       }
     }
   }
@@ -277,18 +272,87 @@ class SupplierRepositoryImpl implements SupplierRepository {
         );
 
         final supplierModel = await remoteDataSource.createSupplier(request);
-        
+
         // Cachear el nuevo proveedor
         await localDataSource.cacheSupplier(supplierModel);
-        
+
         return Right(supplierModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        print('⚠️ [SUPPLIER_REPO] ServerException: ${e.message} - Fallback offline...');
+        return _createSupplierOffline(
+          name: name,
+          code: code,
+          documentType: documentType,
+          documentNumber: documentNumber,
+          contactPerson: contactPerson,
+          email: email,
+          phone: phone,
+          mobile: mobile,
+          address: address,
+          city: city,
+          state: state,
+          country: country,
+          postalCode: postalCode,
+          website: website,
+          status: status,
+          currency: currency,
+          paymentTermsDays: paymentTermsDays,
+          creditLimit: creditLimit,
+          discountPercentage: discountPercentage,
+          notes: notes,
+          metadata: metadata,
+        );
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        print('⚠️ [SUPPLIER_REPO] Exception: $e - Fallback offline...');
+        return _createSupplierOffline(
+          name: name,
+          code: code,
+          documentType: documentType,
+          documentNumber: documentNumber,
+          contactPerson: contactPerson,
+          email: email,
+          phone: phone,
+          mobile: mobile,
+          address: address,
+          city: city,
+          state: state,
+          country: country,
+          postalCode: postalCode,
+          website: website,
+          status: status,
+          currency: currency,
+          paymentTermsDays: paymentTermsDays,
+          creditLimit: creditLimit,
+          discountPercentage: discountPercentage,
+          notes: notes,
+          metadata: metadata,
+        );
       }
     } else {
-      return Left(ServerFailure('No hay conexión a internet para crear proveedor'));
+      // Sin conexión, crear proveedor offline
+      return _createSupplierOffline(
+        name: name,
+        code: code,
+        documentType: documentType,
+        documentNumber: documentNumber,
+        contactPerson: contactPerson,
+        email: email,
+        phone: phone,
+        mobile: mobile,
+        address: address,
+        city: city,
+        state: state,
+        country: country,
+        postalCode: postalCode,
+        website: website,
+        status: status,
+        currency: currency,
+        paymentTermsDays: paymentTermsDays,
+        creditLimit: creditLimit,
+        discountPercentage: discountPercentage,
+        notes: notes,
+        metadata: metadata,
+      );
     }
   }
 
@@ -344,18 +408,90 @@ class SupplierRepositoryImpl implements SupplierRepository {
         );
 
         final supplierModel = await remoteDataSource.updateSupplier(id, request);
-        
+
         // Actualizar cache
         await localDataSource.cacheSupplier(supplierModel);
-        
+
         return Right(supplierModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        print('⚠️ [SUPPLIER_REPO] ServerException: ${e.message} - Fallback offline...');
+        return _updateSupplierOffline(
+          id: id,
+          name: name,
+          code: code,
+          documentType: documentType,
+          documentNumber: documentNumber,
+          contactPerson: contactPerson,
+          email: email,
+          phone: phone,
+          mobile: mobile,
+          address: address,
+          city: city,
+          state: state,
+          country: country,
+          postalCode: postalCode,
+          website: website,
+          status: status,
+          currency: currency,
+          paymentTermsDays: paymentTermsDays,
+          creditLimit: creditLimit,
+          discountPercentage: discountPercentage,
+          notes: notes,
+          metadata: metadata,
+        );
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        print('⚠️ [SUPPLIER_REPO] Exception: $e - Fallback offline...');
+        return _updateSupplierOffline(
+          id: id,
+          name: name,
+          code: code,
+          documentType: documentType,
+          documentNumber: documentNumber,
+          contactPerson: contactPerson,
+          email: email,
+          phone: phone,
+          mobile: mobile,
+          address: address,
+          city: city,
+          state: state,
+          country: country,
+          postalCode: postalCode,
+          website: website,
+          status: status,
+          currency: currency,
+          paymentTermsDays: paymentTermsDays,
+          creditLimit: creditLimit,
+          discountPercentage: discountPercentage,
+          notes: notes,
+          metadata: metadata,
+        );
       }
     } else {
-      return Left(ServerFailure('No hay conexión a internet para actualizar proveedor'));
+      // Sin conexión, actualizar offline
+      return _updateSupplierOffline(
+        id: id,
+        name: name,
+        code: code,
+        documentType: documentType,
+        documentNumber: documentNumber,
+        contactPerson: contactPerson,
+        email: email,
+        phone: phone,
+        mobile: mobile,
+        address: address,
+        city: city,
+        state: state,
+        country: country,
+        postalCode: postalCode,
+        website: website,
+        status: status,
+        currency: currency,
+        paymentTermsDays: paymentTermsDays,
+        creditLimit: creditLimit,
+        discountPercentage: discountPercentage,
+        notes: notes,
+        metadata: metadata,
+      );
     }
   }
 
@@ -390,18 +526,40 @@ class SupplierRepositoryImpl implements SupplierRepository {
     if (await networkInfo.isConnected) {
       try {
         await remoteDataSource.deleteSupplier(id);
-        
+
+        // Soft delete en ISAR después de eliminar en servidor
+        try {
+          final isar = IsarDatabase.instance.database;
+          final isarSupplier = await isar.isarSuppliers
+              .filter()
+              .serverIdEqualTo(id)
+              .findFirst();
+
+          if (isarSupplier != null) {
+            isarSupplier.softDelete();
+            await isar.writeTxn(() async {
+              await isar.isarSuppliers.put(isarSupplier);
+            });
+            print('✅ Supplier marcado como eliminado en ISAR: $id');
+          }
+        } catch (e) {
+          print('⚠️ Error actualizando ISAR (no crítico): $e');
+        }
+
         // Remover del cache
         await localDataSource.removeCachedSupplier(id);
-        
+
         return const Right(unit);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        print('⚠️ [SUPPLIER_REPO] ServerException: ${e.message} - Fallback offline...');
+        return _deleteSupplierOffline(id);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        print('⚠️ [SUPPLIER_REPO] Exception: $e - Fallback offline...');
+        return _deleteSupplierOffline(id);
       }
     } else {
-      return Left(ServerFailure('No hay conexión a internet para eliminar proveedor'));
+      // Sin conexión, eliminar offline
+      return _deleteSupplierOffline(id);
     }
   }
 
@@ -561,6 +719,376 @@ class SupplierRepositoryImpl implements SupplierRepository {
       return Left(CacheFailure(e.message));
     } catch (e) {
       return Left(CacheFailure('Error limpiando cache: $e'));
+    }
+  }
+
+  // ==================== PRIVATE OFFLINE METHODS ====================
+
+  /// Crear proveedor offline (usado como fallback cuando falla el servidor o no hay conexión)
+  Future<Either<Failure, Supplier>> _createSupplierOffline({
+    required String name,
+    String? code,
+    required DocumentType documentType,
+    required String documentNumber,
+    String? contactPerson,
+    String? email,
+    String? phone,
+    String? mobile,
+    String? address,
+    String? city,
+    String? state,
+    String? country,
+    String? postalCode,
+    String? website,
+    SupplierStatus? status,
+    String? currency,
+    int? paymentTermsDays,
+    double? creditLimit,
+    double? discountPercentage,
+    String? notes,
+    Map<String, dynamic>? metadata,
+  }) async {
+    print('📱 SupplierRepository: Creating supplier offline: $name');
+    try {
+      final now = DateTime.now();
+      final tempId = 'supplier_offline_${now.millisecondsSinceEpoch}_${name.hashCode}';
+
+      // Obtener organizationId del usuario autenticado
+      String organizationId;
+      try {
+        final authController = Get.find<AuthController>();
+        organizationId = authController.currentUser?.organizationId ?? '';
+        if (organizationId.isEmpty) {
+          throw Exception('No hay usuario autenticado o organizationId no disponible');
+        }
+      } catch (e) {
+        print('❌ Error obteniendo organizationId: $e');
+        return Left(CacheFailure('Error al obtener organizationId del usuario: $e'));
+      }
+
+      final tempSupplier = Supplier(
+        id: tempId,
+        name: name,
+        code: code,
+        documentType: documentType,
+        documentNumber: documentNumber,
+        contactPerson: contactPerson,
+        email: email,
+        phone: phone,
+        mobile: mobile,
+        address: address,
+        city: city,
+        state: state,
+        country: country,
+        postalCode: postalCode,
+        website: website,
+        status: status ?? SupplierStatus.active,
+        currency: currency ?? 'COP',
+        paymentTermsDays: paymentTermsDays ?? 30,
+        creditLimit: creditLimit ?? 0.0,
+        discountPercentage: discountPercentage ?? 0.0,
+        notes: notes,
+        metadata: metadata,
+        organizationId: organizationId,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      // Guardar en ISAR
+      try {
+        final isar = IsarDatabase.instance.database;
+        final isarSupplier = IsarSupplier.fromEntity(tempSupplier);
+        isarSupplier.markAsUnsynced();
+
+        await isar.writeTxn(() async {
+          await isar.isarSuppliers.put(isarSupplier);
+        });
+        print('✅ SupplierRepository: Supplier saved to ISAR');
+      } catch (e) {
+        print('❌ Error saving to ISAR: $e');
+        return Left(CacheFailure('Error al guardar en ISAR: $e'));
+      }
+
+      // Cache en SecureStorage
+      await localDataSource.cacheSupplier(SupplierModel.fromEntity(tempSupplier));
+
+      // Agregar a cola de sincronización
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Supplier',
+          entityId: tempId,
+          operationType: SyncOperationType.create,
+          data: {
+            'name': name,
+            'code': code,
+            'documentType': documentType.name,
+            'documentNumber': documentNumber,
+            'contactPerson': contactPerson,
+            'email': email,
+            'phone': phone,
+            'mobile': mobile,
+            'address': address,
+            'city': city,
+            'state': state,
+            'country': country,
+            'postalCode': postalCode,
+            'website': website,
+            'status': status?.name,
+            'currency': currency,
+            'paymentTermsDays': paymentTermsDays,
+            'creditLimit': creditLimit,
+            'discountPercentage': discountPercentage,
+            'notes': notes,
+            'metadata': metadata,
+          },
+          priority: 1,
+        );
+        print('📤 SupplierRepository: Operación agregada a cola');
+      } catch (e) {
+        print('⚠️ Error agregando a cola: $e');
+      }
+
+      print('✅ Supplier created offline successfully');
+      return Right(tempSupplier);
+    } catch (e) {
+      print('❌ Error creating supplier offline: $e');
+      return Left(CacheFailure('Error al crear proveedor offline: $e'));
+    }
+  }
+
+  /// Actualizar proveedor offline (usado como fallback cuando falla el servidor o no hay conexión)
+  Future<Either<Failure, Supplier>> _updateSupplierOffline({
+    required String id,
+    String? name,
+    String? code,
+    DocumentType? documentType,
+    String? documentNumber,
+    String? contactPerson,
+    String? email,
+    String? phone,
+    String? mobile,
+    String? address,
+    String? city,
+    String? state,
+    String? country,
+    String? postalCode,
+    String? website,
+    SupplierStatus? status,
+    String? currency,
+    int? paymentTermsDays,
+    double? creditLimit,
+    double? discountPercentage,
+    String? notes,
+    Map<String, dynamic>? metadata,
+  }) async {
+    print('📱 SupplierRepository: Updating supplier offline: $id');
+    try {
+      // PASO 1: Actualizar en ISAR primero
+      final isar = IsarDatabase.instance.database;
+      final isarSupplier = await isar.isarSuppliers
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      if (isarSupplier == null) {
+        return Left(CacheFailure('Proveedor no encontrado en ISAR: $id'));
+      }
+
+      // Actualizar campos en ISAR
+      if (name != null) isarSupplier.name = name;
+      if (code != null) isarSupplier.code = code;
+      if (documentType != null) {
+        isarSupplier.documentType = _mapDocumentTypeToIsar(documentType);
+      }
+      if (documentNumber != null) isarSupplier.documentNumber = documentNumber;
+      if (contactPerson != null) isarSupplier.contactPerson = contactPerson;
+      if (email != null) isarSupplier.email = email;
+      if (phone != null) isarSupplier.phone = phone;
+      if (mobile != null) isarSupplier.mobile = mobile;
+      if (address != null) isarSupplier.address = address;
+      if (city != null) isarSupplier.city = city;
+      if (state != null) isarSupplier.state = state;
+      if (country != null) isarSupplier.country = country;
+      if (postalCode != null) isarSupplier.postalCode = postalCode;
+      if (website != null) isarSupplier.website = website;
+      if (status != null) {
+        isarSupplier.status = _mapSupplierStatusToIsar(status);
+      }
+      if (currency != null) isarSupplier.currency = currency;
+      if (paymentTermsDays != null) isarSupplier.paymentTermsDays = paymentTermsDays;
+      if (creditLimit != null) isarSupplier.creditLimit = creditLimit;
+      if (discountPercentage != null) isarSupplier.discountPercentage = discountPercentage;
+      if (notes != null) isarSupplier.notes = notes;
+
+      // Marcar como no sincronizado
+      isarSupplier.markAsUnsynced();
+
+      // Guardar en ISAR
+      await isar.writeTxn(() async {
+        await isar.isarSuppliers.put(isarSupplier);
+      });
+      print('✅ SupplierRepository: Supplier updated in ISAR');
+
+      // PASO 2: Actualizar en SecureStorage
+      final cachedSupplierModel = await localDataSource.getSupplierById(id);
+      if (cachedSupplierModel == null) {
+        return Left(CacheFailure('Proveedor no encontrado en cache: $id'));
+      }
+      final cachedSupplier = cachedSupplierModel.toEntity();
+
+      final updatedSupplier = Supplier(
+        id: id,
+        name: name ?? cachedSupplier.name,
+        code: code ?? cachedSupplier.code,
+        documentType: documentType ?? cachedSupplier.documentType,
+        documentNumber: documentNumber ?? cachedSupplier.documentNumber,
+        contactPerson: contactPerson ?? cachedSupplier.contactPerson,
+        email: email ?? cachedSupplier.email,
+        phone: phone ?? cachedSupplier.phone,
+        mobile: mobile ?? cachedSupplier.mobile,
+        address: address ?? cachedSupplier.address,
+        city: city ?? cachedSupplier.city,
+        state: state ?? cachedSupplier.state,
+        country: country ?? cachedSupplier.country,
+        postalCode: postalCode ?? cachedSupplier.postalCode,
+        website: website ?? cachedSupplier.website,
+        status: status ?? cachedSupplier.status,
+        currency: currency ?? cachedSupplier.currency,
+        paymentTermsDays: paymentTermsDays ?? cachedSupplier.paymentTermsDays,
+        creditLimit: creditLimit ?? cachedSupplier.creditLimit,
+        discountPercentage: discountPercentage ?? cachedSupplier.discountPercentage,
+        notes: notes ?? cachedSupplier.notes,
+        metadata: metadata ?? cachedSupplier.metadata,
+        organizationId: cachedSupplier.organizationId,
+        createdAt: cachedSupplier.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      await localDataSource.cacheSupplier(SupplierModel.fromEntity(updatedSupplier));
+
+      // Agregar a cola
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Supplier',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {
+            'name': name,
+            'code': code,
+            'documentType': documentType?.name,
+            'documentNumber': documentNumber,
+            'contactPerson': contactPerson,
+            'email': email,
+            'phone': phone,
+            'mobile': mobile,
+            'address': address,
+            'city': city,
+            'state': state,
+            'country': country,
+            'postalCode': postalCode,
+            'website': website,
+            'status': status?.name,
+            'currency': currency,
+            'paymentTermsDays': paymentTermsDays,
+            'creditLimit': creditLimit,
+            'discountPercentage': discountPercentage,
+            'notes': notes,
+            'metadata': metadata,
+          },
+          priority: 1,
+        );
+        print('📤 Actualización agregada a cola');
+      } catch (e) {
+        print('⚠️ Error agregando a cola: $e');
+      }
+
+      print('✅ Supplier updated offline successfully');
+      return Right(updatedSupplier);
+    } catch (e) {
+      print('❌ Error updating supplier offline: $e');
+      return Left(CacheFailure('Error al actualizar proveedor offline: $e'));
+    }
+  }
+
+  /// Eliminar proveedor offline (usado como fallback cuando falla el servidor o no hay conexión)
+  Future<Either<Failure, Unit>> _deleteSupplierOffline(String id) async {
+    print('📱 SupplierRepository: Deleting supplier offline: $id');
+    try {
+      // Soft delete en ISAR
+      try {
+        final isar = IsarDatabase.instance.database;
+        final isarSupplier = await isar.isarSuppliers
+            .filter()
+            .serverIdEqualTo(id)
+            .findFirst();
+
+        if (isarSupplier != null) {
+          isarSupplier.softDelete();
+          await isar.writeTxn(() async {
+            await isar.isarSuppliers.put(isarSupplier);
+          });
+          print('✅ Supplier marcado como eliminado en ISAR (offline): $id');
+        }
+      } catch (e) {
+        print('⚠️ Error actualizando ISAR (no crítico): $e');
+      }
+
+      // Remover del cache
+      await localDataSource.removeCachedSupplier(id);
+
+      // Agregar a cola de sincronización
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Supplier',
+          entityId: id,
+          operationType: SyncOperationType.delete,
+          data: {'id': id},
+          priority: 1,
+        );
+        print('📤 Eliminación agregada a cola');
+      } catch (e) {
+        print('⚠️ Error agregando a cola: $e');
+      }
+
+      print('✅ Supplier deleted offline successfully');
+      return const Right(unit);
+    } catch (e) {
+      print('❌ Error deleting supplier offline: $e');
+      return Left(CacheFailure('Error al eliminar proveedor offline: $e'));
+    }
+  }
+
+  // ==================== HELPER METHODS ====================
+
+  /// Mapear DocumentType a IsarDocumentType
+  IsarDocumentType _mapDocumentTypeToIsar(DocumentType type) {
+    switch (type) {
+      case DocumentType.nit:
+        return IsarDocumentType.nit;
+      case DocumentType.cc:
+        return IsarDocumentType.cc;
+      case DocumentType.ce:
+        return IsarDocumentType.ce;
+      case DocumentType.passport:
+        return IsarDocumentType.passport;
+      case DocumentType.rut:
+      case DocumentType.other:
+        return IsarDocumentType.other;
+    }
+  }
+
+  /// Mapear SupplierStatus a IsarSupplierStatus
+  IsarSupplierStatus _mapSupplierStatusToIsar(SupplierStatus status) {
+    switch (status) {
+      case SupplierStatus.active:
+        return IsarSupplierStatus.active;
+      case SupplierStatus.inactive:
+        return IsarSupplierStatus.inactive;
+      case SupplierStatus.blocked:
+        return IsarSupplierStatus.blocked;
     }
   }
 }

@@ -246,12 +246,21 @@ class DioClient {
     if (kDebugMode) {
       _dio.interceptors.add(
         LogInterceptor(
-          requestBody: true,
-          responseBody: true,
-          requestHeader: true,
+          request: false, // ✅ NO mostrar requests (evita logs de requests fallidos)
+          requestBody: false,
+          requestHeader: false,
+          responseBody: true, // ✅ Solo mostrar responses exitosas
           responseHeader: false,
-          error: true,
-          logPrint: (obj) => print('DIO: $obj'),
+          error: false, // NO mostrar errores (manejados manualmente)
+          logPrint: (obj) {
+            // NO imprimir logs de errores de conexión
+            final str = obj.toString();
+            if (!str.contains('DioException') &&
+                !str.contains('Connection refused') &&
+                !str.contains('SocketException')) {
+              print('DIO: $obj');
+            }
+          },
         ),
       );
     }
@@ -264,16 +273,13 @@ class DioClient {
     Options? options,
   }) async {
     try {
-      print('🔍 GET Request: ${ApiConstants.baseUrl}$endpoint');
       final response = await _dio.get(
         endpoint,
         queryParameters: queryParameters,
         options: options,
       );
-      print('✅ GET Success: ${response.statusCode}');
       return response;
     } on DioException catch (e) {
-      print('❌ GET Error: ${e.type} - ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -286,20 +292,14 @@ class DioClient {
     Options? options,
   }) async {
     try {
-      print('📤 POST Request: ${ApiConstants.baseUrl}$endpoint');
-      if (data != null) {
-        print('📋 POST Data: $data');
-      }
       final response = await _dio.post(
         endpoint,
         data: data,
         queryParameters: queryParameters,
         options: options,
       );
-      print('✅ POST Success: ${response.statusCode}');
       return response;
     } on DioException catch (e) {
-      print('❌ POST Error: ${e.type} - ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -312,17 +312,14 @@ class DioClient {
     Options? options,
   }) async {
     try {
-      print('🔄 PUT Request: ${ApiConstants.baseUrl}$endpoint');
       final response = await _dio.put(
         endpoint,
         data: data,
         queryParameters: queryParameters,
         options: options,
       );
-      print('✅ PUT Success: ${response.statusCode}');
       return response;
     } on DioException catch (e) {
-      print('❌ PUT Error: ${e.type} - ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -335,17 +332,14 @@ class DioClient {
     Options? options,
   }) async {
     try {
-      print('🔧 PATCH Request: ${ApiConstants.baseUrl}$endpoint');
       final response = await _dio.patch(
         endpoint,
         data: data,
         queryParameters: queryParameters,
         options: options,
       );
-      print('✅ PATCH Success: ${response.statusCode}');
       return response;
     } on DioException catch (e) {
-      print('❌ PATCH Error: ${e.type} - ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -358,28 +352,21 @@ class DioClient {
     Options? options,
   }) async {
     try {
-      print('🗑️ DELETE Request: ${ApiConstants.baseUrl}$endpoint');
       final response = await _dio.delete(
         endpoint,
         data: data,
         queryParameters: queryParameters,
         options: options,
       );
-      print('✅ DELETE Success: ${response.statusCode}');
       return response;
     } on DioException catch (e) {
-      print('❌ DELETE Error: ${e.type} - ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   // Manejo de errores de Dio
   Exception _handleDioError(DioException error) {
-    print('🚨 DioError Details:');
-    print('   Type: ${error.type}');
-    print('   Message: ${error.message}');
-    print('   Response: ${error.response?.data}');
-    print('   Status Code: ${error.response?.statusCode}');
+    // NO imprimir ningún detalle de error
 
     switch (error.type) {
       case DioExceptionType.connectionTimeout:

@@ -2,8 +2,10 @@
 import 'package:get/get.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/network/network_info.dart';
+import '../../../../app/core/storage/secure_storage_service.dart';
 
 // Data Layer
+import '../../data/datasources/credit_note_local_datasource.dart';
 import '../../data/datasources/credit_note_remote_datasource.dart';
 import '../../data/repositories/credit_note_repository_impl.dart';
 
@@ -46,12 +48,24 @@ class CreditNoteBinding extends Bindings {
       fenix: true,
     );
 
+    // ==================== LOCAL DATASOURCES ====================
+    Get.lazyPut<CreditNoteLocalDataSource>(
+      () {
+        print('📱 Creando CreditNoteLocalDataSource');
+        return CreditNoteLocalDataSourceImpl(
+          storageService: Get.find<SecureStorageService>(),
+        );
+      },
+      fenix: true,
+    );
+
     // ==================== REPOSITORIES ====================
     Get.lazyPut<CreditNoteRepository>(
       () {
         print('💾 Creando CreditNoteRepository');
         return CreditNoteRepositoryImpl(
           remoteDataSource: Get.find<CreditNoteRemoteDataSource>(),
+          localDataSource: Get.find<CreditNoteLocalDataSource>(),
           networkInfo: Get.find<NetworkInfo>(),
         );
       },

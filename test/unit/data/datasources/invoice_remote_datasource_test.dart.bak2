@@ -1,0 +1,1086 @@
+// test/unit/data/datasources/invoice_remote_datasource_test.dart
+import 'package:baudex_desktop/app/core/errors/exceptions.dart';
+import 'package:baudex_desktop/app/core/network/dio_client.dart';
+import 'package:baudex_desktop/features/invoices/data/datasources/invoice_remote_datasource.dart';
+import 'package:baudex_desktop/features/invoices/data/models/create_invoice_request_model.dart';
+import 'package:baudex_desktop/features/invoices/data/models/update_invoice_request_model.dart';
+import 'package:baudex_desktop/features/invoices/data/models/add_payment_request_model.dart';
+import 'package:baudex_desktop/features/invoices/data/models/invoice_model.dart';
+import 'package:baudex_desktop/features/invoices/data/models/invoice_stats_model.dart';
+import 'package:baudex_desktop/features/invoices/data/models/invoice_response_models.dart';
+import 'package:baudex_desktop/features/invoices/data/models/invoice_query_models.dart';
+import 'package:baudex_desktop/features/invoices/domain/entities/invoice.dart';
+import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+import '../../../fixtures/invoice_fixtures.dart';
+
+// Mocks
+class MockDioClient extends Mock implements DioClient {}
+
+// Helper function to create invoice JSON without using toJson()
+Map<String, dynamic> createInvoiceJson({
+  String id = 'inv-001',
+  String number = 'INV-00001',
+  String customerId = 'cust-001',
+  String createdById = 'user-001',
+  double total = 119000.0,
+}) {
+  return {
+    'id': id,
+    'number': number,
+    'date': '2024-01-01T00:00:00.000',
+    'dueDate': '2024-01-15T00:00:00.000',
+    'status': 'pending',
+    'paymentMethod': 'cash',
+    'customerId': customerId,
+    'createdById': createdById,
+    'subtotal': 100000.0,
+    'taxPercentage': 19.0,
+    'taxAmount': 19000.0,
+    'discountPercentage': 0.0,
+    'discountAmount': 0.0,
+    'total': total,
+    'paidAmount': 0.0,
+    'balanceDue': total,
+    'creditedAmount': 0.0,
+    'items': [],
+    'payments': [],
+    'createdAt': '2024-01-01T00:00:00.000',
+    'updatedAt': '2024-01-01T00:00:00.000',
+  };
+}
+
+void main() {
+  late InvoiceRemoteDataSourceImpl dataSource;
+  late MockDioClient mockDioClient;
+
+  setUp(() {
+    mockDioClient = MockDioClient();
+    dataSource = InvoiceRemoteDataSourceImpl(dioClient: mockDioClient);
+
+    // Register fallback values
+    registerFallbackValue(
+      InvoiceQueryParams(page: 1, limit: 10),
+    );
+    registerFallbackValue(
+      CreateInvoiceRequestModel(
+        customerId: 'cust-001',
+        items: [],
+      ),
+    );
+    registerFallbackValue(
+      UpdateInvoiceRequestModel(),
+    );
+    registerFallbackValue(
+      AddPaymentRequestModel(
+        amount: 100000.0,
+        paymentMethod: PaymentMethod.cash.name,
+      ),
+    );
+  });
+
+  group('InvoiceRemoteDataSource - getInvoices', () {
+    final tInvoices = InvoiceFixtures.createInvoiceEntityList(5);
+    final tInvoiceModels = tInvoices
+        .map((e) => InvoiceModel.fromEntity(e))
+        .toList();
+
+    final tResponseData = {
+      'success': true,
+      'data': List.generate(
+        5,
+        (index) => {
+          'id': 'inv-${index + 1}',
+          'number': 'INV-${(index + 1).toString().padLeft(5, '0')}',
+          'date': '2024-01-01T00:00:00.000',
+          'dueDate': '2024-01-15T00:00:00.000',
+          'status': 'pending',
+          'paymentMethod': 'cash',
+          'customerId': 'cust-001',
+          'createdById': 'user-001',
+          'subtotal': 100000.0,
+          'taxPercentage': 19.0,
+          'taxAmount': 19000.0,
+          'discountPercentage': 0.0,
+          'discountAmount': 0.0,
+          'total': 119000.0,
+          'paidAmount': 0.0,
+          'balanceDue': 119000.0,
+          'creditedAmount': 0.0,
+          'items': [],
+          'payments': [],
+          'createdAt': '2024-01-01T00:00:00.000',
+          'updatedAt': '2024-01-01T00:00:00.000',
+        },
+      ),
+      'meta': {
+        'page': 1,
+        'totalPages': 2,
+        'totalItems': 10,
+        'limit': 5,
+        'hasNextPage': true,
+        'hasPreviousPage': false,
+      },
+      'message': 'Invoices retrieved successfully',
+    };
+
+    test(
+      'should perform GET request to /invoices with query parameters',
+      () async {
+        // Arrange
+        final params = InvoiceQueryParams(
+          page: 1,
+          limit: 10,
+          search: 'INV',
+          status: InvoiceStatus.pending,
+        );
+
+        when(() => mockDioClient.get(
+              any(),
+              queryParameters: any(named: 'queryParameters'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices'),
+          ),
+        );
+
+        // Act
+        await dataSource.getInvoices(params);
+
+        // Assert
+        verify(() => mockDioClient.get(
+              '/invoices',
+              queryParameters: any(named: 'queryParameters'),
+            )).called(1);
+      },
+    );
+
+    test(
+      'should return InvoiceResponseModel when status code is 200',
+      () async {
+        // Arrange
+        final params = InvoiceQueryParams(page: 1, limit: 10);
+
+        when(() => mockDioClient.get(
+              any(),
+              queryParameters: any(named: 'queryParameters'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.getInvoices(params);
+
+        // Assert
+        expect(result, isA<InvoiceResponseModel>());
+        expect(result.data.length, 5);
+        expect(result.meta.page, 1);
+      },
+    );
+
+    test(
+      'should throw ServerException when status code is 404',
+      () async {
+        // Arrange
+        final params = InvoiceQueryParams(page: 1, limit: 10);
+
+        when(() => mockDioClient.get(
+              any(),
+              queryParameters: any(named: 'queryParameters'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: {'success': false, 'message': 'Not found'},
+            statusCode: 404,
+            requestOptions: RequestOptions(path: '/invoices'),
+          ),
+        );
+
+        // Act & Assert
+        expect(
+          () => dataSource.getInvoices(params),
+          throwsA(isA<ServerException>()),
+        );
+      },
+    );
+
+    test(
+      'should throw ConnectionException on DioException with no response',
+      () async {
+        // Arrange
+        final params = InvoiceQueryParams(page: 1, limit: 10);
+
+        when(() => mockDioClient.get(
+              any(),
+              queryParameters: any(named: 'queryParameters'),
+            )).thenThrow(
+          DioException(
+            requestOptions: RequestOptions(path: '/invoices'),
+            type: DioExceptionType.connectionTimeout,
+          ),
+        );
+
+        // Act & Assert
+        expect(
+          () => dataSource.getInvoices(params),
+          throwsA(isA<ConnectionException>()),
+        );
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - getInvoiceById', () {
+    const tInvoiceId = 'inv-001';
+    final tInvoice = InvoiceFixtures.createInvoiceEntity(id: tInvoiceId);
+    final tInvoiceModel = InvoiceModel.fromEntity(tInvoice);
+
+    final tResponseData = {
+      'success': true,
+      'data': createInvoiceJson(id: tInvoiceId),
+      'message': 'Invoice retrieved successfully',
+    };
+
+    test(
+      'should perform GET request to /invoices/:id',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId'),
+          ),
+        );
+
+        // Act
+        await dataSource.getInvoiceById(tInvoiceId);
+
+        // Assert
+        verify(() => mockDioClient.get('/invoices/$tInvoiceId')).called(1);
+      },
+    );
+
+    test(
+      'should return InvoiceModel when status code is 200',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.getInvoiceById(tInvoiceId);
+
+        // Assert
+        expect(result, isA<InvoiceModel>());
+        expect(result.id, tInvoiceId);
+        expect(result.number, tInvoice.number);
+      },
+    );
+
+    test(
+      'should throw ServerException when invoice not found (404)',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: {'success': false, 'message': 'Invoice not found'},
+            statusCode: 404,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId'),
+          ),
+        );
+
+        // Act & Assert
+        expect(
+          () => dataSource.getInvoiceById(tInvoiceId),
+          throwsA(isA<ServerException>()),
+        );
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - getInvoiceByNumber', () {
+    const tInvoiceNumber = 'INV-001';
+    final tInvoice = InvoiceFixtures.createInvoiceEntity(number: tInvoiceNumber);
+    final tInvoiceModel = InvoiceModel.fromEntity(tInvoice);
+
+    final tResponseData = {
+      'success': true,
+      'data': createInvoiceJson(),
+      'message': 'Invoice retrieved successfully',
+    };
+
+    test(
+      'should perform GET request to /invoices/number/:number',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/number/$tInvoiceNumber'),
+          ),
+        );
+
+        // Act
+        await dataSource.getInvoiceByNumber(tInvoiceNumber);
+
+        // Assert
+        verify(() => mockDioClient.get('/invoices/number/$tInvoiceNumber')).called(1);
+      },
+    );
+
+    test(
+      'should return InvoiceModel when status code is 200',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/number/$tInvoiceNumber'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.getInvoiceByNumber(tInvoiceNumber);
+
+        // Assert
+        expect(result, isA<InvoiceModel>());
+        expect(result.number, tInvoiceNumber);
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - getOverdueInvoices', () {
+    final tOverdueInvoices = [
+      InvoiceFixtures.createOverdueInvoice(id: 'inv-001'),
+      InvoiceFixtures.createOverdueInvoice(id: 'inv-002'),
+    ];
+    final tInvoiceModels = tOverdueInvoices
+        .map((e) => InvoiceModel.fromEntity(e))
+        .toList();
+
+    final tResponseData = {
+      'success': true,
+      'data': tInvoiceModels.map((e) => e.toJson()).toList(),
+      'message': 'Overdue invoices retrieved',
+    };
+
+    test(
+      'should perform GET request to /invoices/overdue',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/overdue'),
+          ),
+        );
+
+        // Act
+        await dataSource.getOverdueInvoices();
+
+        // Assert
+        verify(() => mockDioClient.get('/invoices/overdue')).called(1);
+      },
+    );
+
+    test(
+      'should return list of overdue InvoiceModels',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/overdue'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.getOverdueInvoices();
+
+        // Assert
+        expect(result, isA<List<InvoiceModel>>());
+        expect(result.length, 2);
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - getInvoiceStats', () {
+    final tStatsData = {
+      'success': true,
+      'data': {
+        'totalInvoices': 100,
+        'totalAmount': 10000000.0,
+        'paidAmount': 7000000.0,
+        'pendingAmount': 3000000.0,
+        'overdueAmount': 500000.0,
+        'totalPaid': 70,
+        'totalPending': 25,
+        'totalOverdue': 5,
+      },
+      'message': 'Invoice stats retrieved',
+    };
+
+    test(
+      'should perform GET request to /invoices/stats',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: tStatsData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/stats'),
+          ),
+        );
+
+        // Act
+        await dataSource.getInvoiceStats();
+
+        // Assert
+        verify(() => mockDioClient.get('/invoices/stats')).called(1);
+      },
+    );
+
+    test(
+      'should return InvoiceStatsModel when status code is 200',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: tStatsData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/stats'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.getInvoiceStats();
+
+        // Assert
+        expect(result, isA<InvoiceStatsModel>());
+        expect(result.total, 100);
+        expect(result.totalSales, 10000000.0);
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - getInvoicesByCustomer', () {
+    const tCustomerId = 'cust-001';
+    final tInvoices = InvoiceFixtures.createInvoiceEntityList(3);
+    final tInvoiceModels = tInvoices
+        .map((e) => InvoiceModel.fromEntity(e))
+        .toList();
+
+    final tResponseData = {
+      'success': true,
+      'data': tInvoiceModels.map((e) => e.toJson()).toList(),
+      'message': 'Customer invoices retrieved',
+    };
+
+    test(
+      'should perform GET request to /invoices/customer/:customerId',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/customer/$tCustomerId'),
+          ),
+        );
+
+        // Act
+        await dataSource.getInvoicesByCustomer(tCustomerId);
+
+        // Assert
+        verify(() => mockDioClient.get('/invoices/customer/$tCustomerId')).called(1);
+      },
+    );
+
+    test(
+      'should return list of InvoiceModels for customer',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/customer/$tCustomerId'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.getInvoicesByCustomer(tCustomerId);
+
+        // Assert
+        expect(result, isA<List<InvoiceModel>>());
+        expect(result.length, 3);
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - searchInvoices', () {
+    const tSearchTerm = 'INV-001';
+    final tInvoices = InvoiceFixtures.createInvoiceEntityList(2);
+    final tInvoiceModels = tInvoices
+        .map((e) => InvoiceModel.fromEntity(e))
+        .toList();
+
+    final tResponseData = {
+      'success': true,
+      'data': tInvoiceModels.map((e) => e.toJson()).toList(),
+      'message': 'Search results',
+    };
+
+    test(
+      'should perform GET request to /invoices/search with query params',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(
+              any(),
+              queryParameters: any(named: 'queryParameters'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/search'),
+          ),
+        );
+
+        // Act
+        await dataSource.searchInvoices(tSearchTerm);
+
+        // Assert
+        verify(() => mockDioClient.get(
+              '/invoices/search',
+              queryParameters: {'term': tSearchTerm},
+            )).called(1);
+      },
+    );
+
+    test(
+      'should return list of matching InvoiceModels',
+      () async {
+        // Arrange
+        when(() => mockDioClient.get(
+              any(),
+              queryParameters: any(named: 'queryParameters'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/search'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.searchInvoices(tSearchTerm);
+
+        // Assert
+        expect(result, isA<List<InvoiceModel>>());
+        expect(result.length, 2);
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - createInvoice', () {
+    final tInvoice = InvoiceFixtures.createInvoiceEntity();
+    final tInvoiceModel = InvoiceModel.fromEntity(tInvoice);
+    final tRequest = CreateInvoiceRequestModel(
+      customerId: tInvoice.customerId,
+      items: [],
+    );
+
+    final tResponseData = {
+      'success': true,
+      'data': createInvoiceJson(),
+      'message': 'Invoice created successfully',
+    };
+
+    test(
+      'should perform POST request to /invoices',
+      () async {
+        // Arrange
+        when(() => mockDioClient.post(
+              any(),
+              data: any(named: 'data'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 201,
+            requestOptions: RequestOptions(path: '/invoices'),
+          ),
+        );
+
+        // Act
+        await dataSource.createInvoice(tRequest);
+
+        // Assert
+        verify(() => mockDioClient.post(
+              '/invoices',
+              data: any(named: 'data'),
+            )).called(1);
+      },
+    );
+
+    test(
+      'should return created InvoiceModel when status code is 201',
+      () async {
+        // Arrange
+        when(() => mockDioClient.post(
+              any(),
+              data: any(named: 'data'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 201,
+            requestOptions: RequestOptions(path: '/invoices'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.createInvoice(tRequest);
+
+        // Assert
+        expect(result, isA<InvoiceModel>());
+        expect(result.customerId, tInvoice.customerId);
+      },
+    );
+
+    test(
+      'should throw ValidationException on 400 status code',
+      () async {
+        // Arrange
+        when(() => mockDioClient.post(
+              any(),
+              data: any(named: 'data'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: {
+              'success': false,
+              'message': 'Validation failed',
+              'errors': {'customerId': 'Customer not found'}
+            },
+            statusCode: 400,
+            requestOptions: RequestOptions(path: '/invoices'),
+          ),
+        );
+
+        // Act & Assert
+        expect(
+          () => dataSource.createInvoice(tRequest),
+          throwsA(isA<ServerException>()),
+        );
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - updateInvoice', () {
+    const tInvoiceId = 'inv-001';
+    final tInvoice = InvoiceFixtures.createInvoiceEntity(id: tInvoiceId);
+    final tInvoiceModel = InvoiceModel.fromEntity(tInvoice);
+    final tRequest = UpdateInvoiceRequestModel(
+      notes: 'Updated notes',
+    );
+
+    final tResponseData = {
+      'success': true,
+      'data': createInvoiceJson(),
+      'message': 'Invoice updated successfully',
+    };
+
+    test(
+      'should perform PUT request to /invoices/:id',
+      () async {
+        // Arrange
+        when(() => mockDioClient.put(
+              any(),
+              data: any(named: 'data'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId'),
+          ),
+        );
+
+        // Act
+        await dataSource.updateInvoice(tInvoiceId, tRequest);
+
+        // Assert
+        verify(() => mockDioClient.put(
+              '/invoices/$tInvoiceId',
+              data: any(named: 'data'),
+            )).called(1);
+      },
+    );
+
+    test(
+      'should return updated InvoiceModel when status code is 200',
+      () async {
+        // Arrange
+        when(() => mockDioClient.put(
+              any(),
+              data: any(named: 'data'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.updateInvoice(tInvoiceId, tRequest);
+
+        // Assert
+        expect(result, isA<InvoiceModel>());
+        expect(result.id, tInvoiceId);
+      },
+    );
+
+    test(
+      'should throw ServerException when invoice not found',
+      () async {
+        // Arrange
+        when(() => mockDioClient.put(
+              any(),
+              data: any(named: 'data'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: {'success': false, 'message': 'Invoice not found'},
+            statusCode: 404,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId'),
+          ),
+        );
+
+        // Act & Assert
+        expect(
+          () => dataSource.updateInvoice(tInvoiceId, tRequest),
+          throwsA(isA<ServerException>()),
+        );
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - confirmInvoice', () {
+    const tInvoiceId = 'inv-001';
+    final tInvoice = InvoiceFixtures.createConfirmedInvoice(id: tInvoiceId);
+    final tInvoiceModel = InvoiceModel.fromEntity(tInvoice);
+
+    final tResponseData = {
+      'success': true,
+      'data': createInvoiceJson(),
+      'message': 'Invoice confirmed successfully',
+    };
+
+    test(
+      'should perform POST request to /invoices/:id/confirm',
+      () async {
+        // Arrange
+        when(() => mockDioClient.post(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId/confirm'),
+          ),
+        );
+
+        // Act
+        await dataSource.confirmInvoice(tInvoiceId);
+
+        // Assert
+        verify(() => mockDioClient.post('/invoices/$tInvoiceId/confirm')).called(1);
+      },
+    );
+
+    test(
+      'should return confirmed InvoiceModel',
+      () async {
+        // Arrange
+        when(() => mockDioClient.post(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId/confirm'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.confirmInvoice(tInvoiceId);
+
+        // Assert
+        expect(result, isA<InvoiceModel>());
+        expect(result.status, InvoiceStatus.pending);
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - cancelInvoice', () {
+    const tInvoiceId = 'inv-001';
+    final tInvoice = InvoiceFixtures.createCancelledInvoice(id: tInvoiceId);
+    final tInvoiceModel = InvoiceModel.fromEntity(tInvoice);
+
+    final tResponseData = {
+      'success': true,
+      'data': createInvoiceJson(),
+      'message': 'Invoice cancelled successfully',
+    };
+
+    test(
+      'should perform POST request to /invoices/:id/cancel',
+      () async {
+        // Arrange
+        when(() => mockDioClient.post(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId/cancel'),
+          ),
+        );
+
+        // Act
+        await dataSource.cancelInvoice(tInvoiceId);
+
+        // Assert
+        verify(() => mockDioClient.post('/invoices/$tInvoiceId/cancel')).called(1);
+      },
+    );
+
+    test(
+      'should return cancelled InvoiceModel',
+      () async {
+        // Arrange
+        when(() => mockDioClient.post(any())).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId/cancel'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.cancelInvoice(tInvoiceId);
+
+        // Assert
+        expect(result, isA<InvoiceModel>());
+        expect(result.status, InvoiceStatus.cancelled);
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - addPayment', () {
+    const tInvoiceId = 'inv-001';
+    final tInvoice = InvoiceFixtures.createPaidInvoice(id: tInvoiceId);
+    final tInvoiceModel = InvoiceModel.fromEntity(tInvoice);
+    final tRequest = AddPaymentRequestModel(
+      amount: 119000.0,
+      paymentMethod: PaymentMethod.cash.name,
+    );
+
+    final tResponseData = {
+      'success': true,
+      'data': createInvoiceJson(),
+      'message': 'Payment added successfully',
+    };
+
+    test(
+      'should perform POST request to /invoices/:id/payments',
+      () async {
+        // Arrange
+        when(() => mockDioClient.post(
+              any(),
+              data: any(named: 'data'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId/payments'),
+          ),
+        );
+
+        // Act
+        await dataSource.addPayment(tInvoiceId, tRequest);
+
+        // Assert
+        verify(() => mockDioClient.post(
+              '/invoices/$tInvoiceId/payments',
+              data: any(named: 'data'),
+            )).called(1);
+      },
+    );
+
+    test(
+      'should return updated InvoiceModel with payment',
+      () async {
+        // Arrange
+        when(() => mockDioClient.post(
+              any(),
+              data: any(named: 'data'),
+            )).thenAnswer(
+          (_) async => Response(
+            data: tResponseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId/payments'),
+          ),
+        );
+
+        // Act
+        final result = await dataSource.addPayment(tInvoiceId, tRequest);
+
+        // Assert
+        expect(result, isA<InvoiceModel>());
+        expect(result.status, InvoiceStatus.paid);
+        expect(result.paidAmount, 119000.0);
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - deleteInvoice', () {
+    const tInvoiceId = 'inv-001';
+
+    test(
+      'should perform DELETE request to /invoices/:id',
+      () async {
+        // Arrange
+        when(() => mockDioClient.delete(any())).thenAnswer(
+          (_) async => Response(
+            data: {'success': true, 'message': 'Invoice deleted successfully'},
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId'),
+          ),
+        );
+
+        // Act
+        await dataSource.deleteInvoice(tInvoiceId);
+
+        // Assert
+        verify(() => mockDioClient.delete('/invoices/$tInvoiceId')).called(1);
+      },
+    );
+
+    test(
+      'should complete successfully when status code is 200',
+      () async {
+        // Arrange
+        when(() => mockDioClient.delete(any())).thenAnswer(
+          (_) async => Response(
+            data: {'success': true, 'message': 'Invoice deleted successfully'},
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId'),
+          ),
+        );
+
+        // Act & Assert - should not throw
+        await dataSource.deleteInvoice(tInvoiceId);
+      },
+    );
+
+    test(
+      'should throw ServerException when deletion fails',
+      () async {
+        // Arrange
+        when(() => mockDioClient.delete(any())).thenAnswer(
+          (_) async => Response(
+            data: {'success': false, 'message': 'Cannot delete invoice'},
+            statusCode: 400,
+            requestOptions: RequestOptions(path: '/invoices/$tInvoiceId'),
+          ),
+        );
+
+        // Act & Assert
+        expect(
+          () => dataSource.deleteInvoice(tInvoiceId),
+          throwsA(isA<ServerException>()),
+        );
+      },
+    );
+  });
+
+  group('InvoiceRemoteDataSource - error handling', () {
+    test(
+      'should throw ConnectionException on network timeout',
+      () async {
+        // Arrange
+        final params = InvoiceQueryParams(page: 1, limit: 10);
+
+        when(() => mockDioClient.get(
+              any(),
+              queryParameters: any(named: 'queryParameters'),
+            )).thenThrow(
+          DioException(
+            requestOptions: RequestOptions(path: '/invoices'),
+            type: DioExceptionType.connectionTimeout,
+            message: 'Connection timeout',
+          ),
+        );
+
+        // Act & Assert
+        expect(
+          () => dataSource.getInvoices(params),
+          throwsA(isA<ConnectionException>()),
+        );
+      },
+    );
+
+    test(
+      'should throw ConnectionException on receive timeout',
+      () async {
+        // Arrange
+        final params = InvoiceQueryParams(page: 1, limit: 10);
+
+        when(() => mockDioClient.get(
+              any(),
+              queryParameters: any(named: 'queryParameters'),
+            )).thenThrow(
+          DioException(
+            requestOptions: RequestOptions(path: '/invoices'),
+            type: DioExceptionType.receiveTimeout,
+            message: 'Receive timeout',
+          ),
+        );
+
+        // Act & Assert
+        expect(
+          () => dataSource.getInvoices(params),
+          throwsA(isA<ConnectionException>()),
+        );
+      },
+    );
+
+    test(
+      'should throw ServerException on unexpected errors',
+      () async {
+        // Arrange
+        final params = InvoiceQueryParams(page: 1, limit: 10);
+
+        when(() => mockDioClient.get(
+              any(),
+              queryParameters: any(named: 'queryParameters'),
+            )).thenThrow(Exception('Unexpected error'));
+
+        // Act & Assert
+        expect(
+          () => dataSource.getInvoices(params),
+          throwsA(isA<ServerException>()),
+        );
+      },
+    );
+  });
+}

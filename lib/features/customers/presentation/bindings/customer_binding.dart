@@ -159,6 +159,7 @@ import 'package:get/get.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../../data/datasources/customer_remote_datasource.dart';
 import '../../data/datasources/customer_local_datasource.dart';
 import '../../data/repositories/customer_repository_impl.dart';
@@ -201,11 +202,15 @@ class CustomerBinding extends Bindings {
     // ==================== REPOSITORY ====================
 
     Get.lazyPut<CustomerRepository>(
-      () => CustomerRepositoryImpl(
-        remoteDataSource: Get.find<CustomerRemoteDataSource>(),
-        localDataSource: Get.find<CustomerLocalDataSource>(),
-        networkInfo: Get.find<NetworkInfo>(),
-      ),
+      () {
+        final database = IsarDatabase.instance;
+        return CustomerRepositoryImpl(
+          remoteDataSource: Get.find<CustomerRemoteDataSource>(),
+          localDataSource: Get.find<CustomerLocalDataSource>(),
+          networkInfo: Get.find<NetworkInfo>(),
+          database: database,
+        );
+      },
       fenix: true,
     );
 
@@ -437,6 +442,7 @@ class CustomerDevBinding extends Bindings {
         remoteDataSource: Get.find<CustomerRemoteDataSource>(),
         localDataSource: Get.find<CustomerLocalDataSource>(),
         networkInfo: Get.find<NetworkInfo>(),
+        database: IsarDatabase.instance,
       ),
       permanent: true,
     );

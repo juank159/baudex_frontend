@@ -194,6 +194,17 @@ abstract class CategoryRepository {
 
   Future<Either<Failure, String>> generateUniqueSlug(String name);
 
+  /// Verifica si ya existe una categoría con el nombre dado
+  ///
+  /// [name]: Nombre a verificar
+  /// [excludeId]: ID de categoría a excluir (útil al editar)
+  ///
+  /// Returns: Right(true) si existe, Right(false) si no existe
+  Future<Either<Failure, bool>> existsByName(
+    String name, {
+    String? excludeId,
+  });
+
   Future<Either<Failure, Unit>> reorderCategories(
     List<CategoryReorder> reorders,
   );

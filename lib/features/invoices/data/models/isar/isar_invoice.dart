@@ -118,6 +118,65 @@ class IsarInvoice {
     );
   }
 
+  /// Create IsarInvoice from InvoiceModel (for caching server data)
+  static IsarInvoice fromModel(dynamic model) {
+    return IsarInvoice.create(
+      serverId: model.id,
+      number: model.number,
+      date: model.date,
+      dueDate: model.dueDate,
+      status: _mapInvoiceStatus(model.status),
+      paymentMethod: _mapPaymentMethod(model.paymentMethod),
+      subtotal: model.subtotal,
+      taxPercentage: model.taxPercentage,
+      taxAmount: model.taxAmount,
+      discountPercentage: model.discountPercentage,
+      discountAmount: model.discountAmount,
+      total: model.total,
+      paidAmount: model.paidAmount,
+      balanceDue: model.balanceDue,
+      notes: model.notes,
+      terms: model.terms,
+      metadataJson:
+          model.metadata != null ? _encodeMetadata(model.metadata!) : null,
+      customerId: model.customerId,
+      createdById: model.createdById,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+      deletedAt: model.deletedAt,
+      isSynced: true,
+      lastSyncAt: DateTime.now(),
+    );
+  }
+
+  /// Update existing IsarInvoice from InvoiceModel
+  void updateFromModel(dynamic model) {
+    serverId = model.id;
+    number = model.number;
+    date = model.date;
+    dueDate = model.dueDate;
+    status = _mapInvoiceStatus(model.status);
+    paymentMethod = _mapPaymentMethod(model.paymentMethod);
+    subtotal = model.subtotal;
+    taxPercentage = model.taxPercentage;
+    taxAmount = model.taxAmount;
+    discountPercentage = model.discountPercentage;
+    discountAmount = model.discountAmount;
+    total = model.total;
+    paidAmount = model.paidAmount;
+    balanceDue = model.balanceDue;
+    notes = model.notes;
+    terms = model.terms;
+    metadataJson = model.metadata != null ? _encodeMetadata(model.metadata!) : null;
+    customerId = model.customerId;
+    createdById = model.createdById;
+    createdAt = model.createdAt;
+    updatedAt = model.updatedAt;
+    deletedAt = model.deletedAt;
+    isSynced = true;
+    lastSyncAt = DateTime.now();
+  }
+
   Invoice toEntity() {
     return Invoice(
       id: serverId,

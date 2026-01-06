@@ -1,10 +1,13 @@
 // lib/features/purchase_orders/data/datasources/purchase_order_local_datasource.dart
 import 'dart:convert';
+import 'package:isar/isar.dart';
 import '../../../../app/config/constants/api_constants.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
 import '../models/purchase_order_model.dart';
+import '../models/isar/isar_purchase_order.dart';
 
 abstract class PurchaseOrderLocalDataSource {
   Future<List<PurchaseOrderModel>> getCachedPurchaseOrders();
@@ -111,6 +114,29 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
   @override
   Future<void> cachePurchaseOrder(PurchaseOrderModel purchaseOrder) async {
     try {
+      // GUARDAR EN ISAR PRIMERO
+      try {
+        final isar = IsarDatabase.instance.database;
+        await isar.writeTxn(() async {
+          var isarPO = await isar.isarPurchaseOrders
+              .filter()
+              .serverIdEqualTo(purchaseOrder.id)
+              .findFirst();
+
+          if (isarPO != null) {
+            isarPO.updateFromModel(purchaseOrder);
+          } else {
+            isarPO = IsarPurchaseOrder.fromModel(purchaseOrder);
+          }
+
+          await isar.isarPurchaseOrders.put(isarPO);
+        });
+        print('PurchaseOrder guardado en ISAR: ${purchaseOrder.id}');
+      } catch (e) {
+        print('Error guardando en ISAR (continuando...): $e');
+      }
+
+      // Guardar en SecureStorage (código existente)
       final cachedOrders = await getCachedPurchaseOrders();
 
       // Buscar si ya existe la orden y actualizarla, si no agregarla

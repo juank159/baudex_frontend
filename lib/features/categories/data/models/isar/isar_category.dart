@@ -81,6 +81,25 @@ class IsarCategory {
     );
   }
 
+  static IsarCategory fromModel(dynamic model) {
+    return IsarCategory.create(
+      serverId: model.id,
+      name: model.name,
+      description: model.description,
+      slug: model.slug,
+      image: model.image,
+      status: _mapCategoryStatus(model.status),
+      sortOrder: model.sortOrder,
+      parentId: model.parentId,
+      productsCount: model.productsCount,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+      deletedAt: model.deletedAt,
+      isSynced: true, // Model from server is synced by default
+      lastSyncAt: DateTime.now(),
+    );
+  }
+
   Category toEntity() {
     return Category(
       id: serverId,
@@ -144,6 +163,23 @@ class IsarCategory {
   void updateProductCount(int newCount) {
     productsCount = newCount;
     markAsUnsynced();
+  }
+
+  void updateFromModel(dynamic model) {
+    serverId = model.id;
+    name = model.name;
+    description = model.description;
+    slug = model.slug;
+    image = model.image;
+    status = _mapCategoryStatus(model.status);
+    sortOrder = model.sortOrder;
+    parentId = model.parentId;
+    productsCount = model.productsCount;
+    createdAt = model.createdAt;
+    updatedAt = model.updatedAt;
+    deletedAt = model.deletedAt;
+    isSynced = true; // Updated from server means it's synced
+    lastSyncAt = DateTime.now();
   }
 
   @override

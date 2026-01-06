@@ -218,3 +218,159 @@ enum IsarNotificationPriority {
   @Name('urgent')
   urgent,
 }
+
+// ==================== BANK ACCOUNT ENUMS ====================
+
+@Name('BankAccountType')
+enum IsarBankAccountType {
+  @Name('cash')
+  cash,
+  @Name('savings')
+  savings,
+  @Name('checking')
+  checking,
+  @Name('digitalWallet')
+  digitalWallet,
+  @Name('creditCard')
+  creditCard,
+  @Name('debitCard')
+  debitCard,
+  @Name('other')
+  other,
+}
+
+// ==================== SUPPLIER ENUMS ====================
+
+@Name('SupplierStatus')
+enum IsarSupplierStatus {
+  @Name('active')
+  active,
+  @Name('inactive')
+  inactive,
+  @Name('blocked')
+  blocked,
+}
+
+// ==================== PURCHASE ORDER ENUMS ====================
+
+@Name('PurchaseOrderStatus')
+enum IsarPurchaseOrderStatus {
+  @Name('draft')
+  draft,
+  @Name('pending')
+  pending,
+  @Name('approved')
+  approved,
+  @Name('rejected')
+  rejected,
+  @Name('sent')
+  sent,
+  @Name('partiallyReceived')
+  partiallyReceived,
+  @Name('received')
+  received,
+  @Name('cancelled')
+  cancelled,
+}
+
+@Name('PurchaseOrderPriority')
+enum IsarPurchaseOrderPriority {
+  @Name('low')
+  low,
+  @Name('medium')
+  medium,
+  @Name('high')
+  high,
+  @Name('urgent')
+  urgent,
+}
+
+// ==================== INVENTORY MOVEMENT ENUMS ====================
+
+@Name('InventoryMovementType')
+enum IsarInventoryMovementType {
+  @Name('inbound')
+  inbound,
+  @Name('outbound')
+  outbound,
+  @Name('adjustment')
+  adjustment,
+  @Name('transfer')
+  transfer,
+  @Name('transferIn')
+  transferIn,
+  @Name('transferOut')
+  transferOut,
+}
+
+@Name('InventoryMovementStatus')
+enum IsarInventoryMovementStatus {
+  @Name('pending')
+  pending,
+  @Name('confirmed')
+  confirmed,
+  @Name('cancelled')
+  cancelled,
+}
+
+@Name('InventoryMovementReason')
+enum IsarInventoryMovementReason {
+  @Name('purchase')
+  purchase,
+  @Name('sale')
+  sale,
+  @Name('adjustment')
+  adjustment,
+  @Name('damage')
+  damage,
+  @Name('loss')
+  loss,
+  @Name('transfer')
+  transfer,
+  @Name('return')
+  returnGoods,
+  @Name('expiration')
+  expiration,
+}
+
+// ==================== CREDIT NOTE ENUMS ====================
+
+@Name('CreditNoteType')
+enum IsarCreditNoteType {
+  @Name('full')
+  full,
+  @Name('partial')
+  partial,
+}
+
+@Name('CreditNoteStatus')
+enum IsarCreditNoteStatus {
+  @Name('draft')
+  draft,
+  @Name('confirmed')
+  confirmed,
+  @Name('cancelled')
+  cancelled,
+}
+
+@Name('CreditNoteReason')
+enum IsarCreditNoteReason {
+  @Name('returned_goods')
+  returnedGoods,
+  @Name('damaged_goods')
+  damagedGoods,
+  @Name('billing_error')
+  billingError,
+  @Name('price_adjustment')
+  priceAdjustment,
+  @Name('order_cancellation')
+  orderCancellation,
+  @Name('customer_dissatisfaction')
+  customerDissatisfaction,
+  @Name('inventory_adjustment')
+  inventoryAdjustment,
+  @Name('discount_granted')
+  discountGranted,
+  @Name('other')
+  other,
+}

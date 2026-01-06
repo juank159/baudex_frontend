@@ -240,6 +240,7 @@ SOLUCIÓN RECOMENDADA:
           getCategoriesUseCase: _getCategoriesUseCaseSafely(),
           createCategoryUseCase: _getCreateCategoryUseCaseSafely(),
           secureStorageService: Get.find<SecureStorageService>(),
+          productRepository: Get.find<ProductRepository>(),
         ),
         fenix: true, // ✅ USAR fenix: true para evitar disposal prematuro
       );

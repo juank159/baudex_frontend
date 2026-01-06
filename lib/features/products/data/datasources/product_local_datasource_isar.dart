@@ -16,7 +16,7 @@ import 'package:isar/isar.dart';
 ///
 /// Almacenamiento persistente offline-first usando ISAR
 class ProductLocalDataSourceIsar implements ProductLocalDataSource {
-  final IsarDatabase _database;
+  final dynamic _database;
 
   ProductLocalDataSourceIsar(this._database);
 
@@ -28,12 +28,27 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       await isar.writeTxn(() async {
         // Procesar productos uno por uno para evitar violaciones de índice único
         for (final product in products) {
-          // Buscar producto existente por serverId
-          final existingProduct =
+          // ✅ AUTOMATIZACIÓN: Buscar producto existente por serverId O por SKU
+          // Esto maneja el caso donde un producto offline se sincronizó y ahora tiene un nuevo ID
+          IsarProduct? existingProduct =
               await isar.isarProducts
                   .filter()
                   .serverIdEqualTo(product.id)
                   .findFirst();
+
+          // Si no se encontró por serverId, buscar por SKU (producto offline que se sincronizó)
+          if (existingProduct == null) {
+            existingProduct =
+                await isar.isarProducts
+                    .filter()
+                    .skuEqualTo(product.sku)
+                    .findFirst();
+
+            if (existingProduct != null) {
+              print('🔄 Producto offline encontrado por SKU: ${product.sku}');
+              print('   Actualizando serverId: ${existingProduct.serverId} → ${product.id}');
+            }
+          }
 
           IsarProduct isarProduct;
 
@@ -41,6 +56,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
             // Actualizar producto existente
             isarProduct =
                 existingProduct
+                  ..serverId = product.id // Actualizar serverId (importante para sync offline→online)
                   ..name = product.name
                   ..description = product.description
                   ..sku = product.sku
@@ -108,31 +124,82 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       final isar = _database.database;
 
       await isar.writeTxn(() async {
-        // Convertir a IsarProduct
-        final isarProduct =
-            IsarProduct()
-              ..serverId = product.id
-              ..name = product.name
-              ..description = product.description
-              ..sku = product.sku
-              ..barcode = product.barcode
-              ..type = _mapToIsarProductType(product.type)
-              ..status = _mapToIsarProductStatus(product.status)
-              ..stock = product.stock
-              ..minStock = product.minStock
-              ..unit = product.unit
-              ..weight = product.weight
-              ..length = product.length
-              ..width = product.width
-              ..height = product.height
-              ..images = product.images ?? []
-              ..categoryId = product.categoryId
-              ..createdById = product.createdById
-              ..createdAt = product.createdAt
-              ..updatedAt = product.updatedAt
-              ..isSynced = true
-              ..metadataJson = _serializeProductData(product)
-              ..lastSyncAt = DateTime.now();
+        // ✅ AUTOMATIZACIÓN: Buscar producto existente por serverId O por SKU
+        IsarProduct? existingProduct =
+            await isar.isarProducts
+                .filter()
+                .serverIdEqualTo(product.id)
+                .findFirst();
+
+        // Si no se encontró por serverId, buscar por SKU
+        if (existingProduct == null) {
+          existingProduct =
+              await isar.isarProducts
+                  .filter()
+                  .skuEqualTo(product.sku)
+                  .findFirst();
+
+          if (existingProduct != null) {
+            print('🔄 Producto offline encontrado por SKU: ${product.sku}');
+            print('   Actualizando serverId: ${existingProduct.serverId} → ${product.id}');
+          }
+        }
+
+        IsarProduct isarProduct;
+
+        if (existingProduct != null) {
+          // Actualizar producto existente
+          isarProduct =
+              existingProduct
+                ..serverId = product.id // Actualizar con el ID real del servidor
+                ..name = product.name
+                ..description = product.description
+                ..sku = product.sku
+                ..barcode = product.barcode
+                ..type = _mapToIsarProductType(product.type)
+                ..status = _mapToIsarProductStatus(product.status)
+                ..stock = product.stock
+                ..minStock = product.minStock
+                ..unit = product.unit
+                ..weight = product.weight
+                ..length = product.length
+                ..width = product.width
+                ..height = product.height
+                ..images = product.images ?? []
+                ..categoryId = product.categoryId
+                ..createdById = product.createdById
+                ..createdAt = product.createdAt
+                ..updatedAt = product.updatedAt
+                ..isSynced = true
+                ..metadataJson = _serializeProductData(product)
+                ..lastSyncAt = DateTime.now();
+        } else {
+          // Crear nuevo producto
+          isarProduct =
+              IsarProduct()
+                ..serverId = product.id
+                ..name = product.name
+                ..description = product.description
+                ..sku = product.sku
+                ..barcode = product.barcode
+                ..type = _mapToIsarProductType(product.type)
+                ..status = _mapToIsarProductStatus(product.status)
+                ..stock = product.stock
+                ..minStock = product.minStock
+                ..unit = product.unit
+                ..weight = product.weight
+                ..length = product.length
+                ..width = product.width
+                ..height = product.height
+                ..images = product.images ?? []
+                ..categoryId = product.categoryId
+                ..createdById = product.createdById
+                ..createdAt = product.createdAt
+                ..updatedAt = product.updatedAt
+                ..isSynced = true
+                ..metadataJson = _serializeProductData(product)
+                ..lastSyncAt = DateTime.now();
+        }
 
         await isar.isarProducts.put(isarProduct);
       });
@@ -150,7 +217,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       final isar = _database.database;
 
       // Obtener productos no eliminados ordenados por fecha de creación
-      final isarProducts =
+      final List<IsarProduct> isarProducts =
           await isar.isarProducts
               .filter()
               .deletedAtIsNull()
@@ -342,17 +409,19 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       final isar = _database.database;
 
       await isar.writeTxn(() async {
-        // Marcar como eliminado en lugar de borrar físicamente
+        // Buscar producto por serverId
         final product =
             await isar.isarProducts.filter().serverIdEqualTo(id).findFirst();
 
-        if (product != null) {
-          product.deletedAt = DateTime.now();
-          await isar.isarProducts.put(product);
+        if (product == null) {
+          throw CacheException('Producto no encontrado en cache: $id');
         }
+
+        // Eliminar físicamente del cache
+        await isar.isarProducts.delete(product.id);
       });
 
-      print('🗑️ ISAR: Producto $id marcado como eliminado');
+      print('🗑️ ISAR: Producto $id eliminado del cache');
     } catch (e) {
       print('❌ Error al remover producto de ISAR: $e');
       throw CacheException('Error al remover producto de ISAR: $e');
@@ -365,12 +434,8 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       final isar = _database.database;
 
       await isar.writeTxn(() async {
-        // Limpiar todos los productos (excepto estadísticas)
-        await isar.isarProducts
-            .filter()
-            .not()
-            .serverIdEqualTo('STATS_CACHE')
-            .deleteAll();
+        // Limpiar todos los productos
+        await isar.isarProducts.clear();
       });
 
       print('🧹 ISAR: Cache de productos limpiado');
@@ -736,7 +801,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       final isar = _database.database;
 
       // Buscar productos no sincronizados
-      final unsyncedIsarProducts =
+      final List<IsarProduct> unsyncedIsarProducts =
           await isar.isarProducts.filter().isSyncedEqualTo(false).findAll();
 
       final unsyncedProducts = <Product>[];
@@ -824,5 +889,92 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       createdAt: isarProduct.createdAt,
       updatedAt: isarProduct.updatedAt,
     );
+  }
+
+  // ==================== ✅ VALIDACIÓN DE DUPLICADOS ====================
+
+  /// Verificar si existe un producto con el mismo nombre
+  @override
+  Future<bool> existsByName(String name, {String? excludeId}) async {
+    try {
+      final isar = _database.database;
+      final nameLower = name.trim().toLowerCase();
+
+      // Obtener todos los productos
+      final List<IsarProduct> allProducts = await isar.isarProducts.where().findAll();
+
+      for (final product in allProducts) {
+        // Excluir el producto que estamos editando
+        if (excludeId != null && product.serverId == excludeId) {
+          continue;
+        }
+
+        if (product.name.trim().toLowerCase() == nameLower) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      // Si hay error, asumir que no existe
+      return false;
+    }
+  }
+
+  /// Verificar si existe un producto con el mismo SKU
+  @override
+  Future<bool> existsBySku(String sku, {String? excludeId}) async {
+    try {
+      final isar = _database.database;
+      final skuLower = sku.trim().toLowerCase();
+
+      // Obtener todos los productos
+      final List<IsarProduct> allProducts = await isar.isarProducts.where().findAll();
+
+      for (final product in allProducts) {
+        // Excluir el producto que estamos editando
+        if (excludeId != null && product.serverId == excludeId) {
+          continue;
+        }
+
+        if (product.sku.trim().toLowerCase() == skuLower) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      // Si hay error, asumir que no existe
+      return false;
+    }
+  }
+
+  /// Buscar productos en cache por término de búsqueda
+  @override
+  Future<List<ProductModel>> searchCachedProducts(String searchTerm) async {
+    try {
+      final isar = _database.database;
+      final term = searchTerm.toLowerCase();
+
+      // Obtener todos los productos y filtrar localmente
+      final List<IsarProduct> allProducts = await isar.isarProducts
+          .filter()
+          .deletedAtIsNull()
+          .findAll();
+
+      final matchingProducts = allProducts.where((product) {
+        return product.name.toLowerCase().contains(term) ||
+            product.sku.toLowerCase().contains(term) ||
+            (product.description?.toLowerCase().contains(term) ?? false) ||
+            (product.barcode?.toLowerCase().contains(term) ?? false);
+      }).toList();
+
+      return matchingProducts
+          .map((isarProduct) => _convertToProductModel(isarProduct))
+          .toList();
+    } catch (e) {
+      print('❌ Error al buscar productos en ISAR: $e');
+      return [];
+    }
   }
 }

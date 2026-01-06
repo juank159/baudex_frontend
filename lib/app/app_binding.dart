@@ -17,11 +17,29 @@ import 'services/password_validation_service.dart';
 import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
 import '../features/settings/presentation/bindings/settings_binding.dart';
-import 'services/sync_service.dart';
-// Bank Accounts - necesario globalmente para filtros de facturas
-import '../features/bank_accounts/data/datasources/bank_account_remote_datasource.dart';
+import 'data/local/sync_service.dart';
+// Offline Repositories
 import '../features/bank_accounts/data/repositories/bank_account_repository_impl.dart';
+import '../features/bank_accounts/data/datasources/bank_account_remote_datasource.dart';
 import '../features/bank_accounts/domain/repositories/bank_account_repository.dart';
+import '../features/products/data/repositories/product_repository_impl.dart';
+import '../features/products/data/datasources/product_remote_datasource.dart';
+import '../features/products/data/datasources/product_local_datasource_isar.dart';
+import '../features/products/domain/repositories/product_repository.dart';
+import '../features/customers/data/repositories/customer_repository_impl.dart';
+import '../features/customers/data/datasources/customer_remote_datasource.dart';
+import '../features/customers/data/datasources/customer_local_datasource.dart';
+import '../features/customers/domain/repositories/customer_repository.dart';
+import '../features/expenses/data/repositories/expense_repository_impl.dart';
+import '../features/expenses/data/datasources/expense_remote_datasource.dart';
+import '../features/expenses/data/datasources/expense_local_datasource.dart';
+import '../features/expenses/domain/repositories/expense_repository.dart';
+import '../features/dashboard/data/datasources/dashboard_local_datasource_isar.dart';
+import '../features/dashboard/data/datasources/dashboard_local_datasource.dart';
+import '../features/categories/data/repositories/category_repository_impl.dart';
+import '../features/categories/data/datasources/category_remote_datasource.dart';
+import '../features/categories/data/datasources/category_local_datasource.dart';
+import '../features/categories/domain/repositories/category_repository.dart';
 
 class InitialBinding implements Bindings {
   @override
@@ -33,6 +51,9 @@ class InitialBinding implements Bindings {
 
     // ==================== OFFLINE INFRASTRUCTURE ====================
     _registerOfflineInfrastructure();
+
+    // ==================== OFFLINE REPOSITORIES ====================
+    _registerOfflineRepositories();
 
     // ==================== AUTH CONTROLLER ====================
     _registerAuthController();
@@ -71,19 +92,6 @@ class InitialBinding implements Bindings {
     // UI Controllers
     Get.lazyPut<AppDrawerController>(() => AppDrawerController(), fenix: true);
 
-    // Bank Accounts - necesario globalmente para filtros de facturas
-    Get.lazyPut<BankAccountRemoteDataSource>(
-      () => BankAccountRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
-      fenix: true,
-    );
-    Get.lazyPut<BankAccountRepository>(
-      () => BankAccountRepositoryImpl(
-        remoteDataSource: Get.find<BankAccountRemoteDataSource>(),
-        networkInfo: Get.find<NetworkInfo>(),
-      ),
-      fenix: true,
-    );
-
     print('✅ Dependencias core básicas registradas');
   }
 
@@ -97,6 +105,105 @@ class InitialBinding implements Bindings {
     Get.lazyPut<RepositoriesRegistry>(() => RepositoriesRegistry.instance, fenix: true);
 
     print('✅ Infraestructura offline básica registrada');
+  }
+
+  void _registerOfflineRepositories() {
+    print('📦 Registrando repositorios offline-first...');
+
+    // Dashboard - Local DataSource
+    Get.lazyPut<DashboardLocalDataSource>(
+      () => DashboardLocalDataSourceIsar(),
+      fenix: true,
+    );
+
+    // Bank Accounts - Remote DataSource
+    Get.lazyPut<BankAccountRemoteDataSource>(
+      () => BankAccountRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+      fenix: true,
+    );
+
+    // Bank Accounts - Offline-First Repository (online + offline)
+    Get.lazyPut<BankAccountRepository>(
+      () => BankAccountRepositoryImpl(
+        remoteDataSource: Get.find<BankAccountRemoteDataSource>(),
+        networkInfo: Get.find<NetworkInfo>(),
+      ),
+      fenix: true,
+    );
+
+    // Products - Remote DataSource (necesario para SyncService)
+    Get.lazyPut<ProductRemoteDataSource>(
+      () => ProductRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+      fenix: true,
+    );
+
+    // Products - Hybrid Repository (backend + offline)
+    Get.lazyPut<ProductRepository>(
+      () => ProductRepositoryImpl(
+        remoteDataSource: Get.find<ProductRemoteDataSource>(),
+        localDataSource: ProductLocalDataSourceIsar(Get.find<IsarDatabase>()),
+        networkInfo: Get.find<NetworkInfo>(),
+      ),
+      fenix: true,
+    );
+
+    // Categories - Remote DataSource (necesario para SyncService)
+    Get.lazyPut<CategoryRemoteDataSource>(
+      () => CategoryRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+      fenix: true,
+    );
+
+    // Categories - Local DataSource
+    Get.lazyPut<CategoryLocalDataSource>(
+      () => CategoryLocalDataSourceImpl(
+        storageService: Get.find<SecureStorageService>(),
+      ),
+      fenix: true,
+    );
+
+    // Categories - Hybrid Repository (backend + offline)
+    Get.lazyPut<CategoryRepository>(
+      () => CategoryRepositoryImpl(
+        remoteDataSource: Get.find<CategoryRemoteDataSource>(),
+        localDataSource: Get.find<CategoryLocalDataSource>(),
+        networkInfo: Get.find<NetworkInfo>(),
+      ),
+      fenix: true,
+    );
+
+    // Customers - Offline-First Repository (online + offline)
+    Get.lazyPut<CustomerRepository>(
+      () => CustomerRepositoryImpl(
+        remoteDataSource: CustomerRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+        localDataSource: CustomerLocalDataSourceImpl(storageService: Get.find<SecureStorageService>()),
+        networkInfo: Get.find<NetworkInfo>(),
+      ),
+      fenix: true,
+    );
+
+    // Expenses - Remote DataSource
+    Get.lazyPut<ExpenseRemoteDataSource>(
+      () => ExpenseRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+      fenix: true,
+    );
+
+    // Expenses - Local DataSource
+    Get.lazyPut<ExpenseLocalDataSource>(
+      () => ExpenseLocalDataSourceImpl(secureStorage: Get.find<SecureStorageService>()),
+      fenix: true,
+    );
+
+    // Expenses - Offline-First Repository (online + offline)
+    Get.lazyPut<ExpenseRepository>(
+      () => ExpenseRepositoryImpl(
+        remoteDataSource: Get.find<ExpenseRemoteDataSource>(),
+        localDataSource: Get.find<ExpenseLocalDataSource>(),
+        networkInfo: Get.find<NetworkInfo>(),
+      ),
+      fenix: true,
+    );
+
+    print('✅ Repositorios offline-first registrados');
   }
 
   void _registerAuthController() {
@@ -129,15 +236,19 @@ class InitialBinding implements Bindings {
   }
 
   void _registerSyncService() {
-    print('🔄 Registrando servicio de sincronización...');
+    print('🔄 Registrando servicio de sincronización offline-first...');
 
-    // SyncService now uses lazy dependency resolution
+    // SyncService requiere IsarDatabase como dependencia
+    final syncService = SyncService(Get.find<IsarDatabase>());
     Get.put<SyncService>(
-      SyncService(),
+      syncService,
       permanent: true,
     );
 
-    print('✅ Servicio de sincronización registrado');
+    // IMPORTANTE: GetxService no llama onInit() automáticamente, debemos llamarlo manualmente
+    syncService.onInit();
+
+    print('✅ Servicio de sincronización offline-first registrado e inicializado');
   }
 
   void _registerAudioService() {

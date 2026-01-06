@@ -22,6 +22,9 @@ abstract class ProductLocalDataSource {
   Future<void> clearProductCache();
   Future<List<Product>> getUnsyncedProducts(); // ✅ NUEVO: Para obtener productos pendientes de sincronizar
   Future<void> markProductAsSynced(String tempId, String serverId); // ✅ NUEVO: Para marcar como sincronizado
+  Future<bool> existsByName(String name, {String? excludeId}); // ✅ NUEVO: Verificar duplicado por nombre
+  Future<bool> existsBySku(String sku, {String? excludeId}); // ✅ NUEVO: Verificar duplicado por SKU
+  Future<List<ProductModel>> searchCachedProducts(String searchTerm); // Para buscar productos en cache
 }
 
 /// Implementación del datasource local usando SecureStorage
@@ -456,5 +459,95 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
       createdAt: DateTime.parse(data['createdAt'] as String),
       updatedAt: DateTime.parse(data['updatedAt'] as String),
     );
+  }
+
+  // ==================== ✅ VALIDACIÓN DE DUPLICADOS ====================
+
+  /// Verificar si existe un producto con el mismo nombre
+  @override
+  Future<bool> existsByName(String name, {String? excludeId}) async {
+    try {
+      final products = await getCachedProducts();
+      final nameLower = name.trim().toLowerCase();
+
+      for (final product in products) {
+        // Excluir el producto si es el mismo que estamos editando
+        if (excludeId != null && product.id == excludeId) {
+          continue;
+        }
+
+        if (product.name.trim().toLowerCase() == nameLower) {
+          return true;
+        }
+      }
+
+      // También verificar en productos no sincronizados
+      final unsyncedProducts = await getUnsyncedProducts();
+      for (final product in unsyncedProducts) {
+        if (excludeId != null && product.id == excludeId) {
+          continue;
+        }
+
+        if (product.name.trim().toLowerCase() == nameLower) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      // Si no hay cache o error, asumir que no existe
+      return false;
+    }
+  }
+
+  /// Verificar si existe un producto con el mismo SKU
+  @override
+  Future<bool> existsBySku(String sku, {String? excludeId}) async {
+    try {
+      final products = await getCachedProducts();
+      final skuLower = sku.trim().toLowerCase();
+
+      print('🔍 ProductLocalDataSource.existsBySku: Verificando SKU "$sku"');
+      print('   excludeId: $excludeId');
+      print('   Total productos en cache: ${products.length}');
+
+      for (final product in products) {
+        print('   Revisando producto: ${product.name} (id: ${product.id}, sku: ${product.sku})');
+
+        // Excluir el producto si es el mismo que estamos editando
+        if (excludeId != null && product.id == excludeId) {
+          print('   ⏭️ Excluyendo producto actual por ID');
+          continue;
+        }
+
+        if (product.sku.trim().toLowerCase() == skuLower) {
+          print('   ❌ SKU duplicado encontrado: ${product.name}');
+          return true;
+        }
+      }
+
+      // También verificar en productos no sincronizados
+      final unsyncedProducts = await getUnsyncedProducts();
+      print('   Total productos no sincronizados: ${unsyncedProducts.length}');
+
+      for (final product in unsyncedProducts) {
+        print('   Revisando producto no sync: ${product.name} (id: ${product.id}, sku: ${product.sku})');
+
+        if (excludeId != null && product.id == excludeId) {
+          print('   ⏭️ Excluyendo producto no sync actual por ID');
+          continue;
+        }
+
+        if (product.sku.trim().toLowerCase() == skuLower) {
+          print('   ❌ SKU duplicado encontrado en no sync: ${product.name}');
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      // Si no hay cache o error, asumir que no existe
+      return false;
+    }
   }
 }

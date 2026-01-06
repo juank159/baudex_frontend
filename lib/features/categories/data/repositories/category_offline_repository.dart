@@ -1,10 +1,13 @@
 // lib/features/categories/data/repositories/category_offline_repository.dart
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
 import 'package:dartz/dartz.dart';
+import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/sync_service.dart';
+import '../../../../app/data/local/sync_queue.dart';
 
 import '../../domain/entities/category.dart';
 import '../../domain/entities/category_tree.dart';
@@ -16,12 +19,12 @@ import '../models/isar/isar_category.dart';
 ///
 /// Proporciona todas las operaciones CRUD para categorías de forma offline-first
 class CategoryOfflineRepository implements CategoryRepository {
-  final IsarDatabase _database;
+  final dynamic _database;
 
-  CategoryOfflineRepository({IsarDatabase? database})
+  CategoryOfflineRepository({dynamic database})
     : _database = database ?? IsarDatabase.instance;
 
-  Isar get _isar => _database.database;
+  dynamic get _isar => _database.database;
 
   // ==================== READ OPERATIONS ====================
 
@@ -41,7 +44,8 @@ class CategoryOfflineRepository implements CategoryRepository {
       final collection = _isar.isarCategorys;
 
       // Build base query builder for filtering
-      QueryBuilder<IsarCategory, IsarCategory, QAfterFilterCondition> filterQuery;
+      // Using dynamic to support both production ISAR and MockIsar in tests
+      dynamic filterQuery;
 
       // Start with a base filter (soft delete filter)
       filterQuery = collection.filter().deletedAtIsNull();
@@ -67,32 +71,32 @@ class CategoryOfflineRepository implements CategoryRepository {
         filterQuery = filterQuery.and().parentIdIsNull();
       }
 
-      // Get total count for pagination
-      final totalItems = await filterQuery.count();
+      // Obtener todos los resultados (ordenar y paginar en Dart)
+      final allResults = await filterQuery.findAll() as List<IsarCategory>;
+      final totalItems = allResults.length;
 
-      // Apply sorting and pagination
+      // Ordenar en Dart
+      allResults.sort((a, b) {
+        int comparison = 0;
+        switch (sortBy) {
+          case 'name':
+            comparison = a.name.compareTo(b.name);
+            break;
+          case 'created_at':
+            comparison = a.createdAt.compareTo(b.createdAt);
+            break;
+          case 'sort_order':
+          default:
+            comparison = a.sortOrder.compareTo(b.sortOrder);
+        }
+        return sortOrder == 'desc' ? -comparison : comparison;
+      });
+
+      // Paginar manualmente
       final offset = (page - 1) * limit;
-      List<IsarCategory> isarCategories;
-      
-      switch (sortBy) {
-        case 'name':
-          isarCategories = sortOrder == 'desc' 
-              ? await filterQuery.sortByNameDesc().offset(offset).limit(limit).findAll()
-              : await filterQuery.sortByName().offset(offset).limit(limit).findAll();
-          break;
-        case 'created_at':
-          isarCategories = sortOrder == 'desc'
-              ? await filterQuery.sortByCreatedAtDesc().offset(offset).limit(limit).findAll()
-              : await filterQuery.sortByCreatedAt().offset(offset).limit(limit).findAll();
-          break;
-        case 'sort_order':
-          isarCategories = sortOrder == 'desc'
-              ? await filterQuery.sortBySortOrderDesc().offset(offset).limit(limit).findAll()
-              : await filterQuery.sortBySortOrder().offset(offset).limit(limit).findAll();
-          break;
-        default:
-          isarCategories = await filterQuery.sortBySortOrder().offset(offset).limit(limit).findAll();
-      }
+      final start = offset.clamp(0, allResults.length);
+      final end = (start + limit).clamp(0, allResults.length);
+      final isarCategories = allResults.sublist(start, end);
 
       // Convert to domain entities
       final categories = isarCategories.map((isar) => isar.toEntity()).toList();
@@ -173,7 +177,7 @@ class CategoryOfflineRepository implements CategoryRepository {
               .and()
               .deletedAtIsNull()
               .sortBySortOrder()
-              .findAll();
+              .findAll() as List<IsarCategory>;
 
       final tree = <CategoryTree>[];
 
@@ -212,7 +216,7 @@ class CategoryOfflineRepository implements CategoryRepository {
             .and()
             .deletedAtIsNull()
             .sortBySortOrder()
-            .findAll();
+            .findAll() as List<IsarCategory>;
 
     final childTree = <CategoryTree>[];
 
@@ -273,7 +277,7 @@ class CategoryOfflineRepository implements CategoryRepository {
 
       // Calculate total products across all categories
       final categoriesWithProducts =
-          await collection.filter().deletedAtIsNull().findAll();
+          await collection.filter().deletedAtIsNull().findAll() as List<IsarCategory>;
 
       final totalProducts = categoriesWithProducts.fold<int>(
         0,
@@ -319,7 +323,7 @@ class CategoryOfflineRepository implements CategoryRepository {
               .deletedAtIsNull()
               .sortByName()
               .limit(limit)
-              .findAll();
+              .findAll() as List<IsarCategory>;
 
       final categories = isarCategories.map((isar) => isar.toEntity()).toList();
       return Right(categories);
@@ -350,8 +354,7 @@ class CategoryOfflineRepository implements CategoryRepository {
         description: description,
         slug: slug,
         image: image,
-        status:
-            status == CategoryStatus.active
+        status: (status ?? CategoryStatus.active) == CategoryStatus.active
                 ? IsarCategoryStatus.active
                 : IsarCategoryStatus.inactive,
         sortOrder: sortOrder ?? 0,
@@ -365,6 +368,27 @@ class CategoryOfflineRepository implements CategoryRepository {
       await _isar.writeTxn(() async {
         await _isar.isarCategorys.put(isarCategory);
       });
+
+      // Add to sync queue
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Category',
+          entityId: serverId,
+          operationType: SyncOperationType.create,
+          data: {
+            'name': name,
+            'description': description,
+            'slug': slug,
+            'image': image,
+            'status': status?.name,
+            'sortOrder': sortOrder,
+            'parentId': parentId,
+          },
+        );
+      } catch (e) {
+        print('Warning: Could not add to sync queue: $e');
+      }
 
       return Right(isarCategory.toEntity());
     } catch (e) {
@@ -411,6 +435,19 @@ class CategoryOfflineRepository implements CategoryRepository {
         await _isar.isarCategorys.put(isarCategory);
       });
 
+      // Add to sync queue
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Category',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {'updated': true},
+        );
+      } catch (e) {
+        print('Warning: Could not add to sync queue: $e');
+      }
+
       return Right(isarCategory.toEntity());
     } catch (e) {
       return Left(CacheFailure('Error updating category: ${e.toString()}'));
@@ -441,6 +478,19 @@ class CategoryOfflineRepository implements CategoryRepository {
       await _isar.writeTxn(() async {
         await _isar.isarCategorys.put(isarCategory);
       });
+
+      // Add to sync queue
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Category',
+          entityId: id,
+          operationType: SyncOperationType.delete,
+          data: {'deleted': true},
+        );
+      } catch (e) {
+        print('Warning: Could not add to sync queue: $e');
+      }
 
       return Right(unit);
     } catch (e) {
@@ -484,8 +534,10 @@ class CategoryOfflineRepository implements CategoryRepository {
           _isar.isarCategorys.filter().slugEqualTo(slug).and().deletedAtIsNull();
 
       if (excludeId != null) {
-        final existing = await query.findAll();
-        final isAvailable = !existing.any((cat) => cat.serverId != excludeId);
+        // Get all categories with this slug (excluding deleted)
+        final existing = await query.findAll() as List<IsarCategory>;
+        // Slug is available if no category has this slug, or only the excluded category has it
+        final isAvailable = existing.isEmpty || existing.every((cat) => cat.serverId == excludeId);
         return Right(isAvailable);
       } else {
         final existing = await query.findFirst();
@@ -513,24 +565,38 @@ class CategoryOfflineRepository implements CategoryRepository {
       if (baseSlug.isEmpty) baseSlug = 'category';
 
       // Check if base slug is available
-      final isAvailable = await isSlugAvailable(baseSlug);
-      if (isAvailable.isRight() && isAvailable.getOrElse(() => false)) {
+      final isAvailableResult = await isSlugAvailable(baseSlug);
+      final isAvailable = isAvailableResult.fold(
+        (failure) => false,
+        (available) => available,
+      );
+
+      if (isAvailable) {
         return Right(baseSlug);
       }
 
       // Generate unique slug with number suffix
       int counter = 1;
-      String uniqueSlug;
-      bool available = false;
+      String uniqueSlug = baseSlug;
 
-      do {
+      while (counter < 100) { // Prevent infinite loop
         uniqueSlug = '$baseSlug-$counter';
         final result = await isSlugAvailable(uniqueSlug);
-        available = result.getOrElse(() => false);
-        counter++;
-      } while (!available && counter < 100); // Prevent infinite loop
+        final available = result.fold(
+          (failure) => false,
+          (isAvail) => isAvail,
+        );
 
-      return Right(uniqueSlug);
+        if (available) {
+          return Right(uniqueSlug);
+        }
+        counter++;
+      }
+
+      // If we couldn't find a unique slug after 100 tries, return error
+      return Left(
+        CacheFailure('Could not generate unique slug after 100 attempts'),
+      );
     } catch (e) {
       return Left(
         CacheFailure('Error generating unique slug: ${e.toString()}'),
@@ -575,7 +641,7 @@ class CategoryOfflineRepository implements CategoryRepository {
               .filter()
               .deletedAtIsNull()
               .sortBySortOrder()
-              .findAll();
+              .findAll() as List<IsarCategory>;
 
       final categories = isarCategories.map((isar) => isar.toEntity()).toList();
       return Right(categories);
@@ -607,7 +673,7 @@ class CategoryOfflineRepository implements CategoryRepository {
   Future<Either<Failure, List<Category>>> getUnsyncedCategories() async {
     try {
       final isarCategories =
-          await _isar.isarCategorys.filter().isSyncedEqualTo(false).findAll();
+          await _isar.isarCategorys.filter().isSyncedEqualTo(false).findAll() as List<IsarCategory>;
 
       final categories = isarCategories.map((isar) => isar.toEntity()).toList();
       return Right(categories);
@@ -660,6 +726,40 @@ class CategoryOfflineRepository implements CategoryRepository {
       return Left(
         CacheFailure('Error bulk inserting categories: ${e.toString()}'),
       );
+    }
+  }
+
+  // ==================== VALIDATION OPERATIONS ====================
+
+  /// Verifica si ya existe una categoría con el nombre dado
+  ///
+  /// [name]: Nombre a verificar
+  /// [excludeId]: ID de categoría a excluir (útil al editar)
+  ///
+  /// Returns: Right(true) si existe, Right(false) si no existe, Left(Failure) en caso de error
+  Future<Either<Failure, bool>> existsByName(String name, {String? excludeId}) async {
+    try {
+      final nameLower = name.trim().toLowerCase();
+      final allCategories = await _isar.isarCategorys
+          .filter()
+          .deletedAtIsNull()
+          .findAll() as List<IsarCategory>;
+
+      for (final category in allCategories) {
+        // Excluir la categoría actual si estamos editando
+        if (excludeId != null && category.serverId == excludeId) {
+          continue;
+        }
+
+        // Comparar nombres sin importar mayúsculas/minúsculas
+        if (category.name.trim().toLowerCase() == nameLower) {
+          return const Right(true);
+        }
+      }
+
+      return const Right(false);
+    } catch (e) {
+      return Left(CacheFailure('Error checking category name: $e'));
     }
   }
 }

@@ -1,11 +1,14 @@
 // lib/features/inventory/data/datasources/inventory_local_datasource.dart
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:isar/isar.dart';
 import '../../../../app/config/constants/api_constants.dart';
 import '../../../../app/core/models/pagination_meta.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../models/inventory_movement_model.dart';
 import '../models/inventory_balance_model.dart';
 import '../models/inventory_stats_model.dart';
+import '../models/isar/isar_inventory_movement.dart';
 import '../../domain/repositories/inventory_repository.dart';
 
 abstract class InventoryLocalDataSource {
@@ -147,6 +150,29 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
   @override
   Future<void> cacheMovement(InventoryMovementModel movement) async {
     try {
+      // GUARDAR EN ISAR PRIMERO
+      try {
+        final isar = IsarDatabase.instance.database;
+        await isar.writeTxn(() async {
+          var isarMovement = await isar.isarInventoryMovements
+              .filter()
+              .serverIdEqualTo(movement.id)
+              .findFirst();
+
+          if (isarMovement != null) {
+            isarMovement.updateFromModel(movement);
+          } else {
+            isarMovement = IsarInventoryMovement.fromModel(movement);
+          }
+
+          await isar.isarInventoryMovements.put(isarMovement);
+        });
+        print('✅ InventoryMovement guardado en ISAR: ${movement.id}');
+      } catch (e) {
+        print('⚠️ Error guardando en ISAR (continuando...): $e');
+      }
+
+      // GUARDAR EN SECURESTORAGE (código existente)
       final cacheKey =
           '${ApiConstants.inventoryMovementsCacheKey}_detail_${movement.id}';
       final cacheData = {

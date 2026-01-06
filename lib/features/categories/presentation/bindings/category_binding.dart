@@ -637,6 +637,7 @@ En main.dart debería ser:
           remoteDataSource: Get.find<CategoryRemoteDataSource>(),
           localDataSource: Get.find<CategoryLocalDataSource>(),
           networkInfo: Get.find<NetworkInfo>(),
+          database: IsarDatabase.instance.database,
         ),
         fenix: true,
       );
@@ -773,6 +774,7 @@ En main.dart debería ser:
               Get.find<
                 GetCategoryByIdUseCase
               >(), // ✅ CAMBIO: Específico en lugar de genérico
+          categoryRepository: Get.find<CategoryRepository>(), // ✅ NUEVO: Para validación offline
         ),
         fenix: true,
       );

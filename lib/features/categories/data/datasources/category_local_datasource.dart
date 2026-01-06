@@ -1,9 +1,12 @@
 // lib/features/categories/data/datasources/category_local_datasource.dart
 import 'dart:convert';
+import 'package:isar/isar.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 import '../../../../app/core/errors/exceptions.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../models/category_model.dart';
 import '../models/category_stats_model.dart';
+import '../models/isar/isar_category.dart';
 
 /// Contrato para el datasource local de categorías
 abstract class CategoryLocalDataSource {
@@ -18,6 +21,7 @@ abstract class CategoryLocalDataSource {
   Future<void> removeCachedCategory(String id);
   Future<void> clearCategoryCache();
   Future<bool> isCacheValid();
+  Future<bool> existsByName(String name, String? excludeId);
 }
 
 /// Implementación del datasource local usando SecureStorage
@@ -128,11 +132,69 @@ class CategoryLocalDataSourceImpl implements CategoryLocalDataSource {
   @override
   Future<void> cacheCategory(CategoryModel category) async {
     try {
+      // ✅ GUARDAR EN ISAR PRIMERO (persistencia offline real)
+      try {
+        final isar = IsarDatabase.instance.database;
+        await isar.writeTxn(() async {
+          // Buscar si existe
+          var isarCategory = await isar.isarCategorys
+              .filter()
+              .serverIdEqualTo(category.id)
+              .findFirst();
+
+          if (isarCategory != null) {
+            // Actualizar existente
+            isarCategory.updateFromModel(category);
+          } else {
+            // Crear nuevo
+            isarCategory = IsarCategory.fromModel(category);
+          }
+
+          await isar.isarCategorys.put(isarCategory);
+        });
+        print('✅ Category guardado en ISAR: ${category.id}');
+      } catch (e) {
+        print('⚠️ Error guardando en ISAR (continuando...): $e');
+      }
+
+      // Guardar en SecureStorage (fallback legacy)
       final categoryKey = '$_categoryKeyPrefix${category.id}';
       await storageService.write(categoryKey, json.encode(category.toJson()));
+
+      // CRÍTICO: También actualizar la lista principal para que aparezca en el listado
+      try {
+        final categoriesData = await storageService.read(_categoriesKey);
+        List<CategoryModel> categories = [];
+
+        if (categoriesData != null) {
+          final categoriesJson = json.decode(categoriesData) as List;
+          categories = categoriesJson
+              .map((json) => CategoryModel.fromJson(json as Map<String, dynamic>))
+              .toList();
+        }
+
+        // Buscar si la categoría ya existe y actualizarla, o agregarla si es nueva
+        final existingIndex = categories.indexWhere((c) => c.id == category.id);
+        if (existingIndex >= 0) {
+          categories[existingIndex] = category;
+          print('📝 Categoría actualizada en lista principal: ${category.name}');
+        } else {
+          categories.add(category);
+          print('➕ Categoría agregada a lista principal: ${category.name}');
+        }
+
+        // Guardar lista actualizada
+        final categoriesJson = categories.map((c) => c.toJson()).toList();
+        await storageService.write(_categoriesKey, json.encode(categoriesJson));
+      } catch (e) {
+        print('⚠️ Error actualizando lista principal (solo cache individual guardado): $e');
+      }
+
       await _updateCacheTimestamp();
     } catch (e) {
-      throw CacheException('Error al guardar categoría en cache: $e');
+      // Fallar silenciosamente en lugar de lanzar excepción
+      // Esto permite que la app funcione aunque el cache no esté disponible
+      print('⚠️ Cache no disponible (continuando sin cache): $e');
     }
   }
 
@@ -156,8 +218,30 @@ class CategoryLocalDataSourceImpl implements CategoryLocalDataSource {
   @override
   Future<void> removeCachedCategory(String id) async {
     try {
+      // Eliminar categoría individual
       final categoryKey = '$_categoryKeyPrefix$id';
       await storageService.delete(categoryKey);
+
+      // CRÍTICO: También eliminar de la lista principal
+      try {
+        final categoriesData = await storageService.read(_categoriesKey);
+        if (categoriesData != null) {
+          final categoriesJson = json.decode(categoriesData) as List;
+          final categories = categoriesJson
+              .map((json) => CategoryModel.fromJson(json as Map<String, dynamic>))
+              .toList();
+
+          // Remover categoría de la lista
+          categories.removeWhere((c) => c.id == id);
+
+          // Guardar lista actualizada
+          final updatedCategoriesJson = categories.map((c) => c.toJson()).toList();
+          await storageService.write(_categoriesKey, json.encode(updatedCategoriesJson));
+          print('🗑️ Categoría eliminada de lista principal: $id');
+        }
+      } catch (e) {
+        print('⚠️ Error eliminando de lista principal (solo cache individual eliminado): $e');
+      }
     } catch (e) {
       throw CacheException('Error al eliminar categoría del cache: $e');
     }
@@ -259,6 +343,39 @@ class CategoryLocalDataSourceImpl implements CategoryLocalDataSource {
         isValid: false,
         lastUpdate: null,
       );
+    }
+  }
+
+  @override
+  Future<bool> existsByName(String name, String? excludeId) async {
+    try {
+      final categoriesData = await storageService.read(_categoriesKey);
+      if (categoriesData == null) {
+        return false;
+      }
+
+      final categoriesJson = json.decode(categoriesData) as List;
+      final categories = categoriesJson
+          .map((json) => CategoryModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      final nameLower = name.trim().toLowerCase();
+
+      for (final category in categories) {
+        // Excluir la categoría actual si estamos editando
+        if (excludeId != null && category.id == excludeId) {
+          continue;
+        }
+
+        // Comparar nombres sin importar mayúsculas/minúsculas
+        if (category.name.trim().toLowerCase() == nameLower) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      throw CacheException('Error checking category name: $e');
     }
   }
 }
