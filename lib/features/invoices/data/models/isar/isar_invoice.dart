@@ -57,6 +57,11 @@ class IsarInvoice {
   late bool isSynced;
   DateTime? lastSyncAt;
 
+  // ⭐ FASE 1: Campos de versionamiento para detección de conflictos
+  late int version; // Versión del documento (incrementa con cada cambio)
+  DateTime? lastModifiedAt; // Timestamp del último cambio
+  String? lastModifiedBy; // Usuario que hizo el último cambio
+
   // Constructores
   IsarInvoice();
 
@@ -85,6 +90,9 @@ class IsarInvoice {
     this.deletedAt,
     required this.isSynced,
     this.lastSyncAt,
+    this.version = 0, // ⭐ Inicializar versión en 0
+    this.lastModifiedAt,
+    this.lastModifiedBy,
   });
 
   // Mappers
@@ -175,6 +183,9 @@ class IsarInvoice {
     deletedAt = model.deletedAt;
     isSynced = true;
     lastSyncAt = DateTime.now();
+
+    // ⭐ FASE 1: Incrementar versión al actualizar desde servidor
+    incrementVersion(modifiedBy: 'server');
   }
 
   Invoice toEntity() {
@@ -351,8 +362,42 @@ class IsarInvoice {
     markAsUnsynced();
   }
 
+  // ⭐ FASE 1: Métodos de versionamiento y detección de conflictos
+
+  /// Incrementa la versión del documento y marca timestamp de modificación
+  void incrementVersion({String? modifiedBy}) {
+    version++;
+    lastModifiedAt = DateTime.now();
+    if (modifiedBy != null) {
+      lastModifiedBy = modifiedBy;
+    }
+    isSynced = false;
+  }
+
+  /// Detecta si hay conflicto con otra versión del mismo documento
+  ///
+  /// Returns true si:
+  /// - Ambas versiones tienen el mismo version number PERO timestamps diferentes
+  /// - Indica modificaciones concurrentes que necesitan resolución
+  bool hasConflictWith(IsarInvoice serverVersion) {
+    // Si las versiones son iguales pero timestamps diferentes → conflicto
+    if (version == serverVersion.version &&
+        lastModifiedAt != null &&
+        serverVersion.lastModifiedAt != null &&
+        lastModifiedAt != serverVersion.lastModifiedAt) {
+      return true;
+    }
+
+    // Si versión local es mayor que servidor → conflicto (cambio no sincronizado)
+    if (version > serverVersion.version) {
+      return true;
+    }
+
+    return false;
+  }
+
   @override
   String toString() {
-    return 'IsarInvoice{serverId: $serverId, number: $number, total: $total, status: $status, isSynced: $isSynced}';
+    return 'IsarInvoice{serverId: $serverId, number: $number, total: $total, status: $status, version: $version, isSynced: $isSynced}';
   }
 }
