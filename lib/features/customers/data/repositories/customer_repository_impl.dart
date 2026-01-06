@@ -240,34 +240,54 @@ class CustomerRepositoryImpl implements CustomerRepository {
       try {
         final response = await remoteDataSource.getCustomerById(id);
 
-        // ⭐ FASE 1: Detección de conflictos antes de cachear
-        CustomerModel finalCustomer = response;
+        // ⭐ FASE 1: Resolución de conflictos con ConflictResolver
+        Customer finalCustomer = response.toEntity();
         try {
-          // Buscar versión local en cache/ISAR
-          final localCustomer = await localDataSource.getCachedCustomer(id);
+          // Obtener versión local de ISAR para acceder a campos de versionamiento
+          final localIsarCustomer = await localDataSource.getIsarCustomer(id);
 
-          if (localCustomer != null) {
-            // Verificar si hay datos locales no sincronizados que podrían tener conflictos
-            print('🔍 Versión local de cliente encontrada, verificando conflictos...');
+          if (localIsarCustomer != null && !localIsarCustomer.isSynced) {
+            // Hay una versión local no sincronizada, verificar conflictos
+            print('🔍 Versión local de cliente no sincronizada encontrada, verificando conflictos...');
 
-            // TODO: Implementar detección de conflictos cuando localDataSource
-            // exponga acceso a campos de versionamiento de ISAR.
-            // Por ahora, usar datos del servidor (comportamiento actual).
-            print('   📝 Usando datos del servidor (sin detección de conflictos por ahora)');
+            // Crear versión ISAR del servidor para comparar
+            final serverIsarCustomer = IsarCustomer.fromModel(response);
+
+            // Usar ConflictResolver para detectar y resolver
+            final resolver = Get.find<ConflictResolver>();
+            final resolution = resolver.resolveConflict<IsarCustomer>(
+              localData: localIsarCustomer,
+              serverData: serverIsarCustomer,
+              strategy: ConflictResolutionStrategy.newerWins,
+              hasConflictWith: (local, server) => local.hasConflictWith(server),
+              getVersion: (data) => data.version,
+              getLastModifiedAt: (data) => data.lastModifiedAt,
+            );
+
+            if (resolution.hadConflict) {
+              print('⚠️ CONFLICTO DETECTADO Y RESUELTO: ${resolution.message}');
+              print('   Estrategia usada: ${resolution.strategy.name}');
+              finalCustomer = resolution.resolvedData.toEntity();
+            } else {
+              print('✅ No hay conflicto, usando datos del servidor');
+            }
+          } else if (localIsarCustomer == null) {
+            print('   📝 No hay versión local, usando datos del servidor');
+          } else {
+            print('   ✅ Versión local ya sincronizada, usando datos del servidor');
           }
         } catch (e) {
-          print('⚠️ Error al verificar versión local de cliente: $e');
-          // Continuar con datos del servidor si falla la verificación local
+          print('⚠️ Error al verificar conflictos: $e');
         }
 
         // Cachear el cliente final (resuelto)
         try {
-          await localDataSource.cacheCustomer(finalCustomer);
+          await localDataSource.cacheCustomer(CustomerModel.fromEntity(finalCustomer));
         } catch (e) {
           print('⚠️ Error al cachear cliente individual: $e');
         }
 
-        return Right(finalCustomer.toEntity());
+        return Right(finalCustomer);
       } on ServerException catch (e) {
         final cacheResult = await _getCustomerFromCache(id);
         return cacheResult.fold(

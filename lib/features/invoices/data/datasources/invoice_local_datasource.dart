@@ -25,6 +25,9 @@ abstract class InvoiceLocalDataSource {
   Future<List<InvoiceModel>> getCachedInvoicesByCustomer(String customerId);
   Future<DateTime?> getLastCacheTime();
   Future<bool> hasCachedData();
+
+  // ⭐ FASE 1: Método para acceder a versión ISAR (detección de conflictos)
+  Future<IsarInvoice?> getIsarInvoice(String id);
 }
 
 /// Implementación del datasource local usando SecureStorage
@@ -515,6 +518,23 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
     } catch (e) {
       print('❌ Error al calcular estadísticas básicas: $e');
       return {};
+    }
+  }
+
+  // ⭐ FASE 1: Obtener IsarInvoice directamente para acceder a campos de versionamiento
+  @override
+  Future<IsarInvoice?> getIsarInvoice(String id) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarInvoice = await isar.isarInvoices
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      return isarInvoice;
+    } catch (e) {
+      print('⚠️ Error al obtener IsarInvoice: $e');
+      return null;
     }
   }
 }

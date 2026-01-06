@@ -1,9 +1,12 @@
 // lib/features/products/data/datasources/product_local_datasource.dart
 import 'dart:convert';
+import 'package:isar/isar.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../models/product_model.dart';
 import '../models/product_stats_model.dart';
+import '../models/isar/isar_product.dart';
 import '../../domain/entities/product.dart'; // ✅ NUEVO: Para manejar entidades offline
 import '../../domain/entities/product_price.dart'; // ✅ NUEVO: Para precios
 
@@ -25,6 +28,9 @@ abstract class ProductLocalDataSource {
   Future<bool> existsByName(String name, {String? excludeId}); // ✅ NUEVO: Verificar duplicado por nombre
   Future<bool> existsBySku(String sku, {String? excludeId}); // ✅ NUEVO: Verificar duplicado por SKU
   Future<List<ProductModel>> searchCachedProducts(String searchTerm); // Para buscar productos en cache
+
+  // ⭐ FASE 1: Método para acceder a versión ISAR (detección de conflictos)
+  Future<IsarProduct?> getIsarProduct(String id);
 }
 
 /// Implementación del datasource local usando SecureStorage
@@ -548,6 +554,23 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
     } catch (e) {
       // Si no hay cache o error, asumir que no existe
       return false;
+    }
+  }
+
+  // ⭐ FASE 1: Obtener IsarProduct directamente para acceder a campos de versionamiento
+  @override
+  Future<IsarProduct?> getIsarProduct(String id) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarProduct = await isar.isarProducts
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      return isarProduct;
+    } catch (e) {
+      print('⚠️ Error al obtener IsarProduct: $e');
+      return null;
     }
   }
 }

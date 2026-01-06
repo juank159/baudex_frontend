@@ -16,6 +16,7 @@ import '../../domain/repositories/credit_note_repository.dart';
 import '../datasources/credit_note_local_datasource.dart';
 import '../datasources/credit_note_remote_datasource.dart';
 import '../models/credit_note_model.dart';
+import '../models/isar/isar_credit_note.dart';
 
 class CreditNoteRepositoryImpl implements CreditNoteRepository {
   final CreditNoteRemoteDataSource remoteDataSource;
@@ -68,24 +69,44 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       print('📄 CreditNoteRepository: Obteniendo nota de crédito $id');
       final creditNote = await remoteDataSource.getCreditNoteById(id);
 
-      // ⭐ FASE 1: Detección de conflictos antes de cachear
+      // ⭐ FASE 1: Resolución de conflictos con ConflictResolver
       CreditNote finalCreditNote = creditNote;
       try {
-        // Buscar versión local en cache/ISAR
-        final localCreditNote = await localDataSource.getCachedCreditNote(id);
+        // Obtener versión local de ISAR para acceder a campos de versionamiento
+        final localIsarCreditNote = await localDataSource.getIsarCreditNote(id);
 
-        if (localCreditNote != null) {
-          // Verificar si hay datos locales no sincronizados que podrían tener conflictos
-          print('🔍 Versión local de nota de crédito encontrada, verificando conflictos...');
+        if (localIsarCreditNote != null && !localIsarCreditNote.isSynced) {
+          // Hay una versión local no sincronizada, verificar conflictos
+          print('🔍 Versión local de nota de crédito no sincronizada encontrada, verificando conflictos...');
 
-          // TODO: Implementar detección de conflictos cuando localDataSource
-          // exponga acceso a campos de versionamiento de ISAR.
-          // Por ahora, usar datos del servidor (comportamiento actual).
-          print('   📝 Usando datos del servidor (sin detección de conflictos por ahora)');
+          // Crear versión ISAR del servidor para comparar
+          final serverIsarCreditNote = IsarCreditNote.fromEntity(creditNote);
+
+          // Usar ConflictResolver para detectar y resolver
+          final resolver = Get.find<ConflictResolver>();
+          final resolution = resolver.resolveConflict<IsarCreditNote>(
+            localData: localIsarCreditNote,
+            serverData: serverIsarCreditNote,
+            strategy: ConflictResolutionStrategy.newerWins,
+            hasConflictWith: (local, server) => local.hasConflictWith(server),
+            getVersion: (data) => data.version,
+            getLastModifiedAt: (data) => data.lastModifiedAt,
+          );
+
+          if (resolution.hadConflict) {
+            print('⚠️ CONFLICTO DETECTADO Y RESUELTO: ${resolution.message}');
+            print('   Estrategia usada: ${resolution.strategy.name}');
+            finalCreditNote = resolution.resolvedData.toEntity();
+          } else {
+            print('✅ No hay conflicto, usando datos del servidor');
+          }
+        } else if (localIsarCreditNote == null) {
+          print('   📝 No hay versión local, usando datos del servidor');
+        } else {
+          print('   ✅ Versión local ya sincronizada, usando datos del servidor');
         }
       } catch (e) {
-        print('⚠️ Error al verificar versión local de nota de crédito: $e');
-        // Continuar con datos del servidor si falla la verificación local
+        print('⚠️ Error al verificar conflictos: $e');
       }
 
       // Cache la nota de crédito final (resuelta) locally

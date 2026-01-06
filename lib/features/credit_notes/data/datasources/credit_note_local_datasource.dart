@@ -17,6 +17,9 @@ abstract class CreditNoteLocalDataSource {
   Future<void> removeCachedCreditNote(String id);
   Future<void> clearCreditNoteCache();
   Future<bool> isCacheValid();
+
+  // ⭐ FASE 1: Método para acceder a versión ISAR (detección de conflictos)
+  Future<IsarCreditNote?> getIsarCreditNote(String id);
 }
 
 /// Implementación del datasource local usando SecureStorage
@@ -225,6 +228,23 @@ class CreditNoteLocalDataSourceImpl implements CreditNoteLocalDataSource {
       await storageService.write(_cacheTimestampKey, now);
     } catch (e) {
       print('Error al actualizar timestamp del cache: $e');
+    }
+  }
+
+  // ⭐ FASE 1: Obtener IsarCreditNote directamente para acceder a campos de versionamiento
+  @override
+  Future<IsarCreditNote?> getIsarCreditNote(String id) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarCreditNote = await isar.isarCreditNotes
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      return isarCreditNote;
+    } catch (e) {
+      print('⚠️ Error al obtener IsarCreditNote: $e');
+      return null;
     }
   }
 }

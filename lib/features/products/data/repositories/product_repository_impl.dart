@@ -168,34 +168,54 @@ class ProductRepositoryImpl implements ProductRepository {
         // Intentar obtener desde el servidor
         final response = await remoteDataSource.getProductById(id);
 
-        // ⭐ FASE 1: Detección de conflictos antes de cachear
-        ProductModel finalProduct = response;
+        // ⭐ FASE 1: Resolución de conflictos con ConflictResolver
+        Product finalProduct = response.toEntity();
         try {
-          // Buscar versión local en cache/ISAR
-          final localProduct = await localDataSource.getCachedProduct(id);
+          // Obtener versión local de ISAR para acceder a campos de versionamiento
+          final localIsarProduct = await localDataSource.getIsarProduct(id);
 
-          if (localProduct != null) {
-            // Verificar si hay datos locales no sincronizados que podrían tener conflictos
-            print('🔍 Versión local de producto encontrada, verificando conflictos...');
+          if (localIsarProduct != null && !localIsarProduct.isSynced) {
+            // Hay una versión local no sincronizada, verificar conflictos
+            print('🔍 Versión local de producto no sincronizada encontrada, verificando conflictos...');
 
-            // TODO: Implementar detección de conflictos cuando localDataSource
-            // exponga acceso a campos de versionamiento de ISAR.
-            // Por ahora, usar datos del servidor (comportamiento actual).
-            print('   📝 Usando datos del servidor (sin detección de conflictos por ahora)');
+            // Crear versión ISAR del servidor para comparar
+            final serverIsarProduct = IsarProduct.fromModel(response);
+
+            // Usar ConflictResolver para detectar y resolver
+            final resolver = Get.find<ConflictResolver>();
+            final resolution = resolver.resolveConflict<IsarProduct>(
+              localData: localIsarProduct,
+              serverData: serverIsarProduct,
+              strategy: ConflictResolutionStrategy.newerWins,
+              hasConflictWith: (local, server) => local.hasConflictWith(server),
+              getVersion: (data) => data.version,
+              getLastModifiedAt: (data) => data.lastModifiedAt,
+            );
+
+            if (resolution.hadConflict) {
+              print('⚠️ CONFLICTO DETECTADO Y RESUELTO: ${resolution.message}');
+              print('   Estrategia usada: ${resolution.strategy.name}');
+              finalProduct = resolution.resolvedData.toEntity();
+            } else {
+              print('✅ No hay conflicto, usando datos del servidor');
+            }
+          } else if (localIsarProduct == null) {
+            print('   📝 No hay versión local, usando datos del servidor');
+          } else {
+            print('   ✅ Versión local ya sincronizada, usando datos del servidor');
           }
         } catch (e) {
-          print('⚠️ Error al verificar versión local de producto: $e');
-          // Continuar con datos del servidor si falla la verificación local
+          print('⚠️ Error al verificar conflictos: $e');
         }
 
         // Cache el producto final (resuelto) para uso offline
         try {
-          await localDataSource.cacheProduct(finalProduct);
+          await localDataSource.cacheProduct(ProductModel.fromEntity(finalProduct));
         } catch (e) {
           print('⚠️ Error al cachear producto individual: $e');
         }
 
-        return Right(finalProduct.toEntity());
+        return Right(finalProduct);
       } on ServerException catch (e) {
         // Si falla el servidor, intentar desde cache como fallback
         final cacheResult = await _getProductFromCache(id);

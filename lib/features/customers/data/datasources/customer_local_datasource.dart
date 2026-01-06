@@ -19,6 +19,9 @@ abstract class CustomerLocalDataSource {
   Future<void> removeCachedCustomer(String id);
   Future<void> clearCustomerCache();
   Future<bool> isCacheValid();
+
+  // ⭐ FASE 1: Método para acceder a versión ISAR (detección de conflictos)
+  Future<IsarCustomer?> getIsarCustomer(String id);
 }
 
 /// Implementación del datasource local usando SecureStorage
@@ -242,6 +245,23 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
         isValid: false,
         lastUpdate: null,
       );
+    }
+  }
+
+  // ⭐ FASE 1: Obtener IsarCustomer directamente para acceder a campos de versionamiento
+  @override
+  Future<IsarCustomer?> getIsarCustomer(String id) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarCustomer = await isar.isarCustomers
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      return isarCustomer;
+    } catch (e) {
+      print('⚠️ Error al obtener IsarCustomer: $e');
+      return null;
     }
   }
 }
