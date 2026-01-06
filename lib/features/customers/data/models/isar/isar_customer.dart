@@ -66,6 +66,11 @@ class IsarCustomer {
   late bool isSynced;
   DateTime? lastSyncAt;
 
+  // ⭐ FASE 1: Campos de versionamiento para detección de conflictos
+  late int version; // Versión del documento (incrementa con cada cambio)
+  DateTime? lastModifiedAt; // Timestamp del último cambio
+  String? lastModifiedBy; // Usuario que hizo el último cambio
+
   // Constructores
   IsarCustomer();
 
@@ -99,6 +104,9 @@ class IsarCustomer {
     this.deletedAt,
     required this.isSynced,
     this.lastSyncAt,
+    this.version = 0, // ⭐ Inicializar versión en 0
+    this.lastModifiedAt,
+    this.lastModifiedBy,
   });
 
   // Mappers
@@ -204,6 +212,9 @@ class IsarCustomer {
     deletedAt = model.deletedAt;
     isSynced = true;
     lastSyncAt = DateTime.now();
+
+    // ⭐ FASE 1: Incrementar versión al actualizar desde servidor
+    incrementVersion(modifiedBy: 'server');
   }
 
   Customer toEntity() {
@@ -338,8 +349,36 @@ class IsarCustomer {
     markAsUnsynced();
   }
 
+  // ⭐ FASE 1: Métodos de versionamiento y detección de conflictos
+
+  /// Incrementa la versión del documento y marca timestamp de modificación
+  void incrementVersion({String? modifiedBy}) {
+    version++;
+    lastModifiedAt = DateTime.now();
+    if (modifiedBy != null) {
+      lastModifiedBy = modifiedBy;
+    }
+    isSynced = false;
+  }
+
+  /// Detecta si hay conflicto con otra versión del mismo documento
+  bool hasConflictWith(IsarCustomer serverVersion) {
+    if (version == serverVersion.version &&
+        lastModifiedAt != null &&
+        serverVersion.lastModifiedAt != null &&
+        lastModifiedAt != serverVersion.lastModifiedAt) {
+      return true;
+    }
+
+    if (version > serverVersion.version) {
+      return true;
+    }
+
+    return false;
+  }
+
   @override
   String toString() {
-    return 'IsarCustomer{serverId: $serverId, name: $fullName, email: $email, isSynced: $isSynced}';
+    return 'IsarCustomer{serverId: $serverId, name: $fullName, email: $email, version: $version, isSynced: $isSynced}';
   }
 }

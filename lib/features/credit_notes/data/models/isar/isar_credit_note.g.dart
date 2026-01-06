@@ -112,93 +112,108 @@ const IsarCreditNoteSchema = CollectionSchema(
       name: r'itemsJson',
       type: IsarType.string,
     ),
-    r'lastSyncAt': PropertySchema(
+    r'lastModifiedAt': PropertySchema(
       id: 19,
+      name: r'lastModifiedAt',
+      type: IsarType.dateTime,
+    ),
+    r'lastModifiedBy': PropertySchema(
+      id: 20,
+      name: r'lastModifiedBy',
+      type: IsarType.string,
+    ),
+    r'lastSyncAt': PropertySchema(
+      id: 21,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'metadataJson': PropertySchema(
-      id: 20,
+      id: 22,
       name: r'metadataJson',
       type: IsarType.string,
     ),
     r'needsSync': PropertySchema(
-      id: 21,
+      id: 23,
       name: r'needsSync',
       type: IsarType.bool,
     ),
     r'notes': PropertySchema(
-      id: 22,
+      id: 24,
       name: r'notes',
       type: IsarType.string,
     ),
     r'number': PropertySchema(
-      id: 23,
+      id: 25,
       name: r'number',
       type: IsarType.string,
     ),
     r'reason': PropertySchema(
-      id: 24,
+      id: 26,
       name: r'reason',
       type: IsarType.string,
       enumMap: _IsarCreditNotereasonEnumValueMap,
     ),
     r'reasonDescription': PropertySchema(
-      id: 25,
+      id: 27,
       name: r'reasonDescription',
       type: IsarType.string,
     ),
     r'restoreInventory': PropertySchema(
-      id: 26,
+      id: 28,
       name: r'restoreInventory',
       type: IsarType.bool,
     ),
     r'serverId': PropertySchema(
-      id: 27,
+      id: 29,
       name: r'serverId',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 28,
+      id: 30,
       name: r'status',
       type: IsarType.string,
       enumMap: _IsarCreditNotestatusEnumValueMap,
     ),
     r'subtotal': PropertySchema(
-      id: 29,
+      id: 31,
       name: r'subtotal',
       type: IsarType.double,
     ),
     r'taxAmount': PropertySchema(
-      id: 30,
+      id: 32,
       name: r'taxAmount',
       type: IsarType.double,
     ),
     r'taxPercentage': PropertySchema(
-      id: 31,
+      id: 33,
       name: r'taxPercentage',
       type: IsarType.double,
     ),
     r'terms': PropertySchema(
-      id: 32,
+      id: 34,
       name: r'terms',
       type: IsarType.string,
     ),
     r'total': PropertySchema(
-      id: 33,
+      id: 35,
       name: r'total',
       type: IsarType.double,
     ),
     r'type': PropertySchema(
-      id: 34,
+      id: 36,
       name: r'type',
       type: IsarType.string,
       enumMap: _IsarCreditNotetypeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 35,
+      id: 37,
       name: r'updatedAt',
       type: IsarType.dateTime,
+    ),
+    r'version': PropertySchema(
+      id: 38,
+      name: r'version',
+      type: IsarType.long,
     )
   },
   estimateSize: _isarCreditNoteEstimateSize,
@@ -329,6 +344,12 @@ int _isarCreditNoteEstimateSize(
     }
   }
   {
+    final value = object.lastModifiedBy;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.metadataJson;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -385,23 +406,26 @@ void _isarCreditNoteSerialize(
   writer.writeBool(offsets[16], object.isPartialCredit);
   writer.writeBool(offsets[17], object.isSynced);
   writer.writeString(offsets[18], object.itemsJson);
-  writer.writeDateTime(offsets[19], object.lastSyncAt);
-  writer.writeString(offsets[20], object.metadataJson);
-  writer.writeBool(offsets[21], object.needsSync);
-  writer.writeString(offsets[22], object.notes);
-  writer.writeString(offsets[23], object.number);
-  writer.writeString(offsets[24], object.reason.name);
-  writer.writeString(offsets[25], object.reasonDescription);
-  writer.writeBool(offsets[26], object.restoreInventory);
-  writer.writeString(offsets[27], object.serverId);
-  writer.writeString(offsets[28], object.status.name);
-  writer.writeDouble(offsets[29], object.subtotal);
-  writer.writeDouble(offsets[30], object.taxAmount);
-  writer.writeDouble(offsets[31], object.taxPercentage);
-  writer.writeString(offsets[32], object.terms);
-  writer.writeDouble(offsets[33], object.total);
-  writer.writeString(offsets[34], object.type.name);
-  writer.writeDateTime(offsets[35], object.updatedAt);
+  writer.writeDateTime(offsets[19], object.lastModifiedAt);
+  writer.writeString(offsets[20], object.lastModifiedBy);
+  writer.writeDateTime(offsets[21], object.lastSyncAt);
+  writer.writeString(offsets[22], object.metadataJson);
+  writer.writeBool(offsets[23], object.needsSync);
+  writer.writeString(offsets[24], object.notes);
+  writer.writeString(offsets[25], object.number);
+  writer.writeString(offsets[26], object.reason.name);
+  writer.writeString(offsets[27], object.reasonDescription);
+  writer.writeBool(offsets[28], object.restoreInventory);
+  writer.writeString(offsets[29], object.serverId);
+  writer.writeString(offsets[30], object.status.name);
+  writer.writeDouble(offsets[31], object.subtotal);
+  writer.writeDouble(offsets[32], object.taxAmount);
+  writer.writeDouble(offsets[33], object.taxPercentage);
+  writer.writeString(offsets[34], object.terms);
+  writer.writeDouble(offsets[35], object.total);
+  writer.writeString(offsets[36], object.type.name);
+  writer.writeDateTime(offsets[37], object.updatedAt);
+  writer.writeLong(offsets[38], object.version);
 }
 
 IsarCreditNote _isarCreditNoteDeserialize(
@@ -424,28 +448,31 @@ IsarCreditNote _isarCreditNoteDeserialize(
   object.invoiceId = reader.readString(offsets[10]);
   object.isSynced = reader.readBool(offsets[17]);
   object.itemsJson = reader.readStringOrNull(offsets[18]);
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[19]);
-  object.metadataJson = reader.readStringOrNull(offsets[20]);
-  object.notes = reader.readStringOrNull(offsets[22]);
-  object.number = reader.readString(offsets[23]);
+  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[19]);
+  object.lastModifiedBy = reader.readStringOrNull(offsets[20]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[21]);
+  object.metadataJson = reader.readStringOrNull(offsets[22]);
+  object.notes = reader.readStringOrNull(offsets[24]);
+  object.number = reader.readString(offsets[25]);
   object.reason =
-      _IsarCreditNotereasonValueEnumMap[reader.readStringOrNull(offsets[24])] ??
+      _IsarCreditNotereasonValueEnumMap[reader.readStringOrNull(offsets[26])] ??
           IsarCreditNoteReason.returnedGoods;
-  object.reasonDescription = reader.readStringOrNull(offsets[25]);
-  object.restoreInventory = reader.readBool(offsets[26]);
-  object.serverId = reader.readString(offsets[27]);
+  object.reasonDescription = reader.readStringOrNull(offsets[27]);
+  object.restoreInventory = reader.readBool(offsets[28]);
+  object.serverId = reader.readString(offsets[29]);
   object.status =
-      _IsarCreditNotestatusValueEnumMap[reader.readStringOrNull(offsets[28])] ??
+      _IsarCreditNotestatusValueEnumMap[reader.readStringOrNull(offsets[30])] ??
           IsarCreditNoteStatus.draft;
-  object.subtotal = reader.readDouble(offsets[29]);
-  object.taxAmount = reader.readDouble(offsets[30]);
-  object.taxPercentage = reader.readDouble(offsets[31]);
-  object.terms = reader.readStringOrNull(offsets[32]);
-  object.total = reader.readDouble(offsets[33]);
+  object.subtotal = reader.readDouble(offsets[31]);
+  object.taxAmount = reader.readDouble(offsets[32]);
+  object.taxPercentage = reader.readDouble(offsets[33]);
+  object.terms = reader.readStringOrNull(offsets[34]);
+  object.total = reader.readDouble(offsets[35]);
   object.type =
-      _IsarCreditNotetypeValueEnumMap[reader.readStringOrNull(offsets[34])] ??
+      _IsarCreditNotetypeValueEnumMap[reader.readStringOrNull(offsets[36])] ??
           IsarCreditNoteType.full;
-  object.updatedAt = reader.readDateTime(offsets[35]);
+  object.updatedAt = reader.readDateTime(offsets[37]);
+  object.version = reader.readLong(offsets[38]);
   return object;
 }
 
@@ -499,41 +526,47 @@ P _isarCreditNoteDeserializeProp<P>(
     case 20:
       return (reader.readStringOrNull(offset)) as P;
     case 21:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 22:
       return (reader.readStringOrNull(offset)) as P;
     case 23:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 24:
+      return (reader.readStringOrNull(offset)) as P;
+    case 25:
+      return (reader.readString(offset)) as P;
+    case 26:
       return (_IsarCreditNotereasonValueEnumMap[
               reader.readStringOrNull(offset)] ??
           IsarCreditNoteReason.returnedGoods) as P;
-    case 25:
-      return (reader.readStringOrNull(offset)) as P;
-    case 26:
-      return (reader.readBool(offset)) as P;
     case 27:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 28:
+      return (reader.readBool(offset)) as P;
+    case 29:
+      return (reader.readString(offset)) as P;
+    case 30:
       return (_IsarCreditNotestatusValueEnumMap[
               reader.readStringOrNull(offset)] ??
           IsarCreditNoteStatus.draft) as P;
-    case 29:
-      return (reader.readDouble(offset)) as P;
-    case 30:
-      return (reader.readDouble(offset)) as P;
     case 31:
       return (reader.readDouble(offset)) as P;
     case 32:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 33:
       return (reader.readDouble(offset)) as P;
     case 34:
+      return (reader.readStringOrNull(offset)) as P;
+    case 35:
+      return (reader.readDouble(offset)) as P;
+    case 36:
       return (_IsarCreditNotetypeValueEnumMap[
               reader.readStringOrNull(offset)] ??
           IsarCreditNoteType.full) as P;
-    case 35:
+    case 37:
       return (reader.readDateTime(offset)) as P;
+    case 38:
+      return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -2349,6 +2382,234 @@ extension IsarCreditNoteQueryFilter
   }
 
   QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastModifiedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastModifiedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastModifiedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastModifiedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastModifiedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastModifiedBy',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lastModifiedBy',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      lastModifiedByIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lastModifiedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
       lastSyncAtIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -4057,6 +4318,62 @@ extension IsarCreditNoteQueryFilter
       ));
     });
   }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      versionEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      versionGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      versionLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterFilterCondition>
+      versionBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'version',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension IsarCreditNoteQueryObject
@@ -4324,6 +4641,34 @@ extension IsarCreditNoteQuerySortBy
   }
 
   QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
+      sortByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
+      sortByLastModifiedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
+      sortByLastModifiedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
+      sortByLastModifiedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
       sortByLastSyncAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastSyncAt', Sort.asc);
@@ -4542,6 +4887,19 @@ extension IsarCreditNoteQuerySortBy
       sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy> sortByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
+      sortByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
     });
   }
 }
@@ -4817,6 +5175,34 @@ extension IsarCreditNoteQuerySortThenBy
   }
 
   QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
+      thenByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
+      thenByLastModifiedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
+      thenByLastModifiedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
+      thenByLastModifiedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
       thenByLastSyncAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastSyncAt', Sort.asc);
@@ -5037,6 +5423,19 @@ extension IsarCreditNoteQuerySortThenBy
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy> thenByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QAfterSortBy>
+      thenByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
+    });
+  }
 }
 
 extension IsarCreditNoteQueryWhereDistinct
@@ -5172,6 +5571,21 @@ extension IsarCreditNoteQueryWhereDistinct
   }
 
   QueryBuilder<IsarCreditNote, IsarCreditNote, QDistinct>
+      distinctByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastModifiedAt');
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QDistinct>
+      distinctByLastModifiedBy({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastModifiedBy',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QDistinct>
       distinctByLastSyncAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastSyncAt');
@@ -5286,6 +5700,12 @@ extension IsarCreditNoteQueryWhereDistinct
       distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, IsarCreditNote, QDistinct> distinctByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'version');
     });
   }
 }
@@ -5419,6 +5839,20 @@ extension IsarCreditNoteQueryProperty
   }
 
   QueryBuilder<IsarCreditNote, DateTime?, QQueryOperations>
+      lastModifiedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastModifiedAt');
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, String?, QQueryOperations>
+      lastModifiedByProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastModifiedBy');
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, DateTime?, QQueryOperations>
       lastSyncAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastSyncAt');
@@ -5525,6 +5959,12 @@ extension IsarCreditNoteQueryProperty
   QueryBuilder<IsarCreditNote, DateTime, QQueryOperations> updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<IsarCreditNote, int, QQueryOperations> versionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'version');
     });
   }
 }

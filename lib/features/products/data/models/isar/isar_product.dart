@@ -62,6 +62,11 @@ class IsarProduct {
   late bool isSynced;
   DateTime? lastSyncAt;
 
+  // ⭐ FASE 1: Campos de versionamiento para detección de conflictos
+  late int version; // Versión del documento (incrementa con cada cambio)
+  DateTime? lastModifiedAt; // Timestamp del último cambio
+  String? lastModifiedBy; // Usuario que hizo el último cambio
+
   // Relación con precios (embedded)
   List<IsarProductPrice> prices = [];
 
@@ -92,6 +97,9 @@ class IsarProduct {
     this.deletedAt,
     required this.isSynced,
     this.lastSyncAt,
+    this.version = 0, // ⭐ Inicializar versión en 0
+    this.lastModifiedAt,
+    this.lastModifiedBy,
     this.prices = const [],
   });
 
@@ -230,8 +238,36 @@ class IsarProduct {
     markAsUnsynced();
   }
 
+  // ⭐ FASE 1: Métodos de versionamiento y detección de conflictos
+
+  /// Incrementa la versión del documento y marca timestamp de modificación
+  void incrementVersion({String? modifiedBy}) {
+    version++;
+    lastModifiedAt = DateTime.now();
+    if (modifiedBy != null) {
+      lastModifiedBy = modifiedBy;
+    }
+    isSynced = false;
+  }
+
+  /// Detecta si hay conflicto con otra versión del mismo documento
+  bool hasConflictWith(IsarProduct serverVersion) {
+    if (version == serverVersion.version &&
+        lastModifiedAt != null &&
+        serverVersion.lastModifiedAt != null &&
+        lastModifiedAt != serverVersion.lastModifiedAt) {
+      return true;
+    }
+
+    if (version > serverVersion.version) {
+      return true;
+    }
+
+    return false;
+  }
+
   @override
   String toString() {
-    return 'IsarProduct{serverId: $serverId, name: $name, sku: $sku, isSynced: $isSynced}';
+    return 'IsarProduct{serverId: $serverId, name: $name, sku: $sku, version: $version, isSynced: $isSynced}';
   }
 }
