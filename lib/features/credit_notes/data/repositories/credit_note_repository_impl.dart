@@ -9,6 +9,7 @@ import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/core/services/conflict_resolver.dart';
 import '../../domain/entities/credit_note.dart';
 import '../../domain/entities/credit_note_item.dart';
 import '../../domain/repositories/credit_note_repository.dart';
@@ -67,14 +68,34 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       print('📄 CreditNoteRepository: Obteniendo nota de crédito $id');
       final creditNote = await remoteDataSource.getCreditNoteById(id);
 
-      // Cache locally
+      // ⭐ FASE 1: Detección de conflictos antes de cachear
+      CreditNote finalCreditNote = creditNote;
       try {
-        await localDataSource.cacheCreditNote(creditNote);
+        // Buscar versión local en cache/ISAR
+        final localCreditNote = await localDataSource.getCachedCreditNote(id);
+
+        if (localCreditNote != null) {
+          // Verificar si hay datos locales no sincronizados que podrían tener conflictos
+          print('🔍 Versión local de nota de crédito encontrada, verificando conflictos...');
+
+          // TODO: Implementar detección de conflictos cuando localDataSource
+          // exponga acceso a campos de versionamiento de ISAR.
+          // Por ahora, usar datos del servidor (comportamiento actual).
+          print('   📝 Usando datos del servidor (sin detección de conflictos por ahora)');
+        }
+      } catch (e) {
+        print('⚠️ Error al verificar versión local de nota de crédito: $e');
+        // Continuar con datos del servidor si falla la verificación local
+      }
+
+      // Cache la nota de crédito final (resuelta) locally
+      try {
+        await localDataSource.cacheCreditNote(CreditNoteModel.fromEntity(finalCreditNote));
       } catch (e) {
         print('⚠️ Error al cachear nota de crédito: $e');
       }
 
-      return Right(creditNote);
+      return Right(finalCreditNote);
     } catch (e) {
       print('⚠️ Error del servidor en getCreditNoteById: $e - intentando cache local...');
       try {

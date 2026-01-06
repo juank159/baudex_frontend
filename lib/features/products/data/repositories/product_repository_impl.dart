@@ -11,6 +11,7 @@ import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
+import '../../../../app/core/services/conflict_resolver.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
 import '../../domain/entities/product_stats.dart';
@@ -167,14 +168,34 @@ class ProductRepositoryImpl implements ProductRepository {
         // Intentar obtener desde el servidor
         final response = await remoteDataSource.getProductById(id);
 
-        // Cache la producto individual para uso offline
+        // ⭐ FASE 1: Detección de conflictos antes de cachear
+        ProductModel finalProduct = response;
         try {
-          await localDataSource.cacheProduct(response);
+          // Buscar versión local en cache/ISAR
+          final localProduct = await localDataSource.getCachedProduct(id);
+
+          if (localProduct != null) {
+            // Verificar si hay datos locales no sincronizados que podrían tener conflictos
+            print('🔍 Versión local de producto encontrada, verificando conflictos...');
+
+            // TODO: Implementar detección de conflictos cuando localDataSource
+            // exponga acceso a campos de versionamiento de ISAR.
+            // Por ahora, usar datos del servidor (comportamiento actual).
+            print('   📝 Usando datos del servidor (sin detección de conflictos por ahora)');
+          }
+        } catch (e) {
+          print('⚠️ Error al verificar versión local de producto: $e');
+          // Continuar con datos del servidor si falla la verificación local
+        }
+
+        // Cache el producto final (resuelto) para uso offline
+        try {
+          await localDataSource.cacheProduct(finalProduct);
         } catch (e) {
           print('⚠️ Error al cachear producto individual: $e');
         }
 
-        return Right(response.toEntity());
+        return Right(finalProduct.toEntity());
       } on ServerException catch (e) {
         // Si falla el servidor, intentar desde cache como fallback
         final cacheResult = await _getProductFromCache(id);

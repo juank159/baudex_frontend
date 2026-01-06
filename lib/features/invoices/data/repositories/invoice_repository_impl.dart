@@ -9,6 +9,7 @@ import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
+import '../../../../app/core/services/conflict_resolver.dart';
 
 import '../../domain/entities/invoice.dart';
 import '../../domain/entities/invoice_stats.dart';
@@ -129,15 +130,35 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
           print('🌐 Obteniendo factura del servidor...');
           final remoteInvoice = await remoteDataSource.getInvoiceById(id);
 
-          // Cachear la factura individual
+          // ⭐ FASE 1: Detección de conflictos antes de cachear
+          Invoice finalInvoice = remoteInvoice;
           try {
-            await localDataSource.cacheInvoice(remoteInvoice);
+            // Buscar versión local en cache/ISAR
+            final localInvoice = await localDataSource.getCachedInvoice(id);
+
+            if (localInvoice != null) {
+              // Verificar si hay datos locales no sincronizados que podrían tener conflictos
+              print('🔍 Versión local encontrada, verificando conflictos...');
+
+              // TODO: Implementar detección de conflictos cuando localDataSource
+              // exponga acceso a campos de versionamiento de ISAR.
+              // Por ahora, usar datos del servidor (comportamiento actual).
+              print('   📝 Usando datos del servidor (sin detección de conflictos por ahora)');
+            }
+          } catch (e) {
+            print('⚠️ Error al verificar versión local: $e');
+            // Continuar con datos del servidor si falla la verificación local
+          }
+
+          // Cachear la factura final (resuelta)
+          try {
+            await localDataSource.cacheInvoice(finalInvoice);
             print('💾 Factura cacheada exitosamente');
           } catch (e) {
             print('⚠️ Error al cachear factura: $e');
           }
 
-          return Right(remoteInvoice);
+          return Right(finalInvoice);
         } catch (e) {
           print('❌ Error al obtener factura del servidor: $e');
 

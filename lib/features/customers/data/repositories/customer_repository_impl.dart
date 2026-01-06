@@ -10,6 +10,7 @@ import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
+import '../../../../app/core/services/conflict_resolver.dart';
 import 'package:get/get.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/customer_stats.dart';
@@ -239,13 +240,34 @@ class CustomerRepositoryImpl implements CustomerRepository {
       try {
         final response = await remoteDataSource.getCustomerById(id);
 
+        // ⭐ FASE 1: Detección de conflictos antes de cachear
+        CustomerModel finalCustomer = response;
         try {
-          await localDataSource.cacheCustomer(response);
+          // Buscar versión local en cache/ISAR
+          final localCustomer = await localDataSource.getCachedCustomer(id);
+
+          if (localCustomer != null) {
+            // Verificar si hay datos locales no sincronizados que podrían tener conflictos
+            print('🔍 Versión local de cliente encontrada, verificando conflictos...');
+
+            // TODO: Implementar detección de conflictos cuando localDataSource
+            // exponga acceso a campos de versionamiento de ISAR.
+            // Por ahora, usar datos del servidor (comportamiento actual).
+            print('   📝 Usando datos del servidor (sin detección de conflictos por ahora)');
+          }
+        } catch (e) {
+          print('⚠️ Error al verificar versión local de cliente: $e');
+          // Continuar con datos del servidor si falla la verificación local
+        }
+
+        // Cachear el cliente final (resuelto)
+        try {
+          await localDataSource.cacheCustomer(finalCustomer);
         } catch (e) {
           print('⚠️ Error al cachear cliente individual: $e');
         }
 
-        return Right(response.toEntity());
+        return Right(finalCustomer.toEntity());
       } on ServerException catch (e) {
         final cacheResult = await _getCustomerFromCache(id);
         return cacheResult.fold(
