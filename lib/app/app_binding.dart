@@ -18,6 +18,7 @@ import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
 import '../features/settings/presentation/bindings/settings_binding.dart';
 import 'data/local/sync_service.dart';
+import 'core/services/conflict_resolver.dart';
 // Offline Repositories
 import '../features/bank_accounts/data/repositories/bank_account_repository_impl.dart';
 import '../features/bank_accounts/data/datasources/bank_account_remote_datasource.dart';
@@ -63,6 +64,9 @@ class InitialBinding implements Bindings {
 
     // ==================== SYNC SERVICE ====================
     _registerSyncService();
+
+    // ==================== CONFLICT RESOLVER SERVICE ====================
+    _registerConflictResolver();
 
     // ==================== AUDIO NOTIFICATION SERVICE ====================
     _registerAudioService();
@@ -249,6 +253,18 @@ class InitialBinding implements Bindings {
     syncService.onInit();
 
     print('✅ Servicio de sincronización offline-first registrado e inicializado');
+  }
+
+  void _registerConflictResolver() {
+    print('⚔️ Registrando servicio de resolución de conflictos...');
+
+    // ConflictResolver como servicio permanente
+    Get.put<ConflictResolver>(
+      ConflictResolver(),
+      permanent: true,
+    );
+
+    print('✅ Servicio de resolución de conflictos registrado');
   }
 
   void _registerAudioService() {
