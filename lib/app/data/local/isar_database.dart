@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 
 // Import ISAR models
 import 'sync_queue.dart';
+import 'models/isar_idempotency_record.dart'; // ⭐ FASE 1: Idempotencia
 import '../../../features/categories/data/models/isar/isar_category.dart';
 import '../../../features/customers/data/models/isar/isar_customer.dart';
 import '../../../features/customer_credits/data/models/isar/isar_customer_credit.dart';
@@ -59,6 +60,7 @@ class IsarDatabase {
       _isar = await Isar.open(
         [
           SyncOperationSchema,
+          IsarIdempotencyRecordSchema, // ⭐ FASE 1: Idempotencia
           IsarCategorySchema,
           IsarCustomerSchema,
           IsarCustomerCreditSchema,

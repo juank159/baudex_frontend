@@ -19,6 +19,7 @@ import '../features/auth/presentation/bindings/auth_binding_stub.dart';
 import '../features/settings/presentation/bindings/settings_binding.dart';
 import 'data/local/sync_service.dart';
 import 'core/services/conflict_resolver.dart';
+import 'core/services/idempotency_service.dart';
 // Offline Repositories
 import '../features/bank_accounts/data/repositories/bank_account_repository_impl.dart';
 import '../features/bank_accounts/data/datasources/bank_account_remote_datasource.dart';
@@ -67,6 +68,9 @@ class InitialBinding implements Bindings {
 
     // ==================== CONFLICT RESOLVER SERVICE ====================
     _registerConflictResolver();
+
+    // ==================== IDEMPOTENCY SERVICE ====================
+    _registerIdempotencyService();
 
     // ==================== AUDIO NOTIFICATION SERVICE ====================
     _registerAudioService();
@@ -171,6 +175,7 @@ class InitialBinding implements Bindings {
         remoteDataSource: Get.find<CategoryRemoteDataSource>(),
         localDataSource: Get.find<CategoryLocalDataSource>(),
         networkInfo: Get.find<NetworkInfo>(),
+        database: Get.find<IsarDatabase>(),
       ),
       fenix: true,
     );
@@ -181,6 +186,7 @@ class InitialBinding implements Bindings {
         remoteDataSource: CustomerRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
         localDataSource: CustomerLocalDataSourceImpl(storageService: Get.find<SecureStorageService>()),
         networkInfo: Get.find<NetworkInfo>(),
+        database: Get.find<IsarDatabase>(),
       ),
       fenix: true,
     );
@@ -265,6 +271,18 @@ class InitialBinding implements Bindings {
     );
 
     print('✅ Servicio de resolución de conflictos registrado');
+  }
+
+  void _registerIdempotencyService() {
+    print('🔑 Registrando servicio de idempotencia...');
+
+    // IdempotencyService como servicio permanente
+    Get.put<IdempotencyService>(
+      IdempotencyService(),
+      permanent: true,
+    );
+
+    print('✅ Servicio de idempotencia registrado');
   }
 
   void _registerAudioService() {

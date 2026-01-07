@@ -6,6 +6,7 @@ import 'isar_database.dart';
 import 'sync_queue.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../core/errors/exceptions.dart';
+import '../../core/services/idempotency_service.dart'; // ⭐ FASE 1: Idempotencia
 
 // Products
 import '../../../features/products/data/datasources/product_remote_datasource.dart';
@@ -266,6 +267,32 @@ class SyncService extends GetxService {
 
       for (final operation in sortedOperations) {
         try {
+          // ⭐ FASE 1 - IDEMPOTENCIA: Verificar si operación ya fue procesada
+          final idempotencyService = Get.find<IdempotencyService>();
+
+          // Generar clave estable (sin timestamp) para detectar duplicados
+          final idempotencyKey = '${operation.operationType.name}_${operation.entityType}_${operation.entityId}';
+
+          // Verificar si ya fue procesada exitosamente
+          final alreadyProcessed = await idempotencyService.isOperationProcessed(idempotencyKey);
+          if (alreadyProcessed) {
+            print('⏭️  Operación ya procesada (idempotencia): ${operation.entityType} ${operation.operationType.name}');
+            await _isarDatabase.markSyncOperationCompleted(operation.id);
+            successCount++;
+            continue; // Skip to next operation
+          }
+
+          // Registrar operación con clave estable (sin timestamp)
+          await idempotencyService.registerOperationWithKey(
+            idempotencyKey: idempotencyKey,
+            operationType: operation.operationType.name,
+            entityType: operation.entityType,
+            entityId: operation.entityId,
+          );
+
+          // Marcar como en proceso
+          await idempotencyService.markAsProcessing(idempotencyKey);
+
           print('🔄 Sincronizando: ${operation.entityType} ${operation.operationType.name} (ID: ${operation.entityId})');
 
           // Sincronizar según el tipo de entidad
@@ -309,10 +336,26 @@ class SyncService extends GetxService {
           }
 
           await _isarDatabase.markSyncOperationCompleted(operation.id);
+
+          // ⭐ IDEMPOTENCIA: Marcar operación como completada exitosamente
+          await idempotencyService.markAsCompleted(idempotencyKey: idempotencyKey);
+
           successCount++;
 
           print('✅ Sincronizada: ${operation.entityType} ${operation.operationType.name}');
         } catch (e) {
+          // ⭐ IDEMPOTENCIA: Marcar operación como fallida para reintentos
+          try {
+            final idempotencyService = Get.find<IdempotencyService>();
+            final idempotencyKey = '${operation.operationType.name}_${operation.entityType}_${operation.entityId}';
+            await idempotencyService.markAsFailed(
+              idempotencyKey: idempotencyKey,
+              errorMessage: e.toString(),
+            );
+          } catch (idempotencyError) {
+            print('⚠️ Error marcando operación como fallida en idempotencia: $idempotencyError');
+          }
+
           await _isarDatabase.markSyncOperationFailed(
             operation.id,
             e.toString(),
