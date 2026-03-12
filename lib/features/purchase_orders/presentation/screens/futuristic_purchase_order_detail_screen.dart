@@ -12,6 +12,7 @@ import '../widgets/advanced_stats_widget.dart';
 import '../widgets/custom_receive_dialog.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class FuturisticPurchaseOrderDetailScreen
     extends GetView<PurchaseOrderDetailController> {
@@ -39,6 +40,7 @@ class FuturisticPurchaseOrderDetailScreen
 
   List<Widget> _buildAppBarActions(BuildContext context) {
     return [
+      const SyncStatusIcon(),
       IconButton(
         icon: const Icon(Icons.refresh),
         onPressed: controller.refreshPurchaseOrder,

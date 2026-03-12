@@ -401,7 +401,7 @@ class DioClient {
           case 409:
             return ServerException('Conflicto: $message', statusCode: 409);
           case 500:
-            return const ServerException('Error interno del servidor', statusCode: 500);
+            return ServerException('Error interno del servidor: $message', statusCode: 500);
           default:
             return ServerException('Error: $message', statusCode: statusCode);
         }

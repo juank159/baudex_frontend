@@ -10,6 +10,7 @@ import '../../domain/entities/customer_credit.dart';
 import '../controllers/customer_credit_controller.dart';
 import '../widgets/add_debt_dialog.dart';
 import '../widgets/add_credit_payment_dialog.dart';
+import '../widgets/create_credit_dialog.dart';
 import 'credit_detail_page.dart';
 
 /// Pagina unificada de cuenta del cliente
@@ -1281,8 +1282,16 @@ class _CustomerAccountUnifiedPageState extends State<CustomerAccountUnifiedPage>
     );
 
     if (result == true) {
-      // Recargar todos los datos para reflejar el pago
-      await _loadData();
+      // Recargar cuenta corriente y créditos para reflejar el pago
+      await controller.getCustomerAccount(widget.customerId);
+      await controller.loadCreditsByCustomer(widget.customerId);
+
+      if (mounted) {
+        final summary = controller.getCustomerCreditSummary(widget.customerId);
+        setState(() {
+          _summary = summary ?? _summary;
+        });
+      }
     }
   }
 
@@ -1293,7 +1302,10 @@ class _CustomerAccountUnifiedPageState extends State<CustomerAccountUnifiedPage>
     );
 
     if (result == true) {
-      // La data ya fue recargada en el diálogo, solo actualizar el summary
+      // Recargar cuenta corriente y créditos para reflejar los nuevos valores
+      await controller.getCustomerAccount(widget.customerId);
+      await controller.loadCreditsByCustomer(widget.customerId);
+
       if (mounted) {
         final summary = controller.getCustomerCreditSummary(widget.customerId);
         setState(() {
@@ -1304,10 +1316,21 @@ class _CustomerAccountUnifiedPageState extends State<CustomerAccountUnifiedPage>
   }
 
   void _createNewDirectCredit() async {
-    Get.snackbar(
-      'Crear Crédito',
-      'Ir a crear nuevo crédito para ${widget.customerName ?? "este cliente"}',
-      snackPosition: SnackPosition.BOTTOM,
+    final result = await Get.dialog<bool>(
+      CreateCreditDialog(
+        preselectedCustomerId: widget.customerId,
+        preselectedCustomerName: widget.customerName,
+      ),
+      barrierDismissible: false,
     );
+
+    if (result == true) {
+      // Esperar a que el controller termine de procesar la creación en segundo plano
+      // (el diálogo cierra inmediatamente, la operación sigue async en el controller)
+      while (controller.isProcessing.value) {
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+      await _loadData();
+    }
   }
 }

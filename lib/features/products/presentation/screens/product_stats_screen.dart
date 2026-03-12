@@ -9,6 +9,7 @@ import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/products_controller.dart';
 import '../widgets/product_stats_widget.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class ProductStatsScreen extends GetView<ProductsController> {
   const ProductStatsScreen({super.key});
@@ -101,6 +102,7 @@ class ProductStatsScreen extends GetView<ProductsController> {
         onPressed: () => Get.back(),
       ),
       actions: [
+        const SyncStatusIcon(),
         IconButton(
           icon: const Icon(Icons.refresh, size: 20),
           onPressed: controller.loadInitialData,

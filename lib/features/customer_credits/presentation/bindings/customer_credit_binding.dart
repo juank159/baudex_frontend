@@ -9,6 +9,7 @@ import '../../data/datasources/customer_credit_local_datasource.dart';
 import '../../data/datasources/customer_credit_local_datasource_isar.dart';
 import '../../data/datasources/customer_credit_remote_datasource.dart';
 import '../../data/repositories/customer_credit_repository_impl.dart';
+import '../../domain/repositories/customer_credit_repository.dart';
 import '../controllers/customer_credit_controller.dart';
 
 /// Binding para inyección de dependencias de créditos

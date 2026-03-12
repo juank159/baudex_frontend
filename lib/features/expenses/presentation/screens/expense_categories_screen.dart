@@ -5,6 +5,7 @@ import '../../../../app/core/utils/formatters.dart';
 import '../controllers/expense_categories_controller.dart';
 import '../widgets/expense_category_form_dialog.dart';
 import '../../domain/entities/expense_category.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class ExpenseCategoriesScreen extends GetView<ExpenseCategoriesController> {
   const ExpenseCategoriesScreen({super.key});
@@ -16,6 +17,7 @@ class ExpenseCategoriesScreen extends GetView<ExpenseCategoriesController> {
         title: const Text('Gestión de Categorías'),
         elevation: 0,
         actions: [
+          const SyncStatusIcon(),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => controller.refreshCategories(),

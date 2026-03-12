@@ -6,6 +6,7 @@ import 'package:isar/isar.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
+import '../../../../app/core/utils/app_logger.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
@@ -34,17 +35,17 @@ class ProductRepositoryImpl implements ProductRepository {
   final ProductRemoteDataSource remoteDataSource;
   final ProductLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
-  final dynamic _database;
+  final IIsarDatabase _database;
 
   ProductRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
     required this.networkInfo,
-    dynamic database,
+    IIsarDatabase? database,
   }) : _database = database ?? IsarDatabase.instance;
 
   // Getter para acceder a la base de datos ISAR
-  dynamic get _isar => _database.database;
+  Isar get _isar => _database.database as Isar;
 
   // ==================== READ OPERATIONS ====================
 
@@ -68,18 +69,18 @@ class ProductRepositoryImpl implements ProductRepository {
     String? sortBy,
     String? sortOrder,
   }) async {
-    print('🚀🚀🚀 PRODUCT REPOSITORY GET PRODUCTS LLAMADO!!! 🚀🚀🚀');
-    print('🚀🚀🚀 SI VES ESTE LOG, EL CÓDIGO NUEVO SE ESTÁ EJECUTANDO 🚀🚀🚀');
-    print('   📄 Params: page=$page, limit=$limit, search=$search');
+    AppLogger.d('🚀🚀 PRODUCT REPOSITORY GET PRODUCTS LLAMADO!!! 🚀🚀🚀');
+    AppLogger.d('🚀🚀 SI VES ESTE LOG, EL CÓDIGO NUEVO SE ESTÁ EJECUTANDO 🚀🚀🚀');
+    AppLogger.d('📄 Params: page=$page, limit=$limit, search=$search');
 
     // Verificar conexión a internet
-    print('🔍 ProductRepository: Verificando conexión a internet...');
+    AppLogger.d(' ProductRepository: Verificando conexión a internet...');
     try {
       final isConnected = await networkInfo.isConnected;
-      print('🌐 ProductRepository: networkInfo.isConnected retornó = $isConnected');
+      AppLogger.d(' ProductRepository: networkInfo.isConnected retornó = $isConnected');
 
       if (isConnected) {
-        print('✅ ProductRepository: HAY CONEXIÓN - Intentando llamar al backend...');
+        AppLogger.i(' ProductRepository: HAY CONEXIÓN - Intentando llamar al backend...');
         try {
         // Crear query model con todos los parámetros
         final query = ProductQueryModel(
@@ -103,9 +104,12 @@ class ProductRepositoryImpl implements ProductRepository {
         );
 
         // Realizar llamada remota
-        print('📡 ProductRepository: Llamando a remoteDataSource.getProducts()...');
+        AppLogger.d(' ProductRepository: Llamando a remoteDataSource.getProducts()...');
         final response = await remoteDataSource.getProducts(query);
-        print('📦 ProductRepository: Respuesta recibida del backend con ${response.data.length} productos');
+        AppLogger.d(' ProductRepository: Respuesta recibida del backend con ${response.data.length} productos');
+
+        // ✅ Resetear estado de conectividad si el servidor respondió
+        networkInfo.resetServerReachability();
 
         // Cache solo resultados de la primera página sin filtros específicos
         // para tener datos base disponibles offline
@@ -114,7 +118,7 @@ class ProductRepositoryImpl implements ProductRepository {
             await localDataSource.cacheProducts(response.data);
           } catch (e) {
             // Log del error pero no fallar la operación principal
-            print('⚠️ Error al cachear productos: $e');
+            AppLogger.w(' Error al cachear productos: $e');
           }
         }
 
@@ -129,34 +133,46 @@ class ProductRepositoryImpl implements ProductRepository {
           ),
         );
       } on ServerException catch (e) {
-        print('⚠️ ServerException: ${e.message} - Intentando cache como fallback...');
+        AppLogger.w(' ServerException: ${e.message} - Intentando cache como fallback...');
+        // ✅ Marcar servidor como no alcanzable si es error de conexión/timeout
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
         return _getProductsFromCache();
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException: ${e.message} - Intentando cache como fallback...');
+        AppLogger.w(' ConnectionException: ${e.message} - Intentando cache como fallback...');
+        // ✅ Marcar servidor como no alcanzable para evitar timeouts repetidos
+        networkInfo.markServerUnreachable();
         return _getProductsFromCache();
       } on CacheException catch (e) {
         return Left(CacheFailure(e.message));
       } catch (e, stackTrace) {
-        print('❌ ProductRepository: Error inesperado en rama ONLINE: $e');
-        print('📚 StackTrace: $stackTrace');
-        print('🔄 Intentando cache como fallback...');
+        AppLogger.e(' ProductRepository: Error inesperado en rama ONLINE: $e');
+        AppLogger.d(' StackTrace: $stackTrace');
+        AppLogger.d(' Intentando cache como fallback...');
+        // ✅ Marcar servidor como no alcanzable si es error de conexión
+        if (e.toString().contains('timeout') ||
+            e.toString().contains('SocketException') ||
+            e.toString().contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
         return _getProductsFromCache();
       }
     } else {
-      print('⚠️ ProductRepository: SIN CONEXIÓN - Usando caché local');
+      AppLogger.w(' ProductRepository: SIN CONEXIÓN - Usando caché local');
       // Sin conexión, intentar obtener desde cache
       final cacheResult = await _getProductsFromCache();
       cacheResult.fold(
-        (failure) => print('❌ Cache falló: ${failure.message}'),
-        (data) => print('✅ Cache retornó ${data.data.length} productos'),
+        (failure) => AppLogger.e(' Cache falló: ${failure.message}'),
+        (data) => AppLogger.i(' Cache retornó ${data.data.length} productos'),
       );
       return cacheResult;
     }
     } catch (e, stackTrace) {
-      print('💥 ProductRepository: ERROR FATAL en networkInfo.isConnected: $e');
-      print('📚 StackTrace: $stackTrace');
+      AppLogger.e(' ProductRepository: ERROR FATAL en networkInfo.isConnected: $e');
+      AppLogger.d(' StackTrace: $stackTrace');
       // Si falla la verificación de red, intentar desde caché como fallback
-      print('🔄 Intentando caché como fallback...');
+      AppLogger.d(' Intentando caché como fallback...');
       return _getProductsFromCache();
     }
   }
@@ -176,7 +192,7 @@ class ProductRepositoryImpl implements ProductRepository {
 
           if (localIsarProduct != null && !localIsarProduct.isSynced) {
             // Hay una versión local no sincronizada, verificar conflictos
-            print('🔍 Versión local de producto no sincronizada encontrada, verificando conflictos...');
+            AppLogger.d(' Versión local de producto no sincronizada encontrada, verificando conflictos...');
 
             // Crear versión ISAR del servidor para comparar
             final serverIsarProduct = IsarProduct.fromModel(response);
@@ -193,26 +209,26 @@ class ProductRepositoryImpl implements ProductRepository {
             );
 
             if (resolution.hadConflict) {
-              print('⚠️ CONFLICTO DETECTADO Y RESUELTO: ${resolution.message}');
-              print('   Estrategia usada: ${resolution.strategy.name}');
+              AppLogger.w(' CONFLICTO DETECTADO Y RESUELTO: ${resolution.message}');
+              AppLogger.d('Estrategia usada: ${resolution.strategy.name}');
               finalProduct = resolution.resolvedData.toEntity();
             } else {
-              print('✅ No hay conflicto, usando datos del servidor');
+              AppLogger.i(' No hay conflicto, usando datos del servidor');
             }
           } else if (localIsarProduct == null) {
-            print('   📝 No hay versión local, usando datos del servidor');
+            AppLogger.d('📝 No hay versión local, usando datos del servidor');
           } else {
-            print('   ✅ Versión local ya sincronizada, usando datos del servidor');
+            AppLogger.d('✅ Versión local ya sincronizada, usando datos del servidor');
           }
         } catch (e) {
-          print('⚠️ Error al verificar conflictos: $e');
+          AppLogger.w(' Error al verificar conflictos: $e');
         }
 
         // Cache el producto final (resuelto) para uso offline
         try {
           await localDataSource.cacheProduct(ProductModel.fromEntity(finalProduct));
         } catch (e) {
-          print('⚠️ Error al cachear producto individual: $e');
+          AppLogger.w(' Error al cachear producto individual: $e');
         }
 
         return Right(finalProduct);
@@ -246,16 +262,16 @@ class ProductRepositoryImpl implements ProductRepository {
       try {
         await localDataSource.cacheProduct(response);
       } catch (e) {
-        print('⚠️ Error al cachear producto por SKU: $e');
+        AppLogger.w(' Error al cachear producto por SKU: $e');
       }
 
       return Right(response.toEntity());
     } catch (e) {
-      print('⚠️ Error del servidor en getProductBySku: $e - intentando cache local...');
+      AppLogger.w(' Error del servidor en getProductBySku: $e - intentando cache local...');
       try {
         final cached = await localDataSource.getCachedProductBySku(sku);
         if (cached != null) {
-          print('✅ Producto obtenido desde cache local por SKU');
+          AppLogger.i(' Producto obtenido desde cache local por SKU');
           return Right(cached.toEntity());
         }
         return Left(CacheFailure('No hay producto con SKU $sku en cache local'));
@@ -274,16 +290,16 @@ class ProductRepositoryImpl implements ProductRepository {
       try {
         await localDataSource.cacheProduct(response);
       } catch (e) {
-        print('⚠️ Error al cachear producto por código de barras: $e');
+        AppLogger.w(' Error al cachear producto por código de barras: $e');
       }
 
       return Right(response.toEntity());
     } catch (e) {
-      print('⚠️ Error del servidor en getProductByBarcode: $e - intentando cache local...');
+      AppLogger.w(' Error del servidor en getProductByBarcode: $e - intentando cache local...');
       try {
         final cached = await localDataSource.getCachedProductByBarcode(barcode);
         if (cached != null) {
-          print('✅ Producto obtenido desde cache local por código de barras');
+          AppLogger.i(' Producto obtenido desde cache local por código de barras');
           return Right(cached.toEntity());
         }
         return Left(CacheFailure('No hay producto con barcode $barcode en cache local'));
@@ -302,23 +318,23 @@ class ProductRepositoryImpl implements ProductRepository {
       try {
         await localDataSource.cacheProduct(response);
       } catch (e) {
-        print('⚠️ Error al cachear producto encontrado: $e');
+        AppLogger.w(' Error al cachear producto encontrado: $e');
       }
 
       return Right(response.toEntity());
     } catch (e) {
-      print('⚠️ Error del servidor en findBySkuOrBarcode: $e - intentando cache local...');
+      AppLogger.w(' Error del servidor en findBySkuOrBarcode: $e - intentando cache local...');
       try {
         // Intentar buscar por SKU primero
         final cachedBySku = await localDataSource.getCachedProductBySku(code);
         if (cachedBySku != null) {
-          print('✅ Producto obtenido desde cache local por SKU');
+          AppLogger.i(' Producto obtenido desde cache local por SKU');
           return Right(cachedBySku.toEntity());
         }
         // Si no se encuentra por SKU, intentar por barcode
         final cachedByBarcode = await localDataSource.getCachedProductByBarcode(code);
         if (cachedByBarcode != null) {
-          print('✅ Producto obtenido desde cache local por barcode');
+          AppLogger.i(' Producto obtenido desde cache local por barcode');
           return Right(cachedByBarcode.toEntity());
         }
         return Left(CacheFailure('No hay producto con código $code en cache local'));
@@ -333,28 +349,92 @@ class ProductRepositoryImpl implements ProductRepository {
     String searchTerm, {
     int limit = 10,
   }) async {
-    try {
-      final response = await remoteDataSource.searchProducts(
-        searchTerm,
-        limit,
-      );
-
-      // Convertir a entidades del dominio
-      final products = response.map((model) => model.toEntity()).toList();
-      return Right(products);
-    } catch (e) {
-      print('⚠️ Error del servidor en searchProducts: $e - intentando cache local...');
+    // Verificar conexión primero
+    if (await networkInfo.isConnected) {
       try {
-        final cached = await localDataSource.searchCachedProducts(searchTerm);
-        final limitedResults = limit != null && limit > 0 ? cached.take(limit).toList() : cached;
-        if (limitedResults.isNotEmpty) {
-          print('✅ ${limitedResults.length} productos encontrados en cache local');
-          return Right(limitedResults.map((model) => model.toEntity()).toList());
+        final response = await remoteDataSource.searchProducts(
+          searchTerm,
+          limit,
+        );
+
+        // ✅ Resetear estado de conectividad si el servidor respondió
+        networkInfo.resetServerReachability();
+
+        // Convertir a entidades del dominio
+        final products = response.map((model) => model.toEntity()).toList();
+        return Right(products);
+      } catch (e) {
+        AppLogger.w(' Error del servidor en searchProducts: $e - intentando búsqueda offline...');
+        // ✅ Marcar servidor como no alcanzable
+        if (e.toString().contains('Connection') || e.toString().contains('timeout')) {
+          networkInfo.markServerUnreachable();
         }
-        return const Right([]);
-      } catch (cacheError) {
-        return Left(CacheFailure('Error al buscar en cache: $cacheError'));
+        return _searchProductsOffline(searchTerm, limit: limit);
       }
+    } else {
+      AppLogger.w(' Sin conexión - Buscando productos offline...');
+      return _searchProductsOffline(searchTerm, limit: limit);
+    }
+  }
+
+  /// Búsqueda de productos offline usando ISAR primero, luego SecureStorage
+  Future<Either<Failure, List<Product>>> _searchProductsOffline(
+    String searchTerm, {
+    int limit = 10,
+  }) async {
+    // ✅ PASO 1: Intentar ISAR primero (más rápido y persistente)
+    try {
+      AppLogger.d(' [OFFLINE] Buscando productos en ISAR: "$searchTerm"');
+
+      // ✅ Dividir término de búsqueda en palabras para búsqueda más flexible
+      final searchWords = searchTerm.toLowerCase().split(' ').where((w) => w.isNotEmpty).toList();
+
+      // Obtener todos los productos activos
+      final allProducts = await _isar.isarProducts
+          .filter()
+          .deletedAtIsNull()
+          .findAll();
+
+      // Filtrar manualmente para soportar búsqueda de múltiples palabras
+      final matchingProducts = allProducts.where((product) {
+        final name = product.name.toLowerCase();
+        final sku = product.sku.toLowerCase();
+        final description = (product.description ?? '').toLowerCase();
+        final barcode = (product.barcode ?? '').toLowerCase();
+
+        // Verificar si TODAS las palabras de búsqueda están presentes en alguno de los campos
+        for (final word in searchWords) {
+          final wordFound = name.contains(word) ||
+              sku.contains(word) ||
+              description.contains(word) ||
+              barcode.contains(word);
+
+          if (!wordFound) return false;
+        }
+        return true;
+      }).take(limit).toList();
+
+      if (matchingProducts.isNotEmpty) {
+        final products = matchingProducts.map((isarProduct) => isarProduct.toEntity()).toList();
+        AppLogger.i(' [OFFLINE] ${products.length} productos encontrados en ISAR');
+        return Right(products);
+      }
+    } catch (e) {
+      AppLogger.w(' ISAR search falló: $e');
+    }
+
+    // ✅ PASO 2: Fallback a SecureStorage
+    try {
+      final cached = await localDataSource.searchCachedProducts(searchTerm);
+      final limitedResults = limit > 0 ? cached.take(limit).toList() : cached;
+      if (limitedResults.isNotEmpty) {
+        AppLogger.i(' [OFFLINE] ${limitedResults.length} productos encontrados en SecureStorage');
+        return Right(limitedResults.map((model) => model.toEntity()).toList());
+      }
+      return const Right([]);
+    } catch (cacheError) {
+      AppLogger.e(' Error búsqueda offline: $cacheError');
+      return const Right([]); // Retornar lista vacía en lugar de error
     }
   }
 
@@ -365,12 +445,12 @@ class ProductRepositoryImpl implements ProductRepository {
       final products = response.map((model) => model.toEntity()).toList();
       return Right(products);
     } catch (e) {
-      print('⚠️ Error del servidor en getLowStockProducts: $e - intentando cache local...');
+      AppLogger.w(' Error del servidor en getLowStockProducts: $e - intentando cache local...');
       try {
         final cached = await localDataSource.getCachedProducts();
         final lowStockProducts = cached.where((p) => p.stock <= p.minStock).toList();
         if (lowStockProducts.isNotEmpty) {
-          print('✅ ${lowStockProducts.length} productos con stock bajo encontrados en cache');
+          AppLogger.i(' ${lowStockProducts.length} productos con stock bajo encontrados en cache');
           return Right(lowStockProducts.map((model) => model.toEntity()).toList());
         }
         return const Right([]);
@@ -387,12 +467,12 @@ class ProductRepositoryImpl implements ProductRepository {
       final products = response.map((model) => model.toEntity()).toList();
       return Right(products);
     } catch (e) {
-      print('⚠️ Error del servidor en getOutOfStockProducts: $e - intentando cache local...');
+      AppLogger.w(' Error del servidor en getOutOfStockProducts: $e - intentando cache local...');
       try {
         final cached = await localDataSource.getCachedProducts();
         final outOfStockProducts = cached.where((p) => p.stock <= 0).toList();
         if (outOfStockProducts.isNotEmpty) {
-          print('✅ ${outOfStockProducts.length} productos sin stock encontrados en cache');
+          AppLogger.i(' ${outOfStockProducts.length} productos sin stock encontrados en cache');
           return Right(outOfStockProducts.map((model) => model.toEntity()).toList());
         }
         return const Right([]);
@@ -413,12 +493,12 @@ class ProductRepositoryImpl implements ProductRepository {
       final products = response.map((model) => model.toEntity()).toList();
       return Right(products);
     } catch (e) {
-      print('⚠️ Error del servidor en getProductsByCategory: $e - intentando cache local...');
+      AppLogger.w(' Error del servidor en getProductsByCategory: $e - intentando cache local...');
       try {
         final cached = await localDataSource.getCachedProducts();
         final categoryProducts = cached.where((p) => p.categoryId == categoryId).toList();
         if (categoryProducts.isNotEmpty) {
-          print('✅ ${categoryProducts.length} productos de categoría encontrados en cache');
+          AppLogger.i(' ${categoryProducts.length} productos de categoría encontrados en cache');
           return Right(categoryProducts.map((model) => model.toEntity()).toList());
         }
         return const Right([]);
@@ -434,22 +514,32 @@ class ProductRepositoryImpl implements ProductRepository {
       try {
         final response = await remoteDataSource.getProductStats();
 
+        // ✅ Resetear estado de conectividad si el servidor respondió
+        networkInfo.resetServerReachability();
+
         // Cache las estadísticas (ahora debería funcionar sin conflicto)
         try {
           await localDataSource.cacheProductStats(response);
         } catch (e) {
-          print('⚠️ Error al cachear estadísticas: $e');
+          AppLogger.w(' Error al cachear estadísticas: $e');
         }
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException en stats: ${e.message} - Usando cache...');
+        AppLogger.w(' ServerException en stats: ${e.message} - Usando cache...');
+        if (e.message.contains('timeout') || e.message.contains('Connection')) {
+          networkInfo.markServerUnreachable();
+        }
         return _getProductStatsFromCache();
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException en stats: ${e.message} - Usando cache...');
+        AppLogger.w(' ConnectionException en stats: ${e.message} - Usando cache...');
+        networkInfo.markServerUnreachable();
         return _getProductStatsFromCache();
       } catch (e) {
-        print('❌ Error inesperado en stats: $e - Usando cache...');
+        AppLogger.e(' Error inesperado en stats: $e - Usando cache...');
+        if (e.toString().contains('Connection') || e.toString().contains('timeout')) {
+          networkInfo.markServerUnreachable();
+        }
         return _getProductStatsFromCache();
       }
     } else {
@@ -464,7 +554,7 @@ class ProductRepositoryImpl implements ProductRepository {
       final response = await remoteDataSource.getInventoryValue();
       return Right(response);
     } catch (e) {
-      print('⚠️ Error del servidor en getInventoryValue: $e - calculando desde cache local...');
+      AppLogger.w(' Error del servidor en getInventoryValue: $e - calculando desde cache local...');
       try {
         final cached = await localDataSource.getCachedProducts();
         double totalValue = 0.0;
@@ -474,7 +564,7 @@ class ProductRepositoryImpl implements ProductRepository {
             totalValue += price * product.stock;
           }
         }
-        print('✅ Valor de inventario calculado desde cache: \$$totalValue');
+        AppLogger.i(' Valor de inventario calculado desde cache: \$$totalValue');
         return Right(totalValue);
       } catch (cacheError) {
         return Left(CacheFailure('Error al calcular del cache: $cacheError'));
@@ -552,12 +642,12 @@ class ProductRepositoryImpl implements ProductRepository {
           // Note: No need to invalidate cache after caching a single product
           // await _invalidateListCache(); // This would delete the product we just cached!
         } catch (e) {
-          print('⚠️ Error al actualizar cache después de crear: $e');
+          AppLogger.w(' Error al actualizar cache después de crear: $e');
         }
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException al crear producto: ${e.message} - Creando offline...');
+        AppLogger.w(' ServerException al crear producto: ${e.message} - Creando offline...');
         return _createProductOffline(
           name: name,
           description: description,
@@ -585,7 +675,7 @@ class ProductRepositoryImpl implements ProductRepository {
           hasRetention: hasRetention,
         );
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException al crear producto: ${e.message} - Creando offline...');
+        AppLogger.w(' ConnectionException al crear producto: ${e.message} - Creando offline...');
         return _createProductOffline(
           name: name,
           description: description,
@@ -613,9 +703,9 @@ class ProductRepositoryImpl implements ProductRepository {
           hasRetention: hasRetention,
         );
       } catch (e, stackTrace) {
-        print('❌ Error inesperado al crear producto: $e');
-        print('📚 StackTrace: $stackTrace');
-        print('🔄 Intentando crear offline como fallback...');
+        AppLogger.e(' Error inesperado al crear producto: $e');
+        AppLogger.d(' StackTrace: $stackTrace');
+        AppLogger.d(' Intentando crear offline como fallback...');
         return _createProductOffline(
           name: name,
           description: description,
@@ -700,7 +790,7 @@ class ProductRepositoryImpl implements ProductRepository {
     double? retentionRate,
     bool? hasRetention,
   }) async {
-      print('📱 ProductRepository: Creating product offline: $name');
+      AppLogger.d(' ProductRepository: Creating product offline: $name');
       try {
         // Generar un ID temporal único para el producto offline
         final now = DateTime.now();
@@ -791,15 +881,15 @@ class ProductRepositoryImpl implements ProductRepository {
             },
             priority: 1, // Alta prioridad para creación
           );
-          print('📤 ProductRepository: Operación agregada a cola de sincronización');
+          AppLogger.d(' ProductRepository: Operación agregada a cola de sincronización');
         } catch (e) {
-          print('⚠️ ProductRepository: Error agregando a cola de sync: $e');
+          AppLogger.w(' ProductRepository: Error agregando a cola de sync: $e');
         }
 
-        print('✅ ProductRepository: Product created offline successfully');
+        AppLogger.i(' ProductRepository: Product created offline successfully');
         return Right(tempProduct);
       } catch (e) {
-        print('❌ ProductRepository: Error creating product offline: $e');
+        AppLogger.e(' ProductRepository: Error creating product offline: $e');
         return Left(CacheFailure('Error al crear producto offline: $e'));
       }
   }
@@ -835,7 +925,7 @@ class ProductRepositoryImpl implements ProductRepository {
   }) async {
     // ✅ IMPORTANTE: Si es producto offline, actualizar solo en local, NO enviar al servidor
     if (id.startsWith('product_offline_')) {
-      print('📱 ProductRepository: Producto offline detectado - actualizando solo en local');
+      AppLogger.d(' ProductRepository: Producto offline detectado - actualizando solo en local');
       return _updateProductOffline(
         id: id,
         name: name,
@@ -893,9 +983,9 @@ class ProductRepositoryImpl implements ProductRepository {
             );
           }).toList();
           
-          print('🏷️ ProductRepository: Construidos ${updatePrices.length} precios para actualización');
+          AppLogger.d(' ProductRepository: Construidos ${updatePrices.length} precios para actualización');
           for (final price in updatePrices) {
-            print('   - Tipo: ${price.type}, ID: ${price.id ?? "NUEVO"}, Cantidad: ${price.amount}');
+            AppLogger.d('- Tipo: ${price.type}, ID: ${price.id ?? "NUEVO"}, Cantidad: ${price.amount}');
           }
         }
 
@@ -941,12 +1031,12 @@ class ProductRepositoryImpl implements ProductRepository {
           await localDataSource.cacheProduct(response);
           // await _invalidateListCache(); // This would delete the product we just cached!
         } catch (e) {
-          print('⚠️ Error al actualizar cache después de modificar: $e');
+          AppLogger.w(' Error al actualizar cache después de modificar: $e');
         }
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException al actualizar producto: ${e.message} - Actualizando offline...');
+        AppLogger.w(' ServerException al actualizar producto: ${e.message} - Actualizando offline...');
         return _updateProductOffline(
           id: id,
           name: name,
@@ -975,7 +1065,7 @@ class ProductRepositoryImpl implements ProductRepository {
           hasRetention: hasRetention,
         );
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException al actualizar producto: ${e.message} - Actualizando offline...');
+        AppLogger.w(' ConnectionException al actualizar producto: ${e.message} - Actualizando offline...');
         return _updateProductOffline(
           id: id,
           name: name,
@@ -1004,9 +1094,9 @@ class ProductRepositoryImpl implements ProductRepository {
           hasRetention: hasRetention,
         );
       } catch (e, stackTrace) {
-        print('❌ Error inesperado al actualizar producto: $e');
-        print('📚 StackTrace: $stackTrace');
-        print('🔄 Intentando actualizar offline como fallback...');
+        AppLogger.e(' Error inesperado al actualizar producto: $e');
+        AppLogger.d(' StackTrace: $stackTrace');
+        AppLogger.d(' Intentando actualizar offline como fallback...');
         return _updateProductOffline(
           id: id,
           name: name,
@@ -1094,14 +1184,14 @@ class ProductRepositoryImpl implements ProductRepository {
     double? retentionRate,
     bool? hasRetention,
   }) async {
-      print('📱 ProductRepository: Updating product offline: $id');
+      AppLogger.d(' ProductRepository: Updating product offline: $id');
 
       // ✅ DETECTAR SI ES PRODUCTO OFFLINE (creado offline) O SERVER (del servidor pero editando offline)
       final isOfflineProduct = id.startsWith('product_offline_');
 
       if (isOfflineProduct) {
         // ============ PRODUCTO OFFLINE: Actualizar en ISAR ============
-        print('🗄️ ProductRepository: Producto offline detectado - actualizando en ISAR');
+        AppLogger.d(' ProductRepository: Producto offline detectado - actualizando en ISAR');
         try {
           final isar = _isar;
 
@@ -1112,7 +1202,7 @@ class ProductRepositoryImpl implements ProductRepository {
               .findFirst();
 
           if (isarProduct == null) {
-            print('❌ ProductRepository: Producto offline no encontrado en ISAR: $id');
+            AppLogger.e(' ProductRepository: Producto offline no encontrado en ISAR: $id');
             return Left(CacheFailure('Producto no encontrado en ISAR: $id'));
           }
 
@@ -1211,28 +1301,28 @@ class ProductRepositoryImpl implements ProductRepository {
                 },
                 priority: 1,
               );
-              print('📤 ProductRepository: Producto ya sincronizado - agregada operación UPDATE a cola');
+              AppLogger.d(' ProductRepository: Producto ya sincronizado - agregada operación UPDATE a cola');
             } catch (e) {
-              print('⚠️ ProductRepository: Error agregando UPDATE a cola: $e');
+              AppLogger.w(' ProductRepository: Error agregando UPDATE a cola: $e');
             }
           } else {
             // Producto aún no existe en el servidor → NO agregar UPDATE
-            print('✅ ProductRepository: Producto offline actualizado en ISAR');
-            print('   📝 Producto aún no sincronizado - NO se agrega UPDATE');
-            print('   La operación CREATE pendiente debe actualizarse para usar datos de ISAR');
+            AppLogger.i(' ProductRepository: Producto offline actualizado en ISAR');
+            AppLogger.d('📝 Producto aún no sincronizado - NO se agrega UPDATE');
+            AppLogger.d('La operación CREATE pendiente debe actualizarse para usar datos de ISAR');
           }
 
-          print('✅ ProductRepository: Producto offline actualizado en ISAR exitosamente');
+          AppLogger.i(' ProductRepository: Producto offline actualizado en ISAR exitosamente');
           return Right(isarProduct.toEntity());
 
         } catch (e) {
-          print('❌ ProductRepository: Error actualizando producto offline en ISAR: $e');
+          AppLogger.e(' ProductRepository: Error actualizando producto offline en ISAR: $e');
           return Left(CacheFailure('Error al actualizar producto offline en ISAR: $e'));
         }
 
       } else {
         // ============ PRODUCTO SERVER: Actualizar en ISAR Y SecureStorage ============
-        print('💾 ProductRepository: Producto del servidor - actualizando en ISAR y cache');
+        AppLogger.d(' ProductRepository: Producto del servidor - actualizando en ISAR y cache');
         try {
           // ✅ PASO 1: Actualizar en ISAR primero
           final isar = _isar;
@@ -1305,7 +1395,7 @@ class ProductRepositoryImpl implements ProductRepository {
           await isar.writeTxn(() async {
             await isar.isarProducts.put(isarProduct);
           });
-          print('✅ ProductRepository: Producto actualizado en ISAR');
+          AppLogger.i(' ProductRepository: Producto actualizado en ISAR');
 
           // ✅ PASO 2: Obtener el producto actual del cache para SecureStorage
           final cachedProductModel = await localDataSource.getCachedProduct(id);
@@ -1420,15 +1510,15 @@ class ProductRepositoryImpl implements ProductRepository {
               },
               priority: 1,
             );
-            print('📤 ProductRepository: Actualización agregada a cola de sincronización');
+            AppLogger.d(' ProductRepository: Actualización agregada a cola de sincronización');
           } catch (e) {
-            print('⚠️ ProductRepository: Error agregando actualización a cola: $e');
+            AppLogger.w(' ProductRepository: Error agregando actualización a cola: $e');
           }
 
-          print('✅ ProductRepository: Producto del servidor actualizado en cache exitosamente');
+          AppLogger.i(' ProductRepository: Producto del servidor actualizado en cache exitosamente');
           return Right(updatedProduct);
         } catch (e) {
-          print('❌ ProductRepository: Error actualizando producto del servidor en cache: $e');
+          AppLogger.e(' ProductRepository: Error actualizando producto del servidor en cache: $e');
           return Left(CacheFailure('Error al actualizar producto del servidor en cache: $e'));
         }
       }
@@ -1450,7 +1540,7 @@ class ProductRepositoryImpl implements ProductRepository {
         try {
           await localDataSource.cacheProduct(response);
         } catch (e) {
-          print('⚠️ Error al actualizar cache después de cambiar estado: $e');
+          AppLogger.w(' Error al actualizar cache después de cambiar estado: $e');
         }
 
         return Right(response.toEntity());
@@ -1486,7 +1576,7 @@ class ProductRepositoryImpl implements ProductRepository {
         try {
           await localDataSource.cacheProduct(response);
         } catch (e) {
-          print('⚠️ Error al actualizar cache después de cambiar stock: $e');
+          AppLogger.w(' Error al actualizar cache después de cambiar stock: $e');
         }
 
         return Right(response.toEntity());
@@ -1521,10 +1611,10 @@ class ProductRepositoryImpl implements ProductRepository {
             await isar.writeTxn(() async {
               await isar.isarProducts.put(isarProduct);
             });
-            print('✅ Product marcado como eliminado en ISAR: $id');
+            AppLogger.i(' Product marcado como eliminado en ISAR: $id');
           }
         } catch (e) {
-          print('⚠️ Error actualizando ISAR (no crítico): $e');
+          AppLogger.w(' Error actualizando ISAR (no crítico): $e');
         }
 
         // Remover del cache
@@ -1532,20 +1622,20 @@ class ProductRepositoryImpl implements ProductRepository {
           await localDataSource.removeCachedProduct(id);
           // await _invalidateListCache(); // Not needed, already removed the specific product
         } catch (e) {
-          print('⚠️ Error al actualizar cache después de eliminar: $e');
+          AppLogger.w(' Error al actualizar cache después de eliminar: $e');
         }
 
         return const Right(unit);
       } on ServerException catch (e) {
-        print('⚠️ ServerException al eliminar producto: ${e.message} - Eliminando offline...');
+        AppLogger.w(' ServerException al eliminar producto: ${e.message} - Eliminando offline...');
         return _deleteProductOffline(id);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException al eliminar producto: ${e.message} - Eliminando offline...');
+        AppLogger.w(' ConnectionException al eliminar producto: ${e.message} - Eliminando offline...');
         return _deleteProductOffline(id);
       } catch (e, stackTrace) {
-        print('❌ Error inesperado al eliminar producto: $e');
-        print('📚 StackTrace: $stackTrace');
-        print('🔄 Intentando eliminar offline como fallback...');
+        AppLogger.e(' Error inesperado al eliminar producto: $e');
+        AppLogger.d(' StackTrace: $stackTrace');
+        AppLogger.d(' Intentando eliminar offline como fallback...');
         return _deleteProductOffline(id);
       }
     } else {
@@ -1555,7 +1645,7 @@ class ProductRepositoryImpl implements ProductRepository {
   }
 
   Future<Either<Failure, Unit>> _deleteProductOffline(String id) async {
-    print('📱 ProductRepository: Deleting product offline: $id');
+    AppLogger.d(' ProductRepository: Deleting product offline: $id');
     try {
       // Soft delete en ISAR
       try {
@@ -1570,10 +1660,10 @@ class ProductRepositoryImpl implements ProductRepository {
           await isar.writeTxn(() async {
             await isar.isarProducts.put(isarProduct);
           });
-          print('✅ Product marcado como eliminado en ISAR: $id');
+          AppLogger.i(' Product marcado como eliminado en ISAR: $id');
         }
       } catch (e) {
-        print('⚠️ Error actualizando ISAR durante delete offline: $e');
+        AppLogger.w(' Error actualizando ISAR durante delete offline: $e');
       }
 
       // Marcar como eliminado en cache local (soft delete)
@@ -1589,15 +1679,15 @@ class ProductRepositoryImpl implements ProductRepository {
           data: {'id': id},
           priority: 1,
         );
-        print('📤 ProductRepository: Eliminación agregada a cola de sincronización');
+        AppLogger.d(' ProductRepository: Eliminación agregada a cola de sincronización');
       } catch (e) {
-        print('⚠️ ProductRepository: Error agregando eliminación a cola: $e');
+        AppLogger.w(' ProductRepository: Error agregando eliminación a cola: $e');
       }
 
-      print('✅ ProductRepository: Product deleted offline successfully');
+      AppLogger.i(' ProductRepository: Product deleted offline successfully');
       return const Right(unit);
     } catch (e) {
-      print('❌ ProductRepository: Error deleting product offline: $e');
+      AppLogger.e(' ProductRepository: Error deleting product offline: $e');
       return Left(CacheFailure('Error al eliminar producto offline: $e'));
     }
   }
@@ -1613,7 +1703,7 @@ class ProductRepositoryImpl implements ProductRepository {
           await localDataSource.cacheProduct(response);
           await _invalidateListCache();
         } catch (e) {
-          print('⚠️ Error al actualizar cache después de restaurar: $e');
+          AppLogger.w(' Error al actualizar cache después de restaurar: $e');
         }
 
         return Right(response.toEntity());
@@ -1670,7 +1760,7 @@ class ProductRepositoryImpl implements ProductRepository {
         try {
           await _invalidateListCache();
         } catch (e) {
-          print('⚠️ Error al invalidar cache después de reducir stock: $e');
+          AppLogger.w(' Error al invalidar cache después de reducir stock: $e');
         }
 
         return const Right(unit);
@@ -1820,17 +1910,17 @@ class ProductRepositoryImpl implements ProductRepository {
     }
 
     try {
-      print('🔄 ProductRepository: Starting offline products sync...');
+      AppLogger.d(' ProductRepository: Starting offline products sync...');
       
       // Obtener productos no sincronizados
       final unsyncedProducts = await localDataSource.getUnsyncedProducts();
       
       if (unsyncedProducts.isEmpty) {
-        print('✅ ProductRepository: No products to sync');
+        AppLogger.i(' ProductRepository: No products to sync');
         return const Right([]);
       }
 
-      print('📤 ProductRepository: Syncing ${unsyncedProducts.length} offline products...');
+      AppLogger.d(' ProductRepository: Syncing ${unsyncedProducts.length} offline products...');
       final syncedProducts = <Product>[];
       final failures = <String>[];
 
@@ -1873,23 +1963,23 @@ class ProductRepositoryImpl implements ProductRepository {
           await localDataSource.cacheProduct(serverProduct);
           
           syncedProducts.add(serverProduct.toEntity());
-          print('✅ ProductRepository: Synced product: ${product.name} -> ${serverProduct.id}');
+          AppLogger.i(' ProductRepository: Synced product: ${product.name} -> ${serverProduct.id}');
           
         } catch (e) {
-          print('❌ ProductRepository: Failed to sync product ${product.name}: $e');
+          AppLogger.e(' ProductRepository: Failed to sync product ${product.name}: $e');
           failures.add('${product.name}: $e');
         }
       }
 
-      print('🎯 ProductRepository: Sync completed. Success: ${syncedProducts.length}, Failures: ${failures.length}');
+      AppLogger.i(' ProductRepository: Sync completed. Success: ${syncedProducts.length}, Failures: ${failures.length}');
       
       if (failures.isNotEmpty) {
-        print('⚠️ ProductRepository: Sync failures:\n${failures.join('\n')}');
+        AppLogger.w(' ProductRepository: Sync failures:\n${failures.join('\n')}');
       }
 
       return Right(syncedProducts);
     } catch (e) {
-      print('💥 ProductRepository: Error during offline products sync: $e');
+      AppLogger.e(' ProductRepository: Error during offline products sync: $e');
       return Left(UnknownFailure('Error al sincronizar productos offline: $e'));
     }
   }
@@ -1907,6 +1997,7 @@ class ProductRepositoryImpl implements ProductRepository {
   // ==================== PRIVATE HELPER METHODS ====================
 
   /// Determinar si se debe cachear el resultado
+  /// FASE 3: Siempre cachear a ISAR (upsert por serverId evita duplicados)
   bool _shouldCacheResult(
     int page,
     String? search,
@@ -1914,11 +2005,7 @@ class ProductRepositoryImpl implements ProductRepository {
     ProductType? type,
     String? categoryId,
   ) {
-    return page == 1 &&
-        search == null &&
-        status == null &&
-        type == null &&
-        categoryId == null;
+    return true;
   }
 
   /// Invalidar cache de listados para reflejar cambios
@@ -1926,19 +2013,58 @@ class ProductRepositoryImpl implements ProductRepository {
     try {
       await localDataSource.clearProductCache();
     } catch (e) {
-      print('⚠️ Error al invalidar cache de listados: $e');
+      AppLogger.w(' Error al invalidar cache de listados: $e');
     }
   }
 
   /// Obtener productos desde cache local
+  /// ✅ IMPORTANTE: Intenta ISAR primero (más rápido), luego SecureStorage
   Future<Either<Failure, PaginatedResult<Product>>>
   _getProductsFromCache() async {
-    print('💾 _getProductsFromCache(): Intentando obtener productos desde caché local...');
-    try {
-      final products = await localDataSource.getCachedProducts();
-      print('💾 Cache local retornó ${products.length} productos');
+    AppLogger.d(' _getProductsFromCache(): Intentando obtener productos desde caché local...');
 
-      // Crear meta de paginación básica para cache
+    // ✅ PASO 1: Intentar ISAR primero (más persistente y rápido)
+    try {
+      AppLogger.d(' Intentando ISAR primero...');
+      final isarProducts = await _isar.isarProducts
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .not()
+          .serverIdEqualTo('STATS_CACHE')
+          .sortByCreatedAtDesc()
+          .findAll();
+
+      if (isarProducts.isNotEmpty) {
+        AppLogger.d(' ISAR retornó ${isarProducts.length} productos');
+
+        final meta = PaginationMeta(
+          page: 1,
+          limit: isarProducts.length,
+          totalItems: isarProducts.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        );
+
+        final result = PaginatedResult<Product>(
+          data: isarProducts.map((isar) => isar.toEntity()).toList(),
+          meta: meta,
+        );
+
+        AppLogger.i(' _getProductsFromCache(): Retornando ${result.data.length} productos desde ISAR');
+        return Right(result);
+      }
+    } catch (e) {
+      AppLogger.w(' ISAR falló: $e');
+    }
+
+    // ✅ PASO 2: Fallback a SecureStorage
+    try {
+      AppLogger.d(' Intentando SecureStorage como fallback...');
+      final products = await localDataSource.getCachedProducts();
+      AppLogger.d(' SecureStorage retornó ${products.length} productos');
+
       final meta = PaginationMeta(
         page: 1,
         limit: products.length,
@@ -1953,15 +2079,15 @@ class ProductRepositoryImpl implements ProductRepository {
         meta: meta,
       );
 
-      print('✅ _getProductsFromCache(): Retornando ${result.data.length} productos desde caché');
+      AppLogger.i(' _getProductsFromCache(): Retornando ${result.data.length} productos desde SecureStorage');
       return Right(result);
     } on CacheException catch (e) {
-      print('❌ _getProductsFromCache(): CacheException: ${e.message}');
+      AppLogger.e(' _getProductsFromCache(): CacheException: ${e.message}');
       return Left(CacheFailure(e.message));
     } catch (e, stackTrace) {
-      print('❌ _getProductsFromCache(): Error inesperado: $e');
-      print('📚 StackTrace: $stackTrace');
-      return Left(UnknownFailure('Error al obtener productos desde cache: $e'));
+      AppLogger.e(' _getProductsFromCache(): Error inesperado: $e');
+      AppLogger.d(' StackTrace: $stackTrace');
+      return Left(CacheFailure('No hay productos disponibles offline'));
     }
   }
 
@@ -1987,11 +2113,11 @@ class ProductRepositoryImpl implements ProductRepository {
       // Primero intentar obtener estadísticas cacheadas
       final cachedStats = await localDataSource.getCachedProductStats();
       if (cachedStats != null) {
-        print('📊 ISAR: Estadísticas encontradas en cache');
+        AppLogger.d(' ISAR: Estadísticas encontradas en cache');
         return Right(cachedStats.toEntity());
       }
       
-      print('📊 ISAR: No hay estadísticas en cache, calculando desde productos locales...');
+      AppLogger.d(' ISAR: No hay estadísticas en cache, calculando desde productos locales...');
       
       // Si no hay estadísticas cacheadas, calcularlas desde los productos locales
       try {
@@ -2046,12 +2172,12 @@ class ProductRepositoryImpl implements ProductRepository {
           averagePrice: averagePrice,
         );
         
-        print('✅ Estadísticas calculadas desde productos locales: $total productos');
+        AppLogger.i(' Estadísticas calculadas desde productos locales: $total productos');
         return Right(calculatedStats);
         
       } on CacheException {
         // Si no hay productos en cache, devolver estadísticas vacías
-        print('📊 No hay productos en cache, devolviendo estadísticas vacías');
+        AppLogger.d(' No hay productos en cache, devolviendo estadísticas vacías');
         return const Right(ProductStats(
           total: 0,
           active: 0,

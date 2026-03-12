@@ -21,8 +21,32 @@ class SupplierStatsModel extends SupplierStats {
     required super.totalPurchaseOrders,
   });
 
-  factory SupplierStatsModel.fromJson(Map<String, dynamic> json) =>
-      _$SupplierStatsModelFromJson(json);
+  factory SupplierStatsModel.fromJson(Map<String, dynamic> json) {
+    // Manejar formato del API real (total/active/inactive/blocked/topSuppliers)
+    // y formato local cacheado (totalSuppliers/activeSuppliers/etc.)
+    return SupplierStatsModel(
+      totalSuppliers: ((json['totalSuppliers'] ?? json['total'] ?? 0) as num).toInt(),
+      activeSuppliers: ((json['activeSuppliers'] ?? json['active'] ?? 0) as num).toInt(),
+      inactiveSuppliers: ((json['inactiveSuppliers'] ?? json['inactive'] ?? 0) as num).toInt(),
+      totalCreditLimit: ((json['totalCreditLimit'] ?? 0) as num).toDouble(),
+      averageCreditLimit: ((json['averageCreditLimit'] ?? 0) as num).toDouble(),
+      averagePaymentTerms: ((json['averagePaymentTerms'] ?? 0) as num).toDouble(),
+      suppliersWithDiscount: ((json['suppliersWithDiscount'] ?? 0) as num).toInt(),
+      suppliersWithCredit: ((json['suppliersWithCredit'] ?? 0) as num).toInt(),
+      currencyDistribution: json['currencyDistribution'] != null
+          ? Map<String, int>.from(json['currencyDistribution'] as Map)
+          : const {},
+      topSuppliersByCredit: json['topSuppliersByCredit'] != null
+          ? (json['topSuppliersByCredit'] as List<dynamic>)
+              .map((e) => e as Map<String, dynamic>)
+              .toList()
+          : (json['topSuppliers'] as List<dynamic>?)
+              ?.map((e) => e is Map<String, dynamic> ? e : <String, dynamic>{})
+              .toList() ?? const [],
+      totalPurchasesAmount: ((json['totalPurchasesAmount'] ?? 0) as num).toDouble(),
+      totalPurchaseOrders: ((json['totalPurchaseOrders'] ?? 0) as num).toInt(),
+    );
+  }
 
   Map<String, dynamic> toJson() => _$SupplierStatsModelToJson(this);
 

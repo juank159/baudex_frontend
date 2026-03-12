@@ -8,6 +8,7 @@ import '../models/product_stats_model.dart';
 import '../models/product_price_model.dart';
 
 import '../models/isar/isar_product.dart';
+import '../models/isar/isar_product_price.dart';
 import '../../domain/entities/product.dart';
 import 'product_local_datasource.dart';
 import 'package:isar/isar.dart';
@@ -16,14 +17,14 @@ import 'package:isar/isar.dart';
 ///
 /// Almacenamiento persistente offline-first usando ISAR
 class ProductLocalDataSourceIsar implements ProductLocalDataSource {
-  final dynamic _database;
+  final IIsarDatabase _database;
 
   ProductLocalDataSourceIsar(this._database);
 
   @override
   Future<void> cacheProducts(List<ProductModel> products) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       await isar.writeTxn(() async {
         // Procesar productos uno por uno para evitar violaciones de índice único
@@ -77,6 +78,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
                   ..updatedAt = product.updatedAt
                   ..isSynced = true
                   ..metadataJson = _serializeProductData(product)
+                  ..prices = product.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ?? []
                   ..lastSyncAt = DateTime.now();
           } else {
             // Crear nuevo producto
@@ -103,7 +105,9 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
                   ..updatedAt = product.updatedAt
                   ..isSynced = true
                   ..metadataJson = _serializeProductData(product)
-                  ..lastSyncAt = DateTime.now();
+                  ..prices = product.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ?? []
+                  ..lastSyncAt = DateTime.now()
+                  ..version = 1; // ✅ Campo requerido
           }
 
           // Guardar/actualizar el producto
@@ -121,7 +125,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<void> cacheProduct(ProductModel product) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       await isar.writeTxn(() async {
         // ✅ AUTOMATIZACIÓN: Buscar producto existente por serverId O por SKU
@@ -172,6 +176,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
                 ..updatedAt = product.updatedAt
                 ..isSynced = true
                 ..metadataJson = _serializeProductData(product)
+                ..prices = product.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ?? []
                 ..lastSyncAt = DateTime.now();
         } else {
           // Crear nuevo producto
@@ -198,7 +203,9 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
                 ..updatedAt = product.updatedAt
                 ..isSynced = true
                 ..metadataJson = _serializeProductData(product)
-                ..lastSyncAt = DateTime.now();
+                ..prices = product.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ?? []
+                ..lastSyncAt = DateTime.now()
+                ..version = 1; // ✅ Campo requerido
         }
 
         await isar.isarProducts.put(isarProduct);
@@ -214,13 +221,17 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<List<ProductModel>> getCachedProducts() async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       // Obtener productos no eliminados ordenados por fecha de creación
+      // Excluir registro STATS_CACHE (se usa para guardar estadísticas, no es un producto real)
       final List<IsarProduct> isarProducts =
           await isar.isarProducts
               .filter()
               .deletedAtIsNull()
+              .and()
+              .not()
+              .serverIdEqualTo('STATS_CACHE')
               .sortByCreatedAtDesc()
               .findAll();
 
@@ -247,7 +258,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<ProductModel?> getCachedProduct(String id) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       // Buscar producto por serverId
       final isarProduct =
@@ -273,7 +284,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<ProductModel?> getCachedProductBySku(String sku) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       final isarProduct =
           await isar.isarProducts
@@ -298,7 +309,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<ProductModel?> getCachedProductByBarcode(String barcode) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       final isarProduct =
           await isar.isarProducts
@@ -323,7 +334,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<void> cacheProductStats(ProductStatsModel stats) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       // Usar clave especial para estadísticas
       await isar.writeTxn(() async {
@@ -341,10 +352,11 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
               ..createdAt = DateTime.now()
               ..updatedAt = DateTime.now()
               ..lastSyncAt = DateTime.now()
+              ..version = 1 // ✅ Campo requerido
               // Serializar estadísticas como JSON string
               ..metadataJson = jsonEncode(stats.toJson());
 
-        await isar.isarProducts.put(statsProduct);
+        await isar.isarProducts.putByServerId(statsProduct);
       });
 
       print('📊 ISAR: Estadísticas de productos cacheadas');
@@ -357,7 +369,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<ProductStatsModel?> getCachedProductStats() async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       final statsCache =
           await isar.isarProducts
@@ -406,7 +418,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<void> removeCachedProduct(String id) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       await isar.writeTxn(() async {
         // Buscar producto por serverId
@@ -431,7 +443,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<void> clearProductCache() async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       await isar.writeTxn(() async {
         // Limpiar todos los productos
@@ -449,6 +461,23 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   ProductModel _convertToProductModel(IsarProduct isarProduct) {
     // Deserializar datos del producto desde cache offline
     final deserializedData = _deserializeProductData(isarProduct.metadataJson);
+
+    // ✅ CORRECCIÓN: Usar precios del campo `prices` de IsarProduct primero,
+    // con fallback a los del metadataJson para compatibilidad con datos antiguos
+    List<ProductPriceModel>? prices;
+    if (isarProduct.prices.isNotEmpty) {
+      // Usar precios directamente de ISAR (nuevo formato)
+      prices = isarProduct.prices
+          .map((p) => ProductPriceModel.fromEntity(p.toEntity()))
+          .toList();
+      print('📦 ISAR: Producto ${isarProduct.name} - ${prices.length} precios cargados desde campo prices');
+    } else {
+      // Fallback a metadataJson (formato antiguo)
+      prices = deserializedData['prices'];
+      if (prices != null && prices.isNotEmpty) {
+        print('📦 ISAR: Producto ${isarProduct.name} - ${prices.length} precios cargados desde metadataJson');
+      }
+    }
 
     return ProductModel(
       id: isarProduct.serverId,
@@ -470,8 +499,8 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       createdById: isarProduct.createdById ?? '',
       createdAt: isarProduct.createdAt,
       updatedAt: isarProduct.updatedAt,
-      // Aplicar datos deserializados
-      prices: deserializedData['prices'],
+      // ✅ Usar precios del campo prices o fallback a metadataJson
+      prices: prices,
       category: deserializedData['category'],
       createdBy: deserializedData['createdBy'],
       metadata: deserializedData['metadata'],
@@ -481,7 +510,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   /// Método adicional: Verificar si hay datos offline
   Future<bool> hasOfflineData() async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
       final count =
           await isar.isarProducts
               .filter()
@@ -501,7 +530,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   /// Método adicional: Obtener timestamp de última sincronización
   Future<DateTime?> getLastSyncTime() async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
       final product =
           await isar.isarProducts
               .filter()
@@ -752,7 +781,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<void> cacheProductForSync(Product product) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       // Crear IsarProduct para el producto offline
       final isarProduct =
@@ -775,13 +804,16 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
             ..createdById = product.createdBy?.id ?? ''
             ..createdAt = product.createdAt
             ..updatedAt = product.updatedAt
-            ..isSynced = false; // Marcar como no sincronizado
+            ..isSynced = false // Marcar como no sincronizado
+            ..version = 1; // ✅ Campo requerido
 
       // Serializar datos adicionales (metadata, precios, etc.)
-      final productData = _serializeProductData(
-        ProductModel.fromEntity(product),
-      );
+      final productModel = ProductModel.fromEntity(product);
+      final productData = _serializeProductData(productModel);
       isarProduct.metadataJson = productData;
+
+      // ✅ CORRECCIÓN: También guardar precios en el campo prices
+      isarProduct.prices = productModel.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ?? [];
 
       await isar.writeTxn(() async {
         await isar.isarProducts.put(isarProduct);
@@ -798,7 +830,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<List<Product>> getUnsyncedProducts() async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       // Buscar productos no sincronizados
       final List<IsarProduct> unsyncedIsarProducts =
@@ -831,7 +863,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<void> markProductAsSynced(String tempId, String serverId) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
 
       await isar.writeTxn(() async {
         // Buscar el producto temporal
@@ -897,7 +929,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<bool> existsByName(String name, {String? excludeId}) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
       final nameLower = name.trim().toLowerCase();
 
       // Obtener todos los productos
@@ -925,7 +957,7 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<bool> existsBySku(String sku, {String? excludeId}) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
       final skuLower = sku.trim().toLowerCase();
 
       // Obtener todos los productos
@@ -953,13 +985,17 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
   @override
   Future<List<ProductModel>> searchCachedProducts(String searchTerm) async {
     try {
-      final isar = _database.database;
+      final Isar isar = _database.database as Isar;
       final term = searchTerm.toLowerCase();
 
       // Obtener todos los productos y filtrar localmente
+      // Excluir registro STATS_CACHE
       final List<IsarProduct> allProducts = await isar.isarProducts
           .filter()
           .deletedAtIsNull()
+          .and()
+          .not()
+          .serverIdEqualTo('STATS_CACHE')
           .findAll();
 
       final matchingProducts = allProducts.where((product) {
@@ -975,6 +1011,23 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
     } catch (e) {
       print('❌ Error al buscar productos en ISAR: $e');
       return [];
+    }
+  }
+
+  // ⭐ FASE 1: Obtener IsarProduct directamente para acceder a campos de versionamiento
+  @override
+  Future<IsarProduct?> getIsarProduct(String id) async {
+    try {
+      final Isar isar = _database.database as Isar;
+      final isarProduct = await isar.isarProducts
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      return isarProduct;
+    } catch (e) {
+      print('⚠️ Error al obtener IsarProduct: $e');
+      return null;
     }
   }
 }

@@ -42,8 +42,10 @@ class CustomerStatsController extends GetxController {
   // Cache de clientes para filtrado por período
   List<Customer> _cachedCustomers = [];
 
-  // Control de inicialización
+  // Control de inicialización y duplicados
   bool _isInitialized = false;
+  bool _isLoadAllInProgress = false;
+  DateTime? _lastLoadTime;
 
   // ==================== GETTERS ====================
 
@@ -147,6 +149,11 @@ class CustomerStatsController extends GetxController {
 
   /// Cargar todas las estadísticas
   Future<void> loadAllStats() async {
+    if (_isLoadAllInProgress) {
+      print('⏭️ CustomerStats: loadAllStats ya en progreso, saltando...');
+      return;
+    }
+    _isLoadAllInProgress = true;
     _isLoading.value = true;
 
     try {
@@ -165,12 +172,14 @@ class CustomerStatsController extends GetxController {
       // Cargar estadísticas del período actual
       await _calculatePeriodStats();
 
+      _lastLoadTime = DateTime.now();
       update();
     } catch (e) {
       print('❌ Error al cargar estadísticas: $e');
       _showError('Error', 'No se pudieron cargar las estadísticas');
     } finally {
       _isLoading.value = false;
+      _isLoadAllInProgress = false;
     }
   }
 
@@ -272,49 +281,22 @@ class CustomerStatsController extends GetxController {
 
   Future<void> loadDocumentTypeStats() async {
     try {
-      print('📋 Cargando estadísticas por tipo de documento...');
+      print('📋 Calculando estadísticas por tipo de documento desde cache...');
 
-      // ✅ FIX: Cargar todos los clientes usando paginación
-      List<Customer> allCustomers = [];
-      int page = 1;
-      bool hasMore = true;
+      // ✅ Usar clientes ya cacheados en lugar de hacer otra petición
+      final customers = _cachedCustomers;
 
-      while (hasMore) {
-        final result = await _customerRepository.getCustomers(
-          page: page,
-          limit: 100, // ✅ Respetar el límite máximo del backend
-        );
-
-        final success = result.fold(
-          (failure) {
-            print(
-              '⚠️ Error al cargar clientes página $page: ${failure.message}',
-            );
-            return false;
-          },
-          (paginatedResult) {
-            allCustomers.addAll(paginatedResult.data);
-            hasMore = paginatedResult.meta.hasNextPage;
-            page++;
-            return true;
-          },
-        );
-
-        if (!success) break;
-      }
-
-      if (allCustomers.isNotEmpty) {
+      if (customers.isNotEmpty) {
         final documentStats = <String, int>{};
 
-        // Contar por tipo de documento
-        for (final customer in allCustomers) {
+        for (final customer in customers) {
           final docType = customer.documentType.name;
           documentStats[docType] = (documentStats[docType] ?? 0) + 1;
         }
 
         _documentTypeStats.value = documentStats;
         print(
-          '✅ Estadísticas por documento cargadas: ${documentStats.length} tipos, ${allCustomers.length} clientes',
+          '✅ Estadísticas por documento: ${documentStats.length} tipos, ${customers.length} clientes',
         );
       }
     } catch (e) {
@@ -444,17 +426,19 @@ class CustomerStatsController extends GetxController {
     await _calculatePeriodStats();
   }
 
-  /// Refrescar todas las estadísticas
+  /// Refrescar todas las estadísticas (llamado desde UI / acciones manuales)
   Future<void> refreshStats() async {
     if (_isRefreshing.value) {
       print('⚠️ Ya hay un refresco en progreso, ignorando...');
       return;
     }
 
-    print('🔄 Refrescando estadísticas...');
+    print('🔄 Refrescando estadísticas de clientes...');
     _isRefreshing.value = true;
 
     try {
+      // Resetear guard para permitir recarga manual
+      _isLoadAllInProgress = false;
       await loadAllStats();
       _showSuccess('Estadísticas actualizadas');
       print('✅ Refresco de estadísticas completado');

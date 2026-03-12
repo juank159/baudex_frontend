@@ -155,7 +155,15 @@ class PurchaseOrderModel {
       final modifiedJson = Map<String, dynamic>.from(json);
       modifiedJson['supplierName'] = supplierName;
       modifiedJson['supplierId'] = supplierId;
-      
+
+      // Normalizar items: si ya son PurchaseOrderItemModel, convertir a Map
+      final rawItems = modifiedJson['items'];
+      if (rawItems is List && rawItems.isNotEmpty && rawItems.first is PurchaseOrderItemModel) {
+        modifiedJson['items'] = rawItems
+            .map((item) => (item as PurchaseOrderItemModel).toJson())
+            .toList();
+      }
+
       return _$PurchaseOrderModelFromJson(modifiedJson);
     } catch (e) {
       print('❌ Error en PurchaseOrderModel.fromJson: $e');
@@ -454,7 +462,13 @@ class PurchaseOrderItemModel {
       metadata: null,
       organizationId: null,
       purchaseOrderId: '',
-      product: null,
+      product: entity.productName.isNotEmpty
+          ? {
+              'name': entity.productName,
+              if (entity.productCode != null) 'sku': entity.productCode,
+              if (entity.productDescription != null) 'description': entity.productDescription,
+            }
+          : null,
     );
   }
 }

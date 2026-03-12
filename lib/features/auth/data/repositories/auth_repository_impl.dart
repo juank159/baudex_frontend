@@ -1,8 +1,13 @@
 // lib/features/auth/data/repositories/auth_repository_impl.dart
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:dartz/dartz.dart';
+import 'package:get/get.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
+import '../../../../app/data/local/sync_service.dart';
+import '../../../../app/data/local/sync_queue.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/entities/auth_result.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -30,6 +35,9 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
   }) async {
+    // Generar hash del password para uso offline
+    final passwordHash = _hashPassword(password, email);
+
     if (await networkInfo.isConnected) {
       try {
         final request = LoginRequestModel(email: email, password: password);
@@ -38,19 +46,114 @@ class AuthRepositoryImpl implements AuthRepository {
         // Guardar datos localmente
         await localDataSource.saveAuthData(response);
 
+        // Guardar credenciales hasheadas para login offline
+        await localDataSource.saveOfflineCredentials(email, passwordHash);
+        print('🔐 AuthRepository: Credenciales offline guardadas para login futuro');
+
         return Right(response.toAuthResult());
       } on ServerException catch (e) {
         return Left(_mapServerExceptionToFailure(e));
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        // Si hay error de conexión, intentar login offline
+        print('⚠️ AuthRepository: Error de conexión, intentando login offline...');
+        return _attemptOfflineLogin(email, passwordHash);
       } on CacheException catch (e) {
         return Left(CacheFailure(e.message));
       } catch (e) {
+        // Si es un error de conexión, intentar login offline
+        if (e.toString().contains('SocketException') ||
+            e.toString().contains('Connection') ||
+            e.toString().contains('Network')) {
+          print('⚠️ AuthRepository: Error de red detectado, intentando login offline...');
+          return _attemptOfflineLogin(email, passwordHash);
+        }
         return Left(UnknownFailure('Error inesperado durante el login: $e'));
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      // Sin conexión - intentar login offline
+      print('📴 AuthRepository: Sin conexión, intentando login offline...');
+      return _attemptOfflineLogin(email, passwordHash);
     }
+  }
+
+  /// Intenta realizar login offline con credenciales cacheadas
+  Future<Either<Failure, AuthResult>> _attemptOfflineLogin(
+    String email,
+    String passwordHash,
+  ) async {
+    try {
+      // Verificar si hay credenciales offline guardadas
+      final hasOfflineCredentials = await localDataSource.hasOfflineCredentials();
+      if (!hasOfflineCredentials) {
+        return const Left(AuthFailure(
+          message: 'No hay sesión previa guardada. Necesitas conexión a internet para el primer login.',
+          errorCode: 'NO_OFFLINE_CREDENTIALS',
+        ));
+      }
+
+      // Verificar credenciales
+      final credentialsValid = await localDataSource.verifyOfflineCredentials(
+        email,
+        passwordHash,
+      );
+
+      if (!credentialsValid) {
+        return const Left(AuthFailure(
+          message: 'Credenciales incorrectas',
+          errorCode: 'INVALID_CREDENTIALS',
+        ));
+      }
+
+      // Verificar que hay sesión local válida
+      final isAuth = await localDataSource.isAuthenticated();
+      if (!isAuth) {
+        return const Left(AuthFailure(
+          message: 'Sesión expirada. Necesitas conexión a internet para renovar tu sesión.',
+          errorCode: 'SESSION_EXPIRED',
+        ));
+      }
+
+      // Obtener datos del usuario local
+      final localUser = await localDataSource.getUser();
+      if (localUser == null) {
+        return const Left(CacheFailure(
+          'No se encontraron datos de usuario. Necesitas conexión a internet.',
+        ));
+      }
+
+      // Obtener token local
+      final localToken = await localDataSource.getToken();
+      if (localToken == null || localToken.isEmpty) {
+        return const Left(CacheFailure(
+          'Token no encontrado. Necesitas conexión a internet.',
+        ));
+      }
+
+      // Obtener refresh token local
+      final localRefreshToken = await localDataSource.getRefreshToken();
+
+      print('✅ AuthRepository: Login offline exitoso para ${localUser.email}');
+
+      // Retornar AuthResult con datos locales
+      return Right(AuthResult(
+        token: localToken,
+        user: localUser.toEntity(),
+        refreshToken: localRefreshToken,
+      ));
+    } on CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } catch (e) {
+      return Left(UnknownFailure('Error durante login offline: $e'));
+    }
+  }
+
+  /// Genera un hash seguro del password combinado con el email
+  String _hashPassword(String password, String email) {
+    // Usar email como salt para mayor seguridad
+    final saltedPassword = '${email.toLowerCase().trim()}:$password';
+    final bytes = utf8.encode(saltedPassword);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   @override
@@ -218,20 +321,20 @@ class AuthRepositoryImpl implements AuthRepository {
     String? phone,
     String? avatar,
   }) async {
+    final request = UpdateProfileRequestModel.fromParams(
+      firstName: firstName,
+      lastName: lastName,
+      phone: phone,
+      avatar: avatar,
+    );
+
+    // Verificar si hay cambios
+    if (!request.hasUpdates) {
+      return Left(ValidationFailure(['No hay cambios para actualizar']));
+    }
+
     if (await networkInfo.isConnected) {
       try {
-        final request = UpdateProfileRequestModel.fromParams(
-          firstName: firstName,
-          lastName: lastName,
-          phone: phone,
-          avatar: avatar,
-        );
-
-        // Verificar si hay cambios
-        if (!request.hasUpdates) {
-          return Left(ValidationFailure(['No hay cambios para actualizar']));
-        }
-
         final response = await remoteDataSource.updateProfile(request);
 
         // Actualizar datos locales
@@ -250,7 +353,50 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      // Modo offline - actualizar localmente y agregar a cola de sync
+      try {
+        final localUser = await localDataSource.getUser();
+        if (localUser == null) {
+          return const Left(CacheFailure('Usuario no encontrado en cache'));
+        }
+
+        // Crear usuario actualizado
+        final updatedUserModel = localUser.copyWith(
+          firstName: firstName ?? localUser.firstName,
+          lastName: lastName ?? localUser.lastName,
+          phone: phone ?? localUser.phone,
+          avatar: avatar ?? localUser.avatar,
+        );
+
+        // Guardar usuario actualizado
+        await localDataSource.saveUser(updatedUserModel);
+
+        // Agregar a cola de sincronización
+        try {
+          final syncService = Get.find<SyncService>();
+          await syncService.addOperationForCurrentUser(
+            entityType: 'user_profile',
+            entityId: localUser.id,
+            operationType: SyncOperationType.update,
+            data: {
+              if (firstName != null) 'firstName': firstName,
+              if (lastName != null) 'lastName': lastName,
+              if (phone != null) 'phone': phone,
+              if (avatar != null) 'avatar': avatar,
+            },
+          );
+        } catch (e) {
+          print('Warning: Could not add profile update to sync queue: $e');
+        }
+
+        return Right(updatedUserModel.toEntity());
+      } on CacheException catch (e) {
+        return Left(CacheFailure(e.message));
+      } catch (e) {
+        return Left(
+          UnknownFailure('Error al actualizar perfil offline: $e'),
+        );
+      }
     }
   }
 

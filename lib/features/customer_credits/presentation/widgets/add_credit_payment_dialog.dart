@@ -1239,12 +1239,8 @@ class _AddCreditPaymentDialogState extends State<AddCreditPaymentDialog>
       });
 
       if (success) {
-        // Cerrar el diálogo primero
+        // Cerrar el diálogo inmediatamente - los datos ya se actualizaron en el controlador
         Navigator.of(context).pop(true);
-
-        // Recargar datos del crédito y transacciones
-        await controller.getCreditById(widget.credit.id);
-        await controller.loadCreditTransactions(widget.credit.id);
       }
     } catch (e) {
       if (!mounted) return;

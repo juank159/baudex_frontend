@@ -8,6 +8,7 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/app_scaffold.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../controllers/expense_form_controller.dart';
+import '../controllers/enhanced_expenses_controller.dart';
 import '../widgets/modern_category_selector_widget.dart';
 import '../widgets/modern_expense_selector_widget.dart';
 import '../widgets/compact_expense_field.dart';
@@ -1602,6 +1603,10 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
 
     final success = await controller.saveExpense();
     if (success) {
+      // Refrescar lista de gastos antes de navegar (controller es permanente)
+      if (Get.isRegistered<EnhancedExpensesController>()) {
+        Get.find<EnhancedExpensesController>().refreshExpenses();
+      }
       Get.offAllNamed(AppRoutes.expenses);
     }
   }
@@ -1635,6 +1640,10 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
 
     final success = await controller.saveExpenseAsDraft();
     if (success) {
+      // Refrescar lista de gastos antes de navegar (controller es permanente)
+      if (Get.isRegistered<EnhancedExpensesController>()) {
+        Get.find<EnhancedExpensesController>().refreshExpenses();
+      }
       Get.offAllNamed(AppRoutes.expenses);
     }
   }

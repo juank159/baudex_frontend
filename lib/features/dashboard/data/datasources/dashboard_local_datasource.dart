@@ -1,25 +1,34 @@
 // lib/features/dashboard/data/datasources/dashboard_local_datasource.dart
 import '../../../../app/core/storage/secure_storage_service.dart';
 import '../../../../app/core/errors/exceptions.dart';
+import '../../domain/entities/recent_activity_advanced.dart';
+import '../../domain/entities/smart_notification.dart';
 import '../models/dashboard_stats_model.dart';
+import '../models/profitability_stats_model.dart';
 import '../models/recent_activity_model.dart';
 import '../models/notification_model.dart';
 import 'dart:convert';
 
 abstract class DashboardLocalDataSource {
-  Future<DashboardStatsModel?> getCachedDashboardStats();
+  Future<DashboardStatsModel?> getCachedDashboardStats({DateTime? startDate, DateTime? endDate});
   Future<void> cacheDashboardStats(DashboardStatsModel stats);
-  
+
   Future<List<RecentActivityModel>?> getCachedRecentActivity();
   Future<void> cacheRecentActivity(List<RecentActivityModel> activities);
-  
+
   Future<List<NotificationModel>?> getCachedNotifications();
   Future<void> cacheNotifications(List<NotificationModel> notifications);
-  
+
   Future<int?> getCachedUnreadNotificationsCount();
   Future<void> cacheUnreadNotificationsCount(int count);
-  
+
   Future<void> clearCache();
+
+  // Métodos offline avanzados
+  Future<ProfitabilityStatsModel?> getOfflineProfitabilityStats({DateTime? startDate, DateTime? endDate});
+  Future<List<RecentActivityAdvanced>> getOfflineRecentActivities({int limit = 10});
+  Future<List<SmartNotification>> getOfflineSmartNotifications({int limit = 10});
+  Future<Map<String, double>> getOfflineExpensesByCategory({DateTime? startDate, DateTime? endDate});
 }
 
 class DashboardLocalDataSourceImpl implements DashboardLocalDataSource {
@@ -35,8 +44,10 @@ class DashboardLocalDataSourceImpl implements DashboardLocalDataSource {
   DashboardLocalDataSourceImpl({required this.secureStorage});
 
   @override
-  Future<DashboardStatsModel?> getCachedDashboardStats() async {
+  Future<DashboardStatsModel?> getCachedDashboardStats({DateTime? startDate, DateTime? endDate}) async {
     try {
+      // SecureStorage solo tiene cache sin filtros de fecha
+      if (startDate != null || endDate != null) return null;
       if (!await _isCacheValid()) {
         return null;
       }
@@ -186,4 +197,17 @@ class DashboardLocalDataSourceImpl implements DashboardLocalDataSource {
       // Error silencioso para timestamp
     }
   }
+
+  // Stubs para métodos offline avanzados (no implementados en SecureStorage)
+  @override
+  Future<ProfitabilityStatsModel?> getOfflineProfitabilityStats({DateTime? startDate, DateTime? endDate}) async => null;
+
+  @override
+  Future<List<RecentActivityAdvanced>> getOfflineRecentActivities({int limit = 10}) async => [];
+
+  @override
+  Future<List<SmartNotification>> getOfflineSmartNotifications({int limit = 10}) async => [];
+
+  @override
+  Future<Map<String, double>> getOfflineExpensesByCategory({DateTime? startDate, DateTime? endDate}) async => {};
 }

@@ -188,6 +188,7 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
 
   @override
   Future<SupplierModel?> getSupplierById(String id) async {
+    // Intentar SecureStorage primero
     try {
       final supplierDataJson = await secureStorage.read(
         key: '$_supplierPrefix$id',
@@ -197,10 +198,25 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
       if (supplierData != null) {
         return SupplierModel.fromJson(supplierData);
       }
-      return null;
     } catch (e) {
-      throw CacheException('Error al obtener proveedor desde cache: $e');
+      print('⚠️ Error leyendo proveedor de SecureStorage: $e');
     }
+
+    // Fallback a ISAR
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarSupplier = await isar.isarSuppliers
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+      if (isarSupplier != null) {
+        return SupplierModel.fromEntity(isarSupplier.toEntity());
+      }
+    } catch (e) {
+      print('⚠️ Error leyendo proveedor de ISAR: $e');
+    }
+
+    return null;
   }
 
   @override
@@ -253,25 +269,58 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
 
   @override
   Future<List<SupplierModel>> getCachedSuppliers() async {
+    // Intentar SecureStorage primero
     try {
       final suppliersDataJson = await secureStorage.read(key: _suppliersKey);
       final suppliersData =
           suppliersDataJson != null ? json.decode(suppliersDataJson) : null;
-      if (suppliersData != null && suppliersData is List) {
+      if (suppliersData != null && suppliersData is List && suppliersData.isNotEmpty) {
         return suppliersData
             .map((data) => SupplierModel.fromJson(data as Map<String, dynamic>))
             .toList();
       }
-      return [];
     } catch (e) {
-      // En macOS, si hay problema con Keychain, devolvemos lista vacía
-      print('⚠️ Error al leer cache de proveedores (se ignora): $e');
-      return [];
+      print('⚠️ Error al leer cache SecureStorage de proveedores: $e');
     }
+
+    // Fallback a ISAR (persistencia real offline)
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarSuppliers = await isar.isarSuppliers
+          .filter()
+          .deletedAtIsNull()
+          .sortByName()
+          .findAll();
+      if (isarSuppliers.isNotEmpty) {
+        print('✅ ${isarSuppliers.length} proveedores leídos desde ISAR');
+        return isarSuppliers
+            .map((isar) => SupplierModel.fromEntity(isar.toEntity()))
+            .toList();
+      }
+    } catch (e) {
+      print('⚠️ Error al leer proveedores desde ISAR: $e');
+    }
+
+    return [];
   }
 
   @override
   Future<void> cacheSuppliers(List<SupplierModel> suppliers) async {
+    // GUARDAR EN ISAR PRIMERO (persistencia offline real)
+    try {
+      final isar = IsarDatabase.instance.database;
+      await isar.writeTxn(() async {
+        final isarModels = suppliers.map((model) {
+          return IsarSupplier.fromModel(model);
+        }).toList();
+        await isar.isarSuppliers.putAllByServerId(isarModels);
+      });
+      print('✅ ${suppliers.length} proveedores guardados en ISAR');
+    } catch (e) {
+      print('⚠️ Error guardando proveedores en ISAR: $e');
+    }
+
+    // Guardar en SecureStorage (fallback legacy)
     try {
       final suppliersJson =
           suppliers.map((supplier) => supplier.toJson()).toList();
@@ -280,18 +329,14 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
         value: json.encode(suppliersJson),
       );
 
-      // También cachear cada proveedor individualmente
       for (final supplier in suppliers) {
         await secureStorage.write(
           key: '$_supplierPrefix${supplier.id}',
           value: json.encode(supplier.toJson()),
         );
       }
-    } catch (e) {
-      // En macOS, el error -34018 indica problema con entitlements del Keychain
-      // Simplemente loggeamos y continuamos sin fallar
-      print('⚠️ Error al cachear proveedores (se ignora): $e');
-      // No lanzamos excepción para permitir que la app funcione sin cache
+    } catch (_) {
+      // SecureStorage puede fallar en macOS (-34018), ISAR ya guardó correctamente
     }
   }
 
@@ -323,71 +368,94 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
         print('⚠️ Error guardando en ISAR (continuando...): $e');
       }
 
-      // Guardar en SecureStorage (fallback legacy)
-      await secureStorage.write(
-        key: '$_supplierPrefix${supplier.id}',
-        value: json.encode(supplier.toJson()),
-      );
+      // Guardar en SecureStorage (fallback legacy, puede fallar en macOS)
+      try {
+        await secureStorage.write(
+          key: '$_supplierPrefix${supplier.id}',
+          value: json.encode(supplier.toJson()),
+        );
 
-      // Actualizar también el cache general
-      final suppliers = await getCachedSuppliers();
-      final existingIndex = suppliers.indexWhere((s) => s.id == supplier.id);
+        // Actualizar también el cache general
+        final suppliers = await getCachedSuppliers();
+        final existingIndex = suppliers.indexWhere((s) => s.id == supplier.id);
 
-      if (existingIndex >= 0) {
-        suppliers[existingIndex] = supplier;
-      } else {
-        suppliers.add(supplier);
+        if (existingIndex >= 0) {
+          suppliers[existingIndex] = supplier;
+        } else {
+          suppliers.add(supplier);
+        }
+
+        final suppliersJson = suppliers.map((s) => s.toJson()).toList();
+        await secureStorage.write(
+          key: _suppliersKey,
+          value: json.encode(suppliersJson),
+        );
+      } catch (_) {
+        // SecureStorage puede fallar en macOS (-34018), ISAR ya guardó correctamente
       }
-
-      final suppliersJson = suppliers.map((s) => s.toJson()).toList();
-      await secureStorage.write(
-        key: _suppliersKey,
-        value: json.encode(suppliersJson),
-      );
     } catch (e) {
-      // En macOS, ignoramos errores de Keychain para mantener funcionalidad
-      print('⚠️ Error al cachear proveedor (se ignora): $e');
+      print('⚠️ Error al cachear proveedor: $e');
     }
   }
 
   @override
   Future<void> removeCachedSupplier(String id) async {
+    // Eliminar de ISAR primero
+    try {
+      final isar = IsarDatabase.instance.database;
+      await isar.writeTxn(() async {
+        final isarSupplier = await isar.isarSuppliers
+            .filter()
+            .serverIdEqualTo(id)
+            .findFirst();
+        if (isarSupplier != null) {
+          await isar.isarSuppliers.delete(isarSupplier.id);
+        }
+      });
+    } catch (e) {
+      print('⚠️ Error eliminando proveedor de ISAR: $e');
+    }
+
+    // Eliminar de SecureStorage (legacy)
     try {
       await secureStorage.delete(key: '$_supplierPrefix$id');
-
-      // Actualizar también el cache general
       final suppliers = await getCachedSuppliers();
       suppliers.removeWhere((supplier) => supplier.id == id);
-
       final suppliersJson =
           suppliers.map((supplier) => supplier.toJson()).toList();
       await secureStorage.write(
         key: _suppliersKey,
         value: json.encode(suppliersJson),
       );
-    } catch (e) {
-      throw CacheException('Error al remover proveedor del cache: $e');
+    } catch (_) {
+      // SecureStorage puede fallar en macOS (-34018), ISAR ya eliminó correctamente
     }
   }
 
   @override
   Future<void> clearSuppliersCache() async {
+    // Limpiar ISAR primero
+    try {
+      final isar = IsarDatabase.instance.database;
+      await isar.writeTxn(() async {
+        await isar.isarSuppliers.clear();
+      });
+    } catch (e) {
+      print('⚠️ Error limpiando proveedores de ISAR: $e');
+    }
+
+    // Limpiar SecureStorage (legacy)
     try {
       await secureStorage.delete(key: _suppliersKey);
       await secureStorage.delete(key: _supplierStatsKey);
-
-      // Remover todos los proveedores individuales
-      final suppliers = await getCachedSuppliers();
-      for (final supplier in suppliers) {
-        await secureStorage.delete(key: '$_supplierPrefix${supplier.id}');
-      }
-    } catch (e) {
-      throw CacheException('Error al limpiar cache de proveedores: $e');
+    } catch (_) {
+      // SecureStorage puede fallar en macOS (-34018)
     }
   }
 
   @override
   Future<SupplierStatsModel?> getCachedSupplierStats() async {
+    // Intentar SecureStorage primero (es donde se guardan stats)
     try {
       final statsDataJson = await secureStorage.read(key: _supplierStatsKey);
       final statsData =
@@ -395,10 +463,10 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
       if (statsData != null) {
         return SupplierStatsModel.fromJson(statsData);
       }
-      return null;
-    } catch (e) {
-      throw CacheException('Error al obtener estadísticas desde cache: $e');
+    } catch (_) {
+      // SecureStorage puede fallar en macOS (-34018)
     }
+    return null;
   }
 
   @override
@@ -408,8 +476,8 @@ class SupplierLocalDataSourceImpl implements SupplierLocalDataSource {
         key: _supplierStatsKey,
         value: json.encode(stats.toJson()),
       );
-    } catch (e) {
-      throw CacheException('Error al cachear estadísticas: $e');
+    } catch (_) {
+      // SecureStorage puede fallar en macOS (-34018), no es crítico
     }
   }
 }

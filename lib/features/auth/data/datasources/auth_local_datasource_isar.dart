@@ -184,6 +184,50 @@ class AuthLocalDataSourceIsar implements AuthLocalDataSource {
       throw CacheException('Error al actualizar datos del usuario: $e');
     }
   }
+
+  // ==================== OFFLINE CREDENTIALS ====================
+
+  @override
+  Future<void> saveOfflineCredentials(String email, String passwordHash) async {
+    try {
+      await _secureStorage.saveOfflineCredentials(
+        email: email,
+        passwordHash: passwordHash,
+      );
+    } catch (e) {
+      throw CacheException('Error al guardar credenciales offline: $e');
+    }
+  }
+
+  @override
+  Future<bool> verifyOfflineCredentials(String email, String passwordHash) async {
+    try {
+      return await _secureStorage.verifyOfflineCredentials(
+        email: email,
+        passwordHash: passwordHash,
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> hasOfflineCredentials() async {
+    try {
+      return await _secureStorage.hasOfflineCredentials();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> clearOfflineCredentials() async {
+    try {
+      await _secureStorage.deleteOfflineCredentials();
+    } catch (e) {
+      throw CacheException('Error al limpiar credenciales offline: $e');
+    }
+  }
 }
 
 /// Clase auxiliar para datos de autenticación locales

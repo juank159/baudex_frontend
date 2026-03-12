@@ -227,7 +227,7 @@ class CreditPayment extends Equatable {
   }
 }
 
-/// Estadísticas de créditos
+/// Estadísticas de créditos con desglose por tipo (directo vs factura)
 class CreditStats extends Equatable {
   final double totalPending;
   final double totalOverdue;
@@ -235,20 +235,42 @@ class CreditStats extends Equatable {
   final int countOverdue;
   final double totalPaid;
 
+  // Desglose - Directos (sin factura asociada)
+  final double directPending;
+  final double directOverdue;
+  final double directPaid;
+  final int directCountPending;
+  final int directCountOverdue;
+
+  // Desglose - Factura (con factura asociada)
+  final double invoicePending;
+  final double invoiceOverdue;
+  final double invoicePaid;
+  final int invoiceCountPending;
+  final int invoiceCountOverdue;
+
   const CreditStats({
     required this.totalPending,
     required this.totalOverdue,
     required this.countPending,
     required this.countOverdue,
     required this.totalPaid,
+    this.directPending = 0,
+    this.directOverdue = 0,
+    this.directPaid = 0,
+    this.directCountPending = 0,
+    this.directCountOverdue = 0,
+    this.invoicePending = 0,
+    this.invoiceOverdue = 0,
+    this.invoicePaid = 0,
+    this.invoiceCountPending = 0,
+    this.invoiceCountOverdue = 0,
   });
 
   @override
   List<Object?> get props => [
-        totalPending,
-        totalOverdue,
-        countPending,
-        countOverdue,
-        totalPaid,
+        totalPending, totalOverdue, countPending, countOverdue, totalPaid,
+        directPending, directOverdue, directPaid, directCountPending, directCountOverdue,
+        invoicePending, invoiceOverdue, invoicePaid, invoiceCountPending, invoiceCountOverdue,
       ];
 }

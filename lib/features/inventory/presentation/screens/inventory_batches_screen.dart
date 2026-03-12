@@ -6,6 +6,7 @@ import '../../../../app/core/utils/formatters.dart';
 import '../controllers/inventory_batches_controller.dart';
 import '../widgets/inventory_batch_card.dart';
 import '../../domain/entities/inventory_batch.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class InventoryBatchesScreen extends GetView<InventoryBatchesController> {
   const InventoryBatchesScreen({super.key});
@@ -16,6 +17,7 @@ class InventoryBatchesScreen extends GetView<InventoryBatchesController> {
       appBar: AppBar(
         title: Obx(() => Text(controller.displayTitle)),
         actions: [
+          const SyncStatusIcon(),
           // Refresh button
           IconButton(
             onPressed: controller.refreshBatches,

@@ -1,6 +1,7 @@
 // lib/features/purchase_orders/data/repositories/purchase_order_repository_impl.dart
 import 'package:dartz/dartz.dart';
 import 'package:get/get.dart';
+import 'package:isar/isar.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/models/paginated_result.dart';
@@ -8,6 +9,9 @@ import '../../../../app/core/network/network_info.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
+import '../../../../app/data/local/isar_database.dart';
+import '../models/isar/isar_purchase_order.dart';
+import '../models/isar/isar_purchase_order_item.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
 import '../datasources/purchase_order_local_datasource.dart';
@@ -33,14 +37,12 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       try {
         final remotePurchaseOrders = await remoteDataSource.getPurchaseOrders(params);
         
-        // Cache solo la primera página para evitar problemas de sincronización
-        if (params.page == 1) {
-          try {
-            await localDataSource.cachePurchaseOrders(remotePurchaseOrders.data);
-          } catch (e) {
-            print('Error al guardar en cache: $e');
-            // No bloquear la aplicación por errores de cache
-          }
+        // FASE 3: Cachear TODAS las páginas a ISAR (upsert por serverId evita duplicados)
+        try {
+          await localDataSource.cachePurchaseOrders(remotePurchaseOrders.data);
+        } catch (e) {
+          print('Error al guardar en cache: $e');
+          // No bloquear la aplicación por errores de cache
         }
         
         return Right(
@@ -49,31 +51,39 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
             meta: remotePurchaseOrders.meta,
           ),
         );
-      } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
-      } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+      } on ServerException catch (_) {
+        return _getPurchaseOrdersFromCache(params);
+      } catch (_) {
+        return _getPurchaseOrdersFromCache(params);
       }
     } else {
-      try {
-        final cachedPurchaseOrders = await localDataSource.filterCachedPurchaseOrders(params);
-        
-        // Simular paginación offline
-        final startIndex = (params.page - 1) * params.limit;
-        final endIndex = startIndex + params.limit;
-        final paginatedData = cachedPurchaseOrders.skip(startIndex).take(params.limit).toList();
-        
-        return Right(
-          PaginatedResult<PurchaseOrder>(
-            data: paginatedData.map((model) => model.toEntity()).toList(),
-            meta: null, // Sin metadatos en modo offline
-          ),
-        );
-      } on CacheException catch (e) {
-        return Left(CacheFailure(e.message));
-      } catch (e) {
-        return Left(CacheFailure('Error al acceder al cache: $e'));
-      }
+      return _getPurchaseOrdersFromCache(params);
+    }
+  }
+
+  Future<Either<Failure, PaginatedResult<PurchaseOrder>>> _getPurchaseOrdersFromCache(
+    PurchaseOrderQueryParams params,
+  ) async {
+    try {
+      final cachedPurchaseOrders = await localDataSource.filterCachedPurchaseOrders(params);
+
+      // Simular paginación offline
+      final startIndex = (params.page - 1) * params.limit;
+      final paginatedData = cachedPurchaseOrders.skip(startIndex).take(params.limit).toList();
+
+      return Right(
+        PaginatedResult<PurchaseOrder>(
+          data: paginatedData.map((model) => model.toEntity()).toList(),
+          meta: null,
+        ),
+      );
+    } catch (_) {
+      return Right(
+        PaginatedResult<PurchaseOrder>(
+          data: <PurchaseOrder>[],
+          meta: null,
+        ),
+      );
     }
   }
 
@@ -92,75 +102,199 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         }
         
         return Right(remotePurchaseOrder.toEntity());
-      } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
-      } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+      } on ServerException catch (_) {
+        return _getPurchaseOrderByIdFromCache(id);
+      } catch (_) {
+        return _getPurchaseOrderByIdFromCache(id);
       }
     } else {
-      try {
-        final cachedPurchaseOrder = await localDataSource.getCachedPurchaseOrderById(id);
-        
-        if (cachedPurchaseOrder != null) {
-          return Right(cachedPurchaseOrder.toEntity());
-        } else {
-          return Left(CacheFailure('Orden de compra no encontrada en cache'));
-        }
-      } on CacheException catch (e) {
-        return Left(CacheFailure(e.message));
-      } catch (e) {
-        return Left(CacheFailure('Error al acceder al cache: $e'));
-      }
+      return _getPurchaseOrderByIdFromCache(id);
     }
+  }
+
+  Future<Either<Failure, PurchaseOrder>> _getPurchaseOrderByIdFromCache(String id) async {
+    try {
+      final cachedPurchaseOrder = await localDataSource.getCachedPurchaseOrderById(id);
+      if (cachedPurchaseOrder != null) {
+        return Right(cachedPurchaseOrder.toEntity());
+      }
+    } catch (_) {}
+    return Left(CacheFailure('Orden de compra no encontrada en cache'));
   }
 
   @override
   Future<Either<Failure, List<PurchaseOrder>>> searchPurchaseOrders(
     SearchPurchaseOrdersParams params,
   ) async {
-    try {
-      final remotePurchaseOrders = await remoteDataSource.searchPurchaseOrders(params);
-      return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
-    } catch (e) {
-      print('⚠️ Error del servidor en searchPurchaseOrders: $e - intentando cache local...');
+    if (await networkInfo.isConnected) {
       try {
-        final cachedPurchaseOrders = await localDataSource.searchCachedPurchaseOrders(
-          params.searchTerm,
-        );
-        if (cachedPurchaseOrders.isNotEmpty) {
-          print('✅ ${cachedPurchaseOrders.length} órdenes de compra encontradas en cache local');
-        }
-        return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
-      } catch (cacheError) {
-        return Left(CacheFailure('Error al buscar en cache: $cacheError'));
+        final remotePurchaseOrders = await remoteDataSource.searchPurchaseOrders(params);
+        return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
+      } catch (e) {
+        print('⚠️ Error del servidor en searchPurchaseOrders: $e - intentando cache local...');
+        return _searchPurchaseOrdersFromCache(params);
       }
+    } else {
+      return _searchPurchaseOrdersFromCache(params);
+    }
+  }
+
+  Future<Either<Failure, List<PurchaseOrder>>> _searchPurchaseOrdersFromCache(
+    SearchPurchaseOrdersParams params,
+  ) async {
+    try {
+      final cachedPurchaseOrders = await localDataSource.searchCachedPurchaseOrders(
+        params.searchTerm,
+      );
+      if (cachedPurchaseOrders.isNotEmpty) {
+        print('✅ ${cachedPurchaseOrders.length} órdenes de compra encontradas en cache local');
+      }
+      return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
+    } catch (_) {
+      return const Right(<PurchaseOrder>[]);
     }
   }
 
   @override
   Future<Either<Failure, PurchaseOrderStats>> getPurchaseOrderStats() async {
-    try {
-      final remoteStats = await remoteDataSource.getPurchaseOrderStats();
-
-      // Guardar estadísticas en cache
-      await localDataSource.cacheStats(remoteStats);
-
-      return Right(remoteStats.toEntity());
-    } catch (e) {
-      print('⚠️ Error del servidor en getPurchaseOrderStats: $e - intentando cache local...');
+    if (await networkInfo.isConnected) {
       try {
-        final cachedStats = await localDataSource.getCachedStats();
+        final remoteStats = await remoteDataSource.getPurchaseOrderStats();
 
-        if (cachedStats != null) {
-          print('✅ Estadísticas de órdenes de compra obtenidas desde cache local');
-          return Right(cachedStats.toEntity());
-        } else {
-          return Left(CacheFailure('Estadísticas no disponibles en cache'));
-        }
-      } catch (cacheError) {
-        return Left(CacheFailure('Error al acceder a estadísticas en cache: $cacheError'));
+        // Guardar estadísticas en cache
+        await localDataSource.cacheStats(remoteStats);
+
+        return Right(remoteStats.toEntity());
+      } catch (e) {
+        print('⚠️ Error del servidor en getPurchaseOrderStats: $e - intentando cache local...');
+        return _getPurchaseOrderStatsFromCache();
       }
+    } else {
+      return _getPurchaseOrderStatsFromCache();
     }
+  }
+
+  Future<Either<Failure, PurchaseOrderStats>> _getPurchaseOrderStatsFromCache() async {
+    try {
+      final cachedStats = await localDataSource.getCachedStats();
+
+      if (cachedStats != null) {
+        print('✅ Estadísticas de órdenes de compra obtenidas desde cache local');
+        return Right(cachedStats.toEntity());
+      }
+    } catch (_) {}
+
+    // Calcular stats dinámicamente desde los POs en ISAR/cache
+    try {
+      final cachedOrders = await localDataSource.getCachedPurchaseOrders();
+      if (cachedOrders.isNotEmpty) {
+        final orders = cachedOrders.map((m) => m.toEntity()).toList();
+        final now = DateTime.now();
+
+        int pending = 0, approved = 0, sent = 0, partiallyReceived = 0, received = 0, cancelled = 0, overdue = 0;
+        double totalValue = 0, totalPendingValue = 0, totalReceivedValue = 0;
+        final ordersBySupplier = <String, int>{};
+        final valueBySupplier = <String, double>{};
+        final ordersByMonth = <String, int>{};
+
+        for (final order in orders) {
+          totalValue += order.totalAmount;
+
+          // Conteo por status
+          final status = order.status.toString().split('.').last.toLowerCase();
+          switch (status) {
+            case 'pending': case 'draft':
+              pending++;
+              totalPendingValue += order.totalAmount;
+            case 'approved':
+              approved++;
+              totalPendingValue += order.totalAmount;
+            case 'sent':
+              sent++;
+              totalPendingValue += order.totalAmount;
+            case 'partially_received': case 'partiallyreceived':
+              partiallyReceived++;
+            case 'received':
+              received++;
+              totalReceivedValue += order.totalAmount;
+            case 'cancelled':
+              cancelled++;
+          }
+
+          // Overdue check
+          if (order.expectedDeliveryDate != null &&
+              order.expectedDeliveryDate!.isBefore(now) &&
+              status != 'received' && status != 'cancelled') {
+            overdue++;
+          }
+
+          // Agrupar por proveedor
+          final supplierName = order.supplierName ?? 'Sin proveedor';
+          ordersBySupplier[supplierName] = (ordersBySupplier[supplierName] ?? 0) + 1;
+          valueBySupplier[supplierName] = (valueBySupplier[supplierName] ?? 0) + order.totalAmount;
+
+          // Agrupar por mes
+          if (order.orderDate != null) {
+            final monthKey = '${order.orderDate!.year}-${order.orderDate!.month.toString().padLeft(2, '0')}';
+            ordersByMonth[monthKey] = (ordersByMonth[monthKey] ?? 0) + 1;
+          }
+        }
+
+        final total = orders.length;
+        final cancellationRate = total > 0 ? (cancelled / total * 100) : 0.0;
+        final avgValue = total > 0 ? totalValue / total : 0.0;
+
+        // Top orders by value
+        final sortedByValue = List<PurchaseOrder>.from(orders)
+          ..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+
+        print('✅ Stats de POs calculadas desde ${orders.length} órdenes en ISAR');
+        return Right(PurchaseOrderStats(
+          totalPurchaseOrders: total,
+          pendingOrders: pending,
+          approvedOrders: approved,
+          sentOrders: sent,
+          partiallyReceivedOrders: partiallyReceived,
+          receivedOrders: received,
+          cancelledOrders: cancelled,
+          overdueOrders: overdue,
+          totalValue: totalValue,
+          cancellationRate: cancellationRate,
+          averageOrderValue: avgValue,
+          totalPending: totalPendingValue,
+          totalReceived: totalReceivedValue,
+          ordersBySupplier: ordersBySupplier,
+          valueBySupplier: valueBySupplier,
+          ordersByMonth: ordersByMonth,
+          topOrdersByValue: sortedByValue.take(5).toList(),
+          recentActivity: [],
+          orders: orders,
+        ));
+      }
+    } catch (e) {
+      print('⚠️ Error calculando stats desde ISAR: $e');
+    }
+
+    return const Right(PurchaseOrderStats(
+      totalPurchaseOrders: 0,
+      pendingOrders: 0,
+      approvedOrders: 0,
+      sentOrders: 0,
+      partiallyReceivedOrders: 0,
+      receivedOrders: 0,
+      cancelledOrders: 0,
+      overdueOrders: 0,
+      totalValue: 0,
+      cancellationRate: 0,
+      averageOrderValue: 0,
+      totalPending: 0,
+      totalReceived: 0,
+      ordersBySupplier: {},
+      valueBySupplier: {},
+      ordersByMonth: {},
+      topOrdersByValue: [],
+      recentActivity: [],
+    ));
   }
 
   @override
@@ -255,18 +389,15 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     if (await networkInfo.isConnected) {
       try {
         final approvedPurchaseOrder = await remoteDataSource.approvePurchaseOrder(id, approvalNotes);
-        
-        // Actualizar cache
         await localDataSource.cachePurchaseOrder(approvedPurchaseOrder);
-        
         return Right(approvedPurchaseOrder.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _changeStatusOffline(id, 'approved', 'approve', notes: approvalNotes);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _changeStatusOffline(id, 'approved', 'approve', notes: approvalNotes);
       }
     } else {
-      return Left(ServerFailure('No se puede aprobar orden de compra sin conexión a internet'));
+      return _changeStatusOffline(id, 'approved', 'approve', notes: approvalNotes);
     }
   }
 
@@ -278,18 +409,15 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     if (await networkInfo.isConnected) {
       try {
         final rejectedPurchaseOrder = await remoteDataSource.rejectPurchaseOrder(id, rejectionReason);
-        
-        // Actualizar cache
         await localDataSource.cachePurchaseOrder(rejectedPurchaseOrder);
-        
         return Right(rejectedPurchaseOrder.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _changeStatusOffline(id, 'rejected', 'reject', reason: rejectionReason);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _changeStatusOffline(id, 'rejected', 'reject', reason: rejectionReason);
       }
     } else {
-      return Left(ServerFailure('No se puede rechazar orden de compra sin conexión a internet'));
+      return _changeStatusOffline(id, 'rejected', 'reject', reason: rejectionReason);
     }
   }
 
@@ -301,18 +429,15 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     if (await networkInfo.isConnected) {
       try {
         final sentPurchaseOrder = await remoteDataSource.sendPurchaseOrder(id, sendNotes);
-        
-        // Actualizar cache
         await localDataSource.cachePurchaseOrder(sentPurchaseOrder);
-        
         return Right(sentPurchaseOrder.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _changeStatusOffline(id, 'sent', 'send', notes: sendNotes);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _changeStatusOffline(id, 'sent', 'send', notes: sendNotes);
       }
     } else {
-      return Left(ServerFailure('No se puede enviar orden de compra sin conexión a internet'));
+      return _changeStatusOffline(id, 'sent', 'send', notes: sendNotes);
     }
   }
 
@@ -323,18 +448,15 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     if (await networkInfo.isConnected) {
       try {
         final receivedPurchaseOrder = await remoteDataSource.receivePurchaseOrder(params);
-        
-        // Actualizar cache
         await localDataSource.cachePurchaseOrder(receivedPurchaseOrder);
-        
         return Right(receivedPurchaseOrder.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _receiveOffline(params);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _receiveOffline(params);
       }
     } else {
-      return Left(ServerFailure('No se puede recibir orden de compra sin conexión a internet'));
+      return _receiveOffline(params);
     }
   }
 
@@ -346,56 +468,236 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     if (await networkInfo.isConnected) {
       try {
         final cancelledPurchaseOrder = await remoteDataSource.cancelPurchaseOrder(id, cancellationReason);
-        
-        // Actualizar cache
         await localDataSource.cachePurchaseOrder(cancelledPurchaseOrder);
-        
         return Right(cancelledPurchaseOrder.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _changeStatusOffline(id, 'cancelled', 'cancel', reason: cancellationReason);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _changeStatusOffline(id, 'cancelled', 'cancel', reason: cancellationReason);
       }
     } else {
-      return Left(ServerFailure('No se puede cancelar orden de compra sin conexión a internet'));
+      return _changeStatusOffline(id, 'cancelled', 'cancel', reason: cancellationReason);
+    }
+  }
+
+  /// Cambiar status de una PO localmente y encolar para sync
+  Future<Either<Failure, PurchaseOrder>> _changeStatusOffline(
+    String id,
+    String newStatus,
+    String action, {
+    String? notes,
+    String? reason,
+  }) async {
+    try {
+      // Obtener orden actual del cache
+      final cachedOrder = await localDataSource.getCachedPurchaseOrderById(id);
+      if (cachedOrder == null) {
+        return Left(CacheFailure('Orden de compra no encontrada en cache local'));
+      }
+
+      // Actualizar status en el modelo
+      final updatedJson = cachedOrder.toJson();
+      updatedJson['status'] = newStatus;
+      updatedJson['updatedAt'] = DateTime.now().toIso8601String();
+      if (newStatus == 'approved') {
+        updatedJson['approvedAt'] = DateTime.now().toIso8601String();
+      }
+      final updatedModel = PurchaseOrderModel.fromJson(updatedJson);
+
+      // Guardar en cache (ISAR + SecureStorage)
+      await localDataSource.cachePurchaseOrder(updatedModel);
+
+      // Encolar operación para sincronización
+      final syncData = <String, dynamic>{
+        'action': action,
+      };
+      if (notes != null) syncData['notes'] = notes;
+      if (reason != null) syncData['reason'] = reason;
+
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'PurchaseOrder',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: syncData,
+        );
+        print('✅ Cambio de estado PO encolado: $action para $id');
+      } catch (e) {
+        print('⚠️ Error encolando cambio de estado PO: $e');
+      }
+
+      return Right(updatedModel.toEntity());
+    } catch (e) {
+      return Left(CacheFailure('Error al cambiar estado offline: $e'));
+    }
+  }
+
+  /// Recibir PO offline (caso especial con items recibidos)
+  Future<Either<Failure, PurchaseOrder>> _receiveOffline(
+    ReceivePurchaseOrderParams params,
+  ) async {
+    try {
+      final cachedOrder = await localDataSource.getCachedPurchaseOrderById(params.id);
+      if (cachedOrder == null) {
+        return Left(CacheFailure('Orden de compra no encontrada en cache local'));
+      }
+
+      // Actualizar status
+      final updatedJson = cachedOrder.toJson();
+      updatedJson['status'] = 'received';
+      updatedJson['updatedAt'] = DateTime.now().toIso8601String();
+      updatedJson['deliveredDate'] = (params.receivedDate ?? DateTime.now()).toIso8601String();
+
+      // ✅ Actualizar receivedQuantity de cada item basado en params
+      // Esto es CRÍTICO para que el UseCase pueda crear movimientos de inventario
+      if (updatedJson['items'] != null) {
+        final itemsList = updatedJson['items'] as List;
+        // Convertir items a List<Map> si son PurchaseOrderItemModel
+        final itemMaps = <Map<String, dynamic>>[];
+        for (var i = 0; i < itemsList.length; i++) {
+          Map<String, dynamic> itemJson;
+          if (itemsList[i] is Map<String, dynamic>) {
+            itemJson = itemsList[i] as Map<String, dynamic>;
+          } else if (itemsList[i] is PurchaseOrderItemModel) {
+            itemJson = (itemsList[i] as PurchaseOrderItemModel).toJson();
+          } else {
+            continue;
+          }
+          final itemId = itemJson['id'] as String?;
+          final productId = itemJson['productId'] as String?;
+          // Buscar el item correspondiente en los params de recepción
+          final receiveParam = params.items.where(
+            (p) => p.itemId == itemId || p.itemId == productId,
+          ).firstOrNull;
+          if (receiveParam != null) {
+            itemJson['receivedQuantity'] = receiveParam.receivedQuantity.toString();
+            if (receiveParam.damagedQuantity != null) {
+              itemJson['damagedQuantity'] = receiveParam.damagedQuantity.toString();
+            }
+            if (receiveParam.missingQuantity != null) {
+              itemJson['missingQuantity'] = receiveParam.missingQuantity.toString();
+            }
+          } else {
+            // Si no hay param específico, asumir recepción completa (comportamiento Quick Receive)
+            itemJson['receivedQuantity'] = itemJson['quantity'] ?? '0';
+          }
+          itemMaps.add(itemJson);
+        }
+        updatedJson['items'] = itemMaps;
+      }
+
+      final updatedModel = PurchaseOrderModel.fromJson(updatedJson);
+
+      await localDataSource.cachePurchaseOrder(updatedModel);
+
+      // ✅ Actualizar items en ISAR también (para que sync_service lea datos frescos)
+      try {
+        final isar = Get.find<IsarDatabase>().database;
+        final isarPO = await isar.isarPurchaseOrders
+            .filter()
+            .serverIdEqualTo(params.id)
+            .findFirst();
+        if (isarPO != null) {
+          await isarPO.items.load();
+          for (final isarItem in isarPO.items) {
+            final receiveParam = params.items.where(
+              (p) => p.itemId == isarItem.itemId || p.itemId == isarItem.productId,
+            ).firstOrNull;
+            if (receiveParam != null) {
+              isarItem.receivedQuantity = receiveParam.receivedQuantity;
+              isarItem.damagedQuantity = receiveParam.damagedQuantity ?? 0;
+              isarItem.missingQuantity = receiveParam.missingQuantity ?? 0;
+            } else {
+              isarItem.receivedQuantity = isarItem.quantity;
+            }
+          }
+          isarPO.status = IsarPurchaseOrderStatus.received;
+          isarPO.deliveredDate = params.receivedDate ?? DateTime.now();
+          isarPO.updatedAt = DateTime.now();
+          isarPO.markAsUnsynced();
+          await isar.writeTxn(() async {
+            await isar.isarPurchaseOrderItems.putAll(isarPO.items.toList());
+            await isar.isarPurchaseOrders.put(isarPO);
+          });
+        }
+      } catch (e) {
+        print('⚠️ Error actualizando PO items en ISAR: $e');
+      }
+
+      // Encolar operación para sincronización
+      final syncData = <String, dynamic>{
+        'action': 'receive',
+        'items': params.items.map((item) => item.toMap()).toList(),
+        if (params.receivedDate != null) 'receivedDate': params.receivedDate!.toIso8601String(),
+        if (params.notes != null) 'notes': params.notes,
+        if (params.warehouseId != null) 'warehouseId': params.warehouseId,
+      };
+
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'PurchaseOrder',
+          entityId: params.id,
+          operationType: SyncOperationType.update,
+          data: syncData,
+        );
+        print('✅ Recepción de PO encolada offline: ${params.id}');
+      } catch (e) {
+        print('⚠️ Error encolando recepción de PO: $e');
+      }
+
+      return Right(updatedModel.toEntity());
+    } catch (e) {
+      return Left(CacheFailure('Error al recibir orden offline: $e'));
     }
   }
 
   @override
   Future<Either<Failure, List<PurchaseOrder>>> getPurchaseOrdersBySupplier(String supplierId) async {
-    try {
-      final remotePurchaseOrders = await remoteDataSource.getPurchaseOrdersBySupplier(supplierId);
-      return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
-    } catch (e) {
-      print('⚠️ Error del servidor en getPurchaseOrdersBySupplier: $e - intentando cache local...');
+    if (await networkInfo.isConnected) {
       try {
-        final cachedPurchaseOrders = await localDataSource.getPurchaseOrdersBySupplier(supplierId);
-        if (cachedPurchaseOrders.isNotEmpty) {
-          print('✅ ${cachedPurchaseOrders.length} órdenes de compra del proveedor encontradas en cache');
-        }
-        return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
-      } catch (cacheError) {
-        return Left(CacheFailure('Error al acceder al cache: $cacheError'));
+        final remotePurchaseOrders = await remoteDataSource.getPurchaseOrdersBySupplier(supplierId);
+        return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
+      } catch (e) {
+        print('⚠️ Error del servidor en getPurchaseOrdersBySupplier: $e - intentando cache local...');
+        return _getPurchaseOrdersBySupplierFromCache(supplierId);
       }
+    } else {
+      return _getPurchaseOrdersBySupplierFromCache(supplierId);
+    }
+  }
+
+  Future<Either<Failure, List<PurchaseOrder>>> _getPurchaseOrdersBySupplierFromCache(String supplierId) async {
+    try {
+      final cachedPurchaseOrders = await localDataSource.getPurchaseOrdersBySupplier(supplierId);
+      return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
+    } catch (_) {
+      return const Right(<PurchaseOrder>[]);
     }
   }
 
   @override
   Future<Either<Failure, List<PurchaseOrder>>> getOverduePurchaseOrders() async {
-    try {
-      final remotePurchaseOrders = await remoteDataSource.getOverduePurchaseOrders();
-      return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
-    } catch (e) {
-      print('⚠️ Error del servidor en getOverduePurchaseOrders: $e - intentando cache local...');
+    if (await networkInfo.isConnected) {
       try {
-        final cachedPurchaseOrders = await localDataSource.getOverduePurchaseOrders();
-        if (cachedPurchaseOrders.isNotEmpty) {
-          print('✅ ${cachedPurchaseOrders.length} órdenes de compra vencidas encontradas en cache');
-        }
-        return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
-      } catch (cacheError) {
-        return Left(CacheFailure('Error al acceder al cache: $cacheError'));
+        final remotePurchaseOrders = await remoteDataSource.getOverduePurchaseOrders();
+        return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
+      } catch (e) {
+        print('⚠️ Error del servidor en getOverduePurchaseOrders: $e - intentando cache local...');
+        return _getOverduePurchaseOrdersFromCache();
       }
+    } else {
+      return _getOverduePurchaseOrdersFromCache();
+    }
+  }
+
+  Future<Either<Failure, List<PurchaseOrder>>> _getOverduePurchaseOrdersFromCache() async {
+    try {
+      final cachedPurchaseOrders = await localDataSource.getOverduePurchaseOrders();
+      return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
+    } catch (_) {
+      return const Right(<PurchaseOrder>[]);
     }
   }
 
@@ -405,20 +707,20 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       try {
         final remotePurchaseOrders = await remoteDataSource.getPendingApprovalPurchaseOrders();
         return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
-      } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
-      } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+      } catch (_) {
+        return _getPendingApprovalFromCache();
       }
     } else {
-      try {
-        final cachedPurchaseOrders = await localDataSource.getPendingApprovalPurchaseOrders();
-        return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
-      } on CacheException catch (e) {
-        return Left(CacheFailure(e.message));
-      } catch (e) {
-        return Left(CacheFailure('Error al acceder al cache: $e'));
-      }
+      return _getPendingApprovalFromCache();
+    }
+  }
+
+  Future<Either<Failure, List<PurchaseOrder>>> _getPendingApprovalFromCache() async {
+    try {
+      final cachedPurchaseOrders = await localDataSource.getPendingApprovalPurchaseOrders();
+      return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
+    } catch (_) {
+      return const Right(<PurchaseOrder>[]);
     }
   }
 
@@ -428,20 +730,20 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       try {
         final remotePurchaseOrders = await remoteDataSource.getRecentPurchaseOrders(limit);
         return Right(remotePurchaseOrders.map((model) => model.toEntity()).toList());
-      } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
-      } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+      } catch (_) {
+        return _getRecentPurchaseOrdersFromCache();
       }
     } else {
-      try {
-        final cachedPurchaseOrders = await localDataSource.getRecentPurchaseOrders();
-        return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
-      } on CacheException catch (e) {
-        return Left(CacheFailure(e.message));
-      } catch (e) {
-        return Left(CacheFailure('Error al acceder al cache: $e'));
-      }
+      return _getRecentPurchaseOrdersFromCache();
+    }
+  }
+
+  Future<Either<Failure, List<PurchaseOrder>>> _getRecentPurchaseOrdersFromCache() async {
+    try {
+      final cachedPurchaseOrders = await localDataSource.getRecentPurchaseOrders();
+      return Right(cachedPurchaseOrders.map((model) => model.toEntity()).toList());
+    } catch (_) {
+      return const Right(<PurchaseOrder>[]);
     }
   }
 
@@ -501,7 +803,7 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         return PurchaseOrderItem(
           id: '',  // Will be filled when synced
           productId: itemParam.productId,
-          productName: '',  // Will be filled when synced
+          productName: itemParam.productName ?? '',
           productCode: null,
           productDescription: null,
           unit: '',  // Will be filled when synced
@@ -529,7 +831,7 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         id: tempId,
         orderNumber: 'TEMP-${now.millisecondsSinceEpoch}',
         supplierId: params.supplierId,
-        supplierName: null,  // Will be filled when synced
+        supplierName: params.supplierName,
         status: PurchaseOrderStatus.draft,
         priority: params.priority,
         orderDate: params.orderDate,

@@ -53,9 +53,13 @@ class EnvConfig {
   // ===========================================
 
   /// IP del servidor
+  static String? _cachedServerIP;
   static String get serverIP {
     final ip = dotenv.env['SERVER_IP'] ?? _getDefaultServerIP();
-    print('🌐 Usando Server IP: $ip');
+    if (_cachedServerIP != ip) {
+      _cachedServerIP = ip;
+      print('🌐 Usando Server IP: $ip');
+    }
     return ip;
   }
 

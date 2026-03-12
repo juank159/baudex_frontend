@@ -242,20 +242,17 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && dialogFocusNode.canRequestFocus) {
         dialogFocusNode.requestFocus();
-        print('🔍 PAYMENT DIALOG: Focus inicial solicitado para shortcuts');
       }
 
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted && !dialogFocusNode.hasFocus && dialogFocusNode.canRequestFocus) {
           dialogFocusNode.requestFocus();
-          print('🔍 PAYMENT DIALOG: Focus backup solicitado');
         }
       });
 
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted && dialogFocusNode.canRequestFocus) {
           dialogFocusNode.requestFocus();
-          print('🔍 PAYMENT DIALOG: Focus final para garantizar shortcuts');
         }
       });
     });
@@ -494,7 +491,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
 
       if (saveAsDraft) {
         canProcess = true;
-        print('🔵 Modo borrador - Puede procesar: $canProcess');
         return;
       }
 
@@ -502,69 +498,33 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       if (selectedBankAccount != null) {
         change = 0.0; // No hay cambio en transferencias
         canProcess = true;
-        print('🏦 Transferencia a cuenta - Pago exacto, puede procesar: $canProcess');
         return;
       }
 
       if (selectedPaymentMethod == PaymentMethod.cash) {
         canProcess = receivedRounded >= totalRounded;
-        print(
-          '💰 Efectivo - Recibido: $receivedRounded, Total efectivo: $totalRounded, Cambio: ${change.toStringAsFixed(2)}, Puede procesar: $canProcess',
-        );
       } else {
         canProcess = true;
-        print('💳 Otros métodos - Puede procesar: $canProcess');
       }
     });
   }
 
   InvoiceStatus _getInvoiceStatus() {
-    print('🔍 === CALCULANDO ESTADO DE FACTURA ===');
-    print('   - saveAsDraft: $saveAsDraft');
-    print('   - selectedPaymentMethod: ${selectedPaymentMethod.displayName}');
+    if (saveAsDraft) return InvoiceStatus.draft;
 
-    if (saveAsDraft) {
-      print('🔵 RESULTADO: BORRADOR por elección del usuario');
-      return InvoiceStatus.draft;
-    }
-
-    InvoiceStatus resultado;
     switch (selectedPaymentMethod) {
       case PaymentMethod.cash:
-        resultado = InvoiceStatus.paid;
-        print('💰 RESULTADO: EFECTIVO = PAID');
-        break;
       case PaymentMethod.creditCard:
-        resultado = InvoiceStatus.paid;
-        print('💳 RESULTADO: TARJETA CRÉDITO = PAID');
-        break;
       case PaymentMethod.debitCard:
-        resultado = InvoiceStatus.paid;
-        print('💳 RESULTADO: TARJETA DÉBITO = PAID');
-        break;
       case PaymentMethod.bankTransfer:
-        resultado = InvoiceStatus.paid;
-        print('🏦 RESULTADO: TRANSFERENCIA = PAID');
-        break;
+        return InvoiceStatus.paid;
       case PaymentMethod.credit:
-        resultado = InvoiceStatus.pending;
-        print('📅 RESULTADO: CRÉDITO = PENDING');
-        break;
       case PaymentMethod.check:
-        resultado = InvoiceStatus.pending;
-        print('📋 RESULTADO: CHEQUE = PENDING');
-        break;
       case PaymentMethod.other:
-        resultado = InvoiceStatus.pending;
-        print('❓ RESULTADO: OTRO = PENDING');
-        break;
+        return InvoiceStatus.pending;
       default:
-        resultado = InvoiceStatus.draft;
-        print('⚠️ RESULTADO: MÉTODO DESCONOCIDO = DRAFT');
+        return InvoiceStatus.draft;
     }
-
-    print('✅ Estado final calculado: ${resultado.displayName}');
-    return resultado;
   }
 
   LinearGradient _getStatusGradient(InvoiceStatus status) {
@@ -625,13 +585,8 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       autofocus: true,
       onKeyEvent: (FocusNode node, KeyEvent event) {
         if (event is KeyDownEvent) {
-          print(
-            '🎹 PAYMENT DIALOG evento: ${event.logicalKey} - Ctrl: ${HardwareKeyboard.instance.isControlPressed}',
-          );
-
           // ESC - Cancelar
           if (event.logicalKey == LogicalKeyboardKey.escape) {
-            print('🔴 PAYMENT DIALOG ESC - Cancelando...');
             widget.onCancel();
             return KeyEventResult.handled;
           }
@@ -639,11 +594,8 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
           // Ctrl + Enter - Procesar sin imprimir
           if (event.logicalKey == LogicalKeyboardKey.enter &&
               HardwareKeyboard.instance.isControlPressed) {
-            print('💾 PAYMENT DIALOG Ctrl+Enter - Procesando sin imprimir...');
             if (canProcess) {
               _confirmPayment(shouldPrint: false);
-            } else {
-              print('⚠️ No se puede procesar - canProcess: $canProcess');
             }
             return KeyEventResult.handled;
           }
@@ -651,16 +603,11 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
           // Ctrl + P - Procesar e imprimir
           if (event.logicalKey == LogicalKeyboardKey.keyP &&
               HardwareKeyboard.instance.isControlPressed) {
-            print('🖨️ PAYMENT DIALOG Ctrl+P - Procesando e imprimiendo...');
             if (canProcess) {
               _confirmPayment(shouldPrint: true);
-            } else {
-              print('⚠️ No se puede procesar - canProcess: $canProcess');
             }
             return KeyEventResult.handled;
           }
-
-          print('🔍 PAYMENT DIALOG - Evento no manejado: ${event.logicalKey}');
         }
         return KeyEventResult.ignored;
       },
@@ -1249,14 +1196,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                         _multiplePayments[0].amount = newEffectiveTotal;
                         _multiplePayments[0].amountController.text =
                             AppFormatters.formatNumber(newEffectiveTotal.round());
-                        print('💰 Monto del pago múltiple actualizado: ${AppFormatters.formatCurrency(newEffectiveTotal)}');
                       }
                     }
                   }
 
                   _calculateChange();
                 });
-                print('💰 Saldo aplicado: $_applyBalance, Monto: $_balanceToApply, Total efectivo: $_effectiveTotal');
               },
               borderRadius: BorderRadius.circular(8),
               child: Container(
@@ -2793,7 +2738,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
               });
               // Recalcular estado de pago (transferencia = pago exacto sin cambio)
               _calculateChange();
-              print('🏦 Cuenta seleccionada: ${value?.name ?? "Ninguna"}');
             },
           ),
         ),
@@ -2806,14 +2750,11 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       onTap: () {
         setState(() {
           saveAsDraft = !saveAsDraft;
-          print('🔵 Checkbox borrador cambiado a: $saveAsDraft');
 
           if (saveAsDraft) {
             canProcess = true;
-            print('🔵 Borrador marcado - Habilitando procesamiento');
           } else {
             _calculateChange();
-            print('🔵 Borrador desmarcado - Recalculando...');
           }
         });
       },
@@ -3296,21 +3237,13 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
   }
 
   void _confirmPayment({required bool shouldPrint}) {
-    print('\n🚀 === CONFIRMANDO PAGO ===');
-    print('📋 DEBE IMPRIMIR: $shouldPrint');
-    print('📋 MODO MÚLTIPLES PAGOS: $_isMultiplePaymentMode');
-
-    // ============ MODO PAGOS MÚLTIPLES ============
+    // Modo pagos múltiples
     if (_isMultiplePaymentMode) {
       _confirmMultiplePayments(shouldPrint: shouldPrint);
       return;
     }
 
-    // ============ MODO PAGO SIMPLE (ORIGINAL) ============
-    // Determinar el método de pago final basado en:
-    // 1. Si es crédito, usar crédito
-    // 2. Si es pago inmediato con cuenta bancaria, usar el tipo de cuenta
-    // 3. Si es pago inmediato sin cuenta, usar efectivo
+    // Determinar el método de pago final
     final PaymentMethod finalPaymentMethod;
     if (selectedPaymentMethod == PaymentMethod.credit) {
       finalPaymentMethod = PaymentMethod.credit;
@@ -3320,57 +3253,30 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       finalPaymentMethod = PaymentMethod.cash;
     }
 
-    // ✅ USAR _effectiveTotal (total - saldo aplicado) para el monto recibido
     final received =
         selectedPaymentMethod == PaymentMethod.cash && selectedBankAccount == null
             ? AppFormatters.parseNumber(receivedController.text) ?? 0.0
-            : _effectiveTotal; // Si es transferencia o crédito, el pago es por el total efectivo
+            : _effectiveTotal;
 
     final invoiceStatus = _getInvoiceStatus();
 
-    print('📋 DATOS FINALES:');
-    print('   - Método original: ${selectedPaymentMethod.displayName}');
-    print('   - Método final: ${finalPaymentMethod.displayName}');
-    print('   - Borrador marcado: $saveAsDraft');
-    print('   - Estado calculado: ${invoiceStatus.displayName}');
-    print('   - Estado esperado: ${_getExpectedStatus()}');
-    print('   - Total factura: ${widget.total.toStringAsFixed(2)}');
-    print('   - Saldo aplicado: ${_applyBalance ? _balanceToApply.toStringAsFixed(2) : "0.00"}');
-    print('   - Total efectivo a pagar: ${_effectiveTotal.toStringAsFixed(2)}');
-    print('   - Recibido: ${received.toStringAsFixed(2)}');
-    print('   - Cambio: ${change >= 0 ? change : 0.0}');
-    print('   - Debe imprimir: $shouldPrint');
-    print('   - Cuenta bancaria: ${selectedBankAccount?.name ?? "Ninguna"}');
-    print('   - Tipo cuenta: ${selectedBankAccount?.type.displayName ?? "N/A"}');
-
-    print('\n📤 ENVIANDO AL CALLBACK...');
-
     if (mounted) {
       Navigator.of(context).pop();
-      print('🔒 Diálogo cerrado inmediatamente');
     }
 
     widget.onPaymentConfirmed(
       received,
       change >= 0 ? change : 0.0,
-      finalPaymentMethod, // Usar el método de pago determinado por la cuenta
+      finalPaymentMethod,
       invoiceStatus,
       shouldPrint,
       bankAccountId: selectedBankAccount?.id,
-      balanceApplied: _applyBalance ? _balanceToApply : null, // ✅ NUEVO: Saldo a favor aplicado
+      balanceApplied: _applyBalance ? _balanceToApply : null,
     );
-
-    print('✅ Callback ejecutado después de cerrar el diálogo\n');
   }
 
   /// Confirmar pagos múltiples
   void _confirmMultiplePayments({required bool shouldPrint}) {
-    print('\n🚀 === CONFIRMANDO PAGOS MÚLTIPLES ===');
-    print('📋 Total pagos: ${_multiplePayments.length}');
-    print('💰 Total pagado: ${AppFormatters.formatCurrency(_totalMultiplePayments)}');
-    print('💰 Saldo restante: ${AppFormatters.formatCurrency(_remainingBalance)}');
-    print('📋 Crear crédito: $_createCreditForRemaining');
-
     // Construir lista de pagos
     final payments = _multiplePayments.map((p) {
       final method = p.bankAccount != null
@@ -3386,71 +3292,34 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     }).toList();
 
     // Determinar el estado de la factura
-    // ✅ USAR _effectiveTotal (total - saldo aplicado)
     InvoiceStatus invoiceStatus;
     if (saveAsDraft) {
       invoiceStatus = InvoiceStatus.draft;
     } else if (_remainingBalance > 0 && _createCreditForRemaining) {
-      // Pago parcial con crédito
       invoiceStatus = InvoiceStatus.partiallyPaid;
     } else if (_totalMultiplePayments >= _effectiveTotal) {
-      // Pago completo (total efectivo cubierto)
       invoiceStatus = InvoiceStatus.paid;
     } else {
       invoiceStatus = InvoiceStatus.pending;
     }
 
-    // Usar el primer método de pago como principal (para compatibilidad)
     final primaryMethod = payments.isNotEmpty ? payments.first.method : PaymentMethod.cash;
     final primaryBankAccountId = payments.isNotEmpty ? payments.first.bankAccountId : null;
 
-    print('📋 DATOS FINALES (PAGOS MÚLTIPLES):');
-    print('   - Total factura: ${AppFormatters.formatCurrency(widget.total)}');
-    print('   - Saldo aplicado: ${_applyBalance ? AppFormatters.formatCurrency(_balanceToApply) : "\$0"}');
-    print('   - Total efectivo a pagar: ${AppFormatters.formatCurrency(_effectiveTotal)}');
-    for (var i = 0; i < payments.length; i++) {
-      print('   - Pago ${i + 1}: ${AppFormatters.formatCurrency(payments[i].amount)} via ${payments[i].method.displayName}');
-    }
-    print('   - Estado: ${invoiceStatus.displayName}');
-    print('   - Debe imprimir: $shouldPrint');
-
-    print('\n📤 ENVIANDO AL CALLBACK...');
-
     if (mounted) {
       Navigator.of(context).pop();
-      print('🔒 Diálogo cerrado inmediatamente');
     }
 
     widget.onPaymentConfirmed(
       _totalMultiplePayments,
-      0.0, // No hay cambio en pagos múltiples
+      0.0,
       primaryMethod,
       invoiceStatus,
       shouldPrint,
       bankAccountId: primaryBankAccountId,
       multiplePayments: payments,
       createCreditForRemaining: _createCreditForRemaining,
-      balanceApplied: _applyBalance ? _balanceToApply : null, // ✅ NUEVO: Saldo a favor aplicado
+      balanceApplied: _applyBalance ? _balanceToApply : null,
     );
-
-    print('✅ Callback de pagos múltiples ejecutado\n');
-  }
-
-  String _getExpectedStatus() {
-    if (saveAsDraft) return 'DRAFT';
-
-    switch (selectedPaymentMethod) {
-      case PaymentMethod.cash:
-      case PaymentMethod.creditCard:
-      case PaymentMethod.debitCard:
-      case PaymentMethod.bankTransfer:
-        return 'PAID';
-      case PaymentMethod.credit:
-      case PaymentMethod.check:
-      case PaymentMethod.other:
-        return 'PENDING';
-      default:
-        return 'DRAFT';
-    }
   }
 }

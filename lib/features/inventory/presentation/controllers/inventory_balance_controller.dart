@@ -218,8 +218,9 @@ class InventoryBalanceController extends GetxController {
       print('   • Sin Stock: ${fixedOutOfStockCount.value}');
       print('   • Con Stock: ${fixedWithStockCount.value}');
       print('   • Vencidos: ${fixedExpiredCount.value}');
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ InventoryBalanceController: Error cargando contadores - $e');
+      print('❌ InventoryBalanceController: StackTrace contadores - $stackTrace');
     }
   }
 
@@ -310,8 +311,9 @@ class InventoryBalanceController extends GetxController {
           );
         },
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ InventoryBalanceController: Exception - $e');
+      print('❌ InventoryBalanceController: StackTrace - $stackTrace');
       error.value = 'Error inesperado: $e';
       Get.snackbar(
         'Error al cargar inventario',

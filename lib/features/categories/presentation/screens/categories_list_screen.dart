@@ -12,6 +12,7 @@ import '../widgets/category_card_widget.dart';
 import '../widgets/category_filter_widget.dart';
 import '../widgets/category_stats_widget.dart';
 import '../../domain/entities/category.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class CategoriesListScreen extends GetWidget<CategoriesController> {
   const CategoriesListScreen({super.key});
@@ -94,6 +95,7 @@ class CategoriesListScreen extends GetWidget<CategoriesController> {
             ),
       ),
       actions: [
+        const SyncStatusIcon(),
         _buildFuturisticActionButton(
           icon: Icons.filter_list,
           onPressed: () => _showFilters(context),

@@ -14,6 +14,12 @@ abstract class AuthLocalDataSource {
   Future<void> clearAuthData();
   Future<void> saveToken(String token);
   Future<void> saveUser(UserModel user);
+
+  // Métodos para login offline
+  Future<void> saveOfflineCredentials(String email, String passwordHash);
+  Future<bool> verifyOfflineCredentials(String email, String passwordHash);
+  Future<bool> hasOfflineCredentials();
+  Future<void> clearOfflineCredentials();
 }
 
 /// Implementación del datasource local usando SecureStorage
@@ -158,6 +164,50 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       await storageService.saveUserData(user.toJson());
     } catch (e) {
       throw CacheException('Error al actualizar datos del usuario: $e');
+    }
+  }
+
+  // ==================== OFFLINE CREDENTIALS ====================
+
+  @override
+  Future<void> saveOfflineCredentials(String email, String passwordHash) async {
+    try {
+      await storageService.saveOfflineCredentials(
+        email: email,
+        passwordHash: passwordHash,
+      );
+    } catch (e) {
+      throw CacheException('Error al guardar credenciales offline: $e');
+    }
+  }
+
+  @override
+  Future<bool> verifyOfflineCredentials(String email, String passwordHash) async {
+    try {
+      return await storageService.verifyOfflineCredentials(
+        email: email,
+        passwordHash: passwordHash,
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> hasOfflineCredentials() async {
+    try {
+      return await storageService.hasOfflineCredentials();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> clearOfflineCredentials() async {
+    try {
+      await storageService.deleteOfflineCredentials();
+    } catch (e) {
+      throw CacheException('Error al limpiar credenciales offline: $e');
     }
   }
 }

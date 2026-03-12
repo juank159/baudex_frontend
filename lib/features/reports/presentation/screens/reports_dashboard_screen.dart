@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/config/themes/app_colors.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class ReportsDashboardScreen extends StatelessWidget {
   const ReportsDashboardScreen({super.key});
@@ -429,6 +430,7 @@ class ReportsDashboardScreen extends StatelessWidget {
     return AppBar(
       title: const Text('Centro de Reportes'),
       actions: [
+        const SyncStatusIcon(),
         IconButton(
           onPressed:
               () => Get.snackbar(

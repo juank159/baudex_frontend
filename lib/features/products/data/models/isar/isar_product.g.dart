@@ -47,131 +47,168 @@ const IsarProductSchema = CollectionSchema(
       name: r'description',
       type: IsarType.string,
     ),
-    r'height': PropertySchema(
+    r'hasRetention': PropertySchema(
       id: 6,
+      name: r'hasRetention',
+      type: IsarType.bool,
+    ),
+    r'height': PropertySchema(
+      id: 7,
       name: r'height',
       type: IsarType.double,
     ),
     r'images': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'images',
       type: IsarType.stringList,
     ),
     r'isActive': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'isActive',
       type: IsarType.bool,
     ),
     r'isDeleted': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'isDeleted',
       type: IsarType.bool,
     ),
     r'isLowStock': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'isLowStock',
       type: IsarType.bool,
     ),
     r'isSynced': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'isSynced',
       type: IsarType.bool,
     ),
+    r'isTaxable': PropertySchema(
+      id: 13,
+      name: r'isTaxable',
+      type: IsarType.bool,
+    ),
     r'lastModifiedAt': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'lastModifiedAt',
       type: IsarType.dateTime,
     ),
     r'lastModifiedBy': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'lastModifiedBy',
       type: IsarType.string,
     ),
     r'lastSyncAt': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'length': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'length',
       type: IsarType.double,
     ),
     r'metadataJson': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'metadataJson',
       type: IsarType.string,
     ),
     r'minStock': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'minStock',
       type: IsarType.double,
     ),
     r'name': PropertySchema(
-      id: 18,
+      id: 20,
       name: r'name',
       type: IsarType.string,
     ),
     r'needsSync': PropertySchema(
-      id: 19,
+      id: 21,
       name: r'needsSync',
       type: IsarType.bool,
     ),
     r'prices': PropertySchema(
-      id: 20,
+      id: 22,
       name: r'prices',
       type: IsarType.objectList,
       target: r'IsarProductPrice',
     ),
+    r'retentionCategory': PropertySchema(
+      id: 23,
+      name: r'retentionCategory',
+      type: IsarType.string,
+      enumMap: _IsarProductretentionCategoryEnumValueMap,
+    ),
+    r'retentionRate': PropertySchema(
+      id: 24,
+      name: r'retentionRate',
+      type: IsarType.double,
+    ),
     r'serverId': PropertySchema(
-      id: 21,
+      id: 25,
       name: r'serverId',
       type: IsarType.string,
     ),
     r'sku': PropertySchema(
-      id: 22,
+      id: 26,
       name: r'sku',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 23,
+      id: 27,
       name: r'status',
       type: IsarType.string,
       enumMap: _IsarProductstatusEnumValueMap,
     ),
     r'stock': PropertySchema(
-      id: 24,
+      id: 28,
       name: r'stock',
       type: IsarType.double,
     ),
+    r'taxCategory': PropertySchema(
+      id: 29,
+      name: r'taxCategory',
+      type: IsarType.string,
+      enumMap: _IsarProducttaxCategoryEnumValueMap,
+    ),
+    r'taxDescription': PropertySchema(
+      id: 30,
+      name: r'taxDescription',
+      type: IsarType.string,
+    ),
+    r'taxRate': PropertySchema(
+      id: 31,
+      name: r'taxRate',
+      type: IsarType.double,
+    ),
     r'type': PropertySchema(
-      id: 25,
+      id: 32,
       name: r'type',
       type: IsarType.string,
       enumMap: _IsarProducttypeEnumValueMap,
     ),
     r'unit': PropertySchema(
-      id: 26,
+      id: 33,
       name: r'unit',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 27,
+      id: 34,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'version': PropertySchema(
-      id: 28,
+      id: 35,
       name: r'version',
       type: IsarType.long,
     ),
     r'weight': PropertySchema(
-      id: 29,
+      id: 36,
       name: r'weight',
       type: IsarType.double,
     ),
     r'width': PropertySchema(
-      id: 30,
+      id: 37,
       name: r'width',
       type: IsarType.double,
     )
@@ -315,9 +352,22 @@ int _isarProductEstimateSize(
           IsarProductPriceSchema.estimateSize(value, offsets, allOffsets);
     }
   }
+  {
+    final value = object.retentionCategory;
+    if (value != null) {
+      bytesCount += 3 + value.name.length * 3;
+    }
+  }
   bytesCount += 3 + object.serverId.length * 3;
   bytesCount += 3 + object.sku.length * 3;
   bytesCount += 3 + object.status.name.length * 3;
+  bytesCount += 3 + object.taxCategory.name.length * 3;
+  {
+    final value = object.taxDescription;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.type.name.length * 3;
   {
     final value = object.unit;
@@ -340,36 +390,43 @@ void _isarProductSerialize(
   writer.writeString(offsets[3], object.createdById);
   writer.writeDateTime(offsets[4], object.deletedAt);
   writer.writeString(offsets[5], object.description);
-  writer.writeDouble(offsets[6], object.height);
-  writer.writeStringList(offsets[7], object.images);
-  writer.writeBool(offsets[8], object.isActive);
-  writer.writeBool(offsets[9], object.isDeleted);
-  writer.writeBool(offsets[10], object.isLowStock);
-  writer.writeBool(offsets[11], object.isSynced);
-  writer.writeDateTime(offsets[12], object.lastModifiedAt);
-  writer.writeString(offsets[13], object.lastModifiedBy);
-  writer.writeDateTime(offsets[14], object.lastSyncAt);
-  writer.writeDouble(offsets[15], object.length);
-  writer.writeString(offsets[16], object.metadataJson);
-  writer.writeDouble(offsets[17], object.minStock);
-  writer.writeString(offsets[18], object.name);
-  writer.writeBool(offsets[19], object.needsSync);
+  writer.writeBool(offsets[6], object.hasRetention);
+  writer.writeDouble(offsets[7], object.height);
+  writer.writeStringList(offsets[8], object.images);
+  writer.writeBool(offsets[9], object.isActive);
+  writer.writeBool(offsets[10], object.isDeleted);
+  writer.writeBool(offsets[11], object.isLowStock);
+  writer.writeBool(offsets[12], object.isSynced);
+  writer.writeBool(offsets[13], object.isTaxable);
+  writer.writeDateTime(offsets[14], object.lastModifiedAt);
+  writer.writeString(offsets[15], object.lastModifiedBy);
+  writer.writeDateTime(offsets[16], object.lastSyncAt);
+  writer.writeDouble(offsets[17], object.length);
+  writer.writeString(offsets[18], object.metadataJson);
+  writer.writeDouble(offsets[19], object.minStock);
+  writer.writeString(offsets[20], object.name);
+  writer.writeBool(offsets[21], object.needsSync);
   writer.writeObjectList<IsarProductPrice>(
-    offsets[20],
+    offsets[22],
     allOffsets,
     IsarProductPriceSchema.serialize,
     object.prices,
   );
-  writer.writeString(offsets[21], object.serverId);
-  writer.writeString(offsets[22], object.sku);
-  writer.writeString(offsets[23], object.status.name);
-  writer.writeDouble(offsets[24], object.stock);
-  writer.writeString(offsets[25], object.type.name);
-  writer.writeString(offsets[26], object.unit);
-  writer.writeDateTime(offsets[27], object.updatedAt);
-  writer.writeLong(offsets[28], object.version);
-  writer.writeDouble(offsets[29], object.weight);
-  writer.writeDouble(offsets[30], object.width);
+  writer.writeString(offsets[23], object.retentionCategory?.name);
+  writer.writeDouble(offsets[24], object.retentionRate);
+  writer.writeString(offsets[25], object.serverId);
+  writer.writeString(offsets[26], object.sku);
+  writer.writeString(offsets[27], object.status.name);
+  writer.writeDouble(offsets[28], object.stock);
+  writer.writeString(offsets[29], object.taxCategory.name);
+  writer.writeString(offsets[30], object.taxDescription);
+  writer.writeDouble(offsets[31], object.taxRate);
+  writer.writeString(offsets[32], object.type.name);
+  writer.writeString(offsets[33], object.unit);
+  writer.writeDateTime(offsets[34], object.updatedAt);
+  writer.writeLong(offsets[35], object.version);
+  writer.writeDouble(offsets[36], object.weight);
+  writer.writeDouble(offsets[37], object.width);
 }
 
 IsarProduct _isarProductDeserialize(
@@ -385,38 +442,48 @@ IsarProduct _isarProductDeserialize(
   object.createdById = reader.readStringOrNull(offsets[3]);
   object.deletedAt = reader.readDateTimeOrNull(offsets[4]);
   object.description = reader.readStringOrNull(offsets[5]);
-  object.height = reader.readDoubleOrNull(offsets[6]);
+  object.hasRetention = reader.readBool(offsets[6]);
+  object.height = reader.readDoubleOrNull(offsets[7]);
   object.id = id;
-  object.images = reader.readStringList(offsets[7]);
-  object.isSynced = reader.readBool(offsets[11]);
-  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[12]);
-  object.lastModifiedBy = reader.readStringOrNull(offsets[13]);
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[14]);
-  object.length = reader.readDoubleOrNull(offsets[15]);
-  object.metadataJson = reader.readStringOrNull(offsets[16]);
-  object.minStock = reader.readDouble(offsets[17]);
-  object.name = reader.readString(offsets[18]);
+  object.images = reader.readStringList(offsets[8]);
+  object.isSynced = reader.readBool(offsets[12]);
+  object.isTaxable = reader.readBool(offsets[13]);
+  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[14]);
+  object.lastModifiedBy = reader.readStringOrNull(offsets[15]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[16]);
+  object.length = reader.readDoubleOrNull(offsets[17]);
+  object.metadataJson = reader.readStringOrNull(offsets[18]);
+  object.minStock = reader.readDouble(offsets[19]);
+  object.name = reader.readString(offsets[20]);
   object.prices = reader.readObjectList<IsarProductPrice>(
-        offsets[20],
+        offsets[22],
         IsarProductPriceSchema.deserialize,
         allOffsets,
         IsarProductPrice(),
       ) ??
       [];
-  object.serverId = reader.readString(offsets[21]);
-  object.sku = reader.readString(offsets[22]);
+  object.retentionCategory = _IsarProductretentionCategoryValueEnumMap[
+      reader.readStringOrNull(offsets[23])];
+  object.retentionRate = reader.readDoubleOrNull(offsets[24]);
+  object.serverId = reader.readString(offsets[25]);
+  object.sku = reader.readString(offsets[26]);
   object.status =
-      _IsarProductstatusValueEnumMap[reader.readStringOrNull(offsets[23])] ??
+      _IsarProductstatusValueEnumMap[reader.readStringOrNull(offsets[27])] ??
           IsarProductStatus.active;
-  object.stock = reader.readDouble(offsets[24]);
+  object.stock = reader.readDouble(offsets[28]);
+  object.taxCategory = _IsarProducttaxCategoryValueEnumMap[
+          reader.readStringOrNull(offsets[29])] ??
+      IsarTaxCategory.iva;
+  object.taxDescription = reader.readStringOrNull(offsets[30]);
+  object.taxRate = reader.readDouble(offsets[31]);
   object.type =
-      _IsarProducttypeValueEnumMap[reader.readStringOrNull(offsets[25])] ??
+      _IsarProducttypeValueEnumMap[reader.readStringOrNull(offsets[32])] ??
           IsarProductType.product;
-  object.unit = reader.readStringOrNull(offsets[26]);
-  object.updatedAt = reader.readDateTime(offsets[27]);
-  object.version = reader.readLong(offsets[28]);
-  object.weight = reader.readDoubleOrNull(offsets[29]);
-  object.width = reader.readDoubleOrNull(offsets[30]);
+  object.unit = reader.readStringOrNull(offsets[33]);
+  object.updatedAt = reader.readDateTime(offsets[34]);
+  object.version = reader.readLong(offsets[35]);
+  object.weight = reader.readDoubleOrNull(offsets[36]);
+  object.width = reader.readDoubleOrNull(offsets[37]);
   return object;
 }
 
@@ -440,11 +507,11 @@ P _isarProductDeserializeProp<P>(
     case 5:
       return (reader.readStringOrNull(offset)) as P;
     case 6:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 7:
-      return (reader.readStringList(offset)) as P;
-    case 8:
       return (reader.readBool(offset)) as P;
+    case 7:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 8:
+      return (reader.readStringList(offset)) as P;
     case 9:
       return (reader.readBool(offset)) as P;
     case 10:
@@ -452,22 +519,26 @@ P _isarProductDeserializeProp<P>(
     case 11:
       return (reader.readBool(offset)) as P;
     case 12:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 13:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 14:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 15:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 16:
       return (reader.readStringOrNull(offset)) as P;
+    case 16:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 17:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 18:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 19:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 20:
+      return (reader.readString(offset)) as P;
+    case 21:
+      return (reader.readBool(offset)) as P;
+    case 22:
       return (reader.readObjectList<IsarProductPrice>(
             offset,
             IsarProductPriceSchema.deserialize,
@@ -475,33 +546,58 @@ P _isarProductDeserializeProp<P>(
             IsarProductPrice(),
           ) ??
           []) as P;
-    case 21:
-      return (reader.readString(offset)) as P;
-    case 22:
-      return (reader.readString(offset)) as P;
     case 23:
+      return (_IsarProductretentionCategoryValueEnumMap[
+          reader.readStringOrNull(offset)]) as P;
+    case 24:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 25:
+      return (reader.readString(offset)) as P;
+    case 26:
+      return (reader.readString(offset)) as P;
+    case 27:
       return (_IsarProductstatusValueEnumMap[reader.readStringOrNull(offset)] ??
           IsarProductStatus.active) as P;
-    case 24:
+    case 28:
       return (reader.readDouble(offset)) as P;
-    case 25:
+    case 29:
+      return (_IsarProducttaxCategoryValueEnumMap[
+              reader.readStringOrNull(offset)] ??
+          IsarTaxCategory.iva) as P;
+    case 30:
+      return (reader.readStringOrNull(offset)) as P;
+    case 31:
+      return (reader.readDouble(offset)) as P;
+    case 32:
       return (_IsarProducttypeValueEnumMap[reader.readStringOrNull(offset)] ??
           IsarProductType.product) as P;
-    case 26:
+    case 33:
       return (reader.readStringOrNull(offset)) as P;
-    case 27:
+    case 34:
       return (reader.readDateTime(offset)) as P;
-    case 28:
+    case 35:
       return (reader.readLong(offset)) as P;
-    case 29:
+    case 36:
       return (reader.readDoubleOrNull(offset)) as P;
-    case 30:
+    case 37:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
 }
 
+const _IsarProductretentionCategoryEnumValueMap = {
+  r'retIva': r'retIva',
+  r'retRenta': r'retRenta',
+  r'retIca': r'retIca',
+  r'retCree': r'retCree',
+};
+const _IsarProductretentionCategoryValueEnumMap = {
+  r'retIva': IsarRetentionCategory.retIva,
+  r'retRenta': IsarRetentionCategory.retRenta,
+  r'retIca': IsarRetentionCategory.retIca,
+  r'retCree': IsarRetentionCategory.retCree,
+};
 const _IsarProductstatusEnumValueMap = {
   r'active': r'active',
   r'inactive': r'inactive',
@@ -511,6 +607,20 @@ const _IsarProductstatusValueEnumMap = {
   r'active': IsarProductStatus.active,
   r'inactive': IsarProductStatus.inactive,
   r'outOfStock': IsarProductStatus.outOfStock,
+};
+const _IsarProducttaxCategoryEnumValueMap = {
+  r'iva': r'iva',
+  r'inc': r'inc',
+  r'incBolsa': r'incBolsa',
+  r'exento': r'exento',
+  r'noGravado': r'noGravado',
+};
+const _IsarProducttaxCategoryValueEnumMap = {
+  r'iva': IsarTaxCategory.iva,
+  r'inc': IsarTaxCategory.inc,
+  r'incBolsa': IsarTaxCategory.incBolsa,
+  r'exento': IsarTaxCategory.exento,
+  r'noGravado': IsarTaxCategory.noGravado,
 };
 const _IsarProducttypeEnumValueMap = {
   r'product': r'product',
@@ -1692,6 +1802,16 @@ extension IsarProductQueryFilter
     });
   }
 
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      hasRetentionEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'hasRetention',
+        value: value,
+      ));
+    });
+  }
+
   QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition> heightIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -2102,6 +2222,16 @@ extension IsarProductQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'isSynced',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      isTaxableEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isTaxable',
         value: value,
       ));
     });
@@ -2937,6 +3067,244 @@ extension IsarProductQueryFilter
     });
   }
 
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'retentionCategory',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'retentionCategory',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryEqualTo(
+    IsarRetentionCategory? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'retentionCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryGreaterThan(
+    IsarRetentionCategory? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'retentionCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryLessThan(
+    IsarRetentionCategory? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'retentionCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryBetween(
+    IsarRetentionCategory? lower,
+    IsarRetentionCategory? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'retentionCategory',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'retentionCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'retentionCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'retentionCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'retentionCategory',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'retentionCategory',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionCategoryIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'retentionCategory',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionRateIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'retentionRate',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionRateIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'retentionRate',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionRateEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'retentionRate',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionRateGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'retentionRate',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionRateLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'retentionRate',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      retentionRateBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'retentionRate',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
   QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition> serverIdEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -3391,6 +3759,359 @@ extension IsarProductQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'stock',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxCategoryEqualTo(
+    IsarTaxCategory value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'taxCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxCategoryGreaterThan(
+    IsarTaxCategory value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'taxCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxCategoryLessThan(
+    IsarTaxCategory value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'taxCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxCategoryBetween(
+    IsarTaxCategory lower,
+    IsarTaxCategory upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'taxCategory',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxCategoryStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'taxCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxCategoryEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'taxCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxCategoryContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'taxCategory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxCategoryMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'taxCategory',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxCategoryIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'taxCategory',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxCategoryIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'taxCategory',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'taxDescription',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'taxDescription',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'taxDescription',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'taxDescription',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'taxDescription',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'taxDescription',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'taxDescription',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'taxDescription',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'taxDescription',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'taxDescription',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'taxDescription',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxDescriptionIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'taxDescription',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition> taxRateEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'taxRate',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition>
+      taxRateGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'taxRate',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition> taxRateLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'taxRate',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterFilterCondition> taxRateBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'taxRate',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -4037,6 +4758,19 @@ extension IsarProductQuerySortBy
     });
   }
 
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByHasRetention() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasRetention', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy>
+      sortByHasRetentionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasRetention', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByHeight() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'height', Sort.asc);
@@ -4094,6 +4828,18 @@ extension IsarProductQuerySortBy
   QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByIsTaxable() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isTaxable', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByIsTaxableDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isTaxable', Sort.desc);
     });
   }
 
@@ -4196,6 +4942,33 @@ extension IsarProductQuerySortBy
     });
   }
 
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy>
+      sortByRetentionCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'retentionCategory', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy>
+      sortByRetentionCategoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'retentionCategory', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByRetentionRate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'retentionRate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy>
+      sortByRetentionRateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'retentionRate', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByServerId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'serverId', Sort.asc);
@@ -4241,6 +5014,43 @@ extension IsarProductQuerySortBy
   QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByStockDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stock', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByTaxCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxCategory', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByTaxCategoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxCategory', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByTaxDescription() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxDescription', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy>
+      sortByTaxDescriptionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxDescription', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByTaxRate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxRate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> sortByTaxRateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxRate', Sort.desc);
     });
   }
 
@@ -4391,6 +5201,19 @@ extension IsarProductQuerySortThenBy
     });
   }
 
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByHasRetention() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasRetention', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy>
+      thenByHasRetentionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasRetention', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByHeight() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'height', Sort.asc);
@@ -4460,6 +5283,18 @@ extension IsarProductQuerySortThenBy
   QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByIsTaxable() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isTaxable', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByIsTaxableDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isTaxable', Sort.desc);
     });
   }
 
@@ -4562,6 +5397,33 @@ extension IsarProductQuerySortThenBy
     });
   }
 
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy>
+      thenByRetentionCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'retentionCategory', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy>
+      thenByRetentionCategoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'retentionCategory', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByRetentionRate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'retentionRate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy>
+      thenByRetentionRateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'retentionRate', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByServerId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'serverId', Sort.asc);
@@ -4607,6 +5469,43 @@ extension IsarProductQuerySortThenBy
   QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByStockDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stock', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByTaxCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxCategory', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByTaxCategoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxCategory', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByTaxDescription() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxDescription', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy>
+      thenByTaxDescriptionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxDescription', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByTaxRate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxRate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QAfterSortBy> thenByTaxRateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'taxRate', Sort.desc);
     });
   }
 
@@ -4725,6 +5624,12 @@ extension IsarProductQueryWhereDistinct
     });
   }
 
+  QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByHasRetention() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'hasRetention');
+    });
+  }
+
   QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByHeight() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'height');
@@ -4758,6 +5663,12 @@ extension IsarProductQueryWhereDistinct
   QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSynced');
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByIsTaxable() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isTaxable');
     });
   }
 
@@ -4813,6 +5724,20 @@ extension IsarProductQueryWhereDistinct
     });
   }
 
+  QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByRetentionCategory(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'retentionCategory',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByRetentionRate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'retentionRate');
+    });
+  }
+
   QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByServerId(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -4837,6 +5762,27 @@ extension IsarProductQueryWhereDistinct
   QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByStock() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'stock');
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByTaxCategory(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'taxCategory', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByTaxDescription(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'taxDescription',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarProduct, QDistinct> distinctByTaxRate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'taxRate');
     });
   }
 
@@ -4923,6 +5869,12 @@ extension IsarProductQueryProperty
     });
   }
 
+  QueryBuilder<IsarProduct, bool, QQueryOperations> hasRetentionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'hasRetention');
+    });
+  }
+
   QueryBuilder<IsarProduct, double?, QQueryOperations> heightProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'height');
@@ -4956,6 +5908,12 @@ extension IsarProductQueryProperty
   QueryBuilder<IsarProduct, bool, QQueryOperations> isSyncedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isSynced');
+    });
+  }
+
+  QueryBuilder<IsarProduct, bool, QQueryOperations> isTaxableProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isTaxable');
     });
   }
 
@@ -5016,6 +5974,19 @@ extension IsarProductQueryProperty
     });
   }
 
+  QueryBuilder<IsarProduct, IsarRetentionCategory?, QQueryOperations>
+      retentionCategoryProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'retentionCategory');
+    });
+  }
+
+  QueryBuilder<IsarProduct, double?, QQueryOperations> retentionRateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'retentionRate');
+    });
+  }
+
   QueryBuilder<IsarProduct, String, QQueryOperations> serverIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'serverId');
@@ -5038,6 +6009,26 @@ extension IsarProductQueryProperty
   QueryBuilder<IsarProduct, double, QQueryOperations> stockProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'stock');
+    });
+  }
+
+  QueryBuilder<IsarProduct, IsarTaxCategory, QQueryOperations>
+      taxCategoryProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'taxCategory');
+    });
+  }
+
+  QueryBuilder<IsarProduct, String?, QQueryOperations>
+      taxDescriptionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'taxDescription');
+    });
+  }
+
+  QueryBuilder<IsarProduct, double, QQueryOperations> taxRateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'taxRate');
     });
   }
 

@@ -19,12 +19,12 @@ import '../models/isar/isar_product_price.dart';
 
 /// Implementación offline del repositorio de productos usando ISAR
 class ProductOfflineRepository implements ProductRepository {
-  final dynamic _database;
+  final IIsarDatabase _database;
 
-  ProductOfflineRepository({dynamic database})
+  ProductOfflineRepository({IIsarDatabase? database})
       : _database = database ?? IsarDatabase.instance;
 
-  dynamic get _isar => _database.database;
+  Isar get _isar => _database.database as Isar;
 
   // ==================== READ OPERATIONS ====================
 
@@ -83,42 +83,47 @@ class ProductOfflineRepository implements ProductRepository {
         query = query.and().stockGreaterThan(0.0);
       }
 
-      // Note: lowStock filter and sorting are applied in memory
-      // because Isar doesn't support cross-field comparisons and
-      // offset/limit are not available after sortBy methods
+      // ✅ OPTIMIZACIÓN: Usar paginación nativa de ISAR cuando es posible
+      // Solo necesitamos cargar todo en memoria si hay filtro lowStock
+      // (porque requiere comparación cross-field: stock <= minStock)
 
-      // Fetch all filtered results (Isar limitation: can't paginate after sorting)
-      List<IsarProduct> isarProducts = await query.findAll();
-
-      // Apply lowStock filter in memory if needed
-      if (lowStock == true) {
-        isarProducts = isarProducts.where((p) => p.stock <= p.minStock).toList();
-      }
-
-      // Get total count after filters
-      final totalItems = isarProducts.length;
-
-      // Sort in memory
-      if (sortBy == 'name') {
-        isarProducts.sort((a, b) => sortOrder == 'desc'
-          ? b.name.compareTo(a.name)
-          : a.name.compareTo(b.name));
-      } else if (sortBy == 'stock') {
-        isarProducts.sort((a, b) => sortOrder == 'desc'
-          ? b.stock.compareTo(a.stock)
-          : a.stock.compareTo(b.stock));
-      } else if (sortBy == 'createdAt') {
-        isarProducts.sort((a, b) => sortOrder == 'desc'
-          ? b.createdAt.compareTo(a.createdAt)
-          : a.createdAt.compareTo(b.createdAt));
-      } else {
-        // Default sort by name descending
-        isarProducts.sort((a, b) => b.name.compareTo(a.name));
-      }
-
-      // Paginate in memory
       final offset = (page - 1) * limit;
-      final paginatedProducts = isarProducts.skip(offset).take(limit).toList();
+      List<IsarProduct> paginatedProducts;
+      int totalItems;
+
+      if (lowStock == true) {
+        // Fallback a paginación en memoria para filtro lowStock
+        List<IsarProduct> allProducts = await query.findAll();
+        allProducts = allProducts.where((p) => p.stock <= p.minStock).toList();
+        totalItems = allProducts.length;
+
+        // Sort in memory
+        _sortProductsInMemory(allProducts, sortBy, sortOrder);
+
+        // Paginate in memory
+        paginatedProducts = allProducts.skip(offset).take(limit).toList();
+      } else {
+        // ✅ USAR PAGINACIÓN NATIVA DE ISAR (más eficiente)
+        totalItems = await query.count();
+
+        // Apply sorting and pagination using ISAR native methods
+        if (sortBy == 'name') {
+          paginatedProducts = sortOrder == 'desc'
+              ? await query.sortByNameDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByName().offset(offset).limit(limit).findAll();
+        } else if (sortBy == 'stock') {
+          paginatedProducts = sortOrder == 'desc'
+              ? await query.sortByStockDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByStock().offset(offset).limit(limit).findAll();
+        } else if (sortBy == 'createdAt') {
+          paginatedProducts = sortOrder == 'desc'
+              ? await query.sortByCreatedAtDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByCreatedAt().offset(offset).limit(limit).findAll();
+        } else {
+          // Default sort by name descending
+          paginatedProducts = await query.sortByNameDesc().offset(offset).limit(limit).findAll();
+        }
+      }
 
       // Convert to domain entities (only paginated products)
       final products = paginatedProducts.map((isar) => isar.toEntity()).toList();
@@ -813,6 +818,26 @@ class ProductOfflineRepository implements ProductRepository {
         return IsarPriceType.special;
       case PriceType.cost:
         return IsarPriceType.cost;
+    }
+  }
+
+  /// Helper para ordenar productos en memoria (usado cuando hay filtro lowStock)
+  void _sortProductsInMemory(List<IsarProduct> products, String? sortBy, String? sortOrder) {
+    if (sortBy == 'name') {
+      products.sort((a, b) => sortOrder == 'desc'
+          ? b.name.compareTo(a.name)
+          : a.name.compareTo(b.name));
+    } else if (sortBy == 'stock') {
+      products.sort((a, b) => sortOrder == 'desc'
+          ? b.stock.compareTo(a.stock)
+          : a.stock.compareTo(b.stock));
+    } else if (sortBy == 'createdAt') {
+      products.sort((a, b) => sortOrder == 'desc'
+          ? b.createdAt.compareTo(a.createdAt)
+          : a.createdAt.compareTo(b.createdAt));
+    } else {
+      // Default sort by name descending
+      products.sort((a, b) => b.name.compareTo(a.name));
     }
   }
 

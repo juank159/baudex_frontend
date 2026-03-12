@@ -26,6 +26,13 @@ import '../models/update_invoice_request_model.dart';
 import '../models/add_payment_request_model.dart';
 import '../models/invoice_item_model.dart' show CreateInvoiceItemRequestModel;
 
+import '../../../customer_credits/data/models/customer_credit_model.dart'
+    show CreateCustomerCreditDto;
+import '../../../customer_credits/data/datasources/customer_credit_remote_datasource.dart';
+import '../../../customer_credits/data/models/isar/isar_customer_credit.dart';
+import '../../../customer_credits/domain/entities/customer_credit.dart' show CreditStatus;
+import '../../../../app/core/network/dio_client.dart';
+
 class InvoiceRepositoryImpl implements InvoiceRepository {
   final InvoiceRemoteDataSource remoteDataSource;
   final InvoiceLocalDataSource localDataSource;
@@ -89,25 +96,31 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
             queryParams,
           );
 
-          // Cachear los resultados si es la primera página y no hay filtros específicos
-          if (page == 1 &&
-              search == null &&
-              status == null &&
-              customerId == null) {
-            try {
-              await localDataSource.cacheInvoices(remoteResponse.data);
-              print('💾 Facturas cacheadas exitosamente');
-            } catch (e) {
-              print('⚠️ Error al cachear facturas: $e');
-              // No es crítico, continuar
-            }
+          // ✅ Resetear estado de conectividad si el servidor respondió
+          networkInfo.resetServerReachability();
+
+          // FASE 3: Cachear TODAS las páginas a ISAR (upsert por serverId evita duplicados)
+          try {
+            await localDataSource.cacheInvoices(remoteResponse.data);
+            print('💾 Facturas cacheadas exitosamente');
+          } catch (e) {
+            print('⚠️ Error al cachear facturas: $e');
+            // No es crítico, continuar
           }
 
           return Right(remoteResponse.toPaginatedResult());
+        } on ConnectionException catch (e) {
+          print('❌ ConnectionException: $e');
+          // ✅ Marcar servidor como no alcanzable para evitar timeouts repetidos
+          networkInfo.markServerUnreachable();
+          return _getInvoicesFromCache(queryParams);
+        } on ServerException catch (e) {
+          print('❌ ServerException: $e');
+          if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
+          return _getInvoicesFromCache(queryParams);
         } catch (e) {
           print('❌ Error al obtener facturas del servidor: $e');
-
-          // Si falla el servidor, intentar desde cache
+          if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
           return _getInvoicesFromCache(queryParams);
         }
       } else {
@@ -185,7 +198,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         } catch (e) {
           print('❌ Error al obtener factura del servidor: $e');
 
-          // Intentar desde cache
+          // Intento 1: SecureStorage cache
           try {
             final cachedInvoice = await localDataSource.getCachedInvoice(id);
             if (cachedInvoice != null) {
@@ -194,29 +207,31 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
             }
           } catch (cacheError) {
             print('❌ SecureStorage falló para getInvoiceById: $cacheError');
-            print('🔄 Intentando con ISAR offline repository...');
-            
-            // Fallback to ISAR when SecureStorage fails
-            try {
-              final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
-              final result = await offlineRepo.getInvoiceById(id);
-              
-              return result.fold(
-                (failure) => Left(_mapExceptionToFailure(e)),
-                (invoice) {
-                  print('✅ ISAR: Factura obtenida como fallback');
-                  return Right(invoice);
-                },
-              );
-            } catch (isarError) {
-              print('❌ Error crítico en ISAR fallback: $isarError');
-            }
+          }
+
+          // Intento 2: ISAR offline repository
+          print('🔄 Intentando con ISAR offline repository...');
+          try {
+            final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
+            final result = await offlineRepo.getInvoiceById(id);
+
+            return result.fold(
+              (failure) => Left(_mapExceptionToFailure(e)),
+              (invoice) {
+                print('✅ ISAR: Factura obtenida como fallback');
+                return Right(invoice);
+              },
+            );
+          } catch (isarError) {
+            print('❌ Error crítico en ISAR fallback: $isarError');
           }
 
           return Left(_mapExceptionToFailure(e));
         }
       } else {
         print('📱 Sin conexión, obteniendo desde cache...');
+
+        // Intento 1: SecureStorage cache
         try {
           final cachedInvoice = await localDataSource.getCachedInvoice(id);
           if (cachedInvoice != null) {
@@ -224,23 +239,26 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
           }
         } catch (cacheError) {
           print('❌ SecureStorage falló en modo offline: $cacheError');
-          print('🔄 Intentando con ISAR offline repository...');
-          
-          // Fallback to ISAR when SecureStorage fails
-          try {
-            final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
-            final result = await offlineRepo.getInvoiceById(id);
-            
-            return result.fold(
-              (failure) => const Left(ConnectionFailure('Sin conexión a internet')),
-              (invoice) {
-                print('✅ ISAR: Factura obtenida offline como fallback');
-                return Right(invoice);
-              },
-            );
-          } catch (isarError) {
-            print('❌ Error crítico en ISAR offline: $isarError');
-          }
+        }
+
+        // Intento 2: ISAR offline repository (siempre intentar si SecureStorage no encontró)
+        print('🔄 Intentando con ISAR offline repository...');
+        try {
+          final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
+          final result = await offlineRepo.getInvoiceById(id);
+
+          return result.fold(
+            (failure) {
+              print('❌ ISAR tampoco encontró la factura: ${failure.message}');
+              return const Left(ConnectionFailure('Sin conexión a internet'));
+            },
+            (invoice) {
+              print('✅ ISAR: Factura obtenida offline exitosamente');
+              return Right(invoice);
+            },
+          );
+        } catch (isarError) {
+          print('❌ Error crítico en ISAR offline: $isarError');
         }
 
         return const Left(ConnectionFailure('Sin conexión a internet'));
@@ -308,23 +326,59 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       if (await networkInfo.isConnected) {
         try {
           final remoteInvoices = await remoteDataSource.getOverdueInvoices();
+          networkInfo.resetServerReachability();
           return Right(remoteInvoices);
         } catch (e) {
           print('❌ Error al obtener facturas vencidas del servidor: $e');
 
-          // Intentar desde cache
-          final cachedInvoices =
-              await localDataSource.getCachedOverdueInvoices();
-          return Right(cachedInvoices);
+          // ✅ Marcar servidor como no alcanzable en timeout
+          if (_isTimeoutError(e)) {
+            networkInfo.markServerUnreachable();
+          }
+
+          // Intentar desde cache → ISAR fallback
+          return _getOverdueFromCacheOrIsar();
         }
       } else {
-        final cachedInvoices = await localDataSource.getCachedOverdueInvoices();
-        return Right(cachedInvoices);
+        return _getOverdueFromCacheOrIsar();
       }
     } catch (e) {
       return Left(
         ServerFailure('Error inesperado al obtener facturas vencidas'),
       );
+    }
+  }
+
+  /// ✅ Obtener facturas vencidas: SecureStorage primero, luego ISAR
+  Future<Either<Failure, List<Invoice>>> _getOverdueFromCacheOrIsar() async {
+    // Intentar SecureStorage primero
+    try {
+      final cachedInvoices = await localDataSource.getCachedOverdueInvoices();
+      if (cachedInvoices.isNotEmpty) {
+        print('💾 ${cachedInvoices.length} facturas vencidas desde SecureStorage');
+        return Right(cachedInvoices);
+      }
+    } catch (e) {
+      print('⚠️ SecureStorage vacío para facturas vencidas: $e');
+    }
+
+    // ✅ Fallback a ISAR
+    try {
+      final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
+      final isarResult = await offlineRepo.getOverdueInvoices();
+      return isarResult.fold(
+        (failure) {
+          print('⚠️ ISAR también falló para facturas vencidas');
+          return const Right(<Invoice>[]);
+        },
+        (invoices) {
+          print('💾 ISAR: ${invoices.length} facturas vencidas cargadas');
+          return Right(invoices);
+        },
+      );
+    } catch (e) {
+      print('⚠️ Error en ISAR fallback para facturas vencidas: $e');
+      return const Right(<Invoice>[]);
     }
   }
 
@@ -336,6 +390,9 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       if (await networkInfo.isConnected) {
         try {
           final remoteStats = await remoteDataSource.getInvoiceStats();
+
+          // ✅ Resetear estado de conectividad si el servidor respondió
+          networkInfo.resetServerReachability();
 
           // Cachear estadísticas
           try {
@@ -349,27 +406,119 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         } catch (e) {
           print('❌ Error al obtener estadísticas del servidor: $e');
 
-          // Intentar desde cache
-          final cachedStats = await localDataSource.getCachedInvoiceStats();
-          if (cachedStats != null) {
-            print('💾 Estadísticas obtenidas desde cache');
-            return Right(cachedStats);
+          // ✅ Marcar servidor como no alcanzable en timeout
+          if (_isTimeoutError(e)) {
+            networkInfo.markServerUnreachable();
           }
 
-          return Left(_mapExceptionToFailure(e));
+          // Intentar desde cache → ISAR fallback
+          return _getStatsFromCacheOrIsar();
         }
       } else {
-        print('📱 Sin conexión, obteniendo desde cache...');
-        final cachedStats = await localDataSource.getCachedInvoiceStats();
-        if (cachedStats != null) {
-          return Right(cachedStats);
-        }
-
-        return const Left(ConnectionFailure('Sin conexión a internet'));
+        print('📱 Sin conexión, obteniendo estadísticas desde cache/ISAR...');
+        return _getStatsFromCacheOrIsar();
       }
     } catch (e) {
       print('❌ Error inesperado en getInvoiceStats: $e');
       return Left(ServerFailure('Error inesperado al obtener estadísticas'));
+    }
+  }
+
+  /// ✅ Obtener estadísticas: SecureStorage primero, luego calcular desde ISAR
+  Future<Either<Failure, InvoiceStats>> _getStatsFromCacheOrIsar() async {
+    // Intentar SecureStorage primero
+    try {
+      final cachedStats = await localDataSource.getCachedInvoiceStats();
+      if (cachedStats != null) {
+        print('💾 Estadísticas obtenidas desde SecureStorage cache');
+        return Right(cachedStats);
+      }
+    } catch (e) {
+      print('⚠️ SecureStorage vacío para estadísticas: $e');
+    }
+
+    // ✅ Fallback: Calcular estadísticas desde facturas en ISAR
+    try {
+      print('📊 Calculando estadísticas desde ISAR...');
+      final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
+      final invoicesResult = await offlineRepo.getInvoices(page: 1, limit: 1000);
+
+      return invoicesResult.fold(
+        (failure) {
+          print('⚠️ No hay datos en ISAR para calcular estadísticas');
+          return Right(InvoiceStats.empty());
+        },
+        (paginatedResult) {
+          final invoices = paginatedResult.data;
+          if (invoices.isEmpty) {
+            return Right(InvoiceStats.empty());
+          }
+
+          // Calcular estadísticas desde los datos locales
+          final now = DateTime.now();
+          int draft = 0, pending = 0, paid = 0, overdue = 0, cancelled = 0, partiallyPaid = 0;
+          double totalSales = 0, pendingAmount = 0, overdueAmount = 0;
+
+          for (final invoice in invoices) {
+            totalSales += invoice.total;
+
+            switch (invoice.status) {
+              case InvoiceStatus.draft:
+                draft++;
+                break;
+              case InvoiceStatus.pending:
+                if (invoice.dueDate.isBefore(now)) {
+                  overdue++;
+                  overdueAmount += invoice.balanceDue;
+                } else {
+                  pending++;
+                  pendingAmount += invoice.balanceDue;
+                }
+                break;
+              case InvoiceStatus.paid:
+                paid++;
+                break;
+              case InvoiceStatus.overdue:
+                overdue++;
+                overdueAmount += invoice.balanceDue;
+                break;
+              case InvoiceStatus.cancelled:
+                cancelled++;
+                break;
+              case InvoiceStatus.partiallyPaid:
+                if (invoice.dueDate.isBefore(now)) {
+                  overdue++;
+                  overdueAmount += invoice.balanceDue;
+                } else {
+                  partiallyPaid++;
+                  pendingAmount += invoice.balanceDue;
+                }
+                break;
+              default:
+                break;
+            }
+          }
+
+          final stats = InvoiceStats(
+            total: invoices.length,
+            draft: draft,
+            pending: pending,
+            paid: paid,
+            overdue: overdue,
+            cancelled: cancelled,
+            partiallyPaid: partiallyPaid,
+            totalSales: totalSales,
+            pendingAmount: pendingAmount,
+            overdueAmount: overdueAmount,
+          );
+
+          print('📊 ISAR: Estadísticas calculadas - ${invoices.length} facturas, ventas: \$${totalSales.toStringAsFixed(0)}');
+          return Right(stats);
+        },
+      );
+    } catch (e) {
+      print('⚠️ Error calculando estadísticas desde ISAR: $e');
+      return Right(InvoiceStats.empty());
     }
   }
 
@@ -387,9 +536,11 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
           final remoteInvoices = await remoteDataSource.getInvoicesByCustomer(
             customerId,
           );
+          networkInfo.resetServerReachability();
           return Right(remoteInvoices);
         } catch (e) {
           print('❌ Error al obtener facturas del cliente del servidor: $e');
+          if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
 
           // Intentar desde cache
           final cachedInvoices = await localDataSource
@@ -420,9 +571,11 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
           final remoteInvoices = await remoteDataSource.searchInvoices(
             searchTerm,
           );
+          networkInfo.resetServerReachability();
           return Right(remoteInvoices);
         } catch (e) {
           print('❌ Error al buscar facturas en el servidor: $e');
+          if (_isTimeoutError(e)) networkInfo.markServerUnreachable();
 
           // Intentar desde cache
           final cachedInvoices = await localDataSource.searchCachedInvoices(
@@ -523,6 +676,19 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         print('💾 Nueva factura cacheada');
       } catch (e) {
         print('⚠️ Error al cachear nueva factura: $e');
+      }
+
+      // ✅ Para facturas a crédito puro, crear el CustomerCredit en el servidor
+      if (paymentMethod == PaymentMethod.credit &&
+          (status == InvoiceStatus.pending || status == null) &&
+          createdInvoice.total > 0) {
+        await _createCreditForPureCreditInvoice(
+          invoiceId: createdInvoice.id,
+          invoiceNumber: createdInvoice.number ?? '',
+          customerId: customerId,
+          amount: createdInvoice.total,
+          dueDate: dueDate ?? DateTime.now().add(const Duration(days: 30)),
+        );
       }
 
       return Right(createdInvoice);
@@ -760,6 +926,20 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     String? notes,
   }) async {
     if (!(await networkInfo.isConnected)) {
+      // ✅ Fallback offline: delegar al repositorio offline
+      if (offlineRepository != null) {
+        print('📱 Sin conexión - procesando pago offline para factura $invoiceId');
+        networkInfo.markServerUnreachable();
+        return offlineRepository!.addPayment(
+          invoiceId: invoiceId,
+          amount: amount,
+          paymentMethod: paymentMethod,
+          bankAccountId: bankAccountId,
+          paymentDate: paymentDate,
+          reference: reference,
+          notes: notes,
+        );
+      }
       return const Left(
         ConnectionFailure('Se requiere conexión a internet para agregar pagos'),
       );
@@ -789,6 +969,20 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
       return Right(updatedInvoice);
     } catch (e) {
+      // ✅ Fallback offline en caso de error de conexión/timeout
+      if (_isTimeoutError(e) && offlineRepository != null) {
+        print('📱 Timeout/error de conexión - procesando pago offline para factura $invoiceId');
+        networkInfo.markServerUnreachable();
+        return offlineRepository!.addPayment(
+          invoiceId: invoiceId,
+          amount: amount,
+          paymentMethod: paymentMethod,
+          bankAccountId: bankAccountId,
+          paymentDate: paymentDate,
+          reference: reference,
+          notes: notes,
+        );
+      }
       return Left(_mapExceptionToFailure(e));
     }
   }
@@ -945,11 +1139,46 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   // ==================== HELPER METHODS ====================
 
   /// Obtener facturas desde cache con filtrado básico
+  /// ✅ IMPORTANTE: Intenta ISAR primero (más rápido), luego SecureStorage
   Future<Either<Failure, PaginatedResult<Invoice>>> _getInvoicesFromCache(
     InvoiceQueryParams params,
   ) async {
+    // ✅ PASO 1: Intentar ISAR primero (más persistente y rápido)
     try {
-      print('💾 Intentando cargar facturas desde SecureStorage...');
+      print('💾 Intentando cargar facturas desde ISAR primero...');
+      final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
+      final isarResult = await offlineRepo.getInvoices(
+        page: params.page,
+        limit: params.limit,
+        search: params.search,
+        status: params.status,
+        paymentMethod: params.paymentMethod,
+        customerId: params.customerId,
+        createdById: params.createdById,
+        startDate: params.startDate,
+        endDate: params.endDate,
+        minAmount: params.minAmount,
+        maxAmount: params.maxAmount,
+        sortBy: params.sortBy,
+        sortOrder: params.sortOrder,
+      );
+
+      final isarData = isarResult.fold(
+        (failure) => null,
+        (result) => result.data.isNotEmpty ? result : null,
+      );
+
+      if (isarData != null) {
+        print('✅ ISAR: ${isarData.data.length} facturas cargadas');
+        return Right(isarData);
+      }
+    } catch (e) {
+      print('⚠️ ISAR falló: $e');
+    }
+
+    // ✅ PASO 2: Fallback a SecureStorage
+    try {
+      print('🔄 Intentando SecureStorage como fallback...');
       List<InvoiceModel> cachedInvoices =
           await localDataSource.getCachedInvoices();
 
@@ -1014,46 +1243,92 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         PaginatedResult<Invoice>(data: paginatedInvoices, meta: meta),
       );
     } catch (e) {
-      print('❌ SecureStorage falló: $e');
-      print('🔄 Intentando con ISAR offline repository...');
-      
-      // Fallback to ISAR when SecureStorage fails
-      try {
-        final offlineRepo = offlineRepository ?? InvoiceOfflineRepositorySimple(localDataSource: localDataSource);
-        final result = await offlineRepo.getInvoices(
-          page: params.page,
-          limit: params.limit,
-          search: params.search,
-          status: params.status,
-          paymentMethod: params.paymentMethod,
-          customerId: params.customerId,
-          createdById: params.createdById,
-          startDate: params.startDate,
-          endDate: params.endDate,
-          minAmount: params.minAmount,
-          maxAmount: params.maxAmount,
-          sortBy: params.sortBy,
-          sortOrder: params.sortOrder,
-        );
-        
-        return result.fold(
-          (failure) {
-            print('❌ ISAR también falló: ${failure.message}');
-            return Left(CacheFailure('Error al obtener facturas desde cache y ISAR'));
-          },
-          (paginatedResult) {
-            print('✅ ISAR: ${paginatedResult.data.length} facturas cargadas como fallback');
-            return Right(paginatedResult);
-          },
-        );
-      } catch (isarError) {
-        print('❌ Error crítico en ISAR fallback: $isarError');
-        return Left(CacheFailure('Error crítico al obtener facturas: $isarError'));
-      }
+      print('❌ SecureStorage también falló: $e');
+      // Si ambos fallaron, retornar error con datos vacíos
+      return Left(CacheFailure('No hay facturas disponibles offline'));
     }
   }
 
+  /// ✅ Verificar si un error es de timeout/conexión para marcar servidor como no alcanzable
+  bool _isTimeoutError(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('timeout') ||
+        msg.contains('tiempo') ||
+        msg.contains('socketexception') ||
+        msg.contains('conexión') ||
+        msg.contains('connection') ||
+        error is ConnectionException;
+  }
+
   /// Mapear excepciones a failures
+  /// Crear CustomerCredit en el servidor para facturas a crédito puro
+  Future<void> _createCreditForPureCreditInvoice({
+    required String invoiceId,
+    required String invoiceNumber,
+    required String customerId,
+    required double amount,
+    required DateTime dueDate,
+  }) async {
+    try {
+      print('💳 Creando crédito para factura a crédito: $invoiceNumber (\$$amount)');
+
+      CustomerCreditRemoteDataSource creditRemoteDs;
+      if (Get.isRegistered<CustomerCreditRemoteDataSource>()) {
+        creditRemoteDs = Get.find<CustomerCreditRemoteDataSource>();
+      } else {
+        creditRemoteDs = CustomerCreditRemoteDataSourceImpl(
+          dioClient: Get.find<DioClient>(),
+        );
+      }
+
+      final dto = CreateCustomerCreditDto(
+        customerId: customerId,
+        originalAmount: amount,
+        dueDate: dueDate.toIso8601String().split('T').first,
+        description: 'Crédito por venta a crédito - Factura $invoiceNumber',
+        invoiceId: invoiceId,
+      );
+
+      final createdCredit = await creditRemoteDs.createCredit(dto);
+      print('✅ Crédito creado en servidor: ${createdCredit.id} por \$$amount');
+
+      // ✅ Cachear el crédito en ISAR para que aparezca inmediatamente en la pantalla de créditos
+      try {
+        final isar = IsarDatabase.instance.database;
+        final isarCredit = IsarCustomerCredit(
+          serverId: createdCredit.id,
+          originalAmount: createdCredit.originalAmount,
+          paidAmount: createdCredit.paidAmount,
+          balanceDue: createdCredit.balanceDue,
+          status: _mapCreditStatusToIsar(createdCredit.status),
+          dueDate: createdCredit.dueDate,
+          description: createdCredit.description,
+          notes: createdCredit.notes,
+          customerId: createdCredit.customerId,
+          customerName: createdCredit.customerName,
+          invoiceId: createdCredit.invoiceId,
+          invoiceNumber: createdCredit.invoiceNumber,
+          organizationId: createdCredit.organizationId,
+          createdById: createdCredit.createdById,
+          createdByName: createdCredit.createdByName,
+          createdAt: createdCredit.createdAt,
+          updatedAt: createdCredit.updatedAt,
+          isSynced: true,
+          lastSyncAt: DateTime.now(),
+        );
+        await isar.writeTxn(() async {
+          await isar.isarCustomerCredits.putByServerId(isarCredit);
+        });
+        print('💾 Crédito cacheado en ISAR: ${createdCredit.id}');
+      } catch (cacheError) {
+        print('⚠️ Error cacheando crédito en ISAR: $cacheError');
+      }
+    } catch (e) {
+      print('⚠️ Error creando crédito para factura a crédito: $e');
+      // No fallar la creación de factura por error en crédito
+    }
+  }
+
   Failure _mapExceptionToFailure(Object exception) {
     if (exception is ServerException) {
       if (exception.statusCode != null) {
@@ -1250,5 +1525,21 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       return Left(ServerFailure('Error al sincronizar facturas offline: $e'));
     }
     */
+  }
+
+  /// Mapear CreditStatus (entity) a IsarCreditStatus
+  IsarCreditStatus _mapCreditStatusToIsar(CreditStatus status) {
+    switch (status) {
+      case CreditStatus.pending:
+        return IsarCreditStatus.pending;
+      case CreditStatus.partiallyPaid:
+        return IsarCreditStatus.partiallyPaid;
+      case CreditStatus.paid:
+        return IsarCreditStatus.paid;
+      case CreditStatus.cancelled:
+        return IsarCreditStatus.cancelled;
+      case CreditStatus.overdue:
+        return IsarCreditStatus.overdue;
+    }
   }
 }

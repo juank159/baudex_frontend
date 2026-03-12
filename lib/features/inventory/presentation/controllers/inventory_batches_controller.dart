@@ -95,10 +95,9 @@ class InventoryBatchesController extends GetxController {
     if (productId.value.isNotEmpty) {
       print('✅ [BATCHES] Cargando lotes para producto: ${productId.value}');
       loadInventoryBatches();
-    } else {
-      print('❌ [BATCHES] No se encontró productId válido');
-      error.value = 'ID de producto no válido';
     }
+    // Si no hay productId, este controller fue cargado como dependencia indirecta
+    // (ej: desde PO binding). No es un error, simplemente no aplica en este contexto.
   }
 
   // ==================== DATA LOADING ====================

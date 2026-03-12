@@ -204,7 +204,7 @@ class IdempotencyService extends GetxService {
         await isar.isarIdempotencyRecords.put(record);
       });
 
-      _logWarning('❌ Operation failed: $idempotencyKey (retry: ${record.retryCount}/3)');
+      _logWarning('❌ Operation failed: $idempotencyKey (retry: ${record.retryCount}/10)');
     } catch (e) {
       _logError('Error marking as failed: $e');
     }

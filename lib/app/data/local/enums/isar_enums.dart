@@ -43,6 +43,34 @@ enum IsarPriceStatus {
   inactive,
 }
 
+// ==================== PRODUCT TAX ENUMS ====================
+
+@Name('TaxCategory')
+enum IsarTaxCategory {
+  @Name('iva')
+  iva,
+  @Name('inc')
+  inc,
+  @Name('incBolsa')
+  incBolsa,
+  @Name('exento')
+  exento,
+  @Name('noGravado')
+  noGravado,
+}
+
+@Name('RetentionCategory')
+enum IsarRetentionCategory {
+  @Name('retIva')
+  retIva,
+  @Name('retRenta')
+  retRenta,
+  @Name('retIca')
+  retIca,
+  @Name('retCree')
+  retCree,
+}
+
 // ==================== CUSTOMER ENUMS ====================
 
 @Name('DocumentType')

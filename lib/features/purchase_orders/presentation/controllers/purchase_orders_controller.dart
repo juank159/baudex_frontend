@@ -79,20 +79,15 @@ class PurchaseOrdersController extends GetxController {
   @override
   void onReady() {
     super.onReady();
-    // Check if we need to refresh due to a new order
+    // Solo refrescar si hay una nueva orden, _initializeData() ya carga datos en onInit
     final parameters = Get.parameters;
     if (parameters.containsKey('newOrderId')) {
       print(
         '🎆 Nueva orden detectada: ${parameters['newOrderId']}, forzando refresh',
       );
-      // Forzar refresh inmediato para nueva orden
       Future.delayed(const Duration(milliseconds: 200), () {
         refreshPurchaseOrders();
       });
-    } else {
-      // Refresh normal
-      print('🔄 PurchaseOrdersController: onReady - Refreshing data');
-      refreshPurchaseOrders();
     }
   }
 

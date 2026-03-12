@@ -5,6 +5,7 @@ import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class SettingsOverviewScreen extends StatelessWidget {
   const SettingsOverviewScreen({super.key});
@@ -18,6 +19,7 @@ class SettingsOverviewScreen extends StatelessWidget {
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
         elevation: 0,
+        actions: const [SyncStatusIcon()],
       ),
       body: ResponsiveBuilder(
         mobile: _buildMobileLayout(),

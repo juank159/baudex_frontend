@@ -7,7 +7,14 @@ import 'package:baudex_desktop/features/dashboard/domain/usecases/mark_notificat
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_profitability_stats_usecase.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../../../../app/core/network/dio_client.dart';
+import '../../../../app/core/network/network_info.dart';
+import '../../../../app/core/storage/secure_storage_service.dart';
+import '../../data/datasources/dashboard_local_datasource.dart';
+import '../../data/models/dashboard_stats_model.dart';
+import '../../data/models/profitability_stats_model.dart';
+import '../../../../features/subscriptions/presentation/controllers/subscription_controller.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../../domain/entities/recent_activity.dart';
 import '../../domain/entities/recent_activity_advanced.dart' hide ActivityType;
@@ -19,16 +26,16 @@ import '../../../../app/core/usecases/usecase.dart';
 class DashboardController extends GetxController {
   final GetDashboardStatsUseCase _getDashboardStatsUseCase;
   final GetRecentActivityUseCase _getRecentActivityUseCase;
-  final GetNotificationsUseCase _getNotificationsUseCase;
-  final MarkNotificationAsReadUseCase _markNotificationAsReadUseCase;
+  final GetDashboardNotificationsUseCase _getNotificationsUseCase;
+  final MarkDashboardNotificationAsReadUseCase _markNotificationAsReadUseCase;
   final GetUnreadNotificationsCountUseCase _getUnreadNotificationsCountUseCase;
   final GetProfitabilityStatsUseCase _getProfitabilityStatsUseCase;
 
   DashboardController({
     required GetDashboardStatsUseCase getDashboardStatsUseCase,
     required GetRecentActivityUseCase getRecentActivityUseCase,
-    required GetNotificationsUseCase getNotificationsUseCase,
-    required MarkNotificationAsReadUseCase markNotificationAsReadUseCase,
+    required GetDashboardNotificationsUseCase getNotificationsUseCase,
+    required MarkDashboardNotificationAsReadUseCase markNotificationAsReadUseCase,
     required GetUnreadNotificationsCountUseCase getUnreadNotificationsCountUseCase,
     required GetProfitabilityStatsUseCase getProfitabilityStatsUseCase,
   }) : _getDashboardStatsUseCase = getDashboardStatsUseCase,
@@ -99,18 +106,7 @@ class DashboardController extends GetxController {
   double get totalExpenses => dashboardStats?.expenses.totalAmount ?? 0.0;
   
   // ✅ Calcular ganancia bruta correcta (Revenue - COGS)
-  double get realGrossProfit {
-    final profitStats = profitabilityStats;
-    if (profitStats != null) {
-      // ✅ SIEMPRE usar datos del backend (ahora ya calculan FIFO correctamente)
-      print('✅ FIFO: Usando datos reales del backend - Revenue=${profitStats.totalRevenue.toInt()}, COGS=${profitStats.totalCOGS.toInt()}, Ganancia=${profitStats.grossProfit.toInt()}');
-      return profitStats.grossProfit;
-    } else {
-      // Solo como fallback si no hay datos del backend
-      print('⚠️ WARNING: No hay datos de rentabilidad del backend');
-      return 0.0;
-    }
-  }
+  double get realGrossProfit => profitabilityStats?.grossProfit ?? 0.0;
   
   // ✅ COGS real del backend (o 0 si no está disponible)
   double get totalCOGS => profitabilityStats?.totalCOGS ?? 0.0;
@@ -144,68 +140,271 @@ class DashboardController extends GetxController {
     _loadInitialData();
   }
 
+  /// ✅ Mostrar diálogo de suscripción DESPUÉS de que el Dashboard esté listo
+  void _showSubscriptionDialogIfNeeded() {
+    try {
+      if (Get.isRegistered<SubscriptionController>()) {
+        final subscriptionController = Get.find<SubscriptionController>();
+        subscriptionController.showPendingSubscriptionDialogIfNeeded();
+      } else {
+        print('⚠️ SubscriptionController no registrado');
+      }
+    } catch (e) {
+      print('⚠️ Error mostrando diálogo de suscripción: $e');
+    }
+  }
+
   Future<void> _loadInitialData() async {
     try {
-      print('📊 Dashboard: Iniciando carga de datos con rango: ${_selectedDateRange.value?.start} - ${_selectedDateRange.value?.end}');
+      print('📊 Dashboard: Iniciando carga de datos...');
 
-      // ✅ CARGAR TODO EN PARALELO (una sola vez)
-      await Future.wait([
-        // Datos principales (críticos)
-        loadDashboardStats(
-          startDate: _selectedDateRange.value?.start,
-          endDate: _selectedDateRange.value?.end,
-        ).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => print('⏰ Timeout en estadísticas del dashboard'),
-        ),
+      final startDate = _selectedDateRange.value?.start;
+      final endDate = _selectedDateRange.value?.end;
 
-        loadProfitabilityStats(
-          startDate: _selectedDateRange.value?.start,
-          endDate: _selectedDateRange.value?.end,
-        ).timeout(
-          const Duration(seconds: 8),
-          onTimeout: () => print('⏰ Timeout en métricas de rentabilidad'),
-        ),
+      // ⚡ FAST-PATH: Si ya sabemos que el servidor está caído, ir directo a offline
+      final networkInfo = Get.find<NetworkInfo>();
+      if (!networkInfo.isServerReachable) {
+        print('📴 Dashboard: Servidor ya marcado como inalcanzable, ISAR directo');
+        await _loadAllOffline(startDate, endDate);
+        update();
+        _showSubscriptionDialogIfNeeded();
+        return;
+      }
 
-        // Datos secundarios
-        loadRecentActivity().timeout(
-          const Duration(seconds: 8),
-          onTimeout: () => print('⏰ Timeout en actividad reciente'),
-        ).catchError((e) => print('❌ Error loading activity: $e')),
+      // CHECK: Verificar conectividad UNA SOLA VEZ
+      final isOnline = await networkInfo.isConnected;
 
-        loadNotifications().timeout(
-          const Duration(seconds: 8),
-          onTimeout: () => print('⏰ Timeout en notificaciones'),
-        ).catchError((e) => print('❌ Error loading notifications: $e')),
+      if (!isOnline) {
+        print('📴 Dashboard: Modo offline, cargando desde ISAR...');
+        await _loadAllOffline(startDate, endDate);
+      } else {
+        // 🌐 ONLINE PATH: Todo en paralelo con timeouts cortos
+        await Future.wait([
+          loadDashboardStats(startDate: startDate, endDate: endDate).timeout(
+            const Duration(seconds: 8),
+            onTimeout: () => print('⏰ Timeout en estadísticas'),
+          ),
+          loadProfitabilityStats(startDate: startDate, endDate: endDate).timeout(
+            const Duration(seconds: 6),
+            onTimeout: () => print('⏰ Timeout en rentabilidad'),
+          ),
+          loadRecentActivity().timeout(
+            const Duration(seconds: 6),
+            onTimeout: () {},
+          ).catchError((e) => print('⚠️ Error actividades: $e')),
+          loadNotifications().timeout(
+            const Duration(seconds: 6),
+            onTimeout: () {},
+          ).catchError((e) => print('⚠️ Error notificaciones: $e')),
+          loadUnreadNotificationsCount().timeout(
+            const Duration(seconds: 4),
+            onTimeout: () {},
+          ).catchError((e) {}),
+        ]);
 
-        loadUnreadNotificationsCount().timeout(
-          const Duration(seconds: 5),
-          onTimeout: () => print('⏰ Timeout en conteo de notificaciones'),
-        ).catchError((e) => print('❌ Error loading unread count: $e')),
+        // Armonizar revenue entre summary y profitability
+        _harmonizeFinancialData();
 
-        _loadExpensesByCategory().timeout(
-          const Duration(seconds: 8),
-          onTimeout: () => print('⏰ Timeout en gastos por categoría'),
-        ).catchError((e) => print('❌ Error loading expenses by category: $e')),
-      ]);
+        // Gastos por categoría DESPUÉS de stats
+        await _loadExpensesByCategory().timeout(
+          const Duration(seconds: 6),
+          onTimeout: () => print('⏰ Timeout gastos por categoría'),
+        ).catchError((e) => print('⚠️ Error gastos: $e'));
+      }
 
-      print('✅ Dashboard: Carga inicial completada exitosamente');
-
-      // ✅ CRÍTICO: Forzar actualización de TODOS los widgets que usan GetBuilder
       update();
-      print('🔄 UI actualizada - Todos los widgets notificados');
+      _showSubscriptionDialogIfNeeded();
     } catch (e) {
       print('❌ Error crítico en _loadInitialData: $e');
-      // Asegurar que todos los estados de loading se reseteen
       _isLoadingStats.value = false;
       _isLoadingActivity.value = false;
       _isLoadingNotifications.value = false;
       _isLoadingExpenseChart.value = false;
       _isLoadingProfitability.value = false;
-
-      // Forzar actualización incluso si hay error
       update();
+      _showSubscriptionDialogIfNeeded();
     }
+  }
+
+  /// ⚡ Carga rápida offline: todo desde ISAR sin verificaciones de red adicionales
+  Future<void> _loadAllOffline(DateTime? startDate, DateTime? endDate) async {
+    final localDataSource = Get.find<DashboardLocalDataSource>();
+
+    // ═══════════════════════════════════════════════════════════════
+    // PASO 1: Stats + actividades + notificaciones EN PARALELO
+    // getCachedDashboardStats calcula TODO: stats, profitability, expensesByCategory
+    // ═══════════════════════════════════════════════════════════════
+    _isLoadingStats.value = true;
+    _isLoadingProfitability.value = true;
+    _isLoadingActivity.value = true;
+    _isLoadingNotifications.value = true;
+    _isLoadingExpenseChart.value = true;
+
+    try {
+      // ⚡ Lanzar TODO en paralelo - stats no depende de actividades/notificaciones
+      final results = await Future.wait([
+        // 0: Stats completas (incluye profitability + expensesByCategory)
+        localDataSource.getCachedDashboardStats(startDate: startDate, endDate: endDate),
+        // 1: Actividades recientes
+        localDataSource.getOfflineRecentActivities(limit: 10),
+        // 2: Notificaciones
+        localDataSource.getOfflineSmartNotifications(limit: 10),
+      ]);
+
+      // Procesar stats
+      final stats = results[0] as DashboardStatsModel?;
+      if (stats != null) {
+        // ═══════════════════════════════════════════════════════════════
+        // PROFITABILITY: Usar cache EXACTO para armonizar, fallback solo para COGS
+        // ═══════════════════════════════════════════════════════════════
+        bool hasExactCache = false;
+        final exactProfitability = await _getExactCachedProfitabilityStats(startDate, endDate);
+        if (exactProfitability != null) {
+          _profitabilityStats.value = exactProfitability;
+          hasExactCache = true;
+          print('💾 Profitability offline: cache EXACTO del backend (COGS=${exactProfitability.totalCOGS})');
+        } else {
+          // Fallback: usar ISAR revenue como base, pero intentar obtener ratio COGS del cache
+          final fallbackProfitability = await _getFallbackProfitabilityStats();
+          if (fallbackProfitability != null && fallbackProfitability.totalRevenue > 0) {
+            // Calcular ratio COGS del cache y aplicarlo al revenue de ISAR
+            final cogsRatio = fallbackProfitability.totalCOGS / fallbackProfitability.totalRevenue;
+            final isarRevenue = stats.profitability.totalRevenue;
+            final estimatedCOGS = isarRevenue * cogsRatio;
+            final estimatedGrossProfit = isarRevenue - estimatedCOGS;
+            final estimatedNetProfit = estimatedGrossProfit - stats.expenses.totalAmount;
+            _profitabilityStats.value = ProfitabilityStatsModel(
+              totalRevenue: isarRevenue,
+              totalCOGS: estimatedCOGS,
+              grossProfit: estimatedGrossProfit,
+              grossMarginPercentage: isarRevenue > 0 ? (estimatedGrossProfit / isarRevenue) * 100 : 0,
+              netProfit: estimatedNetProfit,
+              netMarginPercentage: isarRevenue > 0 ? (estimatedNetProfit / isarRevenue) * 100 : 0,
+              averageMarginPerSale: stats.profitability.averageMarginPerSale,
+              topProfitableProducts: fallbackProfitability.topProfitableProducts,
+              lowProfitableProducts: fallbackProfitability.lowProfitableProducts,
+              marginsByCategory: fallbackProfitability.marginsByCategory,
+              trend: const ProfitabilityTrendModel(
+                previousPeriodGrossMargin: 0.0,
+                currentPeriodGrossMargin: 0.0,
+                marginGrowth: 0.0,
+                isImproving: false,
+                dailyMargins: [],
+              ),
+            );
+            print('📴 Profitability offline: ISAR revenue=$isarRevenue + COGS ratio=${(cogsRatio * 100).toStringAsFixed(1)}% del cache');
+          } else {
+            _profitabilityStats.value = stats.profitability;
+            print('📴 Profitability offline: calculada desde ISAR (sin cache disponible)');
+          }
+        }
+
+        // ⚡ Mapear nombres de categoría en expensesByCategory
+        final rawExpensesByCategory = stats.expenses.expensesByCategory;
+        if (rawExpensesByCategory.isNotEmpty) {
+          final categoriesMap = await _getCachedCategoriesMap();
+          final namedExpenses = <String, double>{};
+          int unknownCounter = 1;
+          for (final entry in rawExpensesByCategory.entries) {
+            String name;
+            if (categoriesMap.containsKey(entry.key)) {
+              name = categoriesMap[entry.key]!;
+            } else {
+              name = 'Categoría $unknownCounter';
+              unknownCounter++;
+            }
+            namedExpenses[name] = (namedExpenses[name] ?? 0.0) + entry.value;
+          }
+
+          _dashboardStats.value = DashboardStats(
+            sales: stats.sales,
+            invoices: stats.invoices,
+            products: stats.products,
+            customers: stats.customers,
+            expenses: ExpenseStats(
+              totalAmount: stats.expenses.totalAmount,
+              totalExpenses: stats.expenses.totalExpenses,
+              monthlyExpenses: stats.expenses.monthlyExpenses,
+              todayExpenses: stats.expenses.todayExpenses,
+              pendingExpenses: stats.expenses.pendingExpenses,
+              approvedExpenses: stats.expenses.approvedExpenses,
+              monthlyGrowth: stats.expenses.monthlyGrowth,
+              expensesByCategory: namedExpenses,
+            ),
+            profitability: stats.profitability,
+            paymentMethodsBreakdown: stats.paymentMethodsBreakdown,
+            incomeTypeBreakdown: stats.incomeTypeBreakdown,
+          );
+        } else {
+          _dashboardStats.value = stats;
+        }
+
+        // ✅ Solo armonizar cuando tenemos cache EXACTO del backend para este rango
+        // (el cache exacto tiene el Revenue correcto calculado por el servidor)
+        // Si es fallback de otro rango, confiar en ISAR Revenue para este filtro
+        if (hasExactCache) {
+          _harmonizeFinancialData();
+        }
+
+        print('📴 Dashboard offline: Revenue=${_dashboardStats.value?.sales.totalAmount}, '
+            'Expenses=${_dashboardStats.value?.expenses.totalAmount}, '
+            'NetProfit=${_profitabilityStats.value?.netProfit}, '
+            'Categories=${rawExpensesByCategory.length}, '
+            'CacheExacto=$hasExactCache');
+      }
+
+      // Procesar actividades
+      final activities = results[1] as List<RecentActivityAdvanced>;
+      _recentActivitiesAdvanced.assignAll(activities);
+
+      // Procesar notificaciones
+      final notifications = results[2] as List<SmartNotification>;
+      _smartNotifications.assignAll(notifications);
+      _unreadNotificationsCount.value = notifications.where((n) => n.isUnread).length;
+
+      print('📴 Offline completo: ${activities.length} actividades, ${notifications.length} notificaciones');
+    } catch (e) {
+      print('⚠️ Error cargando datos offline: $e');
+    } finally {
+      _isLoadingStats.value = false;
+      _isLoadingProfitability.value = false;
+      _isLoadingActivity.value = false;
+      _isLoadingNotifications.value = false;
+      _isLoadingExpenseChart.value = false;
+    }
+  }
+
+  /// Armoniza los datos financieros entre summary y profitability.
+  /// Usa profitability.totalRevenue como fuente de verdad para que
+  /// Revenue, COGS, Gross Profit y Net Profit cuadren consistentemente.
+  void _harmonizeFinancialData() {
+    final stats = _dashboardStats.value;
+    final profitability = _profitabilityStats.value;
+    if (stats == null || profitability == null) return;
+    if (profitability.totalRevenue <= 0) return;
+
+    _dashboardStats.value = DashboardStats(
+      sales: SalesStats(
+        totalAmount: profitability.totalRevenue,
+        totalSales: stats.sales.totalSales,
+        todaySales: stats.sales.todaySales,
+        yesterdaySales: stats.sales.yesterdaySales,
+        monthlySales: stats.sales.monthlySales,
+        yearSales: stats.sales.yearSales,
+        todayGrowth: stats.sales.todayGrowth,
+        monthlyGrowth: stats.sales.monthlyGrowth,
+      ),
+      invoices: stats.invoices,
+      products: stats.products,
+      customers: stats.customers,
+      expenses: stats.expenses,
+      profitability: profitability,
+      paymentMethodsBreakdown: stats.paymentMethodsBreakdown,
+      incomeTypeBreakdown: stats.incomeTypeBreakdown,
+    );
+    print('🔄 Datos financieros armonizados: Revenue=${profitability.totalRevenue}, '
+        'COGS=${profitability.totalCOGS}, GrossProfit=${profitability.grossProfit}, '
+        'NetProfit=${profitability.netProfit}');
   }
 
   Future<void> loadDashboardStats({
@@ -260,20 +459,27 @@ class DashboardController extends GetxController {
       ),
     );
 
-    result.fold(
-      (failure) {
-        print('❌ ERROR loadProfitabilityStats: $failure');
+    if (result.isRight()) {
+      final stats = result.getOrElse(() => throw Exception());
+      print('✅ ÉXITO loadProfitabilityStats: Revenue=${stats.totalRevenue}, COGS=${stats.totalCOGS}');
+      print('   📊 Gross Profit: ${stats.grossProfit}, Margin: ${stats.grossMarginPercentage}%');
+      print('   📈 Top Products: ${stats.topProfitableProducts.length}');
+      _profitabilityStats.value = stats;
+      // ✅ Cachear datos reales para uso offline (COGS, márgenes, productos)
+      _cacheProfitabilityStats(stats, startDate, endDate);
+      update();
+    } else {
+      final failure = result.fold((f) => f, (_) => throw Exception());
+      print('❌ ERROR loadProfitabilityStats: $failure');
+      // Intentar usar datos cacheados reales como fallback
+      final cached = await _getCachedProfitabilityStats(startDate, endDate);
+      if (cached != null) {
+        _profitabilityStats.value = cached;
+        print('💾 Profitability fallback: usando cache real (COGS=${cached.totalCOGS})');
+      } else {
         _profitabilityError.value = _mapFailureToMessage(failure);
-      },
-      (stats) {
-        print('✅ ÉXITO loadProfitabilityStats: Revenue=${stats.totalRevenue}, COGS=${stats.totalCOGS}');
-        print('   📊 Gross Profit: ${stats.grossProfit}, Margin: ${stats.grossMarginPercentage}%');
-        print('   📈 Top Products: ${stats.topProfitableProducts.length}');
-        _profitabilityStats.value = stats;
-        // ✅ Notificar a widgets GetBuilder
-        update();
-      },
-    );
+      }
+    }
 
     _isLoadingProfitability.value = false;
   }
@@ -303,7 +509,7 @@ class DashboardController extends GetxController {
     _isLoadingActivity.value = false;
   }
 
-  // Nuevo método para cargar actividades avanzadas con paginación
+  // Método para cargar actividades avanzadas con paginación
   Future<void> loadAdvancedRecentActivities({
     int page = 1,
     int limit = 10,
@@ -312,9 +518,17 @@ class DashboardController extends GetxController {
     String? timeFilter,
   }) async {
     try {
-      // Obtener DioClient desde GetX
+      // ⚡ Check sync rápido: si el servidor está marcado como caído, ISAR directo
+      final networkInfo = Get.find<NetworkInfo>();
+      if (!networkInfo.isServerReachable) {
+        final localDataSource = Get.find<DashboardLocalDataSource>();
+        final offlineActivities = await localDataSource.getOfflineRecentActivities(limit: limit);
+        _recentActivitiesAdvanced.assignAll(offlineActivities);
+        return;
+      }
+
       final dioClient = Get.find<DioClient>();
-      
+
       final response = await dioClient.get(
         '/dashboard/activities/recent',
         queryParameters: {
@@ -327,38 +541,33 @@ class DashboardController extends GetxController {
       );
 
       if (response.statusCode == 200) {
-        // La estructura es: response.data.data.data.activities (anidación triple)
-        final responseData = response.data is Map<String, dynamic> && response.data.containsKey('data') 
-            ? response.data['data'] 
+        final responseData = response.data is Map<String, dynamic> && response.data.containsKey('data')
+            ? response.data['data']
             : response.data;
-        
+
         final secondLevel = responseData is Map<String, dynamic> && responseData.containsKey('data')
-            ? responseData['data'] 
+            ? responseData['data']
             : responseData;
-            
+
         final thirdLevel = secondLevel is Map<String, dynamic> && secondLevel.containsKey('data')
-            ? secondLevel['data'] 
+            ? secondLevel['data']
             : secondLevel;
-            
+
         final activitiesJson = thirdLevel is Map<String, dynamic> && thirdLevel.containsKey('activities')
             ? thirdLevel['activities'] as List?
             : null;
-        
+
         if (activitiesJson != null) {
-          // Convertir a RecentActivityAdvanced usando el fromJson
           final activities = activitiesJson
               .map((json) => RecentActivityAdvanced.fromJson(json))
               .toList();
-              
+
           if (page == 1) {
-            // Primera página - reemplazar datos
             _recentActivitiesAdvanced.assignAll(activities);
           } else {
-            // Páginas siguientes - agregar datos
             _recentActivitiesAdvanced.addAll(activities);
           }
-          
-          // Actualizar información de paginación si es necesaria
+
           print('✅ Actividades cargadas: ${activities.length} items (página $page)');
         } else {
           print('⚠️ No se encontraron actividades en la respuesta');
@@ -368,9 +577,18 @@ class DashboardController extends GetxController {
         throw Exception('Failed to load activities: ${response.statusCode}');
       }
     } catch (e) {
+      // Fallback en error: intentar ISAR
+      try {
+        final localDataSource = Get.find<DashboardLocalDataSource>();
+        final offlineActivities = await localDataSource.getOfflineRecentActivities(limit: limit);
+        if (offlineActivities.isNotEmpty) {
+          _recentActivitiesAdvanced.assignAll(offlineActivities);
+          print('📴 Actividades fallback desde ISAR: ${offlineActivities.length}');
+          return;
+        }
+      } catch (_) {}
       _activityError.value = 'Error al cargar actividades: $e';
       print('Error loading advanced activities: $e');
-      // No hacer rethrow para evitar interrumpir el flujo completo
     }
   }
 
@@ -384,7 +602,7 @@ class DashboardController extends GetxController {
     } catch (e) {
       // Fallback al método original si falla
       final result = await _getNotificationsUseCase(
-        GetNotificationsParams(limit: limit, unreadOnly: unreadOnly),
+        GetDashboardNotificationsParams(limit: limit, unreadOnly: unreadOnly),
       );
 
       result.fold(
@@ -396,7 +614,7 @@ class DashboardController extends GetxController {
     _isLoadingNotifications.value = false;
   }
 
-  // Nuevo método para cargar notificaciones avanzadas con paginación
+  // Método para cargar notificaciones avanzadas con paginación
   Future<void> loadAdvancedNotifications({
     int page = 1,
     int limit = 10,
@@ -405,8 +623,18 @@ class DashboardController extends GetxController {
     bool includeRead = false,
   }) async {
     try {
+      // ⚡ Check sync rápido: si el servidor está marcado como caído, ISAR directo
+      final networkInfo = Get.find<NetworkInfo>();
+      if (!networkInfo.isServerReachable) {
+        final localDataSource = Get.find<DashboardLocalDataSource>();
+        final offlineNotifications = await localDataSource.getOfflineSmartNotifications(limit: limit);
+        _smartNotifications.assignAll(offlineNotifications);
+        _unreadNotificationsCount.value = offlineNotifications.where((n) => n.isUnread).length;
+        return;
+      }
+
       final dioClient = Get.find<DioClient>();
-      
+
       final response = await dioClient.get(
         '/dashboard/notifications',
         queryParameters: {
@@ -419,42 +647,37 @@ class DashboardController extends GetxController {
       );
 
       if (response.statusCode == 200) {
-        // La estructura es: response.data.data.data.notifications (anidación triple)
-        final responseData = response.data is Map<String, dynamic> && response.data.containsKey('data') 
-            ? response.data['data'] 
+        final responseData = response.data is Map<String, dynamic> && response.data.containsKey('data')
+            ? response.data['data']
             : response.data;
-        
+
         final secondLevel = responseData is Map<String, dynamic> && responseData.containsKey('data')
-            ? responseData['data'] 
+            ? responseData['data']
             : responseData;
-            
+
         final thirdLevel = secondLevel is Map<String, dynamic> && secondLevel.containsKey('data')
-            ? secondLevel['data'] 
+            ? secondLevel['data']
             : secondLevel;
-            
+
         final notificationsJson = thirdLevel is Map<String, dynamic> && thirdLevel.containsKey('notifications')
             ? thirdLevel['notifications'] as List?
             : null;
-        
+
         if (notificationsJson != null) {
-          // Convertir a SmartNotification usando el fromJson
           final notifications = notificationsJson
               .map((json) => SmartNotification.fromJson(json))
               .toList();
-              
+
           if (page == 1) {
-            // Primera página - reemplazar datos
             _smartNotifications.assignAll(notifications);
           } else {
-            // Páginas siguientes - agregar datos
             _smartNotifications.addAll(notifications);
           }
-          
-          // También actualizar el contador
+
           _unreadNotificationsCount.value = thirdLevel is Map<String, dynamic> && thirdLevel.containsKey('unreadCount')
               ? thirdLevel['unreadCount'] as int? ?? 0
               : 0;
-          
+
           print('✅ Notificaciones cargadas: ${notifications.length} items (página $page)');
         } else {
           print('⚠️ No se encontraron notificaciones en la respuesta');
@@ -465,9 +688,19 @@ class DashboardController extends GetxController {
         throw Exception('Failed to load notifications: ${response.statusCode}');
       }
     } catch (e) {
+      // Fallback en error: intentar ISAR
+      try {
+        final localDataSource = Get.find<DashboardLocalDataSource>();
+        final offlineNotifications = await localDataSource.getOfflineSmartNotifications(limit: limit);
+        if (offlineNotifications.isNotEmpty) {
+          _smartNotifications.assignAll(offlineNotifications);
+          _unreadNotificationsCount.value = offlineNotifications.where((n) => n.isUnread).length;
+          print('📴 Notificaciones fallback desde ISAR: ${offlineNotifications.length}');
+          return;
+        }
+      } catch (_) {}
       _notificationsError.value = 'Error al cargar notificaciones: $e';
       print('Error loading advanced notifications: $e');
-      // No hacer rethrow para evitar interrumpir el flujo completo
     }
   }
 
@@ -482,7 +715,7 @@ class DashboardController extends GetxController {
 
   Future<void> markNotificationAsRead(String notificationId) async {
     final result = await _markNotificationAsReadUseCase(
-      MarkNotificationAsReadParams(notificationId: notificationId),
+      MarkDashboardNotificationAsReadParams(notificationId: notificationId),
     );
 
     result.fold(
@@ -515,17 +748,9 @@ class DashboardController extends GetxController {
     print('🔄 Cambiando a rango personalizado: ${dateRange?.start} - ${dateRange?.end}');
     _selectedDateRange.value = dateRange;
     _selectedPeriod.value = 'custom';
-    
-    // Cargar todos los datos en paralelo para mejor rendimiento
-    Future.wait([
-      loadDashboardStats(startDate: dateRange?.start, endDate: dateRange?.end),
-      loadProfitabilityStats(startDate: dateRange?.start, endDate: dateRange?.end), // ✅ AGREGAR RENTABILIDAD FIFO
-      _loadExpensesByCategory(), // También recargar datos de categorías con el nuevo filtro
-    ]).then((_) {
-      print('✅ Datos del rango personalizado cargados completamente');
-    }).catchError((error) {
-      print('⚠️ Error cargando datos para rango personalizado: $error');
-    });
+
+    // Cargar datos con detección rápida de offline
+    _loadDataForDateRange(dateRange?.start, dateRange?.end, 'rango personalizado');
   }
 
   void setActivityTypes(List<ActivityType> types) {
@@ -587,16 +812,39 @@ class DashboardController extends GetxController {
     // ✅ Notificar a los widgets que usan GetBuilder
     update();
 
-    // Cargar todos los datos en paralelo para mejor rendimiento
-    Future.wait([
-      loadDashboardStats(startDate: dateRange?.start, endDate: dateRange?.end),
-      loadProfitabilityStats(startDate: dateRange?.start, endDate: dateRange?.end), // ✅ AGREGAR RENTABILIDAD FIFO
-      _loadExpensesByCategory(), // También recargar datos de categorías con el nuevo filtro
-    ]).then((_) {
-      print('✅ Datos del período $period cargados completamente');
-    }).catchError((error) {
-      print('⚠️ Error cargando datos para período $period: $error');
-    });
+    // Cargar datos con detección rápida de offline
+    _loadDataForDateRange(dateRange?.start, dateRange?.end, period);
+  }
+
+  /// Helper reutilizable para cargar datos con detección rápida de offline
+  void _loadDataForDateRange(DateTime? startDate, DateTime? endDate, String label) {
+    () async {
+      try {
+        final networkInfo = Get.find<NetworkInfo>();
+
+        // ⚡ Fast-path sync: si el servidor ya está marcado como caído, ISAR directo
+        final bool isOnline;
+        if (!networkInfo.isServerReachable) {
+          isOnline = false;
+        } else {
+          isOnline = await networkInfo.isConnected;
+        }
+
+        if (!isOnline) {
+          await _loadAllOffline(startDate, endDate);
+        } else {
+          await Future.wait([
+            loadDashboardStats(startDate: startDate, endDate: endDate),
+            loadProfitabilityStats(startDate: startDate, endDate: endDate),
+          ]);
+          _harmonizeFinancialData();
+          await _loadExpensesByCategory();
+        }
+        update();
+      } catch (error) {
+        print('⚠️ Error cargando datos para $label: $error');
+      }
+    }();
   }
 
   Future<void> refreshAll() async {
@@ -646,32 +894,40 @@ class DashboardController extends GetxController {
   Future<void> _loadExpensesByCategory() async {
     _isLoadingExpenseChart.value = true;
     try {
+      // ⚡ Check sync rápido
+      final networkInfo = Get.find<NetworkInfo>();
+      if (!networkInfo.isServerReachable) {
+        await _loadExpensesByCategoryOffline();
+        return;
+      }
+
       final dioClient = Get.find<DioClient>();
-      
+
       // PASO 1: Obtener las categorías para mapear IDs a nombres
       final categoriesMap = await _loadCategoriesMap();
-      
+
       // Usar las mismas fechas del período seleccionado
       final dateRange = _selectedDateRange.value;
       final expensesByCategory = <String, double>{};
-      
+      bool hadConnectionError = false;
+
       int page = 1;
-      const int limit = 100; // Límite máximo permitido por el backend
+      const int limit = 100;
       bool hasMoreData = true;
-      
+
       while (hasMoreData) {
         try {
           final params = <String, dynamic>{
             'page': page,
             'limit': limit,
-            'status': 'approved', // Solo gastos aprobados
+            'status': 'approved',
           };
-          
+
           if (dateRange != null) {
             params['startDate'] = dateRange.start.toIso8601String();
             params['endDate'] = dateRange.end.toIso8601String();
           }
-          
+
           final response = await dioClient.get(
             '/expenses',
             queryParameters: params,
@@ -682,222 +938,337 @@ class DashboardController extends GetxController {
             final expenses = responseData['data'] as List<dynamic>? ?? [];
             final meta = responseData['meta'] as Map<String, dynamic>? ?? {};
             final totalPages = meta['totalPages'] as int? ?? 1;
-            
+
             print('📄 Página $page/$totalPages: ${expenses.length} gastos');
-            
-            // Procesar gastos de esta página
+
             for (int expenseIndex = 0; expenseIndex < expenses.length; expenseIndex++) {
               final expenseJson = expenses[expenseIndex];
-              print('🔍 Processing expense $expenseIndex: ${expenseJson.runtimeType}');
-              
               if (expenseJson is Map<String, dynamic>) {
                 try {
-                  // El amount viene como String, necesitamos parsearlo
                   final amountStr = expenseJson['amount']?.toString() ?? '0';
                   final amount = double.tryParse(amountStr) ?? 0.0;
-                  
+
                   final category = expenseJson['category'];
                   String categoryName = 'Sin categoría';
-                  
-                  print('🔍 Expense $expenseIndex category: ${category.runtimeType}');
-                  
-                  // Si category es null, buscar por categoryId en el mapa
+
                   if (category != null && category is Map<String, dynamic>) {
                     categoryName = category['name']?.toString() ?? 'Sin categoría';
-                    print('🔍 Category from object: $categoryName');
                   } else {
                     final categoryId = expenseJson['categoryId']?.toString();
-                    print('🔍 CategoryId: $categoryId');
-                    
                     if (categoryId != null && categoryId.isNotEmpty) {
-                      // Usar el nombre real de la categoría del mapa
                       categoryName = categoriesMap[categoryId] ?? 'Categoría desconocida';
-                      print('🔍 Category from map: $categoryName');
                     }
                   }
-                  
+
                   expensesByCategory[categoryName] = (expensesByCategory[categoryName] ?? 0) + amount;
-                  
-                  print('   💰 Gasto: $amountStr -> $amount ($categoryName)');
                 } catch (expenseError) {
                   print('⚠️ Error processing expense $expenseIndex: $expenseError');
                 }
-              } else {
-                print('⚠️ Expense $expenseIndex is not a Map: ${expenseJson.runtimeType}');
               }
             }
-            
-            // Verificar si hay más páginas
+
             hasMoreData = page < totalPages;
             page++;
-            
-            // Prevenir bucle infinito
+
             if (page > 50) {
               print('⚠️ Límite de páginas alcanzado (50), deteniendo carga');
               break;
             }
           } else {
-            print('⚠️ Error en respuesta página $page: ${response.statusCode}');
             break;
           }
         } catch (pageError) {
           print('⚠️ Error cargando página $page: $pageError');
+          hadConnectionError = true;
           break;
         }
       }
-      
-      // Actualizar el dashboardStats con los nuevos datos de categorías
-      if (_dashboardStats.value != null) {
-        final currentStats = _dashboardStats.value!;
-        final updatedExpenseStats = ExpenseStats(
-          totalAmount: currentStats.expenses.totalAmount,
-          totalExpenses: currentStats.expenses.totalExpenses,
-          monthlyExpenses: currentStats.expenses.monthlyExpenses,
-          todayExpenses: currentStats.expenses.todayExpenses,
-          pendingExpenses: currentStats.expenses.pendingExpenses,
-          approvedExpenses: currentStats.expenses.approvedExpenses,
-          monthlyGrowth: currentStats.expenses.monthlyGrowth,
-          expensesByCategory: expensesByCategory,
-        );
-        
-        print('🔍 DEBUG updatedExpenseStats:');
-        print('   totalAmount: ${updatedExpenseStats.totalAmount}');
-        print('   expensesByCategory: ${updatedExpenseStats.expensesByCategory}');
-        
-        _dashboardStats.value = DashboardStats(
-          sales: currentStats.sales,
-          invoices: currentStats.invoices,
-          products: currentStats.products,
-          customers: currentStats.customers,
-          expenses: updatedExpenseStats,
-          profitability: currentStats.profitability,
-          paymentMethodsBreakdown: currentStats.paymentMethodsBreakdown,
-          incomeTypeBreakdown: currentStats.incomeTypeBreakdown,
-        );
-        
-        print('🔍 DEBUG _dashboardStats.value después de actualizar:');
-        print('   totalAmount: ${_dashboardStats.value?.expenses.totalAmount}');
-        print('   expensesByCategory: ${_dashboardStats.value?.expenses.expensesByCategory}');
-        
-        // FORZAR ACTUALIZACIÓN DEL UI
-        print('🔄 Forzando actualización del UI...');
-        update(); // Forzar actualización de GetX
+
+      // Si hubo error de conexión y no se obtuvieron datos, fallback a ISAR
+      if (expensesByCategory.isEmpty && hadConnectionError) {
+        print('📴 Gastos online fallaron, usando fallback ISAR...');
+        await _loadExpensesByCategoryOffline();
+        return;
       }
-      
+
+      _updateExpensesByCategoryInStats(expensesByCategory);
+
       print('✅ Gastos por categoría cargados: ${expensesByCategory.length} categorías');
-      expensesByCategory.forEach((category, amount) {
-        print('   - $category: \$${amount.toStringAsFixed(0)}');
-      });
-      
+
     } catch (e) {
-      print('⚠️ Error cargando gastos por categoría: $e');
-      // No hacer rethrow - es un error no crítico
+      print('⚠️ Error cargando gastos por categoría: $e - Intentando offline...');
+      // Fallback en error: intentar ISAR
+      try {
+        await _loadExpensesByCategoryOffline();
+      } catch (_) {}
     } finally {
       _isLoadingExpenseChart.value = false;
     }
   }
 
+  // Helper: cargar gastos por categoría desde ISAR
+  Future<void> _loadExpensesByCategoryOffline() async {
+    final localDataSource = Get.find<DashboardLocalDataSource>();
+    final dateRange = _selectedDateRange.value;
+
+    final offlineExpenses = await localDataSource.getOfflineExpensesByCategory(
+      startDate: dateRange?.start,
+      endDate: dateRange?.end,
+    );
+
+    if (offlineExpenses.isNotEmpty) {
+      // Intentar mapear categoryId a nombre desde cache
+      final categoriesMap = await _getCachedCategoriesMap();
+      final namedExpenses = <String, double>{};
+      int unknownCounter = 1;
+      for (var entry in offlineExpenses.entries) {
+        String name;
+        if (categoriesMap.containsKey(entry.key)) {
+          name = categoriesMap[entry.key]!;
+        } else {
+          // Si el key parece un UUID, usar nombre genérico
+          name = 'Categoría $unknownCounter';
+          unknownCounter++;
+        }
+        namedExpenses[name] = (namedExpenses[name] ?? 0.0) + entry.value;
+      }
+
+      _updateExpensesByCategoryInStats(namedExpenses);
+      print('📴 Gastos por categoría offline: ${namedExpenses.length} categorías');
+    }
+  }
+
+  // Helper: actualizar dashboardStats con expensesByCategory
+  void _updateExpensesByCategoryInStats(Map<String, double> expensesByCategory) {
+    if (_dashboardStats.value != null) {
+      final currentStats = _dashboardStats.value!;
+      final updatedExpenseStats = ExpenseStats(
+        totalAmount: currentStats.expenses.totalAmount,
+        totalExpenses: currentStats.expenses.totalExpenses,
+        monthlyExpenses: currentStats.expenses.monthlyExpenses,
+        todayExpenses: currentStats.expenses.todayExpenses,
+        pendingExpenses: currentStats.expenses.pendingExpenses,
+        approvedExpenses: currentStats.expenses.approvedExpenses,
+        monthlyGrowth: currentStats.expenses.monthlyGrowth,
+        expensesByCategory: expensesByCategory,
+      );
+
+      _dashboardStats.value = DashboardStats(
+        sales: currentStats.sales,
+        invoices: currentStats.invoices,
+        products: currentStats.products,
+        customers: currentStats.customers,
+        expenses: updatedExpenseStats,
+        profitability: currentStats.profitability,
+        paymentMethodsBreakdown: currentStats.paymentMethodsBreakdown,
+        incomeTypeBreakdown: currentStats.incomeTypeBreakdown,
+      );
+
+      update();
+    }
+  }
+
+  static const String _categoriesMapCacheKey = 'dashboard_expense_categories_map';
+  static const String _profitabilityCachePrefix = 'dashboard_profitability_';
+  static const String _profitabilityLatestKey = 'dashboard_profitability_latest';
+
   // Método para cargar mapa de categorías (ID -> Nombre)
   Future<Map<String, String>> _loadCategoriesMap() async {
     try {
+      // ⚡ Check sync rápido
+      final networkInfo = Get.find<NetworkInfo>();
+      if (!networkInfo.isServerReachable) {
+        return _getCachedCategoriesMap();
+      }
+
       final dioClient = Get.find<DioClient>();
-      
+
       final response = await dioClient.get(
         '/expense-categories',
-        queryParameters: {'limit': 100}, // Obtener muchas categorías
+        queryParameters: {'limit': 100},
       );
 
       if (response.statusCode == 200) {
-        print('🔍 Response status: ${response.statusCode}');
-        print('🔍 Response data structure: ${response.data.runtimeType}');
-        
         final responseData = response.data;
         if (responseData is! Map<String, dynamic>) {
-          print('⚠️ Response data is not a Map: ${responseData.runtimeType}');
-          return <String, String>{};
+          return _getCachedCategoriesMap();
         }
-        
-        // Verificar la estructura de la respuesta
-        print('🔍 Response keys: ${responseData.keys.toList()}');
-        
-        // Manejar diferentes estructuras de respuesta
+
         List<dynamic>? categories;
-        
+
         if (responseData.containsKey('data')) {
           final data = responseData['data'];
-          print('🔍 Data structure: ${data.runtimeType}');
-          
           if (data is Map<String, dynamic> && data.containsKey('categories')) {
-            // Estructura: {data: {categories: [...]}}
             categories = data['categories'] as List<dynamic>?;
-            print('🔍 Found categories in data.categories: ${categories?.length}');
           } else if (data is List<dynamic>) {
-            // Estructura: {data: [...]}
             categories = data;
-            print('🔍 Found categories directly in data: ${categories.length}');
           }
         } else if (responseData.containsKey('categories')) {
-          // Estructura: {categories: [...]}
           categories = responseData['categories'] as List<dynamic>?;
-          print('🔍 Found categories in root: ${categories?.length}');
         }
-        
+
         if (categories == null || categories.isEmpty) {
-          print('⚠️ No categories found in response');
-          return <String, String>{};
+          return _getCachedCategoriesMap();
         }
-        
+
         final categoriesMap = <String, String>{};
-        for (int i = 0; i < categories.length; i++) {
-          final categoryJson = categories[i];
-          print('🔍 Processing category $i: ${categoryJson.runtimeType}');
-          
+        for (var categoryJson in categories) {
           if (categoryJson is Map<String, dynamic>) {
             final id = categoryJson['id']?.toString();
             final name = categoryJson['name']?.toString() ?? 'Sin nombre';
-            print('🔍 Category $i: id=$id, name=$name');
-            
             if (id != null && id.isNotEmpty) {
               categoriesMap[id] = name;
             }
-          } else {
-            print('⚠️ Category $i is not a Map: ${categoryJson.runtimeType}');
           }
         }
-        
+
         print('📋 Categorías cargadas: ${categoriesMap.length}');
-        categoriesMap.forEach((id, name) {
-          print('   📋 $id -> $name');
-        });
-        
+
+        // Cachear para uso offline
+        _cacheCategoriesMap(categoriesMap);
+
         return categoriesMap;
-      } else {
-        print('⚠️ Response status code: ${response.statusCode}');
       }
-    } catch (e, stackTrace) {
-      print('⚠️ Error cargando categorías: $e');
-      print('🔍 Stack trace: $stackTrace');
+    } catch (e) {
+      print('⚠️ Error cargando categorías: $e - Usando cache...');
     }
-    
-    return <String, String>{}; // Mapa vacío en caso de error
+
+    return _getCachedCategoriesMap();
+  }
+
+  // Cachear mapa de categorías en SecureStorage
+  Future<void> _cacheCategoriesMap(Map<String, String> categoriesMap) async {
+    try {
+      final secureStorage = Get.find<SecureStorageService>();
+      await secureStorage.write(_categoriesMapCacheKey, json.encode(categoriesMap));
+    } catch (e) {
+      print('⚠️ Error cacheando categorías: $e');
+    }
+  }
+
+  // Leer mapa de categorías desde cache (busca en múltiples fuentes)
+  Future<Map<String, String>> _getCachedCategoriesMap() async {
+    try {
+      final secureStorage = Get.find<SecureStorageService>();
+
+      // Fuente 1: Cache propio del dashboard
+      final cachedData = await secureStorage.read(_categoriesMapCacheKey);
+      if (cachedData != null) {
+        final decoded = json.decode(cachedData) as Map<String, dynamic>;
+        final result = decoded.map((k, v) => MapEntry(k, v.toString()));
+        if (result.isNotEmpty) return result;
+      }
+
+      // Fuente 2: Cache del módulo de expenses (expense_categories_cache)
+      final expenseCategoriesCache = await secureStorage.read('expense_categories_cache');
+      if (expenseCategoriesCache != null) {
+        final List<dynamic> jsonList = json.decode(expenseCategoriesCache);
+        final result = <String, String>{};
+        for (var catJson in jsonList) {
+          if (catJson is Map<String, dynamic>) {
+            final id = catJson['id']?.toString();
+            final name = catJson['name']?.toString();
+            if (id != null && name != null) {
+              result[id] = name;
+            }
+          }
+        }
+        if (result.isNotEmpty) {
+          // Cachear en nuestro formato para próxima vez
+          _cacheCategoriesMap(result);
+          return result;
+        }
+      }
+    } catch (e) {
+      print('⚠️ Error leyendo cache de categorías: $e');
+    }
+    return <String, String>{};
+  }
+
+  // ==================== PROFITABILITY CACHE ====================
+
+  /// Genera clave de cache para un rango de fechas específico
+  String _profitabilityCacheKey(DateTime? start, DateTime? end) {
+    if (start == null && end == null) return '${_profitabilityCachePrefix}all';
+    final s = start?.toIso8601String().substring(0, 10) ?? 'null';
+    final e = end?.toIso8601String().substring(0, 10) ?? 'null';
+    return '$_profitabilityCachePrefix${s}_$e';
+  }
+
+  /// Cachear datos reales de rentabilidad del backend (COGS, márgenes, productos, tendencias)
+  Future<void> _cacheProfitabilityStats(
+    ProfitabilityStats stats, DateTime? startDate, DateTime? endDate,
+  ) async {
+    try {
+      final model = ProfitabilityStatsModel.fromEntity(stats);
+      final jsonStr = json.encode(model.toJson());
+      final secureStorage = Get.find<SecureStorageService>();
+
+      // Cache con key exacta del rango de fechas
+      await secureStorage.write(_profitabilityCacheKey(startDate, endDate), jsonStr);
+
+      // Siempre actualizar "latest" como fallback general
+      final metadata = json.encode({
+        'data': model.toJson(),
+        'startDate': startDate?.toIso8601String(),
+        'endDate': endDate?.toIso8601String(),
+        'cachedAt': DateTime.now().toIso8601String(),
+      });
+      await secureStorage.write(_profitabilityLatestKey, metadata);
+
+      print('💾 Profitability cacheada: ${_profitabilityCacheKey(startDate, endDate)}');
+    } catch (e) {
+      print('⚠️ Error cacheando profitability: $e');
+    }
+  }
+
+  /// Leer datos reales de rentabilidad cacheados para un rango EXACTO
+  Future<ProfitabilityStatsModel?> _getExactCachedProfitabilityStats(
+    DateTime? startDate, DateTime? endDate,
+  ) async {
+    try {
+      final secureStorage = Get.find<SecureStorageService>();
+      final exactKey = _profitabilityCacheKey(startDate, endDate);
+      final exactData = await secureStorage.read(exactKey);
+      if (exactData != null) {
+        final jsonMap = json.decode(exactData) as Map<String, dynamic>;
+        print('💾 Profitability desde cache exacto: $exactKey');
+        return ProfitabilityStatsModel.fromJson(jsonMap);
+      }
+    } catch (e) {
+      print('⚠️ Error leyendo cache exacto de profitability: $e');
+    }
+    return null;
+  }
+
+  /// Leer ultimo cache de profitability (cualquier rango) solo para COGS/margenes
+  Future<ProfitabilityStatsModel?> _getFallbackProfitabilityStats() async {
+    try {
+      final secureStorage = Get.find<SecureStorageService>();
+      final latestData = await secureStorage.read(_profitabilityLatestKey);
+      if (latestData != null) {
+        final metadata = json.decode(latestData) as Map<String, dynamic>;
+        final data = metadata['data'] as Map<String, dynamic>;
+        print('💾 Profitability desde cache latest (solo COGS/margenes)');
+        return ProfitabilityStatsModel.fromJson(data);
+      }
+    } catch (e) {
+      print('⚠️ Error leyendo cache fallback de profitability: $e');
+    }
+    return null;
+  }
+
+  /// Leer datos de rentabilidad: primero exacto, luego fallback
+  Future<ProfitabilityStatsModel?> _getCachedProfitabilityStats(
+    DateTime? startDate, DateTime? endDate,
+  ) async {
+    return await _getExactCachedProfitabilityStats(startDate, endDate) ??
+           await _getFallbackProfitabilityStats();
   }
 
   // Helper methods for chart data
   Map<String, double> get expensesByCategory {
-    final expensesByCategory = dashboardStats?.expenses.expensesByCategory ?? {};
-    
-    print('🔍 DEBUG expensesByCategory getter called: ${expensesByCategory.length} categorías');
-    expensesByCategory.forEach((category, amount) {
-      print('   🔍 $category: \$${amount.toStringAsFixed(0)}');
-    });
-    
-    // Si no hay datos reales, devolver mapa vacío para mostrar "Sin datos"
-    if (expensesByCategory.isEmpty) {
-      print('⚠️ expensesByCategory está vacío, mostrando "Sin datos"');
-      return <String, double>{};
-    }
-    
-    return expensesByCategory;
+    return dashboardStats?.expenses.expensesByCategory ?? <String, double>{};
   }
 
   // Navigation helpers

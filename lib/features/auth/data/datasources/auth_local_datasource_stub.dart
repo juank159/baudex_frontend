@@ -179,4 +179,34 @@ class AuthLocalDataSourceStub implements AuthLocalDataSource {
     // Guardar datos
     await saveAuthData(authResponse);
   }
+
+  // ==================== OFFLINE CREDENTIALS (Stub) ====================
+
+  String? _offlineEmail;
+  String? _offlinePasswordHash;
+
+  @override
+  Future<void> saveOfflineCredentials(String email, String passwordHash) async {
+    _offlineEmail = email.toLowerCase().trim();
+    _offlinePasswordHash = passwordHash;
+    print('🔐 AuthLocalDataSourceStub: Credenciales offline guardadas para $email');
+  }
+
+  @override
+  Future<bool> verifyOfflineCredentials(String email, String passwordHash) async {
+    if (_offlineEmail == null || _offlinePasswordHash == null) return false;
+    return _offlineEmail == email.toLowerCase().trim() && _offlinePasswordHash == passwordHash;
+  }
+
+  @override
+  Future<bool> hasOfflineCredentials() async {
+    return _offlineEmail != null && _offlinePasswordHash != null;
+  }
+
+  @override
+  Future<void> clearOfflineCredentials() async {
+    _offlineEmail = null;
+    _offlinePasswordHash = null;
+    print('🔐 AuthLocalDataSourceStub: Credenciales offline limpiadas');
+  }
 }

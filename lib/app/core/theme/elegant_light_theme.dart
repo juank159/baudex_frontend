@@ -18,6 +18,7 @@ class ElegantLightTheme {
 
   // Colores de fondo claros
   static const Color backgroundColor = Color(0xFFF8FAFC); // Slate 50
+  static const Color scaffoldBackground = Color(0xFFF8FAFC); // Slate 50 - alias for scaffold
   static const Color surfaceColor = Color(0xFFFFFFFF); // White
   static const Color cardColor = Color(0xFFF1F5F9); // Slate 100
 

@@ -30,7 +30,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
   final CategoryRemoteDataSource remoteDataSource;
   final CategoryLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
-  final dynamic database;
+  final IIsarDatabase database;
 
   const CategoryRepositoryImpl({
     required this.remoteDataSource,
@@ -38,6 +38,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
     required this.networkInfo,
     required this.database,
   });
+
+  // Helper getter for ISAR access
+  Isar get isar => database.database as Isar;
 
   // ==================== READ OPERATIONS ====================
 
@@ -72,6 +75,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
         // Realizar llamada remota
         final response = await remoteDataSource.getCategories(query);
 
+        // ✅ Resetear estado de conectividad si el servidor respondió
+        networkInfo.resetServerReachability();
+
         // Cache solo resultados de la primera página sin filtros específicos
         // para tener datos base disponibles offline
         if (_shouldCacheResult(page, search, status, parentId)) {
@@ -95,6 +101,10 @@ class CategoryRepositoryImpl implements CategoryRepository {
         );
       } on ServerException catch (e) {
         print('⚠️ ServerException en categorías: ${e.message} - Usando cache...');
+        // ✅ Marcar servidor como no alcanzable si es error de conexión/timeout
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
         return _getCategoriesFromCache(
           page: page,
           limit: limit,
@@ -107,6 +117,8 @@ class CategoryRepositoryImpl implements CategoryRepository {
         );
       } on ConnectionException catch (e) {
         print('⚠️ ConnectionException en categorías: ${e.message} - Usando cache...');
+        // ✅ Marcar servidor como no alcanzable para evitar timeouts repetidos
+        networkInfo.markServerUnreachable();
         return _getCategoriesFromCache(
           page: page,
           limit: limit,
@@ -121,6 +133,12 @@ class CategoryRepositoryImpl implements CategoryRepository {
         return Left(CacheFailure(e.message));
       } catch (e) {
         print('❌ Error inesperado en categorías: $e - Usando cache...');
+        // ✅ Marcar servidor como no alcanzable si es error de conexión
+        if (e.toString().contains('timeout') ||
+            e.toString().contains('SocketException') ||
+            e.toString().contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
         return _getCategoriesFromCache(
           page: page,
           limit: limit,
@@ -623,7 +641,6 @@ class CategoryRepositoryImpl implements CategoryRepository {
     print('📱 CategoryRepository: Updating category offline: $id');
     try {
       // Actualizar en ISAR
-      final isar = database;
       final isarCategory = await isar.isarCategorys
           .filter()
           .serverIdEqualTo(id)
@@ -981,18 +998,14 @@ class CategoryRepositoryImpl implements CategoryRepository {
   // ==================== PRIVATE HELPER METHODS ====================
 
   /// Determinar si se debe cachear el resultado
-  /// Cacheamos más casos para asegurar disponibilidad offline
+  /// FASE 3: Siempre cachear a ISAR (upsert por serverId evita duplicados)
   bool _shouldCacheResult(
     int page,
     String? search,
     CategoryStatus? status,
     String? parentId,
   ) {
-    // Cache first page results for common use cases
-    return page == 1 &&
-        search == null &&
-        (status == null || status == CategoryStatus.active) &&
-        parentId == null;
+    return true;
   }
 
   /// Invalidar cache de listados para reflejar cambios

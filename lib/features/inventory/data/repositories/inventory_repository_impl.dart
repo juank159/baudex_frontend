@@ -6,6 +6,7 @@ import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/models/pagination_meta.dart';
+import '../../../../app/core/utils/app_logger.dart';
 import '../../../../app/core/models/paginated_result.dart' as core;
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
@@ -22,13 +23,21 @@ import '../../domain/repositories/inventory_repository.dart';
 import '../datasources/inventory_remote_datasource.dart';
 import '../datasources/inventory_local_datasource.dart';
 import '../models/inventory_movement_model.dart';
+import '../models/inventory_balance_model.dart';
 import '../models/inventory_batch_model.dart';
+import '../models/warehouse_model.dart';
 import '../models/isar/isar_inventory_movement.dart';
+import '../models/isar/isar_inventory_batch.dart';
+import '../../../../features/products/data/models/isar/isar_product.dart';
 
 class InventoryRepositoryImpl implements InventoryRepository {
   final InventoryRemoteDataSource remoteDataSource;
   final InventoryLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
+
+  // Throttle para cache de batches en background
+  DateTime? _lastBatchCacheTime;
+  bool _isCachingBatches = false;
 
   InventoryRepositoryImpl({
     required this.remoteDataSource,
@@ -47,6 +56,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final remoteMovements = await remoteDataSource.getMovements(params);
         // Cache successful result
         await localDataSource.cacheMovements(params, remoteMovements);
+        // Cache batches en ISAR para soporte offline de balances
+        _ensureBatchesCachedInBackground();
         return Right(
           core.PaginatedResult(
             data:
@@ -55,13 +66,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
           ),
         );
       } on ServerException catch (e) {
-        print('⚠️ ServerException en getMovements: ${e.message} - Usando cache...');
+        AppLogger.w(' ServerException en getMovements: ${e.message} - Usando cache...');
         return _getMovementsFromCache(params);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException en getMovements: ${e.message} - Usando cache...');
+        AppLogger.w(' ConnectionException en getMovements: ${e.message} - Usando cache...');
         return _getMovementsFromCache(params);
       } catch (e) {
-        print('❌ Error inesperado en getMovements: $e - Usando cache...');
+        AppLogger.e(' Error inesperado en getMovements: $e - Usando cache...');
         return _getMovementsFromCache(params);
       }
     } else {
@@ -79,13 +90,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
         await localDataSource.cacheMovement(remoteMovement);
         return Right(remoteMovement.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException en getMovementById: ${e.message} - Usando cache...');
+        AppLogger.w(' ServerException en getMovementById: ${e.message} - Usando cache...');
         return _getMovementFromCache(id);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException en getMovementById: ${e.message} - Usando cache...');
+        AppLogger.w(' ConnectionException en getMovementById: ${e.message} - Usando cache...');
         return _getMovementFromCache(id);
       } catch (e) {
-        print('❌ Error inesperado en getMovementById: $e - Usando cache...');
+        AppLogger.e(' Error inesperado en getMovementById: $e - Usando cache...');
         return _getMovementFromCache(id);
       }
     } else {
@@ -113,13 +124,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
         return Right(movement.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException al crear movimiento: ${e.message} - Creando offline...');
+        AppLogger.w(' ServerException al crear movimiento: ${e.message} - Creando offline...');
         return _createMovementOffline(params);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException al crear movimiento: ${e.message} - Creando offline...');
+        AppLogger.w(' ConnectionException al crear movimiento: ${e.message} - Creando offline...');
         return _createMovementOffline(params);
       } catch (e) {
-        print('❌ Error inesperado al crear movimiento: $e - Creando offline...');
+        AppLogger.e(' Error inesperado al crear movimiento: $e - Creando offline...');
         return _createMovementOffline(params);
       }
     } else {
@@ -132,7 +143,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, InventoryMovement>> _createMovementOffline(
     CreateInventoryMovementParams params,
   ) async {
-    print('📱 InventoryRepository: Creating movement offline');
+    AppLogger.d(' InventoryRepository: Creating movement offline');
     try {
       final now = DateTime.now();
       final tempId = 'movement_offline_${now.millisecondsSinceEpoch}_${params.productId.hashCode}';
@@ -179,7 +190,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
           operationType: SyncOperationType.create,
           data: {
             'productId': params.productId,
-            'type': params.type.name,
+            'type': params.type.backendValue,
             'reason': params.reason.name,
             'quantity': params.quantity,
             'unitCost': params.unitCost,
@@ -193,16 +204,105 @@ class InventoryRepositoryImpl implements InventoryRepository {
           },
           priority: 1,
         );
-        print('📤 InventoryRepository: Operación agregada a cola');
+        AppLogger.d(' InventoryRepository: Operación agregada a cola');
       } catch (e) {
-        print('⚠️ Error agregando a cola: $e');
+        AppLogger.w(' Error agregando a cola: $e');
       }
 
-      print('✅ Movement created offline successfully');
+      // ✅ Para movimientos INBOUND (ej: recepción de PO), crear batch local en ISAR
+      // Esto es CRÍTICO para que FIFO funcione offline con el stock recién recibido
+      if (params.type == InventoryMovementType.inbound) {
+        try {
+          await _createLocalBatchForInboundMovement(params, tempId, now);
+        } catch (e) {
+          AppLogger.w(' Error creando batch local para inbound: $e');
+        }
+      }
+
+      AppLogger.i(' Movement created offline successfully');
       return Right(tempMovement);
     } catch (e) {
-      print('❌ Error creating movement offline: $e');
+      AppLogger.e(' Error creating movement offline: $e');
       return Left(CacheFailure('Error al crear movimiento offline: $e'));
+    }
+  }
+
+  /// Crear batch ISAR local cuando se recibe un movimiento inbound offline (ej: recepción de PO)
+  Future<void> _createLocalBatchForInboundMovement(
+    CreateInventoryMovementParams params,
+    String movementTempId,
+    DateTime now,
+  ) async {
+    final isar = IsarDatabase.instance.database;
+    final qty = params.quantity;
+    final unitCost = params.unitCost;
+
+    // Obtener nombre y SKU del producto desde ISAR
+    String productName = '';
+    String productSku = '';
+    try {
+      final isarProduct = await isar.isarProducts
+          .filter()
+          .serverIdEqualTo(params.productId)
+          .findFirst();
+      if (isarProduct != null) {
+        productName = isarProduct.name;
+        productSku = isarProduct.sku;
+      }
+    } catch (e) {
+      AppLogger.w(' No se pudo obtener producto para batch: $e');
+    }
+
+    // Generar batch number local
+    final batchTempId = 'batch_offline_${now.millisecondsSinceEpoch}_${params.productId.hashCode}';
+    final batchNumber = 'BATCH-OFFLINE-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${now.millisecondsSinceEpoch % 100000}';
+
+    final isarBatch = IsarInventoryBatch.create(
+      serverId: batchTempId,
+      productId: params.productId,
+      productName: productName,
+      productSku: productSku,
+      batchNumber: batchNumber,
+      originalQuantity: qty,
+      currentQuantity: qty,
+      consumedQuantity: 0,
+      unitCost: unitCost,
+      totalCost: unitCost * qty,
+      entryDate: params.movementDate ?? now,
+      expiryDate: params.expiryDate,
+      status: IsarInventoryBatchStatus.active,
+      purchaseOrderId: params.referenceType == 'purchase_order' ? params.referenceId : null,
+      warehouseId: params.warehouseId,
+      notes: params.notes,
+      createdAt: now,
+      updatedAt: now,
+      isSynced: false,
+    );
+
+    await isar.writeTxn(() async {
+      await isar.isarInventoryBatchs.putByServerId(isarBatch);
+    });
+
+    AppLogger.i(
+      ' Batch ISAR creado offline: $batchNumber (${qty}x \$${unitCost}) para producto ${params.productId}',
+    );
+
+    // ✅ Actualizar stock del producto en ISAR
+    try {
+      final isarProduct = await isar.isarProducts
+          .filter()
+          .serverIdEqualTo(params.productId)
+          .findFirst();
+      if (isarProduct != null) {
+        isarProduct.stock = isarProduct.stock + qty;
+        isarProduct.updatedAt = now;
+        await isar.writeTxn(() async {
+          await isar.isarProducts.put(isarProduct);
+        });
+        AppLogger.d(' Stock actualizado: ${isarProduct.name} → ${isarProduct.stock}');
+      }
+    } catch (e) {
+      AppLogger.w(' Error actualizando stock del producto: $e');
     }
   }
 
@@ -226,13 +326,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
         return Right(movement.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException al actualizar movimiento: ${e.message} - Actualizando offline...');
+        AppLogger.w(' ServerException al actualizar movimiento: ${e.message} - Actualizando offline...');
         return _updateMovementOffline(params);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException al actualizar movimiento: ${e.message} - Actualizando offline...');
+        AppLogger.w(' ConnectionException al actualizar movimiento: ${e.message} - Actualizando offline...');
         return _updateMovementOffline(params);
       } catch (e) {
-        print('❌ Error inesperado al actualizar movimiento: $e - Actualizando offline...');
+        AppLogger.e(' Error inesperado al actualizar movimiento: $e - Actualizando offline...');
         return _updateMovementOffline(params);
       }
     } else {
@@ -245,7 +345,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, InventoryMovement>> _updateMovementOffline(
     UpdateInventoryMovementParams params,
   ) async {
-    print('📱 InventoryRepository: Updating movement offline: ${params.id}');
+    AppLogger.d(' InventoryRepository: Updating movement offline: ${params.id}');
     try {
       // PASO 1: Actualizar en ISAR primero
       final isar = IsarDatabase.instance.database;
@@ -278,7 +378,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
       await isar.writeTxn(() async {
         await isar.isarInventoryMovements.put(isarMovement);
       });
-      print('✅ InventoryRepository: Movimiento actualizado en ISAR');
+      AppLogger.i(' InventoryRepository: Movimiento actualizado en ISAR');
 
       // PASO 2: Actualizar en SecureStorage
       final cachedMovementModel = await localDataSource.getCachedMovementById(params.id);
@@ -335,15 +435,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
           },
           priority: 1,
         );
-        print('📤 Actualización agregada a cola');
+        AppLogger.d(' Actualización agregada a cola');
       } catch (e) {
-        print('⚠️ Error agregando a cola: $e');
+        AppLogger.w(' Error agregando a cola: $e');
       }
 
-      print('✅ Movement updated offline successfully');
+      AppLogger.i(' Movement updated offline successfully');
       return Right(updatedMovement);
     } catch (e) {
-      print('❌ Error updating movement offline: $e');
+      AppLogger.e(' Error updating movement offline: $e');
       return Left(CacheFailure('Error al actualizar movimiento offline: $e'));
     }
   }
@@ -367,10 +467,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
             await isar.writeTxn(() async {
               await isar.isarInventoryMovements.put(isarMovement);
             });
-            print('✅ Movement marcado como eliminado en ISAR: $id');
+            AppLogger.i(' Movement marcado como eliminado en ISAR: $id');
           }
         } catch (e) {
-          print('⚠️ Error actualizando ISAR (no crítico): $e');
+          AppLogger.w(' Error actualizando ISAR (no crítico): $e');
         }
 
         // Clear related caches
@@ -378,13 +478,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
         return const Right(null);
       } on ServerException catch (e) {
-        print('⚠️ ServerException al eliminar: ${e.message} - Fallback offline...');
+        AppLogger.w(' ServerException al eliminar: ${e.message} - Fallback offline...');
         return _deleteMovementOffline(id);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException al eliminar: ${e.message} - Fallback offline...');
+        AppLogger.w(' ConnectionException al eliminar: ${e.message} - Fallback offline...');
         return _deleteMovementOffline(id);
       } catch (e) {
-        print('⚠️ Exception al eliminar: $e - Fallback offline...');
+        AppLogger.w(' Exception al eliminar: $e - Fallback offline...');
         return _deleteMovementOffline(id);
       }
     } else {
@@ -394,7 +494,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   Future<Either<Failure, void>> _deleteMovementOffline(String id) async {
-    print('📱 InventoryRepository: Deleting movement offline: $id');
+    AppLogger.d(' InventoryRepository: Deleting movement offline: $id');
     try {
       // Soft delete en ISAR
       try {
@@ -409,10 +509,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
           await isar.writeTxn(() async {
             await isar.isarInventoryMovements.put(isarMovement);
           });
-          print('✅ Movement marcado como eliminado en ISAR (offline): $id');
+          AppLogger.i(' Movement marcado como eliminado en ISAR (offline): $id');
         }
       } catch (e) {
-        print('⚠️ Error actualizando ISAR (no crítico): $e');
+        AppLogger.w(' Error actualizando ISAR (no crítico): $e');
       }
 
       // Clear related caches
@@ -428,15 +528,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
           data: {'id': id},
           priority: 1,
         );
-        print('📤 Eliminación agregada a cola');
+        AppLogger.d(' Eliminación agregada a cola');
       } catch (e) {
-        print('⚠️ Error agregando a cola: $e');
+        AppLogger.w(' Error agregando a cola: $e');
       }
 
-      print('✅ Movement deleted offline successfully');
+      AppLogger.i(' Movement deleted offline successfully');
       return const Right(null);
     } catch (e) {
-      print('❌ Error deleting movement offline: $e');
+      AppLogger.e(' Error deleting movement offline: $e');
       return Left(CacheFailure('Error al eliminar movimiento offline: $e'));
     }
   }
@@ -456,13 +556,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
         return Right(movement.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException al confirmar: ${e.message}');
+        AppLogger.w(' ServerException al confirmar: ${e.message}');
         return Left(_mapServerExceptionToFailure(e));
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException al confirmar: ${e.message}');
+        AppLogger.w(' ConnectionException al confirmar: ${e.message}');
         return Left(ConnectionFailure(e.message));
       } catch (e) {
-        print('❌ Error inesperado al confirmar: $e');
+        AppLogger.e(' Error inesperado al confirmar: $e');
         return Left(UnknownFailure('Error al confirmar movimiento: ${e.toString()}'));
       }
     } else {
@@ -484,13 +584,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
         return Right(movement.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException al cancelar: ${e.message}');
+        AppLogger.w(' ServerException al cancelar: ${e.message}');
         return Left(_mapServerExceptionToFailure(e));
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException al cancelar: ${e.message}');
+        AppLogger.w(' ConnectionException al cancelar: ${e.message}');
         return Left(ConnectionFailure(e.message));
       } catch (e) {
-        print('❌ Error inesperado al cancelar: $e');
+        AppLogger.e(' Error inesperado al cancelar: $e');
         return Left(UnknownFailure('Error al cancelar movimiento: ${e.toString()}'));
       }
     } else {
@@ -507,13 +607,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final remoteMovements = await remoteDataSource.searchMovements(params);
         return Right(remoteMovements.map((model) => model.toEntity()).toList());
       } on ServerException catch (e) {
-        print('⚠️ ServerException en search: ${e.message} - Usando cache...');
+        AppLogger.w(' ServerException en search: ${e.message} - Usando cache...');
         return _searchMovementsFromCache(params);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException en search: ${e.message} - Usando cache...');
+        AppLogger.w(' ConnectionException en search: ${e.message} - Usando cache...');
         return _searchMovementsFromCache(params);
       } catch (e) {
-        print('❌ Error inesperado en search: $e - Usando cache...');
+        AppLogger.e(' Error inesperado en search: $e - Usando cache...');
         return _searchMovementsFromCache(params);
       }
     } else {
@@ -533,6 +633,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final remoteBalances = await remoteDataSource.getBalances(params);
         // Cache successful result
         await localDataSource.cacheBalances(params, remoteBalances);
+        // Cache batches en ISAR en background para que offline funcione
+        _ensureBatchesCachedInBackground();
         return Right(
           core.PaginatedResult(
             data: remoteBalances.data.map((model) => model.toEntity()).toList(),
@@ -540,13 +642,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
           ),
         );
       } on ServerException catch (e) {
-        print('⚠️ ServerException en getBalances: ${e.message} - Usando cache...');
+        AppLogger.w(' ServerException en getBalances: ${e.message} - Usando cache...');
         return _getBalancesFromCache(params);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException en getBalances: ${e.message} - Usando cache...');
+        AppLogger.w(' ConnectionException en getBalances: ${e.message} - Usando cache...');
         return _getBalancesFromCache(params);
       } catch (e) {
-        print('❌ Error inesperado en getBalances: $e - Usando cache...');
+        AppLogger.e(' Error inesperado en getBalances: $e - Usando cache...');
         return _getBalancesFromCache(params);
       }
     } else {
@@ -570,13 +672,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
         await localDataSource.cacheBalance(remoteBalance);
         return Right(remoteBalance.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException en getBalanceByProduct: ${e.message} - Usando cache...');
+        AppLogger.w(' ServerException en getBalanceByProduct: ${e.message} - Usando cache...');
         return _getBalanceByProductFromCache(productId, warehouseId: warehouseId);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException en getBalanceByProduct: ${e.message} - Usando cache...');
+        AppLogger.w(' ConnectionException en getBalanceByProduct: ${e.message} - Usando cache...');
         return _getBalanceByProductFromCache(productId, warehouseId: warehouseId);
       } catch (e) {
-        print('❌ Error inesperado en getBalanceByProduct: $e - Usando cache...');
+        AppLogger.e(' Error inesperado en getBalanceByProduct: $e - Usando cache...');
         return _getBalanceByProductFromCache(productId, warehouseId: warehouseId);
       }
     } else {
@@ -601,13 +703,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
         );
         return Right(remoteBalances.map((model) => model.toEntity()).toList());
       } on ServerException catch (e) {
-        print('⚠️ ServerException en getLowStockProducts: ${e.message} - Usando cache...');
+        AppLogger.w(' ServerException en getLowStockProducts: ${e.message} - Usando cache...');
         return _getLowStockProductsFromCache(warehouseId: warehouseId);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException en getLowStockProducts: ${e.message} - Usando cache...');
+        AppLogger.w(' ConnectionException en getLowStockProducts: ${e.message} - Usando cache...');
         return _getLowStockProductsFromCache(warehouseId: warehouseId);
       } catch (e) {
-        print('❌ Error inesperado en getLowStockProducts: $e - Usando cache...');
+        AppLogger.e(' Error inesperado en getLowStockProducts: $e - Usando cache...');
         return _getLowStockProductsFromCache(warehouseId: warehouseId);
       }
     } else {
@@ -651,24 +753,22 @@ class InventoryRepositoryImpl implements InventoryRepository {
   ) async {
     if (await networkInfo.isConnected) {
       try {
-        print(
-          '🔍 REPOSITORY DEBUG: About to call remoteDataSource.getInventoryStats',
-        );
-        print(
-          '🔍 REPOSITORY DEBUG: remoteDataSource type: ${remoteDataSource.runtimeType}',
-        );
+        AppLogger.d('REPOSITORY DEBUG: About to call remoteDataSource.getInventoryStats');
+        AppLogger.d('REPOSITORY DEBUG: remoteDataSource type: ${remoteDataSource.runtimeType}');
         final remoteStats = await remoteDataSource.getInventoryStats(params);
         // Cache successful result
         await localDataSource.cacheStats(params, remoteStats);
+        // Cache batches en ISAR para soporte offline
+        _ensureBatchesCachedInBackground();
         return Right(remoteStats.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException en getInventoryStats: ${e.message} - Usando cache...');
+        AppLogger.w(' ServerException en getInventoryStats: ${e.message} - Usando cache...');
         return _getInventoryStatsFromCache(params);
       } on ConnectionException catch (e) {
-        print('⚠️ ConnectionException en getInventoryStats: ${e.message} - Usando cache...');
+        AppLogger.w(' ConnectionException en getInventoryStats: ${e.message} - Usando cache...');
         return _getInventoryStatsFromCache(params);
       } catch (e) {
-        print('❌ Error inesperado en getInventoryStats: $e - Usando cache...');
+        AppLogger.e(' Error inesperado en getInventoryStats: $e - Usando cache...');
         return _getInventoryStatsFromCache(params);
       }
     } else {
@@ -685,18 +785,19 @@ class InventoryRepositoryImpl implements InventoryRepository {
     List<String> productIds, {
     String? warehouseId,
   }) async {
-    if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión'));
-    }
-
-    try {
-      final remoteBalances = await remoteDataSource.getBalancesByProducts(
-        productIds,
-        warehouseId: warehouseId,
-      );
-      return Right(remoteBalances.map((model) => model.toEntity()).toList());
-    } catch (e) {
-      return Left(ServerFailure('Error al obtener balances: ${e.toString()}'));
+    if (await networkInfo.isConnected) {
+      try {
+        final remoteBalances = await remoteDataSource.getBalancesByProducts(
+          productIds,
+          warehouseId: warehouseId,
+        );
+        return Right(remoteBalances.map((model) => model.toEntity()).toList());
+      } catch (e) {
+        return Left(ServerFailure('Error al obtener balances: ${e.toString()}'));
+      }
+    } else {
+      // Devolver lista vacía cuando no hay conexión
+      return const Right(<InventoryBalance>[]);
     }
   }
 
@@ -704,19 +805,28 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, List<InventoryBalance>>> getOutOfStockProducts({
     String? warehouseId,
   }) async {
-    if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión'));
-    }
-
-    try {
-      final remoteBalances = await remoteDataSource.getOutOfStockProducts(
-        warehouseId: warehouseId,
-      );
-      return Right(remoteBalances.map((model) => model.toEntity()).toList());
-    } catch (e) {
-      return Left(
-        ServerFailure('Error al obtener productos sin stock: ${e.toString()}'),
-      );
+    if (await networkInfo.isConnected) {
+      try {
+        final remoteBalances = await remoteDataSource.getOutOfStockProducts(
+          warehouseId: warehouseId,
+        );
+        // Cache para uso offline
+        await localDataSource.cacheOutOfStockProducts(
+          remoteBalances.cast<InventoryBalanceModel>(),
+          warehouseId: warehouseId,
+        );
+        return Right(remoteBalances.map((model) => model.toEntity()).toList());
+      } catch (e) {
+        // Fallback a cache en caso de error
+        final cached = await localDataSource.getCachedOutOfStockProducts(warehouseId: warehouseId);
+        if (cached.isNotEmpty) {
+          return Right(cached.map((model) => model.toEntity()).toList());
+        }
+        return Left(ServerFailure('Error al obtener productos sin stock: ${e.toString()}'));
+      }
+    } else {
+      final cached = await localDataSource.getCachedOutOfStockProducts(warehouseId: warehouseId);
+      return Right(cached.map((model) => model.toEntity()).toList());
     }
   }
 
@@ -724,19 +834,26 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, List<InventoryBalance>>> getExpiredProducts({
     String? warehouseId,
   }) async {
-    if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión'));
-    }
-
-    try {
-      final remoteBalances = await remoteDataSource.getExpiredProducts(
-        warehouseId: warehouseId,
-      );
-      return Right(remoteBalances.map((model) => model.toEntity()).toList());
-    } catch (e) {
-      return Left(
-        ServerFailure('Error al obtener productos vencidos: ${e.toString()}'),
-      );
+    if (await networkInfo.isConnected) {
+      try {
+        final remoteBalances = await remoteDataSource.getExpiredProducts(
+          warehouseId: warehouseId,
+        );
+        await localDataSource.cacheExpiredProducts(
+          remoteBalances.cast<InventoryBalanceModel>(),
+          warehouseId: warehouseId,
+        );
+        return Right(remoteBalances.map((model) => model.toEntity()).toList());
+      } catch (e) {
+        final cached = await localDataSource.getCachedExpiredProducts(warehouseId: warehouseId);
+        if (cached.isNotEmpty) {
+          return Right(cached.map((model) => model.toEntity()).toList());
+        }
+        return Left(ServerFailure('Error al obtener productos vencidos: ${e.toString()}'));
+      }
+    } else {
+      final cached = await localDataSource.getCachedExpiredProducts(warehouseId: warehouseId);
+      return Right(cached.map((model) => model.toEntity()).toList());
     }
   }
 
@@ -745,22 +862,27 @@ class InventoryRepositoryImpl implements InventoryRepository {
     String? warehouseId,
     int? daysThreshold,
   }) async {
-    if (!await networkInfo.isConnected) {
-      return Left(NetworkFailure('Se requiere conexión'));
-    }
-
-    try {
-      final remoteBalances = await remoteDataSource.getNearExpiryProducts(
-        warehouseId: warehouseId,
-        daysThreshold: daysThreshold,
-      );
-      return Right(remoteBalances.map((model) => model.toEntity()).toList());
-    } catch (e) {
-      return Left(
-        ServerFailure(
-          'Error al obtener productos próximos a vencer: ${e.toString()}',
-        ),
-      );
+    if (await networkInfo.isConnected) {
+      try {
+        final remoteBalances = await remoteDataSource.getNearExpiryProducts(
+          warehouseId: warehouseId,
+          daysThreshold: daysThreshold,
+        );
+        await localDataSource.cacheNearExpiryProducts(
+          remoteBalances.cast<InventoryBalanceModel>(),
+          warehouseId: warehouseId,
+        );
+        return Right(remoteBalances.map((model) => model.toEntity()).toList());
+      } catch (e) {
+        final cached = await localDataSource.getCachedNearExpiryProducts(warehouseId: warehouseId);
+        if (cached.isNotEmpty) {
+          return Right(cached.map((model) => model.toEntity()).toList());
+        }
+        return Left(ServerFailure('Error al obtener productos próximos a vencer: ${e.toString()}'));
+      }
+    } else {
+      final cached = await localDataSource.getCachedNearExpiryProducts(warehouseId: warehouseId);
+      return Right(cached.map((model) => model.toEntity()).toList());
     }
   }
 
@@ -983,22 +1105,41 @@ class InventoryRepositoryImpl implements InventoryRepository {
     String? warehouseId,
     DateTime? asOfDate,
   }) async {
-    if (!await networkInfo.isConnected) {
-      return Left(
-        NetworkFailure('Se requiere conexión para obtener valoración'),
-      );
+    if (await networkInfo.isConnected) {
+      try {
+        final valuation = await remoteDataSource.getInventoryValuation(
+          warehouseId: warehouseId,
+          asOfDate: asOfDate,
+        );
+        return Right(valuation);
+      } catch (e) {
+        print('⚠️ Error obteniendo valoración: $e');
+        return _getInventoryValuationFromCache(warehouseId: warehouseId);
+      }
+    } else {
+      return _getInventoryValuationFromCache(warehouseId: warehouseId);
     }
+  }
 
+  Future<Either<Failure, Map<String, double>>> _getInventoryValuationFromCache({String? warehouseId}) async {
     try {
-      final valuation = await remoteDataSource.getInventoryValuation(
-        warehouseId: warehouseId,
-        asOfDate: asOfDate,
-      );
+      final batches = await localDataSource.getCachedBatches();
+      if (batches.isEmpty) return const Right(<String, double>{});
+
+      final valuation = <String, double>{};
+      for (final batch in batches) {
+        if (batch is InventoryBatch) {
+          if (warehouseId != null && batch.warehouseId != warehouseId) continue;
+          if (batch.currentQuantity <= 0) continue;
+          final key = batch.productName;
+          valuation[key] = (valuation[key] ?? 0) + (batch.currentQuantity * batch.unitCost);
+        }
+      }
+      print('✅ Valuación calculada desde ${batches.length} batches en ISAR');
       return Right(valuation);
     } catch (e) {
-      return Left(
-        ServerFailure('Error al obtener valoración: ${e.toString()}'),
-      );
+      print('⚠️ Error calculando valuación desde ISAR: $e');
+      return const Right(<String, double>{});
     }
   }
 
@@ -1006,43 +1147,233 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, KardexReport>> getKardexReport(
     KardexReportParams params,
   ) async {
-    if (!await networkInfo.isConnected) {
-      return Left(
-        NetworkFailure('Se requiere conexión para generar reporte kardex'),
-      );
+    if (await networkInfo.isConnected) {
+      try {
+        final kardexReportModel = await remoteDataSource.getKardexReport(params);
+        return Right(kardexReportModel.toEntity());
+      } catch (e) {
+        print('⚠️ Error generando reporte kardex: $e');
+        return _getKardexReportFromCache(params);
+      }
+    } else {
+      return _getKardexReportFromCache(params);
     }
+  }
 
+  Future<Either<Failure, KardexReport>> _getKardexReportFromCache(KardexReportParams params) async {
     try {
-      final kardexReportModel = await remoteDataSource.getKardexReport(params);
-      return Right(kardexReportModel.toEntity());
-    } catch (e) {
-      return Left(
-        ServerFailure('Error al generar reporte kardex: ${e.toString()}'),
+      // Obtener movimientos del producto en el rango de fechas
+      final movementsResult = await localDataSource.getCachedMovements(
+        InventoryMovementQueryParams(
+          productId: params.productId,
+          warehouseId: params.warehouseId,
+          startDate: params.startDate,
+          endDate: params.endDate,
+          page: 1,
+          limit: 10000,
+        ),
       );
+
+      // Obtener batches para info del producto
+      final batches = await localDataSource.getCachedBatches();
+      final productBatches = batches.whereType<InventoryBatch>()
+          .where((b) => b.productId == params.productId)
+          .toList();
+
+      String productName = '';
+      String productSku = '';
+      if (productBatches.isNotEmpty) {
+        productName = productBatches.first.productName;
+        productSku = productBatches.first.productSku;
+      }
+
+      final movements = movementsResult?.data ?? [];
+      // Ordenar por fecha
+      movements.sort((a, b) => a.movementDate.compareTo(b.movementDate));
+
+      double runningBalance = 0;
+      double runningValue = 0;
+      int totalEntries = 0;
+      int totalExits = 0;
+      double totalPurchases = 0;
+      double totalSales = 0;
+
+      final kardexMovements = <KardexMovement>[];
+      for (final m in movements) {
+        final entity = m.toEntity();
+        final isEntry = entity.type == InventoryMovementType.inbound;
+        final double entryQty = isEntry ? entity.quantity.toDouble() : 0.0;
+        final double exitQty = isEntry ? 0.0 : entity.quantity.toDouble();
+        runningBalance += (isEntry ? entity.quantity : -entity.quantity);
+        final entryCost = entryQty * entity.unitCost;
+        final exitCost = exitQty * entity.unitCost;
+        runningValue = runningBalance * entity.unitCost;
+
+        if (isEntry) {
+          totalEntries++;
+          totalPurchases += entryCost;
+        } else {
+          totalExits++;
+          totalSales += exitCost;
+        }
+
+        kardexMovements.add(KardexMovement(
+          date: entity.movementDate,
+          movementNumber: entity.id,
+          movementType: entity.type.name,
+          description: entity.reason.name,
+          entryQuantity: entryQty,
+          exitQuantity: exitQty,
+          balance: runningBalance.toDouble(),
+          unitCost: entity.unitCost,
+          entryCost: entryCost,
+          exitCost: exitCost,
+          balanceValue: runningValue,
+          createdBy: m.userId ?? '',
+          notes: entity.notes,
+        ));
+      }
+
+      final avgCost = runningBalance > 0 ? runningValue / runningBalance : 0.0;
+
+      print('✅ Kardex calculado desde ${movements.length} movimientos en ISAR');
+      return Right(KardexReport(
+        product: KardexProduct(id: params.productId, name: productName, sku: productSku),
+        period: KardexPeriod(startDate: params.startDate, endDate: params.endDate),
+        initialBalance: const KardexBalance(quantity: 0, value: 0, averageCost: 0),
+        movements: kardexMovements,
+        finalBalance: KardexBalance(quantity: runningBalance, value: runningValue, averageCost: avgCost),
+        summary: KardexSummary(
+          totalEntries: totalEntries,
+          totalExits: totalExits,
+          totalPurchases: totalPurchases,
+          totalSales: totalSales,
+          averageUnitCost: avgCost,
+          totalValue: runningValue,
+        ),
+      ));
+    } catch (e) {
+      print('⚠️ Error calculando kardex desde ISAR: $e');
+      return Right(_emptyKardexReport(params));
     }
+  }
+
+  KardexReport _emptyKardexReport(KardexReportParams params) {
+    return KardexReport(
+      product: KardexProduct(
+        id: params.productId,
+        name: '',
+        sku: '',
+      ),
+      period: KardexPeriod(
+        startDate: params.startDate,
+        endDate: params.endDate,
+      ),
+      initialBalance: const KardexBalance(quantity: 0, value: 0, averageCost: 0),
+      movements: const [],
+      finalBalance: const KardexBalance(quantity: 0, value: 0, averageCost: 0),
+      summary: const KardexSummary(
+        totalEntries: 0,
+        totalExits: 0,
+        totalPurchases: 0,
+        totalSales: 0,
+        averageUnitCost: 0,
+        totalValue: 0,
+      ),
+    );
   }
 
   @override
   Future<Either<Failure, List<Map<String, dynamic>>>> getInventoryAging({
     String? warehouseId,
   }) async {
-    if (!await networkInfo.isConnected) {
-      return Left(
-        NetworkFailure('Se requiere conexión para obtener antigüedad'),
-      );
+    if (await networkInfo.isConnected) {
+      try {
+        final aging = await remoteDataSource.getInventoryAging(
+          warehouseId: warehouseId,
+        );
+        return Right(aging);
+      } catch (e) {
+        print('⚠️ Error obteniendo antigüedad de inventario: $e');
+        return _getInventoryAgingFromCache(warehouseId: warehouseId);
+      }
+    } else {
+      return _getInventoryAgingFromCache(warehouseId: warehouseId);
     }
+  }
 
+  Future<Either<Failure, List<Map<String, dynamic>>>> _getInventoryAgingFromCache({String? warehouseId}) async {
     try {
-      final aging = await remoteDataSource.getInventoryAging(
-        warehouseId: warehouseId,
-      );
-      return Right(aging);
+      final batches = await localDataSource.getCachedBatches();
+      if (batches.isEmpty) return const Right(<Map<String, dynamic>>[]);
+
+      final now = DateTime.now();
+      // Agrupar por producto
+      final productAging = <String, Map<String, dynamic>>{};
+
+      for (final batch in batches) {
+        if (batch is InventoryBatch) {
+          if (warehouseId != null && batch.warehouseId != warehouseId) continue;
+          if (batch.currentQuantity <= 0) continue;
+
+          final ageDays = now.difference(batch.entryDate).inDays;
+          final key = batch.productId;
+          final value = batch.currentQuantity * batch.unitCost;
+
+          if (!productAging.containsKey(key)) {
+            productAging[key] = {
+              'productId': batch.productId,
+              'productName': batch.productName,
+              'productSku': batch.productSku,
+              'totalQuantity': 0,
+              'totalValue': 0.0,
+              'averageAgeDays': 0.0,
+              'oldestBatchDays': 0,
+              'newestBatchDays': ageDays,
+              'batches': <Map<String, dynamic>>[],
+            };
+          }
+
+          final entry = productAging[key]!;
+          entry['totalQuantity'] = (entry['totalQuantity'] as int) + batch.currentQuantity;
+          entry['totalValue'] = (entry['totalValue'] as double) + value;
+          if (ageDays > (entry['oldestBatchDays'] as int)) {
+            entry['oldestBatchDays'] = ageDays;
+          }
+          if (ageDays < (entry['newestBatchDays'] as int)) {
+            entry['newestBatchDays'] = ageDays;
+          }
+          (entry['batches'] as List).add({
+            'batchNumber': batch.batchNumber,
+            'quantity': batch.currentQuantity,
+            'ageDays': ageDays,
+            'value': value,
+            'entryDate': batch.entryDate.toIso8601String(),
+          });
+        }
+      }
+
+      // Calcular promedio de antigüedad ponderado por cantidad
+      for (final entry in productAging.values) {
+        final batchList = entry['batches'] as List;
+        final totalQty = entry['totalQuantity'] as int;
+        if (totalQty > 0) {
+          double weightedAge = 0;
+          for (final b in batchList) {
+            weightedAge += (b['ageDays'] as int) * (b['quantity'] as int);
+          }
+          entry['averageAgeDays'] = weightedAge / totalQty;
+        }
+      }
+
+      final result = productAging.values.toList()
+        ..sort((a, b) => (b['averageAgeDays'] as double).compareTo(a['averageAgeDays'] as double));
+
+      print('✅ Aging calculado desde ${batches.length} batches en ISAR (${result.length} productos)');
+      return Right(result);
     } catch (e) {
-      return Left(
-        ServerFailure(
-          'Error al obtener antigüedad de inventario: ${e.toString()}',
-        ),
-      );
+      print('⚠️ Error calculando aging desde ISAR: $e');
+      return const Right(<Map<String, dynamic>>[]);
     }
   }
 
@@ -1050,8 +1381,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<Failure, core.PaginatedResult<InventoryBatch>>> getBatches(
     InventoryBatchQueryParams params,
   ) async {
-    try {
-      if (await networkInfo.isConnected) {
+    if (await networkInfo.isConnected) {
+      try {
         final batchMaps = await remoteDataSource.getBatches(
           productId: params.productId,
           warehouseId: params.warehouseId,
@@ -1070,6 +1401,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
             batchMaps
                 .map((map) => InventoryBatchModel.fromJson(map).toEntity())
                 .toList();
+
+        // Cache the batches
+        try {
+          await localDataSource.cacheBatches(
+            batches.map((e) => InventoryBatchModel.fromEntity(e)).toList(),
+          );
+        } catch (e) {
+          AppLogger.w(' Error caching batches: $e');
+        }
 
         // Apply frontend sorting as fallback if backend doesn't sort
         _sortBatchesIfNeeded(batches, params.sortBy, params.sortOrder);
@@ -1095,26 +1435,50 @@ class InventoryRepositoryImpl implements InventoryRepository {
         return Right(
           core.PaginatedResult<InventoryBatch>(data: batches, meta: meta),
         );
-      } else {
-        return Left(NetworkFailure('Se requiere conexión para obtener lotes'));
+      } on ServerException catch (e) {
+        AppLogger.w(' ServerException en getBatches: ${e.message} - Usando cache...');
+        return _getBatchesFromCache(params);
+      } on ConnectionException catch (e) {
+        AppLogger.w(' ConnectionException en getBatches: ${e.message} - Usando cache...');
+        return _getBatchesFromCache(params);
+      } catch (e) {
+        AppLogger.e(' Error inesperado en getBatches: $e - Usando cache...');
+        return _getBatchesFromCache(params);
       }
-    } catch (e) {
-      return Left(ServerFailure('Error al obtener lotes: ${e.toString()}'));
+    } else {
+      // Sin conexión, usar cache
+      return _getBatchesFromCache(params);
     }
   }
 
   @override
   Future<Either<Failure, InventoryBatch>> getBatchById(String id) async {
-    try {
-      if (await networkInfo.isConnected) {
+    if (await networkInfo.isConnected) {
+      try {
         final batchMap = await remoteDataSource.getBatchById(id);
         final batch = InventoryBatchModel.fromJson(batchMap).toEntity();
+
+        // Cache the batch
+        try {
+          await localDataSource.cacheBatch(InventoryBatchModel.fromEntity(batch));
+        } catch (e) {
+          AppLogger.w(' Error caching batch: $e');
+        }
+
         return Right(batch);
-      } else {
-        return Left(NetworkFailure('Se requiere conexión para obtener lote'));
+      } on ServerException catch (e) {
+        AppLogger.w(' ServerException en getBatchById: ${e.message} - Usando cache...');
+        return _getBatchFromCache(id);
+      } on ConnectionException catch (e) {
+        AppLogger.w(' ConnectionException en getBatchById: ${e.message} - Usando cache...');
+        return _getBatchFromCache(id);
+      } catch (e) {
+        AppLogger.e(' Error inesperado en getBatchById: $e - Usando cache...');
+        return _getBatchFromCache(id);
       }
-    } catch (e) {
-      return Left(ServerFailure('Error al obtener lote: ${e.toString()}'));
+    } else {
+      // Sin conexión, usar cache
+      return _getBatchFromCache(id);
     }
   }
 
@@ -1126,21 +1490,26 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final warehouses =
             warehouseModels.map((model) => model.toEntity()).toList();
 
-        // Cache en local storage si es necesario
-        // await localDataSource.cacheWarehouses(warehouseModels);
+        // Cache para uso offline
+        await localDataSource.cacheWarehouses(warehouseModels);
 
         return Right(warehouses);
       } else {
-        // Intentar obtener desde cache local si no hay conexión
-        // final cachedWarehouses = await localDataSource.getCachedWarehouses();
-        // if (cachedWarehouses.isNotEmpty) {
-        //   return Right(cachedWarehouses.map((model) => model.toEntity()).toList());
-        // }
-        return Left(
-          NetworkFailure('Se requiere conexión para obtener almacenes'),
-        );
+        // Obtener desde cache local
+        final cachedWarehouses = await localDataSource.getCachedWarehouses();
+        if (cachedWarehouses.isNotEmpty) {
+          return Right(cachedWarehouses.map((model) => model.toEntity()).toList());
+        }
+        return const Right(<Warehouse>[]);
       }
     } catch (e) {
+      // En caso de error, intentar cache
+      try {
+        final cachedWarehouses = await localDataSource.getCachedWarehouses();
+        if (cachedWarehouses.isNotEmpty) {
+          return Right(cachedWarehouses.map((model) => model.toEntity()).toList());
+        }
+      } catch (_) {}
       return Left(ServerFailure('Error al obtener almacenes: ${e.toString()}'));
     }
   }
@@ -1208,11 +1577,23 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final warehouseModel = await remoteDataSource.getWarehouseById(id);
         return Right(warehouseModel.toEntity());
       } else {
+        // Buscar en cache
+        final cached = await localDataSource.getCachedWarehouseById(id);
+        if (cached != null) {
+          return Right(cached.toEntity());
+        }
         return Left(
-          NetworkFailure('Se requiere conexión para obtener almacén'),
+          CacheFailure('Almacén no encontrado en cache local'),
         );
       }
     } catch (e) {
+      // Intentar cache en caso de error
+      try {
+        final cached = await localDataSource.getCachedWarehouseById(id);
+        if (cached != null) {
+          return Right(cached.toEntity());
+        }
+      } catch (_) {}
       return Left(ServerFailure('Error al obtener almacén: ${e.toString()}'));
     }
   }
@@ -1230,9 +1611,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
         );
         return Right(exists);
       } else {
-        return Left(
-          NetworkFailure('Se requiere conexión para verificar código'),
+        // Verificar en cache local
+        final cachedWarehouses = await localDataSource.getCachedWarehouses();
+        final exists = cachedWarehouses.any(
+          (w) => w.code == code && (excludeId == null || w.id != excludeId),
         );
+        return Right(exists);
       }
     } catch (e) {
       return Left(ServerFailure('Error al verificar código: ${e.toString()}'));
@@ -1250,9 +1634,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
         );
         return Right(hasMovements);
       } else {
-        return Left(
-          NetworkFailure('Se requiere conexión para verificar movimientos'),
-        );
+        // Asumir que tiene movimientos cuando no hay conexión (más seguro)
+        return const Right(true);
       }
     } catch (e) {
       return Left(
@@ -1315,9 +1698,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final count = await remoteDataSource.getActiveWarehousesCount();
         return Right(count);
       } else {
-        return Left(
-          NetworkFailure('Se requiere conexión para contar almacenes'),
-        );
+        // Contar desde cache
+        final cachedWarehouses = await localDataSource.getCachedWarehouses();
+        final activeCount = cachedWarehouses.where((w) => w.isActive).length;
+        return Right(activeCount);
       }
     } catch (e) {
       return Left(ServerFailure('Error al contar almacenes: ${e.toString()}'));
@@ -1333,11 +1717,14 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final stats = await remoteDataSource.getWarehouseStats(warehouseId);
         return Right(stats);
       } else {
-        return Left(
-          NetworkFailure(
-            'Se requiere conexión para obtener estadísticas del almacén',
-          ),
-        );
+        // Devolver estadísticas vacías cuando no hay conexión
+        return const Right(WarehouseStats(
+          totalProducts: 0,
+          totalValue: 0,
+          totalQuantity: 0,
+          lowStockProducts: 0,
+          outOfStockProducts: 0,
+        ));
       }
     } catch (e) {
       return Left(
@@ -1349,6 +1736,87 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   // ==================== PRIVATE HELPER METHODS ====================
+
+  /// Cachear batches en ISAR en background para soporte offline de balances.
+  /// Usa el patrón exacto de FullSyncService (putAllByServerId directo).
+  /// Throttled: máximo una vez cada 5 minutos.
+  void _ensureBatchesCachedInBackground() {
+    // Throttle: no cachear más de una vez cada 5 minutos
+    if (_isCachingBatches) {
+      AppLogger.d('📦 [BATCH CACHE] Ya está cacheando, skip');
+      return;
+    }
+    if (_lastBatchCacheTime != null &&
+        DateTime.now().difference(_lastBatchCacheTime!) < const Duration(minutes: 5)) {
+      AppLogger.d('📦 [BATCH CACHE] Throttled (último cache: ${_lastBatchCacheTime})');
+      return;
+    }
+
+    AppLogger.i('📦 [BATCH CACHE] Iniciando cache de batches en background...');
+    _isCachingBatches = true;
+    _fetchAndCacheAllBatches().then((totalCached) {
+      // Solo throttlear si realmente cacheamos batches
+      // Si cacheó 0, permitir reintentar pronto
+      if (totalCached > 0) {
+        _lastBatchCacheTime = DateTime.now();
+      }
+      _isCachingBatches = false;
+    }).catchError((e, stackTrace) {
+      AppLogger.e('📦 [BATCH CACHE] ERROR cacheando batches: $e');
+      AppLogger.e('📦 [BATCH CACHE] StackTrace: $stackTrace');
+      _isCachingBatches = false;
+    });
+  }
+
+  /// Obtiene todos los batches del servidor y los guarda DIRECTO en ISAR.
+  /// Usa el mismo patrón que FullSyncService._syncInventoryBatchesWithDS()
+  /// que está probado y funciona correctamente.
+  /// Retorna la cantidad de batches cacheados.
+  Future<int> _fetchAndCacheAllBatches() async {
+    final isar = Get.find<IsarDatabase>().database;
+    int page = 1;
+    int totalCached = 0;
+
+    while (true) {
+      AppLogger.d('📦 [BATCH CACHE] Fetching page $page...');
+
+      List<Map<String, dynamic>> batchMaps;
+      try {
+        batchMaps = await remoteDataSource.getBatches(
+          page: page,
+          limit: 100,
+        );
+      } catch (e) {
+        AppLogger.e('📦 [BATCH CACHE] Error fetching batches page $page: $e');
+        break;
+      }
+
+      AppLogger.d('📦 [BATCH CACHE] Page $page: ${batchMaps.length} batches recibidos');
+      if (batchMaps.isEmpty) break;
+
+      // Patrón directo de FullSyncService: fromJson → toEntity → IsarBatch → putAllByServerId
+      try {
+        await isar.writeTxn(() async {
+          final isarModels = batchMaps.map((map) {
+            final entity = InventoryBatchModel.fromJson(map).toEntity();
+            return IsarInventoryBatch.fromEntity(entity);
+          }).toList();
+          await isar.isarInventoryBatchs.putAllByServerId(isarModels);
+        });
+        totalCached += batchMaps.length;
+        AppLogger.d('📦 [BATCH CACHE] Page $page: ${batchMaps.length} batches escritos en ISAR');
+      } catch (e) {
+        AppLogger.e('📦 [BATCH CACHE] Error escribiendo page $page en ISAR: $e');
+        break;
+      }
+
+      if (batchMaps.length < 100) break;
+      page++;
+    }
+
+    AppLogger.i('📦 [BATCH CACHE] COMPLETADO: $totalCached batches cacheados en ISAR para offline');
+    return totalCached;
+  }
 
   /// Obtener movimientos desde cache local
   Future<Either<Failure, core.PaginatedResult<InventoryMovement>>> _getMovementsFromCache(
@@ -1365,11 +1833,20 @@ class InventoryRepositoryImpl implements InventoryRepository {
           ),
         );
       }
-      return const Left(CacheFailure('Datos no encontrados en cache'));
-    } on CacheException catch (e) {
-      return Left(CacheFailure(e.message));
-    } catch (e) {
-      return Left(UnknownFailure('Error al obtener movimientos desde cache: $e'));
+      // Retornar lista vacía en vez de error cuando no hay cache
+      return Right(
+        core.PaginatedResult<InventoryMovement>(
+          data: <InventoryMovement>[],
+          meta: null,
+        ),
+      );
+    } catch (_) {
+      return Right(
+        core.PaginatedResult<InventoryMovement>(
+          data: <InventoryMovement>[],
+          meta: null,
+        ),
+      );
     }
   }
 
@@ -1395,10 +1872,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
     try {
       final cachedMovements = await localDataSource.searchCachedMovements(params);
       return Right(cachedMovements.map((model) => model.toEntity()).toList());
-    } on CacheException catch (e) {
-      return Left(CacheFailure(e.message));
-    } catch (e) {
-      return Left(UnknownFailure('Error al buscar movimientos desde cache: $e'));
+    } catch (_) {
+      return const Right(<InventoryMovement>[]);
     }
   }
 
@@ -1416,11 +1891,20 @@ class InventoryRepositoryImpl implements InventoryRepository {
           ),
         );
       }
-      return const Left(CacheFailure('Datos no encontrados en cache'));
-    } on CacheException catch (e) {
-      return Left(CacheFailure(e.message));
-    } catch (e) {
-      return Left(UnknownFailure('Error al obtener balances desde cache: $e'));
+      // Retornar lista vacía en vez de error cuando no hay cache
+      return Right(
+        core.PaginatedResult<InventoryBalance>(
+          data: <InventoryBalance>[],
+          meta: null,
+        ),
+      );
+    } catch (_) {
+      return Right(
+        core.PaginatedResult<InventoryBalance>(
+          data: <InventoryBalance>[],
+          meta: null,
+        ),
+      );
     }
   }
 
@@ -1454,10 +1938,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
         warehouseId: warehouseId,
       );
       return Right(cachedBalances.map((model) => model.toEntity()).toList());
-    } on CacheException catch (e) {
-      return Left(CacheFailure(e.message));
-    } catch (e) {
-      return Left(UnknownFailure('Error al obtener productos con bajo stock desde cache: $e'));
+    } catch (_) {
+      return const Right(<InventoryBalance>[]);
     }
   }
 
@@ -1470,11 +1952,22 @@ class InventoryRepositoryImpl implements InventoryRepository {
       if (cachedStats != null) {
         return Right(cachedStats.toEntity());
       }
-      return const Left(CacheFailure('Datos no encontrados en cache'));
-    } on CacheException catch (e) {
-      return Left(CacheFailure(e.message));
-    } catch (e) {
-      return Left(UnknownFailure('Error al obtener estadísticas desde cache: $e'));
+      // Retornar stats vacías en vez de error cuando no hay cache
+      return const Right(InventoryStats(
+        totalProducts: 0,
+        totalBatches: 0,
+        totalMovements: 0,
+        totalValue: 0,
+        movementsByType: {},
+      ));
+    } catch (_) {
+      return const Right(InventoryStats(
+        totalProducts: 0,
+        totalBatches: 0,
+        totalMovements: 0,
+        totalValue: 0,
+        movementsByType: {},
+      ));
     }
   }
 
@@ -1545,9 +2038,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
           !notes.contains(query);
     });
 
-    print(
-      '🔍 SEARCH FALLBACK: Filtrado ${batches.length} lotes con query: "$searchQuery"',
-    );
+    AppLogger.d('SEARCH FALLBACK: Filtrado ${batches.length} lotes con query: "$searchQuery"');
   }
 
   void _applySpecialFilters(
@@ -1556,23 +2047,113 @@ class InventoryRepositoryImpl implements InventoryRepository {
   ) {
     if (params.activeOnly == true) {
       batches.removeWhere((batch) => !batch.isActive);
-      print(
-        '🔍 FILTER FALLBACK: Filtro Solo Activos aplicado - ${batches.length} lotes',
-      );
+      AppLogger.d('FILTER FALLBACK: Filtro Solo Activos aplicado - ${batches.length} lotes');
     }
 
     if (params.expiredOnly == true) {
       batches.removeWhere((batch) => !batch.isExpiredByDate);
-      print(
-        '🔍 FILTER FALLBACK: Filtro Solo Vencidos aplicado - ${batches.length} lotes',
-      );
+      AppLogger.d('FILTER FALLBACK: Filtro Solo Vencidos aplicado - ${batches.length} lotes');
     }
 
     if (params.nearExpiryOnly == true) {
       batches.removeWhere((batch) => !batch.isNearExpiry);
-      print(
-        '🔍 FILTER FALLBACK: Filtro Por Vencer aplicado - ${batches.length} lotes',
+      AppLogger.d('FILTER FALLBACK: Filtro Por Vencer aplicado - ${batches.length} lotes');
+    }
+  }
+
+  /// Obtener batches desde cache (usado como fallback cuando falla el servidor)
+  Future<Either<Failure, core.PaginatedResult<InventoryBatch>>> _getBatchesFromCache(
+    InventoryBatchQueryParams params,
+  ) async {
+    AppLogger.d(' Obteniendo batches desde cache local');
+    try {
+      final cachedBatchModels = await localDataSource.getCachedBatches();
+
+      if (cachedBatchModels.isEmpty) {
+        return Right(
+          core.PaginatedResult<InventoryBatch>(data: <InventoryBatch>[], meta: null),
+        );
+      }
+
+      // ISAR devuelve InventoryBatch (entities), SecureStorage devuelve InventoryBatchModel
+      var batches = cachedBatchModels.map((item) {
+        if (item is InventoryBatch) return item;
+        if (item is InventoryBatchModel) return item.toEntity();
+        throw CacheException('Tipo inesperado en cache de batches: ${item.runtimeType}');
+      }).toList();
+
+      // Apply filters
+      if (params.productId != null) {
+        batches = batches.where((b) => b.productId == params.productId).toList();
+      }
+
+      if (params.warehouseId != null) {
+        batches = batches.where((b) => b.warehouseId == params.warehouseId).toList();
+      }
+
+      if (params.status != null) {
+        batches = batches.where((b) => b.status == params.status).toList();
+      }
+
+      if (params.search != null && params.search!.isNotEmpty) {
+        _filterBatchesBySearch(batches, params.search!);
+      }
+
+      _applySpecialFilters(batches, params);
+
+      // Apply sorting
+      _sortBatchesIfNeeded(batches, params.sortBy, params.sortOrder);
+
+      // Apply pagination
+      final totalItems = batches.length;
+      final offset = (params.page - 1) * params.limit;
+      final paginatedBatches = batches.skip(offset).take(params.limit).toList();
+
+      final meta = PaginationMeta(
+        page: params.page,
+        limit: params.limit,
+        totalItems: totalItems,
+        totalPages: (totalItems / params.limit).ceil(),
+        hasNextPage: offset + params.limit < totalItems,
+        hasPreviousPage: params.page > 1,
       );
+
+      AppLogger.i(' Obtenidos ${paginatedBatches.length} batches desde cache');
+      return Right(
+        core.PaginatedResult<InventoryBatch>(data: paginatedBatches, meta: meta),
+      );
+    } catch (e) {
+      AppLogger.e(' Error obteniendo batches desde cache: $e');
+      return Right(
+        core.PaginatedResult<InventoryBatch>(data: <InventoryBatch>[], meta: null),
+      );
+    }
+  }
+
+  /// Obtener batch por ID desde cache (usado como fallback cuando falla el servidor)
+  Future<Either<Failure, InventoryBatch>> _getBatchFromCache(String id) async {
+    AppLogger.d(' Obteniendo batch $id desde cache local');
+    try {
+      final cachedBatchModel = await localDataSource.getCachedBatch(id);
+
+      if (cachedBatchModel == null) {
+        return Left(CacheFailure('Batch $id no encontrado en cache'));
+      }
+
+      // ISAR devuelve InventoryBatch (entity), SecureStorage devuelve InventoryBatchModel
+      final InventoryBatch batch;
+      if (cachedBatchModel is InventoryBatch) {
+        batch = cachedBatchModel;
+      } else if (cachedBatchModel is InventoryBatchModel) {
+        batch = cachedBatchModel.toEntity();
+      } else {
+        return Left(CacheFailure('Tipo inesperado en cache: ${cachedBatchModel.runtimeType}'));
+      }
+      AppLogger.i(' Batch obtenido desde cache');
+      return Right(batch);
+    } catch (e) {
+      AppLogger.e(' Error obteniendo batch desde cache: $e');
+      return Left(CacheFailure('Error obteniendo batch desde cache: $e'));
     }
   }
 

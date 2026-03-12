@@ -777,7 +777,7 @@ class ProductFormController extends GetxController {
 
   Future<void> _createProduct() async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
-    if (!SubscriptionValidationService.canCreateProduct()) {
+    if (!await SubscriptionValidationService.canCreateProductAsync()) {
       print(
         '🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO creación de producto',
       );
@@ -886,7 +886,7 @@ class ProductFormController extends GetxController {
   Future<void> _updateProduct() async {
     try {
       // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
-      if (!SubscriptionValidationService.canUpdateProduct()) {
+      if (!await SubscriptionValidationService.canUpdateProductAsync()) {
         print(
           '🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO actualización de producto',
         );

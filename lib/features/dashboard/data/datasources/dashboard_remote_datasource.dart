@@ -665,10 +665,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       final queryParams = <String, dynamic>{};
 
       if (startDate != null) {
-        queryParams['startDate'] = startDate.toIso8601String();
+        queryParams['startDate'] = AppFormatters.formatDateForApi(startDate);
       }
       if (endDate != null) {
-        queryParams['endDate'] = endDate.toIso8601String();
+        queryParams['endDate'] = AppFormatters.formatDateForApi(endDate);
       }
       if (warehouseId != null) {
         queryParams['warehouseId'] = warehouseId;

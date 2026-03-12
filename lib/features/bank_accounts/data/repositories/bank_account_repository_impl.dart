@@ -42,17 +42,31 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
           includeInactive: includeInactive,
         );
 
-        // ✅ Actualizar ISAR con los datos del servidor
+        // ✅ Actualizar ISAR con los datos del servidor (upsert por serverId)
         try {
           final isar = IsarDatabase.instance.database;
-          final isarAccounts = accounts
-              .map((model) => IsarBankAccount.fromEntity(model.toEntity()))
-              .toList();
 
           await isar.writeTxn(() async {
-            await isar.isarBankAccounts.putAll(isarAccounts);
+            for (final model in accounts) {
+              final entity = model.toEntity();
+              // Buscar registro existente por serverId
+              final existing = await isar.isarBankAccounts
+                  .filter()
+                  .serverIdEqualTo(entity.id)
+                  .findFirst();
+
+              if (existing != null) {
+                // Actualizar el registro existente manteniendo el id interno
+                existing.updateFromEntity(entity);
+                await isar.isarBankAccounts.put(existing);
+              } else {
+                // Crear nuevo registro
+                final newAccount = IsarBankAccount.fromEntity(entity);
+                await isar.isarBankAccounts.put(newAccount);
+              }
+            }
           });
-          print('✅ BankAccounts actualizadas en ISAR (${isarAccounts.length})');
+          print('✅ BankAccounts actualizadas en ISAR (${accounts.length})');
         } catch (e) {
           print('⚠️ Error actualizando ISAR (no crítico): $e');
         }

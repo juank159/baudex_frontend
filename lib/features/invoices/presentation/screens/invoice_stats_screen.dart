@@ -10,6 +10,7 @@ import '../controllers/invoice_stats_controller.dart';
 import '../controllers/invoice_list_controller.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/services/invoice_stats_calculator.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class InvoiceStatsScreen extends StatelessWidget {
   const InvoiceStatsScreen({super.key});
@@ -85,6 +86,7 @@ class InvoiceStatsScreen extends StatelessWidget {
         ],
       ),
       actions: [
+        const SyncStatusIcon(),
         Container(
           margin: const EdgeInsets.only(right: 4),
           decoration: BoxDecoration(

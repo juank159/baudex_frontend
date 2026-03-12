@@ -28,9 +28,6 @@ import 'package:baudex_desktop/features/inventory/domain/repositories/inventory_
 // Credit Note repository
 import 'package:baudex_desktop/features/credit_notes/domain/repositories/credit_note_repository.dart';
 
-// Customer Credit repository
-import 'package:baudex_desktop/features/customer_credits/domain/repositories/customer_credit_repository.dart';
-
 /// Mock repository classes using mocktail
 
 class MockProductRepository extends Mock implements ProductRepository {}
@@ -51,6 +48,3 @@ class MockPurchaseOrderRepository extends Mock
 class MockInventoryRepository extends Mock implements InventoryRepository {}
 
 class MockCreditNoteRepository extends Mock implements CreditNoteRepository {}
-
-class MockCustomerCreditRepository extends Mock
-    implements CustomerCreditRepository {}

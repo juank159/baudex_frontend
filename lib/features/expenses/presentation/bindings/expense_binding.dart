@@ -49,10 +49,13 @@ class ExpenseBinding extends Bindings {
       fenix: true,
     );
 
-    Get.lazyPut<ExpenseLocalDataSource>(
-      () => ExpenseLocalDataSourceImpl(secureStorage: Get.find<SecureStorageService>()),
-      fenix: true,
-    );
+    // Solo registrar si no existe (app_binding ya registra ISAR implementation)
+    if (!Get.isRegistered<ExpenseLocalDataSource>()) {
+      Get.lazyPut<ExpenseLocalDataSource>(
+        () => ExpenseLocalDataSourceImpl(secureStorage: Get.find<SecureStorageService>()),
+        fenix: true,
+      );
+    }
 
     // ==================== REPOSITORY ====================
 

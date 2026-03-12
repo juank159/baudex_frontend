@@ -53,12 +53,12 @@ class DashboardBinding extends Bindings {
     );
 
     Get.lazyPut(
-      () => GetNotificationsUseCase(Get.find<DashboardRepository>()),
+      () => GetDashboardNotificationsUseCase(Get.find<DashboardRepository>()),
       fenix: true,
     );
 
     Get.lazyPut(
-      () => MarkNotificationAsReadUseCase(Get.find<DashboardRepository>()),
+      () => MarkDashboardNotificationAsReadUseCase(Get.find<DashboardRepository>()),
       fenix: true,
     );
 
@@ -77,9 +77,9 @@ class DashboardBinding extends Bindings {
       () => DashboardController(
         getDashboardStatsUseCase: Get.find<GetDashboardStatsUseCase>(),
         getRecentActivityUseCase: Get.find<GetRecentActivityUseCase>(),
-        getNotificationsUseCase: Get.find<GetNotificationsUseCase>(),
+        getNotificationsUseCase: Get.find<GetDashboardNotificationsUseCase>(),
         markNotificationAsReadUseCase:
-            Get.find<MarkNotificationAsReadUseCase>(),
+            Get.find<MarkDashboardNotificationAsReadUseCase>(),
         getUnreadNotificationsCountUseCase:
             Get.find<GetUnreadNotificationsCountUseCase>(),
         getProfitabilityStatsUseCase: Get.find<GetProfitabilityStatsUseCase>(),

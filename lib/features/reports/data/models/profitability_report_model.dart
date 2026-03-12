@@ -70,6 +70,26 @@ class ProfitabilityReportModel {
       periodEnd: periodEnd,
     );
   }
+
+  factory ProfitabilityReportModel.fromDomain(ProfitabilityReport entity) {
+    return ProfitabilityReportModel(
+      productId: entity.productId,
+      productName: entity.productName,
+      productSku: entity.productSku,
+      categoryId: entity.categoryId,
+      categoryName: entity.categoryName,
+      periodStart: entity.periodStart,
+      periodEnd: entity.periodEnd,
+      totalRevenue: entity.totalRevenue,
+      totalCost: entity.totalCost,
+      grossProfit: entity.grossProfit,
+      grossMarginPercentage: entity.profitMargin,
+      unitsSold: entity.quantitySold,
+      averageSellingPrice: entity.averageSellingPrice,
+      averageCost: entity.averageCostPrice,
+      rotationRate: 0,
+    );
+  }
 }
 
 @JsonSerializable()

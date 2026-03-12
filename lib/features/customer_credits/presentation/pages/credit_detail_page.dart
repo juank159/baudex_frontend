@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../data/models/customer_credit_model.dart';
 import '../../domain/entities/customer_credit.dart';
@@ -171,6 +172,7 @@ class _CreditDetailPageState extends State<CreditDetailPage>
         ),
       ),
       actions: [
+        const SyncStatusIcon(),
         Obx(() {
           final credit = _controller.selectedCredit.value;
           if (credit == null || !credit.canReceivePayment) {

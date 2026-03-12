@@ -15,6 +15,8 @@ import '../widgets/invoice_skeleton_widget.dart'; // ✅ Skeleton loading para f
 import '../../domain/entities/invoice.dart';
 import '../../domain/usecases/get_invoice_stats_usecase.dart';
 import '../../domain/usecases/get_overdue_invoices_usecase.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
+import '../../../../app/core/navigation/app_route_observer.dart';
 
 /// Helper para asegurar que InvoiceStatsController esté registrado
 void _ensureStatsControllerRegistered() {
@@ -49,7 +51,7 @@ class InvoiceListScreen extends StatefulWidget {
 }
 
 class _InvoiceListScreenState extends State<InvoiceListScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
   InvoiceListController? _controller;
 
   // ✅ SOLUCIÓN: ScrollController manejado por el StatefulWidget
@@ -67,7 +69,18 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Suscribirse al RouteObserver para detectar navegación
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     // ✅ CRÍTICO: Disponer el ScrollController antes de cerrar
     _scrollController.dispose();
     // ✅ AUTO-REFRESH: Remover observer
@@ -75,23 +88,20 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
     super.dispose();
   }
 
+  /// Se llama cuando una ruta que estaba encima se cierra y esta pantalla vuelve a ser visible
+  @override
+  void didPopNext() {
+    super.didPopNext();
+    // Refrescar datos automáticamente al regresar a esta pantalla
+    _controller?.refreshAllData();
+  }
+
   /// ✅ AUTO-REFRESH: Detectar cuando la app/pantalla vuelve a primer plano
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // Solo verificar refresh, NO recrear ScrollController agresivamente
       _controller?.checkAndRefreshIfNeeded();
-    }
-  }
-
-  /// ✅ AUTO-REFRESH: Detectar cuando volvemos a esta ruta específica
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Solo verificar refresh al volver, NO recrear ScrollController
-    if (mounted && _controller != null) {
-      _controller!.checkAndRefreshIfNeeded();
     }
   }
 
@@ -103,6 +113,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
       });
       // ✅ Configurar listener de scroll para paginación
       _setupScrollListener(controller);
+      // ✅ Refrescar datos al abrir la pantalla (funciona online y offline via ISAR)
+      controller.refreshAllData();
     }
   }
 
@@ -244,6 +256,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
         ),
       ),
       actions: [
+        const SyncStatusIcon(),
         if (ResponsiveHelper.isMobile(context))
           IconButton(
             icon: const Icon(Icons.search, color: Colors.white),

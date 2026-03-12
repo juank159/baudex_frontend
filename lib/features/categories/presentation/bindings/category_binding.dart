@@ -502,6 +502,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../../data/datasources/category_local_datasource.dart';
 import '../../data/datasources/category_remote_datasource.dart';
 import '../../data/repositories/category_repository_impl.dart';
@@ -637,7 +638,7 @@ En main.dart debería ser:
           remoteDataSource: Get.find<CategoryRemoteDataSource>(),
           localDataSource: Get.find<CategoryLocalDataSource>(),
           networkInfo: Get.find<NetworkInfo>(),
-          database: IsarDatabase.instance.database,
+          database: IsarDatabase.instance,
         ),
         fenix: true,
       );
@@ -898,18 +899,12 @@ En main.dart debería ser:
 class CategoryBindingHelper {
   /// Verificar si todas las dependencias están registradas
   static bool get isFullyInitialized {
-    final requiredTypes = [
-      CategoryRepository,
-      CategoriesController,
-      CategoryFormController,
-      CategoryDetailController,
-      CategoryTreeController,
-      GetCategoryByIdUseCase, // ✅ AGREGADO para verificación
-    ];
-
-    return requiredTypes.every(
-      (type) => Get.isRegistered(tag: type.toString()),
-    );
+    return Get.isRegistered<CategoryRepository>() &&
+        Get.isRegistered<CategoriesController>() &&
+        Get.isRegistered<CategoryFormController>() &&
+        Get.isRegistered<CategoryDetailController>() &&
+        Get.isRegistered<CategoryTreeController>() &&
+        Get.isRegistered<GetCategoryByIdUseCase>();
   }
 
   /// Imprimir resumen del registro de dependencias

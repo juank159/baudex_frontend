@@ -223,6 +223,16 @@ class CreditStatsModel extends CreditStats {
     required super.countPending,
     required super.countOverdue,
     required super.totalPaid,
+    super.directPending,
+    super.directOverdue,
+    super.directPaid,
+    super.directCountPending,
+    super.directCountOverdue,
+    super.invoicePending,
+    super.invoiceOverdue,
+    super.invoicePaid,
+    super.invoiceCountPending,
+    super.invoiceCountOverdue,
   });
 
   factory CreditStatsModel.fromJson(Map<String, dynamic> json) {
@@ -233,6 +243,17 @@ class CreditStatsModel extends CreditStats {
       countPending: _parseInt(json['countPending'] ?? json['count_pending']),
       countOverdue: _parseInt(json['countOverdue'] ?? json['count_overdue']),
       totalPaid: _parseDouble(json['totalPaid'] ?? json['total_paid']),
+      // Desglose por tipo
+      directPending: _parseDouble(json['directPending'] ?? json['direct_pending']),
+      directOverdue: _parseDouble(json['directOverdue'] ?? json['direct_overdue']),
+      directPaid: _parseDouble(json['directPaid'] ?? json['direct_paid']),
+      directCountPending: _parseInt(json['directCountPending'] ?? json['direct_count_pending']),
+      directCountOverdue: _parseInt(json['directCountOverdue'] ?? json['direct_count_overdue']),
+      invoicePending: _parseDouble(json['invoicePending'] ?? json['invoice_pending']),
+      invoiceOverdue: _parseDouble(json['invoiceOverdue'] ?? json['invoice_overdue']),
+      invoicePaid: _parseDouble(json['invoicePaid'] ?? json['invoice_paid']),
+      invoiceCountPending: _parseInt(json['invoiceCountPending'] ?? json['invoice_count_pending']),
+      invoiceCountOverdue: _parseInt(json['invoiceCountOverdue'] ?? json['invoice_count_overdue']),
     );
   }
 

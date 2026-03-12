@@ -21,6 +21,7 @@ import '../widgets/use_balance_dialog.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
+import '../../../customer_credits/presentation/controllers/customer_credit_controller.dart';
 import 'package:share_plus/share_plus.dart';
 
 class InvoiceDetailController extends GetxController {
@@ -800,11 +801,11 @@ class InvoiceDetailController extends GetxController {
     }
 
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
-    if (!SubscriptionValidationService.canAddPayment()) {
+    if (!await SubscriptionValidationService.canAddPaymentAsync()) {
       print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO agregar pago');
       return; // Bloquear operación
     }
-    
+
     print('✅ FRONTEND VALIDATION: Suscripción válida - CONTINUANDO con agregar pago');
 
     if (!canAddPayment) {
@@ -899,7 +900,7 @@ class InvoiceDetailController extends GetxController {
     bool createCreditForRemaining = false,
   }) async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
-    if (!SubscriptionValidationService.canAddPayment()) {
+    if (!await SubscriptionValidationService.canAddPaymentAsync()) {
       print('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO pagos múltiples');
       return;
     }
@@ -1260,6 +1261,13 @@ class InvoiceDetailController extends GetxController {
 
           // Actualizar con datos frescos
           _updateInvoiceAndRefreshUI(freshInvoice);
+
+          // ✅ Refrescar créditos si el controller está registrado
+          try {
+            if (Get.isRegistered<CustomerCreditController>()) {
+              Get.find<CustomerCreditController>().loadCredits();
+            }
+          } catch (_) {}
         },
       );
     } catch (e) {

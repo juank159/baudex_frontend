@@ -8,6 +8,7 @@ import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/warehouses_controller.dart';
 import '../widgets/warehouse_card_widget.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class WarehousesScreen extends StatefulWidget {
   const WarehousesScreen({super.key});
@@ -609,6 +610,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
 
   List<Widget> _buildAppBarActions(BuildContext context) {
     return [
+      const SyncStatusIcon(),
       // Botón de filtros principales
       Obx(() {
         final hasActiveFilters = controller.hasActiveFilters;

@@ -16,6 +16,7 @@ import '../../../../core/storage/tenant_storage.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 // ✅ IMPORT PARA LIMPIAR CACHE DE CATEGORÍAS AL LOGOUT
 import '../../../products/presentation/controllers/product_form_controller.dart';
+import '../../../../app/data/local/full_sync_service.dart';
 
 class AuthController extends GetxController {
   // Dependencies
@@ -194,6 +195,26 @@ class AuthController extends GetxController {
         .substring(0, emailDomain.length > 20 ? 20 : emailDomain.length);
   }
 
+  /// Ejecutar Full Sync en background después del login
+  void _triggerFullSync() {
+    try {
+      if (Get.isRegistered<FullSyncService>()) {
+        final fullSyncService = Get.find<FullSyncService>();
+        // Ejecutar en background sin bloquear la UI
+        fullSyncService.performFullSync().then((result) {
+          print('🔄 AuthController: Full Sync completado - ${result.totalSynced} registros');
+          if (result.hasErrors) {
+            print('⚠️ AuthController: Full Sync con errores: ${result.errors}');
+          }
+        }).catchError((e) {
+          print('❌ AuthController: Error en Full Sync: $e');
+        });
+      }
+    } catch (e) {
+      print('⚠️ AuthController: No se pudo iniciar Full Sync: $e');
+    }
+  }
+
   /// Establecer el tenant correcto después de un login exitoso
   Future<void> _setTenantAfterLogin(User user) async {
     try {
@@ -298,6 +319,9 @@ class AuthController extends GetxController {
           print('🔧 AuthController: Navegando al dashboard...');
           // Navegar al dashboard
           Get.offAllNamed(AppRoutes.dashboard);
+
+          // Iniciar Full Sync en background (después de navegar al dashboard)
+          _triggerFullSync();
         },
       );
     } catch (e) {

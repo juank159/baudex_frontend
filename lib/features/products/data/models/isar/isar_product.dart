@@ -1,6 +1,9 @@
 // lib/features/products/data/models/isar/isar_product.dart
+import 'dart:convert';
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product.dart';
+import 'package:baudex_desktop/features/products/domain/entities/tax_enums.dart';
+import 'package:baudex_desktop/features/products/data/models/product_model.dart';
 import 'package:isar/isar.dart';
 import 'isar_product_price.dart';
 
@@ -67,6 +70,17 @@ class IsarProduct {
   DateTime? lastModifiedAt; // Timestamp del último cambio
   String? lastModifiedBy; // Usuario que hizo el último cambio
 
+  // Campos fiscales
+  @Enumerated(EnumType.name)
+  late IsarTaxCategory taxCategory;
+  late double taxRate;
+  late bool isTaxable;
+  String? taxDescription;
+  @Enumerated(EnumType.name)
+  IsarRetentionCategory? retentionCategory;
+  double? retentionRate;
+  late bool hasRetention;
+
   // Relación con precios (embedded)
   List<IsarProductPrice> prices = [];
 
@@ -101,6 +115,13 @@ class IsarProduct {
     this.lastModifiedAt,
     this.lastModifiedBy,
     this.prices = const [],
+    this.taxCategory = IsarTaxCategory.iva,
+    this.taxRate = 19.0,
+    this.isTaxable = true,
+    this.taxDescription,
+    this.retentionCategory,
+    this.retentionRate,
+    this.hasRetention = false,
   });
 
   // Mappers
@@ -133,7 +154,78 @@ class IsarProduct {
       prices:
           entity.prices?.map((p) => IsarProductPrice.fromEntity(p)).toList() ??
           [],
+      taxCategory: _mapTaxCategory(entity.taxCategory),
+      taxRate: entity.taxRate,
+      isTaxable: entity.isTaxable,
+      taxDescription: entity.taxDescription,
+      retentionCategory: _mapRetentionCategory(entity.retentionCategory),
+      retentionRate: entity.retentionRate,
+      hasRetention: entity.hasRetention,
     );
+  }
+
+  /// Crea un IsarProduct desde un ProductModel (respuesta del servidor)
+  static IsarProduct fromModel(ProductModel model) {
+    return IsarProduct.create(
+      serverId: model.id,
+      name: model.name,
+      description: model.description,
+      sku: model.sku,
+      barcode: model.barcode,
+      type: _mapProductTypeFromString(model.type),
+      status: _mapProductStatusFromString(model.status),
+      stock: model.stock,
+      minStock: model.minStock,
+      unit: model.unit,
+      weight: model.weight,
+      length: model.length,
+      width: model.width,
+      height: model.height,
+      images: model.images,
+      metadataJson:
+          model.metadata != null ? _encodeMetadata(model.metadata!) : null,
+      categoryId: model.categoryId,
+      createdById: model.createdById,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+      isSynced: true,
+      lastSyncAt: DateTime.now(),
+      prices:
+          model.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ??
+          [],
+      taxCategory: _mapTaxCategoryFromString(model.taxCategory),
+      taxRate: model.taxRate,
+      isTaxable: model.isTaxable,
+      taxDescription: model.taxDescription,
+      retentionCategory: _mapRetentionCategoryFromString(model.retentionCategory),
+      retentionRate: model.retentionRate,
+      hasRetention: model.hasRetention,
+    );
+  }
+
+  /// Mapea string de tipo de producto a enum ISAR
+  static IsarProductType _mapProductTypeFromString(String type) {
+    switch (type.toLowerCase()) {
+      case 'service':
+        return IsarProductType.service;
+      case 'product':
+      default:
+        return IsarProductType.product;
+    }
+  }
+
+  /// Mapea string de estado de producto a enum ISAR
+  static IsarProductStatus _mapProductStatusFromString(String status) {
+    switch (status.toLowerCase()) {
+      case 'inactive':
+        return IsarProductStatus.inactive;
+      case 'out_of_stock':
+      case 'outofstock':
+        return IsarProductStatus.outOfStock;
+      case 'active':
+      default:
+        return IsarProductStatus.active;
+    }
   }
 
   Product toEntity() {
@@ -160,6 +252,13 @@ class IsarProduct {
       createdAt: createdAt,
       updatedAt: updatedAt,
       // deletedAt: deletedAt, // Comentado porque Product no tiene este campo
+      taxCategory: _mapIsarTaxCategory(taxCategory),
+      taxRate: taxRate.isNaN ? _mapIsarTaxCategory(taxCategory).defaultRate : taxRate,
+      isTaxable: isTaxable,
+      taxDescription: taxDescription,
+      retentionCategory: _mapIsarRetentionCategory(retentionCategory),
+      retentionRate: (retentionRate != null && retentionRate!.isNaN) ? null : retentionRate,
+      hasRetention: hasRetention,
     );
   }
 
@@ -204,17 +303,121 @@ class IsarProduct {
     }
   }
 
-  // Helpers para metadatos
-  static String _encodeMetadata(Map<String, dynamic> metadata) {
-    // En un proyecto real, usarías json.encode aquí
-    // Para simplicidad, asumimos que ya viene como string
-    return metadata.toString();
+  // Helpers para mapeo de TaxCategory
+  static IsarTaxCategory _mapTaxCategory(TaxCategory category) {
+    switch (category) {
+      case TaxCategory.iva:
+        return IsarTaxCategory.iva;
+      case TaxCategory.inc:
+        return IsarTaxCategory.inc;
+      case TaxCategory.incBolsa:
+        return IsarTaxCategory.incBolsa;
+      case TaxCategory.exento:
+        return IsarTaxCategory.exento;
+      case TaxCategory.noGravado:
+        return IsarTaxCategory.noGravado;
+    }
   }
 
-  static Map<String, dynamic> _decodeMetadata(String metadataJson) {
-    // En un proyecto real, usarías json.decode aquí
-    // Para simplicidad, retornamos un mapa vacío
-    return {};
+  static TaxCategory _mapIsarTaxCategory(IsarTaxCategory category) {
+    switch (category) {
+      case IsarTaxCategory.iva:
+        return TaxCategory.iva;
+      case IsarTaxCategory.inc:
+        return TaxCategory.inc;
+      case IsarTaxCategory.incBolsa:
+        return TaxCategory.incBolsa;
+      case IsarTaxCategory.exento:
+        return TaxCategory.exento;
+      case IsarTaxCategory.noGravado:
+        return TaxCategory.noGravado;
+    }
+  }
+
+  static IsarTaxCategory _mapTaxCategoryFromString(String value) {
+    switch (value.toUpperCase()) {
+      case 'INC':
+        return IsarTaxCategory.inc;
+      case 'INC_BOLSA':
+        return IsarTaxCategory.incBolsa;
+      case 'EXENTO':
+        return IsarTaxCategory.exento;
+      case 'NO_GRAVADO':
+        return IsarTaxCategory.noGravado;
+      case 'IVA':
+      default:
+        return IsarTaxCategory.iva;
+    }
+  }
+
+  // Helpers para mapeo de RetentionCategory
+  static IsarRetentionCategory? _mapRetentionCategory(RetentionCategory? category) {
+    if (category == null) return null;
+    switch (category) {
+      case RetentionCategory.retIva:
+        return IsarRetentionCategory.retIva;
+      case RetentionCategory.retRenta:
+        return IsarRetentionCategory.retRenta;
+      case RetentionCategory.retIca:
+        return IsarRetentionCategory.retIca;
+      case RetentionCategory.retCree:
+        return IsarRetentionCategory.retCree;
+    }
+  }
+
+  static RetentionCategory? _mapIsarRetentionCategory(IsarRetentionCategory? category) {
+    if (category == null) return null;
+    switch (category) {
+      case IsarRetentionCategory.retIva:
+        return RetentionCategory.retIva;
+      case IsarRetentionCategory.retRenta:
+        return RetentionCategory.retRenta;
+      case IsarRetentionCategory.retIca:
+        return RetentionCategory.retIca;
+      case IsarRetentionCategory.retCree:
+        return RetentionCategory.retCree;
+    }
+  }
+
+  static IsarRetentionCategory? _mapRetentionCategoryFromString(String? value) {
+    if (value == null) return null;
+    switch (value.toUpperCase()) {
+      case 'RET_IVA':
+        return IsarRetentionCategory.retIva;
+      case 'RET_RENTA':
+        return IsarRetentionCategory.retRenta;
+      case 'RET_ICA':
+        return IsarRetentionCategory.retIca;
+      case 'RET_CREE':
+        return IsarRetentionCategory.retCree;
+      default:
+        return null;
+    }
+  }
+
+  // Helpers para metadatos
+  static String _encodeMetadata(Map<String, dynamic>? metadata) {
+    if (metadata == null || metadata.isEmpty) return '{}';
+    try {
+      return jsonEncode(metadata);
+    } catch (e) {
+      return '{}';
+    }
+  }
+
+  static Map<String, dynamic> _decodeMetadata(String? metadataJson) {
+    if (metadataJson == null || metadataJson.isEmpty || metadataJson == '{}') {
+      return {};
+    }
+    try {
+      final decoded = jsonDecode(metadataJson);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
   }
 
   // Métodos de utilidad

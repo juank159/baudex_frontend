@@ -10,6 +10,7 @@ import '../controllers/suppliers_controller.dart';
 import '../widgets/supplier_card_widget.dart';
 import '../widgets/supplier_filter_widget.dart';
 import '../widgets/supplier_stats_widget.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class SuppliersListScreen extends GetView<SuppliersController> {
   const SuppliersListScreen({super.key});
@@ -18,7 +19,25 @@ class SuppliersListScreen extends GetView<SuppliersController> {
   Widget build(BuildContext context) {
     return MainLayout(
       title: 'Proveedores',
-      actions: [],
+      actions: [
+        const SyncStatusIcon(),
+        Obx(() => IconButton(
+          icon: controller.isRefreshing.value
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Icon(Icons.refresh, color: Colors.white),
+          onPressed: controller.isRefreshing.value
+              ? null
+              : () => controller.refreshSuppliers(),
+          tooltip: 'Actualizar',
+        )),
+      ],
       floatingActionButton: _buildFloatingActionButton(context),
       body:
           ResponsiveHelper.isMobile(context)

@@ -7,6 +7,7 @@ import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/services/file_service.dart';
+import '../../../../app/core/utils/app_logger.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
@@ -67,7 +68,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpenses(response.data);
 
         // Cache in ISAR for offline-first support
-        print('💾 [EXPENSE_REPO] Cacheando ${response.data.length} gastos en ISAR...');
+        AppLogger.d(' [EXPENSE_REPO] Cacheando ${response.data.length} gastos en ISAR...');
         final isar = IsarDatabase.instance.database;
         for (final expenseModel in response.data) {
           final expense = expenseModel.toEntity();
@@ -105,10 +106,47 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           );
 
           await isar.writeTxn(() async {
-            await isar.isarExpenses.put(isarExpense);
+            await isar.isarExpenses.putByServerId(isarExpense);
           });
         }
-        print('✅ [EXPENSE_REPO] ${response.data.length} gastos cacheados en ISAR');
+        AppLogger.i(' [EXPENSE_REPO] ${response.data.length} gastos cacheados en ISAR');
+
+        // ✅ Limpiar registros ISAR huérfanos con IDs temporales
+        // Estos son gastos creados offline cuyo sync handler antiguo no actualizó ISAR
+        try {
+          final orphanedExpenses = await isar.isarExpenses
+              .filter()
+              .serverIdStartsWith('expense_offline_')
+              .findAll();
+
+          if (orphanedExpenses.isNotEmpty) {
+            // Verificar cuáles tienen operaciones de sync pendientes
+            final isarDb = IsarDatabase.instance;
+            final pendingOps = await isarDb.getPendingSyncOperationsByType('expense');
+            final pendingEntityIds = pendingOps.map((op) => op.entityId).toSet();
+
+            // También verificar con 'Expense' (PascalCase)
+            final pendingOpsUpper = await isarDb.getPendingSyncOperationsByType('Expense');
+            pendingEntityIds.addAll(pendingOpsUpper.map((op) => op.entityId));
+
+            final toDelete = orphanedExpenses
+                .where((e) => !pendingEntityIds.contains(e.serverId))
+                .toList();
+
+            if (toDelete.isNotEmpty) {
+              await isar.writeTxn(() async {
+                await isar.isarExpenses.deleteAll(
+                  toDelete.map((e) => e.id).toList(),
+                );
+              });
+              AppLogger.i(
+                ' [EXPENSE_REPO] Limpiados ${toDelete.length} gastos huérfanos de ISAR',
+              );
+            }
+          }
+        } catch (e) {
+          AppLogger.w(' [EXPENSE_REPO] Error limpiando huérfanos: $e');
+        }
 
         // Convert to domain response
         final paginatedResponse = response.toPaginatedResponse();
@@ -121,15 +159,24 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           ),
         );
       } on ServerException catch (e) {
-        print('⚠️ [EXPENSE_REPO] ServerException: ${e.message} - Fallback a cache...');
-        return _getExpensesFromCache(page, limit);
+        AppLogger.w(' [EXPENSE_REPO] ServerException: ${e.message} - Fallback a cache...');
+        return _getExpensesFromCache(page, limit,
+          status: status, type: type, categoryId: categoryId,
+          startDate: startDate, endDate: endDate, search: search,
+        );
       } catch (e) {
-        print('⚠️ [EXPENSE_REPO] Exception: $e - Fallback a cache...');
-        return _getExpensesFromCache(page, limit);
+        AppLogger.w(' [EXPENSE_REPO] Exception: $e - Fallback a cache...');
+        return _getExpensesFromCache(page, limit,
+          status: status, type: type, categoryId: categoryId,
+          startDate: startDate, endDate: endDate, search: search,
+        );
       }
     } else {
-      print('📴 [EXPENSE_REPO] OFFLINE - Cargando desde cache...');
-      return _getExpensesFromCache(page, limit);
+      AppLogger.d(' [EXPENSE_REPO] OFFLINE - Cargando desde cache...');
+      return _getExpensesFromCache(page, limit,
+        status: status, type: type, categoryId: categoryId,
+        startDate: startDate, endDate: endDate, search: search,
+      );
     }
   }
 
@@ -141,20 +188,40 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpense(expenseModel);
         return Right(expenseModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en getExpenseById, fallback cache: ${e.message}');
+        return _getExpenseByIdFromCache(id);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en getExpenseById, fallback cache: $e');
+        return _getExpenseByIdFromCache(id);
       }
     } else {
-      try {
-        final cachedExpense = await localDataSource.getCachedExpenseById(id);
-        if (cachedExpense != null) {
-          return Right(cachedExpense.toEntity());
-        }
-        return const Left(CacheFailure('Gasto no encontrado en cache'));
-      } catch (e) {
-        return Left(CacheFailure('Error al obtener datos del cache: $e'));
+      return _getExpenseByIdFromCache(id);
+    }
+  }
+
+  /// Obtiene un gasto desde cache (ISAR → SecureStorage)
+  Future<Either<Failure, Expense>> _getExpenseByIdFromCache(String id) async {
+    try {
+      // Intentar ISAR primero
+      final isar = IsarDatabase.instance.database;
+      final isarExpense = await isar.isarExpenses
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      if (isarExpense != null) {
+        return Right(isarExpense.toEntity());
       }
+
+      // Fallback a SecureStorage
+      final cachedExpense = await localDataSource.getCachedExpenseById(id);
+      if (cachedExpense != null) {
+        return Right(cachedExpense.toEntity());
+      }
+
+      return const Left(CacheFailure('Gasto no encontrado en cache'));
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener gasto del cache: $e'));
     }
   }
 
@@ -198,7 +265,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpense(expenseModel);
         return Right(expenseModel.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ExpenseRepository: ServerException en createExpense, cambiando a modo offline');
+        AppLogger.w(' ExpenseRepository: ServerException en createExpense, cambiando a modo offline');
         return _createExpenseOffline(
           description: description,
           amount: amount,
@@ -216,7 +283,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           status: status,
         );
       } on ConnectionException catch (e) {
-        print('⚠️ ExpenseRepository: ConnectionException en createExpense, cambiando a modo offline');
+        AppLogger.w(' ExpenseRepository: ConnectionException en createExpense, cambiando a modo offline');
         return _createExpenseOffline(
           description: description,
           amount: amount,
@@ -234,7 +301,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           status: status,
         );
       } catch (e) {
-        print('⚠️ ExpenseRepository: Error genérico en createExpense: $e - Fallback offline...');
+        AppLogger.w(' ExpenseRepository: Error genérico en createExpense: $e - Fallback offline...');
         return _createExpenseOffline(
           description: description,
           amount: amount,
@@ -312,7 +379,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpense(expenseModel);
         return Right(expenseModel.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ [EXPENSE_REPO] ServerException en update: ${e.message} - Fallback offline...');
+        AppLogger.w(' [EXPENSE_REPO] ServerException en update: ${e.message} - Fallback offline...');
         return _updateExpenseOffline(
           id: id,
           description: description,
@@ -330,7 +397,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           metadata: metadata,
         );
       } catch (e) {
-        print('⚠️ [EXPENSE_REPO] Exception en update: $e - Fallback offline...');
+        AppLogger.w(' [EXPENSE_REPO] Exception en update: $e - Fallback offline...');
         return _updateExpenseOffline(
           id: id,
           description: description,
@@ -350,7 +417,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       }
     } else {
       // Sin conexión, actualizar en modo offline
-      print('📴 [EXPENSE_REPO] OFFLINE - Actualizando gasto offline...');
+      AppLogger.d(' [EXPENSE_REPO] OFFLINE - Actualizando gasto offline...');
       return _updateExpenseOffline(
         id: id,
         description: description,
@@ -388,7 +455,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     List<String>? tags,
     Map<String, dynamic>? metadata,
   }) async {
-    print('💾 ExpenseRepository: Actualizando gasto offline: $id');
+    AppLogger.d(' ExpenseRepository: Actualizando gasto offline: $id');
     try {
       final isar = IsarDatabase.instance.database;
 
@@ -431,17 +498,17 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       await isar.writeTxn(() async {
         await isar.isarExpenses.put(isarExpense);
       });
-      print('✅ ExpenseRepository: Gasto actualizado en ISAR');
+      AppLogger.i(' ExpenseRepository: Gasto actualizado en ISAR');
 
       // ✅ PASO 2: Actualizar SecureStorage
       try {
         final cachedExpense = await localDataSource.getCachedExpenseById(id);
         if (cachedExpense != null) {
           await localDataSource.cacheExpense(cachedExpense);
-          print('✅ ExpenseRepository: Gasto actualizado en SecureStorage');
+          AppLogger.i(' ExpenseRepository: Gasto actualizado en SecureStorage');
         }
       } catch (e) {
-        print('⚠️ Error actualizando SecureStorage (no crítico): $e');
+        AppLogger.w(' Error actualizando SecureStorage (no crítico): $e');
       }
 
       // ✅ PASO 3: Agregar a la cola de sincronización
@@ -470,15 +537,15 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           data: request.toJson(),
           priority: 1,
         );
-        print('📤 ExpenseRepository: UPDATE agregado a cola de sincronización');
+        AppLogger.d(' ExpenseRepository: UPDATE agregado a cola de sincronización');
       } catch (e) {
-        print('⚠️ ExpenseRepository: Error agregando UPDATE a cola: $e');
+        AppLogger.w(' ExpenseRepository: Error agregando UPDATE a cola: $e');
       }
 
-      print('✅ ExpenseRepository: Gasto actualizado offline exitosamente');
+      AppLogger.i(' ExpenseRepository: Gasto actualizado offline exitosamente');
       return Right(isarExpense.toEntity());
     } catch (e) {
-      print('❌ Error actualizando gasto offline: $e');
+      AppLogger.e(' Error actualizando gasto offline: $e');
       return Left(CacheFailure('Error al actualizar gasto offline: $e'));
     }
   }
@@ -502,66 +569,70 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
             await isar.writeTxn(() async {
               await isar.isarExpenses.put(isarExpense);
             });
-            print('✅ Expense marcado como eliminado en ISAR: $id');
+            AppLogger.i(' Expense marcado como eliminado en ISAR: $id');
           }
         } catch (e) {
-          print('⚠️ Error actualizando ISAR (no crítico): $e');
+          AppLogger.w(' Error actualizando ISAR (no crítico): $e');
         }
 
         await localDataSource.removeCachedExpense(id);
         return const Right(null);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en deleteExpense, fallback offline: ${e.message}');
+        return _deleteExpenseOffline(id);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en deleteExpense, fallback offline: $e');
+        return _deleteExpenseOffline(id);
       }
     } else {
-      // Sin conexión, marcar para eliminación offline y sincronizar después
-      print('📱 ExpenseRepository: Deleting expense offline: $id');
-      try {
-        // Soft delete en ISAR
-        final isar = IsarDatabase.instance.database;
-        final isarExpense = await isar.isarExpenses
-            .filter()
-            .serverIdEqualTo(id)
-            .findFirst();
+      return _deleteExpenseOffline(id);
+    }
+  }
 
-        if (isarExpense != null) {
-          isarExpense.softDelete();
-          await isar.writeTxn(() async {
-            await isar.isarExpenses.put(isarExpense);
-          });
-          print('✅ Expense marcado como eliminado en ISAR (offline): $id');
-        }
+  /// Elimina un gasto en modo offline
+  /// Soft delete en ISAR + agrega a cola de sincronización
+  Future<Either<Failure, void>> _deleteExpenseOffline(String id) async {
+    AppLogger.d(' ExpenseRepository: Deleting expense offline: $id');
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarExpense = await isar.isarExpenses
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
 
-        // Remover del cache (no crítico)
-        try {
-          await localDataSource.removeCachedExpense(id);
-        } catch (e) {
-          print('⚠️ Error al actualizar cache (no crítico): $e');
-        }
-
-        // Agregar a la cola de sincronización
-        try {
-          final syncService = Get.find<SyncService>();
-          await syncService.addOperationForCurrentUser(
-            entityType: 'Expense',
-            entityId: id,
-            operationType: SyncOperationType.delete,
-            data: {'id': id},
-            priority: 1,
-          );
-          print('📤 ExpenseRepository: Eliminación agregada a cola de sincronización');
-        } catch (e) {
-          print('⚠️ ExpenseRepository: Error agregando eliminación a cola: $e');
-        }
-
-        print('✅ ExpenseRepository: Expense deleted offline successfully');
-        return const Right(null);
-      } catch (e) {
-        print('❌ ExpenseRepository: Error deleting expense offline: $e');
-        return Left(CacheFailure('Error al eliminar gasto offline: $e'));
+      if (isarExpense != null) {
+        isarExpense.softDelete();
+        await isar.writeTxn(() async {
+          await isar.isarExpenses.put(isarExpense);
+        });
+        AppLogger.i(' Expense marcado como eliminado en ISAR (offline): $id');
       }
+
+      try {
+        await localDataSource.removeCachedExpense(id);
+      } catch (e) {
+        AppLogger.w(' Error al actualizar cache (no crítico): $e');
+      }
+
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Expense',
+          entityId: id,
+          operationType: SyncOperationType.delete,
+          data: {'id': id},
+          priority: 1,
+        );
+        AppLogger.d(' ExpenseRepository: Eliminación agregada a cola de sincronización');
+      } catch (e) {
+        AppLogger.w(' ExpenseRepository: Error agregando eliminación a cola: $e');
+      }
+
+      AppLogger.i(' ExpenseRepository: Expense deleted offline successfully');
+      return const Right(null);
+    } catch (e) {
+      AppLogger.e(' ExpenseRepository: Error deleting expense offline: $e');
+      return Left(CacheFailure('Error al eliminar gasto offline: $e'));
     }
   }
 
@@ -573,12 +644,14 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpense(expenseModel);
         return Right(expenseModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en submitExpense, fallback offline: ${e.message}');
+        return _updateExpenseStatusOffline(id, IsarExpenseStatus.pending, 'expense_submit');
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en submitExpense, fallback offline: $e');
+        return _updateExpenseStatusOffline(id, IsarExpenseStatus.pending, 'expense_submit');
       }
     } else {
-      return const Left(ConnectionFailure('No hay conexión a internet'));
+      return _updateExpenseStatusOffline(id, IsarExpenseStatus.pending, 'expense_submit');
     }
   }
 
@@ -593,12 +666,23 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpense(expenseModel);
         return Right(expenseModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en approveExpense, fallback offline: ${e.message}');
+        return _updateExpenseStatusOffline(
+          id, IsarExpenseStatus.approved, 'expense_approve',
+          additionalData: notes != null ? {'notes': notes} : null,
+        );
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en approveExpense, fallback offline: $e');
+        return _updateExpenseStatusOffline(
+          id, IsarExpenseStatus.approved, 'expense_approve',
+          additionalData: notes != null ? {'notes': notes} : null,
+        );
       }
     } else {
-      return const Left(ConnectionFailure('No hay conexión a internet'));
+      return _updateExpenseStatusOffline(
+        id, IsarExpenseStatus.approved, 'expense_approve',
+        additionalData: notes != null ? {'notes': notes} : null,
+      );
     }
   }
 
@@ -613,12 +697,23 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpense(expenseModel);
         return Right(expenseModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en rejectExpense, fallback offline: ${e.message}');
+        return _updateExpenseStatusOffline(
+          id, IsarExpenseStatus.rejected, 'expense_reject',
+          additionalData: {'reason': reason},
+        );
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en rejectExpense, fallback offline: $e');
+        return _updateExpenseStatusOffline(
+          id, IsarExpenseStatus.rejected, 'expense_reject',
+          additionalData: {'reason': reason},
+        );
       }
     } else {
-      return const Left(ConnectionFailure('No hay conexión a internet'));
+      return _updateExpenseStatusOffline(
+        id, IsarExpenseStatus.rejected, 'expense_reject',
+        additionalData: {'reason': reason},
+      );
     }
   }
 
@@ -630,12 +725,74 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpense(expenseModel);
         return Right(expenseModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en markAsPaid, fallback offline: ${e.message}');
+        return _updateExpenseStatusOffline(id, IsarExpenseStatus.paid, 'expense_paid');
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en markAsPaid, fallback offline: $e');
+        return _updateExpenseStatusOffline(id, IsarExpenseStatus.paid, 'expense_paid');
       }
     } else {
-      return const Left(ConnectionFailure('No hay conexión a internet'));
+      return _updateExpenseStatusOffline(id, IsarExpenseStatus.paid, 'expense_paid');
+    }
+  }
+
+  /// Helper para actualizar estado de expense offline
+  Future<Either<Failure, Expense>> _updateExpenseStatusOffline(
+    String id,
+    IsarExpenseStatus newStatus,
+    String syncEntityType, {
+    Map<String, dynamic>? additionalData,
+  }) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final expense = await isar.isarExpenses
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      if (expense == null) {
+        return const Left(CacheFailure('Gasto no encontrado en cache local'));
+      }
+
+      // Actualizar estado
+      expense.status = newStatus;
+      expense.updatedAt = DateTime.now();
+      expense.isSynced = false;
+
+      // Campos específicos según el estado
+      if (newStatus == IsarExpenseStatus.approved) {
+        expense.approvedAt = DateTime.now();
+      } else if (newStatus == IsarExpenseStatus.rejected && additionalData?['reason'] != null) {
+        expense.rejectionReason = additionalData!['reason'] as String;
+      }
+
+      await isar.writeTxn(() async {
+        await isar.isarExpenses.put(expense);
+      });
+
+      // Agregar a cola de sincronización
+      // NOTA: Usamos 'Expense' como entityType (soportado) con 'action' en data
+      // para indicar la operación específica de estado
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Expense',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {
+            'action': syncEntityType,
+            'status': newStatus.name,
+            ...?additionalData,
+          },
+          priority: 1,
+        );
+      } catch (e) {
+        AppLogger.w(' Could not add expense status to sync queue: $e');
+      }
+
+      return Right(expense.toEntity());
+    } catch (e) {
+      return Left(CacheFailure('Error actualizando estado offline: $e'));
     }
   }
 
@@ -647,25 +804,52 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         final domainExpenses = expenseModels.map((e) => e.toEntity()).toList();
         return Right(domainExpenses);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en searchExpenses, fallback cache: ${e.message}');
+        return _searchExpensesFromCache(query);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en searchExpenses, fallback cache: $e');
+        return _searchExpensesFromCache(query);
       }
     } else {
-      try {
-        final cachedExpenses = await localDataSource.getCachedExpenses();
-        final filteredExpenses = cachedExpenses
-            .where(
-              (expense) =>
-                  expense.description.toLowerCase().contains(query.toLowerCase()) ||
-                  (expense.vendor?.toLowerCase().contains(query.toLowerCase()) ?? false),
-            )
+      return _searchExpensesFromCache(query);
+    }
+  }
+
+  /// Busca gastos en cache (ISAR → SecureStorage)
+  Future<Either<Failure, List<Expense>>> _searchExpensesFromCache(String query) async {
+    try {
+      final queryLower = query.toLowerCase();
+
+      // Intentar ISAR primero
+      final isar = IsarDatabase.instance.database;
+      final isarExpenses = await isar.isarExpenses
+          .filter()
+          .deletedAtIsNull()
+          .findAll();
+
+      if (isarExpenses.isNotEmpty) {
+        final filtered = isarExpenses
+            .where((e) =>
+                e.description.toLowerCase().contains(queryLower) ||
+                (e.vendor?.toLowerCase().contains(queryLower) ?? false) ||
+                (e.notes?.toLowerCase().contains(queryLower) ?? false) ||
+                (e.reference?.toLowerCase().contains(queryLower) ?? false))
             .map((e) => e.toEntity())
             .toList();
-        return Right(filteredExpenses);
-      } catch (e) {
-        return Left(CacheFailure('Error al buscar en cache: $e'));
+        return Right(filtered);
       }
+
+      // Fallback a SecureStorage
+      final cachedExpenses = await localDataSource.getCachedExpenses();
+      final filteredExpenses = cachedExpenses
+          .where((expense) =>
+              expense.description.toLowerCase().contains(queryLower) ||
+              (expense.vendor?.toLowerCase().contains(queryLower) ?? false))
+          .map((e) => e.toEntity())
+          .toList();
+      return Right(filteredExpenses);
+    } catch (e) {
+      return Left(CacheFailure('Error al buscar en cache: $e'));
     }
   }
 
@@ -682,12 +866,122 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         );
         return Right(statsModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en getExpenseStats, fallback offline: ${e.message}');
+        return _calculateStatsFromIsar(startDate, endDate);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en getExpenseStats, fallback offline: $e');
+        return _calculateStatsFromIsar(startDate, endDate);
       }
     } else {
-      return const Left(ConnectionFailure('No hay conexión a internet'));
+      return _calculateStatsFromIsar(startDate, endDate);
+    }
+  }
+
+  /// Calcula estadísticas de gastos desde ISAR cuando está offline
+  Future<Either<Failure, ExpenseStats>> _calculateStatsFromIsar(
+    DateTime? startDate,
+    DateTime? endDate,
+  ) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      var query = isar.isarExpenses.filter().deletedAtIsNull();
+
+      final allExpenses = await query.findAll();
+
+      // Filtrar por rango de fechas si se proporcionan
+      final filtered = allExpenses.where((e) {
+        if (startDate != null && e.date.isBefore(startDate)) return false;
+        if (endDate != null && e.date.isAfter(endDate)) return false;
+        return true;
+      }).toList();
+
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      final startOfDay = DateTime(now.year, now.month, now.day);
+
+      double totalAmount = 0;
+      double monthlyAmount = 0;
+      double weeklyAmount = 0;
+      double dailyAmount = 0;
+      int pendingExpenses = 0;
+      double pendingAmount = 0;
+      int approvedExpenses = 0;
+      double approvedAmount = 0;
+      int paidExpenses = 0;
+      double paidAmount = 0;
+      int rejectedExpenses = 0;
+      double rejectedAmount = 0;
+      final expensesByCategory = <String, double>{};
+      final expensesByType = <String, double>{};
+      final expensesByStatus = <String, int>{};
+      int monthlyCount = 0;
+
+      for (final e in filtered) {
+        totalAmount += e.amount;
+
+        if (!e.date.isBefore(startOfMonth)) {
+          monthlyAmount += e.amount;
+          monthlyCount++;
+        }
+        if (!e.date.isBefore(startOfWeek)) weeklyAmount += e.amount;
+        if (!e.date.isBefore(startOfDay)) dailyAmount += e.amount;
+
+        final statusName = e.status.name;
+        expensesByStatus[statusName] = (expensesByStatus[statusName] ?? 0) + 1;
+
+        switch (e.status) {
+          case IsarExpenseStatus.pending:
+            pendingExpenses++;
+            pendingAmount += e.amount;
+            break;
+          case IsarExpenseStatus.approved:
+            approvedExpenses++;
+            approvedAmount += e.amount;
+            break;
+          case IsarExpenseStatus.paid:
+            paidExpenses++;
+            paidAmount += e.amount;
+            break;
+          case IsarExpenseStatus.rejected:
+            rejectedExpenses++;
+            rejectedAmount += e.amount;
+            break;
+          default:
+            break;
+        }
+
+        expensesByCategory[e.categoryId] =
+            (expensesByCategory[e.categoryId] ?? 0) + e.amount;
+        expensesByType[e.type.name] =
+            (expensesByType[e.type.name] ?? 0) + e.amount;
+      }
+
+      return Right(ExpenseStats(
+        totalExpenses: filtered.length,
+        totalAmount: totalAmount,
+        monthlyAmount: monthlyAmount,
+        weeklyAmount: weeklyAmount,
+        dailyAmount: dailyAmount,
+        pendingExpenses: pendingExpenses,
+        pendingAmount: pendingAmount,
+        approvedExpenses: approvedExpenses,
+        approvedAmount: approvedAmount,
+        paidExpenses: paidExpenses,
+        paidAmount: paidAmount,
+        rejectedExpenses: rejectedExpenses,
+        rejectedAmount: rejectedAmount,
+        averageExpenseAmount: filtered.isNotEmpty
+            ? totalAmount / filtered.length
+            : 0,
+        expensesByCategory: expensesByCategory,
+        expensesByType: expensesByType,
+        expensesByStatus: expensesByStatus,
+        monthlyTrends: [],
+        monthlyCount: monthlyCount,
+      ));
+    } catch (e) {
+      return Left(CacheFailure('Error calculando estadísticas offline: $e'));
     }
   }
 
@@ -710,6 +1004,11 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           orderBy: orderBy,
           orderDirection: orderDirection,
         );
+
+        // Cache categories
+        for (final cat in categoriesResponse.data) {
+          await localDataSource.cacheExpenseCategory(cat);
+        }
 
         final domainCategories = categoriesResponse.data
             .map((category) => category.toEntity())
@@ -738,39 +1037,48 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           ),
         );
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en getExpenseCategories, fallback cache: ${e.message}');
+        return _getExpenseCategoriesFromCache(page, limit);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en getExpenseCategories, fallback cache: $e');
+        return _getExpenseCategoriesFromCache(page, limit);
       }
     } else {
-      try {
-        final cachedCategories = await localDataSource.getCachedExpenseCategories();
-        final domainCategories = cachedCategories.map((e) => e.toEntity()).toList();
+      return _getExpenseCategoriesFromCache(page, limit);
+    }
+  }
 
-        // Simple pagination for cached data
-        final startIndex = (page - 1) * limit;
-        final endIndex = startIndex + limit;
-        final paginatedData = domainCategories.sublist(
-          startIndex.clamp(0, domainCategories.length),
-          endIndex.clamp(0, domainCategories.length),
-        );
+  /// Obtiene categorías de gastos desde cache
+  Future<Either<Failure, PaginatedResponse<ExpenseCategory>>> _getExpenseCategoriesFromCache(
+    int page,
+    int limit,
+  ) async {
+    try {
+      final cachedCategories = await localDataSource.getCachedExpenseCategories();
+      final domainCategories = cachedCategories.map((e) => e.toEntity()).toList();
 
-        return Right(
-          PaginatedResponse<ExpenseCategory>(
-            data: paginatedData,
-            meta: PaginationMeta(
-              page: page,
-              limit: limit,
-              total: domainCategories.length,
-              totalPages: (domainCategories.length / limit).ceil(),
-              hasNext: endIndex < domainCategories.length,
-              hasPrev: page > 1,
-            ),
+      final startIndex = (page - 1) * limit;
+      final endIndex = startIndex + limit;
+      final paginatedData = domainCategories.sublist(
+        startIndex.clamp(0, domainCategories.length),
+        endIndex.clamp(0, domainCategories.length),
+      );
+
+      return Right(
+        PaginatedResponse<ExpenseCategory>(
+          data: paginatedData,
+          meta: PaginationMeta(
+            page: page,
+            limit: limit,
+            total: domainCategories.length,
+            totalPages: domainCategories.isEmpty ? 0 : (domainCategories.length / limit).ceil(),
+            hasNext: endIndex < domainCategories.length,
+            hasPrev: page > 1,
           ),
-        );
-      } catch (e) {
-        return Left(CacheFailure('Error al obtener datos del cache: $e'));
-      }
+        ),
+      );
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener categorías del cache: $e'));
     }
   }
 
@@ -821,20 +1129,14 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           ),
         );
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en getExpenseCategoriesWithStats, fallback cache: ${e.message}');
+        return _getExpenseCategoriesFromCache(page, limit);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en getExpenseCategoriesWithStats, fallback cache: $e');
+        return _getExpenseCategoriesFromCache(page, limit);
       }
     } else {
-      // Fallback to regular categories without stats when offline
-      return getExpenseCategories(
-        page: page,
-        limit: limit,
-        search: search,
-        status: status,
-        orderBy: orderBy,
-        orderDirection: orderDirection,
-      );
+      return _getExpenseCategoriesFromCache(page, limit);
     }
   }
 
@@ -846,20 +1148,27 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpenseCategory(categoryModel);
         return Right(categoryModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en getExpenseCategoryById, fallback cache: ${e.message}');
+        return _getExpenseCategoryByIdFromCache(id);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en getExpenseCategoryById, fallback cache: $e');
+        return _getExpenseCategoryByIdFromCache(id);
       }
     } else {
-      try {
-        final cachedCategory = await localDataSource.getCachedExpenseCategoryById(id);
-        if (cachedCategory != null) {
-          return Right(cachedCategory.toEntity());
-        }
-        return const Left(CacheFailure('Categoría no encontrada en cache'));
-      } catch (e) {
-        return Left(CacheFailure('Error al obtener datos del cache: $e'));
+      return _getExpenseCategoryByIdFromCache(id);
+    }
+  }
+
+  /// Obtiene una categoría desde cache
+  Future<Either<Failure, ExpenseCategory>> _getExpenseCategoryByIdFromCache(String id) async {
+    try {
+      final cachedCategory = await localDataSource.getCachedExpenseCategoryById(id);
+      if (cachedCategory != null) {
+        return Right(cachedCategory.toEntity());
       }
+      return const Left(CacheFailure('Categoría no encontrada en cache'));
+    } catch (e) {
+      return Left(CacheFailure('Error al obtener categoría del cache: $e'));
     }
   }
 
@@ -890,7 +1199,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
-      return const Left(ConnectionFailure('No hay conexión a internet'));
+      return const Left(ConnectionFailure('Se requiere conexión para crear categorías de gastos'));
     }
   }
 
@@ -923,7 +1232,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
-      return const Left(ConnectionFailure('No hay conexión a internet'));
+      return const Left(ConnectionFailure('Se requiere conexión para actualizar categorías de gastos'));
     }
   }
 
@@ -940,7 +1249,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
-      return const Left(ConnectionFailure('No hay conexión a internet'));
+      return const Left(ConnectionFailure('Se requiere conexión para eliminar categorías de gastos'));
     }
   }
 
@@ -952,25 +1261,33 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         final domainCategories = categoryModels.map((e) => e.toEntity()).toList();
         return Right(domainCategories);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w('ServerException en searchExpenseCategories, fallback cache: ${e.message}');
+        return _searchExpenseCategoriesFromCache(query);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w('Exception en searchExpenseCategories, fallback cache: $e');
+        return _searchExpenseCategoriesFromCache(query);
       }
     } else {
-      try {
-        final cachedCategories = await localDataSource.getCachedExpenseCategories();
-        final filteredCategories = cachedCategories
-            .where(
-              (category) =>
-                  category.name.toLowerCase().contains(query.toLowerCase()) ||
-                  (category.description?.toLowerCase().contains(query.toLowerCase()) ?? false),
-            )
-            .map((e) => e.toEntity())
-            .toList();
-        return Right(filteredCategories);
-      } catch (e) {
-        return Left(CacheFailure('Error al buscar en cache: $e'));
-      }
+      return _searchExpenseCategoriesFromCache(query);
+    }
+  }
+
+  /// Busca categorías de gastos en cache
+  Future<Either<Failure, List<ExpenseCategory>>> _searchExpenseCategoriesFromCache(
+    String query,
+  ) async {
+    try {
+      final cachedCategories = await localDataSource.getCachedExpenseCategories();
+      final queryLower = query.toLowerCase();
+      final filteredCategories = cachedCategories
+          .where((category) =>
+              category.name.toLowerCase().contains(queryLower) ||
+              (category.description?.toLowerCase().contains(queryLower) ?? false))
+          .map((e) => e.toEntity())
+          .toList();
+      return Right(filteredCategories);
+    } catch (e) {
+      return Left(CacheFailure('Error al buscar categorías en cache: $e'));
     }
   }
 
@@ -1051,7 +1368,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     Map<String, dynamic>? metadata,
     ExpenseStatus? status,
   }) async {
-    print('📱 ExpenseRepository: Creando gasto offline: $description');
+    AppLogger.d(' ExpenseRepository: Creando gasto offline: $description');
     try {
       // Generar un ID temporal único para el gasto offline
       final now = DateTime.now();
@@ -1065,7 +1382,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           createdById = authController.currentUser.id;
         }
       } catch (e) {
-        print('⚠️ ExpenseRepository: No se pudo obtener usuario actual: $e');
+        AppLogger.w(' ExpenseRepository: No se pudo obtener usuario actual: $e');
       }
 
       // Mapear el status
@@ -1129,7 +1446,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       await isar.writeTxn(() async {
         await isar.isarExpenses.put(isarExpense);
       });
-      print('✅ ExpenseRepository: Gasto guardado en ISAR con ID temporal: $tempId');
+      AppLogger.i(' ExpenseRepository: Gasto guardado en ISAR con ID temporal: $tempId');
 
       // Convertir a entidad domain para guardar en SecureStorage
       final expense = isarExpense.toEntity();
@@ -1162,7 +1479,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
 
       // Guardar en SecureStorage
       await localDataSource.cacheExpense(expenseModel);
-      print('✅ ExpenseRepository: Gasto guardado en SecureStorage');
+      AppLogger.i(' ExpenseRepository: Gasto guardado en SecureStorage');
 
       // Agregar a la cola de sincronización
       try {
@@ -1189,15 +1506,15 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           },
           priority: 1, // Alta prioridad para creación
         );
-        print('📤 ExpenseRepository: Operación agregada a cola de sincronización');
+        AppLogger.d(' ExpenseRepository: Operación agregada a cola de sincronización');
       } catch (e) {
-        print('⚠️ ExpenseRepository: Error agregando a cola de sync: $e');
+        AppLogger.w(' ExpenseRepository: Error agregando a cola de sync: $e');
       }
 
-      print('✅ ExpenseRepository: Gasto creado offline exitosamente');
+      AppLogger.i(' ExpenseRepository: Gasto creado offline exitosamente');
       return Right(expense);
     } catch (e) {
-      print('❌ ExpenseRepository: Error creando gasto offline: $e');
+      AppLogger.e(' ExpenseRepository: Error creando gasto offline: $e');
       return Left(CacheFailure('Error al crear gasto offline: $e'));
     }
   }
@@ -1211,7 +1528,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     }
 
     try {
-      print('🔄 ExpenseRepository: Starting offline expenses sync...');
+      AppLogger.d(' ExpenseRepository: Starting offline expenses sync...');
 
       // Obtener gastos no sincronizados desde ISAR
       final isar = IsarDatabase.instance.database;
@@ -1223,11 +1540,11 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           .findAll();
 
       if (unsyncedExpenses.isEmpty) {
-        print('✅ ExpenseRepository: No expenses to sync');
+        AppLogger.i(' ExpenseRepository: No expenses to sync');
         return const Right([]);
       }
 
-      print('📤 ExpenseRepository: Syncing ${unsyncedExpenses.length} offline expenses...');
+      AppLogger.d(' ExpenseRepository: Syncing ${unsyncedExpenses.length} offline expenses...');
       final syncedExpenses = <Expense>[];
 
       for (final isarExpense in unsyncedExpenses) {
@@ -1237,7 +1554,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
 
           if (isCreate) {
             // CREATE: Enviar al servidor y actualizar con ID real
-            print('📝 Creating expense: ${isarExpense.description}');
+            AppLogger.d(' Creating expense: ${isarExpense.description}');
 
             final request = CreateExpenseRequestModel.fromParams(
               description: isarExpense.description,
@@ -1269,10 +1586,10 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
             await localDataSource.cacheExpense(created);
 
             syncedExpenses.add(created.toEntity());
-            print('✅ Expense created and synced: ${isarExpense.description} -> ${created.id}');
+            AppLogger.i(' Expense created and synced: ${isarExpense.description} -> ${created.id}');
           } else {
             // UPDATE: Enviar actualización al servidor
-            print('📝 Updating expense: ${isarExpense.description}');
+            AppLogger.d(' Updating expense: ${isarExpense.description}');
 
             final request = UpdateExpenseRequestModel.fromParams(
               description: isarExpense.description,
@@ -1304,18 +1621,18 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
             await localDataSource.cacheExpense(updated);
 
             syncedExpenses.add(updated.toEntity());
-            print('✅ Expense updated and synced: ${isarExpense.description}');
+            AppLogger.i(' Expense updated and synced: ${isarExpense.description}');
           }
         } catch (e) {
-          print('❌ Error sincronizando gasto ${isarExpense.description}: $e');
+          AppLogger.e(' Error sincronizando gasto ${isarExpense.description}: $e');
           // Continuar con la siguiente
         }
       }
 
-      print('🎯 ExpenseRepository: Sync completed. Success: ${syncedExpenses.length}');
+      AppLogger.i(' ExpenseRepository: Sync completed. Success: ${syncedExpenses.length}');
       return Right(syncedExpenses);
     } catch (e) {
-      print('💥 ExpenseRepository: Error during offline expenses sync: $e');
+      AppLogger.e(' ExpenseRepository: Error during offline expenses sync: $e');
       return Left(ServerFailure('Error al sincronizar gastos offline: $e'));
     }
   }
@@ -1421,34 +1738,98 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     }
   }
 
+  // String-based mappers for cache filtering
+  IsarExpenseStatus? _mapExpenseStatusString(String status) {
+    switch (status.toLowerCase()) {
+      case 'draft':
+        return IsarExpenseStatus.draft;
+      case 'pending':
+        return IsarExpenseStatus.pending;
+      case 'approved':
+        return IsarExpenseStatus.approved;
+      case 'rejected':
+        return IsarExpenseStatus.rejected;
+      case 'paid':
+        return IsarExpenseStatus.paid;
+      default:
+        return null;
+    }
+  }
+
+  IsarExpenseType? _mapExpenseTypeString(String type) {
+    switch (type.toLowerCase()) {
+      case 'operating':
+        return IsarExpenseType.operating;
+      case 'administrative':
+        return IsarExpenseType.administrative;
+      case 'sales':
+        return IsarExpenseType.sales;
+      case 'financial':
+        return IsarExpenseType.financial;
+      case 'extraordinary':
+        return IsarExpenseType.extraordinary;
+      default:
+        return null;
+    }
+  }
+
   /// Obtiene gastos desde cache (ISAR primero, luego SecureStorage como fallback)
+  /// Aplica filtros de status, type, categoría, fechas y búsqueda
   Future<Either<Failure, PaginatedResponse<Expense>>> _getExpensesFromCache(
     int page,
-    int limit,
-  ) async {
+    int limit, {
+    String? status,
+    String? type,
+    String? categoryId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? search,
+  }) async {
     try {
-      print('💾 [EXPENSE_REPO] Intentando cargar gastos desde cache...');
+      AppLogger.d(' [EXPENSE_REPO] Intentando cargar gastos desde cache con filtros...');
+      AppLogger.d(' [EXPENSE_REPO] Filtros: status=$status, type=$type, category=$categoryId, startDate=$startDate, endDate=$endDate, search=$search');
 
-      // ✅ PASO 1: Intentar desde ISAR primero
+      // PASO 1: Intentar desde ISAR primero con filtros aplicados
       final isar = IsarDatabase.instance.database;
-      final isarExpenses = await isar.isarExpenses
-          .filter()
-          .deletedAtIsNull()
-          .sortByCreatedAtDesc()
-          .findAll();
+      var query = isar.isarExpenses.filter().deletedAtIsNull();
+
+      // Aplicar filtros ISAR nativos
+      if (status != null) {
+        final isarStatus = _mapExpenseStatusString(status);
+        if (isarStatus != null) {
+          query = query.and().statusEqualTo(isarStatus);
+        }
+      }
+      if (type != null) {
+        final isarType = _mapExpenseTypeString(type);
+        if (isarType != null) {
+          query = query.and().typeEqualTo(isarType);
+        }
+      }
+      if (categoryId != null) {
+        query = query.and().categoryIdEqualTo(categoryId);
+      }
+      if (startDate != null) {
+        query = query.and().dateGreaterThan(startDate);
+      }
+      if (endDate != null) {
+        query = query.and().dateLessThan(endDate);
+      }
+
+      final isarExpenses = await query.sortByDateDesc().findAll();
 
       List<Expense> expenses;
 
       if (isarExpenses.isNotEmpty) {
-        print('💾 [EXPENSE_REPO] ISAR tiene ${isarExpenses.length} gastos');
+        AppLogger.d(' [EXPENSE_REPO] ISAR tiene ${isarExpenses.length} gastos (filtrados)');
         expenses = isarExpenses.map((ie) => ie.toEntity()).toList();
       } else {
-        // ✅ PASO 2: Si ISAR está vacío, intentar desde SecureStorage
-        print('💾 [EXPENSE_REPO] ISAR vacío, intentando SecureStorage...');
+        // PASO 2: Si ISAR está vacío, intentar desde SecureStorage
+        AppLogger.d(' [EXPENSE_REPO] ISAR vacío (filtrado), intentando SecureStorage...');
         final cachedExpenses = await localDataSource.getCachedExpenses();
 
         if (cachedExpenses.isEmpty) {
-          print('⚠️ [EXPENSE_REPO] SecureStorage también vacío');
+          AppLogger.w(' [EXPENSE_REPO] SecureStorage también vacío');
           return Right(PaginatedResponse<Expense>(
             data: [],
             meta: PaginationMeta(
@@ -1462,11 +1843,37 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           ));
         }
 
-        print('💾 [EXPENSE_REPO] SecureStorage tiene ${cachedExpenses.length} gastos');
+        AppLogger.d(' [EXPENSE_REPO] SecureStorage tiene ${cachedExpenses.length} gastos');
         expenses = cachedExpenses.map((e) => e.toEntity()).toList();
+
+        // Aplicar filtros en Dart para datos de SecureStorage
+        if (status != null) {
+          expenses = expenses.where((e) => e.status.name == status).toList();
+        }
+        if (type != null) {
+          expenses = expenses.where((e) => e.type.name == type).toList();
+        }
+        if (categoryId != null) {
+          expenses = expenses.where((e) => e.categoryId == categoryId).toList();
+        }
+        if (startDate != null) {
+          expenses = expenses.where((e) => e.date.isAfter(startDate)).toList();
+        }
+        if (endDate != null) {
+          expenses = expenses.where((e) => e.date.isBefore(endDate)).toList();
+        }
       }
 
-      // ✅ PASO 3: Aplicar paginación
+      // PASO 2.5: Filtro de búsqueda en Dart (no soportado por ISAR directamente)
+      if (search != null && search.isNotEmpty) {
+        final searchLower = search.toLowerCase();
+        expenses = expenses.where((e) =>
+          e.description.toLowerCase().contains(searchLower) ||
+          (e.vendor?.toLowerCase().contains(searchLower) ?? false)
+        ).toList();
+      }
+
+      // PASO 3: Aplicar paginación
       final startIndex = (page - 1) * limit;
       final endIndex = startIndex + limit;
       final paginatedData = expenses.sublist(
@@ -1478,15 +1885,15 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         page: page,
         limit: limit,
         total: expenses.length,
-        totalPages: (expenses.length / limit).ceil(),
+        totalPages: expenses.isEmpty ? 0 : (expenses.length / limit).ceil(),
         hasNext: endIndex < expenses.length,
         hasPrev: page > 1,
       );
 
-      print('✅ [EXPENSE_REPO] Gastos cargados desde cache: ${paginatedData.length}');
+      AppLogger.i(' [EXPENSE_REPO] Gastos cargados desde cache (filtrados): ${paginatedData.length} de ${expenses.length} total');
       return Right(PaginatedResponse<Expense>(data: paginatedData, meta: meta));
     } catch (e) {
-      print('❌ [EXPENSE_REPO] Error cargando desde cache: $e');
+      AppLogger.e(' [EXPENSE_REPO] Error cargando desde cache: $e');
       return Left(CacheFailure('Error al obtener gastos del cache: $e'));
     }
   }

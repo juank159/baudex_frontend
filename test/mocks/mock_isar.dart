@@ -3,7 +3,7 @@
 // Mock ISAR implementation for testing without native library dependency.
 // This provides in-memory storage using Maps and Lists to simulate ISAR collections.
 
-import 'package:baudex_desktop/app/data/local/isar_database.dart';
+import 'package:baudex_desktop/app/data/local/isar_database.dart' show IIsarDatabase;
 import 'package:baudex_desktop/app/data/local/sync_queue.dart';
 import 'package:baudex_desktop/features/categories/data/models/isar/isar_category.dart';
 import 'package:baudex_desktop/features/customers/data/models/isar/isar_customer.dart';
@@ -865,13 +865,15 @@ class MockFilterBuilder<T> {
 /// Mock IsarDatabase wrapper for testing
 /// This wraps MockIsar and provides the same interface as IsarDatabase
 /// Uses composition and provides all methods that IsarDatabase provides
-class MockIsarDatabase {
+/// Implements IIsarDatabase to be compatible with repository constructors
+class MockIsarDatabase implements IIsarDatabase {
   final MockIsar _mockIsar;
 
   MockIsarDatabase(this._mockIsar);
 
   /// Getter for the mock ISAR instance (returns Isar-compatible type)
   /// Since MockIsar implements similar interface, we can use it directly
+  @override
   dynamic get database => _mockIsar;
 
   /// Get pending sync operations

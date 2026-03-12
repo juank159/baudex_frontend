@@ -8,6 +8,7 @@ import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/supplier_detail_controller.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 import '../../domain/entities/supplier.dart';
 
 class SupplierDetailScreen extends GetView<SupplierDetailController> {
@@ -20,6 +21,7 @@ class SupplierDetailScreen extends GetView<SupplierDetailController> {
         title: controller.displayTitle,
         showBackButton: true,
         actions: [
+          const SyncStatusIcon(),
           if (controller.canEdit)
             IconButton(
               icon: const Icon(Icons.edit),

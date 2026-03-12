@@ -70,6 +70,9 @@ class PurchaseOrderFormController extends GetxController
   final RxDouble discountAmount = 0.0.obs;
   final RxDouble totalAmount = 0.0.obs;
 
+  // Active item tracking
+  final RxInt activeItemIndex = (-1).obs;
+
   // Validation flags
   final RxBool supplierError = false.obs;
   final RxBool orderDateError = false.obs;
@@ -405,12 +408,33 @@ class PurchaseOrderFormController extends GetxController
 
   void addEmptyItem() {
     items.add(PurchaseOrderItemForm());
+    activeItemIndex.value = items.length - 1;
     calculateTotals();
+  }
+
+  void completeActiveItem() {
+    if (activeItemIndex.value >= 0 && activeItemIndex.value < items.length) {
+      final item = items[activeItemIndex.value];
+      if (item.isValid) {
+        activeItemIndex.value = -1;
+      }
+    }
+  }
+
+  void editItem(int index) {
+    if (index >= 0 && index < items.length) {
+      activeItemIndex.value = index;
+    }
   }
 
   void removeItem(int index) {
     if (items.length > 1) {
       items.removeAt(index);
+      if (activeItemIndex.value == index) {
+        activeItemIndex.value = -1;
+      } else if (activeItemIndex.value > index) {
+        activeItemIndex.value--;
+      }
       calculateTotals();
     }
   }
@@ -578,6 +602,9 @@ class PurchaseOrderFormController extends GetxController
 
     final params = CreatePurchaseOrderParams(
       supplierId: selectedSupplierId.value,
+      supplierName: selectedSupplierName.value.isNotEmpty
+          ? selectedSupplierName.value
+          : null,
       priority: priority.value,
       orderDate: orderDate.value,
       expectedDeliveryDate: expectedDeliveryDate.value,
@@ -1083,6 +1110,7 @@ class PurchaseOrderItemForm {
   CreatePurchaseOrderItemParams toCreateParams({int? lineNumber}) {
     return CreatePurchaseOrderItemParams(
       productId: productId,
+      productName: productName.isNotEmpty ? productName : null,
       lineNumber: lineNumber,
       quantity: quantity,
       unitPrice: unitPrice,

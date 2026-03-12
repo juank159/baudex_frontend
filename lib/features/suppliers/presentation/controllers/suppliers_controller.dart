@@ -81,10 +81,7 @@ class SuppliersController extends GetxController {
   @override
   void onReady() {
     super.onReady();
-    // Siempre refrescar cuando la pantalla esté lista
-    Future.delayed(const Duration(milliseconds: 100), () {
-      refreshSuppliers();
-    });
+    // _initializeData() ya carga datos en onInit, no duplicar
   }
 
   @override

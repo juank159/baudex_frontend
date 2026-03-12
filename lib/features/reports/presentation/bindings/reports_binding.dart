@@ -1,6 +1,7 @@
 // lib/features/reports/presentation/bindings/reports_binding.dart
 import 'package:get/get.dart';
 import '../../data/datasources/reports_remote_datasource.dart';
+import '../../data/datasources/reports_local_datasource.dart';
 import '../../data/repositories/reports_repository_impl.dart';
 import '../../domain/repositories/reports_repository.dart';
 import '../../domain/usecases/get_inventory_valuation_by_categories_usecase.dart';
@@ -21,10 +22,15 @@ class ReportsBinding extends Bindings {
       () => ReportsRemoteDataSourceImpl(dio: Get.find()),
     );
 
+    Get.lazyPut<ReportsLocalDataSource>(
+      () => ReportsLocalDataSourceImpl(),
+    );
+
     // Repository
     Get.lazyPut<ReportsRepository>(
       () => ReportsRepositoryImpl(
         remoteDataSource: Get.find(),
+        localDataSource: Get.find(),
         networkInfo: Get.find(),
       ),
     );

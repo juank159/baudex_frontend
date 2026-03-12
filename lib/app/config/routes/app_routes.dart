@@ -149,6 +149,13 @@ abstract class AppRoutes {
       '/expenses/category/$categoryId';
   static String expensesByStatus(String status) => '/expenses/status/$status';
 
+  // ==================== NOTIFICATIONS ROUTES ====================
+  static const String notifications = '/notifications';
+  static const String notificationsDetail = '/notifications/detail';
+
+  // Notifications with parameters
+  static String notificationDetail(String id) => '/notifications/$id';
+
   // ==================== INVENTORY ROUTES ====================
   static const String inventory = '/inventory';
   static const String inventoryMovements = '/inventory/movements';

@@ -19,12 +19,12 @@ import '../models/isar/isar_category.dart';
 ///
 /// Proporciona todas las operaciones CRUD para categorías de forma offline-first
 class CategoryOfflineRepository implements CategoryRepository {
-  final dynamic _database;
+  final IIsarDatabase _database;
 
-  CategoryOfflineRepository({dynamic database})
+  CategoryOfflineRepository({IIsarDatabase? database})
     : _database = database ?? IsarDatabase.instance;
 
-  dynamic get _isar => _database.database;
+  Isar get _isar => _database.database as Isar;
 
   // ==================== READ OPERATIONS ====================
 

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/category_detail_controller.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class CategoryDetailScreen extends GetView<CategoryDetailController> {
   const CategoryDetailScreen({super.key});
@@ -59,6 +60,7 @@ class CategoryDetailScreen extends GetView<CategoryDetailController> {
         ),
       ),
       actions: [
+        const SyncStatusIcon(),
         // Editar
         IconButton(
           icon: const Icon(Icons.edit, color: Colors.white, size: 20),

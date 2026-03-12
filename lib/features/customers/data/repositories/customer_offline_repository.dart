@@ -16,12 +16,12 @@ import '../models/isar/isar_customer.dart';
 
 /// Implementación offline del repositorio de clientes usando ISAR
 class CustomerOfflineRepository implements CustomerRepository {
-  final dynamic _database;
+  final IIsarDatabase _database;
 
-  CustomerOfflineRepository({dynamic database})
+  CustomerOfflineRepository({IIsarDatabase? database})
       : _database = database ?? IsarDatabase.instance;
 
-  dynamic get _isar => _database.database;
+  Isar get _isar => _database.database as Isar;
 
   // ==================== READ OPERATIONS ====================
 
@@ -72,32 +72,43 @@ class CustomerOfflineRepository implements CustomerRepository {
         query = query.and().stateEqualTo(state);
       }
 
-      // Get all results (ISAR sorting/pagination no funciona bien, hacerlo en Dart)
-      final allResults = await query.findAll() as List<IsarCustomer>;
-      final totalItems = allResults.length;
-
-      // Ordenar en Dart
-      allResults.sort((a, b) {
-        int comparison = 0;
-        if (sortBy == 'name') {
-          comparison = a.firstName.compareTo(b.firstName);
-        } else if (sortBy == 'email') {
-          comparison = (a.email ?? '').compareTo(b.email ?? '');
-        } else if (sortBy == 'createdAt') {
-          comparison = a.createdAt.compareTo(b.createdAt);
-        } else if (sortBy == 'totalPurchases') {
-          comparison = a.totalPurchases.compareTo(b.totalPurchases);
-        } else {
-          comparison = a.firstName.compareTo(b.firstName);
-        }
-        return sortOrder == 'desc' ? -comparison : comparison;
-      });
-
-      // Paginar manualmente
+      // ✅ OPTIMIZACIÓN: Usar paginación nativa de ISAR
       final offset = (page - 1) * limit;
-      final start = offset.clamp(0, allResults.length);
-      final end = (start + limit).clamp(0, allResults.length);
-      final isarCustomers = allResults.sublist(start, end);
+      final totalItems = await query.count();
+
+      List<IsarCustomer> isarCustomers;
+
+      // Aplicar ordenamiento y paginación con métodos nativos de ISAR
+      // Para totalPurchases usamos fallback a memoria (no es campo indexado para sort)
+      if (sortBy == 'totalPurchases') {
+        // Fallback: ordenar en memoria para campo calculado
+        final allResults = await query.findAll();
+        allResults.sort((a, b) {
+          final comparison = a.totalPurchases.compareTo(b.totalPurchases);
+          return sortOrder == 'desc' ? -comparison : comparison;
+        });
+        final start = offset.clamp(0, allResults.length);
+        final end = (start + limit).clamp(0, allResults.length);
+        isarCustomers = allResults.sublist(start, end);
+      } else {
+        // ✅ Usar paginación nativa de ISAR
+        if (sortBy == 'name' || sortBy == null) {
+          isarCustomers = sortOrder == 'desc'
+              ? await query.sortByFirstNameDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByFirstName().offset(offset).limit(limit).findAll();
+        } else if (sortBy == 'email') {
+          isarCustomers = sortOrder == 'desc'
+              ? await query.sortByEmailDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByEmail().offset(offset).limit(limit).findAll();
+        } else if (sortBy == 'createdAt') {
+          isarCustomers = sortOrder == 'desc'
+              ? await query.sortByCreatedAtDesc().offset(offset).limit(limit).findAll()
+              : await query.sortByCreatedAt().offset(offset).limit(limit).findAll();
+        } else {
+          // Default: ordenar por nombre
+          isarCustomers = await query.sortByFirstName().offset(offset).limit(limit).findAll();
+        }
+      }
 
       // Convert to domain entities
       final customers = isarCustomers.map((isar) => isar.toEntity()).toList();

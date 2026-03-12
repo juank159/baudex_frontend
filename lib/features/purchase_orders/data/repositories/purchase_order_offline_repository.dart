@@ -1101,7 +1101,19 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
           entityType: 'PurchaseOrder',
           entityId: params.id,
           operationType: SyncOperationType.update,
-          data: {'action': 'receive'},
+          data: {
+            'action': 'receive',
+            'items': params.items.map((item) => {
+              'purchaseOrderItemId': item.itemId,
+              'receivedQuantity': item.receivedQuantity,
+              if (item.damagedQuantity != null) 'damagedQuantity': item.damagedQuantity,
+              if (item.missingQuantity != null) 'missingQuantity': item.missingQuantity,
+              if (item.notes != null) 'notes': item.notes,
+            }).toList(),
+            if (params.receivedDate != null) 'receivedDate': params.receivedDate!.toIso8601String(),
+            if (params.notes != null) 'notes': params.notes,
+            if (params.warehouseId != null) 'warehouseId': params.warehouseId,
+          },
         );
       } catch (e) {
         print('Warning: Could not add to sync queue: $e');

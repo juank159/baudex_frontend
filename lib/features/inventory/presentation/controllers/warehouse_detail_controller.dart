@@ -67,12 +67,14 @@ class WarehouseDetailController extends GetxController {
 
     // Obtener ID del warehouse desde los argumentos o parámetros
     final arguments = Get.arguments as Map<String, dynamic>?;
-    final paramId = Get.parameters['id'];
 
     if (arguments != null && arguments['warehouseId'] != null) {
       _warehouseId.value = arguments['warehouseId'] as String;
-    } else if (paramId != null) {
-      _warehouseId.value = paramId;
+    } else if (Get.parameters['id'] != null &&
+        Get.currentRoute.contains('warehouse')) {
+      // Solo usar parámetro de ruta cuando estamos en una ruta de warehouse
+      // (evita tomar el ID de otra entidad cuando se carga como dependencia indirecta)
+      _warehouseId.value = Get.parameters['id']!;
     }
 
     if (_warehouseId.value.isNotEmpty) {

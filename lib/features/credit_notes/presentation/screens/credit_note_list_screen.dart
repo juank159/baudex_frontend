@@ -8,6 +8,7 @@ import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../domain/entities/credit_note.dart';
 import '../controllers/credit_note_list_controller.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class CreditNoteListScreen extends GetView<CreditNoteListController> {
   const CreditNoteListScreen({super.key});
@@ -60,6 +61,7 @@ class CreditNoteListScreen extends GetView<CreditNoteListController> {
         ),
       ),
       actions: [
+        const SyncStatusIcon(),
         Obx(() => IconButton(
               icon: controller.isLoading
                   ? const SizedBox(

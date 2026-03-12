@@ -10,6 +10,7 @@ import '../controllers/products_controller.dart';
 import '../widgets/product_card_widget.dart';
 import '../widgets/product_skeleton_widget.dart';
 import '../../domain/entities/product.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class ProductsListScreen extends StatefulWidget {
   const ProductsListScreen({super.key});
@@ -77,6 +78,7 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
         ),
       ),
       actions: [
+        const SyncStatusIcon(),
         Obx(() => IconButton(
           icon: controller.isLoading
             ? const SizedBox(

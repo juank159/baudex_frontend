@@ -13,7 +13,7 @@ import '../controllers/purchase_order_form_controller.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../widgets/supplier_selector_widget.dart';
 import '../widgets/product_selector_widget.dart';
-import '../widgets/compact_product_item_widget.dart';
+import '../widgets/product_item_form_widget.dart';
 
 class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
   const PurchaseOrderFormScreen({super.key});
@@ -520,18 +520,18 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
     return Container(
       padding: const EdgeInsets.all(AppDimensions.paddingMedium),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.05),
+        gradient: LinearGradient(
+          colors: [AppColors.primary.withOpacity(0.06), Colors.white],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
         border: Border(
           bottom: BorderSide(color: AppColors.primary.withOpacity(0.2)),
         ),
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.inventory_2,
-            color: AppColors.primary,
-            size: 24,
-          ),
+          Icon(Icons.inventory_2, color: AppColors.primary, size: 24),
           const SizedBox(width: AppDimensions.paddingSmall),
           Expanded(
             child: Column(
@@ -544,22 +544,18 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
                     color: AppColors.primary,
                   ),
                 ),
-                Obx(() => Text(
-                  '${controller.items.length} productos • Total: ${AppFormatters.formatCurrency(controller.totalAmount.value)}',
-                  style: Get.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade700,
-                  ),
-                )),
+                Obx(() {
+                  final completed = controller.items.where((i) => i.isValid).length;
+                  return Text(
+                    '$completed producto${completed != 1 ? 's' : ''} agregado${completed != 1 ? 's' : ''} • Total: ${AppFormatters.formatCurrency(controller.totalAmount.value)}',
+                    style: Get.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade700,
+                    ),
+                  );
+                }),
               ],
             ),
           ),
-          Obx(() => CustomButton(
-            text: 'Agregar',
-            onPressed: _canAddNewItem() ? controller.addEmptyItem : null,
-            size: ButtonSize.small,
-            type: _canAddNewItem() ? ButtonType.primary : ButtonType.outline,
-            icon: Icons.add,
-          )),
         ],
       ),
     );
@@ -571,23 +567,62 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
         return _buildEmptyItemsState();
       }
 
+      final hasActiveItem = controller.activeItemIndex.value >= 0;
+
       return ListView.builder(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppDimensions.paddingMedium,
-          vertical: AppDimensions.paddingSmall,
-        ),
-        itemCount: controller.items.length,
+        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+        itemCount: controller.items.length + (hasActiveItem ? 0 : 1),
         itemBuilder: (context, index) {
-          final item = controller.items[index];
-          return CompactProductItemWidget(
-            key: ValueKey('item_${item.productId}_$index'),
-            item: item,
-            index: index,
-            onQuantityChanged: (value) => controller.updateItemQuantity(index, value),
-            onPriceChanged: (value) => controller.updateItemPrice(index, value),
-            onDiscountChanged: (value) => controller.updateItemDiscount(index, value),
-            onRemove: controller.items.length > 1 ? () => controller.removeItem(index) : null,
-            onProductSelected: (product) => controller.selectProductForItem(index, product),
+          // Items
+          if (index < controller.items.length) {
+            final item = controller.items[index];
+            final isActive = controller.activeItemIndex.value == index;
+
+            return ProductItemFormWidget(
+              key: ValueKey('item_${item.productId}_$index'),
+              item: item,
+              index: index,
+              isActive: isActive,
+              onQuantityChanged: (value) =>
+                  controller.updateItemQuantity(index, value),
+              onPriceChanged: (value) =>
+                  controller.updateItemPrice(index, value),
+              onDiscountChanged: (value) =>
+                  controller.updateItemDiscount(index, value),
+              onRemove: controller.items.length > 1
+                  ? () => controller.removeItem(index)
+                  : null,
+              onComplete: () => controller.completeActiveItem(),
+              onEdit: () => controller.editItem(index),
+              onProductSelected: (product) {
+                if (product != null) {
+                  controller.selectProductForItem(index, product);
+                } else {
+                  controller.updateItemProduct(index, '', '', 0.0);
+                }
+              },
+            );
+          }
+
+          // Boton "Agregar Otro Producto"
+          return Padding(
+            padding: const EdgeInsets.only(top: AppDimensions.paddingSmall),
+            child: OutlinedButton.icon(
+              onPressed: controller.addEmptyItem,
+              icon: const Icon(Icons.add_circle_outline, size: 20),
+              label: const Text('Agregar Otro Producto'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: BorderSide(
+                  color: AppColors.primary.withOpacity(0.5),
+                  width: 1.5,
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                ),
+              ),
+            ),
           );
         },
       );
@@ -1182,11 +1217,4 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
     }
   }
 
-  bool _canAddNewItem() {
-    // Verificar que todos los items existentes tengan:
-    // 1. Producto seleccionado (productId no vacío)
-    // 2. Precio válido (mayor a 0)  
-    // 3. Cantidad válida (mayor a 0)
-    return controller.items.every((item) => item.isValid);
-  }
 }

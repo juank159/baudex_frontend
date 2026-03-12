@@ -46,7 +46,7 @@ void main() {
       remoteDataSource: mockRemoteDataSource,
       localDataSource: mockLocalDataSource,
       networkInfo: mockNetworkInfo,
-      database: mockIsar, // Use mockIsar directly, not mockIsarDatabase
+      database: mockIsarDatabase,
     );
 
     // Register fallback values

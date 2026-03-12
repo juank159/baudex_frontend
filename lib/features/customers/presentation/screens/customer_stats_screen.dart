@@ -7,6 +7,7 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/animated_charts.dart';
 import '../controllers/customer_stats_controller.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class CustomerStatsScreen extends GetView<CustomerStatsController> {
   const CustomerStatsScreen({super.key});
@@ -78,6 +79,7 @@ class CustomerStatsScreen extends GetView<CustomerStatsController> {
         ],
       ),
       actions: [
+        const SyncStatusIcon(),
         Container(
           margin: const EdgeInsets.only(right: 4),
           decoration: BoxDecoration(

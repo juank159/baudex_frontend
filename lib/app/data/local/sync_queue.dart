@@ -53,6 +53,9 @@ class SyncOperation {
   /// Fecha y hora de sincronización exitosa
   DateTime? syncedAt;
 
+  /// Fecha y hora de última actualización (útil para exponential backoff)
+  DateTime? updatedAt;
+
   /// Mensaje de error si la sincronización falló
   String? error;
 
@@ -86,7 +89,7 @@ class SyncOperation {
 
   /// Getter helper: puede reintentar (si falló y no excede límite de reintentos)
   @ignore
-  bool get canRetry => isFailed && retryCount < 5;
+  bool get canRetry => isFailed && retryCount < 10;
 
   /// Constructor vacío requerido por Isar
   SyncOperation();

@@ -126,7 +126,7 @@ class IsarIdempotencyRecord {
   bool get isProcessing => status == IdempotencyStatus.processing;
   bool get isCompleted => status == IdempotencyStatus.completed;
   bool get isFailed => status == IdempotencyStatus.failed;
-  bool get canRetry => isFailed && retryCount < 3; // Máximo 3 reintentos
+  bool get canRetry => isFailed && retryCount < 10; // Máximo 10 reintentos (consistente con SyncConfig.maxRetries)
   bool get isExpired => expiresAt != null && DateTime.now().isAfter(expiresAt!);
 
   /// Marca como en proceso

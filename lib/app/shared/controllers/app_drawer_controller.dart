@@ -55,6 +55,15 @@ class AppDrawerController extends GetxController {
         subtitle: 'Panel principal',
       ),
 
+      // Notificaciones
+      const DrawerMenuItem(
+        id: 'notifications',
+        title: 'Notificaciones',
+        icon: Icons.notifications_rounded,
+        route: AppRoutes.notifications,
+        subtitle: 'Centro de notificaciones',
+      ),
+
       // ==================== GESTIÓN COMERCIAL ====================
       DrawerMenuItem(
         id: 'sales_group',

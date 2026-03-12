@@ -381,7 +381,7 @@ class CustomerFormScreen extends GetView<CustomerFormController> {
           _buildLiveStatusItem(
             'Teléfono',
             Icons.phone,
-            () => controller.phoneController.text.trim().length >= 7,
+            () => controller.validatePhone(controller.phoneController.text) == null,
             controller.phoneController,
           ),
           const SizedBox(height: 8),
@@ -561,7 +561,7 @@ class CustomerFormScreen extends GetView<CustomerFormController> {
               hasErrors = true;
             }
 
-            if (ctrl.phoneController.text.trim().length >= 7) completed++;
+            if (ctrl.validatePhone(ctrl.phoneController.text) == null) completed++;
 
             final progress = completed / total;
             final percentage = (progress * 100).toInt();
@@ -1136,18 +1136,30 @@ class CustomerFormScreen extends GetView<CustomerFormController> {
         CustomTextFieldSafe(
           controller: controller.phoneController,
           label: 'Teléfono *',
-          hint: '+57 300 123 4567',
+          hint: '3001234567',
           prefixIcon: Icons.phone,
           keyboardType: TextInputType.phone,
+          validator: controller.validatePhone,
+          helperText: '10 dígitos (ej: 3001234567)',
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[\d\+\s\-]')),
+            LengthLimitingTextInputFormatter(15),
+          ],
         ),
       ]),
       _buildFieldRow(context, [
         CustomTextFieldSafe(
           controller: controller.mobileController,
           label: 'Celular (Opcional)',
-          hint: '+57 300 123 4567',
+          hint: '3101234567',
           prefixIcon: Icons.smartphone,
           keyboardType: TextInputType.phone,
+          validator: controller.validateMobile,
+          helperText: '10 dígitos (ej: 3101234567)',
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[\d\+\s\-]')),
+            LengthLimitingTextInputFormatter(15),
+          ],
         ),
       ]),
     ];

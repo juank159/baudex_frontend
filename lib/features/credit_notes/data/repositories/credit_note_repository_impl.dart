@@ -6,6 +6,7 @@ import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/models/pagination_meta.dart';
+import '../../../../app/core/utils/app_logger.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/data/local/isar_database.dart';
@@ -35,7 +36,7 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   ) async {
     if (await networkInfo.isConnected) {
       try {
-        print('📝 CreditNoteRepository: Creando nota de crédito...');
+        AppLogger.d('CreditNoteRepository: Creando nota de crédito...');
         final request = CreateCreditNoteRequestModel.fromEntity(params);
         final creditNote = await remoteDataSource.createCreditNote(request);
 
@@ -43,19 +44,19 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
         try {
           await localDataSource.cacheCreditNote(creditNote);
         } catch (e) {
-          print('Error al guardar nota de crédito en cache: $e');
+          AppLogger.w('Error al guardar nota de crédito en cache: $e', tag: 'CREDIT_NOTE');
         }
 
-        print('✅ Nota de crédito creada exitosamente');
+        AppLogger.i('Nota de crédito creada exitosamente', tag: 'CREDIT_NOTE');
         return Right(creditNote);
       } on ServerException catch (e) {
-        print('⚠️ [CN_REPO] ServerException en create: ${e.message} - Fallback offline...');
+        AppLogger.w('[CN_REPO] ServerException en create: ${e.message} - Fallback offline...');
         return _createCreditNoteOffline(params);
       } on ConnectionException catch (e) {
-        print('⚠️ [CN_REPO] ConnectionException en create: ${e.message} - Fallback offline...');
+        AppLogger.w('[CN_REPO] ConnectionException en create: ${e.message} - Fallback offline...');
         return _createCreditNoteOffline(params);
       } catch (e) {
-        print('⚠️ [CN_REPO] Exception en create: $e - Fallback offline...');
+        AppLogger.w('[CN_REPO] Exception en create: $e - Fallback offline...');
         return _createCreditNoteOffline(params);
       }
     } else {
@@ -66,7 +67,7 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   @override
   Future<Either<Failure, CreditNote>> getCreditNoteById(String id) async {
     try {
-      print('📄 CreditNoteRepository: Obteniendo nota de crédito $id');
+      AppLogger.d('CreditNoteRepository: Obteniendo nota de crédito $id');
       final creditNote = await remoteDataSource.getCreditNoteById(id);
 
       // ⭐ FASE 1: Resolución de conflictos con ConflictResolver
@@ -77,7 +78,7 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
 
         if (localIsarCreditNote != null && !localIsarCreditNote.isSynced) {
           // Hay una versión local no sincronizada, verificar conflictos
-          print('🔍 Versión local de nota de crédito no sincronizada encontrada, verificando conflictos...');
+          AppLogger.d('Versión local de nota de crédito no sincronizada encontrada, verificando conflictos...', tag: 'CREDIT_NOTE');
 
           // Crear versión ISAR del servidor para comparar
           final serverIsarCreditNote = IsarCreditNote.fromEntity(creditNote);
@@ -94,35 +95,35 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
           );
 
           if (resolution.hadConflict) {
-            print('⚠️ CONFLICTO DETECTADO Y RESUELTO: ${resolution.message}');
-            print('   Estrategia usada: ${resolution.strategy.name}');
+            AppLogger.w('CONFLICTO DETECTADO Y RESUELTO: ${resolution.message}', tag: 'CREDIT_NOTE');
+            AppLogger.d('Estrategia usada: ${resolution.strategy.name}', tag: 'CREDIT_NOTE');
             finalCreditNote = resolution.resolvedData.toEntity();
           } else {
-            print('✅ No hay conflicto, usando datos del servidor');
+            AppLogger.i('No hay conflicto, usando datos del servidor', tag: 'CREDIT_NOTE');
           }
         } else if (localIsarCreditNote == null) {
-          print('   📝 No hay versión local, usando datos del servidor');
+          AppLogger.d('No hay versión local, usando datos del servidor', tag: 'CREDIT_NOTE');
         } else {
-          print('   ✅ Versión local ya sincronizada, usando datos del servidor');
+          AppLogger.i('Versión local ya sincronizada, usando datos del servidor', tag: 'CREDIT_NOTE');
         }
       } catch (e) {
-        print('⚠️ Error al verificar conflictos: $e');
+        AppLogger.w('Error al verificar conflictos: $e');
       }
 
       // Cache la nota de crédito final (resuelta) locally
       try {
         await localDataSource.cacheCreditNote(CreditNoteModel.fromEntity(finalCreditNote));
       } catch (e) {
-        print('⚠️ Error al cachear nota de crédito: $e');
+        AppLogger.w('Error al cachear nota de crédito: $e');
       }
 
       return Right(finalCreditNote);
     } catch (e) {
-      print('⚠️ Error del servidor en getCreditNoteById: $e - intentando cache local...');
+      AppLogger.w('Error del servidor en getCreditNoteById: $e - intentando cache local...');
       try {
         final cachedCreditNote = await localDataSource.getCachedCreditNote(id);
         if (cachedCreditNote != null) {
-          print('✅ Nota de crédito obtenida desde cache local');
+          AppLogger.i('Nota de crédito obtenida desde cache local', tag: 'CREDIT_NOTE');
           return Right(cachedCreditNote);
         }
         return Left(CacheFailure('No hay nota de crédito con ID $id en cache local'));
@@ -137,16 +138,14 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
     QueryCreditNotesParams params,
   ) async {
     try {
-      print('📄 CreditNoteRepository: Obteniendo notas de crédito...');
+      AppLogger.d('CreditNoteRepository: Obteniendo notas de crédito...');
       final response = await remoteDataSource.getCreditNotes(params);
 
-      // Cache the results if first page and no filters
-      if (params.page == 1 && params.search == null && params.status == null) {
-        try {
-          await localDataSource.cacheCreditNotes(response.data);
-        } catch (e) {
-          print('⚠️ Error al cachear notas de crédito: $e');
-        }
+      // FASE 3: Cachear TODAS las páginas a ISAR (upsert por serverId evita duplicados)
+      try {
+        await localDataSource.cacheCreditNotes(response.data);
+      } catch (e) {
+        AppLogger.w('Error al cachear notas de crédito: $e');
       }
 
       // Convertir a PaginatedResult
@@ -155,14 +154,14 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
         meta: PaginationMeta.fromJson(response.meta),
       );
 
-      print('✅ ${response.data.length} notas de crédito obtenidas');
+      AppLogger.i('${response.data.length} notas de crédito obtenidas', tag: 'CREDIT_NOTE');
       return Right(paginatedResult);
     } catch (e) {
-      print('⚠️ Error del servidor en getCreditNotes: $e - intentando cache local...');
+      AppLogger.w('Error del servidor en getCreditNotes: $e - intentando cache local...');
       try {
         final cachedCreditNotes = await localDataSource.getCachedCreditNotes();
         if (cachedCreditNotes.isNotEmpty) {
-          print('✅ ${cachedCreditNotes.length} notas de crédito obtenidas desde cache local');
+          AppLogger.i('${cachedCreditNotes.length} notas de crédito obtenidas desde cache local', tag: 'CREDIT_NOTE');
           return Right(PaginatedResult<CreditNote>(
             data: cachedCreditNotes,
             meta: PaginationMeta(
@@ -197,9 +196,7 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
     String invoiceId,
   ) async {
     try {
-      print(
-        '📄 CreditNoteRepository: Obteniendo notas de crédito de factura $invoiceId',
-      );
+      AppLogger.d('Obteniendo notas de crédito de factura $invoiceId', tag: 'CREDIT_NOTE');
       final creditNotes = await remoteDataSource.getCreditNotesByInvoice(
         invoiceId,
       );
@@ -208,17 +205,17 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       try {
         await localDataSource.cacheCreditNotes(creditNotes);
       } catch (e) {
-        print('⚠️ Error al cachear notas de crédito: $e');
+        AppLogger.w('Error al cachear notas de crédito: $e');
       }
 
       return Right(creditNotes);
     } catch (e) {
-      print('⚠️ Error del servidor en getCreditNotesByInvoice: $e - intentando cache local...');
+      AppLogger.w('Error del servidor en getCreditNotesByInvoice: $e - intentando cache local...');
       try {
         final allCachedCreditNotes = await localDataSource.getCachedCreditNotes();
         final cachedCreditNotes = allCachedCreditNotes.where((cn) => cn.invoiceId == invoiceId).toList();
         if (cachedCreditNotes.isNotEmpty) {
-          print('✅ ${cachedCreditNotes.length} notas de crédito de factura obtenidas desde cache local');
+          AppLogger.i('${cachedCreditNotes.length} notas de crédito de factura obtenidas desde cache local', tag: 'CREDIT_NOTE');
         }
         return Right(cachedCreditNotes);
       } catch (cacheError) {
@@ -232,16 +229,14 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
     String invoiceId,
   ) async {
     try {
-      print(
-        '💰 CreditNoteRepository: Obteniendo monto acreditable de factura $invoiceId',
-      );
+      AppLogger.d('Obteniendo monto acreditable de factura $invoiceId', tag: 'CREDIT_NOTE');
       final amount = await remoteDataSource.getRemainingCreditableAmount(
         invoiceId,
       );
 
       return Right(amount);
     } catch (e) {
-      print('⚠️ Error del servidor en getRemainingCreditableAmount: $e');
+      AppLogger.w('Error del servidor en getRemainingCreditableAmount: $e');
       return Left(ServerFailure('Error al obtener monto acreditable: $e'));
     }
   }
@@ -252,9 +247,7 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   ) async {
     if (await networkInfo.isConnected) {
       try {
-        print(
-          '📝 CreditNoteRepository: Actualizando nota de crédito ${params.id}',
-        );
+        AppLogger.d('Actualizando nota de crédito ${params.id}', tag: 'CREDIT_NOTE');
         final request = UpdateCreditNoteRequestModel.fromEntity(params);
         final creditNote = await remoteDataSource.updateCreditNote(
           params.id,
@@ -265,19 +258,19 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
         try {
           await localDataSource.cacheCreditNote(creditNote);
         } catch (e) {
-          print('Error al actualizar nota de crédito en cache: $e');
+          AppLogger.w('Error al actualizar nota de crédito en cache: $e', tag: 'CREDIT_NOTE');
         }
 
-        print('✅ Nota de crédito actualizada exitosamente');
+        AppLogger.i('Nota de crédito actualizada exitosamente', tag: 'CREDIT_NOTE');
         return Right(creditNote);
       } on ServerException catch (e) {
-        print('⚠️ [CN_REPO] ServerException en update: ${e.message} - Fallback offline...');
+        AppLogger.w('[CN_REPO] ServerException en update: ${e.message} - Fallback offline...');
         return _updateCreditNoteOffline(params);
       } on ConnectionException catch (e) {
-        print('⚠️ [CN_REPO] ConnectionException en update: ${e.message} - Fallback offline...');
+        AppLogger.w('[CN_REPO] ConnectionException en update: ${e.message} - Fallback offline...');
         return _updateCreditNoteOffline(params);
       } catch (e) {
-        print('⚠️ [CN_REPO] Exception en update: $e - Fallback offline...');
+        AppLogger.w('[CN_REPO] Exception en update: $e - Fallback offline...');
         return _updateCreditNoteOffline(params);
       }
     } else {
@@ -296,12 +289,12 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
     }
 
     try {
-      print('✅ CreditNoteRepository: Confirmando nota de crédito $id');
+      AppLogger.i('Confirmando nota de crédito $id', tag: 'CREDIT_NOTE');
       final creditNote = await remoteDataSource.confirmCreditNote(id);
-      print('✅ Nota de crédito confirmada exitosamente');
+      AppLogger.i('Nota de crédito confirmada exitosamente', tag: 'CREDIT_NOTE');
       return Right(creditNote);
     } catch (e) {
-      print('❌ Error al confirmar nota de crédito: $e');
+      AppLogger.e('Error al confirmar nota de crédito: $e', tag: 'CREDIT_NOTE');
       return Left(_mapExceptionToFailure(e));
     }
   }
@@ -317,12 +310,12 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
     }
 
     try {
-      print('❌ CreditNoteRepository: Cancelando nota de crédito $id');
+      AppLogger.d('Cancelando nota de crédito $id', tag: 'CREDIT_NOTE');
       final creditNote = await remoteDataSource.cancelCreditNote(id);
-      print('✅ Nota de crédito cancelada exitosamente');
+      AppLogger.i('Nota de crédito cancelada exitosamente', tag: 'CREDIT_NOTE');
       return Right(creditNote);
     } catch (e) {
-      print('❌ Error al cancelar nota de crédito: $e');
+      AppLogger.e('Error al cancelar nota de crédito: $e', tag: 'CREDIT_NOTE');
       return Left(_mapExceptionToFailure(e));
     }
   }
@@ -331,22 +324,22 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   Future<Either<Failure, void>> deleteCreditNote(String id) async {
     if (await networkInfo.isConnected) {
       try {
-        print('🗑️ CreditNoteRepository: Eliminando nota de crédito $id');
+        AppLogger.d('CreditNoteRepository: Eliminando nota de crédito $id');
         await remoteDataSource.deleteCreditNote(id);
 
         // Remove from cache
         await localDataSource.removeCachedCreditNote(id);
 
-        print('✅ Nota de crédito eliminada exitosamente');
+        AppLogger.i('Nota de crédito eliminada exitosamente', tag: 'CREDIT_NOTE');
         return const Right(null);
       } on ServerException catch (e) {
-        print('⚠️ [CN_REPO] ServerException en delete: ${e.message} - Fallback offline...');
+        AppLogger.w('[CN_REPO] ServerException en delete: ${e.message} - Fallback offline...');
         return _deleteCreditNoteOffline(id);
       } on ConnectionException catch (e) {
-        print('⚠️ [CN_REPO] ConnectionException en delete: ${e.message} - Fallback offline...');
+        AppLogger.w('[CN_REPO] ConnectionException en delete: ${e.message} - Fallback offline...');
         return _deleteCreditNoteOffline(id);
       } catch (e) {
-        print('⚠️ [CN_REPO] Exception en delete: $e - Fallback offline...');
+        AppLogger.w('[CN_REPO] Exception en delete: $e - Fallback offline...');
         return _deleteCreditNoteOffline(id);
       }
     } else {
@@ -363,12 +356,12 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
     }
 
     try {
-      print('📄 CreditNoteRepository: Descargando PDF de nota de crédito $id');
+      AppLogger.d('Descargando PDF de nota de crédito $id', tag: 'CREDIT_NOTE');
       final pdfBytes = await remoteDataSource.downloadCreditNotePdf(id);
-      print('✅ PDF descargado: ${pdfBytes.length} bytes');
+      AppLogger.i('PDF descargado: ${pdfBytes.length} bytes', tag: 'CREDIT_NOTE');
       return Right(pdfBytes);
     } catch (e) {
-      print('❌ Error al descargar PDF: $e');
+      AppLogger.e('Error al descargar PDF: $e', tag: 'CREDIT_NOTE');
       return Left(_mapExceptionToFailure(e));
     }
   }
@@ -385,9 +378,7 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
     String invoiceId,
   ) async {
     try {
-      print(
-        '📊 CreditNoteRepository: Obteniendo cantidades disponibles para factura $invoiceId',
-      );
+      AppLogger.d('Obteniendo cantidades disponibles para factura $invoiceId', tag: 'CREDIT_NOTE');
       final response = await remoteDataSource.getAvailableQuantitiesForCreditNote(
         invoiceId,
       );
@@ -426,10 +417,10 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
         message: response.message,
       );
 
-      print('✅ Cantidades disponibles obtenidas: ${domainResponse.items.length} items');
+      AppLogger.i('Cantidades disponibles obtenidas: ${domainResponse.items.length} items');
       return Right(domainResponse);
     } catch (e) {
-      print('⚠️ Error del servidor en getAvailableQuantitiesForCreditNote: $e');
+      AppLogger.w('Error del servidor en getAvailableQuantitiesForCreditNote: $e');
       return Left(ServerFailure('Error al obtener cantidades disponibles: $e'));
     }
   }
@@ -462,7 +453,7 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   Future<Either<Failure, CreditNote>> _createCreditNoteOffline(
     CreateCreditNoteParams params,
   ) async {
-    print('📱 CreditNoteRepository: Creating credit note offline');
+    AppLogger.d('CreditNoteRepository: Creating credit note offline');
     try {
       final now = DateTime.now();
       final tempId = 'cn_offline_${now.millisecondsSinceEpoch}_${params.invoiceId.hashCode}';
@@ -563,15 +554,15 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
           },
           priority: 1,
         );
-        print('📤 CreditNoteRepository: Operation added to sync queue');
+        AppLogger.d('CreditNoteRepository: Operation added to sync queue');
       } catch (e) {
-        print('⚠️ Error adding to sync queue: $e');
+        AppLogger.w('Error adding to sync queue: $e');
       }
 
-      print('✅ Credit note created offline successfully');
+      AppLogger.i('Credit note created offline successfully', tag: 'CREDIT_NOTE');
       return Right(tempCreditNote);
     } catch (e) {
-      print('❌ Error creating credit note offline: $e');
+      AppLogger.e('Error creating credit note offline: $e', tag: 'CREDIT_NOTE');
       return Left(CacheFailure('Error al crear nota de crédito offline: $e'));
     }
   }
@@ -580,7 +571,7 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   Future<Either<Failure, CreditNote>> _updateCreditNoteOffline(
     UpdateCreditNoteParams params,
   ) async {
-    print('📱 CreditNoteRepository: Updating credit note offline: ${params.id}');
+    AppLogger.d('CreditNoteRepository: Updating credit note offline: ${params.id}');
     try {
       // Get cached credit note
       final cachedCreditNote = await localDataSource.getCachedCreditNote(params.id);
@@ -645,22 +636,22 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
           },
           priority: 1,
         );
-        print('📤 Update operation added to sync queue');
+        AppLogger.d('Update operation added to sync queue', tag: 'CREDIT_NOTE');
       } catch (e) {
-        print('⚠️ Error adding to sync queue: $e');
+        AppLogger.w('Error adding to sync queue: $e');
       }
 
-      print('✅ Credit note updated offline successfully');
+      AppLogger.i('Credit note updated offline successfully', tag: 'CREDIT_NOTE');
       return Right(updatedCreditNote);
     } catch (e) {
-      print('❌ Error updating credit note offline: $e');
+      AppLogger.e('Error updating credit note offline: $e', tag: 'CREDIT_NOTE');
       return Left(CacheFailure('Error al actualizar nota de crédito offline: $e'));
     }
   }
 
   /// Delete credit note offline (used as fallback when server fails or no connection)
   Future<Either<Failure, void>> _deleteCreditNoteOffline(String id) async {
-    print('📱 CreditNoteRepository: Deleting credit note offline: $id');
+    AppLogger.d('CreditNoteRepository: Deleting credit note offline: $id');
     try {
       // Remove from cache
       await localDataSource.removeCachedCreditNote(id);
@@ -675,15 +666,15 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
           data: {'id': id},
           priority: 1,
         );
-        print('📤 Delete operation added to sync queue');
+        AppLogger.d('Delete operation added to sync queue', tag: 'CREDIT_NOTE');
       } catch (e) {
-        print('⚠️ Error adding to sync queue: $e');
+        AppLogger.w('Error adding to sync queue: $e');
       }
 
-      print('✅ Credit note deleted offline successfully');
+      AppLogger.i('Credit note deleted offline successfully', tag: 'CREDIT_NOTE');
       return const Right(null);
     } catch (e) {
-      print('❌ Error deleting credit note offline: $e');
+      AppLogger.e('Error deleting credit note offline: $e', tag: 'CREDIT_NOTE');
       return Left(CacheFailure('Error al eliminar nota de crédito offline: $e'));
     }
   }

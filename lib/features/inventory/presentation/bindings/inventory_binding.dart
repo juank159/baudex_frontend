@@ -44,6 +44,7 @@ import '../../domain/repositories/inventory_repository.dart';
 import '../../data/repositories/inventory_repository_impl.dart';
 import '../../data/datasources/inventory_remote_datasource.dart';
 import '../../data/datasources/inventory_local_datasource.dart';
+import '../../data/datasources/inventory_local_datasource_isar.dart';
 import '../controllers/inventory_controller.dart';
 import '../controllers/inventory_movements_controller.dart';
 import '../controllers/inventory_adjustments_controller.dart';
@@ -57,9 +58,45 @@ import '../controllers/warehouses_controller.dart';
 import '../controllers/warehouse_form_controller.dart';
 import '../controllers/warehouse_detail_controller.dart';
 
+// Product dependencies (needed for SearchProductsUseCase)
+import '../../../products/domain/usecases/search_products_usecase.dart';
+import '../../../products/domain/repositories/product_repository.dart';
+import '../../../products/data/datasources/product_remote_datasource.dart';
+import '../../../products/data/datasources/product_local_datasource.dart';
+import '../../../products/data/datasources/product_local_datasource_isar.dart';
+import '../../../products/data/repositories/product_repository_impl.dart';
+import '../../../../app/data/local/isar_database.dart';
+
 class InventoryBinding extends Bindings {
   @override
   void dependencies() {
+    // Asegurar SearchProductsUseCase disponible (normalmente registrado por ProductBinding)
+    if (!Get.isRegistered<SearchProductsUseCase>()) {
+      if (!Get.isRegistered<ProductRemoteDataSource>()) {
+        Get.lazyPut<ProductRemoteDataSource>(
+          () => ProductRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+          fenix: true,
+        );
+      }
+      if (!Get.isRegistered<ProductLocalDataSource>()) {
+        Get.lazyPut<ProductLocalDataSource>(
+          () => ProductLocalDataSourceIsar(Get.find<IsarDatabase>()),
+          fenix: true,
+        );
+      }
+      if (!Get.isRegistered<ProductRepository>()) {
+        Get.lazyPut<ProductRepository>(
+          () => ProductRepositoryImpl(
+            remoteDataSource: Get.find<ProductRemoteDataSource>(),
+            localDataSource: Get.find<ProductLocalDataSource>(),
+            networkInfo: Get.find<NetworkInfo>(),
+          ),
+          fenix: true,
+        );
+      }
+      Get.lazyPut(() => SearchProductsUseCase(Get.find<ProductRepository>()), fenix: true);
+    }
+
     // Core dependencies - use global instances
     Get.lazyPut<FlutterSecureStorage>(() => const FlutterSecureStorage());
     Get.lazyPut<NetworkInfo>(() => Get.find());
@@ -69,7 +106,7 @@ class InventoryBinding extends Bindings {
       InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
     );
     Get.put<InventoryLocalDataSource>(
-      InventoryLocalDataSourceImpl(secureStorage: Get.find()),
+      InventoryLocalDataSourceIsar(Get.find<IsarDatabase>()),
     );
 
     // Repository - register with put for immediate availability

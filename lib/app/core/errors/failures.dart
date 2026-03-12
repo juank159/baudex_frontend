@@ -101,14 +101,30 @@ class ValidationFailure extends Failure {
 
 /// Fallo de autenticación
 class AuthFailure extends Failure {
-  const AuthFailure([super.message = 'Error de autenticación']);
+  final String? errorCode;
 
-  static const invalidCredentials = AuthFailure('Credenciales inválidas');
-  static const tokenExpired = AuthFailure('Sesión expirada');
-  static const userNotFound = AuthFailure('Usuario no encontrado');
-  static const emailAlreadyExists = AuthFailure('El email ya está registrado');
-  static const weakPassword = AuthFailure('La contraseña es muy débil');
-  static const noToken = AuthFailure('No hay token de acceso');
+  const AuthFailure({
+    String message = 'Error de autenticación',
+    this.errorCode,
+  }) : super(message);
+
+  @override
+  List<Object?> get props => [message, errorCode];
+
+  static const invalidCredentials = AuthFailure(message: 'Credenciales inválidas', errorCode: 'INVALID_CREDENTIALS');
+  static const tokenExpired = AuthFailure(message: 'Sesión expirada', errorCode: 'TOKEN_EXPIRED');
+  static const userNotFound = AuthFailure(message: 'Usuario no encontrado', errorCode: 'USER_NOT_FOUND');
+  static const emailAlreadyExists = AuthFailure(message: 'El email ya está registrado', errorCode: 'EMAIL_EXISTS');
+  static const weakPassword = AuthFailure(message: 'La contraseña es muy débil', errorCode: 'WEAK_PASSWORD');
+  static const noToken = AuthFailure(message: 'No hay token de acceso', errorCode: 'NO_TOKEN');
+  static const noOfflineCredentials = AuthFailure(
+    message: 'No hay sesión previa guardada. Necesitas conexión a internet para el primer login.',
+    errorCode: 'NO_OFFLINE_CREDENTIALS',
+  );
+  static const sessionExpired = AuthFailure(
+    message: 'Sesión expirada. Necesitas conexión a internet para renovar tu sesión.',
+    errorCode: 'SESSION_EXPIRED',
+  );
 }
 
 /// Fallo de permisos
@@ -118,6 +134,27 @@ class PermissionFailure extends Failure {
   static const accessDenied = PermissionFailure('Acceso denegado');
   static const insufficientPermissions = PermissionFailure(
     'Permisos insuficientes',
+  );
+}
+
+/// Fallo de suscripción - Suscripción expirada o inválida
+class SubscriptionFailure extends Failure {
+  const SubscriptionFailure([super.message = 'Suscripción expirada']);
+
+  @override
+  int? get code => 403; // Código para que el handler lo detecte
+
+  static const expired = SubscriptionFailure(
+    'Tu suscripción ha expirado. Renueva para continuar usando todas las funcionalidades.',
+  );
+  static const trialExpired = SubscriptionFailure(
+    'Tu período de prueba ha expirado. Activa una suscripción para continuar.',
+  );
+  static const inactive = SubscriptionFailure(
+    'Tu suscripción está inactiva. Contacta a soporte para más información.',
+  );
+  static const cancelled = SubscriptionFailure(
+    'Tu suscripción ha sido cancelada. Reactívala para continuar.',
   );
 }
 

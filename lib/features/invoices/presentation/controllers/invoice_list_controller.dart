@@ -117,6 +117,9 @@ class InvoiceListController extends GetxController {
   // ✅ AUTO-REFRESH: Intervalo mínimo entre refreshes (30 segundos)
   static const _minRefreshInterval = Duration(seconds: 30);
 
+  // ✅ GUARD: Prevenir llamadas concurrentes a loadInvoices
+  bool _isLoadInProgress = false;
+
   // ✅ AUTO-REFRESH: Worker para monitorear cambios de ruta
   Worker? _routeWorker;
 
@@ -200,13 +203,9 @@ class InvoiceListController extends GetxController {
   @override
   void onReady() {
     super.onReady();
-    // print('✅ InvoiceListController: Ready state - controlador completamente inicializado');
-
-    // Verificar si necesitamos refrescar datos después de navegar
-    if (_invoices.isEmpty) {
-      // print('📋 Lista vacía en onReady, cargando facturas...');
-      loadInvoices();
-    }
+    // ✅ NO llamar loadInvoices() aquí - ya se llama en onInit()
+    // Solo verificar si necesitamos refrescar datos (ej: volviendo de otra pantalla)
+    // La carga duplicada desde onInit+onReady causaba múltiples requests concurrentes al servidor
 
     // ✅ AUTO-REFRESH: Configurar listener de navegación
     _setupRouteListener();
@@ -302,6 +301,13 @@ class InvoiceListController extends GetxController {
 
   /// ✅ PAGINACIÓN PROFESIONAL: Cargar facturas con manejo de errores mejorado
   Future<void> loadInvoices({bool showLoading = true, bool forceRefresh = false}) async {
+    // ✅ GUARD: Prevenir llamadas concurrentes duplicadas
+    if (_isLoadInProgress && !forceRefresh) {
+      print('⏭️ loadInvoices: Carga ya en progreso, saltando...');
+      return;
+    }
+    _isLoadInProgress = true;
+
     try {
       // ✅ CACHÉ: Si hay caché válido y no es refresh forzado, usar caché
       if (!forceRefresh && _isCacheValid() && _searchQuery.value.isEmpty && !hasFilters) {
@@ -341,12 +347,12 @@ class InvoiceListController extends GetxController {
       result.fold(
         (failure) {
           // print('❌ Error al cargar facturas: ${failure.message}');
-          _showError('Error al cargar facturas', failure.message);
-
-          // ✅ Limpiar datos en caso de error
-          _invoices.clear();
-          _filteredInvoices.clear();
-          _paginationMeta.value = null;
+          // No limpiar datos si ya tenemos facturas en caché (offline-first)
+          if (_invoices.isEmpty) {
+            _showError('Error al cargar facturas', failure.message);
+            _filteredInvoices.clear();
+            _paginationMeta.value = null;
+          }
         },
         (paginatedResult) {
           // print('✅ CARGA INICIAL EXITOSA:');
@@ -382,17 +388,18 @@ class InvoiceListController extends GetxController {
     } catch (e, stackTrace) {
       // print('💥 Error inesperado al cargar facturas: $e');
       // print('📍 Stack trace: $stackTrace');
-      _showError(
-        'Error inesperado',
-        'No se pudieron cargar las facturas: ${e.toString()}',
-      );
-
-      // ✅ Limpiar datos en caso de error crítico
-      _invoices.clear();
-      _filteredInvoices.clear();
-      _paginationMeta.value = null;
+      // No limpiar datos si ya tenemos facturas en caché (offline-first)
+      if (_invoices.isEmpty) {
+        _showError(
+          'Error inesperado',
+          'No se pudieron cargar las facturas: ${e.toString()}',
+        );
+        _filteredInvoices.clear();
+        _paginationMeta.value = null;
+      }
     } finally {
       if (showLoading) _isLoading.value = false;
+      _isLoadInProgress = false;
     }
   }
 

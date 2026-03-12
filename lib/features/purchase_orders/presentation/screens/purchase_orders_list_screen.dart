@@ -11,6 +11,7 @@ import '../controllers/purchase_orders_controller.dart';
 import '../widgets/purchase_order_card_widget.dart';
 import '../widgets/purchase_order_filter_widget.dart';
 import '../widgets/purchase_order_stats_widget.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class PurchaseOrdersListScreen extends StatefulWidget {
   const PurchaseOrdersListScreen({super.key});
@@ -898,6 +899,7 @@ class _PurchaseOrdersListScreenState extends State<PurchaseOrdersListScreen> {
 
   List<Widget> _buildAppBarActions(BuildContext context) {
     return [
+      const SyncStatusIcon(),
       // Botones estándar del AppBar
       IconButton(
         icon: const Icon(Icons.filter_list),

@@ -131,6 +131,7 @@ class SearchPurchaseOrdersParams {
 
 class CreatePurchaseOrderParams {
   final String supplierId;
+  final String? supplierName; // Para display offline (no se envía al backend)
   final PurchaseOrderPriority priority;
   final DateTime orderDate;
   final DateTime expectedDeliveryDate;
@@ -146,6 +147,7 @@ class CreatePurchaseOrderParams {
 
   const CreatePurchaseOrderParams({
     required this.supplierId,
+    this.supplierName,
     required this.priority,
     required this.orderDate,
     required this.expectedDeliveryDate,
@@ -181,6 +183,7 @@ class CreatePurchaseOrderParams {
 
 class CreatePurchaseOrderItemParams {
   final String productId;
+  final String? productName; // Para display offline (no se envía al backend)
   final int? lineNumber;
   final int quantity;
   final double unitPrice;
@@ -190,6 +193,7 @@ class CreatePurchaseOrderItemParams {
 
   const CreatePurchaseOrderItemParams({
     required this.productId,
+    this.productName,
     this.lineNumber,
     required this.quantity,
     required this.unitPrice,

@@ -50,6 +50,7 @@ dependencies:
   file_picker: ^8.1.6 # Para seleccionar archivos
   image: ^4.2.0 # Para manipular imágenes
   mime: ^1.0.6 # Para detectar tipos MIME de archivos
+  crypto: ^3.0.3 # Para hashing SHA-256 (usado en login offline)
 
 dev_dependencies:
   flutter_test:

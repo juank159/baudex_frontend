@@ -64,38 +64,48 @@ class SupplierRepositoryImpl implements SupplierRepository {
     if (await networkInfo.isConnected) {
       try {
         final remoteResult = await remoteDataSource.getSuppliers(params);
-        
+
         // Cachear los resultados
         await localDataSource.cacheSuppliers(remoteResult.data);
-        
+
         // Convertir models a entities
         final suppliers = remoteResult.data.map((model) => model.toEntity()).toList();
-        
+
         return Right(PaginatedResult<Supplier>(
           data: suppliers,
           meta: remoteResult.meta,
         ));
-      } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        print('⚠️ Error del servidor en getSuppliers: $e - intentando cache local...');
+        return _getSuppliersFromCache(params);
       }
     } else {
-      try {
-        final localResult = await localDataSource.getSuppliers(params);
-        
-        // Convertir models a entities
-        final suppliers = localResult.data.map((model) => model.toEntity()).toList();
-        
-        return Right(PaginatedResult<Supplier>(
-          data: suppliers,
-          meta: localResult.meta,
-        ));
-      } on CacheException catch (e) {
-        return Left(CacheFailure(e.message));
-      } catch (e) {
-        return Left(CacheFailure('Error en cache local: $e'));
-      }
+      return _getSuppliersFromCache(params);
+    }
+  }
+
+  Future<Either<Failure, PaginatedResult<Supplier>>> _getSuppliersFromCache(
+    SupplierQueryParams params,
+  ) async {
+    try {
+      final localResult = await localDataSource.getSuppliers(params);
+      final suppliers = localResult.data.map((model) => model.toEntity()).toList();
+      return Right(PaginatedResult<Supplier>(
+        data: suppliers,
+        meta: localResult.meta,
+      ));
+    } catch (_) {
+      return Right(PaginatedResult<Supplier>(
+        data: <Supplier>[],
+        meta: PaginationMeta(
+          page: params.page,
+          limit: params.limit,
+          totalItems: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        ),
+      ));
     }
   }
 
@@ -104,31 +114,28 @@ class SupplierRepositoryImpl implements SupplierRepository {
     if (await networkInfo.isConnected) {
       try {
         final supplierModel = await remoteDataSource.getSupplierById(id);
-        
+
         // Cachear el resultado
         await localDataSource.cacheSupplier(supplierModel);
-        
+
         return Right(supplierModel.toEntity());
-      } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        print('⚠️ Error del servidor en getSupplierById: $e - intentando cache local...');
+        return _getSupplierByIdFromCache(id);
       }
     } else {
-      try {
-        final supplierModel = await localDataSource.getSupplierById(id);
-        
-        if (supplierModel != null) {
-          return Right(supplierModel.toEntity());
-        } else {
-          return Left(CacheFailure('Proveedor no encontrado en cache'));
-        }
-      } on CacheException catch (e) {
-        return Left(CacheFailure(e.message));
-      } catch (e) {
-        return Left(CacheFailure('Error en cache local: $e'));
-      }
+      return _getSupplierByIdFromCache(id);
     }
+  }
+
+  Future<Either<Failure, Supplier>> _getSupplierByIdFromCache(String id) async {
+    try {
+      final supplierModel = await localDataSource.getSupplierById(id);
+      if (supplierModel != null) {
+        return Right(supplierModel.toEntity());
+      }
+    } catch (_) {}
+    return Left(CacheFailure('Proveedor no encontrado en cache'));
   }
 
   @override
@@ -136,89 +143,125 @@ class SupplierRepositoryImpl implements SupplierRepository {
     String searchTerm, {
     int limit = 10,
   }) async {
-    try {
-      final supplierModels = await remoteDataSource.searchSuppliers(
-        searchTerm,
-        limit: limit,
-      );
-
-      // Cachear los resultados
-      for (final supplier in supplierModels) {
-        await localDataSource.cacheSupplier(supplier);
-      }
-
-      final suppliers = supplierModels.map((model) => model.toEntity()).toList();
-      return Right(suppliers);
-    } catch (e) {
-      print('⚠️ Error del servidor en searchSuppliers: $e - intentando cache local...');
+    if (await networkInfo.isConnected) {
       try {
-        final supplierModels = await localDataSource.searchSuppliers(
+        final supplierModels = await remoteDataSource.searchSuppliers(
           searchTerm,
           limit: limit,
         );
 
-        final suppliers = supplierModels.map((model) => model.toEntity()).toList();
-        if (suppliers.isNotEmpty) {
-          print('✅ ${suppliers.length} proveedores encontrados en cache local');
+        // Cachear los resultados
+        for (final supplier in supplierModels) {
+          await localDataSource.cacheSupplier(supplier);
         }
+
+        final suppliers = supplierModels.map((model) => model.toEntity()).toList();
         return Right(suppliers);
-      } catch (cacheError) {
-        return Left(CacheFailure('Error al buscar en cache: $cacheError'));
+      } catch (e) {
+        print('⚠️ Error del servidor en searchSuppliers: $e - intentando cache local...');
+        return _searchSuppliersFromCache(searchTerm, limit: limit);
       }
+    } else {
+      return _searchSuppliersFromCache(searchTerm, limit: limit);
+    }
+  }
+
+  Future<Either<Failure, List<Supplier>>> _searchSuppliersFromCache(
+    String searchTerm, {
+    int limit = 10,
+  }) async {
+    try {
+      final supplierModels = await localDataSource.searchSuppliers(
+        searchTerm,
+        limit: limit,
+      );
+      final suppliers = supplierModels.map((model) => model.toEntity()).toList();
+      if (suppliers.isNotEmpty) {
+        print('✅ ${suppliers.length} proveedores encontrados en cache local');
+      }
+      return Right(suppliers);
+    } catch (_) {
+      return const Right(<Supplier>[]);
     }
   }
 
   @override
   Future<Either<Failure, List<Supplier>>> getActiveSuppliers() async {
-    try {
-      final supplierModels = await remoteDataSource.getActiveSuppliers();
-
-      // Cachear los resultados
-      for (final supplier in supplierModels) {
-        await localDataSource.cacheSupplier(supplier);
-      }
-
-      final suppliers = supplierModels.map((model) => model.toEntity()).toList();
-      return Right(suppliers);
-    } catch (e) {
-      print('⚠️ Error del servidor en getActiveSuppliers: $e - intentando cache local...');
+    if (await networkInfo.isConnected) {
       try {
-        final supplierModels = await localDataSource.getActiveSuppliers();
-        final suppliers = supplierModels.map((model) => model.toEntity()).toList();
-        if (suppliers.isNotEmpty) {
-          print('✅ ${suppliers.length} proveedores activos encontrados en cache local');
+        final supplierModels = await remoteDataSource.getActiveSuppliers();
+
+        // Cachear los resultados
+        for (final supplier in supplierModels) {
+          await localDataSource.cacheSupplier(supplier);
         }
+
+        final suppliers = supplierModels.map((model) => model.toEntity()).toList();
         return Right(suppliers);
-      } catch (cacheError) {
-        return Left(CacheFailure('Error al obtener del cache: $cacheError'));
+      } catch (e) {
+        print('⚠️ Error del servidor en getActiveSuppliers: $e - intentando cache local...');
+        return _getActiveSuppliersFromCache();
       }
+    } else {
+      return _getActiveSuppliersFromCache();
+    }
+  }
+
+  Future<Either<Failure, List<Supplier>>> _getActiveSuppliersFromCache() async {
+    try {
+      final supplierModels = await localDataSource.getActiveSuppliers();
+      final suppliers = supplierModels.map((model) => model.toEntity()).toList();
+      if (suppliers.isNotEmpty) {
+        print('✅ ${suppliers.length} proveedores activos encontrados en cache local');
+      }
+      return Right(suppliers);
+    } catch (_) {
+      return const Right(<Supplier>[]);
     }
   }
 
   @override
   Future<Either<Failure, SupplierStats>> getSupplierStats() async {
-    try {
-      final statsModel = await remoteDataSource.getSupplierStats();
-
-      // Cachear las estadísticas
-      await localDataSource.cacheSupplierStats(statsModel);
-
-      return Right(statsModel.toEntity());
-    } catch (e) {
-      print('⚠️ Error del servidor en getSupplierStats: $e - intentando cache local...');
+    if (await networkInfo.isConnected) {
       try {
-        final statsModel = await localDataSource.getCachedSupplierStats();
+        final statsModel = await remoteDataSource.getSupplierStats();
 
-        if (statsModel != null) {
-          print('✅ Estadísticas de proveedores obtenidas desde cache local');
-          return Right(statsModel.toEntity());
-        } else {
-          return Left(CacheFailure('Estadísticas no disponibles en cache'));
-        }
-      } catch (cacheError) {
-        return Left(CacheFailure('Error al obtener estadísticas del cache: $cacheError'));
+        // Cachear las estadísticas
+        await localDataSource.cacheSupplierStats(statsModel);
+
+        return Right(statsModel.toEntity());
+      } catch (e) {
+        print('⚠️ Error del servidor en getSupplierStats: $e - intentando cache local...');
+        return _getSupplierStatsFromCache();
       }
+    } else {
+      return _getSupplierStatsFromCache();
     }
+  }
+
+  Future<Either<Failure, SupplierStats>> _getSupplierStatsFromCache() async {
+    try {
+      final statsModel = await localDataSource.getCachedSupplierStats();
+      if (statsModel != null) {
+        print('✅ Estadísticas de proveedores obtenidas desde cache local');
+        return Right(statsModel.toEntity());
+      }
+    } catch (_) {}
+    // Retornar stats vacías en vez de error
+    return const Right(SupplierStats(
+      totalSuppliers: 0,
+      activeSuppliers: 0,
+      inactiveSuppliers: 0,
+      totalCreditLimit: 0.0,
+      averageCreditLimit: 0.0,
+      averagePaymentTerms: 0.0,
+      suppliersWithDiscount: 0,
+      suppliersWithCredit: 0,
+      currencyDistribution: {},
+      topSuppliersByCredit: [],
+      totalPurchasesAmount: 0.0,
+      totalPurchaseOrders: 0,
+    ));
   }
 
   @override
@@ -703,10 +746,8 @@ class SupplierRepositoryImpl implements SupplierRepository {
       final supplierModels = await localDataSource.getCachedSuppliers();
       final suppliers = supplierModels.map((model) => model.toEntity()).toList();
       return Right(suppliers);
-    } on CacheException catch (e) {
-      return Left(CacheFailure(e.message));
-    } catch (e) {
-      return Left(CacheFailure('Error en cache local: $e'));
+    } catch (_) {
+      return const Right(<Supplier>[]);
     }
   }
 

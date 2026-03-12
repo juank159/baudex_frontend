@@ -73,6 +73,11 @@ const SyncOperationSchema = CollectionSchema(
       id: 10,
       name: r'syncedAt',
       type: IsarType.dateTime,
+    ),
+    r'updatedAt': PropertySchema(
+      id: 11,
+      name: r'updatedAt',
+      type: IsarType.dateTime,
     )
   },
   estimateSize: _syncOperationEstimateSize,
@@ -193,6 +198,7 @@ void _syncOperationSerialize(
   writer.writeLong(offsets[8], object.retryCount);
   writer.writeString(offsets[9], object.status.name);
   writer.writeDateTime(offsets[10], object.syncedAt);
+  writer.writeDateTime(offsets[11], object.updatedAt);
 }
 
 SyncOperation _syncOperationDeserialize(
@@ -218,6 +224,7 @@ SyncOperation _syncOperationDeserialize(
       _SyncOperationstatusValueEnumMap[reader.readStringOrNull(offsets[9])] ??
           SyncStatus.pending;
   object.syncedAt = reader.readDateTimeOrNull(offsets[10]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[11]);
   return object;
 }
 
@@ -253,6 +260,8 @@ P _syncOperationDeserializeProp<P>(
               reader.readStringOrNull(offset)] ??
           SyncStatus.pending) as P;
     case 10:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 11:
       return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1979,6 +1988,80 @@ extension SyncOperationQueryFilter
       ));
     });
   }
+
+  QueryBuilder<SyncOperation, SyncOperation, QAfterFilterCondition>
+      updatedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'updatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SyncOperation, SyncOperation, QAfterFilterCondition>
+      updatedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'updatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SyncOperation, SyncOperation, QAfterFilterCondition>
+      updatedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncOperation, SyncOperation, QAfterFilterCondition>
+      updatedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncOperation, SyncOperation, QAfterFilterCondition>
+      updatedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncOperation, SyncOperation, QAfterFilterCondition>
+      updatedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'updatedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension SyncOperationQueryObject
@@ -2128,6 +2211,19 @@ extension SyncOperationQuerySortBy
       sortBySyncedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'syncedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SyncOperation, SyncOperation, QAfterSortBy> sortByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SyncOperation, SyncOperation, QAfterSortBy>
+      sortByUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 }
@@ -2287,6 +2383,19 @@ extension SyncOperationQuerySortThenBy
       return query.addSortBy(r'syncedAt', Sort.desc);
     });
   }
+
+  QueryBuilder<SyncOperation, SyncOperation, QAfterSortBy> thenByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SyncOperation, SyncOperation, QAfterSortBy>
+      thenByUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
 }
 
 extension SyncOperationQueryWhereDistinct
@@ -2365,6 +2474,12 @@ extension SyncOperationQueryWhereDistinct
       return query.addDistinctBy(r'syncedAt');
     });
   }
+
+  QueryBuilder<SyncOperation, SyncOperation, QDistinct> distinctByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'updatedAt');
+    });
+  }
 }
 
 extension SyncOperationQueryProperty
@@ -2440,6 +2555,12 @@ extension SyncOperationQueryProperty
   QueryBuilder<SyncOperation, DateTime?, QQueryOperations> syncedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'syncedAt');
+    });
+  }
+
+  QueryBuilder<SyncOperation, DateTime?, QQueryOperations> updatedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'updatedAt');
     });
   }
 }

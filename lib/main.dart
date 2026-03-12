@@ -9,6 +9,7 @@ import 'app/config/routes/app_pages.dart';
 import 'app/config/routes/app_routes.dart';
 import 'app/config/themes/app_theme.dart';
 import 'app/config/constants/api_constants.dart';
+import 'app/core/navigation/app_route_observer.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +72,9 @@ class MyApp extends StatelessWidget {
       ],
       defaultTransition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
+
+      // ✅ RouteObserver para auto-refresh al regresar a pantallas
+      navigatorObservers: [appRouteObserver],
 
       initialBinding: InitialBinding(),
     );

@@ -3,8 +3,8 @@
 import 'package:get/get.dart';
 import '../../../invoices/presentation/controllers/invoice_list_controller.dart';
 import '../../data/models/customer_credit_model.dart';
-import '../../data/repositories/customer_credit_repository_impl.dart';
 import '../../domain/entities/customer_credit.dart';
+import '../../domain/repositories/customer_credit_repository.dart';
 
 /// Controlador para gestión de créditos de clientes
 class CustomerCreditController extends GetxController {
@@ -43,21 +43,13 @@ class CustomerCreditController extends GetxController {
 
   // Flag para saber si ya se cargaron los datos iniciales
   bool _initialLoadDone = false;
+  bool _isLoadInProgress = false;
 
   @override
   void onInit() {
     super.onInit();
     // Carga inicial de datos
     _initialLoad();
-  }
-
-  @override
-  void onReady() {
-    super.onReady();
-    // Si por alguna razón no se cargaron en onInit, cargar en onReady
-    if (!_initialLoadDone && credits.isEmpty) {
-      _initialLoad();
-    }
   }
 
   /// Carga inicial de datos (créditos y estadísticas en paralelo)
@@ -73,6 +65,10 @@ class CustomerCreditController extends GetxController {
 
   /// Refresca todos los datos (para usar cuando la página vuelve a ser visible)
   Future<void> refreshAllData() async {
+    if (_isLoadInProgress) {
+      print('⏭️ [CREDIT] refreshAllData ya en progreso, saltando...');
+      return;
+    }
     await Future.wait([
       loadCredits(),
       loadStats(),
@@ -81,38 +77,48 @@ class CustomerCreditController extends GetxController {
 
   /// Asegura que los datos estén cargados (llamar desde las páginas)
   Future<void> ensureDataLoaded() async {
-    if (credits.isEmpty && !isLoading.value) {
+    if (credits.isEmpty && !isLoading.value && !_isLoadInProgress) {
       await refreshAllData();
     }
   }
 
   /// Carga todos los créditos con los filtros actuales
   Future<void> loadCredits() async {
+    if (_isLoadInProgress) {
+      print('⏭️ [CREDIT] loadCredits ya en progreso, saltando...');
+      return;
+    }
+    _isLoadInProgress = true;
     isLoading.value = true;
     errorMessage.value = '';
 
-    final query = CustomerCreditQueryParams(
-      customerId: selectedCustomerId.value,
-      status: selectedStatus.value?.value,
-      overdueOnly: showOverdueOnly.value ? true : null,
-      includeCancelled: includeCancelled.value ? true : null,
-    );
+    try {
+      final query = CustomerCreditQueryParams(
+        customerId: selectedCustomerId.value,
+        status: selectedStatus.value?.value,
+        overdueOnly: showOverdueOnly.value ? true : null,
+        includeCancelled: includeCancelled.value ? true : null,
+      );
 
-    final result = await repository.getCredits(query);
+      final result = await repository.getCredits(query);
 
-    result.fold(
-      (failure) {
-        errorMessage.value = failure.message;
-        credits.clear();
-      },
-      (data) {
-        credits.assignAll(data);
-        // Recalcular estadísticas si no tenemos datos del API
-        _updateStatsFromCredits();
-      },
-    );
-
-    isLoading.value = false;
+      result.fold(
+        (failure) {
+          errorMessage.value = failure.message;
+          // No limpiar credits si ya tenemos datos en cache
+          if (credits.isEmpty) {
+            credits.clear();
+          }
+        },
+        (data) {
+          credits.assignAll(data);
+          _updateStatsFromCredits();
+        },
+      );
+    } finally {
+      isLoading.value = false;
+      _isLoadInProgress = false;
+    }
   }
 
   /// Carga las estadísticas de créditos
@@ -135,32 +141,36 @@ class CustomerCreditController extends GetxController {
   }
 
   /// Calcula estadísticas localmente desde la lista de créditos cargados
+  /// con desglose por tipo (directo vs factura)
+  /// Consistente con el backend: totalPaid = originalAmount de créditos PAID
   void _calculateLocalStats() {
-    double totalPending = 0;
-    double totalOverdue = 0;
-    double totalPaid = 0;
-    int countPending = 0;
-    int countOverdue = 0;
+    double totalPending = 0, totalOverdue = 0, totalPaid = 0;
+    int countPending = 0, countOverdue = 0;
+    double directPending = 0, directOverdue = 0, directPaid = 0;
+    double invoicePending = 0, invoiceOverdue = 0, invoicePaid = 0;
+    int directCountPending = 0, directCountOverdue = 0;
+    int invoiceCountPending = 0, invoiceCountOverdue = 0;
 
     for (final credit in credits) {
-      // Sumar siempre lo que ya se ha pagado
-      totalPaid += credit.paidAmount;
+      final isInvoice = credit.invoiceId != null && credit.invoiceId!.isNotEmpty;
 
-      // Clasificar por estado
       if (credit.status == CreditStatus.paid) {
-        // Crédito completamente pagado - no hay saldo pendiente
+        totalPaid += credit.originalAmount;
+        if (isInvoice) { invoicePaid += credit.originalAmount; }
+        else { directPaid += credit.originalAmount; }
         continue;
       } else if (credit.status == CreditStatus.cancelled) {
-        // Crédito cancelado - ignorar
         continue;
       } else if (credit.status == CreditStatus.overdue || credit.isOverdue) {
-        // Crédito vencido
         totalOverdue += credit.balanceDue;
         countOverdue++;
+        if (isInvoice) { invoiceOverdue += credit.balanceDue; invoiceCountOverdue++; }
+        else { directOverdue += credit.balanceDue; directCountOverdue++; }
       } else {
-        // Crédito pendiente o parcialmente pagado (no vencido)
         totalPending += credit.balanceDue;
         countPending++;
+        if (isInvoice) { invoicePending += credit.balanceDue; invoiceCountPending++; }
+        else { directPending += credit.balanceDue; directCountPending++; }
       }
     }
 
@@ -170,6 +180,16 @@ class CustomerCreditController extends GetxController {
       countPending: countPending,
       countOverdue: countOverdue,
       totalPaid: totalPaid,
+      directPending: directPending,
+      directOverdue: directOverdue,
+      directPaid: directPaid,
+      directCountPending: directCountPending,
+      directCountOverdue: directCountOverdue,
+      invoicePending: invoicePending,
+      invoiceOverdue: invoiceOverdue,
+      invoicePaid: invoicePaid,
+      invoiceCountPending: invoiceCountPending,
+      invoiceCountOverdue: invoiceCountOverdue,
     );
   }
 
@@ -283,6 +303,10 @@ class CustomerCreditController extends GetxController {
       },
       (data) {
         newCredit = data;
+        // Agregar inmediatamente a la lista local para evitar race condition
+        // (loadCredits fire-and-forget bloquea recargas concurrentes via _isLoadInProgress)
+        credits.add(data);
+        _updateStatsFromCredits();
         String message = 'Se creó un crédito por \$${amount.toStringAsFixed(0)}';
         if (data.paidAmount > 0) {
           message += '. Se aplicó saldo a favor: \$${data.paidAmount.toStringAsFixed(0)}';
@@ -297,8 +321,9 @@ class CustomerCreditController extends GetxController {
 
     isProcessing.value = false;
 
-    // Si fue exitoso, recargar datos en segundo plano (sin bloquear)
+    // Si fue exitoso, recargar datos completos en segundo plano
     if (newCredit != null) {
+      _isLoadInProgress = false; // Reset para que la recarga funcione
       Future.wait([
         loadCredits(),
         loadStats(),
@@ -352,12 +377,22 @@ class CustomerCreditController extends GetxController {
       (data) {
         success = true;
         selectedCredit.value = data;
+        // Actualizar el crédito en la lista local inmediatamente
+        final index = credits.indexWhere((c) => c.id == creditId);
+        if (index >= 0) {
+          credits[index] = data;
+          credits.refresh();
+        }
+        _updateStatsFromCredits();
       },
     );
 
-    // Si fue exitoso, recargar datos completos para sincronización
+    isProcessing.value = false;
+
+    // Si fue exitoso, recargar datos completos en segundo plano
     if (success) {
-      await Future.wait([
+      _isLoadInProgress = false;
+      Future.wait([
         loadCredits(),
         loadStats(),
       ]);
@@ -367,7 +402,6 @@ class CustomerCreditController extends GetxController {
       }
     }
 
-    isProcessing.value = false;
     return success;
   }
 
@@ -413,6 +447,13 @@ class CustomerCreditController extends GetxController {
         if (selectedCredit.value?.id == creditId) {
           selectedCredit.value = data;
         }
+        // Actualizar en lista local inmediatamente
+        final index = credits.indexWhere((c) => c.id == creditId);
+        if (index >= 0) {
+          credits[index] = data;
+          credits.refresh();
+        }
+        _updateStatsFromCredits();
         Get.snackbar(
           'Crédito cancelado',
           'El crédito ha sido cancelado exitosamente',
@@ -421,15 +462,17 @@ class CustomerCreditController extends GetxController {
       },
     );
 
-    // Si fue exitoso, recargar datos completos
+    isProcessing.value = false;
+
+    // Si fue exitoso, recargar datos completos en segundo plano
     if (success) {
-      await Future.wait([
+      _isLoadInProgress = false;
+      Future.wait([
         loadCredits(),
         loadStats(),
       ]);
     }
 
-    isProcessing.value = false;
     return success;
   }
 
@@ -665,18 +708,21 @@ class CustomerCreditController extends GetxController {
       (data) {
         success = true;
         selectedCredit.value = data;
-        Get.snackbar(
-          'Monto agregado',
-          'Se agregó \$${amount.toStringAsFixed(0)} al crédito',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+        // Actualizar el crédito en la lista local inmediatamente
+        final index = credits.indexWhere((c) => c.id == creditId);
+        if (index >= 0) {
+          credits[index] = data;
+          credits.refresh();
+        }
+        _updateStatsFromCredits();
       },
     );
 
     isProcessing.value = false;
 
-    // Si fue exitoso, recargar datos en segundo plano (sin bloquear)
+    // Si fue exitoso, recargar datos completos en segundo plano
     if (success) {
+      _isLoadInProgress = false; // Reset para que la recarga funcione
       Future.wait([
         loadCredits(),
         loadStats(),
@@ -711,6 +757,13 @@ class CustomerCreditController extends GetxController {
       (data) {
         success = true;
         selectedCredit.value = data;
+        // Actualizar el crédito en la lista local inmediatamente
+        final index = credits.indexWhere((c) => c.id == creditId);
+        if (index >= 0) {
+          credits[index] = data;
+          credits.refresh();
+        }
+        _updateStatsFromCredits();
         Get.snackbar(
           'Saldo aplicado',
           'Se aplicó saldo a favor al crédito',
@@ -719,16 +772,18 @@ class CustomerCreditController extends GetxController {
       },
     );
 
-    // Si fue exitoso, recargar datos completos
+    isProcessing.value = false;
+
+    // Si fue exitoso, recargar datos completos en segundo plano
     if (success) {
-      await Future.wait([
+      _isLoadInProgress = false;
+      Future.wait([
         loadCredits(),
         loadStats(),
         loadClientBalances(),
       ]);
     }
 
-    isProcessing.value = false;
     return success;
   }
 

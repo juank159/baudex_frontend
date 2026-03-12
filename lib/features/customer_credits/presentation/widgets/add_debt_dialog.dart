@@ -415,18 +415,14 @@ class _AddDebtDialogState extends State<AddDebtDialog> {
       description: description,
     );
 
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+
     if (success) {
-      // Recargar los créditos para actualizar la lista
-      await controller.loadCredits();
-
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-
-      // Cerrar el diálogo y notificar éxito
+      // Cerrar el diálogo inmediatamente y notificar éxito
       Get.back(result: true);
 
-      // Mostrar mensaje de éxito
       Get.snackbar(
         'Deuda agregada',
         'Se agregó ${AppFormatters.formatCurrency(amount)} al crédito',
@@ -438,10 +434,6 @@ class _AddDebtDialogState extends State<AddDebtDialog> {
         margin: const EdgeInsets.all(12),
         borderRadius: 12,
       );
-    } else {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 }

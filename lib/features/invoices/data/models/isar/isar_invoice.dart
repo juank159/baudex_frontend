@@ -1,6 +1,9 @@
 // lib/features/invoices/data/models/isar/isar_invoice.dart
+import 'dart:convert';
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
 import 'package:baudex_desktop/features/invoices/domain/entities/invoice.dart';
+import 'package:baudex_desktop/features/invoices/domain/entities/invoice_item.dart';
+import 'package:baudex_desktop/features/invoices/domain/entities/invoice_payment.dart';
 import 'package:isar/isar.dart';
 
 part 'isar_invoice.g.dart';
@@ -41,6 +44,10 @@ class IsarInvoice {
   String? notes;
   String? terms;
   String? metadataJson;
+
+  // Items y Payments como JSON (para preservar datos offline)
+  String? itemsJson;
+  String? paymentsJson;
 
   // Foreign Keys
   @Index()
@@ -83,6 +90,8 @@ class IsarInvoice {
     this.notes,
     this.terms,
     this.metadataJson,
+    this.itemsJson,
+    this.paymentsJson,
     required this.customerId,
     this.createdById,
     required this.createdAt,
@@ -90,7 +99,7 @@ class IsarInvoice {
     this.deletedAt,
     required this.isSynced,
     this.lastSyncAt,
-    this.version = 0, // ⭐ Inicializar versión en 0
+    this.version = 0,
     this.lastModifiedAt,
     this.lastModifiedBy,
   });
@@ -116,6 +125,8 @@ class IsarInvoice {
       terms: entity.terms,
       metadataJson:
           entity.metadata != null ? _encodeMetadata(entity.metadata!) : null,
+      itemsJson: _encodeItems(entity.items),
+      paymentsJson: encodePayments(entity.payments),
       customerId: entity.customerId,
       createdById: entity.createdById,
       createdAt: entity.createdAt,
@@ -147,6 +158,8 @@ class IsarInvoice {
       terms: model.terms,
       metadataJson:
           model.metadata != null ? _encodeMetadata(model.metadata!) : null,
+      itemsJson: model.items != null ? _encodeItemsFromModel(model.items) : null,
+      paymentsJson: model.payments != null ? _encodePaymentsFromModel(model.payments) : null,
       customerId: model.customerId,
       createdById: model.createdById,
       createdAt: model.createdAt,
@@ -176,6 +189,8 @@ class IsarInvoice {
     notes = model.notes;
     terms = model.terms;
     metadataJson = model.metadata != null ? _encodeMetadata(model.metadata!) : null;
+    itemsJson = model.items != null ? _encodeItemsFromModel(model.items) : null;
+    paymentsJson = model.payments != null ? _encodePaymentsFromModel(model.payments) : null;
     customerId = model.customerId;
     createdById = model.createdById;
     createdAt = model.createdAt;
@@ -184,7 +199,7 @@ class IsarInvoice {
     isSynced = true;
     lastSyncAt = DateTime.now();
 
-    // ⭐ FASE 1: Incrementar versión al actualizar desde servidor
+    // Incrementar versión al actualizar desde servidor
     incrementVersion(modifiedBy: 'server');
   }
 
@@ -209,8 +224,8 @@ class IsarInvoice {
       metadata: metadataJson != null ? _decodeMetadata(metadataJson!) : null,
       customerId: customerId,
       createdById: createdById ?? '',
-      items: [], // Se cargarán por separado
-      payments: [], // Se cargarán por separado
+      items: _decodeItems(itemsJson),
+      payments: decodePayments(paymentsJson),
       createdAt: createdAt,
       updatedAt: updatedAt,
       deletedAt: deletedAt,
@@ -264,6 +279,8 @@ class IsarInvoice {
     switch (method) {
       case PaymentMethod.cash:
         return IsarPaymentMethod.cash;
+      case PaymentMethod.credit:
+        return IsarPaymentMethod.credit;
       case PaymentMethod.creditCard:
         return IsarPaymentMethod.creditCard;
       case PaymentMethod.debitCard:
@@ -272,9 +289,9 @@ class IsarInvoice {
         return IsarPaymentMethod.bankTransfer;
       case PaymentMethod.check:
         return IsarPaymentMethod.check;
+      case PaymentMethod.clientBalance:
+        return IsarPaymentMethod.clientBalance;
       case PaymentMethod.other:
-        return IsarPaymentMethod.other;
-      default:
         return IsarPaymentMethod.other;
     }
   }
@@ -284,7 +301,7 @@ class IsarInvoice {
       case IsarPaymentMethod.cash:
         return PaymentMethod.cash;
       case IsarPaymentMethod.credit:
-        return PaymentMethod.other; // Fallback since credit doesn't exist
+        return PaymentMethod.credit;
       case IsarPaymentMethod.creditCard:
         return PaymentMethod.creditCard;
       case IsarPaymentMethod.debitCard:
@@ -301,12 +318,215 @@ class IsarInvoice {
   }
 
   // Helpers para metadatos
-  static String _encodeMetadata(Map<String, dynamic> metadata) {
-    return metadata.toString();
+  static String _encodeMetadata(Map<String, dynamic>? metadata) {
+    if (metadata == null || metadata.isEmpty) return '{}';
+    try {
+      return jsonEncode(metadata);
+    } catch (e) {
+      return '{}';
+    }
   }
 
-  static Map<String, dynamic> _decodeMetadata(String metadataJson) {
-    return {};
+  static Map<String, dynamic> _decodeMetadata(String? metadataJson) {
+    if (metadataJson == null || metadataJson.isEmpty || metadataJson == '{}') {
+      return {};
+    }
+    try {
+      final decoded = jsonDecode(metadataJson);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  // Helpers para items
+  static String _encodeItems(List<InvoiceItem>? items) {
+    if (items == null || items.isEmpty) return '[]';
+    try {
+      final list = items.map((item) => {
+        'id': item.id,
+        'description': item.description,
+        'quantity': item.quantity,
+        'unitPrice': item.unitPrice,
+        'discountPercentage': item.discountPercentage,
+        'discountAmount': item.discountAmount,
+        'subtotal': item.subtotal,
+        'unit': item.unit,
+        'notes': item.notes,
+        'invoiceId': item.invoiceId,
+        'productId': item.productId,
+        'createdAt': item.createdAt.toIso8601String(),
+        'updatedAt': item.updatedAt.toIso8601String(),
+      }).toList();
+      return jsonEncode(list);
+    } catch (e) {
+      return '[]';
+    }
+  }
+
+  static String? _encodeItemsFromModel(dynamic items) {
+    if (items == null) return null;
+    if (items is List) {
+      try {
+        final list = items.map((item) {
+          if (item is Map) {
+            return item;
+          }
+          // Si es un modelo, extraer sus propiedades
+          return {
+            'id': item.id,
+            'description': item.description,
+            'quantity': item.quantity,
+            'unitPrice': item.unitPrice,
+            'discountPercentage': item.discountPercentage,
+            'discountAmount': item.discountAmount,
+            'subtotal': item.subtotal,
+            'unit': item.unit,
+            'notes': item.notes,
+            'invoiceId': item.invoiceId,
+            'productId': item.productId,
+            'createdAt': item.createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+            'updatedAt': item.updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+          };
+        }).toList();
+        return jsonEncode(list);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  static List<InvoiceItem> _decodeItems(String? itemsJson) {
+    if (itemsJson == null || itemsJson.isEmpty || itemsJson == '[]') {
+      return [];
+    }
+    try {
+      final decoded = jsonDecode(itemsJson);
+      if (decoded is List) {
+        return decoded.map((item) {
+          final map = item as Map<String, dynamic>;
+          return InvoiceItem(
+            id: map['id'] ?? '',
+            description: map['description'] ?? '',
+            quantity: (map['quantity'] ?? 0).toDouble(),
+            unitPrice: (map['unitPrice'] ?? 0).toDouble(),
+            discountPercentage: (map['discountPercentage'] ?? 0).toDouble(),
+            discountAmount: (map['discountAmount'] ?? 0).toDouble(),
+            subtotal: (map['subtotal'] ?? 0).toDouble(),
+            unit: map['unit'],
+            notes: map['notes'],
+            invoiceId: map['invoiceId'] ?? '',
+            productId: map['productId'],
+            createdAt: map['createdAt'] != null
+                ? DateTime.parse(map['createdAt'])
+                : DateTime.now(),
+            updatedAt: map['updatedAt'] != null
+                ? DateTime.parse(map['updatedAt'])
+                : DateTime.now(),
+          );
+        }).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Helpers para payments
+  static String encodePayments(List<InvoicePayment>? payments) {
+    if (payments == null || payments.isEmpty) return '[]';
+    try {
+      final list = payments.map((payment) => {
+        'id': payment.id,
+        'amount': payment.amount,
+        'paymentMethod': payment.paymentMethod.value,
+        'paymentDate': payment.paymentDate.toIso8601String(),
+        'reference': payment.reference,
+        'notes': payment.notes,
+        'invoiceId': payment.invoiceId,
+        'createdById': payment.createdById,
+        'organizationId': payment.organizationId,
+        'bankAccountId': payment.bankAccountId,
+        'createdAt': payment.createdAt.toIso8601String(),
+        'updatedAt': payment.updatedAt.toIso8601String(),
+      }).toList();
+      return jsonEncode(list);
+    } catch (e) {
+      return '[]';
+    }
+  }
+
+  static String? _encodePaymentsFromModel(dynamic payments) {
+    if (payments == null) return null;
+    if (payments is List) {
+      try {
+        final list = payments.map((payment) {
+          if (payment is Map) {
+            return payment;
+          }
+          // Si es un modelo, extraer sus propiedades
+          return {
+            'id': payment.id,
+            'amount': payment.amount,
+            'paymentMethod': payment.paymentMethod?.value ?? payment.paymentMethod ?? 'cash',
+            'paymentDate': payment.paymentDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
+            'reference': payment.reference,
+            'notes': payment.notes,
+            'invoiceId': payment.invoiceId,
+            'createdById': payment.createdById,
+            'organizationId': payment.organizationId,
+            'bankAccountId': payment.bankAccountId,
+            'createdAt': payment.createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+            'updatedAt': payment.updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+          };
+        }).toList();
+        return jsonEncode(list);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  static List<InvoicePayment> decodePayments(String? paymentsJson) {
+    if (paymentsJson == null || paymentsJson.isEmpty || paymentsJson == '[]') {
+      return [];
+    }
+    try {
+      final decoded = jsonDecode(paymentsJson);
+      if (decoded is List) {
+        return decoded.map((payment) {
+          final map = payment as Map<String, dynamic>;
+          return InvoicePayment(
+            id: map['id'] ?? '',
+            amount: (map['amount'] ?? 0).toDouble(),
+            paymentMethod: PaymentMethod.fromString(map['paymentMethod'] ?? 'cash'),
+            paymentDate: map['paymentDate'] != null
+                ? DateTime.parse(map['paymentDate'])
+                : DateTime.now(),
+            reference: map['reference'],
+            notes: map['notes'],
+            invoiceId: map['invoiceId'] ?? '',
+            createdById: map['createdById'] ?? '',
+            organizationId: map['organizationId'] ?? '',
+            bankAccountId: map['bankAccountId'],
+            createdAt: map['createdAt'] != null
+                ? DateTime.parse(map['createdAt'])
+                : DateTime.now(),
+            updatedAt: map['updatedAt'] != null
+                ? DateTime.parse(map['updatedAt'])
+                : DateTime.now(),
+          );
+        }).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 
   // Métodos de utilidad

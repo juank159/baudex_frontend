@@ -84,7 +84,7 @@ class InventoryAgingController extends GetxController {
 
     for (final item in data) {
       totalValue += (item['totalValue'] ?? 0.0).toDouble();
-      totalAgeDays += (item['averageAgeDays'] ?? 0) as int;
+      totalAgeDays += (item['averageAgeDays'] as num?)?.toInt() ?? 0;
     }
 
     final averageAgeDays =

@@ -48,6 +48,7 @@ import 'package:baudex_desktop/features/expenses/presentation/bindings/expense_b
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_form_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_detail_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_categories_controller.dart';
+import 'package:baudex_desktop/features/expenses/presentation/controllers/enhanced_expenses_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/screens/expenses_list_screen.dart';
 import 'package:baudex_desktop/features/expenses/presentation/screens/modern_expense_form_screen.dart';
 import 'package:baudex_desktop/features/expenses/presentation/screens/expense_detail_screen.dart';
@@ -110,6 +111,9 @@ import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_
 import 'package:baudex_desktop/features/customer_credits/presentation/bindings/customer_credit_binding.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/pages/customer_credits_page.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/pages/client_balances_page.dart';
+import 'package:baudex_desktop/features/notifications/presentation/bindings/notification_binding.dart';
+import 'package:baudex_desktop/features/notifications/presentation/screens/notifications_list_screen.dart';
+import 'package:baudex_desktop/features/notifications/presentation/screens/notification_detail_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -595,6 +599,28 @@ class AppPages {
       page: () => const PurchaseOrdersListScreen(),
       binding: PurchaseOrdersBinding(),
       transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== NOTIFICATIONS PAGES ====================
+
+    // 🔔 LISTA DE NOTIFICACIONES
+    GetPage(
+      name: AppRoutes.notifications,
+      page: () => const NotificationsListScreen(),
+      binding: NotificationBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      // middlewares: [AuthMiddleware()],
+    ),
+
+    // 👁️ DETALLE DE NOTIFICACIÓN
+    GetPage(
+      name: '/notifications/:id',
+      page: () => const NotificationDetailScreen(),
+      binding: NotificationBinding(),
+      transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],
     ),
@@ -1295,7 +1321,17 @@ class AppPages {
       page: () => const ExpensesListScreen(),
       binding: BindingsBuilder(() {
         print('🔧 [LISTA GASTOS] Inicializando bindings...');
+        // Verificar si el controller ya existe (re-visita vs primera visita)
+        final alreadyRegistered = Get.isRegistered<EnhancedExpensesController>();
         ExpenseBinding().dependencies();
+        // Si ya existía (controller permanente), refrescar datos
+        // En primera visita, onInit() se encarga de la carga inicial
+        if (alreadyRegistered) {
+          print('🔄 [LISTA GASTOS] Re-visita detectada, refrescando datos...');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Get.find<EnhancedExpensesController>().refreshExpenses();
+          });
+        }
         print('✅ [LISTA GASTOS] ExpenseBinding registrado');
       }),
       transition: Transition.fade,

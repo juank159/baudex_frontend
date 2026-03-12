@@ -389,15 +389,26 @@ class IsarCreditNote {
   }
 
   // Helpers para metadatos
-  static String _encodeMetadata(Map<String, dynamic> metadata) {
-    return jsonEncode(metadata);
+  static String _encodeMetadata(Map<String, dynamic>? metadata) {
+    if (metadata == null || metadata.isEmpty) return '{}';
+    try {
+      return jsonEncode(metadata);
+    } catch (e) {
+      return '{}';
+    }
   }
 
-  static Map<String, dynamic> _decodeMetadata(String metadataJson) {
+  static Map<String, dynamic> _decodeMetadata(String? metadataJson) {
+    if (metadataJson == null || metadataJson.isEmpty || metadataJson == '{}') {
+      return {};
+    }
     try {
-      return jsonDecode(metadataJson) as Map<String, dynamic>;
+      final decoded = jsonDecode(metadataJson);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {};
     } catch (e) {
-      // Avoid print in production, use logger instead
       return {};
     }
   }

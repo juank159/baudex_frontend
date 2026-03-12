@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../data/datasources/user_preferences_remote_datasource.dart';
+import '../../data/datasources/user_preferences_local_datasource.dart';
 import '../../data/repositories/user_preferences_repository_impl.dart';
 import '../../domain/repositories/user_preferences_repository.dart';
 import '../../domain/usecases/get_user_preferences_usecase.dart';
@@ -18,10 +19,15 @@ class UserPreferencesBinding extends Bindings {
       ),
     );
 
+    Get.lazyPut<UserPreferencesLocalDataSource>(
+      () => UserPreferencesLocalDataSourceImpl(),
+    );
+
     // Repository
     Get.lazyPut<UserPreferencesRepository>(
       () => UserPreferencesRepositoryImpl(
         remoteDataSource: Get.find<UserPreferencesRemoteDataSource>(),
+        localDataSource: Get.find<UserPreferencesLocalDataSource>(),
         networkInfo: Get.find<NetworkInfo>(),
       ),
     );

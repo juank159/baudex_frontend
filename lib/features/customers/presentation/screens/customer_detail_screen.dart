@@ -9,6 +9,7 @@ import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../controllers/customer_detail_controller.dart';
 import '../../domain/entities/customer.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class CustomerDetailScreen extends GetView<CustomerDetailController> {
   const CustomerDetailScreen({super.key});
@@ -111,6 +112,7 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
         onPressed: () => Get.offAllNamed(AppRoutes.customers),
       ),
       actions: [
+        const SyncStatusIcon(),
         if (controller.hasCustomer) ...[
           IconButton(
             icon: const Icon(Icons.edit, size: 20),

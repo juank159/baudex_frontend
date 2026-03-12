@@ -1,12 +1,19 @@
 // lib/features/dashboard/presentation/widgets/bank_accounts_summary.dart
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:isar/isar.dart';
 import '../../../../app/core/network/dio_client.dart';
+import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_text_styles.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/data/local/enums/isar_enums.dart';
+import '../../../../app/data/local/isar_database.dart';
+import '../../../bank_accounts/data/models/isar/isar_bank_account.dart';
+import '../../../invoices/data/models/isar/isar_invoice.dart';
 
 class BankAccountSummary {
   final String id;
@@ -117,6 +124,13 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
     });
 
     try {
+      // Check de conectividad
+      final networkInfo = Get.find<NetworkInfo>();
+      if (!await networkInfo.isConnected) {
+        await _loadDataOffline();
+        return;
+      }
+
       // Construir query parameters con filtros de fecha
       final queryParams = <String, String>{};
       if (widget.startDate != null) {
@@ -151,14 +165,159 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
         debugPrint('✅ Bank accounts loaded: ${_accounts.length} cuentas');
       }
     } catch (e) {
+      debugPrint('⚠️ Error loading bank accounts online: $e - Fallback a ISAR...');
+      // Fallback offline en caso de error
+      try {
+        await _loadDataOffline();
+        return;
+      } catch (_) {}
       _error = 'Error al cargar cuentas: ${e.toString()}';
-      debugPrint('Error loading bank accounts summary: $e');
     } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  /// Carga cuentas bancarias desde ISAR y calcula totales desde pagos de facturas
+  Future<void> _loadDataOffline() async {
+    try {
+      final isar = IsarDatabase.instance.database;
+
+      // 1. Cargar cuentas bancarias activas desde ISAR
+      final isarAccounts = await isar.isarBankAccounts
+          .filter()
+          .deletedAtIsNull()
+          .isActiveEqualTo(true)
+          .findAll();
+
+      if (isarAccounts.isEmpty) {
+        _accounts = [];
+        debugPrint('📴 Bank accounts offline: sin cuentas en ISAR');
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      // 2. Cargar todas las facturas para extraer pagos
+      final allInvoices = await isar.isarInvoices
+          .filter()
+          .deletedAtIsNull()
+          .findAll();
+
+      // 3. Extraer todos los pagos de todas las facturas
+      final allPayments = <Map<String, dynamic>>[];
+      for (var invoice in allInvoices) {
+        if (invoice.paymentsJson != null && invoice.paymentsJson!.isNotEmpty && invoice.paymentsJson != '[]') {
+          try {
+            final decoded = jsonDecode(invoice.paymentsJson!);
+            if (decoded is List) {
+              for (var payment in decoded) {
+                if (payment is Map<String, dynamic>) {
+                  // Agregar referencia a si la factura es de tipo credito
+                  payment['_invoicePaymentMethod'] = invoice.paymentMethod.name;
+                  allPayments.add(payment);
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      // 4. Agrupar pagos por bankAccountId
+      final paymentsByAccount = <String, List<Map<String, dynamic>>>{};
+      for (var payment in allPayments) {
+        final accountId = payment['bankAccountId']?.toString();
+        if (accountId != null && accountId.isNotEmpty) {
+          paymentsByAccount.putIfAbsent(accountId, () => []);
+          paymentsByAccount[accountId]!.add(payment);
+        }
+      }
+
+      // 5. Construir BankAccountSummary para cada cuenta
+      _accounts = isarAccounts.map((account) {
+        final accountPayments = paymentsByAccount[account.serverId] ?? [];
+
+        // Filtrar por rango de fecha si aplica
+        final filteredPayments = accountPayments.where((p) {
+          if (widget.startDate == null && widget.endDate == null) return true;
+          final paymentDate = DateTime.tryParse(p['paymentDate']?.toString() ?? '');
+          if (paymentDate == null) return true;
+          if (widget.startDate != null && paymentDate.isBefore(widget.startDate!)) return false;
+          if (widget.endDate != null && paymentDate.isAfter(widget.endDate!)) return false;
+          return true;
+        }).toList();
+
+        // Separar pagos normales de creditos
+        final normalPayments = filteredPayments.where((p) =>
+            p['paymentMethod']?.toString() != 'credit').toList();
+        final creditPayments = filteredPayments.where((p) =>
+            p['paymentMethod']?.toString() == 'credit').toList();
+
+        final totalReceived = normalPayments.fold(0.0,
+            (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0.0));
+        final creditPaymentTotal = creditPayments.fold(0.0,
+            (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0.0));
+
+        // Para totalReceivedPeriod, usamos los mismos filtrados (ya están filtrados por fecha)
+        final totalReceivedPeriod = totalReceived;
+
+        return BankAccountSummary(
+          id: account.serverId,
+          name: account.name,
+          bankName: account.bankName,
+          accountNumber: account.accountNumber,
+          type: _mapIsarBankAccountType(account.type),
+          icon: account.icon,
+          currentBalance: totalReceived + creditPaymentTotal, // Aproximado desde pagos
+          totalReceived: totalReceived,
+          totalReceivedPeriod: totalReceivedPeriod,
+          paymentCount: normalPayments.length,
+          paymentCountPeriod: normalPayments.length,
+          creditPaymentCount: creditPayments.length,
+          creditPaymentTotal: creditPaymentTotal,
+          isDefault: account.isDefault,
+          isActive: account.isActive,
+        );
+      }).toList();
+
+      // Ordenar: default primero, luego por nombre
+      _accounts.sort((a, b) {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return a.name.compareTo(b.name);
+      });
+
+      debugPrint('📴 Bank accounts offline: ${_accounts.length} cuentas desde ISAR');
+    } catch (e) {
+      debugPrint('❌ Error loading bank accounts offline: $e');
+      _error = 'Error al cargar cuentas offline';
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  String _mapIsarBankAccountType(IsarBankAccountType type) {
+    switch (type) {
+      case IsarBankAccountType.cash:
+        return 'cash';
+      case IsarBankAccountType.savings:
+        return 'savings';
+      case IsarBankAccountType.checking:
+        return 'checking';
+      case IsarBankAccountType.digitalWallet:
+        return 'digital_wallet';
+      case IsarBankAccountType.creditCard:
+        return 'credit_card';
+      case IsarBankAccountType.debitCard:
+        return 'debit_card';
+      case IsarBankAccountType.other:
+        return 'other';
+      default:
+        return type.name;
     }
   }
 

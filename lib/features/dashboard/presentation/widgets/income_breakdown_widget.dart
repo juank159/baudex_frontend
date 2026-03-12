@@ -424,6 +424,8 @@ class IncomeBreakdownWidget extends StatelessWidget {
       case 'credit':
       case 'credito':
         return Colors.orange;
+      case 'client_balance':
+        return Colors.teal;
       default:
         return Colors.grey;
     }
@@ -447,6 +449,8 @@ class IncomeBreakdownWidget extends StatelessWidget {
       case 'credit':
       case 'credito':
         return Icons.account_balance_wallet;
+      case 'client_balance':
+        return Icons.account_balance_wallet;
       default:
         return Icons.payment;
     }
@@ -461,6 +465,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
       'transfer': 'Transferencia',
       'card': 'Tarjeta',
       'credit': 'Crédito',
+      'client_balance': 'Saldo a Favor',
     };
     return names[method.toLowerCase()] ?? method.toUpperCase();
   }

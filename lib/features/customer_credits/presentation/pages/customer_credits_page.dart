@@ -11,6 +11,8 @@ import '../../domain/entities/customer_credit.dart';
 import '../controllers/customer_credit_controller.dart';
 import '../widgets/create_credit_dialog.dart';
 import 'customer_account_unified_page.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
+import '../../../../app/core/navigation/app_route_observer.dart';
 
 /// Página principal de gestión de créditos de clientes
 class CustomerCreditsPage extends StatefulWidget {
@@ -20,7 +22,8 @@ class CustomerCreditsPage extends StatefulWidget {
   State<CustomerCreditsPage> createState() => _CustomerCreditsPageState();
 }
 
-class _CustomerCreditsPageState extends State<CustomerCreditsPage> with WidgetsBindingObserver {
+class _CustomerCreditsPageState extends State<CustomerCreditsPage>
+    with WidgetsBindingObserver, RouteAware {
   late CustomerCreditController controller;
 
   @override
@@ -29,16 +32,35 @@ class _CustomerCreditsPageState extends State<CustomerCreditsPage> with WidgetsB
     controller = Get.find<CustomerCreditController>();
     WidgetsBinding.instance.addObserver(this);
 
-    // Asegurar que los datos se carguen al iniciar la página
+    // Refrescar datos al abrir la página (funciona online y offline via ISAR)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.ensureDataLoaded();
+      controller.refreshAllData();
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Suscribirse al RouteObserver para detectar navegación
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// Se llama cuando una ruta que estaba encima se cierra y esta pantalla vuelve a ser visible
+  @override
+  void didPopNext() {
+    super.didPopNext();
+    // Refrescar datos automáticamente al regresar a esta pantalla
+    controller.refreshAllData();
   }
 
   @override
@@ -98,6 +120,7 @@ class _CustomerCreditsPageState extends State<CustomerCreditsPage> with WidgetsB
         ),
       ),
       actions: [
+        const SyncStatusIcon(),
         Obx(() => IconButton(
               icon: controller.isLoading.value
                   ? const SizedBox(
@@ -280,12 +303,13 @@ class _CustomerCreditsPageState extends State<CustomerCreditsPage> with WidgetsB
     );
   }
 
-  /// Summary cards con Total Pendiente y Total Pagado
+  /// Summary cards con Total Pendiente, Total Vencido y Total Pagado
   Widget _buildSummaryCards() {
     return Obx(() {
       final stats = controller.stats.value;
       final totalPending = stats?.totalPending ?? 0;
       final totalPaid = stats?.totalPaid ?? 0;
+      final totalOverdue = stats?.totalOverdue ?? 0;
 
       return Row(
         children: [
@@ -295,6 +319,19 @@ class _CustomerCreditsPageState extends State<CustomerCreditsPage> with WidgetsB
               value: AppFormatters.formatCurrency(totalPending),
               icon: Icons.pending_outlined,
               color: Colors.orange,
+              directAmount: stats?.directPending ?? 0,
+              invoiceAmount: stats?.invoicePending ?? 0,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _SummaryCard(
+              title: 'Total Vencido',
+              value: AppFormatters.formatCurrency(totalOverdue),
+              icon: Icons.warning_amber_outlined,
+              color: Colors.red,
+              directAmount: stats?.directOverdue ?? 0,
+              invoiceAmount: stats?.invoiceOverdue ?? 0,
             ),
           ),
           const SizedBox(width: 12),
@@ -304,6 +341,8 @@ class _CustomerCreditsPageState extends State<CustomerCreditsPage> with WidgetsB
               value: AppFormatters.formatCurrency(totalPaid),
               icon: Icons.check_circle_outline,
               color: Colors.green,
+              directAmount: stats?.directPaid ?? 0,
+              invoiceAmount: stats?.invoicePaid ?? 0,
             ),
           ),
         ],
@@ -759,12 +798,16 @@ class _SummaryCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
+  final double directAmount;
+  final double invoiceAmount;
 
   const _SummaryCard({
     required this.title,
     required this.value,
     required this.icon,
     required this.color,
+    this.directAmount = 0,
+    this.invoiceAmount = 0,
   });
 
   @override
@@ -811,8 +854,36 @@ class _SummaryCard extends StatelessWidget {
               color: color,
             ),
           ),
+          if (directAmount > 0 || invoiceAmount > 0) ...[
+            const SizedBox(height: 8),
+            Divider(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+            const SizedBox(height: 6),
+            _buildBreakdownRow('Directos', directAmount),
+            const SizedBox(height: 2),
+            _buildBreakdownRow('Factura', invoiceAmount),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildBreakdownRow(String label, double amount) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 10, color: ElegantLightTheme.textTertiary),
+        ),
+        Text(
+          AppFormatters.formatCurrency(amount),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: color.withValues(alpha: 0.8),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -909,6 +980,8 @@ class _StatsSection extends StatelessWidget {
               value: AppFormatters.formatCurrency(stats?.totalPending ?? 0),
               icon: Icons.pending_actions,
               color: Colors.orange,
+              directAmount: stats?.directPending ?? 0,
+              invoiceAmount: stats?.invoicePending ?? 0,
             ),
             const SizedBox(height: 8),
             _StatRow(
@@ -916,6 +989,8 @@ class _StatsSection extends StatelessWidget {
               value: AppFormatters.formatCurrency(stats?.totalOverdue ?? 0),
               icon: Icons.warning,
               color: Colors.red,
+              directAmount: stats?.directOverdue ?? 0,
+              invoiceAmount: stats?.invoiceOverdue ?? 0,
             ),
             const SizedBox(height: 8),
             _StatRow(
@@ -923,6 +998,8 @@ class _StatsSection extends StatelessWidget {
               value: AppFormatters.formatCurrency(stats?.totalPaid ?? 0),
               icon: Icons.check_circle,
               color: Colors.green,
+              directAmount: stats?.directPaid ?? 0,
+              invoiceAmount: stats?.invoicePaid ?? 0,
             ),
           ],
         ),
@@ -936,12 +1013,16 @@ class _StatRow extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
+  final double directAmount;
+  final double invoiceAmount;
 
   const _StatRow({
     required this.label,
     required this.value,
     required this.icon,
     required this.color,
+    this.directAmount = 0,
+    this.invoiceAmount = 0,
   });
 
   @override
@@ -953,41 +1034,71 @@ class _StatRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 16),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade600,
-                  ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(height: 4),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (directAmount > 0 || invoiceAmount > 0) ...[
+            const SizedBox(height: 8),
+            Divider(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Directos', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                 Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+                  AppFormatters.formatCurrency(directAmount),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color.withValues(alpha: 0.8)),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Factura', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                Text(
+                  AppFormatters.formatCurrency(invoiceAmount),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color.withValues(alpha: 0.8)),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

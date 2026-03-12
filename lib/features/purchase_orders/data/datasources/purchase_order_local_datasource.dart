@@ -8,6 +8,7 @@ import '../../../../app/data/local/isar_database.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
 import '../models/purchase_order_model.dart';
 import '../models/isar/isar_purchase_order.dart';
+import '../models/isar/isar_purchase_order_item.dart';
 
 abstract class PurchaseOrderLocalDataSource {
   Future<List<PurchaseOrderModel>> getCachedPurchaseOrders();
@@ -55,6 +56,7 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
 
   @override
   Future<List<PurchaseOrderModel>> getCachedPurchaseOrders() async {
+    // Intentar SecureStorage primero
     try {
       final cachedData = await secureStorageService.read(
         ApiConstants.purchaseOrdersCacheKey,
@@ -62,21 +64,114 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
 
       if (cachedData != null) {
         final List<dynamic> jsonList = json.decode(cachedData);
-        return jsonList
+        final result = jsonList
             .map((json) => PurchaseOrderModel.fromJson(json))
             .toList();
+        if (result.isNotEmpty) return result;
       }
-
-      return [];
     } catch (e) {
-      throw CacheException('Error al obtener órdenes de compra del cache: $e');
+      print('⚠️ Error leyendo POs de SecureStorage: $e');
     }
+
+    // Fallback a ISAR (datos sincronizados offline)
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarPOs = await isar.isarPurchaseOrders
+          .filter()
+          .deletedAtIsNull()
+          .sortByOrderDateDesc()
+          .findAll();
+      if (isarPOs.isNotEmpty) {
+        print('✅ ${isarPOs.length} órdenes de compra leídas desde ISAR');
+        return isarPOs
+            .map((isarPO) => PurchaseOrderModel.fromEntity(isarPO.toEntity()))
+            .toList();
+      }
+    } catch (e) {
+      print('⚠️ Error leyendo POs de ISAR: $e');
+    }
+
+    return [];
   }
 
   @override
   Future<void> cachePurchaseOrders(
     List<PurchaseOrderModel> purchaseOrders,
   ) async {
+    // GUARDAR EN ISAR PRIMERO (persistencia offline real)
+    try {
+      final isar = IsarDatabase.instance.database;
+      await isar.writeTxn(() async {
+        for (final model in purchaseOrders) {
+          // Buscar PO existente o crear nueva
+          var isarPO = await isar.isarPurchaseOrders
+              .filter()
+              .serverIdEqualTo(model.id)
+              .findFirst();
+
+          if (isarPO != null) {
+            isarPO.updateFromModel(model);
+          } else {
+            isarPO = IsarPurchaseOrder.fromModel(model);
+          }
+          await isar.isarPurchaseOrders.put(isarPO);
+
+          // Guardar items si el modelo los tiene
+          if (model.items != null && model.items!.isNotEmpty) {
+            // Eliminar items anteriores de esta PO
+            final oldItems = await isar.isarPurchaseOrderItems
+                .filter()
+                .purchaseOrderServerIdEqualTo(model.id)
+                .findAll();
+            if (oldItems.isNotEmpty) {
+              await isar.isarPurchaseOrderItems.deleteAll(
+                oldItems.map((i) => i.id).toList(),
+              );
+            }
+            isarPO.items.clear();
+
+            // Crear y guardar nuevos items
+            final isarItems = model.items!.map((itemModel) {
+              final qty = double.tryParse(itemModel.quantity ?? '0')?.toInt() ?? 0;
+              final price = double.tryParse(itemModel.unitCost ?? '0') ?? 0.0;
+              final total = double.tryParse(itemModel.totalCost ?? '0') ?? (qty * price);
+              return IsarPurchaseOrderItem.create(
+                itemId: itemModel.id ?? '${model.id}_item_${model.items!.indexOf(itemModel)}',
+                purchaseOrderServerId: model.id,
+                productId: itemModel.productId ?? '',
+                productName: itemModel.product?['name'] ?? 'Producto sin nombre',
+                productCode: itemModel.product?['sku'],
+                productDescription: itemModel.product?['description'],
+                unit: '',
+                quantity: qty,
+                receivedQuantity: double.tryParse(itemModel.receivedQuantity ?? '0')?.toInt(),
+                damagedQuantity: double.tryParse(itemModel.damagedQuantity ?? '0')?.toInt(),
+                missingQuantity: double.tryParse(itemModel.missingQuantity ?? '0')?.toInt(),
+                unitPrice: price,
+                discountPercentage: 0,
+                discountAmount: 0,
+                subtotal: total,
+                taxPercentage: 0,
+                taxAmount: 0,
+                totalAmount: total,
+                notes: itemModel.notes,
+                createdAt: itemModel.createdAt != null ? (DateTime.tryParse(itemModel.createdAt!) ?? DateTime.now()) : DateTime.now(),
+                updatedAt: itemModel.updatedAt != null ? (DateTime.tryParse(itemModel.updatedAt!) ?? DateTime.now()) : DateTime.now(),
+              );
+            }).toList();
+
+            await isar.isarPurchaseOrderItems.putAll(isarItems);
+            isarPO.items.addAll(isarItems);
+            await isarPO.items.save();
+          }
+        }
+      });
+      print('✅ ${purchaseOrders.length} POs guardadas en ISAR');
+    } catch (e) {
+      print('⚠️ Error guardando POs en ISAR: $e');
+    }
+
+    // Guardar en SecureStorage (fallback legacy)
     try {
       final jsonList = purchaseOrders.map((order) => order.toJson()).toList();
       await secureStorageService.write(
@@ -84,13 +179,12 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
         json.encode(jsonList),
       );
 
-      // Guardar timestamp del cache
       await secureStorageService.write(
         '${ApiConstants.purchaseOrdersCacheKey}_timestamp',
         DateTime.now().toIso8601String(),
       );
     } catch (e) {
-      throw CacheException('Error al guardar órdenes de compra en cache: $e');
+      print('⚠️ Error guardando POs en SecureStorage: $e');
     }
   }
 
@@ -130,6 +224,55 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
           }
 
           await isar.isarPurchaseOrders.put(isarPO);
+
+          // Guardar items si el modelo los tiene
+          if (purchaseOrder.items != null && purchaseOrder.items!.isNotEmpty) {
+            // Eliminar items anteriores de esta PO
+            final oldItems = await isar.isarPurchaseOrderItems
+                .filter()
+                .purchaseOrderServerIdEqualTo(purchaseOrder.id)
+                .findAll();
+            if (oldItems.isNotEmpty) {
+              await isar.isarPurchaseOrderItems.deleteAll(
+                oldItems.map((i) => i.id).toList(),
+              );
+            }
+            isarPO.items.clear();
+
+            // Crear y guardar nuevos items
+            final isarItems = purchaseOrder.items!.map((itemModel) {
+              final qty = double.tryParse(itemModel.quantity ?? '0')?.toInt() ?? 0;
+              final price = double.tryParse(itemModel.unitCost ?? '0') ?? 0.0;
+              final total = double.tryParse(itemModel.totalCost ?? '0') ?? (qty * price);
+              return IsarPurchaseOrderItem.create(
+                itemId: itemModel.id ?? '${purchaseOrder.id}_item_${purchaseOrder.items!.indexOf(itemModel)}',
+                purchaseOrderServerId: purchaseOrder.id,
+                productId: itemModel.productId ?? '',
+                productName: itemModel.product?['name'] ?? 'Producto sin nombre',
+                productCode: itemModel.product?['sku'],
+                productDescription: itemModel.product?['description'],
+                unit: '',
+                quantity: qty,
+                receivedQuantity: double.tryParse(itemModel.receivedQuantity ?? '0')?.toInt(),
+                damagedQuantity: double.tryParse(itemModel.damagedQuantity ?? '0')?.toInt(),
+                missingQuantity: double.tryParse(itemModel.missingQuantity ?? '0')?.toInt(),
+                unitPrice: price,
+                discountPercentage: 0,
+                discountAmount: 0,
+                subtotal: total,
+                taxPercentage: 0,
+                taxAmount: 0,
+                totalAmount: total,
+                notes: itemModel.notes,
+                createdAt: itemModel.createdAt != null ? (DateTime.tryParse(itemModel.createdAt!) ?? DateTime.now()) : DateTime.now(),
+                updatedAt: itemModel.updatedAt != null ? (DateTime.tryParse(itemModel.updatedAt!) ?? DateTime.now()) : DateTime.now(),
+              );
+            }).toList();
+
+            await isar.isarPurchaseOrderItems.putAll(isarItems);
+            isarPO.items.addAll(isarItems);
+            await isarPO.items.save();
+          }
         });
         print('PurchaseOrder guardado en ISAR: ${purchaseOrder.id}');
       } catch (e) {

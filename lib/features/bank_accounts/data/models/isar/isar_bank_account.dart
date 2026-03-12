@@ -171,17 +171,25 @@ class IsarBankAccount {
   }
 
   // Helpers para metadatos
-  static String _encodeMetadata(Map<String, dynamic> metadata) {
+  static String _encodeMetadata(Map<String, dynamic>? metadata) {
+    if (metadata == null || metadata.isEmpty) return '{}';
     try {
-      return json.encode(metadata);
+      return jsonEncode(metadata);
     } catch (e) {
       return '{}';
     }
   }
 
-  static Map<String, dynamic> _decodeMetadata(String metadataJson) {
+  static Map<String, dynamic> _decodeMetadata(String? metadataJson) {
+    if (metadataJson == null || metadataJson.isEmpty || metadataJson == '{}') {
+      return {};
+    }
     try {
-      return json.decode(metadataJson) as Map<String, dynamic>;
+      final decoded = jsonDecode(metadataJson);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {};
     } catch (e) {
       return {};
     }
@@ -204,6 +212,31 @@ class IsarBankAccount {
   void softDelete() {
     deletedAt = DateTime.now();
     markAsUnsynced();
+  }
+
+  /// Actualiza los campos de esta instancia desde una entidad
+  /// Mantiene el id interno de ISAR para evitar duplicados
+  void updateFromEntity(BankAccount entity) {
+    serverId = entity.id;
+    name = entity.name;
+    type = _mapBankAccountType(entity.type);
+    bankName = entity.bankName;
+    accountNumber = entity.accountNumber;
+    holderName = entity.holderName;
+    icon = entity.icon;
+    description = entity.description;
+    isActive = entity.isActive;
+    isDefault = entity.isDefault;
+    sortOrder = entity.sortOrder;
+    metadataJson = entity.metadata != null ? _encodeMetadata(entity.metadata!) : null;
+    organizationId = entity.organizationId;
+    createdById = entity.createdById;
+    updatedById = entity.updatedById;
+    createdAt = entity.createdAt;
+    updatedAt = entity.updatedAt;
+    deletedAt = entity.deletedAt;
+    isSynced = true;
+    lastSyncAt = DateTime.now();
   }
 
   // ⭐ FASE 1: Métodos de versionamiento y detección de conflictos

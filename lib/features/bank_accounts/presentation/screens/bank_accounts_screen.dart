@@ -9,6 +9,7 @@ import '../../domain/entities/bank_account.dart';
 import '../controllers/bank_accounts_controller.dart';
 import '../widgets/bank_account_card.dart';
 import '../widgets/bank_account_form_dialog.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 /// Pantalla principal de gestión de cuentas bancarias con tema elegante
 class BankAccountsScreen extends GetView<BankAccountsController> {
@@ -44,6 +45,7 @@ class BankAccountsScreen extends GetView<BankAccountsController> {
         ),
       ),
       actions: [
+        const SyncStatusIcon(),
         // Filtro por tipo
         PopupMenuButton<BankAccountType?>(
           icon: const Icon(

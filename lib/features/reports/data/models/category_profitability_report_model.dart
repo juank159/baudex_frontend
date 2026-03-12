@@ -75,6 +75,30 @@ class CategoryProfitabilityReportModel {
       )).toList(),
     );
   }
+
+  factory CategoryProfitabilityReportModel.fromDomain(CategoryProfitabilityReport entity) {
+    return CategoryProfitabilityReportModel(
+      categoryId: entity.categoryId,
+      categoryName: entity.categoryName,
+      quantitySold: entity.quantitySold,
+      totalRevenue: entity.totalRevenue,
+      totalCost: entity.totalCost,
+      grossProfit: entity.grossProfit,
+      profitMargin: entity.profitMargin,
+      profitPercentage: entity.profitPercentage,
+      productCount: entity.totalProducts,
+      averageProductPrice: entity.totalRevenue / (entity.quantitySold > 0 ? entity.quantitySold : 1),
+      topSellingProductPrice: 0,
+      periodStart: entity.periodStart,
+      periodEnd: entity.periodEnd,
+      topSellingProducts: entity.topProducts.map((p) => TopSellingProduct(
+        productId: p.productId,
+        productName: p.productName,
+        quantity: p.quantitySold,
+        revenue: p.totalRevenue,
+      )).toList(),
+    );
+  }
 }
 
 @JsonSerializable()

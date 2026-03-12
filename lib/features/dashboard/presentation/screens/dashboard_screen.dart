@@ -15,6 +15,8 @@ import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
+import '../../../../app/data/local/full_sync_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -99,10 +101,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                   padding: const EdgeInsets.all(AppDimensions.paddingMedium),
                   child: Column(
                     children: [
+                      // FASE 6: Banner de Full Sync en progreso
+                      _buildFullSyncBanner(),
                       // Selector de períodos con animación
                       _buildAnimatedPeriodSelector(),
                       const SizedBox(height: AppDimensions.spacingMedium),
-                      
+
                       // Contenido responsivo
                       ResponsiveBuilder(
                         mobile: _buildMobileLayout(),
@@ -193,6 +197,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
       ),
       actions: [
+        // FASE 6: Indicador de estado de sincronización
+        const SyncStatusIcon(),
         IconButton(
           icon: const Icon(Icons.refresh),
           onPressed: controller.refreshAll,
@@ -226,6 +232,81 @@ class _DashboardScreenState extends State<DashboardScreen>
       elevation: 0,
       shadowColor: ElegantLightTheme.primaryBlue.withValues(alpha: 0.5),
     );
+  }
+
+  /// FASE 6: Banner que muestra el progreso del Full Sync
+  Widget _buildFullSyncBanner() {
+    try {
+      if (!Get.isRegistered<FullSyncService>()) return const SizedBox.shrink();
+      final fullSync = Get.find<FullSyncService>();
+
+      return Obx(() {
+        if (!fullSync.isSyncing.value) return const SizedBox.shrink();
+
+        final overall = fullSync.overallProgress.value;
+        final percent = (overall * 100).toInt();
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.sync,
+                    size: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Actualizando datos en segundo plano ($percent%)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => fullSync.abortSync(),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: overall > 0 ? overall : null,
+                  minHeight: 3,
+                  backgroundColor: Colors.grey.shade300,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      });
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
   }
 
   Widget _buildAnimatedPeriodSelector() {

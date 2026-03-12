@@ -53,7 +53,6 @@ import 'package:baudex_desktop/features/credit_notes/data/datasources/credit_not
 import 'package:baudex_desktop/features/credit_notes/data/datasources/credit_note_local_datasource.dart';
 
 // Customer Credits
-import 'package:baudex_desktop/features/customer_credits/domain/repositories/customer_credit_repository.dart';
 import 'package:baudex_desktop/features/customer_credits/data/datasources/customer_credit_remote_datasource.dart';
 import 'package:baudex_desktop/features/customer_credits/data/datasources/customer_credit_local_datasource_isar.dart';
 
@@ -124,7 +123,6 @@ import 'package:baudex_desktop/features/customer_credits/data/datasources/custom
   CreditNoteLocalDataSource,
 
   // Customer Credits
-  CustomerCreditRepository,
   CustomerCreditRemoteDataSource,
   CustomerCreditLocalDataSourceIsar,
 ])

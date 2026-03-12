@@ -8,6 +8,7 @@ import '../../../../app/data/local/isar_database.dart';
 import '../models/inventory_movement_model.dart';
 import '../models/inventory_balance_model.dart';
 import '../models/inventory_stats_model.dart';
+import '../models/warehouse_model.dart';
 import '../models/isar/isar_inventory_movement.dart';
 import '../../domain/repositories/inventory_repository.dart';
 
@@ -64,10 +65,43 @@ abstract class InventoryLocalDataSource {
     InventoryStatsModel stats,
   );
 
+  // Batch operations
+  Future<void> cacheBatches(List<dynamic> batches);
+  Future<void> cacheBatch(dynamic batch);
+  Future<List<dynamic>> getCachedBatches();
+  Future<dynamic> getCachedBatch(String id);
+  Future<List<dynamic>> getUnsyncedBatches();
+  Future<void> markBatchAsSynced(String tempId, String serverId);
+  Future<List<dynamic>> getExpiredBatches();
+  Future<List<dynamic>> getNearExpiryBatches({int daysThreshold = 30});
+  Future<List<dynamic>> searchCachedBatches(String searchTerm);
+
+  // Batch movement operations
+  Future<void> cacheBatchMovements(List<dynamic> movements);
+  Future<void> cacheBatchMovement(dynamic movement);
+  Future<List<dynamic>> getCachedBatchMovements(String batchId);
+  Future<List<dynamic>> getUnsyncedBatchMovements();
+  Future<void> markBatchMovementAsSynced(String tempId, String serverId);
+
+  // Warehouse cache
+  Future<void> cacheWarehouses(List<WarehouseModel> warehouses);
+  Future<List<WarehouseModel>> getCachedWarehouses();
+  Future<WarehouseModel?> getCachedWarehouseById(String id);
+
+  // Alert products cache (out of stock, expired, near expiry)
+  Future<void> cacheOutOfStockProducts(List<InventoryBalanceModel> products, {String? warehouseId});
+  Future<List<InventoryBalanceModel>> getCachedOutOfStockProducts({String? warehouseId});
+  Future<void> cacheExpiredProducts(List<InventoryBalanceModel> products, {String? warehouseId});
+  Future<List<InventoryBalanceModel>> getCachedExpiredProducts({String? warehouseId});
+  Future<void> cacheNearExpiryProducts(List<InventoryBalanceModel> products, {String? warehouseId});
+  Future<List<InventoryBalanceModel>> getCachedNearExpiryProducts({String? warehouseId});
+
   // Cache management
   Future<void> clearMovementsCache();
   Future<void> clearBalancesCache();
   Future<void> clearStatsCache();
+  Future<void> clearBatchesCache();
+  Future<void> clearWarehousesCache();
   Future<void> clearAllCache();
   Future<bool> isCacheValid(String cacheKey);
 }
@@ -440,10 +474,255 @@ class InventoryLocalDataSourceImpl implements InventoryLocalDataSource {
   }
 
   @override
+  Future<void> clearBatchesCache() async {
+    // TODO: Implementar cuando se use ISAR
+  }
+
+  @override
   Future<void> clearAllCache() async {
     await clearMovementsCache();
     await clearBalancesCache();
     await clearStatsCache();
+    await clearBatchesCache();
+    await clearWarehousesCache();
+  }
+
+  // ==================== WAREHOUSE CACHE ====================
+
+  static const String _warehousesCacheKey = 'inventory_warehouses_cache';
+
+  @override
+  Future<void> cacheWarehouses(List<WarehouseModel> warehouses) async {
+    try {
+      final cacheData = {
+        'data': warehouses.map((w) => w.toJson()).toList(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await secureStorage.write(key: _warehousesCacheKey, value: jsonEncode(cacheData));
+    } catch (e) {
+      // Fallar silenciosamente
+    }
+  }
+
+  @override
+  Future<List<WarehouseModel>> getCachedWarehouses() async {
+    try {
+      final cachedData = await secureStorage.read(key: _warehousesCacheKey);
+      if (cachedData == null) return [];
+
+      final json = jsonDecode(cachedData);
+      return (json['data'] as List)
+          .map((item) => WarehouseModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Future<WarehouseModel?> getCachedWarehouseById(String id) async {
+    try {
+      final warehouses = await getCachedWarehouses();
+      return warehouses.cast<WarehouseModel?>().firstWhere(
+        (w) => w!.id == id,
+        orElse: () => null,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> clearWarehousesCache() async {
+    try {
+      await secureStorage.delete(key: _warehousesCacheKey);
+      // Also clear alert products cache
+      final allKeys = await secureStorage.readAll();
+      final alertKeys = allKeys.keys.where(
+        (key) => key.startsWith('inventory_out_of_stock_') ||
+                 key.startsWith('inventory_expired_') ||
+                 key.startsWith('inventory_near_expiry_'),
+      ).toList();
+      for (final key in alertKeys) {
+        await secureStorage.delete(key: key);
+      }
+    } catch (e) {
+      // Fallar silenciosamente
+    }
+  }
+
+  // ==================== ALERT PRODUCTS CACHE ====================
+
+  @override
+  Future<void> cacheOutOfStockProducts(List<InventoryBalanceModel> products, {String? warehouseId}) async {
+    try {
+      final cacheKey = 'inventory_out_of_stock_${warehouseId ?? 'all'}';
+      final cacheData = {
+        'data': products.map((p) => p.toJson()).toList(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await secureStorage.write(key: cacheKey, value: jsonEncode(cacheData));
+    } catch (e) {
+      // Fallar silenciosamente
+    }
+  }
+
+  @override
+  Future<List<InventoryBalanceModel>> getCachedOutOfStockProducts({String? warehouseId}) async {
+    try {
+      final cacheKey = 'inventory_out_of_stock_${warehouseId ?? 'all'}';
+      final cachedData = await secureStorage.read(key: cacheKey);
+      if (cachedData == null) return [];
+
+      final json = jsonDecode(cachedData);
+      return (json['data'] as List)
+          .map((item) => InventoryBalanceModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Future<void> cacheExpiredProducts(List<InventoryBalanceModel> products, {String? warehouseId}) async {
+    try {
+      final cacheKey = 'inventory_expired_${warehouseId ?? 'all'}';
+      final cacheData = {
+        'data': products.map((p) => p.toJson()).toList(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await secureStorage.write(key: cacheKey, value: jsonEncode(cacheData));
+    } catch (e) {
+      // Fallar silenciosamente
+    }
+  }
+
+  @override
+  Future<List<InventoryBalanceModel>> getCachedExpiredProducts({String? warehouseId}) async {
+    try {
+      final cacheKey = 'inventory_expired_${warehouseId ?? 'all'}';
+      final cachedData = await secureStorage.read(key: cacheKey);
+      if (cachedData == null) return [];
+
+      final json = jsonDecode(cachedData);
+      return (json['data'] as List)
+          .map((item) => InventoryBalanceModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Future<void> cacheNearExpiryProducts(List<InventoryBalanceModel> products, {String? warehouseId}) async {
+    try {
+      final cacheKey = 'inventory_near_expiry_${warehouseId ?? 'all'}';
+      final cacheData = {
+        'data': products.map((p) => p.toJson()).toList(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await secureStorage.write(key: cacheKey, value: jsonEncode(cacheData));
+    } catch (e) {
+      // Fallar silenciosamente
+    }
+  }
+
+  @override
+  Future<List<InventoryBalanceModel>> getCachedNearExpiryProducts({String? warehouseId}) async {
+    try {
+      final cacheKey = 'inventory_near_expiry_${warehouseId ?? 'all'}';
+      final cachedData = await secureStorage.read(key: cacheKey);
+      if (cachedData == null) return [];
+
+      final json = jsonDecode(cachedData);
+      return (json['data'] as List)
+          .map((item) => InventoryBalanceModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ==================== BATCH OPERATIONS ====================
+
+  @override
+  Future<void> cacheBatches(List<dynamic> batches) async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+  }
+
+  @override
+  Future<void> cacheBatch(dynamic batch) async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+  }
+
+  @override
+  Future<List<dynamic>> getCachedBatches() async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+    return [];
+  }
+
+  @override
+  Future<dynamic> getCachedBatch(String id) async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+    return null;
+  }
+
+  @override
+  Future<List<dynamic>> getUnsyncedBatches() async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+    return [];
+  }
+
+  @override
+  Future<void> markBatchAsSynced(String tempId, String serverId) async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+  }
+
+  @override
+  Future<List<dynamic>> getExpiredBatches() async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+    return [];
+  }
+
+  @override
+  Future<List<dynamic>> getNearExpiryBatches({int daysThreshold = 30}) async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+    return [];
+  }
+
+  @override
+  Future<List<dynamic>> searchCachedBatches(String searchTerm) async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+    return [];
+  }
+
+  // ==================== BATCH MOVEMENT OPERATIONS ====================
+
+  @override
+  Future<void> cacheBatchMovements(List<dynamic> movements) async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+  }
+
+  @override
+  Future<void> cacheBatchMovement(dynamic movement) async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+  }
+
+  @override
+  Future<List<dynamic>> getCachedBatchMovements(String batchId) async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+    return [];
+  }
+
+  @override
+  Future<List<dynamic>> getUnsyncedBatchMovements() async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
+    return [];
+  }
+
+  @override
+  Future<void> markBatchMovementAsSynced(String tempId, String serverId) async {
+    // TODO: Implementar con ISAR en InventoryLocalDataSourceIsar
   }
 
   @override

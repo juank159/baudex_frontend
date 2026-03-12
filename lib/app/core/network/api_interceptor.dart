@@ -1,10 +1,15 @@
 // lib/app/core/network/api_interceptor.dart
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import '../../config/constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
 
 class ApiInterceptor extends Interceptor {
   final SecureStorageService _storageService;
+
+  // Header key para idempotencia
+  static const String idempotencyKeyHeader = 'Idempotency-Key';
 
   ApiInterceptor(this._storageService);
 
@@ -23,7 +28,57 @@ class ApiInterceptor extends Interceptor {
     // Agregar headers adicionales si es necesario
     options.headers['X-Requested-With'] = 'XMLHttpRequest';
 
+    // Agregar Idempotency-Key para operaciones que modifican datos
+    if (_requiresIdempotency(options.method)) {
+      // Verificar si ya tiene un idempotency key en extras
+      final customKey = options.extra['idempotency_key'] as String?;
+
+      if (customKey != null && customKey.isNotEmpty) {
+        options.headers[idempotencyKeyHeader] = customKey;
+      } else if (options.headers[idempotencyKeyHeader] == null) {
+        // Generar idempotency key automáticamente basado en el request
+        final generatedKey = _generateIdempotencyKey(options);
+        options.headers[idempotencyKeyHeader] = generatedKey;
+      }
+    }
+
     super.onRequest(options, handler);
+  }
+
+  /// Verifica si el método HTTP requiere idempotencia
+  bool _requiresIdempotency(String method) {
+    final methodUpper = method.toUpperCase();
+    return methodUpper == 'POST' || methodUpper == 'PUT' || methodUpper == 'PATCH';
+  }
+
+  /// Genera una clave de idempotencia basada en el request
+  /// La clave es un hash del path + body + timestamp (redondeado a 5 segundos)
+  String _generateIdempotencyKey(RequestOptions options) {
+    // Usar timestamp redondeado a ventana de 5 segundos para permitir reintentos rápidos
+    final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 5000) * 5000;
+    final path = options.path;
+    final method = options.method;
+
+    // Serializar body de forma consistente
+    String bodyHash = '';
+    if (options.data != null) {
+      try {
+        final bodyString = options.data is String
+            ? options.data as String
+            : jsonEncode(options.data);
+        final bytes = utf8.encode(bodyString);
+        bodyHash = md5.convert(bytes).toString();
+      } catch (e) {
+        bodyHash = options.data.hashCode.toString();
+      }
+    }
+
+    // Crear key combinando elementos
+    final keyData = '$method:$path:$bodyHash:$timestamp';
+    final keyBytes = utf8.encode(keyData);
+    final keyHash = sha256.convert(keyBytes).toString();
+
+    return 'idem_${keyHash.substring(0, 32)}';
   }
 
   @override

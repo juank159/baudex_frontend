@@ -7,7 +7,7 @@ import '../services/subscription_info_service.dart';
 
 /// Utility class para manejar errores de suscripción de forma global
 class SubscriptionErrorHandler {
-  
+
   /// Maneja un failure y determina si debe mostrar el diálogo de suscripción
   /// Retorna true si manejó el error, false si debe usar el manejo normal
   static bool handleFailure(
@@ -22,24 +22,31 @@ class SubscriptionErrorHandler {
     print('   Code: ${failure.code}');
     print('   Context: $context');
 
-    // 🔒 DETECTAR ERROR DE SUSCRIPCIÓN (403)
-    if (failure.code == 403) {
+    // 🔒 DETECTAR ERROR DE SUSCRIPCIÓN (por tipo o código 403)
+    final isSubscriptionError = failure is SubscriptionFailure || failure.code == 403;
+
+    if (isSubscriptionError) {
       print('✅ SUBSCRIPTION ERROR DETECTED - Showing professional dialog');
-      
+
       // Obtener información dinámica de suscripción
       final subscriptionInfo = SubscriptionInfoService.getCurrentSubscriptionInfo();
       print('📋 Subscription info: $subscriptionInfo');
-      
-      // Mensaje personalizado basado en el contexto y plan del usuario
-      final message = customMessage ?? SubscriptionInfoService.getContextualMessage(context);
-      
+
+      // Usar el mensaje del failure si es SubscriptionFailure, sino usar el contextual
+      String message;
+      if (failure is SubscriptionFailure) {
+        message = customMessage ?? failure.message;
+      } else {
+        message = customMessage ?? SubscriptionInfoService.getContextualMessage(context);
+      }
+
       SubscriptionErrorDialog.showSubscriptionExpired(
         customMessage: message,
         onUpgradePressed: onUpgradePressed ?? () {
-          Get.toNamed('/settings/organization');
+          Get.toNamed('/settings/subscription');
         },
       );
-      
+
       return true; // Error manejado
     }
 

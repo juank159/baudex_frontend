@@ -485,6 +485,10 @@ class EnhancedExpensesController extends GetxController {
   // ==================== ACCIONES DE GASTOS ====================
 
   Future<void> refreshExpenses() async {
+    // Diferir al siguiente event loop para evitar setState durante build phase
+    // Esto previene el error "setState() called during build" cuando se llama
+    // desde bindings, routes, o cualquier contexto dentro del build del widget tree
+    await Future.delayed(Duration.zero);
     print('🔄 Refrescando gastos...');
     _isRefreshing.value = true;
     await _loadInitialData();

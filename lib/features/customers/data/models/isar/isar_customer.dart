@@ -1,4 +1,6 @@
 // lib/features/customers/data/models/isar/isar_customer.dart
+import 'dart:convert';
+
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
 import 'package:baudex_desktop/features/customers/domain/entities/customer.dart';
 import 'package:isar/isar.dart';
@@ -302,13 +304,29 @@ class IsarCustomer {
     }
   }
 
-  // Helpers para metadatos
-  static String _encodeMetadata(Map<String, dynamic> metadata) {
-    return metadata.toString();
+  // Helpers para metadatos - ✅ FIX: Usar JSON correcto
+  static String _encodeMetadata(Map<String, dynamic>? metadata) {
+    if (metadata == null || metadata.isEmpty) return '{}';
+    try {
+      return jsonEncode(metadata);
+    } catch (e) {
+      return '{}';
+    }
   }
 
-  static Map<String, dynamic> _decodeMetadata(String metadataJson) {
-    return {};
+  static Map<String, dynamic> _decodeMetadata(String? metadataJson) {
+    if (metadataJson == null || metadataJson.isEmpty || metadataJson == '{}') {
+      return {};
+    }
+    try {
+      final decoded = jsonDecode(metadataJson);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
   }
 
   // Métodos de utilidad

@@ -5,19 +5,19 @@ import '../../../../app/core/usecases/usecase.dart';
 import '../entities/notification.dart';
 import '../repositories/dashboard_repository.dart';
 
-class MarkNotificationAsReadUseCase implements UseCase<Notification, MarkNotificationAsReadParams> {
+class MarkDashboardNotificationAsReadUseCase implements UseCase<Notification, MarkDashboardNotificationAsReadParams> {
   final DashboardRepository repository;
 
-  MarkNotificationAsReadUseCase(this.repository);
+  MarkDashboardNotificationAsReadUseCase(this.repository);
 
   @override
-  Future<Either<Failure, Notification>> call(MarkNotificationAsReadParams params) async {
+  Future<Either<Failure, Notification>> call(MarkDashboardNotificationAsReadParams params) async {
     return await repository.markNotificationAsRead(params.notificationId);
   }
 }
 
-class MarkNotificationAsReadParams {
+class MarkDashboardNotificationAsReadParams {
   final String notificationId;
 
-  MarkNotificationAsReadParams({required this.notificationId});
+  MarkDashboardNotificationAsReadParams({required this.notificationId});
 }

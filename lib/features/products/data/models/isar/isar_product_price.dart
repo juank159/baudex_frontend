@@ -1,6 +1,7 @@
 // lib/features/products/data/models/isar/isar_product_price.dart
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product_price.dart';
+import 'package:baudex_desktop/features/products/data/models/product_price_model.dart';
 import 'package:isar/isar.dart';
 
 part 'isar_product_price.g.dart';
@@ -73,6 +74,55 @@ class IsarProductPrice {
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     );
+  }
+
+  /// Crea un IsarProductPrice desde un ProductPriceModel
+  static IsarProductPrice fromModel(ProductPriceModel model) {
+    return IsarProductPrice.create(
+      serverId: model.id,
+      type: _mapPriceTypeFromString(model.type),
+      name: model.name,
+      amount: model.amount,
+      currency: model.currency,
+      status: _mapPriceStatusFromString(model.status),
+      validFrom: model.validFrom,
+      validTo: model.validTo,
+      discountPercentage: model.discountPercentage,
+      discountAmount: model.discountAmount,
+      minQuantity: model.minQuantity,
+      profitMargin: model.profitMargin,
+      notes: model.notes,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+    );
+  }
+
+  /// Mapea string de tipo de precio a enum ISAR
+  static IsarPriceType _mapPriceTypeFromString(String type) {
+    switch (type.toLowerCase()) {
+      case 'price2':
+        return IsarPriceType.price2;
+      case 'price3':
+        return IsarPriceType.price3;
+      case 'special':
+        return IsarPriceType.special;
+      case 'cost':
+        return IsarPriceType.cost;
+      case 'price1':
+      default:
+        return IsarPriceType.price1;
+    }
+  }
+
+  /// Mapea string de estado de precio a enum ISAR
+  static IsarPriceStatus _mapPriceStatusFromString(String status) {
+    switch (status.toLowerCase()) {
+      case 'inactive':
+        return IsarPriceStatus.inactive;
+      case 'active':
+      default:
+        return IsarPriceStatus.active;
+    }
   }
 
   ProductPrice toEntity() {

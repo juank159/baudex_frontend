@@ -7,6 +7,7 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../domain/entities/credit_note.dart';
 import '../controllers/credit_note_detail_controller.dart';
 import '../widgets/credit_note_status_widget.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class CreditNoteDetailScreen extends GetView<CreditNoteDetailController> {
   const CreditNoteDetailScreen({super.key});
@@ -77,6 +78,7 @@ class CreditNoteDetailScreen extends GetView<CreditNoteDetailController> {
         ],
       )),
       actions: [
+        const SyncStatusIcon(),
         Obx(() {
           if (controller.creditNote?.canBeEdited == true) {
             return _buildAppBarButton(Icons.edit, controller.goToEdit, isSmall);

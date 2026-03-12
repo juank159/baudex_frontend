@@ -10,6 +10,7 @@ import '../controllers/enhanced_expenses_controller.dart';
 import '../widgets/modern_expense_card_widget.dart';
 import '../widgets/modern_expense_stats_widget.dart';
 import '../widgets/modern_expense_filter_widget.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class ExpensesListScreen extends GetView<EnhancedExpensesController> {
   const ExpensesListScreen({super.key});
@@ -48,6 +49,8 @@ class ExpensesListScreen extends GetView<EnhancedExpensesController> {
         ),
       ),
       actions: [
+        // Indicador de estado de sincronización
+        const SyncStatusIcon(),
         // Chip de filtro de fecha activo - MEJORADO
         Obx(() {
           final hasFilter =

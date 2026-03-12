@@ -18,30 +18,51 @@ import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
 import '../features/settings/presentation/bindings/settings_binding.dart';
 import 'data/local/sync_service.dart';
+import 'data/local/full_sync_service.dart';
 import 'core/services/conflict_resolver.dart';
 import 'core/services/idempotency_service.dart';
+import 'core/services/conflict_resolution_service.dart';
+import 'data/local/atomic_transaction_helper.dart';
 // Offline Repositories
 import '../features/bank_accounts/data/repositories/bank_account_repository_impl.dart';
+import '../features/bank_accounts/data/repositories/bank_account_offline_repository.dart';
 import '../features/bank_accounts/data/datasources/bank_account_remote_datasource.dart';
 import '../features/bank_accounts/domain/repositories/bank_account_repository.dart';
 import '../features/products/data/repositories/product_repository_impl.dart';
+import '../features/products/data/repositories/product_offline_repository.dart';
 import '../features/products/data/datasources/product_remote_datasource.dart';
 import '../features/products/data/datasources/product_local_datasource_isar.dart';
 import '../features/products/domain/repositories/product_repository.dart';
 import '../features/customers/data/repositories/customer_repository_impl.dart';
+import '../features/customers/data/repositories/customer_offline_repository.dart';
 import '../features/customers/data/datasources/customer_remote_datasource.dart';
-import '../features/customers/data/datasources/customer_local_datasource.dart';
+import '../features/customers/data/datasources/customer_local_datasource_isar.dart';
 import '../features/customers/domain/repositories/customer_repository.dart';
 import '../features/expenses/data/repositories/expense_repository_impl.dart';
+import '../features/expenses/data/repositories/expense_offline_repository.dart';
 import '../features/expenses/data/datasources/expense_remote_datasource.dart';
 import '../features/expenses/data/datasources/expense_local_datasource.dart';
+import '../features/expenses/data/datasources/expense_local_datasource_isar.dart';
 import '../features/expenses/domain/repositories/expense_repository.dart';
 import '../features/dashboard/data/datasources/dashboard_local_datasource_isar.dart';
 import '../features/dashboard/data/datasources/dashboard_local_datasource.dart';
 import '../features/categories/data/repositories/category_repository_impl.dart';
+import '../features/categories/data/repositories/category_offline_repository.dart';
 import '../features/categories/data/datasources/category_remote_datasource.dart';
 import '../features/categories/data/datasources/category_local_datasource.dart';
+import '../features/categories/data/datasources/category_local_datasource_isar.dart';
 import '../features/categories/domain/repositories/category_repository.dart';
+import '../features/invoices/data/repositories/invoice_offline_repository.dart';
+import '../features/dashboard/data/repositories/notification_offline_repository.dart';
+// ⭐ FASE 1 - Repositorios Offline adicionales para SyncService
+import '../features/suppliers/data/repositories/supplier_offline_repository.dart';
+import '../features/purchase_orders/data/repositories/purchase_order_offline_repository.dart';
+import '../features/inventory/data/repositories/inventory_offline_repository.dart';
+import '../features/credit_notes/data/repositories/credit_note_offline_repository.dart';
+import '../features/customer_credits/data/repositories/customer_credit_offline_repository.dart';
+// Subscription services
+import '../features/subscriptions/presentation/bindings/subscription_binding.dart';
+import 'shared/services/subscription_offline_policy.dart';
 
 class InitialBinding implements Bindings {
   @override
@@ -72,8 +93,17 @@ class InitialBinding implements Bindings {
     // ==================== IDEMPOTENCY SERVICE ====================
     _registerIdempotencyService();
 
+    // ==================== CONFLICT RESOLUTION SERVICE ====================
+    _registerConflictResolutionService();
+
+    // ==================== ATOMIC TRANSACTION HELPER ====================
+    _registerAtomicTransactionHelper();
+
     // ==================== AUDIO NOTIFICATION SERVICE ====================
     _registerAudioService();
+
+    // ==================== SUBSCRIPTION SERVICES ====================
+    _registerSubscriptionServices();
 
     print('✅ SimpleAppBinding: Dependencias básicas registradas exitosamente');
   }
@@ -108,9 +138,6 @@ class InitialBinding implements Bindings {
 
     // ISAR Database (singleton)
     Get.put<IsarDatabase>(IsarDatabase.instance, permanent: true);
-
-    // Simplified Registry
-    Get.lazyPut<RepositoriesRegistry>(() => RepositoriesRegistry.instance, fenix: true);
 
     print('✅ Infraestructura offline básica registrada');
   }
@@ -161,11 +188,9 @@ class InitialBinding implements Bindings {
       fenix: true,
     );
 
-    // Categories - Local DataSource
+    // Categories - Local DataSource (ISAR - persistencia offline)
     Get.lazyPut<CategoryLocalDataSource>(
-      () => CategoryLocalDataSourceImpl(
-        storageService: Get.find<SecureStorageService>(),
-      ),
+      () => CategoryLocalDataSourceIsar(),
       fenix: true,
     );
 
@@ -180,11 +205,11 @@ class InitialBinding implements Bindings {
       fenix: true,
     );
 
-    // Customers - Offline-First Repository (online + offline)
+    // Customers - Offline-First Repository (online + offline, ISAR local)
     Get.lazyPut<CustomerRepository>(
       () => CustomerRepositoryImpl(
         remoteDataSource: CustomerRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
-        localDataSource: CustomerLocalDataSourceImpl(storageService: Get.find<SecureStorageService>()),
+        localDataSource: CustomerLocalDataSourceIsar(),
         networkInfo: Get.find<NetworkInfo>(),
         database: Get.find<IsarDatabase>(),
       ),
@@ -197,9 +222,9 @@ class InitialBinding implements Bindings {
       fenix: true,
     );
 
-    // Expenses - Local DataSource
+    // Expenses - Local DataSource (ISAR - persistencia offline)
     Get.lazyPut<ExpenseLocalDataSource>(
-      () => ExpenseLocalDataSourceImpl(secureStorage: Get.find<SecureStorageService>()),
+      () => ExpenseLocalDataSourceIsar(),
       fenix: true,
     );
 
@@ -210,6 +235,151 @@ class InitialBinding implements Bindings {
         localDataSource: Get.find<ExpenseLocalDataSource>(),
         networkInfo: Get.find<NetworkInfo>(),
       ),
+      fenix: true,
+    );
+
+    // Notifications - Offline Repository
+    Get.lazyPut<NotificationOfflineRepository>(
+      () => NotificationOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // ⭐ FASE 1 - PROBLEMA 3: Repositorios Offline adicionales para lectura fresca en SyncService
+
+    // Products - Offline Repository (para SyncService)
+    Get.lazyPut<ProductOfflineRepository>(
+      () => ProductOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // Categories - Offline Repository (para SyncService)
+    Get.lazyPut<CategoryOfflineRepository>(
+      () => CategoryOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // Customers - Offline Repository (para SyncService)
+    Get.lazyPut<CustomerOfflineRepository>(
+      () => CustomerOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // Invoices - Offline Repository (para SyncService)
+    Get.lazyPut<InvoiceOfflineRepository>(
+      () => InvoiceOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // Suppliers - Offline Repository (para SyncService)
+    Get.lazyPut<SupplierOfflineRepository>(
+      () => SupplierOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // Expenses - Offline Repository (para SyncService)
+    Get.lazyPut<ExpenseOfflineRepository>(
+      () => ExpenseOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // BankAccounts - Offline Repository (para SyncService)
+    Get.lazyPut<BankAccountOfflineRepository>(
+      () => BankAccountOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // PurchaseOrders - Offline Repository (para SyncService)
+    Get.lazyPut<PurchaseOrderOfflineRepository>(
+      () => PurchaseOrderOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // Inventory - Offline Repository (para SyncService)
+    Get.lazyPut<InventoryOfflineRepository>(
+      () => InventoryOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // CreditNotes - Offline Repository (para SyncService)
+    Get.lazyPut<CreditNoteOfflineRepository>(
+      () => CreditNoteOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // CustomerCredits - Offline Repository (para SyncService)
+    Get.lazyPut<CustomerCreditOfflineRepository>(
+      () => CustomerCreditOfflineRepository(
+        database: Get.find<IsarDatabase>(),
+      ),
+      fenix: true,
+    );
+
+    // RepositoriesRegistry - Centralized access to all offline repositories
+    Get.lazyPut<RepositoriesRegistry>(
+      () {
+        // Note: We need to check if repositories are registered before accessing them
+        return RepositoriesRegistry(
+          products: Get.isRegistered<ProductOfflineRepository>()
+              ? Get.find<ProductOfflineRepository>()
+              : null,
+          customers: Get.isRegistered<CustomerOfflineRepository>()
+              ? Get.find<CustomerOfflineRepository>()
+              : null,
+          categories: Get.isRegistered<CategoryOfflineRepository>()
+              ? Get.find<CategoryOfflineRepository>()
+              : null,
+          invoices: Get.isRegistered<InvoiceOfflineRepository>()
+              ? Get.find<InvoiceOfflineRepository>()
+              : null,
+          notifications: Get.isRegistered<NotificationOfflineRepository>()
+              ? Get.find<NotificationOfflineRepository>()
+              : null,
+          // ⭐ FASE 1 - Repositorios adicionales
+          inventory: Get.isRegistered<InventoryOfflineRepository>()
+              ? Get.find<InventoryOfflineRepository>()
+              : null,
+          suppliers: Get.isRegistered<SupplierOfflineRepository>()
+              ? Get.find<SupplierOfflineRepository>()
+              : null,
+          expenses: Get.isRegistered<ExpenseOfflineRepository>()
+              ? Get.find<ExpenseOfflineRepository>()
+              : null,
+          bankAccounts: Get.isRegistered<BankAccountOfflineRepository>()
+              ? Get.find<BankAccountOfflineRepository>()
+              : null,
+          purchaseOrders: Get.isRegistered<PurchaseOrderOfflineRepository>()
+              ? Get.find<PurchaseOrderOfflineRepository>()
+              : null,
+          creditNotes: Get.isRegistered<CreditNoteOfflineRepository>()
+              ? Get.find<CreditNoteOfflineRepository>()
+              : null,
+          customerCredits: Get.isRegistered<CustomerCreditOfflineRepository>()
+              ? Get.find<CustomerCreditOfflineRepository>()
+              : null,
+        );
+      },
       fenix: true,
     );
 
@@ -259,6 +429,13 @@ class InitialBinding implements Bindings {
     syncService.onInit();
 
     print('✅ Servicio de sincronización offline-first registrado e inicializado');
+
+    // FullSyncService - Descarga completa del servidor a ISAR (post-login)
+    Get.lazyPut<FullSyncService>(
+      () => FullSyncService(Get.find<IsarDatabase>()),
+      fenix: true,
+    );
+    print('✅ FullSyncService registrado');
   }
 
   void _registerConflictResolver() {
@@ -285,6 +462,30 @@ class InitialBinding implements Bindings {
     print('✅ Servicio de idempotencia registrado');
   }
 
+  void _registerConflictResolutionService() {
+    print('⚔️ Registrando servicio de resolución de conflictos...');
+
+    // ConflictResolutionService como servicio permanente
+    Get.put<ConflictResolutionService>(
+      ConflictResolutionService(),
+      permanent: true,
+    );
+
+    print('✅ Servicio de resolución de conflictos registrado');
+  }
+
+  void _registerAtomicTransactionHelper() {
+    print('⚛️ Registrando helper de transacciones atómicas...');
+
+    // AtomicTransactionHelper para operaciones compuestas
+    Get.lazyPut<AtomicTransactionHelper>(
+      () => AtomicTransactionHelper(),
+      fenix: true, // Recrear si se elimina
+    );
+
+    print('✅ Helper de transacciones atómicas registrado');
+  }
+
   void _registerAudioService() {
     print('🔊 Registrando servicio de notificaciones de audio...');
 
@@ -298,5 +499,24 @@ class InitialBinding implements Bindings {
     });
 
     print('✅ Servicio de notificaciones de audio registrado');
+  }
+
+  void _registerSubscriptionServices() {
+    print('📋 Registrando servicios de suscripción...');
+
+    try {
+      // Subscription Offline Policy Service
+      Get.put<SubscriptionOfflinePolicy>(
+        SubscriptionOfflinePolicy(),
+        permanent: true,
+      );
+
+      // Usar el binding permanente para registrar todos los servicios de suscripción
+      SubscriptionPermanentBinding.init();
+
+      print('✅ Servicios de suscripción registrados');
+    } catch (e) {
+      print('⚠️ Error al registrar servicios de suscripción: $e');
+    }
   }
 }

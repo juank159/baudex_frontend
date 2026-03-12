@@ -259,18 +259,28 @@ class InvoiceBinding extends Bindings {
     }
   }
 
-  /// Registrar InvoiceInventoryService (singleton global)
+  /// Registrar InvoiceInventoryService (singleton global, OPCIONAL)
+  ///
+  /// Este servicio es opcional y solo se registra si las dependencias
+  /// de inventario están disponibles. Si no está registrado, el descuento
+  /// automático de inventario estará deshabilitado.
   void _registerInventoryService() {
     if (!Get.isRegistered<InvoiceInventoryService>()) {
-      try {
-        // Verificar que el use case de inventario esté disponible
-        if (!Get.isRegistered<ProcessOutboundMovementFifoUseCase>()) {
-          print(
-            '⚠️ ProcessOutboundMovementFifoUseCase no encontrado - InvoiceInventoryService no se registrará',
-          );
-          return;
-        }
+      // Verificar que el use case de inventario esté disponible
+      if (!Get.isRegistered<ProcessOutboundMovementFifoUseCase>()) {
+        print(
+          'ℹ️ InvoiceInventoryService no registrado (ProcessOutboundMovementFifoUseCase no disponible)',
+        );
+        print(
+          '   → El descuento automático de inventario estará deshabilitado',
+        );
+        print(
+          '   → Para habilitarlo, asegúrate de que InventoryBinding se ejecute antes de InvoiceBinding',
+        );
+        return;
+      }
 
+      try {
         Get.put(
           InvoiceInventoryService(
             processOutboundMovementFifoUseCase:
@@ -280,7 +290,8 @@ class InvoiceBinding extends Bindings {
         );
         print('✅ InvoiceInventoryService registrado como singleton');
       } catch (e) {
-        print('❌ Error registrando InvoiceInventoryService: $e');
+        print('⚠️ Error registrando InvoiceInventoryService: $e');
+        print('   → El descuento automático de inventario estará deshabilitado');
       }
     } else {
       print('ℹ️ InvoiceInventoryService ya está registrado');

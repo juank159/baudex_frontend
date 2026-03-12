@@ -228,15 +228,15 @@ class RecentActivityCard extends GetView<DashboardController> {
     final hasError = controller.activityError != null;
 
     if (isLoading && !hasAdvancedData && !hasBasicData) {
-      return Center(child: _buildModernShimmerList());
+      return SingleChildScrollView(child: _buildModernShimmerList());
     }
 
     if (hasError && !hasAdvancedData && !hasBasicData) {
-      return Center(child: _buildModernErrorState());
+      return SingleChildScrollView(child: _buildModernErrorState());
     }
 
     if (!hasAdvancedData && !hasBasicData) {
-      return Center(child: _buildModernEmptyState());
+      return SingleChildScrollView(child: _buildModernEmptyState());
     }
 
     // Usar SingleChildScrollView para permitir scroll cuando hay muchos items

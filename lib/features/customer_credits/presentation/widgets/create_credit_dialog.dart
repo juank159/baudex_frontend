@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:isar/isar.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -12,14 +13,18 @@ import '../../../customers/domain/entities/customer.dart';
 import '../../domain/entities/customer_credit.dart';
 import '../../data/models/customer_credit_model.dart';
 import '../controllers/customer_credit_controller.dart';
+import '../../../../app/data/local/isar_database.dart';
+import '../../../customers/data/models/isar/isar_customer.dart';
 
 /// Diálogo para crear un crédito manual con estilo Elegant
 class CreateCreditDialog extends StatefulWidget {
   final String? preselectedCustomerId;
+  final String? preselectedCustomerName;
 
   const CreateCreditDialog({
     super.key,
     this.preselectedCustomerId,
+    this.preselectedCustomerName,
   });
 
   @override
@@ -35,7 +40,6 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
 
   Customer? _selectedCustomer;
   DateTime _dueDate = DateTime.now().add(const Duration(days: 30));
-  bool _isLoading = false;
   bool _isSearching = false;
   List<Customer> _searchResults = [];
 
@@ -131,7 +135,77 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
   }
 
   Future<void> _loadPreselectedCustomer() async {
-    // TODO: Cargar cliente preseleccionado
+    if (widget.preselectedCustomerId == null) return;
+
+    setState(() => _isSearching = true);
+
+    try {
+      Customer? customer;
+
+      // 1. Buscar en ISAR (funciona offline)
+      final isar = IsarDatabase.instance.database;
+      final isarCustomer = await isar.isarCustomers
+          .filter()
+          .serverIdEqualTo(widget.preselectedCustomerId!)
+          .findFirst();
+
+      if (isarCustomer != null) {
+        customer = isarCustomer.toEntity();
+      }
+
+      // 2. Fallback: buscar por API si no está en ISAR
+      if (customer == null) {
+        try {
+          if (!Get.isRegistered<CustomerRemoteDataSource>()) {
+            Get.put<CustomerRemoteDataSource>(
+              CustomerRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+            );
+          }
+          final datasource = Get.find<CustomerRemoteDataSource>();
+          final results = await datasource.searchCustomers(
+            widget.preselectedCustomerName ?? widget.preselectedCustomerId!,
+            10,
+          );
+          customer = results.firstWhereOrNull(
+            (c) => c.id == widget.preselectedCustomerId,
+          );
+        } catch (_) {
+          // Offline - no pudo buscar por API
+        }
+      }
+
+      // 3. Último fallback: crear Customer mínimo con datos disponibles
+      if (customer == null) {
+        final nameParts = widget.preselectedCustomerName?.split(' ') ?? [];
+        customer = Customer(
+          id: widget.preselectedCustomerId!,
+          firstName: nameParts.isNotEmpty ? nameParts.first : 'Cliente',
+          lastName: nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '',
+          email: '',
+          documentType: DocumentType.cc,
+          documentNumber: '',
+          status: CustomerStatus.active,
+          creditLimit: 0,
+          currentBalance: 0,
+          paymentTerms: 30,
+          totalPurchases: 0,
+          totalOrders: 0,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          _selectedCustomer = customer;
+          _isSearching = false;
+        });
+        _loadClientBalance(customer.id);
+      }
+    } catch (e) {
+      debugPrint('Error cargando cliente preseleccionado: $e');
+      if (mounted) setState(() => _isSearching = false);
+    }
   }
 
   Future<void> _loadClientBalance(String customerId) async {
@@ -426,7 +500,39 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
           ],
         ),
         const SizedBox(height: 12),
-        if (_selectedCustomer == null)
+        if (_selectedCustomer == null && widget.preselectedCustomerId != null)
+          // Loading preselected customer
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Text(
+                  'Cargando cliente...',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (_selectedCustomer == null)
           Column(
             children: [
               // Campo de búsqueda elegante
@@ -645,37 +751,38 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
                     ],
                   ),
                 ),
-                // Botón quitar cliente
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedCustomer = null;
-                        _clientBalance = 0.0;
-                        _skipAutoBalance = false;
-                        _hasPendingCredit = false;
-                        _pendingCredit = null;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+                // Botón quitar cliente (solo si NO hay preselección)
+                if (widget.preselectedCustomerId == null)
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedCustomer = null;
+                          _clientBalance = 0.0;
+                          _skipAutoBalance = false;
+                          _hasPendingCredit = false;
+                          _pendingCredit = null;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: ElegantLightTheme.textTertiary.withValues(alpha: 0.2),
+                          ),
                         ),
-                      ),
-                      child: Icon(
-                        Icons.close_rounded,
-                        size: 18,
-                        color: ElegantLightTheme.textSecondary,
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: ElegantLightTheme.textSecondary,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -1239,7 +1346,7 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: _isLoading ? null : _submitCredit,
+              onTap: _submitCredit,
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1255,34 +1362,25 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
                   ],
                 ),
                 child: Center(
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              buttonIcon,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              buttonText,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        buttonIcon,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        buttonText,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1302,10 +1400,10 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
     final amount = NumberInputFormatter.getNumericValue(_amountController.text) ?? 0;
     final controller = Get.find<CustomerCreditController>();
 
-    // Cerrar diálogo PRIMERO
+    // Cerrar diálogo primero para UX responsiva
     Get.back(result: true);
 
-    // Ejecutar operación en segundo plano
+    // Ejecutar operación en segundo plano (controller muestra snackbar al terminar)
     if (_hasPendingCredit && _pendingCredit != null) {
       controller.addAmountToCredit(
         creditId: _pendingCredit!.id,

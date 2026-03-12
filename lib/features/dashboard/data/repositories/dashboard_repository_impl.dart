@@ -40,44 +40,38 @@ class DashboardRepositoryImpl implements DashboardRepository {
         
         return Right(remoteStats);
       } on ServerException catch (e) {
-        print('⚠️ [DASHBOARD_REPO] ServerException: ${e.message} - Fallback a cache...');
-        // Si hay error del servidor, intentar usar cache
-        if (startDate == null && endDate == null) {
-          final cachedStats = await localDataSource.getCachedDashboardStats();
-          if (cachedStats != null) {
-            return Right(cachedStats);
-          }
-        }
+        print('⚠️ [DASHBOARD_REPO] ServerException: ${e.message} - Fallback a ISAR...');
+        try {
+          final cachedStats = await localDataSource.getCachedDashboardStats(
+            startDate: startDate, endDate: endDate,
+          );
+          if (cachedStats != null) return Right(cachedStats);
+        } catch (_) {}
         return Left(ServerFailure(e.message));
       } on CacheException catch (e) {
         return Left(CacheFailure(e.message));
       } catch (e) {
-        print('⚠️ [DASHBOARD_REPO] Exception: $e - Fallback a cache...');
-        // Para cualquier otro error (ConnectionException, etc), intentar cache
-        if (startDate == null && endDate == null) {
-          try {
-            final cachedStats = await localDataSource.getCachedDashboardStats();
-            if (cachedStats != null) {
-              return Right(cachedStats);
-            }
-          } catch (_) {}
-        }
+        print('⚠️ [DASHBOARD_REPO] Exception: $e - Fallback a ISAR...');
+        try {
+          final cachedStats = await localDataSource.getCachedDashboardStats(
+            startDate: startDate, endDate: endDate,
+          );
+          if (cachedStats != null) return Right(cachedStats);
+        } catch (_) {}
         return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
-      // Sin conexión, usar cache si no hay filtros
-      if (startDate == null && endDate == null) {
-        try {
-          final cachedStats = await localDataSource.getCachedDashboardStats();
-          if (cachedStats != null) {
-            return Right(cachedStats);
-          }
-          return Left(CacheFailure('No hay datos en cache'));
-        } on CacheException catch (e) {
-          return Left(CacheFailure(e.message));
+      // Sin conexión - calcular desde ISAR (con o sin filtros de fecha)
+      try {
+        final cachedStats = await localDataSource.getCachedDashboardStats(
+          startDate: startDate, endDate: endDate,
+        );
+        if (cachedStats != null) {
+          return Right(cachedStats);
         }
-      } else {
-        return Left(ConnectionFailure('Sin conexión a internet'));
+        return Left(CacheFailure('No hay datos en cache'));
+      } on CacheException catch (e) {
+        return Left(CacheFailure(e.message));
       }
     }
   }
@@ -463,15 +457,38 @@ class DashboardRepositoryImpl implements DashboardRepository {
         );
         return Right(stats);
       } on ServerException catch (e) {
-        print('⚠️ [DASHBOARD_REPO] ServerException en profitability: ${e.message}');
+        print('⚠️ [DASHBOARD_REPO] ServerException en profitability: ${e.message} - Fallback a ISAR...');
+        try {
+          final offlineStats = await localDataSource.getOfflineProfitabilityStats(
+            startDate: startDate, endDate: endDate,
+          );
+          if (offlineStats != null) return Right(offlineStats);
+        } catch (_) {}
         return Left(ServerFailure(e.message));
       } catch (e) {
-        print('⚠️ [DASHBOARD_REPO] Exception en profitability: $e');
+        print('⚠️ [DASHBOARD_REPO] Exception en profitability: $e - Fallback a ISAR...');
+        try {
+          final offlineStats = await localDataSource.getOfflineProfitabilityStats(
+            startDate: startDate, endDate: endDate,
+          );
+          if (offlineStats != null) return Right(offlineStats);
+        } catch (_) {}
         return Left(ServerFailure('Error inesperado: $e'));
       }
     } else {
-      print('📴 [DASHBOARD_REPO] Sin conexión - profitability stats no disponible offline');
-      return Left(ConnectionFailure('Sin conexión a internet'));
+      // Sin conexión - calcular desde ISAR
+      print('📴 [DASHBOARD_REPO] Sin conexión - calculando profitability desde ISAR');
+      try {
+        final offlineStats = await localDataSource.getOfflineProfitabilityStats(
+          startDate: startDate, endDate: endDate,
+        );
+        if (offlineStats != null) {
+          return Right(offlineStats);
+        }
+        return Left(CacheFailure('No hay datos offline'));
+      } catch (e) {
+        return Left(ConnectionFailure('Sin conexión a internet'));
+      }
     }
   }
 }

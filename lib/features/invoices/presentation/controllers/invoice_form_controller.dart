@@ -8,6 +8,7 @@ import 'package:baudex_desktop/features/invoices/presentation/controllers/therma
 import 'package:baudex_desktop/features/invoices/presentation/widgets/enhanced_payment_dialog.dart';
 import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
+import '../../../../app/core/network/network_info.dart';
 
 import 'package:baudex_desktop/features/products/domain/entities/product_price.dart';
 import 'package:dartz/dartz.dart';
@@ -58,8 +59,8 @@ class InvoiceFormController extends GetxController {
   // ✅ NUEVO: Controlador de impresión térmica
   late final ThermalPrinterController _thermalPrinterController;
 
-  // ✅ NUEVO: Servicio de integración con inventario
-  late final InvoiceInventoryService _inventoryService;
+  // ✅ NUEVO: Servicio de integración con inventario (opcional)
+  InvoiceInventoryService? _inventoryService;
 
   InvoiceFormController({
     required CreateInvoiceUseCase createInvoiceUseCase,
@@ -91,13 +92,14 @@ class InvoiceFormController extends GetxController {
       print('🆕 Creando nuevo ThermalPrinterController');
     }
 
-    // ✅ INICIALIZAR SERVICIO DE INVENTARIO (REUTILIZAR SI YA EXISTE)
-    try {
+    // ✅ INICIALIZAR SERVICIO DE INVENTARIO (OPCIONAL)
+    if (Get.isRegistered<InvoiceInventoryService>()) {
       _inventoryService = Get.find<InvoiceInventoryService>();
       print('♻️ Reutilizando InvoiceInventoryService existente');
-    } catch (e) {
+    } else {
+      _inventoryService = null;
       print(
-        '❌ InvoiceInventoryService no encontrado - debe ser registrado en bindings',
+        'ℹ️ InvoiceInventoryService no disponible - descuento automático de inventario deshabilitado',
       );
     }
   }
@@ -410,6 +412,10 @@ class InvoiceFormController extends GetxController {
       // Esperar un poco más para asegurar que la UI esté lista
       await Future.delayed(const Duration(milliseconds: 500));
 
+      // 🔔 VERIFICAR ESTADO DE SUSCRIPCIÓN (ASYNC - funciona online y offline)
+      // Usa ISAR si no hay datos en memoria
+      await SubscriptionValidationService.showExpirationWarningIfNeededAsync();
+
       // Auto-inicializar dependencias si es necesario
       _autoInitializeDependencies();
 
@@ -562,7 +568,8 @@ class InvoiceFormController extends GetxController {
     });
   }
 
-  /// Asegurar que tenemos un cliente válido con UUID real antes de crear factura
+  /// Asegurar que tenemos un cliente válido antes de crear factura
+  /// ✅ MEJORADO: Permite clientes offline cuando no hay conexión
   Future<Customer?> _ensureValidCustomer() async {
     final currentCustomer = selectedCustomer;
 
@@ -580,6 +587,15 @@ class InvoiceFormController extends GetxController {
       return currentCustomer;
     }
 
+    // ✅ NUEVO: Permitir clientes creados offline (customer_offline_...)
+    if (currentCustomer.id.startsWith('customer_offline_')) {
+      print(
+        '✅ Cliente offline válido: ${currentCustomer.displayName} (${currentCustomer.id})',
+      );
+      print('   💡 Se sincronizará cuando haya conexión');
+      return currentCustomer;
+    }
+
     print('⚠️ Cliente actual es temporal/fallback, buscando cliente real...');
 
     // Si es el cliente fallback "Consumidor Final", buscar el real
@@ -593,10 +609,34 @@ class InvoiceFormController extends GetxController {
         );
         return realCustomer;
       }
+
+      // ✅ NUEVO: Si estamos offline y no se pudo crear/encontrar cliente,
+      // usar el fallback para permitir facturación offline
+      final isOffline = await _checkIfOffline();
+      if (isOffline) {
+        print('📴 MODO OFFLINE: Usando cliente fallback para facturación');
+        print('   💡 La factura se creará con cliente temporal y se resolverá al sincronizar');
+        return currentCustomer; // Retornar el fallback
+      }
     }
 
     print('❌ No se pudo resolver a un cliente válido');
     return null;
+  }
+
+  /// Verificar si estamos en modo offline
+  Future<bool> _checkIfOffline() async {
+    try {
+      if (Get.isRegistered<NetworkInfo>()) {
+        final networkInfo = Get.find<NetworkInfo>();
+        final isConnected = await networkInfo.isConnected;
+        return !isConnected;
+      }
+      return false;
+    } catch (e) {
+      print('⚠️ Error verificando conexión: $e');
+      return false;
+    }
   }
 
   /// Verificar si un string es un UUID válido
@@ -2033,9 +2073,11 @@ class InvoiceFormController extends GetxController {
     double? balanceApplied, // 💰 NUEVO: Saldo a favor aplicado del cliente
   }) async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
-    if (!SubscriptionValidationService.canCreateInvoice()) {
+    // Usa validación ASYNC que consulta ISAR si no hay datos en memoria (offline)
+    final canCreate = await SubscriptionValidationService.canCreateInvoiceAsync();
+    if (!canCreate) {
       print(
-        '🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO creación de factura',
+        '🚫 FRONTEND BLOCK: Suscripción expirada o sin datos - BLOQUEANDO creación de factura',
       );
       return null; // Bloquear operación
     }
@@ -2081,6 +2123,17 @@ class InvoiceFormController extends GetxController {
         'clientId': validCustomer.id,
       };
       print('💰 Saldo a favor aplicado: \$${balanceApplied.toStringAsFixed(2)}');
+    }
+
+    // ✅ Para facturas a crédito puro, señalar que se debe generar CustomerCredit
+    if (paymentMethod == PaymentMethod.credit && status == InvoiceStatus.pending) {
+      invoiceMetadata = {
+        ...?invoiceMetadata,
+        'createCreditForRemaining': true,
+        'remainingBalance': total,
+        'isPureCreditInvoice': true,
+      };
+      print('📝 Factura a crédito puro - metadata configurada para generar crédito por \$${total.toStringAsFixed(2)}');
     }
 
     if (multiplePayments != null && multiplePayments.isNotEmpty) {
@@ -2164,19 +2217,23 @@ class InvoiceFormController extends GetxController {
           '✅ _createNewInvoice SUCCESS: Factura creada con ID ${invoice.id}',
         );
 
-        // ✅ PROCESAR INVENTARIO AUTOMÁTICAMENTE
-        try {
-          final inventoryProcessed = await _inventoryService
-              .processInventoryForInvoice(invoice);
-          if (inventoryProcessed) {
-            print(
-              '✅ Inventario procesado exitosamente para factura ${invoice.number}',
-            );
-          } else {
-            print('⚠️ Inventario no procesado (configuración o error)');
+        // ✅ PROCESAR INVENTARIO AUTOMÁTICAMENTE (si el servicio está disponible)
+        if (_inventoryService != null) {
+          try {
+            final inventoryProcessed = await _inventoryService!
+                .processInventoryForInvoice(invoice);
+            if (inventoryProcessed) {
+              print(
+                '✅ Inventario procesado exitosamente para factura ${invoice.number}',
+              );
+            } else {
+              print('⚠️ Inventario no procesado (configuración o error)');
+            }
+          } catch (e) {
+            print('❌ Error procesando inventario: $e');
           }
-        } catch (e) {
-          print('❌ Error procesando inventario: $e');
+        } else {
+          print('ℹ️ Inventario no procesado (servicio no disponible)');
         }
 
         print('✅ Preparando para nueva venta...');
@@ -2189,9 +2246,11 @@ class InvoiceFormController extends GetxController {
   // ✅ MODIFICADO: Retornar la factura actualizada
   Future<Invoice?> _updateExistingInvoice(InvoiceStatus status) async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
-    if (!SubscriptionValidationService.canUpdateInvoice()) {
+    // Usa validación ASYNC que consulta ISAR si no hay datos en memoria (offline)
+    final canUpdate = await SubscriptionValidationService.canUpdateInvoiceAsync();
+    if (!canUpdate) {
       print(
-        '🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO actualización de factura',
+        '🚫 FRONTEND BLOCK: Suscripción expirada o sin datos - BLOQUEANDO actualización de factura',
       );
       return null; // Bloquear operación
     }

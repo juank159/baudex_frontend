@@ -10,6 +10,7 @@ import '../controllers/customers_controller.dart';
 import '../controllers/customer_stats_controller.dart';
 import '../widgets/modern_customer_card_widget.dart';
 import '../../domain/entities/customer.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class ModernCustomersListScreen extends GetView<CustomersController> {
   const ModernCustomersListScreen({super.key});
@@ -76,6 +77,7 @@ class ModernCustomersListScreen extends GetView<CustomersController> {
         ),
       ),
       actions: [
+        const SyncStatusIcon(),
         Obx(() => _buildAppBarButton(
           icon: controller.isLoading
               ? null

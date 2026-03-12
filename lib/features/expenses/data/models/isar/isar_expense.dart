@@ -1,4 +1,5 @@
 // lib/features/expenses/data/models/isar/isar_expense.dart
+import 'dart:convert';
 import 'package:baudex_desktop/app/data/local/enums/isar_enums.dart';
 import 'package:baudex_desktop/features/expenses/domain/entities/expense.dart';
 import 'package:isar/isar.dart';
@@ -273,12 +274,28 @@ class IsarExpense {
     return json.split('|').where((s) => s.isNotEmpty).toList();
   }
 
-  static String _encodeMetadata(Map<String, dynamic> metadata) {
-    return metadata.toString();
+  static String _encodeMetadata(Map<String, dynamic>? metadata) {
+    if (metadata == null || metadata.isEmpty) return '{}';
+    try {
+      return jsonEncode(metadata);
+    } catch (e) {
+      return '{}';
+    }
   }
 
-  static Map<String, dynamic> _decodeMetadata(String metadataJson) {
-    return {};
+  static Map<String, dynamic> _decodeMetadata(String? metadataJson) {
+    if (metadataJson == null || metadataJson.isEmpty || metadataJson == '{}') {
+      return {};
+    }
+    try {
+      final decoded = jsonDecode(metadataJson);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
   }
 
   // Métodos de utilidad

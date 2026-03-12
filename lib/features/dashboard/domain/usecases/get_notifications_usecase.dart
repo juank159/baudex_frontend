@@ -5,13 +5,13 @@ import '../../../../app/core/usecases/usecase.dart';
 import '../entities/notification.dart';
 import '../repositories/dashboard_repository.dart';
 
-class GetNotificationsUseCase implements UseCase<List<Notification>, GetNotificationsParams> {
+class GetDashboardNotificationsUseCase implements UseCase<List<Notification>, GetDashboardNotificationsParams> {
   final DashboardRepository repository;
 
-  GetNotificationsUseCase(this.repository);
+  GetDashboardNotificationsUseCase(this.repository);
 
   @override
-  Future<Either<Failure, List<Notification>>> call(GetNotificationsParams params) async {
+  Future<Either<Failure, List<Notification>>> call(GetDashboardNotificationsParams params) async {
     return await repository.getNotifications(
       limit: params.limit,
       unreadOnly: params.unreadOnly,
@@ -19,11 +19,11 @@ class GetNotificationsUseCase implements UseCase<List<Notification>, GetNotifica
   }
 }
 
-class GetNotificationsParams {
+class GetDashboardNotificationsParams {
   final int limit;
   final bool? unreadOnly;
 
-  GetNotificationsParams({
+  GetDashboardNotificationsParams({
     this.limit = 50,
     this.unreadOnly,
   });

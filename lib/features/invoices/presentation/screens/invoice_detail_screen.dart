@@ -15,6 +15,7 @@ import '../widgets/invoice_items_list_widget.dart';
 import '../widgets/payment_history_widget.dart';
 import '../../domain/entities/invoice.dart';
 import '../../../credit_notes/presentation/widgets/invoice_credit_notes_widget.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class InvoiceDetailScreen extends StatelessWidget {
   const InvoiceDetailScreen({super.key});
@@ -237,6 +238,7 @@ class InvoiceDetailScreen extends StatelessWidget {
             ),
       ),
       actions: [
+        const SyncStatusIcon(),
         // Editar
         GetBuilder<InvoiceDetailController>(
           builder: (controller) => controller.canEdit

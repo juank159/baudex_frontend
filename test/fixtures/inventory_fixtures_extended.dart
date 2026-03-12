@@ -5,7 +5,7 @@ import 'package:baudex_desktop/features/inventory/domain/entities/inventory_batc
 import 'package:baudex_desktop/features/inventory/domain/entities/inventory_stats.dart';
 import 'package:baudex_desktop/features/inventory/domain/entities/warehouse.dart';
 import 'package:baudex_desktop/features/inventory/domain/entities/warehouse_with_stats.dart';
-import 'package:baudex_desktop/features/inventory/domain/entities/kardex_entry.dart';
+import 'package:baudex_desktop/features/inventory/domain/entities/kardex_entry.dart' hide KardexSummary;
 import 'package:baudex_desktop/features/inventory/domain/entities/kardex_report.dart';
 
 /// Extended test fixtures for Inventory module - covers all entities
@@ -348,42 +348,42 @@ class InventoryFixturesExtended {
   static KardexEntry createKardexEntryEntity({
     String id = 'entry-001',
     String productId = 'prod-001',
-    String movementType = 'inbound',
-    DateTime? movementDate,
-    String? referenceId,
-    String? referenceType,
+    String productName = 'Test Product',
+    String productSku = 'SKU-001',
+    DateTime? date,
+    String documentType = 'inbound',
+    String documentNumber = 'DOC-001',
     String? description,
     int quantityIn = 0,
     int quantityOut = 0,
-    int balanceQuantity = 100,
-    double unitCost = 50000.0,
-    double totalCostIn = 0.0,
-    double totalCostOut = 0.0,
-    double balanceCost = 5000000.0,
+    int balance = 100,
+    double unitCostIn = 50000.0,
+    double unitCostOut = 0.0,
+    double averageCost = 50000.0,
+    double totalValue = 5000000.0,
     String? lotNumber,
-    DateTime? expiryDate,
-    String? warehouseId,
-    String? warehouseName,
+    String? referenceId,
+    String? referenceType,
   }) {
     return KardexEntry(
       id: id,
       productId: productId,
-      movementType: movementType,
-      movementDate: movementDate ?? DateTime(2024, 1, 1),
-      referenceId: referenceId,
-      referenceType: referenceType,
-      description: description ?? 'Kardex entry for $movementType',
+      productName: productName,
+      productSku: productSku,
+      date: date ?? DateTime(2024, 1, 1),
+      documentType: documentType,
+      documentNumber: documentNumber,
+      description: description ?? 'Kardex entry for $documentType',
       quantityIn: quantityIn,
       quantityOut: quantityOut,
-      balanceQuantity: balanceQuantity,
-      unitCost: unitCost,
-      totalCostIn: totalCostIn,
-      totalCostOut: totalCostOut,
-      balanceCost: balanceCost,
+      balance: balance,
+      unitCostIn: unitCostIn,
+      unitCostOut: unitCostOut,
+      averageCost: averageCost,
+      totalValue: totalValue,
       lotNumber: lotNumber,
-      expiryDate: expiryDate,
-      warehouseId: warehouseId,
-      warehouseName: warehouseName,
+      referenceId: referenceId,
+      referenceType: referenceType,
     );
   }
 
@@ -392,11 +392,12 @@ class InventoryFixturesExtended {
       final isInbound = index % 2 == 0;
       return createKardexEntryEntity(
         id: 'entry-${(index + 1).toString().padLeft(3, '0')}',
-        movementType: isInbound ? 'inbound' : 'outbound',
+        documentType: isInbound ? 'inbound' : 'outbound',
+        documentNumber: 'DOC-${(index + 1).toString().padLeft(3, '0')}',
         quantityIn: isInbound ? 10 : 0,
         quantityOut: isInbound ? 0 : 5,
-        balanceQuantity: 100 + (isInbound ? 10 : -5) * (index + 1),
-        movementDate: DateTime(2024, 1, 1).add(Duration(days: index)),
+        balance: 100 + (isInbound ? 10 : -5) * (index + 1),
+        date: DateTime(2024, 1, 1).add(Duration(days: index)),
       );
     });
   }
@@ -409,37 +410,71 @@ class InventoryFixturesExtended {
     String productId = 'prod-001',
     String productName = 'Test Product',
     String productSku = 'SKU-001',
+    String? categoryName,
     DateTime? startDate,
     DateTime? endDate,
-    String? warehouseId,
-    String? warehouseName,
-    int initialQuantity = 50,
-    double initialCost = 2500000.0,
-    int finalQuantity = 100,
-    double finalCost = 5000000.0,
-    int totalInbound = 75,
-    int totalOutbound = 25,
-    double totalInboundCost = 3750000.0,
-    double totalOutboundCost = 1250000.0,
-    List<KardexEntry>? entries,
+    double initialQuantity = 50,
+    double initialValue = 2500000.0,
+    double initialAverageCost = 50000.0,
+    double finalQuantity = 100,
+    double finalValue = 5000000.0,
+    double finalAverageCost = 50000.0,
+    int totalEntries = 75,
+    int totalExits = 25,
+    double totalPurchases = 3750000.0,
+    double totalSales = 1250000.0,
+    List<KardexMovement>? movements,
   }) {
     return KardexReport(
-      productId: productId,
-      productName: productName,
-      productSku: productSku,
-      startDate: startDate ?? DateTime(2024, 1, 1),
-      endDate: endDate ?? DateTime(2024, 1, 31),
-      warehouseId: warehouseId,
-      warehouseName: warehouseName,
-      initialQuantity: initialQuantity,
-      initialCost: initialCost,
-      finalQuantity: finalQuantity,
-      finalCost: finalCost,
-      totalInbound: totalInbound,
-      totalOutbound: totalOutbound,
-      totalInboundCost: totalInboundCost,
-      totalOutboundCost: totalOutboundCost,
-      entries: entries ?? createKardexEntryList(5),
+      product: KardexProduct(
+        id: productId,
+        name: productName,
+        sku: productSku,
+        categoryName: categoryName,
+      ),
+      period: KardexPeriod(
+        startDate: startDate ?? DateTime(2024, 1, 1),
+        endDate: endDate ?? DateTime(2024, 1, 31),
+      ),
+      initialBalance: KardexBalance(
+        quantity: initialQuantity,
+        value: initialValue,
+        averageCost: initialAverageCost,
+      ),
+      movements: movements ?? createKardexMovementList(5),
+      finalBalance: KardexBalance(
+        quantity: finalQuantity,
+        value: finalValue,
+        averageCost: finalAverageCost,
+      ),
+      summary: KardexSummary(
+        totalEntries: totalEntries,
+        totalExits: totalExits,
+        totalPurchases: totalPurchases,
+        totalSales: totalSales,
+        averageUnitCost: finalAverageCost,
+        totalValue: finalValue,
+      ),
     );
+  }
+
+  static List<KardexMovement> createKardexMovementList(int count) {
+    return List.generate(count, (index) {
+      final isEntry = index % 2 == 0;
+      return KardexMovement(
+        date: DateTime(2024, 1, 1).add(Duration(days: index)),
+        movementNumber: 'MOV-${(index + 1).toString().padLeft(3, '0')}',
+        movementType: isEntry ? 'purchase' : 'sale',
+        description: isEntry ? 'Purchase entry' : 'Sale exit',
+        entryQuantity: isEntry ? 10.0 : 0.0,
+        exitQuantity: isEntry ? 0.0 : 5.0,
+        balance: (100 + (isEntry ? 10 : -5) * (index + 1)).toDouble(),
+        unitCost: 50000.0,
+        entryCost: isEntry ? 500000.0 : 0.0,
+        exitCost: isEntry ? 0.0 : 250000.0,
+        balanceValue: (100 + (isEntry ? 10 : -5) * (index + 1)) * 50000.0,
+        createdBy: 'system',
+      );
+    });
   }
 }

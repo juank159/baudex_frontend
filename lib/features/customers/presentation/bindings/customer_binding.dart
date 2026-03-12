@@ -191,28 +191,32 @@ class CustomerBinding extends Bindings {
       fenix: true,
     );
 
-    // Local DataSource
-    Get.lazyPut<CustomerLocalDataSource>(
-      () => CustomerLocalDataSourceImpl(
-        storageService: Get.find<SecureStorageService>(),
-      ),
-      fenix: true,
-    );
+    // Local DataSource - Solo registrar si no existe (app_binding ya registra ISAR implementation)
+    if (!Get.isRegistered<CustomerLocalDataSource>()) {
+      Get.lazyPut<CustomerLocalDataSource>(
+        () => CustomerLocalDataSourceImpl(
+          storageService: Get.find<SecureStorageService>(),
+        ),
+        fenix: true,
+      );
+    }
 
     // ==================== REPOSITORY ====================
 
-    Get.lazyPut<CustomerRepository>(
-      () {
-        final database = IsarDatabase.instance;
-        return CustomerRepositoryImpl(
-          remoteDataSource: Get.find<CustomerRemoteDataSource>(),
-          localDataSource: Get.find<CustomerLocalDataSource>(),
-          networkInfo: Get.find<NetworkInfo>(),
-          database: database,
-        );
-      },
-      fenix: true,
-    );
+    if (!Get.isRegistered<CustomerRepository>()) {
+      Get.lazyPut<CustomerRepository>(
+        () {
+          final database = IsarDatabase.instance;
+          return CustomerRepositoryImpl(
+            remoteDataSource: Get.find<CustomerRemoteDataSource>(),
+            localDataSource: Get.find<CustomerLocalDataSource>(),
+            networkInfo: Get.find<NetworkInfo>(),
+            database: database,
+          );
+        },
+        fenix: true,
+      );
+    }
 
     // ==================== USE CASES ====================
 
@@ -428,24 +432,29 @@ class CustomerDevBinding extends Bindings {
       permanent: true,
     );
 
-    Get.put<CustomerLocalDataSource>(
-      CustomerLocalDataSourceImpl(
-        storageService: Get.find<SecureStorageService>(),
-      ),
-      permanent: true,
-    );
+    // Solo registrar si no existe (app_binding ya registra ISAR implementation)
+    if (!Get.isRegistered<CustomerLocalDataSource>()) {
+      Get.put<CustomerLocalDataSource>(
+        CustomerLocalDataSourceImpl(
+          storageService: Get.find<SecureStorageService>(),
+        ),
+        permanent: true,
+      );
+    }
 
     // ==================== REPOSITORY ====================
 
-    Get.put<CustomerRepository>(
-      CustomerRepositoryImpl(
-        remoteDataSource: Get.find<CustomerRemoteDataSource>(),
-        localDataSource: Get.find<CustomerLocalDataSource>(),
-        networkInfo: Get.find<NetworkInfo>(),
-        database: IsarDatabase.instance,
-      ),
-      permanent: true,
-    );
+    if (!Get.isRegistered<CustomerRepository>()) {
+      Get.put<CustomerRepository>(
+        CustomerRepositoryImpl(
+          remoteDataSource: Get.find<CustomerRemoteDataSource>(),
+          localDataSource: Get.find<CustomerLocalDataSource>(),
+          networkInfo: Get.find<NetworkInfo>(),
+          database: IsarDatabase.instance,
+        ),
+        permanent: true,
+      );
+    }
 
     // ==================== USE CASES ====================
 

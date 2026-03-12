@@ -40,8 +40,10 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
   static const String _invoiceStatsKey = 'invoice_stats_cache';
   static const String _lastCacheTimeKey = 'invoices_last_cache_time';
 
-  // Tiempo de vida del cache (en minutos)
-  static const int _cacheExpirationMinutes = 15;
+  // Tiempo de vida del cache - IMPORTANTE: NO eliminar cache expirado
+  // Solo marcar como "stale" pero seguir sirviendo datos
+  static const int _cacheStaleMinutes = 15; // Cache considerado "stale" después de 15 min
+  static const int _cacheMaxAgeMinutes = 1440; // Cache máximo: 24 horas (nunca eliminar antes)
 
   const InvoiceLocalDataSourceImpl({required this.storageService});
 
@@ -163,10 +165,12 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
       final cacheMap = jsonDecode(cachedData) as Map<String, dynamic>;
       final timestamp = cacheMap['timestamp'] as int;
 
-      if (_isCacheExpired(timestamp)) {
-        print('⏰ Cache de facturas expirado, limpiando...');
-        await storageService.delete(_invoicesListKey);
-        throw const CacheException('Cache de facturas expirado');
+      // ✅ OFFLINE-FIRST: NUNCA eliminar cache, siempre servir datos aunque sean viejos
+      // Datos stale son infinitamente mejores que no tener datos cuando estás offline
+      if (_isCacheTooOld(timestamp)) {
+        print('📦 Cache de facturas antiguo (>24h) pero sirviéndolo de todos modos');
+      } else if (_isCacheStale(timestamp)) {
+        print('📦 Cache de facturas stale (>15min) pero disponible, sirviendo datos...');
       }
 
       final invoicesJson = cacheMap['invoices'] as List;
@@ -202,10 +206,11 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
       final cacheMap = jsonDecode(cachedData) as Map<String, dynamic>;
       final timestamp = cacheMap['timestamp'] as int;
 
-      if (_isCacheExpired(timestamp)) {
-        print('⏰ Cache de factura expirado: $id');
-        await storageService.delete('$_invoiceDetailKey$id');
-        return null;
+      // ✅ OFFLINE-FIRST: NUNCA eliminar cache individual, siempre servir
+      if (_isCacheTooOld(timestamp)) {
+        print('📦 Cache de factura antiguo (>24h) pero sirviéndolo: $id');
+      } else if (_isCacheStale(timestamp)) {
+        print('📦 Cache de factura stale pero disponible: $id');
       }
 
       final invoiceJson = cacheMap['invoice'] as Map<String, dynamic>;
@@ -274,10 +279,11 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
       final cacheMap = jsonDecode(cachedData) as Map<String, dynamic>;
       final timestamp = cacheMap['timestamp'] as int;
 
-      if (_isCacheExpired(timestamp)) {
-        print('⏰ Cache de estadísticas expirado');
-        await storageService.delete(_invoiceStatsKey);
-        return null;
+      // ✅ OFFLINE-FIRST: NUNCA eliminar cache de estadísticas, siempre servir
+      if (_isCacheTooOld(timestamp)) {
+        print('📦 Cache de estadísticas antiguo (>24h) pero sirviéndolo');
+      } else if (_isCacheStale(timestamp)) {
+        print('📦 Cache de estadísticas stale pero disponible');
       }
 
       final statsJson = cacheMap['stats'] as Map<String, dynamic>;
@@ -442,10 +448,10 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
       final cachedData = await storageService.read(_invoicesListKey);
       if (cachedData == null) return false;
 
+      // ✅ OFFLINE-FIRST: Retorna true si hay CUALQUIER dato, sin importar antigüedad
       final cacheMap = jsonDecode(cachedData) as Map<String, dynamic>;
-      final timestamp = cacheMap['timestamp'] as int;
-
-      return !_isCacheExpired(timestamp);
+      final invoices = cacheMap['invoices'] as List?;
+      return invoices != null && invoices.isNotEmpty;
     } catch (e) {
       print('❌ Error al verificar datos en cache: $e');
       return false;
@@ -454,12 +460,20 @@ class InvoiceLocalDataSourceImpl implements InvoiceLocalDataSource {
 
   // ==================== HELPER METHODS ====================
 
-  /// Verificar si el cache ha expirado
-  bool _isCacheExpired(int timestamp) {
+  /// Verificar si el cache está "stale" (viejo pero usable)
+  bool _isCacheStale(int timestamp) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final diff = now - timestamp;
     final diffMinutes = diff / (1000 * 60);
-    return diffMinutes > _cacheExpirationMinutes;
+    return diffMinutes > _cacheStaleMinutes;
+  }
+
+  /// Verificar si el cache es demasiado antiguo para usar (>24h)
+  bool _isCacheTooOld(int timestamp) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final diff = now - timestamp;
+    final diffMinutes = diff / (1000 * 60);
+    return diffMinutes > _cacheMaxAgeMinutes;
   }
 
   /// Obtener estadísticas básicas desde cache

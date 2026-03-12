@@ -43,8 +43,10 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
   static const String _productStatsKey = 'product_stats_cache';
   static const String _lastCacheTimeKey = 'products_last_cache_time';
 
-  // Tiempo de vida del cache (en minutos)
-  static const int _cacheExpirationMinutes = 30;
+  // Tiempo de vida del cache - IMPORTANTE: NO eliminar cache expirado
+  // Solo marcar como "stale" pero seguir sirviendo datos
+  static const int _cacheStaleMinutes = 30; // Cache considerado "stale" después de 30 min
+  static const int _cacheMaxAgeMinutes = 1440; // Cache máximo: 24 horas (nunca eliminar antes)
 
   const ProductLocalDataSourceImpl({required this.storageService});
 
@@ -99,10 +101,13 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
       final cacheMap = jsonDecode(cachedData) as Map<String, dynamic>;
       final timestamp = cacheMap['timestamp'] as int;
 
-      // Verificar si el cache ha expirado
-      if (_isCacheExpired(timestamp)) {
-        await storageService.delete(_productsListKey);
-        throw const CacheException('Cache de productos expirado');
+      // ✅ Servir datos stale siempre - mejor datos antiguos que nada offline
+      if (_isCacheTooOld(timestamp)) {
+        print('📦 Cache de productos antiguo (>24h) pero sirviéndolo de todos modos');
+      }
+
+      if (_isCacheStale(timestamp)) {
+        print('📦 Cache de productos stale (>30min) pero disponible, sirviendo datos...');
       }
 
       final productsJson = cacheMap['products'] as List;
@@ -127,10 +132,13 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
       final cacheMap = jsonDecode(cachedData) as Map<String, dynamic>;
       final timestamp = cacheMap['timestamp'] as int;
 
-      // Verificar si el cache ha expirado
-      if (_isCacheExpired(timestamp)) {
-        await storageService.delete('$_productDetailKey$id');
-        return null;
+      // ✅ Servir datos stale siempre - mejor datos antiguos que nada offline
+      if (_isCacheTooOld(timestamp)) {
+        print('📦 Cache de producto antiguo (>24h) pero sirviéndolo: $id');
+      }
+
+      if (_isCacheStale(timestamp)) {
+        print('📦 Cache de producto stale pero disponible: $id');
       }
 
       final productJson = cacheMap['product'] as Map<String, dynamic>;
@@ -205,10 +213,13 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
       final cacheMap = jsonDecode(cachedData) as Map<String, dynamic>;
       final timestamp = cacheMap['timestamp'] as int;
 
-      // Verificar si el cache ha expirado
-      if (_isCacheExpired(timestamp)) {
-        await storageService.delete(_productStatsKey);
-        return null;
+      // ✅ Servir datos stale siempre - mejor datos antiguos que nada offline
+      if (_isCacheTooOld(timestamp)) {
+        print('📦 Cache de estadísticas antiguo (>24h) pero sirviéndolo');
+      }
+
+      if (_isCacheStale(timestamp)) {
+        print('📦 Cache de estadísticas stale pero disponible');
       }
 
       final statsJson = cacheMap['stats'] as Map<String, dynamic>;
@@ -258,12 +269,20 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
     }
   }
 
-  /// Verificar si el cache ha expirado
-  bool _isCacheExpired(int timestamp) {
+  /// Verificar si el cache está "stale" (viejo pero usable)
+  bool _isCacheStale(int timestamp) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final diff = now - timestamp;
     final diffMinutes = diff / (1000 * 60);
-    return diffMinutes > _cacheExpirationMinutes;
+    return diffMinutes > _cacheStaleMinutes;
+  }
+
+  /// Verificar si el cache es demasiado antiguo para usar (>24h)
+  bool _isCacheTooOld(int timestamp) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final diff = now - timestamp;
+    final diffMinutes = diff / (1000 * 60);
+    return diffMinutes > _cacheMaxAgeMinutes;
   }
 
   /// Obtener productos que coincidan con un término de búsqueda desde cache
@@ -319,7 +338,7 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
     }
   }
 
-  /// Verificar si hay datos en cache válidos
+  /// Verificar si hay datos en cache válidos (incluyendo datos stale)
   Future<bool> hasCachedData() async {
     try {
       final cachedData = await storageService.read(_productsListKey);
@@ -328,7 +347,8 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
       final cacheMap = jsonDecode(cachedData) as Map<String, dynamic>;
       final timestamp = cacheMap['timestamp'] as int;
 
-      return !_isCacheExpired(timestamp);
+      // ✅ Retorna true si hay CUALQUIER dato, sin importar antigüedad
+      return true;
     } catch (e) {
       return false;
     }

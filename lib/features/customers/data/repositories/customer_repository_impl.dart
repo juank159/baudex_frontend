@@ -28,7 +28,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
   final CustomerRemoteDataSource remoteDataSource;
   final CustomerLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
-  final dynamic database;
+  final IIsarDatabase database;
 
   const CustomerRepositoryImpl({
     required this.remoteDataSource,
@@ -38,7 +38,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
   });
 
   // Helper getter for ISAR access
-  dynamic get isar => database.database;
+  Isar get isar => database.database as Isar;
 
   // ==================== CACHE OPERATIONS ====================
 
@@ -142,6 +142,9 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
         final response = await remoteDataSource.getCustomers(query);
 
+        // ✅ Resetear estado de conectividad si el servidor respondió
+        networkInfo.resetServerReachability();
+
         // Cache resultados en ISAR y SecureStorage para uso offline
         if (_shouldCacheResult(page, search, status, documentType)) {
           try {
@@ -171,15 +174,27 @@ class CustomerRepositoryImpl implements CustomerRepository {
         );
       } on ServerException catch (e) {
         print('⚠️ [CUSTOMER_REPO] ServerException: ${e.message} - Intentando cache...');
+        // ✅ Marcar servidor como no alcanzable si es error de conexión/timeout
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
         return _getCustomersFromCache();
       } on ConnectionException catch (e) {
         print('⚠️ [CUSTOMER_REPO] ConnectionException: ${e.message} - Intentando cache...');
+        // ✅ Marcar servidor como no alcanzable para evitar timeouts repetidos
+        networkInfo.markServerUnreachable();
         return _getCustomersFromCache();
       } on CacheException catch (e) {
         print('⚠️ [CUSTOMER_REPO] CacheException: ${e.message} - Intentando cache...');
         return _getCustomersFromCache();
       } catch (e) {
         print('⚠️ [CUSTOMER_REPO] Exception: $e - Intentando cache como fallback...');
+        // ✅ Marcar servidor como no alcanzable si es error de conexión
+        if (e.toString().contains('timeout') ||
+            e.toString().contains('SocketException') ||
+            e.toString().contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
         return _getCustomersFromCache();
       }
     } else {
@@ -380,14 +395,74 @@ class CustomerRepositoryImpl implements CustomerRepository {
         final customers = response.map((model) => model.toEntity()).toList();
         return Right(customers);
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        print('⚠️ ServerException en searchCustomers: ${e.message} - Buscando offline...');
+        if (e.message.contains('timeout') || e.message.contains('conexión') || e.message.contains('Connection')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _searchCustomersOffline(searchTerm, limit: limit);
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        print('⚠️ ConnectionException en searchCustomers: ${e.message} - Buscando offline...');
+        networkInfo.markServerUnreachable();
+        return _searchCustomersOffline(searchTerm, limit: limit);
       } catch (e) {
-        return Left(UnknownFailure('Error inesperado en búsqueda: $e'));
+        print('⚠️ Error en searchCustomers: $e - Buscando offline...');
+        if (e.toString().contains('Connection') || e.toString().contains('timeout')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _searchCustomersOffline(searchTerm, limit: limit);
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      print('📴 Sin conexión - Buscando clientes offline...');
+      return _searchCustomersOffline(searchTerm, limit: limit);
+    }
+  }
+
+  /// Búsqueda de clientes offline usando ISAR
+  Future<Either<Failure, List<Customer>>> _searchCustomersOffline(
+    String searchTerm, {
+    int limit = 10,
+  }) async {
+    try {
+      print('🔍 [OFFLINE] Buscando clientes en ISAR: "$searchTerm"');
+
+      // ✅ Dividir término de búsqueda en palabras para búsqueda más flexible
+      final searchWords = searchTerm.toLowerCase().split(' ').where((w) => w.isNotEmpty).toList();
+
+      // Obtener todos los clientes activos
+      final allCustomers = await isar.isarCustomers
+          .filter()
+          .deletedAtIsNull()
+          .findAll();
+
+      // Filtrar manualmente para soportar búsqueda de múltiples palabras
+      final matchingCustomers = allCustomers.where((customer) {
+        final firstName = customer.firstName.toLowerCase();
+        final lastName = customer.lastName.toLowerCase();
+        final fullName = '$firstName $lastName';
+        final email = (customer.email ?? '').toLowerCase();
+        final documentNumber = (customer.documentNumber ?? '').toLowerCase();
+        final companyName = (customer.companyName ?? '').toLowerCase();
+
+        // Verificar si TODAS las palabras de búsqueda están presentes en alguno de los campos
+        for (final word in searchWords) {
+          final wordFound = firstName.contains(word) ||
+              lastName.contains(word) ||
+              fullName.contains(word) ||
+              email.contains(word) ||
+              documentNumber.contains(word) ||
+              companyName.contains(word);
+
+          if (!wordFound) return false;
+        }
+        return true;
+      }).take(limit).toList();
+
+      final customers = matchingCustomers.map((isarCustomer) => isarCustomer.toEntity()).toList();
+      print('✅ [OFFLINE] ${customers.length} clientes encontrados en ISAR');
+      return Right(customers);
+    } catch (e) {
+      print('❌ [OFFLINE] Error buscando clientes en ISAR: $e');
+      return Left(CacheFailure('Error buscando clientes offline: $e'));
     }
   }
 
@@ -397,6 +472,9 @@ class CustomerRepositoryImpl implements CustomerRepository {
       try {
         final response = await remoteDataSource.getCustomerStats();
 
+        // ✅ Resetear estado de conectividad si el servidor respondió
+        networkInfo.resetServerReachability();
+
         try {
           await localDataSource.cacheCustomerStats(response);
         } catch (e) {
@@ -405,13 +483,21 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        print('⚠️ ServerException en getCustomerStats - Usando cache...');
+        if (e.message.contains('timeout') || e.message.contains('Connection')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _getCustomerStatsFromCache();
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        print('⚠️ ConnectionException en getCustomerStats - Usando cache...');
+        networkInfo.markServerUnreachable();
+        return _getCustomerStatsFromCache();
       } catch (e) {
-        return Left(
-          UnknownFailure('Error inesperado al obtener estadísticas: $e'),
-        );
+        print('⚠️ Error en getCustomerStats: $e - Usando cache...');
+        if (e.toString().contains('Connection') || e.toString().contains('timeout')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _getCustomerStatsFromCache();
       }
     } else {
       return _getCustomerStatsFromCache();
@@ -425,21 +511,48 @@ class CustomerRepositoryImpl implements CustomerRepository {
       try {
         final response =
             await remoteDataSource.getCustomersWithOverdueInvoices();
+        networkInfo.resetServerReachability();
         final customers = response.map((model) => model.toEntity()).toList();
         return Right(customers);
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        print('⚠️ [CUSTOMER_REPO] ServerException en overdueInvoices: ${e.message}');
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _getCustomersWithOverdueFromIsar();
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        print('⚠️ [CUSTOMER_REPO] ConnectionException en overdueInvoices: ${e.message}');
+        networkInfo.markServerUnreachable();
+        return _getCustomersWithOverdueFromIsar();
       } catch (e) {
-        return Left(
-          UnknownFailure(
-            'Error inesperado al obtener clientes con facturas vencidas: $e',
-          ),
-        );
+        print('⚠️ [CUSTOMER_REPO] Error en overdueInvoices: $e');
+        if (e.toString().contains('timeout') || e.toString().contains('Connection')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _getCustomersWithOverdueFromIsar();
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      return _getCustomersWithOverdueFromIsar();
+    }
+  }
+
+  /// Obtener clientes con facturas vencidas desde ISAR (aproximación: clientes con balance > 0)
+  Future<Either<Failure, List<Customer>>> _getCustomersWithOverdueFromIsar() async {
+    try {
+      print('💾 [CUSTOMER_REPO] Cargando clientes con deuda desde ISAR...');
+      final isarCustomers = await isar.isarCustomers
+          .filter()
+          .deletedAtIsNull()
+          .currentBalanceGreaterThan(0)
+          .sortByCurrentBalanceDesc()
+          .findAll();
+
+      final customers = isarCustomers.map((ic) => ic.toEntity()).toList();
+      print('✅ [CUSTOMER_REPO] ISAR: ${customers.length} clientes con balance pendiente');
+      return Right(customers);
+    } catch (e) {
+      print('⚠️ [CUSTOMER_REPO] Error cargando clientes con deuda desde ISAR: $e');
+      return const Right(<Customer>[]);
     }
   }
 
@@ -450,19 +563,45 @@ class CustomerRepositoryImpl implements CustomerRepository {
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.getTopCustomers(limit);
+        networkInfo.resetServerReachability();
         final customers = response.map((model) => model.toEntity()).toList();
         return Right(customers);
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _getTopCustomersFromIsar(limit);
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        networkInfo.markServerUnreachable();
+        return _getTopCustomersFromIsar(limit);
       } catch (e) {
-        return Left(
-          UnknownFailure('Error inesperado al obtener top clientes: $e'),
-        );
+        if (e.toString().contains('timeout') || e.toString().contains('Connection')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _getTopCustomersFromIsar(limit);
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      return _getTopCustomersFromIsar(limit);
+    }
+  }
+
+  /// ✅ Obtener top clientes desde ISAR (ordenados por totalPurchases)
+  Future<Either<Failure, List<Customer>>> _getTopCustomersFromIsar(int limit) async {
+    try {
+      print('💾 [CUSTOMER_REPO] Cargando top clientes desde ISAR...');
+      final isarCustomers = await isar.isarCustomers
+          .filter()
+          .deletedAtIsNull()
+          .sortByTotalPurchasesDesc()
+          .limit(limit)
+          .findAll();
+
+      final customers = isarCustomers.map((ic) => ic.toEntity()).toList();
+      print('✅ [CUSTOMER_REPO] ISAR: ${customers.length} top clientes cargados');
+      return Right(customers);
+    } catch (e) {
+      print('⚠️ [CUSTOMER_REPO] Error cargando top clientes desde ISAR: $e');
+      return const Right(<Customer>[]);
     }
   }
 
@@ -525,6 +664,11 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
+        // Errores de validación (400, 422) NO se deben crear offline - el usuario debe corregir
+        if (e.statusCode == 400 || e.statusCode == 422) {
+          print('❌ Error de validación al crear cliente: ${e.message}');
+          return Left(ServerFailure(e.message));
+        }
         print('⚠️ ServerException al crear cliente: ${e.message} - Creando offline...');
         return _createCustomerOffline(
           firstName: firstName,
@@ -796,6 +940,11 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
+        // Errores de validación (400, 422) NO se deben crear offline - el usuario debe corregir
+        if (e.statusCode == 400 || e.statusCode == 422) {
+          print('❌ Error de validación al actualizar cliente: ${e.message}');
+          return Left(ServerFailure(e.message));
+        }
         print('⚠️ [CUSTOMER_REPO] ServerException en update: ${e.message} - Fallback offline...');
         return _updateCustomerOffline(
           id: id,
@@ -1456,16 +1605,14 @@ class CustomerRepositoryImpl implements CustomerRepository {
   // ==================== PRIVATE HELPER METHODS ====================
 
   /// Determinar si se debe cachear el resultado
+  /// FASE 3: Siempre cachear a ISAR (upsert por serverId evita duplicados)
   bool _shouldCacheResult(
     int page,
     String? search,
     CustomerStatus? status,
     DocumentType? documentType,
   ) {
-    return page == 1 &&
-        search == null &&
-        status == null &&
-        documentType == null;
+    return true;
   }
 
   /// Invalidar cache de listados para reflejar cambios
@@ -1555,21 +1702,83 @@ class CustomerRepositoryImpl implements CustomerRepository {
     }
   }
 
-  /// Obtener estadísticas desde cache
+  /// Obtener estadísticas desde cache (SecureStorage primero, luego ISAR)
   Future<Either<Failure, CustomerStats>> _getCustomerStatsFromCache() async {
+    // Intentar SecureStorage primero
     try {
       final stats = await localDataSource.getCachedCustomerStats();
       if (stats != null) {
+        print('✅ [CUSTOMER_REPO] Stats desde SecureStorage');
         return Right(stats.toEntity());
-      } else {
-        return const Left(CacheFailure('Datos no encontrados en cache'));
       }
-    } on CacheException catch (e) {
-      return Left(CacheFailure(e.message));
     } catch (e) {
-      return Left(
-        UnknownFailure('Error al obtener estadísticas desde cache: $e'),
+      print('⚠️ [CUSTOMER_REPO] Error leyendo stats de SecureStorage: $e');
+    }
+
+    // Fallback: calcular stats desde ISAR
+    try {
+      print('💾 [CUSTOMER_REPO] Calculando stats desde ISAR...');
+      final isarCustomers = await isar.isarCustomers
+          .filter()
+          .deletedAtIsNull()
+          .findAll();
+
+      if (isarCustomers.isEmpty) {
+        print('⚠️ [CUSTOMER_REPO] ISAR vacío, retornando stats vacíos');
+        return const Right(CustomerStats(
+          total: 0, active: 0, inactive: 0, suspended: 0,
+          totalCreditLimit: 0, totalBalance: 0, activePercentage: 0,
+          customersWithOverdue: 0, averagePurchaseAmount: 0,
+        ));
+      }
+
+      int active = 0, inactive = 0, suspended = 0;
+      double totalCreditLimit = 0, totalBalance = 0, totalPurchases = 0;
+      int totalOrders = 0;
+
+      for (final c in isarCustomers) {
+        switch (c.status) {
+          case IsarCustomerStatus.active:
+            active++;
+            break;
+          case IsarCustomerStatus.inactive:
+            inactive++;
+            break;
+          case IsarCustomerStatus.suspended:
+            suspended++;
+            break;
+        }
+        totalCreditLimit += c.creditLimit;
+        totalBalance += c.currentBalance;
+        totalPurchases += c.totalPurchases;
+        totalOrders += c.totalOrders;
+      }
+
+      final total = isarCustomers.length;
+      final activePercentage = total > 0 ? (active / total) * 100 : 0.0;
+      final avgPurchase = totalOrders > 0 ? totalPurchases / totalOrders : 0.0;
+
+      final stats = CustomerStats(
+        total: total,
+        active: active,
+        inactive: inactive,
+        suspended: suspended,
+        totalCreditLimit: totalCreditLimit,
+        totalBalance: totalBalance,
+        activePercentage: activePercentage,
+        customersWithOverdue: 0, // No se puede determinar offline sin facturas
+        averagePurchaseAmount: avgPurchase,
       );
+
+      print('✅ [CUSTOMER_REPO] Stats calculados desde ISAR: $total clientes');
+      return Right(stats);
+    } catch (e) {
+      print('❌ [CUSTOMER_REPO] Error calculando stats desde ISAR: $e');
+      return const Right(CustomerStats(
+        total: 0, active: 0, inactive: 0, suspended: 0,
+        totalCreditLimit: 0, totalBalance: 0, activePercentage: 0,
+        customersWithOverdue: 0, averagePurchaseAmount: 0,
+      ));
     }
   }
 

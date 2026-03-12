@@ -4,7 +4,7 @@ import 'package:baudex_desktop/app/core/network/network_info.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'sync_service.dart';
+import '../local/sync_service.dart';
 
 enum ConnectionStatus { connected, disconnected, checking }
 
@@ -27,9 +27,9 @@ class ConnectionService extends GetxController {
   DateTime? _lastConnectionCheck;
   DateTime? _lastAutoSync;
 
-  // Configuration
-  static const Duration _connectionCheckInterval = Duration(seconds: 30);
-  static const Duration _autoSyncCooldown = Duration(minutes: 2);
+  // Configuration - optimizado para sync rápido
+  static const Duration _connectionCheckInterval = Duration(seconds: 15);
+  static const Duration _autoSyncCooldown = Duration(seconds: 15);
 
   ConnectionService(this._networkInfo, this._syncService);
 
@@ -86,8 +86,8 @@ class ConnectionService extends GetxController {
     final result = results.isNotEmpty ? results.first : ConnectivityResult.none;
     _connectionType.value = result;
 
-    // Give the connection a moment to stabilize
-    await Future.delayed(const Duration(seconds: 2));
+    // Breve pausa para estabilización de conexión
+    await Future.delayed(const Duration(milliseconds: 500));
 
     await _checkConnectionStatus();
   }
@@ -160,7 +160,7 @@ class ConnectionService extends GetxController {
     }
   }
 
-  /// Trigger automatic synchronization
+  /// Trigger automatic synchronization (push pendientes + pull del servidor)
   void _triggerAutoSync() async {
     // Check cooldown period
     if (_lastAutoSync != null) {
@@ -171,30 +171,34 @@ class ConnectionService extends GetxController {
       }
     }
 
-    // Check if sync is needed
-    final needsSync = await _syncService.needsSync();
-    if (!needsSync) {
-      Get.log('Auto-sync skipped - no pending changes');
-      return;
-    }
-
     Get.log('Triggering auto-sync...');
     _lastAutoSync = DateTime.now();
+    final pendingBefore = _syncService.pendingOperationsCount;
 
     try {
-      final result = await _syncService.syncAll(showProgress: false);
+      // PUSH: sincronizar operaciones pendientes
+      if (pendingBefore > 0) {
+        await _syncService.syncAll();
+      }
 
-      if (result.isSuccess && _showConnectionNotifications.value) {
+      // PULL: descargar cambios del servidor (siempre al reconectar)
+      await _syncService.forceSyncNow();
+
+      final pendingAfter = _syncService.pendingOperationsCount;
+      final syncedCount = pendingBefore - pendingAfter;
+
+      if ((syncedCount > 0 || pendingBefore == 0) && _showConnectionNotifications.value) {
         _showConnectionNotification(
           title: 'Sincronización Completada',
-          message: '${result.syncedEntities} elementos sincronizados',
+          message: syncedCount > 0
+              ? '$syncedCount elementos sincronizados'
+              : 'Datos actualizados del servidor',
           isSuccess: true,
         );
-      } else if (result.hasErrors && _showConnectionNotifications.value) {
+      } else if (pendingAfter > 0 && _showConnectionNotifications.value) {
         _showConnectionNotification(
           title: 'Sincronización Parcial',
-          message:
-              '${result.syncedEntities}/${result.totalEntities} elementos sincronizados',
+          message: '$syncedCount sincronizados, $pendingAfter pendientes',
           isSuccess: false,
         );
       }
@@ -211,7 +215,7 @@ class ConnectionService extends GetxController {
   /// Force sync if connected
   Future<void> forceSyncIfConnected() async {
     if (isConnected) {
-      await _syncService.forceSync();
+      await _syncService.forceSyncNow();
     } else {
       _showConnectionNotification(
         title: 'Sin Conexión',
@@ -301,7 +305,7 @@ class ConnectionService extends GetxController {
       'wasDisconnected': _wasDisconnected,
       'autoSyncEnabled': _autoSyncOnConnection.value,
       'lastAutoSync': _lastAutoSync?.toIso8601String(),
-      'syncServiceStatus': _syncService.syncStatus.name,
+      'syncServiceStatus': _syncService.syncState.name,
     };
   }
 }

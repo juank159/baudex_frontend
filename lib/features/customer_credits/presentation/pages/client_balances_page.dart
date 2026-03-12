@@ -9,6 +9,7 @@ import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../data/models/customer_credit_model.dart';
 import '../controllers/customer_credit_controller.dart';
 import '../widgets/client_balance_dialogs.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 /// Pagina de gestion de saldos a favor de clientes
 class ClientBalancesPage extends GetView<CustomerCreditController> {
@@ -62,11 +63,12 @@ class ClientBalancesPage extends GetView<CustomerCreditController> {
       elevation: 0,
       flexibleSpace: Container(
         decoration: BoxDecoration(
-          gradient: ElegantLightTheme.successGradient,
+          gradient: ElegantLightTheme.primaryGradient,
           boxShadow: ElegantLightTheme.elevatedShadow,
         ),
       ),
       actions: [
+        const SyncStatusIcon(),
         Obx(() => IconButton(
               icon: controller.isLoadingBalances.value
                   ? const SizedBox(
@@ -131,11 +133,11 @@ class ClientBalancesPage extends GetView<CustomerCreditController> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: ElegantLightTheme.successGradient,
+          gradient: ElegantLightTheme.primaryGradient,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.green.withValues(alpha: 0.3),
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),

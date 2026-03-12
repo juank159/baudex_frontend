@@ -35,6 +35,10 @@ class InvoiceStatsController extends GetxController {
   final _selectedPeriod = StatsPeriod.thisMonth.obs;
   final _showOverdueDetails = false.obs;
 
+  // ✅ GUARD: Prevenir cargas duplicadas concurrentes
+  bool _isLoadAllInProgress = false;
+  DateTime? _lastLoadTime;
+
   // ==================== GETTERS ====================
 
   bool get isLoadingStats => _isLoadingStats.value;
@@ -89,9 +93,20 @@ class InvoiceStatsController extends GetxController {
 
   // ==================== CORE METHODS ====================
 
-  /// Cargar todos los datos
+  /// Cargar todos los datos (con guard contra duplicación)
   Future<void> loadAllData() async {
-    await Future.wait([loadStats(), loadOverdueInvoices()]);
+    // ✅ GUARD: Si ya hay una carga en progreso, no duplicar
+    if (_isLoadAllInProgress) {
+      print('⏭️ InvoiceStatsController: Carga ya en progreso, saltando...');
+      return;
+    }
+    _isLoadAllInProgress = true;
+    try {
+      await Future.wait([loadStats(), loadOverdueInvoices()]);
+      _lastLoadTime = DateTime.now();
+    } finally {
+      _isLoadAllInProgress = false;
+    }
   }
 
   /// Cargar estadísticas
@@ -152,6 +167,15 @@ class InvoiceStatsController extends GetxController {
 
   /// Refrescar todos los datos
   Future<void> refreshAllData({bool showSuccessMessage = false}) async {
+    // ✅ No refrescar si ya se cargó hace menos de 10 segundos
+    if (_lastLoadTime != null && !showSuccessMessage) {
+      final elapsed = DateTime.now().difference(_lastLoadTime!);
+      if (elapsed.inSeconds < 10) {
+        print('⏭️ Stats: Datos cargados hace ${elapsed.inSeconds}s, saltando refresh');
+        return;
+      }
+    }
+
     try {
       _isRefreshing.value = true;
       print('🔄 Refrescando datos de estadísticas...');

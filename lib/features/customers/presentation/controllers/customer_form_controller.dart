@@ -12,6 +12,7 @@ import '../../domain/usecases/update_customer_usecase.dart';
 import '../../domain/usecases/get_customer_by_id_usecase.dart';
 import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
+import 'customers_controller.dart';
 
 class CustomerFormController extends GetxController {
   /// Deshabilitar logs de debug para producción
@@ -20,7 +21,7 @@ class CustomerFormController extends GetxController {
   void _log(String message) {
     if (_enableDebugLogs) {
       // ignore: avoid_print
-      _log(message);
+      debugPrint('[CustomerForm] $message');
     }
   }
 
@@ -316,11 +317,9 @@ class CustomerFormController extends GetxController {
     _log('🔍 Iniciando validación completa del formulario...');
 
     // 1. Validar campos manualmente sin depender del formKey
-    if (!_validateFieldsManually()) {
-      _showError(
-        'Formulario inválido',
-        'Por favor corrige los errores en los campos',
-      );
+    final validationError = _validateFieldsManually();
+    if (validationError != null) {
+      _showError('Formulario inválido', validationError);
       return false;
     }
 
@@ -398,7 +397,7 @@ class CustomerFormController extends GetxController {
 
   Future<void> _createCustomer() async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
-    if (!SubscriptionValidationService.canCreateCustomer()) {
+    if (!await SubscriptionValidationService.canCreateCustomerAsync()) {
       _log('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO creación de cliente');
       return; // Bloquear operación
     }
@@ -412,8 +411,8 @@ class CustomerFormController extends GetxController {
         lastName: lastNameController.text.trim(),
         companyName: _getOptionalText(companyNameController),
         email: emailController.text.trim(),
-        phone: _getOptionalText(phoneController),
-        mobile: _getOptionalText(mobileController),
+        phone: _normalizePhone(phoneController.text),
+        mobile: _normalizePhone(mobileController.text),
         documentType: _selectedDocumentType.value,
         documentNumber: documentNumberController.text.trim(),
         address: _getOptionalText(addressController),
@@ -448,6 +447,9 @@ class CustomerFormController extends GetxController {
         );
         _showSuccess('Cliente creado exitosamente');
 
+        // Refrescar listado de clientes para que aparezca el nuevo
+        _refreshCustomersList();
+
         if (Get.currentRoute.contains('/customers/create')) {
           Get.offAllNamed('/customers');
         } else {
@@ -459,7 +461,7 @@ class CustomerFormController extends GetxController {
 
   Future<void> _updateCustomer() async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
-    if (!SubscriptionValidationService.canUpdateCustomer()) {
+    if (!await SubscriptionValidationService.canUpdateCustomerAsync()) {
       _log('🚫 FRONTEND BLOCK: Suscripción expirada - BLOQUEANDO actualización de cliente');
       return; // Bloquear operación
     }
@@ -474,8 +476,8 @@ class CustomerFormController extends GetxController {
         lastName: lastNameController.text.trim(),
         companyName: _getOptionalText(companyNameController),
         email: emailController.text.trim(),
-        phone: _getOptionalText(phoneController),
-        mobile: _getOptionalText(mobileController),
+        phone: _normalizePhone(phoneController.text),
+        mobile: _normalizePhone(mobileController.text),
         documentType: _selectedDocumentType.value,
         documentNumber: documentNumberController.text.trim(),
         address: _getOptionalText(addressController),
@@ -509,6 +511,10 @@ class CustomerFormController extends GetxController {
           '✅ CustomerFormController: Cliente actualizado exitosamente - ${customer.displayName}',
         );
         _showSuccess('Cliente actualizado exitosamente');
+
+        // Refrescar listado de clientes para que refleje los cambios
+        _refreshCustomersList();
+
         Get.offAllNamed('/customers/detail/${customer.id}');
       },
     );
@@ -643,6 +649,56 @@ class CustomerFormController extends GetxController {
     }
     return null;
   }
+
+  /// Valida un número de teléfono colombiano.
+  /// Acepta: 3001234567, +573001234567, +57 300 123 4567
+  String? validatePhone(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'El teléfono es requerido';
+    }
+    return _validateColombianPhone(value);
+  }
+
+  /// Valida celular (opcional - solo valida formato si tiene contenido)
+  String? validateMobile(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null; // Celular es opcional
+    }
+    return _validateColombianPhone(value);
+  }
+
+  /// Lógica compartida de validación de teléfono colombiano
+  String? _validateColombianPhone(String value) {
+    // Limpiar: quitar espacios, guiones, paréntesis, +
+    final cleaned = value.trim().replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
+
+    // Solo dígitos después de limpiar
+    if (!RegExp(r'^\d+$').hasMatch(cleaned)) {
+      return 'Solo puede contener números';
+    }
+
+    // Con código de país 57: debe tener 12 dígitos (57 + 10)
+    if (cleaned.startsWith('57')) {
+      if (cleaned.length != 12) {
+        return 'Formato: 3XX XXX XXXX (10 dígitos)';
+      }
+      // Verificar que después de 57 inicie con 3 (móvil) o dígito fijo válido
+      return null;
+    }
+
+    // Sin código de país: debe tener 10 dígitos
+    if (cleaned.length < 10) {
+      return 'Faltan dígitos (${cleaned.length}/10)';
+    }
+    if (cleaned.length > 10) {
+      return 'Demasiados dígitos (${cleaned.length}/10)';
+    }
+
+    return null;
+  }
+
+  /// Retorna true si el teléfono actual es válido
+  bool get isPhoneValid => validatePhone(phoneController.text) == null;
 
   // ==================== ASYNC VALIDATION ====================
   Future<void> validateEmailAvailability() async {
@@ -797,59 +853,97 @@ class CustomerFormController extends GetxController {
   }
 
   // ==================== MANUAL VALIDATION ====================
-  bool _validateFieldsManually() {
+  /// Retorna null si todos los campos son válidos, o un mensaje de error específico
+  String? _validateFieldsManually() {
     _log('🔍 Validando campos manualmente...');
-    
+
     // Validar nombre
     final firstNameError = validateFirstName(firstNameController.text);
     if (firstNameError != null) {
       _log('❌ Error en nombre: $firstNameError');
-      return false;
+      return 'Nombre: $firstNameError';
     }
-    
+
     // Validar apellido
     final lastNameError = validateLastName(lastNameController.text);
     if (lastNameError != null) {
       _log('❌ Error en apellido: $lastNameError');
-      return false;
+      return 'Apellido: $lastNameError';
     }
-    
+
     // Validar email
     final emailError = validateEmail(emailController.text);
     if (emailError != null) {
       _log('❌ Error en email: $emailError');
-      return false;
+      return 'Email: $emailError';
     }
-    
+
     // Validar documento
     final documentError = validateDocumentNumber(documentNumberController.text);
     if (documentError != null) {
       _log('❌ Error en documento: $documentError');
-      return false;
+      return 'Documento: $documentError';
     }
-    
+
+    // Validar teléfono
+    final phoneError = validatePhone(phoneController.text);
+    if (phoneError != null) {
+      _log('❌ Error en teléfono: $phoneError');
+      return 'Teléfono: $phoneError';
+    }
+
+    // Validar celular (opcional pero si tiene contenido debe ser válido)
+    final mobileError = validateMobile(mobileController.text);
+    if (mobileError != null) {
+      _log('❌ Error en celular: $mobileError');
+      return 'Celular: $mobileError';
+    }
+
     // Validar límite de crédito
     final creditLimitError = validateCreditLimit(creditLimitController.text);
     if (creditLimitError != null) {
       _log('❌ Error en límite de crédito: $creditLimitError');
-      return false;
+      return 'Límite de crédito: $creditLimitError';
     }
-    
+
     // Validar términos de pago
     final paymentTermsError = validatePaymentTerms(paymentTermsController.text);
     if (paymentTermsError != null) {
       _log('❌ Error en términos de pago: $paymentTermsError');
-      return false;
+      return 'Términos de pago: $paymentTermsError';
     }
-    
+
     _log('✅ Todos los campos son válidos');
-    return true;
+    return null;
   }
 
   // ==================== HELPERS ====================
   String? _getOptionalText(TextEditingController controller) {
     final text = controller.text.trim();
     return text.isEmpty ? null : text;
+  }
+
+  /// Normaliza un teléfono colombiano al formato +57XXXXXXXXXX
+  String? _normalizePhone(String? phone) {
+    if (phone == null || phone.trim().isEmpty) return null;
+    final cleaned = phone.trim().replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
+    if (cleaned.isEmpty) return null;
+    if (cleaned.startsWith('57') && cleaned.length == 12) {
+      return '+$cleaned';
+    }
+    if (cleaned.length == 10) {
+      return '+57$cleaned';
+    }
+    return phone.trim(); // Devolver tal cual si no se puede normalizar
+  }
+
+  /// Refresca el listado de clientes en el CustomersController
+  void _refreshCustomersList() {
+    try {
+      if (Get.isRegistered<CustomersController>()) {
+        Get.find<CustomersController>().refreshCustomers();
+      }
+    } catch (_) {}
   }
 
   /// Parsea un string formateado (ej: "1.000.000") a double

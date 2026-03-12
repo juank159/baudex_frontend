@@ -517,4 +517,92 @@ class SecureStorageService {
       throw Exception('Error al limpiar correos guardados: $e');
     }
   }
+
+  // ===================== OFFLINE LOGIN CREDENTIALS =====================
+
+  /// Key para credenciales offline
+  static const String _offlineCredentialsKey = 'offline_credentials';
+
+  /// Guardar credenciales hasheadas para login offline
+  /// El password se guarda como hash SHA-256 para seguridad
+  Future<void> saveOfflineCredentials({
+    required String email,
+    required String passwordHash,
+  }) async {
+    try {
+      final credentials = {
+        'email': email.toLowerCase().trim(),
+        'passwordHash': passwordHash,
+        'savedAt': DateTime.now().toIso8601String(),
+      };
+      await _writeSecure(_offlineCredentialsKey, jsonEncode(credentials));
+      if (kDebugMode) {
+        print('🔐 SecureStorageService: Credenciales offline guardadas para $email');
+      }
+    } catch (e) {
+      throw Exception('Error al guardar credenciales offline: $e');
+    }
+  }
+
+  /// Obtener credenciales offline guardadas
+  Future<Map<String, dynamic>?> getOfflineCredentials() async {
+    try {
+      final credentialsJson = await _readSecure(_offlineCredentialsKey);
+      if (credentialsJson != null) {
+        return jsonDecode(credentialsJson) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Verificar credenciales offline
+  /// Retorna true si el email y passwordHash coinciden con los guardados
+  Future<bool> verifyOfflineCredentials({
+    required String email,
+    required String passwordHash,
+  }) async {
+    try {
+      final savedCredentials = await getOfflineCredentials();
+      if (savedCredentials == null) return false;
+
+      final savedEmail = savedCredentials['email'] as String?;
+      final savedHash = savedCredentials['passwordHash'] as String?;
+
+      if (savedEmail == null || savedHash == null) return false;
+
+      return savedEmail == email.toLowerCase().trim() && savedHash == passwordHash;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Eliminar credenciales offline
+  Future<void> deleteOfflineCredentials() async {
+    try {
+      await _deleteSecure(_offlineCredentialsKey);
+    } catch (e) {
+      throw Exception('Error al eliminar credenciales offline: $e');
+    }
+  }
+
+  /// Verificar si existen credenciales offline válidas
+  Future<bool> hasOfflineCredentials() async {
+    try {
+      final credentials = await getOfflineCredentials();
+      if (credentials == null) return false;
+
+      final savedAt = credentials['savedAt'] as String?;
+      if (savedAt == null) return false;
+
+      // Las credenciales expiran después de 30 días
+      final savedDate = DateTime.parse(savedAt);
+      final daysSinceSaved = DateTime.now().difference(savedDate).inDays;
+
+      return daysSinceSaved <= 30;
+    } catch (e) {
+      return false;
+    }
+  }
 }

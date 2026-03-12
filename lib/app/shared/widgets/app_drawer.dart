@@ -7,6 +7,7 @@ import '../controllers/app_drawer_controller.dart';
 import '../models/drawer_menu_item.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../core/theme/elegant_light_theme.dart';
+import '../../presentation/widgets/sync_status_indicator.dart';
 
 /// Drawer principal de la aplicación que se puede usar en cualquier pantalla
 /// Incluye navegación completa y gestión de estado
@@ -1286,10 +1287,13 @@ class AppDrawer extends GetWidget<AppDrawerController> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      // FASE 6: Estado de sincronización
+                      const SyncStatusBadge(),
                     ],
                   ),
                 ),
-                
+
                 // Menu de opciones con efectos
                 Container(
                   decoration: BoxDecoration(

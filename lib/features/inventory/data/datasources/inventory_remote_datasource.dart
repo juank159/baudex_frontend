@@ -220,9 +220,18 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     CreateInventoryMovementRequest request,
   ) async {
     try {
+      final data = request.toJson();
+      // Remover campos que el backend no acepta en CreateInventoryMovementDto
+      // (forbidNonWhitelisted: true los rechaza con error)
+      data.remove('reason');
+      data.remove('lotNumber');
+      data.remove('expiryDate');
+      // Remover valores null para mantener el request limpio
+      data.removeWhere((key, value) => value == null);
+
       final response = await dio.post(
         ApiConstants.inventoryMovements,
-        data: request.toJson(),
+        data: data,
       );
       return InventoryMovementModel.fromJson(response.data['data']);
     } on DioException catch (e) {
@@ -308,7 +317,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         queryParameters: queryParams,
       );
 
-      final data = response.data as List;
+      final data = response.data is List ? response.data as List : [];
       return data.map((json) => InventoryMovementModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -524,7 +533,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         queryParameters: queryParams,
       );
 
-      final data = response.data as List;
+      final rawData = response.data['data'] ?? response.data;
+      final List data = rawData is Map<String, dynamic> ? rawData['data'] as List : rawData is List ? rawData : [];
       return data.map((json) => InventoryBalanceModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -550,7 +560,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         queryParameters: queryParams,
       );
 
-      final data = response.data as List;
+      final data = response.data is List ? response.data as List : [];
       return data.map((json) => FifoConsumptionModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -653,7 +663,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         queryParameters: queryParams,
       );
 
-      final data = response.data['data'] as List;
+      final data = response.data['data'] is List ? response.data['data'] as List : [];
       return data.map((json) => InventoryBalanceModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -675,7 +685,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         queryParameters: queryParams,
       );
 
-      final data = response.data['data'] as List;
+      final rawData = response.data['data'];
+      final List data = rawData is Map<String, dynamic> ? (rawData['data'] as List?) ?? [] : rawData is List ? rawData : [];
       return data.map((json) => InventoryBalanceModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -697,7 +708,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         queryParameters: queryParams,
       );
 
-      final data = response.data['data'] as List;
+      final rawData = response.data['data'];
+      final List data = rawData is Map<String, dynamic> ? (rawData['data'] as List?) ?? [] : rawData is List ? rawData : [];
       return data.map((json) => InventoryBalanceModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -721,7 +733,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         queryParameters: queryParams,
       );
 
-      final data = response.data['data'] as List;
+      final rawData = response.data['data'];
+      final List data = rawData is Map<String, dynamic> ? (rawData['data'] as List?) ?? [] : rawData is List ? rawData : [];
       return data.map((json) => InventoryBalanceModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -758,7 +771,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         '${ApiConstants.inventoryMovements}/process-bulk-outbound-fifo',
         data: {'movements': requestsList},
       );
-      final data = response.data['data'] as List;
+      final data = response.data['data'] is List ? response.data['data'] as List : [];
       return data.map((json) => InventoryMovementModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw _handleDioException(e);
@@ -1082,7 +1095,24 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       if (response.statusCode == 200) {
         final data = response.data;
         if (data['data'] != null) {
-          return List<Map<String, dynamic>>.from(data['data']);
+          final responseData = data['data'];
+          // El backend puede devolver:
+          // 1. {"data": [batch1, batch2]} - Lista directa
+          // 2. {"data": {"batches": [...], "total": N}} - Map con clave 'batches'
+          List batchList;
+          if (responseData is List) {
+            batchList = responseData;
+          } else if (responseData is Map) {
+            batchList = responseData['batches'] as List? ??
+                        responseData['items'] as List? ??
+                        [];
+            print('📦 BATCHES API: total=${responseData['total']}, page=${responseData['page']}, '
+                  'totalPages=${responseData['totalPages']}, recibidos=${batchList.length}');
+          } else {
+            print('⚠️ BATCHES API: Formato inesperado: ${responseData.runtimeType}');
+            return [];
+          }
+          return List<Map<String, dynamic>>.from(batchList);
         }
         return [];
       } else {

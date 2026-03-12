@@ -51,7 +51,7 @@ class _AddAmountDialogState extends State<AddAmountDialog> {
       );
 
       if (success) {
-        Get.back();
+        Get.back(result: true);
         Get.snackbar(
           'Deuda agregada',
           'Se agregó ${AppFormatters.formatCurrency(amount)} al crédito',
