@@ -1,6 +1,7 @@
 // lib/features/expenses/presentation/controllers/expense_form_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_category.dart';
 import '../../domain/usecases/create_expense_usecase.dart';
@@ -198,7 +199,7 @@ class ExpenseFormController extends GetxController {
   }
 
   void _setDefaultValues() {
-    selectedDate.value = DateTime.now();
+    selectedDate.value = Get.find<TenantDateTimeService>().now();
     selectedType.value = ExpenseType.operating;
     selectedPaymentMethod.value = PaymentMethod.cash;
   }
@@ -798,7 +799,7 @@ class ExpenseFormController extends GetxController {
       return 'Seleccione una fecha para el gasto';
     }
     
-    final now = DateTime.now();
+    final now = Get.find<TenantDateTimeService>().now();
     final maxDate = DateTime(now.year, now.month, now.day + 1); // Permitir hasta mañana
     final minDate = DateTime(now.year - 2, now.month, now.day); // Máximo 2 años atrás
     

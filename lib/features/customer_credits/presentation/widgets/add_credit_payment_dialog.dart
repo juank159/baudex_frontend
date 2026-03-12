@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/number_input_formatter.dart';
@@ -37,7 +38,7 @@ class _AddCreditPaymentDialogState extends State<AddCreditPaymentDialog>
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
-  DateTime _paymentDate = DateTime.now();
+  late DateTime _paymentDate;
   bool _isLoading = false;
   bool _payFullAmount = false; // Por defecto NO seleccionado
   bool _allowOverpayment = false;
@@ -55,6 +56,7 @@ class _AddCreditPaymentDialogState extends State<AddCreditPaymentDialog>
   @override
   void initState() {
     super.initState();
+    _paymentDate = Get.find<TenantDateTimeService>().now();
     // Campo vacío por defecto, el usuario ingresa el monto
     _amountController.text = '';
 
@@ -936,8 +938,8 @@ class _AddCreditPaymentDialogState extends State<AddCreditPaymentDialog>
             final date = await showDatePicker(
               context: context,
               initialDate: _paymentDate,
-              firstDate: DateTime.now().subtract(const Duration(days: 365)),
-              lastDate: DateTime.now(),
+              firstDate: Get.find<TenantDateTimeService>().now().subtract(const Duration(days: 365)),
+              lastDate: Get.find<TenantDateTimeService>().now(),
               builder: (context, child) {
                 return Theme(
                   data: Theme.of(context).copyWith(

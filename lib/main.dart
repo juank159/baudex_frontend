@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:timezone/data/latest.dart' as tz;
 import 'app/config/routes/app_pages.dart';
 import 'app/config/routes/app_routes.dart';
 import 'app/config/themes/app_theme.dart';
@@ -17,8 +18,9 @@ void main() async {
   print('🚀 Iniciando Baudex Desktop con arquitectura offline-first...');
 
   try {
-    // PASO 1: Inicializar datos de localización para formateo de fechas
+    // PASO 1: Inicializar datos de localización y timezone
     await initializeDateFormatting('es_CO', null);
+    tz.initializeTimeZones();
     
     // PASO 2: Inicializar configuración de entorno
     await EnvConfig.initialize();

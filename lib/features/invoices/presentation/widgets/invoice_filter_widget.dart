@@ -1,6 +1,7 @@
 // lib/features/invoices/presentation/widgets/invoice_filter_widget.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../controllers/invoice_list_controller.dart';
@@ -67,7 +68,7 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
   int? _detectQuickFilter() {
     if (_startDate == null || _endDate == null) return null;
 
-    final now = DateTime.now();
+    final now = Get.find<TenantDateTimeService>().now();
     final today = DateTime(now.year, now.month, now.day);
 
     // Normalizar las fechas para comparar solo día/mes/año
@@ -773,7 +774,7 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
   }
 
   void _setDateRange(int days) {
-    final now = DateTime.now();
+    final now = Get.find<TenantDateTimeService>().now();
     final today = DateTime(now.year, now.month, now.day);
     final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
 
@@ -794,9 +795,9 @@ class _InvoiceFilterWidgetState extends State<InvoiceFilterWidget> {
   Future<void> _selectDate(bool isStartDate) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: (isStartDate ? _startDate : _endDate) ?? DateTime.now(),
+      initialDate: (isStartDate ? _startDate : _endDate) ?? Get.find<TenantDateTimeService>().now(),
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: Get.find<TenantDateTimeService>().now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(

@@ -17,6 +17,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../app/core/services/tenant_datetime_service.dart';
+
 // Domain entities
 import '../../domain/entities/invoice.dart';
 import '../../domain/usecases/create_invoice_usecase.dart';
@@ -391,8 +393,9 @@ class InvoiceFormController extends GetxController {
   }
 
   void _initializeForm() {
-    _invoiceDate.value = DateTime.now();
-    _dueDate.value = DateTime.now();
+    final dtService = Get.find<TenantDateTimeService>();
+    _invoiceDate.value = dtService.now();
+    _dueDate.value = dtService.now();
     termsController.text = 'Venta de contado';
 
     final invoiceId = Get.parameters['id'];
@@ -1962,7 +1965,7 @@ class InvoiceFormController extends GetxController {
       }
     }
 
-    buffer.writeln('Fecha: ${DateTime.now().toString().split('.')[0]}');
+    buffer.writeln('Fecha: ${Get.find<TenantDateTimeService>().now().toString().split('.')[0]}');
     buffer.writeln('Cliente: ${selectedCustomer?.displayName ?? 'N/A'}');
 
     if (notesController.text.isNotEmpty &&
@@ -2030,7 +2033,7 @@ class InvoiceFormController extends GetxController {
     }
 
     buffer.writeln('------------------------');
-    buffer.writeln('Fecha: ${DateTime.now().toString().split('.')[0]}');
+    buffer.writeln('Fecha: ${Get.find<TenantDateTimeService>().now().toString().split('.')[0]}');
     buffer.writeln('Cliente: ${selectedCustomer?.displayName ?? 'N/A'}');
 
     if (notesController.text.isNotEmpty &&
@@ -2333,10 +2336,11 @@ class InvoiceFormController extends GetxController {
   }
 
   void _prepareForNewSale() {
+    final dtService = Get.find<TenantDateTimeService>();
     _invoiceItems.clear();
     _loadDefaultCustomer();
-    _invoiceDate.value = DateTime.now();
-    _dueDate.value = DateTime.now();
+    _invoiceDate.value = dtService.now();
+    _dueDate.value = dtService.now();
     notesController.clear();
     termsController.text = 'Venta de contado';
     _taxPercentage.value = 0.0; // Se establecerá desde el primer producto agregado
@@ -2351,10 +2355,11 @@ class InvoiceFormController extends GetxController {
     notesController.clear();
     termsController.text = _getDefaultTerms();
 
+    final dtService = Get.find<TenantDateTimeService>();
     _selectedCustomer.value = null;
     _invoiceItems.clear();
-    _invoiceDate.value = DateTime.now();
-    _dueDate.value = DateTime.now().add(const Duration(days: 30));
+    _invoiceDate.value = dtService.now();
+    _dueDate.value = dtService.now().add(const Duration(days: 30));
     _paymentMethod.value = PaymentMethod.cash;
     _taxPercentage.value = 0.0; // Se establecerá desde el primer producto agregado
     _discountPercentage.value = 0.0;

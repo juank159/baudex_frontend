@@ -11,6 +11,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../domain/entities/invoice.dart';
+import '../../../settings/domain/entities/organization.dart';
+import '../../../settings/presentation/controllers/organization_controller.dart';
+import '../../../settings/presentation/widgets/edit_organization_dialog.dart';
 import 'invoice_detail_controller.dart';
 
 // ==================== ENUMS Y CLASES ====================
@@ -147,6 +150,10 @@ class InvoicePrintController extends GetxController {
   // PDF generado
   final Rxn<pw.Document> _generatedPDF = Rxn<pw.Document>();
 
+  // Datos de organización para factura
+  Organization? _organization;
+  Uint8List? _logoBytes;
+
   // ==================== GETTERS ====================
 
   bool get isLoading => _isLoading.value;
@@ -186,6 +193,9 @@ class InvoicePrintController extends GetxController {
     try {
       _isLoading.value = true;
 
+      // Cargar datos de organización para factura
+      await _loadOrganizationData();
+
       // Buscar impresoras disponibles
       await refreshPrinters();
 
@@ -197,6 +207,32 @@ class InvoicePrintController extends GetxController {
       debugPrint('❌ Error inicializando InvoicePrintController: $e');
     } finally {
       _isLoading.value = false;
+    }
+  }
+
+  Future<void> _loadOrganizationData() async {
+    try {
+      if (Get.isRegistered<OrganizationController>()) {
+        _organization = Get.find<OrganizationController>().currentOrganization;
+      }
+    } catch (e) {
+      debugPrint('⚠️ No se pudo cargar datos de organización: $e');
+    }
+
+    // Cargar logo desde archivo local
+    if (_organization != null) {
+      try {
+        final logoPath = await EditOrganizationDialog.getLogoPath(_organization!.id);
+        if (logoPath != null) {
+          final logoFile = File(logoPath);
+          if (await logoFile.exists()) {
+            _logoBytes = await logoFile.readAsBytes();
+            debugPrint('✅ Logo cargado desde: $logoPath');
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ No se pudo cargar logo: $e');
+      }
     }
   }
 
@@ -405,35 +441,45 @@ class InvoicePrintController extends GetxController {
             children: [
               // Logo y empresa
               if (_printSettings.value.includeLogo)
-                pw.Container(
-                  width: 60,
-                  height: 60,
-                  color: PdfColors.grey300,
-                  child: pw.Center(
-                    child: pw.Text('LOGO', style: pw.TextStyle(font: fontBold)),
-                  ),
-                ),
+                _logoBytes != null
+                    ? pw.Image(
+                        pw.MemoryImage(_logoBytes!),
+                        width: 60,
+                        height: 60,
+                        fit: pw.BoxFit.contain,
+                      )
+                    : pw.Container(
+                        width: 60,
+                        height: 60,
+                        color: PdfColors.grey300,
+                        child: pw.Center(
+                          child: pw.Text('LOGO', style: pw.TextStyle(font: fontBold)),
+                        ),
+                      ),
 
               pw.SizedBox(height: 10),
 
               // Información de empresa
               pw.Text(
-                'la Granada',
+                _organization?.businessName ?? 'Mi Empresa',
                 style: pw.TextStyle(font: fontBold, fontSize: 14),
                 textAlign: pw.TextAlign.center,
               ),
-              pw.Text(
-                'NIT: 900.123.456-7',
-                style: pw.TextStyle(font: font, fontSize: 10),
-              ),
-              pw.Text(
-                'Ragonvalia, Colombia',
-                style: pw.TextStyle(font: font, fontSize: 10),
-              ),
-              pw.Text(
-                'Tel: +57 3167181910',
-                style: pw.TextStyle(font: font, fontSize: 10),
-              ),
+              if ((_organization?.taxId ?? '').isNotEmpty)
+                pw.Text(
+                  'NIT: ${_organization!.taxId}',
+                  style: pw.TextStyle(font: font, fontSize: 10),
+                ),
+              if ((_organization?.address ?? '').isNotEmpty)
+                pw.Text(
+                  _organization!.address,
+                  style: pw.TextStyle(font: font, fontSize: 10),
+                ),
+              if ((_organization?.phone ?? '').isNotEmpty)
+                pw.Text(
+                  'Tel: ${_organization!.phone}',
+                  style: pw.TextStyle(font: font, fontSize: 10),
+                ),
 
               pw.SizedBox(height: 15),
               pw.Divider(),
@@ -614,7 +660,7 @@ class InvoicePrintController extends GetxController {
 
               pw.SizedBox(height: 15),
               pw.Text(
-                'Gracias por su compra',
+                _organization?.footerMessage ?? 'Gracias por su compra',
                 style: pw.TextStyle(
                   font: font,
                   fontSize: 10,
@@ -651,22 +697,32 @@ class InvoicePrintController extends GetxController {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             if (_printSettings.value.includeLogo)
-              pw.Container(
-                width: 80,
-                height: 80,
-                color: PdfColors.grey300,
-                child: pw.Center(
-                  child: pw.Text('LOGO', style: pw.TextStyle(font: fontBold)),
-                ),
-              ),
+              _logoBytes != null
+                  ? pw.Image(
+                      pw.MemoryImage(_logoBytes!),
+                      width: 80,
+                      height: 80,
+                      fit: pw.BoxFit.contain,
+                    )
+                  : pw.Container(
+                      width: 80,
+                      height: 80,
+                      color: PdfColors.grey300,
+                      child: pw.Center(
+                        child: pw.Text('LOGO', style: pw.TextStyle(font: fontBold)),
+                      ),
+                    ),
             pw.SizedBox(height: 10),
             pw.Text(
-              'MI EMPRESA S.A.S.',
+              _organization?.businessName ?? 'Mi Empresa',
               style: pw.TextStyle(font: fontBold, fontSize: 18),
             ),
-            pw.Text('NIT: 900.123.456-7', style: pw.TextStyle(font: font)),
-            pw.Text('Ragonvalia, Colombia', style: pw.TextStyle(font: font)),
-            pw.Text('Tel: +57 300 123 4567', style: pw.TextStyle(font: font)),
+            if ((_organization?.taxId ?? '').isNotEmpty)
+              pw.Text('NIT: ${_organization!.taxId}', style: pw.TextStyle(font: font)),
+            if ((_organization?.address ?? '').isNotEmpty)
+              pw.Text(_organization!.address, style: pw.TextStyle(font: font)),
+            if ((_organization?.phone ?? '').isNotEmpty)
+              pw.Text('Tel: ${_organization!.phone}', style: pw.TextStyle(font: font)),
           ],
         ),
         pw.Column(
@@ -1115,7 +1171,7 @@ class InvoicePrintController extends GetxController {
       await Share.shareXFiles(
         [XFile(file.path)],
         text: 'Adjunto encontrarás la factura ${invoice!.number}',
-        subject: 'Factura ${invoice!.number} - MI EMPRESA S.A.S.',
+        subject: 'Factura ${invoice!.number} - ${_organization?.businessName ?? 'Mi Empresa'}',
       );
 
       _addToHistory('Envío por Email', true);

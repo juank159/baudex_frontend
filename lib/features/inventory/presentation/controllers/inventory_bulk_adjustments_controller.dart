@@ -1,6 +1,7 @@
 // lib/features/inventory/presentation/controllers/inventory_bulk_adjustments_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/inventory_movement.dart';
 import '../../domain/usecases/create_bulk_stock_adjustments_usecase.dart';
@@ -349,7 +350,7 @@ class InventoryBulkAdjustmentsController extends GetxController {
               : globalNotesController.text.trim().isNotEmpty
                   ? globalNotesController.text.trim()
                   : null,
-          movementDate: DateTime.now(),
+          movementDate: Get.find<TenantDateTimeService>().now(),
           unitCost: unitCost, // Agregar el costo unitario
         );
       }).toList();

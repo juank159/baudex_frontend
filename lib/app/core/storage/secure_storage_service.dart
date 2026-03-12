@@ -384,23 +384,26 @@ class SecureStorageService {
     }
   }
 
-  /// Limpiar todos los datos de autenticación
+  /// Limpiar todos los datos de autenticación y datos de negocio del tenant
   Future<void> clearAuthData() async {
     try {
-      print('🧹 SecureStorageService: Iniciando limpieza de datos de autenticación...');
+      print('🧹 SecureStorageService: Iniciando limpieza completa de datos...');
 
       // Primero limpiar tenant data para asegurar que no haya conflictos
       await clearTenantData();
       print('✅ SecureStorageService: Datos de tenant limpiados');
 
-      // Luego limpiar los demás datos
+      // Limpiar datos de autenticación
       await Future.wait([
         deleteToken(),
         deleteRefreshToken(),
         deleteUserData(),
       ]);
 
-      print('✅ SecureStorageService: Todos los datos de autenticación limpiados');
+      // Limpiar datos de negocio cacheados en SecureStorage/SharedPreferences
+      await clearBusinessDataCache();
+
+      print('✅ SecureStorageService: Todos los datos de autenticación y negocio limpiados');
 
       // Verificación adicional: asegurar que el tenant slug fue eliminado
       final remainingTenant = await getTenantSlug();
@@ -413,8 +416,40 @@ class SecureStorageService {
         print('✅ SecureStorageService: Verificado - tenant slug completamente eliminado');
       }
     } catch (e) {
-      print('❌ SecureStorageService: Error al limpiar datos de autenticación: $e');
-      throw Exception('Error al limpiar datos de autenticación: $e');
+      print('❌ SecureStorageService: Error al limpiar datos: $e');
+      throw Exception('Error al limpiar datos: $e');
+    }
+  }
+
+  /// Limpiar datos de negocio cacheados en SharedPreferences
+  /// (warehouses, alert products, y cualquier cache de datos del tenant)
+  Future<void> clearBusinessDataCache() async {
+    try {
+      print('🧹 SecureStorageService: Limpiando cache de datos de negocio...');
+      final prefs = await SharedPreferences.getInstance();
+
+      // Recopilar todas las claves de negocio a eliminar
+      final keysToRemove = <String>[];
+      for (final key in prefs.getKeys()) {
+        // Warehouses cache
+        if (key.contains('inventory_warehouses_cache')) keysToRemove.add(key);
+        // Alert products cache (por warehouseId)
+        if (key.contains('alert_products_')) keysToRemove.add(key);
+        // Cualquier otro cache de datos de negocio
+        if (key.contains('_cache') && !key.startsWith('flutter.')) keysToRemove.add(key);
+      }
+
+      for (final key in keysToRemove) {
+        await prefs.remove(key);
+      }
+
+      if (keysToRemove.isNotEmpty) {
+        print('✅ SecureStorageService: ${keysToRemove.length} claves de cache de negocio eliminadas');
+      } else {
+        print('✅ SecureStorageService: No había cache de negocio que limpiar');
+      }
+    } catch (e) {
+      print('⚠️ SecureStorageService: Error limpiando cache de negocio (no crítico): $e');
     }
   }
 

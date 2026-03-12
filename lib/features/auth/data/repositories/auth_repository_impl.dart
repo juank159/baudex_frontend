@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/network_info.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../domain/entities/user.dart';
@@ -303,7 +304,18 @@ class AuthRepositoryImpl implements AuthRepository {
         }
       }
 
-      // Limpiar datos locales siempre
+      // CRÍTICO: Limpiar base de datos ISAR (datos de negocio del tenant)
+      try {
+        final isarDatabase = IsarDatabase.instance;
+        if (isarDatabase.isInitialized) {
+          await isarDatabase.clear();
+          print('✅ ISAR: Base de datos de negocio limpiada en logout');
+        }
+      } catch (e) {
+        print('⚠️ Error limpiando ISAR en logout (no crítico): $e');
+      }
+
+      // Limpiar datos locales (auth + cache de negocio en SecureStorage)
       await localDataSource.clearAuthData();
 
       return const Right(unit);
@@ -469,6 +481,17 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, Unit>> clearLocalAuth() async {
     try {
+      // Limpiar ISAR (datos de negocio del tenant)
+      try {
+        final isarDatabase = IsarDatabase.instance;
+        if (isarDatabase.isInitialized) {
+          await isarDatabase.clear();
+          print('✅ ISAR: Base de datos limpiada en clearLocalAuth');
+        }
+      } catch (e) {
+        print('⚠️ Error limpiando ISAR en clearLocalAuth: $e');
+      }
+
       await localDataSource.clearAuthData();
       return const Right(unit);
     } on CacheException catch (e) {

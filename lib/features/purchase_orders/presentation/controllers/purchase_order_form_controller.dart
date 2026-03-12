@@ -1,6 +1,7 @@
 // lib/features/purchase_orders/presentation/controllers/purchase_order_form_controller.dart
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/usecases/create_purchase_order_usecase.dart';
 import '../../domain/usecases/update_purchase_order_usecase.dart';
@@ -276,11 +277,12 @@ class PurchaseOrderFormController extends GetxController
     // Poblar prioridad (puede venir del campo priority o metadata)
     priority.value = order.priority ?? PurchaseOrderPriority.medium;
     print('📝 Prioridad cargada: ${priority.value}');
-    orderDate.value = order.orderDate ?? DateTime.now();
-    expectedDeliveryDate.value = order.expectedDeliveryDate ?? DateTime.now();
-    orderDateController.text = _formatDate(order.orderDate ?? DateTime.now());
+    final dtService = Get.find<TenantDateTimeService>();
+    orderDate.value = order.orderDate ?? dtService.now();
+    expectedDeliveryDate.value = order.expectedDeliveryDate ?? dtService.now();
+    orderDateController.text = _formatDate(order.orderDate ?? dtService.now());
     expectedDeliveryDateController.text = _formatDate(
-      order.expectedDeliveryDate ?? DateTime.now(),
+      order.expectedDeliveryDate ?? dtService.now(),
     );
 
     currencyController.text = order.currency ?? 'COP';
@@ -882,8 +884,8 @@ class PurchaseOrderFormController extends GetxController
     final selectedDate = await Get.dialog<DateTime>(
       DatePickerDialog(
         initialDate: orderDate.value,
-        firstDate: DateTime.now().subtract(const Duration(days: 30)),
-        lastDate: DateTime.now().add(const Duration(days: 365)),
+        firstDate: Get.find<TenantDateTimeService>().now().subtract(const Duration(days: 30)),
+        lastDate: Get.find<TenantDateTimeService>().now().add(const Duration(days: 365)),
       ),
     );
 
@@ -899,7 +901,7 @@ class PurchaseOrderFormController extends GetxController
       DatePickerDialog(
         initialDate: expectedDeliveryDate.value,
         firstDate: orderDate.value,
-        lastDate: DateTime.now().add(const Duration(days: 365)),
+        lastDate: Get.find<TenantDateTimeService>().now().add(const Duration(days: 365)),
       ),
     );
 
@@ -917,9 +919,10 @@ class PurchaseOrderFormController extends GetxController
     selectedSupplierName.value = '';
     supplierController.clear();
 
+    final dtService = Get.find<TenantDateTimeService>();
     priority.value = PurchaseOrderPriority.medium;
-    orderDate.value = DateTime.now();
-    expectedDeliveryDate.value = DateTime.now().add(const Duration(days: 7));
+    orderDate.value = dtService.now();
+    expectedDeliveryDate.value = dtService.now().add(const Duration(days: 7));
     orderDateController.text = _formatDate(orderDate.value);
     expectedDeliveryDateController.text = _formatDate(
       expectedDeliveryDate.value,

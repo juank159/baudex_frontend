@@ -4,6 +4,7 @@ import '../../../../app/core/errors/failures.dart';
 import 'package:dartz/dartz.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/models/paginated_result.dart' as core;
 import '../../domain/entities/inventory_movement.dart';
@@ -108,6 +109,7 @@ class InventoryMovementsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    movementDate.value = Get.find<TenantDateTimeService>().now();
     _initializeData();
     _setupSearchListener();
   }
@@ -423,7 +425,7 @@ class InventoryMovementsController extends GetxController {
     quantity.value = 1;
     unitCost.value = 0.0;
     notesController.clear();
-    movementDate.value = DateTime.now();
+    movementDate.value = Get.find<TenantDateTimeService>().now();
   }
 
   // ==================== MOVEMENT ACTIONS ====================

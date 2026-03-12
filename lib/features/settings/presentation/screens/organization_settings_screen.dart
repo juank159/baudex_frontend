@@ -462,6 +462,14 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
               ),
               if (organization.domain != null)
                 _buildFuturisticDetailRow('Dominio', organization.domain!, Icons.domain),
+              if (organization.taxId.isNotEmpty)
+                _buildFuturisticDetailRow('NIT', organization.taxId, Icons.badge),
+              if (organization.address.isNotEmpty)
+                _buildFuturisticDetailRow('Dirección', organization.address, Icons.location_on),
+              if (organization.phone.isNotEmpty)
+                _buildFuturisticDetailRow('Teléfono', organization.phone, Icons.phone),
+              if (organization.email.isNotEmpty)
+                _buildFuturisticDetailRow('Email', organization.email, Icons.email),
             ],
           ),
         );

@@ -8,6 +8,7 @@ import 'package:baudex_desktop/features/dashboard/domain/usecases/get_profitabil
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
@@ -117,7 +118,7 @@ class DashboardController extends GetxController {
     print('🚀 DashboardController: onInit() - Controlador iniciado');
 
     // ✅ Establecer el rango de fechas para ESTE MES directamente (sin llamar a setPredefinedPeriod)
-    final now = DateTime.now();
+    final now = Get.find<TenantDateTimeService>().now();
     _selectedDateRange.value = DateTimeRange(
       start: DateTime(now.year, now.month, 1),
       end: DateTime(now.year, now.month + 1, 0, 23, 59, 59),
@@ -768,13 +769,13 @@ class DashboardController extends GetxController {
   void setPredefinedPeriod(String period) {
     print('🔄 Cambiando período a: $period');
     _selectedPeriod.value = period;
-    final now = DateTime.now();
+    final now = Get.find<TenantDateTimeService>().now();
     DateTimeRange? dateRange;
 
     switch (period) {
       case 'hoy':
-        // Use DateTime.now() to ensure we get today's date in local timezone
-        final today = DateTime.now();
+        // Use TenantDateTimeService to ensure we get today's date in tenant timezone
+        final today = now;
         dateRange = DateTimeRange(
           start: DateTime(today.year, today.month, today.day, 0, 0, 0),
           end: DateTime(today.year, today.month, today.day, 23, 59, 59),

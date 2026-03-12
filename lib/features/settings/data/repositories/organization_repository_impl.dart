@@ -77,12 +77,24 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
     if (await networkInfo.isConnected) {
       try {
         final result = await remoteDataSource.updateCurrentOrganization(updates);
+
+        // Cachear en ISAR para mantener offline actualizado
+        try {
+          await _offlineRepo.cacheOrganization(result);
+        } catch (e) {
+          print('⚠️ Error cacheando organización actualizada: $e');
+        }
+
         return Right(result);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        // Si falla el servidor pero tenemos offline, guardar localmente
+        print('⚠️ Error del servidor actualizando org, guardando offline: ${e.message}');
+        return _offlineRepo.updateCurrentOrganization(updates);
       }
     } else {
-      return const Left(ConnectionFailure('Sin conexión a internet'));
+      // Offline: guardar localmente y encolar sync
+      print('📴 Sin conexión - Guardando organización offline...');
+      return _offlineRepo.updateCurrentOrganization(updates);
     }
   }
 
@@ -94,10 +106,10 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
         final result = await remoteDataSource.getOrganizationById(id);
         return Right(result);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _offlineRepo.getOrganizationById(id);
       }
     } else {
-      return const Left(ConnectionFailure('Sin conexión a internet'));
+      return _offlineRepo.getOrganizationById(id);
     }
   }
 
@@ -108,10 +120,12 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
         final result = await remoteDataSource.updateProfitMargin(marginPercentage);
         return Right(result);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        print('⚠️ Error del servidor actualizando margen, guardando offline: ${e.message}');
+        return _offlineRepo.updateProfitMargin(marginPercentage);
       }
     } else {
-      return const Left(ConnectionFailure('Sin conexión a internet'));
+      print('📴 Sin conexión - Guardando margen de ganancia offline...');
+      return _offlineRepo.updateProfitMargin(marginPercentage);
     }
   }
 }

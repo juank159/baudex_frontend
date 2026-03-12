@@ -1,6 +1,7 @@
 // lib/features/credit_notes/presentation/controllers/credit_note_form_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../domain/entities/credit_note.dart';
 import '../../domain/entities/credit_note_item.dart';
 import '../../domain/repositories/credit_note_repository.dart';
@@ -110,6 +111,7 @@ class CreditNoteFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _date.value = Get.find<TenantDateTimeService>().now();
     _initializeForm();
   }
 
@@ -364,8 +366,8 @@ class CreditNoteFormController extends GetxController {
             creditNoteId: '',
             productId: availableItem.productId,
             invoiceItemId: availableItem.invoiceItemId,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
+            createdAt: Get.find<TenantDateTimeService>().now(),
+            updatedAt: Get.find<TenantDateTimeService>().now(),
           ));
         }
       } else {
@@ -390,8 +392,8 @@ class CreditNoteFormController extends GetxController {
             creditNoteId: '',
             productId: invoiceItem.productId,
             invoiceItemId: invoiceItem.id,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
+            createdAt: Get.find<TenantDateTimeService>().now(),
+            updatedAt: Get.find<TenantDateTimeService>().now(),
           ));
         }
       }

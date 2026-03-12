@@ -1,5 +1,7 @@
 // lib/features/invoices/presentation/widgets/invoice_card_widget.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
@@ -1573,7 +1575,7 @@ class InvoiceCardWidget extends StatelessWidget {
   }
 
   bool _isDueSoon() {
-    final daysUntilDue = invoice.dueDate.difference(DateTime.now()).inDays;
+    final daysUntilDue = invoice.dueDate.difference(Get.find<TenantDateTimeService>().now()).inDays;
     return daysUntilDue <= 3 &&
         daysUntilDue > 0 &&
         (invoice.status == InvoiceStatus.pending ||
@@ -1581,7 +1583,7 @@ class InvoiceCardWidget extends StatelessWidget {
   }
 
   int _daysUntilDue() {
-    return invoice.dueDate.difference(DateTime.now()).inDays;
+    return invoice.dueDate.difference(Get.find<TenantDateTimeService>().now()).inDays;
   }
 
   // ==================== MÉTODOS DE UI ELEGANTES ====================

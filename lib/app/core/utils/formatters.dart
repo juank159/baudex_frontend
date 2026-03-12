@@ -1,5 +1,7 @@
 // library: app.core.utils.formatters
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import '../services/tenant_datetime_service.dart';
 
 class AppFormatters {
   // Formateador para números enteros con separadores de miles (ej: 1.234)
@@ -104,20 +106,30 @@ class AppFormatters {
     return double.tryParse(cleaned);
   }
 
-  /// Formatea una fecha como string.
+  /// Convierte un DateTime a la timezone del tenant antes de formatear
+  static DateTime _toTenantTime(DateTime date) {
+    try {
+      if (Get.isRegistered<TenantDateTimeService>()) {
+        return Get.find<TenantDateTimeService>().toLocal(date);
+      }
+    } catch (_) {}
+    return date;
+  }
+
+  /// Formatea una fecha como string (convertida a timezone del tenant).
   ///
   /// Ejemplo: formatDate(DateTime(2023, 12, 25)) => "25/12/2023"
   static String formatDate(DateTime? date) {
     if (date == null) return '';
-    return dateFormat.format(date);
+    return dateFormat.format(_toTenantTime(date));
   }
 
-  /// Formatea una fecha y hora como string.
+  /// Formatea una fecha y hora como string (convertida a timezone del tenant).
   ///
   /// Ejemplo: formatDateTime(DateTime(2023, 12, 25, 14, 30)) => "25/12/2023 14:30"
   static String formatDateTime(DateTime? dateTime) {
     if (dateTime == null) return '';
-    return dateTimeFormat.format(dateTime);
+    return dateTimeFormat.format(_toTenantTime(dateTime));
   }
 
   /// Formatea una fecha para enviar a la API en formato YYYY-MM-DD.
@@ -133,8 +145,17 @@ class AppFormatters {
   static String formatTimeAgo(DateTime? dateTime) {
     if (dateTime == null) return '';
 
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
+    DateTime now;
+    try {
+      if (Get.isRegistered<TenantDateTimeService>()) {
+        now = Get.find<TenantDateTimeService>().now();
+      } else {
+        now = DateTime.now();
+      }
+    } catch (_) {
+      now = DateTime.now();
+    }
+    final difference = now.difference(_toTenantTime(dateTime));
 
     if (difference.inDays > 7) {
       return formatDate(dateTime);

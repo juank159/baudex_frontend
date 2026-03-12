@@ -1,6 +1,7 @@
 // lib/features/reports/presentation/widgets/date_range_picker_widget.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/core/utils/formatters.dart';
 
@@ -77,7 +78,7 @@ class DateRangePickerWidget extends StatelessWidget {
     final DateTimeRange? range = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: Get.find<TenantDateTimeService>().now(),
       initialDateRange: startDate != null && endDate != null
           ? DateTimeRange(start: startDate!, end: endDate!)
           : null,
@@ -192,7 +193,7 @@ class DateRangePickerWidget extends StatelessWidget {
   }
 
   void _applyQuickRange(String range) {
-    final now = DateTime.now();
+    final now = Get.find<TenantDateTimeService>().now();
     DateTime start;
     DateTime end;
 

@@ -31,100 +31,69 @@ class NotificationsListScreen extends GetView<NotificationsController> {
   }
 
   PreferredSizeWidget _buildModernAppBar(BuildContext context) {
+    final isMobile = ResponsiveHelper.isMobile(context);
+
     return AppBar(
       elevation: 0,
       backgroundColor: Colors.transparent,
-      flexibleSpace: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.9),
-                  Colors.white.withOpacity(0.7),
-                ],
-              ),
-              border: Border(
-                bottom: BorderSide(
-                  color: ElegantLightTheme.primaryBlue.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.primaryGradient,
+          boxShadow: [
+            BoxShadow(
+              color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-          ),
+          ],
         ),
       ),
       title: Row(
         children: [
-          // Icon with glassmorphism effect
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: ElegantLightTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.4),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: ElegantLightTheme.primaryBlue.withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.notifications_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.notifications_rounded,
+              color: Colors.white,
+              size: isMobile ? 18 : 20,
             ),
           ),
-          const SizedBox(width: 14),
-          ShaderMask(
-            shaderCallback: (bounds) => ElegantLightTheme.primaryGradient.createShader(bounds),
-            child: Text(
-              'Notificaciones',
-              style: AppTextStyles.titleMedium.copyWith(
-                fontWeight: FontWeight.w800,
-                fontSize: 22,
-                color: Colors.white,
-                letterSpacing: 0.3,
-              ),
+          SizedBox(width: isMobile ? 10 : 12),
+          Text(
+            'Notificaciones',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isMobile ? 16 : 18,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Obx(() {
             final unreadCount = controller.unreadCount;
             if (unreadCount == 0) return const SizedBox.shrink();
 
             return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                gradient: ElegantLightTheme.errorGradient,
-                borderRadius: BorderRadius.circular(14),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: ElegantLightTheme.errorRed.withOpacity(0.4),
-                    blurRadius: 8,
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
               child: Text(
                 unreadCount > 99 ? '99+' : '$unreadCount',
-                style: AppTextStyles.caption.copyWith(
-                  color: Colors.white,
-                  fontSize: 12,
+                style: TextStyle(
+                  color: ElegantLightTheme.primaryBlue,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -132,6 +101,7 @@ class NotificationsListScreen extends GetView<NotificationsController> {
           }),
         ],
       ),
+      iconTheme: const IconThemeData(color: Colors.white),
       actions: [
         const SyncStatusIcon(),
         _buildAppBarActionButton(
@@ -177,27 +147,17 @@ class NotificationsListScreen extends GetView<NotificationsController> {
           color: Colors.transparent,
           child: InkWell(
             onTap: onPressed,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             child: Container(
-              width: 42,
-              height: 42,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    ElegantLightTheme.primaryBlue.withOpacity(0.08),
-                    ElegantLightTheme.primaryBlue.withOpacity(0.04),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: ElegantLightTheme.primaryBlue.withOpacity(0.15),
-                ),
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 icon,
-                color: ElegantLightTheme.primaryBlue,
+                color: Colors.white,
                 size: 20,
               ),
             ),

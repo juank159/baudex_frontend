@@ -6,6 +6,7 @@ import 'package:baudex_desktop/app/shared/widgets/custom_text_field.dart';
 import 'package:baudex_desktop/app/shared/widgets/safe_text_editing_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/usecases/get_invoice_by_id_usecase.dart';
 import '../../domain/usecases/add_payment_usecase.dart';
@@ -293,10 +294,10 @@ class InvoiceDetailController extends GetxController {
           invoiceId: invoiceId,
           amount: remainingBalance,
           paymentMethod: invoice!.paymentMethod,
-          paymentDate: DateTime.now(),
+          paymentDate: Get.find<TenantDateTimeService>().now(),
           reference: 'Pago confirmado - ${invoice!.paymentMethodDisplayName}',
           notes:
-              'Pago completo confirmado el ${DateTime.now().toString().split(' ')[0]}',
+              'Pago completo confirmado el ${Get.find<TenantDateTimeService>().now().toString().split(' ')[0]}',
         ),
       );
 
@@ -413,7 +414,7 @@ class InvoiceDetailController extends GetxController {
           invoiceId: invoiceId,
           amount: remainingBalance,
           paymentMethod: PaymentMethod.check,
-          paymentDate: DateTime.now(),
+          paymentDate: Get.find<TenantDateTimeService>().now(),
           reference:
               checkReference.isNotEmpty
                   ? 'Cheque #$checkReference'
@@ -421,7 +422,7 @@ class InvoiceDetailController extends GetxController {
           notes:
               bankNotes.isNotEmpty
                   ? 'Cheque confirmado - Banco: $bankNotes'
-                  : 'Cheque confirmado el ${DateTime.now().toString().split(' ')[0]}',
+                  : 'Cheque confirmado el ${Get.find<TenantDateTimeService>().now().toString().split(' ')[0]}',
         ),
       );
 
@@ -506,7 +507,7 @@ class InvoiceDetailController extends GetxController {
           invoiceId: invoiceId,
           amount: amount,
           paymentMethod: PaymentMethod.credit,
-          paymentDate: DateTime.now(),
+          paymentDate: Get.find<TenantDateTimeService>().now(),
           reference:
               referenceController.text.isNotEmpty
                   ? referenceController.text
@@ -841,7 +842,7 @@ class InvoiceDetailController extends GetxController {
           amount: amount,
           paymentMethod: _selectedPaymentMethod.value,
           bankAccountId: _selectedBankAccountId,
-          paymentDate: DateTime.now(),
+          paymentDate: Get.find<TenantDateTimeService>().now(),
           reference:
               paymentReferenceController.text.isNotEmpty
                   ? paymentReferenceController.text
@@ -954,7 +955,7 @@ class InvoiceDetailController extends GetxController {
         AddMultiplePaymentsParams(
           invoiceId: invoiceId,
           payments: paymentParams,
-          paymentDate: DateTime.now(),
+          paymentDate: Get.find<TenantDateTimeService>().now(),
           createCreditForRemaining: createCreditForRemaining,
           generalNotes: createCreditForRemaining
               ? 'Pago parcial con crédito por saldo restante'
@@ -1703,7 +1704,7 @@ class _CreditPaymentDialogContentState
           invoiceId: widget.controller.invoiceId,
           amount: amount,
           paymentMethod: PaymentMethod.credit,
-          paymentDate: DateTime.now(),
+          paymentDate: Get.find<TenantDateTimeService>().now(),
           reference:
               referenceController.text.isNotEmpty
                   ? referenceController.text

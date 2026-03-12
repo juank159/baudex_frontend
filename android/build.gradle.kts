@@ -15,8 +15,8 @@ subprojects {
     afterEvaluate {
         if (plugins.hasPlugin("com.android.application") || plugins.hasPlugin("com.android.library")) {
             configure<com.android.build.gradle.BaseExtension> {
-                compileSdkVersion(35)
-                buildToolsVersion("35.0.0")
+                compileSdkVersion(36)
+                buildToolsVersion("36.0.0")
                 
                 // Auto-assign namespace for libraries that don't have one
                 if (this is com.android.build.gradle.LibraryExtension && namespace == null) {

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import 'package:isar/isar.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -39,7 +40,7 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
   final _customerSearchController = TextEditingController();
 
   Customer? _selectedCustomer;
-  DateTime _dueDate = DateTime.now().add(const Duration(days: 30));
+  late DateTime _dueDate;
   bool _isSearching = false;
   List<Customer> _searchResults = [];
 
@@ -120,6 +121,7 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
   @override
   void initState() {
     super.initState();
+    _dueDate = Get.find<TenantDateTimeService>().now().add(const Duration(days: 30));
     if (widget.preselectedCustomerId != null) {
       _loadPreselectedCustomer();
     }
@@ -1223,8 +1225,8 @@ class _CreateCreditDialogState extends State<CreateCreditDialog> {
             final date = await showDatePicker(
               context: context,
               initialDate: _dueDate,
-              firstDate: DateTime.now(),
-              lastDate: DateTime.now().add(const Duration(days: 365)),
+              firstDate: Get.find<TenantDateTimeService>().now(),
+              lastDate: Get.find<TenantDateTimeService>().now().add(const Duration(days: 365)),
               builder: (context, child) {
                 return Theme(
                   data: Theme.of(context).copyWith(

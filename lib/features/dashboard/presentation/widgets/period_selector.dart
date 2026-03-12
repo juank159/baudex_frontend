@@ -1,6 +1,7 @@
 // lib/features/dashboard/presentation/widgets/period_selector.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../controllers/dashboard_controller.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
@@ -975,7 +976,7 @@ class _PeriodSelectionDialogState extends State<_PeriodSelectionDialog>
     Function(DateTime) onDateSelected,
     DateTime? minDate,
   ) async {
-    final now = DateTime.now();
+    final now = Get.find<TenantDateTimeService>().now();
     final today = DateTime(now.year, now.month, now.day);
 
     final DateTime? picked = await showDatePicker(

@@ -462,6 +462,14 @@ class ApiConstants {
   // Cache Keys para bank accounts
   static const String bankAccountsCacheKey = 'bank_accounts_cache';
 
+  // ==================== PRINTER SETTINGS ENDPOINTS ====================
+
+  static const String printerSettingsBase = '/printer-settings';
+
+  static const String printerSettings = printerSettingsBase;
+  static String printerSettingById(String id) => '$printerSettingsBase/$id';
+  static String printerSettingSetDefault(String id) => '$printerSettingsBase/$id/default';
+
   // ==================== MÉTODOS DE UTILIDAD ====================
 
   /// Validar que todas las URLs estén correctamente configuradas
