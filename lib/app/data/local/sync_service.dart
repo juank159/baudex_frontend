@@ -105,6 +105,10 @@ import '../../../features/customer_credits/data/models/isar/isar_customer_credit
 import '../../../features/customer_credits/domain/entities/customer_credit.dart';
 import '../../../features/customer_credits/data/repositories/customer_credit_offline_repository.dart'; // ⭐ FASE 1 - Problema 3
 
+// Printer Settings
+import '../../../features/settings/data/datasources/printer_settings_remote_datasource.dart';
+import '../../../features/settings/data/models/printer_settings_model.dart';
+
 // Settings/Organizations
 import '../../../features/settings/data/datasources/organization_remote_datasource.dart';
 import '../../../features/settings/data/repositories/organization_offline_repository.dart';
@@ -880,6 +884,10 @@ class SyncService extends GetxService {
           break;
         case 'user_preferences':
           await _syncUserPreferencesOperation(operation);
+          break;
+        case 'PrinterSettings':
+        case 'printer_settings':
+          await _syncPrinterSettingsOperation(operation);
           break;
         default:
           throw Exception('Tipo de entidad no soportado: ${operation.entityType}');
@@ -5746,6 +5754,98 @@ class SyncService extends GetxService {
         return IsarCreditStatus.cancelled;
       case CreditStatus.overdue:
         return IsarCreditStatus.overdue;
+    }
+  }
+
+  /// Sincronizar operación de PrinterSettings
+  Future<void> _syncPrinterSettingsOperation(SyncOperation operation) async {
+    try {
+      PrinterSettingsRemoteDataSource remoteDataSource;
+      if (Get.isRegistered<PrinterSettingsRemoteDataSource>()) {
+        remoteDataSource = Get.find<PrinterSettingsRemoteDataSource>();
+      } else {
+        remoteDataSource = PrinterSettingsRemoteDataSourceImpl(
+          dioClient: Get.find<DioClient>(),
+        );
+      }
+      final data = jsonDecode(operation.payload);
+
+      switch (operation.operationType) {
+        case SyncOperationType.create:
+          AppLogger.d(
+            'Creando impresora en servidor: ${data['name']}',
+            tag: 'SYNC',
+          );
+
+          final createdPrinter = await remoteDataSource.createPrinterSetting(data);
+          AppLogger.i(
+            'Impresora creada en servidor con ID: ${createdPrinter.id}',
+            tag: 'SYNC',
+          );
+
+          // Actualizar ISAR con el ID real del servidor
+          final _uuidPattern = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+          if (!_uuidPattern.hasMatch(operation.entityId)) {
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarPrinter = await isar.printerSettingsModels
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+
+              if (isarPrinter != null) {
+                isarPrinter.serverId = createdPrinter.id;
+                isarPrinter.markAsSynced();
+                await isar.writeTxn(() async {
+                  await isar.printerSettingsModels.put(isarPrinter);
+                });
+                AppLogger.i(
+                  'ISAR impresora actualizada: ${operation.entityId} -> ${createdPrinter.id}',
+                  tag: 'SYNC',
+                );
+              }
+
+              // Limpiar operaciones UPDATE obsoletas
+              final pendingOps = await _isarDatabase.getPendingSyncOperations();
+              for (final op in pendingOps) {
+                if (op.entityId == operation.entityId &&
+                    op.operationType == SyncOperationType.update) {
+                  await _isarDatabase.deleteSyncOperation(op.id);
+                }
+              }
+            } catch (e) {
+              AppLogger.w('Error actualizando impresora en ISAR: $e', tag: 'SYNC');
+            }
+          }
+          break;
+
+        case SyncOperationType.update:
+          AppLogger.d(
+            'Actualizando impresora en servidor: ${operation.entityId}',
+            tag: 'SYNC',
+          );
+          await remoteDataSource.updatePrinterSetting(operation.entityId, data);
+          AppLogger.i('Impresora actualizada en servidor', tag: 'SYNC');
+          break;
+
+        case SyncOperationType.delete:
+          AppLogger.d(
+            'Eliminando impresora en servidor: ${operation.entityId}',
+            tag: 'SYNC',
+          );
+          await remoteDataSource.deletePrinterSetting(operation.entityId);
+          AppLogger.i('Impresora eliminada en servidor', tag: 'SYNC');
+          break;
+      }
+    } catch (e) {
+      if (e is ServerException && e.statusCode == 409) {
+        AppLogger.w(
+          'Impresora ya existe en servidor - marcando como completado',
+          tag: 'SYNC',
+        );
+        return;
+      }
+      rethrow;
     }
   }
 

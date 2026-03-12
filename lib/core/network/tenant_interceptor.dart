@@ -23,31 +23,29 @@ class TenantInterceptor extends Interceptor {
     print('🔍 TENANT DEBUG: Storage tenant slug: $tenantSlug');
 
     if (tenantSlug != null && tenantSlug.isNotEmpty) {
-      // Agregar el tenant como header
+      // Tenant del storage tiene PRIORIDAD absoluta
       options.headers['X-Tenant-Slug'] = tenantSlug;
       print('✅ TENANT: Using tenant from storage: $tenantSlug');
     } else {
       print('⚠️ TENANT: No tenant found in storage');
-    }
 
-    // 2. Verificar si hay un subdominio en la URL (solo para dominios reales, no IPs)
-    final uri = Uri.parse(options.baseUrl + options.path);
-    final host = uri.host;
-    print('🌐 Request host: $host');
+      // 2. Solo usar subdominio como fallback si NO hay tenant en storage
+      final uri = Uri.parse(options.baseUrl + options.path);
+      final host = uri.host;
+      print('🌐 Request host: $host');
 
-    // Solo procesar subdominios si es un dominio real (no una IP)
-    if (!_isIPAddress(host) && host.contains('.') && !host.startsWith('www.')) {
-      final subdomain = host.split('.').first;
-      print('🔍 Detected subdomain: $subdomain');
-      // Solo usar subdominios válidos (no localhost, api, admin, etc.)
-      if (!_isSystemSubdomain(subdomain)) {
-        options.headers['X-Tenant-Slug'] = subdomain;
-        print('✅ TENANT: Using subdomain as tenant: $subdomain');
+      if (!_isIPAddress(host) && host.contains('.') && !host.startsWith('www.')) {
+        final subdomain = host.split('.').first;
+        print('🔍 Detected subdomain: $subdomain');
+        if (!_isSystemSubdomain(subdomain)) {
+          options.headers['X-Tenant-Slug'] = subdomain;
+          print('✅ TENANT: Using subdomain as fallback tenant: $subdomain');
+        } else {
+          print('⚠️ TENANT: Ignoring system subdomain: $subdomain');
+        }
       } else {
-        print('⚠️ TENANT: Ignoring system subdomain: $subdomain');
+        print('🔍 No valid subdomain detected (IP or system domain)');
       }
-    } else {
-      print('🔍 No valid subdomain detected (IP or system domain)');
     }
 
     // 3. Agregar header de identificación para debugging

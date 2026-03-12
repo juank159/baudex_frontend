@@ -39,51 +39,96 @@ const PrinterSettingsModelSchema = CollectionSchema(
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
-    r'ipAddress': PropertySchema(
+    r'deletedAt': PropertySchema(
       id: 4,
+      name: r'deletedAt',
+      type: IsarType.dateTime,
+    ),
+    r'ipAddress': PropertySchema(
+      id: 5,
       name: r'ipAddress',
       type: IsarType.string,
     ),
     r'isActive': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'isActive',
       type: IsarType.bool,
     ),
     r'isDefault': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'isDefault',
       type: IsarType.bool,
     ),
+    r'isDeleted': PropertySchema(
+      id: 8,
+      name: r'isDeleted',
+      type: IsarType.bool,
+    ),
+    r'isSynced': PropertySchema(
+      id: 9,
+      name: r'isSynced',
+      type: IsarType.bool,
+    ),
+    r'lastModifiedAt': PropertySchema(
+      id: 10,
+      name: r'lastModifiedAt',
+      type: IsarType.dateTime,
+    ),
+    r'lastModifiedBy': PropertySchema(
+      id: 11,
+      name: r'lastModifiedBy',
+      type: IsarType.string,
+    ),
+    r'lastSyncAt': PropertySchema(
+      id: 12,
+      name: r'lastSyncAt',
+      type: IsarType.dateTime,
+    ),
     r'name': PropertySchema(
-      id: 7,
+      id: 13,
       name: r'name',
       type: IsarType.string,
     ),
+    r'needsSync': PropertySchema(
+      id: 14,
+      name: r'needsSync',
+      type: IsarType.bool,
+    ),
+    r'organizationId': PropertySchema(
+      id: 15,
+      name: r'organizationId',
+      type: IsarType.string,
+    ),
     r'paperSize': PropertySchema(
-      id: 8,
+      id: 16,
       name: r'paperSize',
       type: IsarType.string,
       enumMap: _PrinterSettingsModelpaperSizeEnumValueMap,
     ),
     r'port': PropertySchema(
-      id: 9,
+      id: 17,
       name: r'port',
       type: IsarType.long,
     ),
-    r'settingsId': PropertySchema(
-      id: 10,
-      name: r'settingsId',
+    r'serverId': PropertySchema(
+      id: 18,
+      name: r'serverId',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 11,
+      id: 19,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'usbPath': PropertySchema(
-      id: 12,
+      id: 20,
       name: r'usbPath',
       type: IsarType.string,
+    ),
+    r'version': PropertySchema(
+      id: 21,
+      name: r'version',
+      type: IsarType.long,
     )
   },
   estimateSize: _printerSettingsModelEstimateSize,
@@ -92,14 +137,14 @@ const PrinterSettingsModelSchema = CollectionSchema(
   deserializeProp: _printerSettingsModelDeserializeProp,
   idName: r'id',
   indexes: {
-    r'settingsId': IndexSchema(
-      id: -4428449816366672166,
-      name: r'settingsId',
+    r'serverId': IndexSchema(
+      id: -7950187970872907662,
+      name: r'serverId',
       unique: true,
       replace: false,
       properties: [
         IndexPropertySchema(
-          name: r'settingsId',
+          name: r'serverId',
           type: IndexType.hash,
           caseSensitive: true,
         )
@@ -130,6 +175,19 @@ const PrinterSettingsModelSchema = CollectionSchema(
           caseSensitive: false,
         )
       ],
+    ),
+    r'organizationId': IndexSchema(
+      id: 6034903298354724267,
+      name: r'organizationId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'organizationId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
     )
   },
   links: {},
@@ -153,9 +211,16 @@ int _printerSettingsModelEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.lastModifiedBy;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.name.length * 3;
+  bytesCount += 3 + object.organizationId.length * 3;
   bytesCount += 3 + object.paperSize.name.length * 3;
-  bytesCount += 3 + object.settingsId.length * 3;
+  bytesCount += 3 + object.serverId.length * 3;
   {
     final value = object.usbPath;
     if (value != null) {
@@ -175,15 +240,24 @@ void _printerSettingsModelSerialize(
   writer.writeBool(offsets[1], object.cashDrawer);
   writer.writeString(offsets[2], object.connectionType.name);
   writer.writeDateTime(offsets[3], object.createdAt);
-  writer.writeString(offsets[4], object.ipAddress);
-  writer.writeBool(offsets[5], object.isActive);
-  writer.writeBool(offsets[6], object.isDefault);
-  writer.writeString(offsets[7], object.name);
-  writer.writeString(offsets[8], object.paperSize.name);
-  writer.writeLong(offsets[9], object.port);
-  writer.writeString(offsets[10], object.settingsId);
-  writer.writeDateTime(offsets[11], object.updatedAt);
-  writer.writeString(offsets[12], object.usbPath);
+  writer.writeDateTime(offsets[4], object.deletedAt);
+  writer.writeString(offsets[5], object.ipAddress);
+  writer.writeBool(offsets[6], object.isActive);
+  writer.writeBool(offsets[7], object.isDefault);
+  writer.writeBool(offsets[8], object.isDeleted);
+  writer.writeBool(offsets[9], object.isSynced);
+  writer.writeDateTime(offsets[10], object.lastModifiedAt);
+  writer.writeString(offsets[11], object.lastModifiedBy);
+  writer.writeDateTime(offsets[12], object.lastSyncAt);
+  writer.writeString(offsets[13], object.name);
+  writer.writeBool(offsets[14], object.needsSync);
+  writer.writeString(offsets[15], object.organizationId);
+  writer.writeString(offsets[16], object.paperSize.name);
+  writer.writeLong(offsets[17], object.port);
+  writer.writeString(offsets[18], object.serverId);
+  writer.writeDateTime(offsets[19], object.updatedAt);
+  writer.writeString(offsets[20], object.usbPath);
+  writer.writeLong(offsets[21], object.version);
 }
 
 PrinterSettingsModel _printerSettingsModelDeserialize(
@@ -199,18 +273,25 @@ PrinterSettingsModel _printerSettingsModelDeserialize(
           reader.readStringOrNull(offsets[2])] ??
       PrinterConnectionType.usb;
   object.createdAt = reader.readDateTime(offsets[3]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[4]);
   object.id = id;
-  object.ipAddress = reader.readStringOrNull(offsets[4]);
-  object.isActive = reader.readBool(offsets[5]);
-  object.isDefault = reader.readBool(offsets[6]);
-  object.name = reader.readString(offsets[7]);
+  object.ipAddress = reader.readStringOrNull(offsets[5]);
+  object.isActive = reader.readBool(offsets[6]);
+  object.isDefault = reader.readBool(offsets[7]);
+  object.isSynced = reader.readBool(offsets[9]);
+  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[10]);
+  object.lastModifiedBy = reader.readStringOrNull(offsets[11]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[12]);
+  object.name = reader.readString(offsets[13]);
+  object.organizationId = reader.readString(offsets[15]);
   object.paperSize = _PrinterSettingsModelpaperSizeValueEnumMap[
-          reader.readStringOrNull(offsets[8])] ??
+          reader.readStringOrNull(offsets[16])] ??
       PaperSize.mm58;
-  object.port = reader.readLongOrNull(offsets[9]);
-  object.settingsId = reader.readString(offsets[10]);
-  object.updatedAt = reader.readDateTime(offsets[11]);
-  object.usbPath = reader.readStringOrNull(offsets[12]);
+  object.port = reader.readLongOrNull(offsets[17]);
+  object.serverId = reader.readString(offsets[18]);
+  object.updatedAt = reader.readDateTime(offsets[19]);
+  object.usbPath = reader.readStringOrNull(offsets[20]);
+  object.version = reader.readLong(offsets[21]);
   return object;
 }
 
@@ -232,25 +313,43 @@ P _printerSettingsModelDeserializeProp<P>(
     case 3:
       return (reader.readDateTime(offset)) as P;
     case 4:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 5:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 6:
       return (reader.readBool(offset)) as P;
     case 7:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 8:
+      return (reader.readBool(offset)) as P;
+    case 9:
+      return (reader.readBool(offset)) as P;
+    case 10:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 11:
+      return (reader.readStringOrNull(offset)) as P;
+    case 12:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 13:
+      return (reader.readString(offset)) as P;
+    case 14:
+      return (reader.readBool(offset)) as P;
+    case 15:
+      return (reader.readString(offset)) as P;
+    case 16:
       return (_PrinterSettingsModelpaperSizeValueEnumMap[
               reader.readStringOrNull(offset)] ??
           PaperSize.mm58) as P;
-    case 9:
+    case 17:
       return (reader.readLongOrNull(offset)) as P;
-    case 10:
+    case 18:
       return (reader.readString(offset)) as P;
-    case 11:
+    case 19:
       return (reader.readDateTime(offset)) as P;
-    case 12:
+    case 20:
       return (reader.readStringOrNull(offset)) as P;
+    case 21:
+      return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -288,59 +387,59 @@ void _printerSettingsModelAttach(
 }
 
 extension PrinterSettingsModelByIndex on IsarCollection<PrinterSettingsModel> {
-  Future<PrinterSettingsModel?> getBySettingsId(String settingsId) {
-    return getByIndex(r'settingsId', [settingsId]);
+  Future<PrinterSettingsModel?> getByServerId(String serverId) {
+    return getByIndex(r'serverId', [serverId]);
   }
 
-  PrinterSettingsModel? getBySettingsIdSync(String settingsId) {
-    return getByIndexSync(r'settingsId', [settingsId]);
+  PrinterSettingsModel? getByServerIdSync(String serverId) {
+    return getByIndexSync(r'serverId', [serverId]);
   }
 
-  Future<bool> deleteBySettingsId(String settingsId) {
-    return deleteByIndex(r'settingsId', [settingsId]);
+  Future<bool> deleteByServerId(String serverId) {
+    return deleteByIndex(r'serverId', [serverId]);
   }
 
-  bool deleteBySettingsIdSync(String settingsId) {
-    return deleteByIndexSync(r'settingsId', [settingsId]);
+  bool deleteByServerIdSync(String serverId) {
+    return deleteByIndexSync(r'serverId', [serverId]);
   }
 
-  Future<List<PrinterSettingsModel?>> getAllBySettingsId(
-      List<String> settingsIdValues) {
-    final values = settingsIdValues.map((e) => [e]).toList();
-    return getAllByIndex(r'settingsId', values);
+  Future<List<PrinterSettingsModel?>> getAllByServerId(
+      List<String> serverIdValues) {
+    final values = serverIdValues.map((e) => [e]).toList();
+    return getAllByIndex(r'serverId', values);
   }
 
-  List<PrinterSettingsModel?> getAllBySettingsIdSync(
-      List<String> settingsIdValues) {
-    final values = settingsIdValues.map((e) => [e]).toList();
-    return getAllByIndexSync(r'settingsId', values);
+  List<PrinterSettingsModel?> getAllByServerIdSync(
+      List<String> serverIdValues) {
+    final values = serverIdValues.map((e) => [e]).toList();
+    return getAllByIndexSync(r'serverId', values);
   }
 
-  Future<int> deleteAllBySettingsId(List<String> settingsIdValues) {
-    final values = settingsIdValues.map((e) => [e]).toList();
-    return deleteAllByIndex(r'settingsId', values);
+  Future<int> deleteAllByServerId(List<String> serverIdValues) {
+    final values = serverIdValues.map((e) => [e]).toList();
+    return deleteAllByIndex(r'serverId', values);
   }
 
-  int deleteAllBySettingsIdSync(List<String> settingsIdValues) {
-    final values = settingsIdValues.map((e) => [e]).toList();
-    return deleteAllByIndexSync(r'settingsId', values);
+  int deleteAllByServerIdSync(List<String> serverIdValues) {
+    final values = serverIdValues.map((e) => [e]).toList();
+    return deleteAllByIndexSync(r'serverId', values);
   }
 
-  Future<Id> putBySettingsId(PrinterSettingsModel object) {
-    return putByIndex(r'settingsId', object);
+  Future<Id> putByServerId(PrinterSettingsModel object) {
+    return putByIndex(r'serverId', object);
   }
 
-  Id putBySettingsIdSync(PrinterSettingsModel object, {bool saveLinks = true}) {
-    return putByIndexSync(r'settingsId', object, saveLinks: saveLinks);
+  Id putByServerIdSync(PrinterSettingsModel object, {bool saveLinks = true}) {
+    return putByIndexSync(r'serverId', object, saveLinks: saveLinks);
   }
 
-  Future<List<Id>> putAllBySettingsId(List<PrinterSettingsModel> objects) {
-    return putAllByIndex(r'settingsId', objects);
+  Future<List<Id>> putAllByServerId(List<PrinterSettingsModel> objects) {
+    return putAllByIndex(r'serverId', objects);
   }
 
-  List<Id> putAllBySettingsIdSync(List<PrinterSettingsModel> objects,
+  List<Id> putAllByServerIdSync(List<PrinterSettingsModel> objects,
       {bool saveLinks = true}) {
-    return putAllByIndexSync(r'settingsId', objects, saveLinks: saveLinks);
+    return putAllByIndexSync(r'serverId', objects, saveLinks: saveLinks);
   }
 }
 
@@ -443,44 +542,44 @@ extension PrinterSettingsModelQueryWhere
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterWhereClause>
-      settingsIdEqualTo(String settingsId) {
+      serverIdEqualTo(String serverId) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'settingsId',
-        value: [settingsId],
+        indexName: r'serverId',
+        value: [serverId],
       ));
     });
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterWhereClause>
-      settingsIdNotEqualTo(String settingsId) {
+      serverIdNotEqualTo(String serverId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'settingsId',
+              indexName: r'serverId',
               lower: [],
-              upper: [settingsId],
+              upper: [serverId],
               includeUpper: false,
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'settingsId',
-              lower: [settingsId],
+              indexName: r'serverId',
+              lower: [serverId],
               includeLower: false,
               upper: [],
             ));
       } else {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'settingsId',
-              lower: [settingsId],
+              indexName: r'serverId',
+              lower: [serverId],
               includeLower: false,
               upper: [],
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'settingsId',
+              indexName: r'serverId',
               lower: [],
-              upper: [settingsId],
+              upper: [serverId],
               includeUpper: false,
             ));
       }
@@ -571,6 +670,51 @@ extension PrinterSettingsModelQueryWhere
               indexName: r'isActive',
               lower: [],
               upper: [isActive],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterWhereClause>
+      organizationIdEqualTo(String organizationId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'organizationId',
+        value: [organizationId],
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterWhereClause>
+      organizationIdNotEqualTo(String organizationId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'organizationId',
+              lower: [],
+              upper: [organizationId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'organizationId',
+              lower: [organizationId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'organizationId',
+              lower: [organizationId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'organizationId',
+              lower: [],
+              upper: [organizationId],
               includeUpper: false,
             ));
       }
@@ -786,6 +930,80 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'createdAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> deletedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'deletedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> deletedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'deletedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> deletedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> deletedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> deletedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> deletedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'deletedAt',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -1027,6 +1245,330 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> isDeletedEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isDeleted',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> isSyncedEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isSynced',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastModifiedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastModifiedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastModifiedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastModifiedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedByIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastModifiedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedByIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastModifiedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedByEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedByGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedByLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedByBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastModifiedBy',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedByStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedByEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+          QAfterFilterCondition>
+      lastModifiedByContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lastModifiedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+          QAfterFilterCondition>
+      lastModifiedByMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lastModifiedBy',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedByIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastModifiedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastModifiedByIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lastModifiedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastSyncAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastSyncAt',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastSyncAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastSyncAt',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastSyncAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastSyncAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastSyncAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastSyncAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastSyncAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastSyncAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> lastSyncAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastSyncAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
       QAfterFilterCondition> nameEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1159,6 +1701,154 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'name',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> needsSyncEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'needsSync',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> organizationIdEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'organizationId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> organizationIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'organizationId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> organizationIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'organizationId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> organizationIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'organizationId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> organizationIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'organizationId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> organizationIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'organizationId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+          QAfterFilterCondition>
+      organizationIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'organizationId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+          QAfterFilterCondition>
+      organizationIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'organizationId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> organizationIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'organizationId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> organizationIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'organizationId',
         value: '',
       ));
     });
@@ -1377,13 +2067,13 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
-      QAfterFilterCondition> settingsIdEqualTo(
+      QAfterFilterCondition> serverIdEqualTo(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'settingsId',
+        property: r'serverId',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -1391,7 +2081,7 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
-      QAfterFilterCondition> settingsIdGreaterThan(
+      QAfterFilterCondition> serverIdGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
@@ -1399,7 +2089,7 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
-        property: r'settingsId',
+        property: r'serverId',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -1407,7 +2097,7 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
-      QAfterFilterCondition> settingsIdLessThan(
+      QAfterFilterCondition> serverIdLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
@@ -1415,7 +2105,7 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
-        property: r'settingsId',
+        property: r'serverId',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -1423,7 +2113,7 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
-      QAfterFilterCondition> settingsIdBetween(
+      QAfterFilterCondition> serverIdBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1432,7 +2122,7 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
-        property: r'settingsId',
+        property: r'serverId',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -1443,13 +2133,13 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
-      QAfterFilterCondition> settingsIdStartsWith(
+      QAfterFilterCondition> serverIdStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'settingsId',
+        property: r'serverId',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -1457,13 +2147,13 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
-      QAfterFilterCondition> settingsIdEndsWith(
+      QAfterFilterCondition> serverIdEndsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'settingsId',
+        property: r'serverId',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -1472,10 +2162,10 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
           QAfterFilterCondition>
-      settingsIdContains(String value, {bool caseSensitive = true}) {
+      serverIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.contains(
-        property: r'settingsId',
+        property: r'serverId',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -1484,10 +2174,10 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
           QAfterFilterCondition>
-      settingsIdMatches(String pattern, {bool caseSensitive = true}) {
+      serverIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.matches(
-        property: r'settingsId',
+        property: r'serverId',
         wildcard: pattern,
         caseSensitive: caseSensitive,
       ));
@@ -1495,20 +2185,20 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
-      QAfterFilterCondition> settingsIdIsEmpty() {
+      QAfterFilterCondition> serverIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'settingsId',
+        property: r'serverId',
         value: '',
       ));
     });
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
-      QAfterFilterCondition> settingsIdIsNotEmpty() {
+      QAfterFilterCondition> serverIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'settingsId',
+        property: r'serverId',
         value: '',
       ));
     });
@@ -1725,6 +2415,62 @@ extension PrinterSettingsModelQueryFilter on QueryBuilder<PrinterSettingsModel,
       ));
     });
   }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> versionEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> versionGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> versionLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'version',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel,
+      QAfterFilterCondition> versionBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'version',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension PrinterSettingsModelQueryObject on QueryBuilder<PrinterSettingsModel,
@@ -1792,6 +2538,20 @@ extension PrinterSettingsModelQuerySortBy
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
       sortByIpAddress() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'ipAddress', Sort.asc);
@@ -1834,6 +2594,76 @@ extension PrinterSettingsModelQuerySortBy
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByIsDeleted() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isDeleted', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByIsDeletedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isDeleted', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByIsSynced() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSynced', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByIsSyncedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSynced', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByLastModifiedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByLastModifiedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByLastModifiedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByLastSyncAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByLastSyncAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
       sortByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'name', Sort.asc);
@@ -1844,6 +2674,34 @@ extension PrinterSettingsModelQuerySortBy
       sortByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'name', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByNeedsSync() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsSync', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByNeedsSyncDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsSync', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByOrganizationId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'organizationId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByOrganizationIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'organizationId', Sort.desc);
     });
   }
 
@@ -1876,16 +2734,16 @@ extension PrinterSettingsModelQuerySortBy
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
-      sortBySettingsId() {
+      sortByServerId() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'settingsId', Sort.asc);
+      return query.addSortBy(r'serverId', Sort.asc);
     });
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
-      sortBySettingsIdDesc() {
+      sortByServerIdDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'settingsId', Sort.desc);
+      return query.addSortBy(r'serverId', Sort.desc);
     });
   }
 
@@ -1914,6 +2772,20 @@ extension PrinterSettingsModelQuerySortBy
       sortByUsbPathDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'usbPath', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      sortByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
     });
   }
 }
@@ -1977,6 +2849,20 @@ extension PrinterSettingsModelQuerySortThenBy
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
       thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -2033,6 +2919,76 @@ extension PrinterSettingsModelQuerySortThenBy
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByIsDeleted() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isDeleted', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByIsDeletedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isDeleted', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByIsSynced() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSynced', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByIsSyncedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSynced', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByLastModifiedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByLastModifiedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByLastModifiedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastModifiedBy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByLastSyncAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByLastSyncAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
       thenByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'name', Sort.asc);
@@ -2043,6 +2999,34 @@ extension PrinterSettingsModelQuerySortThenBy
       thenByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'name', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByNeedsSync() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsSync', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByNeedsSyncDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsSync', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByOrganizationId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'organizationId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByOrganizationIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'organizationId', Sort.desc);
     });
   }
 
@@ -2075,16 +3059,16 @@ extension PrinterSettingsModelQuerySortThenBy
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
-      thenBySettingsId() {
+      thenByServerId() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'settingsId', Sort.asc);
+      return query.addSortBy(r'serverId', Sort.asc);
     });
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
-      thenBySettingsIdDesc() {
+      thenByServerIdDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'settingsId', Sort.desc);
+      return query.addSortBy(r'serverId', Sort.desc);
     });
   }
 
@@ -2113,6 +3097,20 @@ extension PrinterSettingsModelQuerySortThenBy
       thenByUsbPathDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'usbPath', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QAfterSortBy>
+      thenByVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'version', Sort.desc);
     });
   }
 }
@@ -2149,6 +3147,13 @@ extension PrinterSettingsModelQueryWhereDistinct
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
+      distinctByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'deletedAt');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
       distinctByIpAddress({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'ipAddress', caseSensitive: caseSensitive);
@@ -2170,9 +3175,60 @@ extension PrinterSettingsModelQueryWhereDistinct
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
+      distinctByIsDeleted() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isDeleted');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
+      distinctByIsSynced() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isSynced');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
+      distinctByLastModifiedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastModifiedAt');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
+      distinctByLastModifiedBy({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastModifiedBy',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
+      distinctByLastSyncAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastSyncAt');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
       distinctByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'name', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
+      distinctByNeedsSync() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'needsSync');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
+      distinctByOrganizationId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'organizationId',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -2191,9 +3247,9 @@ extension PrinterSettingsModelQueryWhereDistinct
   }
 
   QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
-      distinctBySettingsId({bool caseSensitive = true}) {
+      distinctByServerId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'settingsId', caseSensitive: caseSensitive);
+      return query.addDistinctBy(r'serverId', caseSensitive: caseSensitive);
     });
   }
 
@@ -2208,6 +3264,13 @@ extension PrinterSettingsModelQueryWhereDistinct
       distinctByUsbPath({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'usbPath', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, PrinterSettingsModel, QDistinct>
+      distinctByVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'version');
     });
   }
 }
@@ -2247,6 +3310,13 @@ extension PrinterSettingsModelQueryProperty on QueryBuilder<
     });
   }
 
+  QueryBuilder<PrinterSettingsModel, DateTime?, QQueryOperations>
+      deletedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'deletedAt');
+    });
+  }
+
   QueryBuilder<PrinterSettingsModel, String?, QQueryOperations>
       ipAddressProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -2268,9 +3338,58 @@ extension PrinterSettingsModelQueryProperty on QueryBuilder<
     });
   }
 
+  QueryBuilder<PrinterSettingsModel, bool, QQueryOperations>
+      isDeletedProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isDeleted');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, bool, QQueryOperations>
+      isSyncedProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isSynced');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, DateTime?, QQueryOperations>
+      lastModifiedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastModifiedAt');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, String?, QQueryOperations>
+      lastModifiedByProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastModifiedBy');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, DateTime?, QQueryOperations>
+      lastSyncAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastSyncAt');
+    });
+  }
+
   QueryBuilder<PrinterSettingsModel, String, QQueryOperations> nameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'name');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, bool, QQueryOperations>
+      needsSyncProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'needsSync');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, String, QQueryOperations>
+      organizationIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'organizationId');
     });
   }
 
@@ -2288,9 +3407,9 @@ extension PrinterSettingsModelQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<PrinterSettingsModel, String, QQueryOperations>
-      settingsIdProperty() {
+      serverIdProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'settingsId');
+      return query.addPropertyName(r'serverId');
     });
   }
 
@@ -2305,6 +3424,12 @@ extension PrinterSettingsModelQueryProperty on QueryBuilder<
       usbPathProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'usbPath');
+    });
+  }
+
+  QueryBuilder<PrinterSettingsModel, int, QQueryOperations> versionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'version');
     });
   }
 }

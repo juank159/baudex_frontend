@@ -24,6 +24,7 @@ import '../../../features/inventory/data/models/isar/isar_inventory_batch_moveme
 import '../../../features/settings/data/models/isar/isar_organization.dart';
 import '../../../features/settings/data/models/isar/isar_user_preferences.dart';
 import '../../../features/subscriptions/data/models/isar/isar_subscription.dart';
+import '../../../features/settings/data/models/printer_settings_model.dart';
 
 /// Interfaz abstracta para acceso a base de datos ISAR
 ///
@@ -95,6 +96,7 @@ class IsarDatabase implements IIsarDatabase {
           IsarOrganizationSchema,
           IsarUserPreferencesSchema,
           IsarSubscriptionSchema,
+          PrinterSettingsModelSchema,
         ],
         directory: dir.path,
         name: 'baudex_offline',
@@ -177,6 +179,7 @@ class IsarDatabase implements IIsarDatabase {
         'organizations': await _isar!.isarOrganizations.count(),
         'userPreferences': await _isar!.isarUserPreferences.count(),
         'subscriptions': await _isar!.isarSubscriptions.count(),
+        'printerSettings': await _isar!.printerSettingsModels.count(),
       };
     } catch (e) {
       // Schema mismatch - return empty stats
@@ -237,6 +240,7 @@ class IsarDatabase implements IIsarDatabase {
       await _isar!.isarOrganizations.count();
       await _isar!.isarUserPreferences.count();
       await _isar!.isarSubscriptions.count();
+      await _isar!.printerSettingsModels.count();
 
       print('✅ Integridad de base de datos verificada');
       return true;

@@ -24,6 +24,11 @@ import '../../../features/customer_credits/data/datasources/customer_credit_remo
 import '../../../features/inventory/data/datasources/inventory_remote_datasource.dart';
 import '../../../features/inventory/data/datasources/inventory_local_datasource_isar.dart';
 import '../../../features/notifications/data/datasources/notification_remote_datasource.dart';
+import '../../../features/settings/data/datasources/organization_remote_datasource.dart';
+import '../../../features/settings/data/datasources/printer_settings_remote_datasource.dart';
+import '../../../features/settings/data/models/isar/isar_organization.dart';
+import '../../../features/settings/data/models/printer_settings_model.dart';
+import '../../../features/settings/data/repositories/organization_offline_repository.dart';
 
 // Query Models
 import '../../../features/products/data/models/product_query_model.dart';
@@ -49,6 +54,10 @@ import '../../../features/customer_credits/data/models/isar/isar_customer_credit
 import '../../../features/inventory/data/models/isar/isar_inventory_batch.dart';
 import '../../../features/inventory/data/models/isar/isar_inventory_movement.dart';
 import '../../../features/notifications/data/models/isar/isar_notification.dart';
+import '../../../features/purchase_orders/data/models/isar/isar_purchase_order_item.dart';
+import '../../../features/inventory/data/models/isar/isar_inventory_batch_movement.dart';
+import '../../../features/settings/data/models/isar/isar_user_preferences.dart';
+import '../../../features/subscriptions/data/models/isar/isar_subscription.dart';
 import '../../../features/inventory/data/models/inventory_batch_model.dart';
 import '../../../features/inventory/domain/repositories/inventory_repository.dart';
 
@@ -132,8 +141,8 @@ class FullSyncService extends GetxService {
   // Tier 3: Entidades transaccionales
   // Tier 4: Entidades derivadas + notificaciones
   static const List<List<String>> _syncTiers = [
-    ['Categorías', 'Categorías de Gastos'],
-    ['Productos', 'Clientes', 'Proveedores', 'Cuentas Bancarias', 'Almacenes'],
+    ['Organización', 'Categorías', 'Categorías de Gastos'],
+    ['Productos', 'Clientes', 'Proveedores', 'Cuentas Bancarias', 'Almacenes', 'Impresoras'],
     ['Facturas', 'Gastos', 'Órdenes de Compra'],
     ['Notas de Crédito', 'Créditos de Clientes', 'Lotes de Inventario', 'Movimientos de Inventario', 'Notificaciones'],
   ];
@@ -185,7 +194,52 @@ class FullSyncService extends GetxService {
         );
       }
 
+      // Limpiar datos del tenant anterior SELECTIVAMENTE
+      // NUNCA borrar: syncOperations, idempotencyRecords, printerSettings no sincronizados
+      try {
+        print('🧹 [FULL_SYNC] Limpiando datos del tenant anterior (selectivo)...');
+        await _isar.writeTxn(() async {
+          // Limpiar colecciones de entidades descargables del servidor
+          await _isar.isarCategorys.clear();
+          await _isar.isarCustomers.clear();
+          await _isar.isarCustomerCredits.clear();
+          await _isar.isarProducts.clear();
+          await _isar.isarExpenses.clear();
+          await _isar.isarInvoices.clear();
+          await _isar.isarCreditNotes.clear();
+          await _isar.isarNotifications.clear();
+          await _isar.isarBankAccounts.clear();
+          await _isar.isarSuppliers.clear();
+          await _isar.isarPurchaseOrders.clear();
+          await _isar.isarPurchaseOrderItems.clear();
+          await _isar.isarInventoryMovements.clear();
+          await _isar.isarInventoryBatchs.clear();
+          await _isar.isarInventoryBatchMovements.clear();
+          await _isar.isarOrganizations.clear();
+          await _isar.isarUserPreferences.clear();
+          await _isar.isarSubscriptions.clear();
+          // Solo borrar impresoras ya sincronizadas (las del servidor se re-descargan)
+          final unsyncedPrinters = await _isar.printerSettingsModels
+              .filter()
+              .isSyncedEqualTo(false)
+              .findAll();
+          await _isar.printerSettingsModels.clear();
+          // Restaurar impresoras no sincronizadas
+          if (unsyncedPrinters.isNotEmpty) {
+            for (final p in unsyncedPrinters) {
+              await _isar.printerSettingsModels.put(p);
+            }
+            print('🔒 [FULL_SYNC] ${unsyncedPrinters.length} impresora(s) no sincronizada(s) preservada(s)');
+          }
+          // NUNCA tocar: syncOperations ni isarIdempotencyRecords
+        });
+        print('✅ [FULL_SYNC] Datos anteriores limpiados (sync queue preservada)');
+      } catch (e) {
+        print('⚠️ [FULL_SYNC] Error limpiando ISAR (continuando sync): $e');
+      }
+
       final syncFunctions = <String, Future<int> Function()>{
+        'Organización': _syncOrganization,
         'Categorías': _syncCategories,
         'Categorías de Gastos': _syncExpenseCategories,
         'Productos': _syncProducts,
@@ -195,6 +249,7 @@ class FullSyncService extends GetxService {
         'Facturas': _syncInvoices,
         'Gastos': _syncExpenses,
         'Cuentas Bancarias': _syncBankAccounts,
+        'Impresoras': _syncPrinterSettings,
         'Órdenes de Compra': _syncPurchaseOrders,
         'Notas de Crédito': _syncCreditNotes,
         'Créditos de Clientes': _syncCustomerCredits,
@@ -332,6 +387,17 @@ class FullSyncService extends GetxService {
   }
 
   // ==================== SYNC POR ENTIDAD ====================
+
+  /// Sincronizar organización del server a ISAR (single record, not paginated)
+  Future<int> _syncOrganization() async {
+    final remoteDS = Get.find<OrganizationRemoteDataSource>();
+    final offlineRepo = OrganizationOfflineRepository();
+
+    final orgModel = await remoteDS.getCurrentOrganization();
+    await offlineRepo.cacheOrganization(orgModel);
+
+    return 1;
+  }
 
   /// Sincronizar categorías del server a ISAR
   Future<int> _syncCategories() async {
@@ -565,6 +631,31 @@ class FullSyncService extends GetxService {
     });
 
     return accounts.length;
+  }
+
+  /// Sincronizar impresoras del server a ISAR
+  Future<int> _syncPrinterSettings() async {
+    PrinterSettingsRemoteDataSource remoteDS;
+    if (Get.isRegistered<PrinterSettingsRemoteDataSource>()) {
+      remoteDS = Get.find<PrinterSettingsRemoteDataSource>();
+    } else {
+      remoteDS = PrinterSettingsRemoteDataSourceImpl(
+        dioClient: Get.find<DioClient>(),
+      );
+    }
+
+    final printers = await remoteDS.getAllPrinterSettings();
+
+    if (printers.isEmpty) return 0;
+
+    await _isar.writeTxn(() async {
+      final isarModels = printers.map((entity) {
+        return PrinterSettingsModel.fromEntity(entity);
+      }).toList();
+      await _isar.printerSettingsModels.putAllByServerId(isarModels);
+    });
+
+    return printers.length;
   }
 
   /// Sincronizar órdenes de compra del server a ISAR

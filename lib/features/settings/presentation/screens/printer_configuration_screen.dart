@@ -1053,7 +1053,7 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
 
   PrinterSettings _createPrinterFromForm() {
     final id =
-        _editingPrinter?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+        _editingPrinter?.id ?? 'printer_offline_${DateTime.now().millisecondsSinceEpoch}';
 
     if (_connectionType == PrinterConnectionType.network) {
       return PrinterSettings.networkPrinter(

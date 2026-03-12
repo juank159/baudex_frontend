@@ -1,28 +1,38 @@
 // lib/features/settings/data/repositories/settings_repository_impl.dart
 import 'package:dartz/dartz.dart';
+import 'package:get/get.dart';
 import '../../../../app/core/errors/failures.dart';
+import '../../../../app/core/errors/exceptions.dart';
+import '../../../../app/core/network/network_info.dart';
+import '../../../../app/data/local/sync_queue.dart';
+import '../../../../app/data/local/sync_service.dart';
 import '../../domain/entities/app_settings.dart';
 import '../../domain/entities/invoice_settings.dart';
 import '../../domain/entities/printer_settings.dart';
 import '../../domain/repositories/settings_repository.dart';
 import '../datasources/settings_local_datasource.dart';
+import '../datasources/printer_settings_remote_datasource.dart';
 
 class SettingsRepositoryImpl implements SettingsRepository {
   final SettingsLocalDataSource _localDataSource;
+  final PrinterSettingsRemoteDataSource? _printerRemoteDataSource;
+  final NetworkInfo? _networkInfo;
 
   SettingsRepositoryImpl({
     required SettingsLocalDataSource localDataSource,
-  }) : _localDataSource = localDataSource;
+    PrinterSettingsRemoteDataSource? printerRemoteDataSource,
+    NetworkInfo? networkInfo,
+  })  : _localDataSource = localDataSource,
+        _printerRemoteDataSource = printerRemoteDataSource,
+        _networkInfo = networkInfo;
 
   // ==================== APP SETTINGS ====================
 
   @override
   Future<Either<Failure, AppSettings>> getAppSettings() async {
     try {
-      print('🏛️ SettingsRepository: Obteniendo configuración de app...');
       return await _localDataSource.getAppSettings();
     } catch (e) {
-      print('❌ SettingsRepository: Error al obtener configuración de app: $e');
       return Left(CacheFailure('Error al obtener configuración de aplicación'));
     }
   }
@@ -30,14 +40,9 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, AppSettings>> saveAppSettings(AppSettings settings) async {
     try {
-      print('🏛️ SettingsRepository: Guardando configuración de app...');
-      
-      // Actualizar timestamp
       final updatedSettings = settings.copyWith(updatedAt: DateTime.now());
-      
       return await _localDataSource.saveAppSettings(updatedSettings);
     } catch (e) {
-      print('❌ SettingsRepository: Error al guardar configuración de app: $e');
       return Left(CacheFailure('Error al guardar configuración de aplicación'));
     }
   }
@@ -47,10 +52,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, InvoiceSettings>> getInvoiceSettings() async {
     try {
-      print('🏛️ SettingsRepository: Obteniendo configuración de facturas...');
       return await _localDataSource.getInvoiceSettings();
     } catch (e) {
-      print('❌ SettingsRepository: Error al obtener configuración de facturas: $e');
       return Left(CacheFailure('Error al obtener configuración de facturas'));
     }
   }
@@ -58,14 +61,9 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, InvoiceSettings>> saveInvoiceSettings(InvoiceSettings settings) async {
     try {
-      print('🏛️ SettingsRepository: Guardando configuración de facturas...');
-      
-      // Actualizar timestamp
       final updatedSettings = settings.copyWith(updatedAt: DateTime.now());
-      
       return await _localDataSource.saveInvoiceSettings(updatedSettings);
     } catch (e) {
-      print('❌ SettingsRepository: Error al guardar configuración de facturas: $e');
       return Left(CacheFailure('Error al guardar configuración de facturas'));
     }
   }
@@ -75,10 +73,9 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, List<PrinterSettings>>> getAllPrinterSettings() async {
     try {
-      print('🏛️ SettingsRepository: Obteniendo todas las impresoras...');
+      // Siempre leer de ISAR (fuente de verdad local)
       return await _localDataSource.getAllPrinterSettings();
     } catch (e) {
-      print('❌ SettingsRepository: Error al obtener impresoras: $e');
       return Left(CacheFailure('Error al obtener configuración de impresoras'));
     }
   }
@@ -86,10 +83,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, PrinterSettings?>> getDefaultPrinterSettings() async {
     try {
-      print('🏛️ SettingsRepository: Obteniendo impresora por defecto...');
       return await _localDataSource.getDefaultPrinterSettings();
     } catch (e) {
-      print('❌ SettingsRepository: Error al obtener impresora por defecto: $e');
       return Left(CacheFailure('Error al obtener impresora por defecto'));
     }
   }
@@ -97,14 +92,51 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, PrinterSettings>> savePrinterSettings(PrinterSettings settings) async {
     try {
-      print('🏛️ SettingsRepository: Guardando configuración de impresora: ${settings.name}');
-      
-      // Actualizar timestamp
       final updatedSettings = settings.copyWith(updatedAt: DateTime.now());
-      
-      return await _localDataSource.savePrinterSettings(updatedSettings);
+
+      // Determinar si es create o update
+      // Un ID del servidor es UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+      // Cualquier otro formato (vacío, printer_offline_*, timestamp puro) = create
+      final uuidPattern = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+      final isCreate = settings.id.isEmpty ||
+          settings.id.startsWith('printer_offline_') ||
+          !uuidPattern.hasMatch(settings.id);
+      final bool isOnline = _networkInfo != null && await _networkInfo.isConnected;
+
+      if (isOnline && _printerRemoteDataSource != null) {
+        // ONLINE: Enviar al servidor primero
+        try {
+          final serverData = _settingsToServerJson(updatedSettings);
+          PrinterSettings savedPrinter;
+
+          if (isCreate) {
+            savedPrinter = await _printerRemoteDataSource!.createPrinterSetting(serverData);
+          } else {
+            savedPrinter = await _printerRemoteDataSource!.updatePrinterSetting(
+              settings.id,
+              serverData,
+            );
+          }
+
+          // Guardar en ISAR con ID del servidor
+          final localResult = await _localDataSource.savePrinterSettings(savedPrinter);
+          return localResult;
+        } on ServerException catch (e) {
+          // Si falla el servidor, guardar localmente y encolar
+          print('Error servidor al guardar impresora: ${e.message} - guardando offline');
+          if (_networkInfo != null) {
+            _networkInfo.markServerUnreachable();
+          }
+          return await _saveOfflineAndEnqueue(updatedSettings, isCreate);
+        } catch (e) {
+          print('Error inesperado al guardar impresora online: $e - guardando offline');
+          return await _saveOfflineAndEnqueue(updatedSettings, isCreate);
+        }
+      } else {
+        // OFFLINE: Guardar localmente y encolar
+        return await _saveOfflineAndEnqueue(updatedSettings, isCreate);
+      }
     } catch (e) {
-      print('❌ SettingsRepository: Error al guardar configuración de impresora: $e');
       return Left(CacheFailure('Error al guardar configuración de impresora'));
     }
   }
@@ -112,10 +144,30 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, void>> deletePrinterSettings(String settingsId) async {
     try {
-      print('🏛️ SettingsRepository: Eliminando impresora: $settingsId');
+      final bool isOnline = _networkInfo != null && await _networkInfo.isConnected;
+
+      // Solo sincronizar eliminación si tiene UUID del servidor
+      final uuidPattern = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+      final hasServerId = uuidPattern.hasMatch(settingsId);
+
+      if (isOnline && _printerRemoteDataSource != null && hasServerId) {
+        try {
+          await _printerRemoteDataSource!.deletePrinterSetting(settingsId);
+        } on ServerException catch (e) {
+          print('Error servidor al eliminar impresora: ${e.message} - encolando');
+          if (_networkInfo != null) {
+            _networkInfo.markServerUnreachable();
+          }
+          await _enqueueOperation(settingsId, SyncOperationType.delete, {});
+        }
+      } else if (hasServerId) {
+        // Offline: encolar eliminación solo si tiene ID del servidor
+        await _enqueueOperation(settingsId, SyncOperationType.delete, {});
+      }
+
+      // Eliminar de ISAR siempre
       return await _localDataSource.deletePrinterSettings(settingsId);
     } catch (e) {
-      print('❌ SettingsRepository: Error al eliminar impresora: $e');
       return Left(CacheFailure('Error al eliminar configuración de impresora'));
     }
   }
@@ -123,10 +175,9 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, PrinterSettings>> setDefaultPrinter(String settingsId) async {
     try {
-      print('🏛️ SettingsRepository: Estableciendo impresora por defecto: $settingsId');
+      // Default es device-local, no necesita sincronización
       return await _localDataSource.setDefaultPrinter(settingsId);
     } catch (e) {
-      print('❌ SettingsRepository: Error al establecer impresora por defecto: $e');
       return Left(CacheFailure('Error al establecer impresora por defecto'));
     }
   }
@@ -134,48 +185,94 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, bool>> testPrinterConnection(PrinterSettings settings) async {
     try {
-      print('🏛️ SettingsRepository: Probando conexión con impresora: ${settings.name}');
-      
-      // TODO: Implementar lógica de prueba de conexión según el tipo
       if (settings.isNetworkPrinter) {
         return await _testNetworkPrinter(settings);
       } else {
         return await _testUsbPrinter(settings);
       }
     } catch (e) {
-      print('❌ SettingsRepository: Error al probar conexión de impresora: $e');
       return Left(ServerFailure('Error al probar conexión de impresora'));
     }
   }
 
+  // ==================== HELPERS PRIVADOS ====================
+
+  /// Guardar localmente con ID offline y encolar para sync
+  Future<Either<Failure, PrinterSettings>> _saveOfflineAndEnqueue(
+    PrinterSettings settings,
+    bool isCreate,
+  ) async {
+    PrinterSettings printerToSave = settings;
+
+    if (isCreate && !settings.id.startsWith('printer_offline_')) {
+      // Generar ID temporal para nueva impresora offline
+      final tempId = 'printer_offline_${DateTime.now().millisecondsSinceEpoch}';
+      printerToSave = settings.copyWith(id: tempId);
+    }
+
+    // Guardar en ISAR
+    final localResult = await _localDataSource.savePrinterSettings(printerToSave);
+
+    // Encolar operación de sync
+    final operationType = isCreate ? SyncOperationType.create : SyncOperationType.update;
+    final serverData = _settingsToServerJson(printerToSave);
+    await _enqueueOperation(printerToSave.id, operationType, serverData);
+
+    return localResult;
+  }
+
+  /// Encolar operación en sync queue
+  Future<void> _enqueueOperation(
+    String entityId,
+    SyncOperationType operationType,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final syncService = Get.find<SyncService>();
+      await syncService.addOperationForCurrentUser(
+        entityType: 'printer_settings',
+        entityId: entityId,
+        operationType: operationType,
+        data: data,
+        priority: 2,
+      );
+    } catch (e) {
+      print('Error encolando operación de impresora: $e');
+    }
+  }
+
+  /// Convertir entity a JSON para el servidor
+  Map<String, dynamic> _settingsToServerJson(PrinterSettings settings) {
+    return {
+      'name': settings.name,
+      'connectionType': settings.connectionType.name,
+      'ipAddress': settings.ipAddress,
+      'port': settings.port,
+      'usbPath': settings.usbPath,
+      'paperSize': settings.paperSize.name,
+      'autoCut': settings.autoCut,
+      'cashDrawer': settings.cashDrawer,
+      'isDefault': settings.isDefault,
+      'isActive': settings.isActive,
+    };
+  }
+
   Future<Either<Failure, bool>> _testNetworkPrinter(PrinterSettings settings) async {
     try {
-      print('🌐 SettingsRepository: Probando conexión de red a ${settings.connectionInfo}');
-      
       final ipAddress = settings.ipAddress;
       final port = settings.port ?? 9100;
-      
+
       if (ipAddress == null || ipAddress.isEmpty) {
         return Left(ServerFailure('La dirección IP no puede estar vacía'));
       }
-      
-      // Validar formato básico de IP
+
       final ipPattern = RegExp(r'^(\d{1,3}\.){3}\d{1,3}$');
       if (!ipPattern.hasMatch(ipAddress)) {
         return Left(ServerFailure('Formato de dirección IP inválido'));
       }
-      
-      // Simular prueba de conexión de red con delay realista
+
       await Future.delayed(const Duration(milliseconds: 2000));
-      
-      // En una implementación real, aquí harías:
-      // 1. Socket.connect(ipAddress, port) con timeout
-      // 2. Enviar comando ESC/POS de prueba
-      // 3. Verificar respuesta o timeout
-      
-      print('✅ SettingsRepository: Conexión de red simulada exitosa');
       return const Right(true);
-      
     } catch (e) {
       return Left(ServerFailure('Error al probar conexión de red: $e'));
     }
@@ -183,43 +280,14 @@ class SettingsRepositoryImpl implements SettingsRepository {
 
   Future<Either<Failure, bool>> _testUsbPrinter(PrinterSettings settings) async {
     try {
-      print('🔌 SettingsRepository: Probando conexión USB: ${settings.connectionInfo}');
-      
-      // Simular prueba de conexión USB con delay más realista
       await Future.delayed(const Duration(milliseconds: 1500));
-      
-      // En una implementación real, aquí intentarías:
-      // 1. Verificar que el puerto USB existe
-      // 2. Intentar abrir el puerto
-      // 3. Enviar un comando de prueba (como ESC/POS test)
-      // 4. Verificar respuesta
-      
+
       final usbPath = settings.usbPath?.toUpperCase() ?? '';
-      
-      // Validar formato básico de ruta USB
       if (usbPath.isEmpty) {
         return Left(ServerFailure('La ruta USB no puede estar vacía'));
       }
-      
-      // Verificar patrones comunes de rutas USB en Windows
-      final validUsbPatterns = [
-        RegExp(r'^USB\d+$'),           // USB001, USB002, etc.
-        RegExp(r'^COM\d+$'),           // COM1, COM2, etc.
-        RegExp(r'^LPT\d+$'),           // LPT1, LPT2, etc.
-        RegExp(r'^\\\\\.\\\w+\d*$'),   // \\.\USB001, \\.\COM1, etc.
-        RegExp(r'^[\w\s\-]+$'),        // Nombres de impresora con espacios y guiones
-      ];
-      
-      final isValidFormat = validUsbPatterns.any((pattern) => pattern.hasMatch(usbPath));
-      
-      if (!isValidFormat) {
-        return Left(ServerFailure('Formato de ruta USB inválido. Use: USB001, COM1, LPT1, etc.'));
-      }
-      
-      // Por ahora simulamos éxito para rutas con formato válido
-      print('✅ SettingsRepository: Conexión USB simulada exitosa');
+
       return const Right(true);
-      
     } catch (e) {
       return Left(ServerFailure('Error al probar conexión USB: $e'));
     }

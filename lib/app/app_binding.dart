@@ -13,6 +13,7 @@ import 'core/network/dio_client.dart';
 import 'core/network/network_info.dart';
 import 'core/services/audio_notification_service.dart';
 import 'core/services/file_service.dart';
+import 'core/services/tenant_datetime_service.dart';
 import 'services/password_validation_service.dart';
 import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
@@ -60,6 +61,8 @@ import '../features/purchase_orders/data/repositories/purchase_order_offline_rep
 import '../features/inventory/data/repositories/inventory_offline_repository.dart';
 import '../features/credit_notes/data/repositories/credit_note_offline_repository.dart';
 import '../features/customer_credits/data/repositories/customer_credit_offline_repository.dart';
+import '../features/settings/data/datasources/organization_remote_datasource.dart';
+import '../features/settings/data/repositories/organization_offline_repository.dart';
 // Subscription services
 import '../features/subscriptions/presentation/bindings/subscription_binding.dart';
 import 'shared/services/subscription_offline_policy.dart';
@@ -71,6 +74,9 @@ class InitialBinding implements Bindings {
 
     // ==================== CORE DEPENDENCIES ====================
     _registerCoreDependencies();
+
+    // ==================== TENANT DATETIME SERVICE ====================
+    Get.put(TenantDateTimeService(), permanent: true);
 
     // ==================== OFFLINE INFRASTRUCTURE ====================
     _registerOfflineInfrastructure();
@@ -333,6 +339,20 @@ class InitialBinding implements Bindings {
       () => CustomerCreditOfflineRepository(
         database: Get.find<IsarDatabase>(),
       ),
+      fenix: true,
+    );
+
+    // Organization - Remote DataSource (necesario para FullSyncService)
+    if (!Get.isRegistered<OrganizationRemoteDataSource>()) {
+      Get.lazyPut<OrganizationRemoteDataSource>(
+        () => OrganizationRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+        fenix: true,
+      );
+    }
+
+    // Organization - Offline Repository (para SyncService)
+    Get.lazyPut<OrganizationOfflineRepository>(
+      () => OrganizationOfflineRepository(),
       fenix: true,
     );
 

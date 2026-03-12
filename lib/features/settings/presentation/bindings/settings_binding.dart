@@ -3,8 +3,10 @@ import 'package:get/get.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../data/datasources/settings_local_datasource.dart';
 import '../../data/datasources/organization_remote_datasource.dart';
+import '../../data/datasources/printer_settings_remote_datasource.dart';
 import '../../data/repositories/settings_repository_impl.dart';
 import '../../data/repositories/organization_repository_impl.dart';
+import '../../data/repositories/organization_offline_repository.dart';
 import '../../domain/repositories/settings_repository.dart';
 import '../../domain/repositories/organization_repository.dart';
 import '../../domain/usecases/get_app_settings_usecase.dart';
@@ -54,15 +56,43 @@ class SettingsBinding extends Bindings {
       );
       print('✅ OrganizationRemoteDataSource registrado');
     }
+
+    // Printer Settings Remote DataSource
+    if (!Get.isRegistered<PrinterSettingsRemoteDataSource>()) {
+      Get.lazyPut<PrinterSettingsRemoteDataSource>(
+        () => PrinterSettingsRemoteDataSourceImpl(
+          dioClient: Get.find(),
+        ),
+      );
+      print('✅ PrinterSettingsRemoteDataSource registrado');
+    }
   }
 
   void _registerRepositories() {
     // Settings Repository
     if (!Get.isRegistered<SettingsRepository>()) {
       Get.lazyPut<SettingsRepository>(
-        () => SettingsRepositoryImpl(
-          localDataSource: Get.find<SettingsLocalDataSource>(),
-        ),
+        () {
+          // Obtener remote datasource de forma segura
+          PrinterSettingsRemoteDataSource? printerRemoteDS;
+          try {
+            if (Get.isRegistered<PrinterSettingsRemoteDataSource>()) {
+              printerRemoteDS = Get.find<PrinterSettingsRemoteDataSource>();
+            } else {
+              printerRemoteDS = PrinterSettingsRemoteDataSourceImpl(
+                dioClient: Get.find(),
+              );
+            }
+          } catch (_) {
+            print('⚠️ PrinterSettingsRemoteDataSource no disponible - modo offline');
+          }
+
+          return SettingsRepositoryImpl(
+            localDataSource: Get.find<SettingsLocalDataSource>(),
+            printerRemoteDataSource: printerRemoteDS,
+            networkInfo: Get.isRegistered<NetworkInfo>() ? Get.find<NetworkInfo>() : null,
+          );
+        },
       );
       print('✅ SettingsRepository registrado');
     }
@@ -73,6 +103,7 @@ class SettingsBinding extends Bindings {
         () => OrganizationRepositoryImpl(
           remoteDataSource: Get.find<OrganizationRemoteDataSource>(),
           networkInfo: Get.find<NetworkInfo>(),
+          offlineRepository: OrganizationOfflineRepository(),
         ),
       );
       print('✅ OrganizationRepository registrado');

@@ -58,6 +58,8 @@ class SyncConfig {
     'category': 2,
     'BankAccount': 2,
     'bank_account': 2,
+    'PrinterSettings': 2,
+    'printer_settings': 2,
 
     // Prioridad 3: Entidades con dependencias simples
     'Product': 3,
@@ -167,6 +169,8 @@ class SyncConfig {
     'user_profile',
     'UserPreferences',
     'user_preferences',
+    'PrinterSettings',
+    'printer_settings',
   };
 
   /// Verifica si un tipo de entidad es soportado

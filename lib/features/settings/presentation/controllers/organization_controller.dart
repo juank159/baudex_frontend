@@ -5,6 +5,7 @@ import '../../domain/entities/organization.dart';
 import '../../domain/repositories/organization_repository.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/services/password_validation_service.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 
 class OrganizationController extends GetxController {
   // ==================== DEPENDENCIES ====================
@@ -45,7 +46,10 @@ class OrganizationController extends GetxController {
 
       result.fold(
         (failure) => _handleFailure(failure),
-        (organization) => _currentOrganization.value = organization,
+        (organization) {
+          _currentOrganization.value = organization;
+          _syncTimezone(organization);
+        },
       );
     } catch (e) {
       _handleError('Error inesperado al cargar organización: $e');
@@ -74,6 +78,7 @@ class OrganizationController extends GetxController {
         (organization) {
           print('✅ Update successful!');
           _currentOrganization.value = organization;
+          _syncTimezone(organization);
 
           // Actualizar la organización actual
           // Movemos el snackbar al diálogo para evitar conflictos de timing
@@ -286,6 +291,16 @@ class OrganizationController extends GetxController {
   }
 
   // ==================== PRIVATE METHODS ====================
+
+  void _syncTimezone(Organization organization) {
+    try {
+      if (Get.isRegistered<TenantDateTimeService>()) {
+        Get.find<TenantDateTimeService>().updateTimezone(organization.timezone);
+      }
+    } catch (e) {
+      print('⚠️ Error sincronizando timezone: $e');
+    }
+  }
 
   void _setLoading(bool loading) {
     _isLoading.value = loading;

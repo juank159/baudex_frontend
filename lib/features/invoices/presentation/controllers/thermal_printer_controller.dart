@@ -1,5 +1,4 @@
 // File: lib/features/invoices/presentation/controllers/thermal_printer_controller.dart
-import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 // lib/features/invoices/presentation/controllers/thermal_printer_controller.dart
@@ -12,10 +11,15 @@ import 'package:get/get.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart' as esc_pos;
 import 'package:esc_pos_printer_plus/esc_pos_printer_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:isar/isar.dart';
 import '../../domain/entities/invoice.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../../../settings/presentation/controllers/settings_controller.dart';
+import '../../../settings/presentation/controllers/organization_controller.dart';
+import '../../../settings/domain/entities/organization.dart';
 import '../../../settings/domain/entities/printer_settings.dart' as settings;
+import '../../../settings/data/models/isar/isar_organization.dart';
 
 // ==================== CONFIGURACIÓN ESPECÍFICA SAT Q22UE ====================
 
@@ -124,6 +128,9 @@ class ThermalPrinterController extends GetxController {
   DateTime? _logoLoadTime;
   static const Duration _logoCacheExpiry = Duration(hours: 1);
 
+  // Cache de datos de organización para impresión rápida
+  Organization? _cachedOrganization;
+
   final format = NumberFormat(
     '#,###',
     'es_CO',
@@ -153,8 +160,33 @@ class ThermalPrinterController extends GetxController {
   void onInit() {
     super.onInit();
     print('🖨️ ThermalPrinterController: Inicializando...');
+    _loadOrganizationData();
     _initializeSettingsController();
     _initializePrinter();
+  }
+
+  /// Carga datos de organización desde ISAR (rápido) o OrganizationController
+  Future<void> _loadOrganizationData() async {
+    try {
+      // 1. Intentar desde OrganizationController (ya cargado)
+      if (Get.isRegistered<OrganizationController>()) {
+        final orgCtrl = Get.find<OrganizationController>();
+        if (orgCtrl.currentOrganization != null) {
+          _cachedOrganization = orgCtrl.currentOrganization;
+          return;
+        }
+      }
+
+      // 2. Fallback: leer directo de ISAR (instantáneo, sin red)
+      final isar = IsarDatabase.instance.database;
+      final isarOrg =
+          await isar.isarOrganizations.filter().deletedAtIsNull().findFirst();
+      if (isarOrg != null) {
+        _cachedOrganization = isarOrg.toEntity();
+      }
+    } catch (e) {
+      // Silencioso - usará fallbacks en los métodos de impresión
+    }
   }
 
   // ✅ NUEVA FUNCIÓN: Configurar impresora temporal para pruebas
@@ -269,6 +301,11 @@ class ThermalPrinterController extends GetxController {
 
     // Cargar configuración de impresora
     await _loadDefaultPrinterConfig();
+
+    // También asegurar datos de organización
+    if (_cachedOrganization == null) {
+      await _loadOrganizationData();
+    }
 
     final hasConfig = _currentPrinterConfig.value != null;
     if (hasConfig) {
@@ -466,9 +503,10 @@ class ThermalPrinterController extends GetxController {
 
       print('🖨️ === INICIANDO IMPRESIÓN TÉRMICA ===');
       print('   - Factura: ${invoice.number}');
-      print('   - Plataforma: ${_getPlatformName()}');
 
-      // ✅ NUEVA LÓGICA: Usar configuración de impresora por defecto
+      // Asegurar datos de organización cargados
+      if (_cachedOrganization == null) await _loadOrganizationData();
+
       final printerConfig = _currentPrinterConfig.value;
       if (printerConfig != null) {
         print('📄 Usando impresora configurada: ${printerConfig.name}');
@@ -484,7 +522,7 @@ class ThermalPrinterController extends GetxController {
 
       // ✅ NUEVA LÓGICA: Usar configuración de impresora
       if (printerConfig != null) {
-        if (printerConfig.connectionType == 'usb') {
+        if (printerConfig.connectionType == settings.PrinterConnectionType.usb) {
           print('🔌 Impresión USB configurada');
           success = await _printViaUSB(invoice);
         } else {
@@ -1243,63 +1281,58 @@ class ThermalPrinterController extends GetxController {
     }
   }
 
-  /// ⚡ OPTIMIZADO: Cargar logo con cache para impresión rápida
+  /// Cargar logo desde URL de la organización con cache
   Future<img.Image?> _loadLogoImage() async {
     try {
-      // Verificar si tenemos logo en cache y no ha expirado
+      // Cache válido → retornar inmediatamente
       if (_cachedLogo != null && _logoLoadTime != null) {
-        final timeSinceLoad = DateTime.now().difference(_logoLoadTime!);
-        if (timeSinceLoad < _logoCacheExpiry) {
-          print(
-            '⚡ Usando logo desde CACHE (${timeSinceLoad.inSeconds}s antiguo)',
-          );
+        if (DateTime.now().difference(_logoLoadTime!) < _logoCacheExpiry) {
           return _cachedLogo;
-        } else {
-          print('🔄 Cache del logo expirado, recargando...');
         }
       }
 
-      print('🖼️ Cargando logo desde assets (primera vez o cache expirado)...');
+      // Obtener URL del logo de la organización
+      final logoUrl = _cachedOrganization?.logo;
+      if (logoUrl == null || logoUrl.isEmpty) return null;
 
-      // Cargar imagen desde assets
-      final ByteData data = await rootBundle.load(
-        'assets/images/LOGO_FORTALEZA.png',
-      );
-      // final ByteData data = await rootBundle.load(
-      //   'assets/images/LOGO_GRANADA.png',
-      // );
-      final Uint8List bytes = data.buffer.asUint8List();
-
-      // Decodificar imagen
-      final img.Image? originalImage = img.decodeImage(bytes);
-
-      if (originalImage == null) {
-        print('❌ No se pudo decodificar la imagen');
-        return null;
+      // Construir URL completa si es relativa
+      String fullUrl = logoUrl;
+      if (!logoUrl.startsWith('http')) {
+        final baseUrl = _cachedOrganization?.settings?['serverUrl'] as String? ?? '';
+        if (baseUrl.isNotEmpty) {
+          fullUrl = '$baseUrl$logoUrl';
+        } else {
+          return null;
+        }
       }
 
-      // Redimensionar para impresora térmica (máximo 384 píxeles de ancho para 80mm)
-      final img.Image resizedImage = img.copyResize(
+      // Descargar imagen
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 5);
+      final request = await client.getUrl(Uri.parse(fullUrl));
+      final response = await request.close();
+
+      if (response.statusCode != 200) return null;
+
+      final bytes = await consolidateHttpClientResponseBytes(response);
+      final originalImage = img.decodeImage(bytes);
+      if (originalImage == null) return null;
+
+      // Procesar para impresora térmica
+      final resized = img.copyResize(
         originalImage,
-        width: 480, // Ancho máximo recomendado
-        height: -1, // Altura proporcional
-        interpolation:
-            img.Interpolation.nearest, // Mejor para impresoras térmicas
+        width: 480,
+        height: -1,
+        interpolation: img.Interpolation.nearest,
       );
+      final processed = _processImageForThermal(resized);
 
-      // Convertir a escala de grises y aumentar contraste
-      final img.Image processedImage = _processImageForThermal(resizedImage);
-
-      // ⚡ GUARDAR EN CACHE
-      _cachedLogo = processedImage;
+      _cachedLogo = processed;
       _logoLoadTime = DateTime.now();
 
-      print(
-        '✅ Logo procesado y cacheado: ${processedImage.width}x${processedImage.height}',
-      );
-      return processedImage;
+      return processed;
     } catch (e) {
-      print('❌ Error cargando logo: $e');
+      print('⚠️ Logo no disponible: $e');
       return null;
     }
   }
@@ -1318,15 +1351,10 @@ class ThermalPrinterController extends GetxController {
     return ditheredImage;
   }
 
-  /// Verificar si hay logo disponible
+  /// Verificar si hay logo disponible (desde URL de organización)
   Future<bool> _hasLogoAvailable() async {
-    try {
-      await rootBundle.load('assets/images/LOGO_GRANADA.png');
-      return true;
-    } catch (e) {
-      print('⚠️ Logo no disponible: $e');
-      return false;
-    }
+    final logoUrl = _cachedOrganization?.logo;
+    return logoUrl != null && logoUrl.isNotEmpty;
   }
 
   Future<void> _printBusinessHeader(NetworkPrinter printer) async {
@@ -1360,49 +1388,52 @@ class ThermalPrinterController extends GetxController {
   /// Header con imagen
   Future<void> _printBusinessHeaderWithImage(NetworkPrinter printer) async {
     try {
-      // Cargar y procesar logo
+      final org = _cachedOrganization;
       final img.Image? logo = await _loadLogoImage();
 
       if (logo != null) {
-        // Imprimir logo centrado
         printer.image(logo, align: esc_pos.PosAlign.center);
-
-        // ⚠️ ASEGURAR QUE DESPUÉS DEL LOGO CONTINÚE EL TEXTO
         printer.feed(1);
 
-        // Información de la empresa después del logo
-        printer.text(
-          'Ragonvalia, Norte de Santander',
-          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
-        );
-
-        printer.text(
-          'Calle 8  # 3-05 B. Centenario',
-          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
-        );
-
-        // printer.text(
-        //   'Av 3  # 2-58 B. Humildad',
-        //   styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
-        // );
+        // Datos de la organización
+        if (org != null) {
+          if (org.address.isNotEmpty) {
+            printer.text(
+              org.address,
+              styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+            );
+          }
+          if (org.phone.isNotEmpty) {
+            printer.text(
+              'Tel: ${org.phone}',
+              styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+            );
+          }
+          if (org.taxId.isNotEmpty) {
+            printer.text(
+              'NIT: ${org.taxId}',
+              styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+            );
+          }
+        }
 
         printer.feed(1);
       } else {
-        // Si falla la carga del logo, usar texto
         await _printBusinessHeaderTextOnly(printer);
       }
     } catch (e) {
       print('❌ Error imprimiendo logo: $e');
-      // Fallback a versión de texto
       await _printBusinessHeaderTextOnly(printer);
     }
   }
 
-  /// Header solo texto (versión original como fallback)
+  /// Header solo texto (fallback cuando no hay logo)
   Future<void> _printBusinessHeaderTextOnly(NetworkPrinter printer) async {
-    // Logo/Título centrado (versión original)
+    final org = _cachedOrganization;
+    final businessName = org?.businessName ?? 'Mi Negocio';
+
     printer.text(
-      ' La Granada.',
+      businessName,
       styles: const esc_pos.PosStyles(
         align: esc_pos.PosAlign.center,
         bold: true,
@@ -1411,15 +1442,32 @@ class ThermalPrinterController extends GetxController {
       ),
     );
 
-    printer.text(
-      'Ragonvalia, Norte de Santander',
-      styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
-    );
-
-    printer.text(
-      'Tel: +57 3167181910',
-      styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
-    );
+    if (org != null) {
+      if (org.address.isNotEmpty) {
+        printer.text(
+          org.address,
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        );
+      }
+      if (org.phone.isNotEmpty) {
+        printer.text(
+          'Tel: ${org.phone}',
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        );
+      }
+      if (org.taxId.isNotEmpty) {
+        printer.text(
+          'NIT: ${org.taxId}',
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        );
+      }
+      if (org.email.isNotEmpty) {
+        printer.text(
+          org.email,
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        );
+      }
+    }
 
     printer.feed(1);
   }
@@ -1486,10 +1534,10 @@ class ThermalPrinterController extends GetxController {
         ),
       ]);
 
-      // Fecha
+      // Fecha con hora exacta de impresión
       final now = DateTime.now();
       final dateStr =
-          '${now.day}/${now.month}/${now.year} ${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+          '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
       printer.row([
         esc_pos.PosColumn(
           text: 'Fecha:',
@@ -1535,13 +1583,6 @@ class ThermalPrinterController extends GetxController {
         invoice.customerName,
         styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left),
       );
-
-      if (invoice.customerEmail?.isNotEmpty == true) {
-        printer.text(
-          invoice.customerEmail!,
-          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left),
-        );
-      }
 
       printer.hr();
     } catch (e) {
@@ -1894,19 +1935,12 @@ class ThermalPrinterController extends GetxController {
 
   Future<void> _printFooter(NetworkPrinter printer, Invoice invoice) async {
     try {
-      // Información adicional si hay
-      // if (invoice.notes?.isNotEmpty == true) {
-      //   printer.text(
-      //     invoice.notes!,
-      //     styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left, bold: true),
-      //   );
-      //   printer.feed(1);
-      // }
+      final org = _cachedOrganization;
 
       // Fecha y hora de impresión
       final now = DateTime.now();
       final timeStr =
-          '${now.day}/${now.month}/${now.year} ${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+          '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
       printer.text(
         'Impreso: $timeStr',
@@ -1915,9 +1949,11 @@ class ThermalPrinterController extends GetxController {
           fontType: esc_pos.PosFontType.fontB,
         ),
       );
-      // Mensaje de agradecimiento
+
+      // Mensaje de agradecimiento (desde organización o default)
+      final footerMsg = org?.footerMessage ?? 'Gracias por su compra';
       printer.text(
-        '¡Gracias por su compra!',
+        footerMsg,
         styles: const esc_pos.PosStyles(
           align: esc_pos.PosAlign.center,
           bold: true,
@@ -1925,16 +1961,18 @@ class ThermalPrinterController extends GetxController {
       );
       printer.feed(1);
       printer.text(
-        'Desarrollado, Impreso y Generado por Baudex',
-        styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
-      );
-      printer.text(
-        'Baudex es una marca registrada de Baudity',
-        styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        'Desarrollado, Impreso yGenerado por Baudex',
+        styles: const esc_pos.PosStyles(
+          align: esc_pos.PosAlign.center,
+          fontType: esc_pos.PosFontType.fontB,
+        ),
       );
       printer.text(
         'Informacion: 3138448436',
-        styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        styles: const esc_pos.PosStyles(
+          align: esc_pos.PosAlign.center,
+          fontType: esc_pos.PosFontType.fontB,
+        ),
       );
     } catch (e) {
       print('❌ Error imprimiendo footer: $e');
@@ -1957,8 +1995,9 @@ class ThermalPrinterController extends GetxController {
       _lastError.value = null;
 
       print('⚡ === IMPRESIÓN RÁPIDA INICIADA ===');
-      print('   - Factura: ${invoice.number}');
-      print('   - Plataforma: ${_getPlatformName()}');
+
+      // Asegurar datos de organización cargados
+      if (_cachedOrganization == null) await _loadOrganizationData();
 
       bool success = false;
 
@@ -2969,12 +3008,12 @@ class ThermalPrinterController extends GetxController {
 
       final now = DateTime.now();
       printer.text(
-        'Fecha: ${now.day}/${now.month}/${now.year}',
+        'Fecha: ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}',
         styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left),
       );
 
       printer.text(
-        'Hora: ${now.hour}:${now.minute.toString().padLeft(2, '0')}',
+        'Hora: ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
         styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left),
       );
 

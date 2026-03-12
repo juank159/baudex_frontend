@@ -2,12 +2,15 @@
 import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
+import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../app/core/errors/failures.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../../domain/entities/app_settings.dart';
 import '../../domain/entities/invoice_settings.dart';
 import '../../domain/entities/printer_settings.dart';
+import '../models/printer_settings_model.dart';
 
 abstract class SettingsLocalDataSource {
   Future<Either<Failure, AppSettings>> getAppSettings();
@@ -24,7 +27,6 @@ abstract class SettingsLocalDataSource {
 class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
   static const String _appSettingsKey = 'app_settings';
   static const String _invoiceSettingsKey = 'invoice_settings';
-  static const String _printerSettingsKey = 'printer_settings';
   static const String _defaultPrinterKey = 'default_printer_id';
 
   SharedPreferences? _prefs;
@@ -252,49 +254,62 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
     }
   }
 
-  // ==================== PRINTER SETTINGS ====================
+  // ==================== PRINTER SETTINGS (ISAR) ====================
+
+  Isar get _isar => IsarDatabase.instance.database;
 
   @override
   Future<Either<Failure, List<PrinterSettings>>> getAllPrinterSettings() async {
     try {
-      final prefs = await _preferences;
-      final json = prefs.getString(_printerSettingsKey);
+      final isarPrinters = await _isar.printerSettingsModels
+          .filter()
+          .deletedAtIsNull()
+          .sortByIsDefaultDesc()
+          .thenByName()
+          .findAll();
 
-      if (json == null || json.isEmpty) {
-        return const Right([]);
-      }
-
-      final decoded = jsonDecode(json) as List;
-      final printers = decoded
-          .map((item) => _printerSettingsFromJson(item as Map<String, dynamic>))
-          .toList();
+      final printers = isarPrinters.map((m) => m.toEntity()).toList();
       return Right(printers);
     } catch (e) {
-      return const Right([]);
+      print('Error obteniendo impresoras de ISAR: $e');
+      return Right(<PrinterSettings>[]);
     }
   }
 
   @override
   Future<Either<Failure, PrinterSettings?>> getDefaultPrinterSettings() async {
     try {
+      // Default es device-local (SharedPreferences)
       final prefs = await _preferences;
       final defaultId = prefs.getString(_defaultPrinterKey);
 
       if (defaultId == null || defaultId.isEmpty) {
-        return const Right(null);
+        // Si no hay default local, buscar la marcada como default en ISAR
+        final defaultPrinter = await _isar.printerSettingsModels
+            .filter()
+            .isDefaultEqualTo(true)
+            .deletedAtIsNull()
+            .findFirst();
+        return Right(defaultPrinter?.toEntity());
       }
 
-      final allPrintersResult = await getAllPrinterSettings();
-      return allPrintersResult.fold(
-        (failure) => const Right(null),
-        (printers) {
-          final defaultPrinter = printers.firstWhere(
-            (p) => p.id == defaultId,
-            orElse: () => printers.isNotEmpty ? printers.first : PrinterSettings.defaultSettings(),
-          );
-          return Right(printers.isNotEmpty ? defaultPrinter : null);
-        },
-      );
+      // Buscar la impresora por serverId
+      final printer = await _isar.printerSettingsModels
+          .filter()
+          .serverIdEqualTo(defaultId)
+          .deletedAtIsNull()
+          .findFirst();
+
+      if (printer != null) {
+        return Right(printer.toEntity());
+      }
+
+      // Fallback: primera impresora disponible
+      final firstPrinter = await _isar.printerSettingsModels
+          .filter()
+          .deletedAtIsNull()
+          .findFirst();
+      return Right(firstPrinter?.toEntity());
     } catch (e) {
       return const Right(null);
     }
@@ -305,154 +320,84 @@ class SettingsLocalDataSourceImpl implements SettingsLocalDataSource {
     PrinterSettings settings,
   ) async {
     try {
-      final allPrintersResult = await getAllPrinterSettings();
-      return allPrintersResult.fold(
-        (failure) => Left(failure),
-        (printers) async {
-          // Actualizar o agregar
-          final index = printers.indexWhere((p) => p.id == settings.id);
-          if (index >= 0) {
-            printers[index] = settings;
-          } else {
-            printers.add(settings);
-          }
+      await _isar.writeTxn(() async {
+        // Buscar si ya existe
+        final existing = await _isar.printerSettingsModels
+            .filter()
+            .serverIdEqualTo(settings.id)
+            .findFirst();
 
-          // Guardar lista actualizada
-          final prefs = await _preferences;
-          final json = jsonEncode(printers.map(_printerSettingsToJson).toList());
-          await prefs.setString(_printerSettingsKey, json);
+        if (existing != null) {
+          existing.updateFromEntity(settings);
+          existing.markAsUnsynced();
+          await _isar.printerSettingsModels.put(existing);
+        } else {
+          final newModel = PrinterSettingsModel.fromEntity(settings);
+          newModel.isSynced = false;
+          await _isar.printerSettingsModels.put(newModel);
+        }
+      });
 
-          // Si es default, actualizar referencia
-          if (settings.isDefault) {
-            await prefs.setString(_defaultPrinterKey, settings.id);
-          }
+      // Si es default, guardar referencia device-local
+      if (settings.isDefault) {
+        final prefs = await _preferences;
+        await prefs.setString(_defaultPrinterKey, settings.id);
+      }
 
-          return Right(settings);
-        },
-      );
+      return Right(settings);
     } catch (e) {
-      return Left(CacheFailure('Error guardando configuración de impresora: ${e.toString()}'));
+      return Left(CacheFailure('Error guardando impresora en ISAR: ${e.toString()}'));
     }
   }
 
   @override
   Future<Either<Failure, void>> deletePrinterSettings(String settingsId) async {
     try {
-      final allPrintersResult = await getAllPrinterSettings();
-      return allPrintersResult.fold(
-        (failure) => Left(failure),
-        (printers) async {
-          printers.removeWhere((p) => p.id == settingsId);
+      await _isar.writeTxn(() async {
+        final printer = await _isar.printerSettingsModels
+            .filter()
+            .serverIdEqualTo(settingsId)
+            .findFirst();
 
-          final prefs = await _preferences;
-          final json = jsonEncode(printers.map(_printerSettingsToJson).toList());
-          await prefs.setString(_printerSettingsKey, json);
+        if (printer != null) {
+          await _isar.printerSettingsModels.delete(printer.id);
+        }
+      });
 
-          // Si era default, limpiar referencia
-          final defaultId = prefs.getString(_defaultPrinterKey);
-          if (defaultId == settingsId) {
-            await prefs.remove(_defaultPrinterKey);
-          }
+      // Si era default, limpiar referencia
+      final prefs = await _preferences;
+      final defaultId = prefs.getString(_defaultPrinterKey);
+      if (defaultId == settingsId) {
+        await prefs.remove(_defaultPrinterKey);
+      }
 
-          return const Right(null);
-        },
-      );
+      return const Right(null);
     } catch (e) {
-      return Left(CacheFailure('Error eliminando configuración de impresora: ${e.toString()}'));
+      return Left(CacheFailure('Error eliminando impresora de ISAR: ${e.toString()}'));
     }
   }
 
   @override
   Future<Either<Failure, PrinterSettings>> setDefaultPrinter(String settingsId) async {
     try {
-      final allPrintersResult = await getAllPrinterSettings();
-      return allPrintersResult.fold(
-        (failure) => Left(failure),
-        (printers) async {
-          final printer = printers.firstWhere(
-            (p) => p.id == settingsId,
-            orElse: () => throw Exception('Impresora no encontrada'),
-          );
+      // Guardar referencia device-local (NO sincronizado)
+      final prefs = await _preferences;
+      await prefs.setString(_defaultPrinterKey, settingsId);
 
-          // Actualizar referencia de default
-          final prefs = await _preferences;
-          await prefs.setString(_defaultPrinterKey, settingsId);
+      // Buscar la impresora para retornarla
+      final printer = await _isar.printerSettingsModels
+          .filter()
+          .serverIdEqualTo(settingsId)
+          .deletedAtIsNull()
+          .findFirst();
 
-          // Actualizar flags isDefault en todas las impresoras
-          final updatedPrinters = printers.map((p) {
-            if (p.id == settingsId) {
-              return p.copyWith(isDefault: true);
-            }
-            return p.copyWith(isDefault: false);
-          }).toList();
+      if (printer == null) {
+        return Left(CacheFailure('Impresora no encontrada'));
+      }
 
-          // Guardar lista actualizada
-          final json = jsonEncode(updatedPrinters.map(_printerSettingsToJson).toList());
-          await prefs.setString(_printerSettingsKey, json);
-
-          return Right(printer.copyWith(isDefault: true));
-        },
-      );
+      return Right(printer.toEntity().copyWith(isDefault: true));
     } catch (e) {
       return Left(CacheFailure('Error estableciendo impresora por defecto: ${e.toString()}'));
-    }
-  }
-
-  PrinterSettings _printerSettingsFromJson(Map<String, dynamic> json) {
-    return PrinterSettings(
-      id: json['id'] ?? 'default',
-      name: json['name'] ?? 'Impresora',
-      connectionType: _parseConnectionType(json['connectionType']),
-      ipAddress: json['ipAddress'],
-      port: json['port'],
-      usbPath: json['usbPath'],
-      paperSize: _parsePaperSize(json['paperSize']),
-      autoCut: json['autoCut'] ?? true,
-      cashDrawer: json['cashDrawer'] ?? false,
-      isDefault: json['isDefault'] ?? false,
-      isActive: json['isActive'] ?? true,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : DateTime.now(),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : DateTime.now(),
-    );
-  }
-
-  Map<String, dynamic> _printerSettingsToJson(PrinterSettings settings) {
-    return {
-      'id': settings.id,
-      'name': settings.name,
-      'connectionType': settings.connectionType.name,
-      'ipAddress': settings.ipAddress,
-      'port': settings.port,
-      'usbPath': settings.usbPath,
-      'paperSize': settings.paperSize.name,
-      'autoCut': settings.autoCut,
-      'cashDrawer': settings.cashDrawer,
-      'isDefault': settings.isDefault,
-      'isActive': settings.isActive,
-      'createdAt': settings.createdAt.toIso8601String(),
-      'updatedAt': settings.updatedAt.toIso8601String(),
-    };
-  }
-
-  PrinterConnectionType _parseConnectionType(String? value) {
-    switch (value) {
-      case 'usb':
-        return PrinterConnectionType.usb;
-      default:
-        return PrinterConnectionType.network;
-    }
-  }
-
-  PaperSize _parsePaperSize(String? value) {
-    switch (value) {
-      case 'mm58':
-        return PaperSize.mm58;
-      default:
-        return PaperSize.mm80;
     }
   }
 }

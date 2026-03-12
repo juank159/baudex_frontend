@@ -121,6 +121,14 @@ class Organization extends Equatable {
 
   // ✅ NUEVO: Obtener margen de ganancia (por defecto 20% si no está configurado)
   double get profitMargin => defaultProfitMarginPercentage ?? 20.0;
+
+  // Getters para datos de facturación (desde settings map)
+  String get businessName => settings?['businessName'] as String? ?? name;
+  String get taxId => settings?['taxId'] as String? ?? '';
+  String get address => settings?['address'] as String? ?? '';
+  String get phone => settings?['phone'] as String? ?? '';
+  String get email => settings?['email'] as String? ?? '';
+  String get footerMessage => settings?['footerMessage'] as String? ?? 'Gracias por su compra';
   
   double get subscriptionProgress {
     if (subscriptionPlan == SubscriptionPlan.trial) {
