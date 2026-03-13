@@ -77,8 +77,11 @@ class Organization extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   
-  // ✅ NUEVO: Margen de ganancia para productos temporales
+  // Margen de ganancia para productos temporales
   final double? defaultProfitMarginPercentage;
+
+  // Multi-moneda
+  final bool multiCurrencyEnabled;
   
   // Campos de suscripción
   final DateTime? subscriptionStartDate;
@@ -106,6 +109,7 @@ class Organization extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.defaultProfitMarginPercentage,
+    this.multiCurrencyEnabled = false,
     this.subscriptionStartDate,
     this.subscriptionEndDate,
     this.trialStartDate,
@@ -129,6 +133,15 @@ class Organization extends Equatable {
   String get phone => settings?['phone'] as String? ?? '';
   String get email => settings?['email'] as String? ?? '';
   String get footerMessage => settings?['footerMessage'] as String? ?? 'Gracias por su compra';
+
+  // Getter para monedas aceptadas (desde settings map)
+  List<Map<String, dynamic>> get acceptedCurrencies {
+    final currencies = settings?['acceptedCurrencies'];
+    if (currencies is List) {
+      return currencies.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
   
   double get subscriptionProgress {
     if (subscriptionPlan == SubscriptionPlan.trial) {
@@ -180,6 +193,7 @@ class Organization extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     double? defaultProfitMarginPercentage,
+    bool? multiCurrencyEnabled,
     DateTime? subscriptionStartDate,
     DateTime? subscriptionEndDate,
     DateTime? trialStartDate,
@@ -205,6 +219,7 @@ class Organization extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       defaultProfitMarginPercentage: defaultProfitMarginPercentage ?? this.defaultProfitMarginPercentage,
+      multiCurrencyEnabled: multiCurrencyEnabled ?? this.multiCurrencyEnabled,
       subscriptionStartDate: subscriptionStartDate ?? this.subscriptionStartDate,
       subscriptionEndDate: subscriptionEndDate ?? this.subscriptionEndDate,
       trialStartDate: trialStartDate ?? this.trialStartDate,
@@ -233,6 +248,7 @@ class Organization extends Equatable {
         createdAt,
         updatedAt,
         defaultProfitMarginPercentage,
+        multiCurrencyEnabled,
         subscriptionStartDate,
         subscriptionEndDate,
         trialStartDate,

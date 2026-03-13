@@ -25,6 +25,11 @@ class InvoicePayment extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // Multi-moneda: campos para pagos en moneda extranjera
+  final String? paymentCurrency;       // null = moneda base de la org
+  final double? paymentCurrencyAmount; // monto en la moneda del pago
+  final double? exchangeRate;          // 1 moneda extranjera = X moneda base
+
   const InvoicePayment({
     required this.id,
     required this.amount,
@@ -40,6 +45,9 @@ class InvoicePayment extends Equatable {
     this.bankAccount,
     required this.createdAt,
     required this.updatedAt,
+    this.paymentCurrency,
+    this.paymentCurrencyAmount,
+    this.exchangeRate,
   });
 
   @override
@@ -58,6 +66,9 @@ class InvoicePayment extends Equatable {
     bankAccount,
     createdAt,
     updatedAt,
+    paymentCurrency,
+    paymentCurrencyAmount,
+    exchangeRate,
   ];
 
   /// Nombre para mostrar del método de pago con cuenta bancaria
@@ -69,6 +80,9 @@ class InvoicePayment extends Equatable {
     }
     return paymentMethod.displayName;
   }
+
+  /// Si el pago fue realizado en una moneda diferente a la base
+  bool get isForeignCurrency => paymentCurrency != null;
 
   DateTime get effectivePaymentDate => paymentDate;
 
@@ -122,6 +136,9 @@ class InvoicePayment extends Equatable {
     BankAccount? bankAccount,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) {
     return InvoicePayment(
       id: id ?? this.id,
@@ -138,6 +155,9 @@ class InvoicePayment extends Equatable {
       bankAccount: bankAccount ?? this.bankAccount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      paymentCurrency: paymentCurrency ?? this.paymentCurrency,
+      paymentCurrencyAmount: paymentCurrencyAmount ?? this.paymentCurrencyAmount,
+      exchangeRate: exchangeRate ?? this.exchangeRate,
     );
   }
 

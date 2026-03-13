@@ -104,13 +104,17 @@ class IsarOrganization {
   // ==================== MAPPERS ====================
 
   static IsarOrganization fromEntity(Organization entity) {
+    // Inyectar multiCurrencyEnabled en settings para persistir en ISAR sin cambiar schema
+    final settingsWithMultiCurrency = Map<String, dynamic>.from(entity.settings ?? {});
+    settingsWithMultiCurrency['multiCurrencyEnabled'] = entity.multiCurrencyEnabled;
+
     return IsarOrganization.create(
       serverId: entity.id,
       name: entity.name,
       slug: entity.slug,
       domain: entity.domain,
       logo: entity.logo,
-      settingsJson: _encodeSettings(entity.settings),
+      settingsJson: _encodeSettings(settingsWithMultiCurrency),
       subscriptionPlan: _mapSubscriptionPlan(entity.subscriptionPlan),
       subscriptionStatus: _mapSubscriptionStatus(entity.subscriptionStatus),
       isActive: entity.isActive,
@@ -134,19 +138,24 @@ class IsarOrganization {
   }
 
   Organization toEntity() {
+    final decodedSettings = _decodeSettings(settingsJson);
+    // Extraer multiCurrencyEnabled de settings (almacenado ahí para evitar cambio de schema ISAR)
+    final multiCurrency = decodedSettings.remove('multiCurrencyEnabled') as bool? ?? false;
+
     return Organization(
       id: serverId,
       name: name,
       slug: slug,
       domain: domain,
       logo: logo,
-      settings: _decodeSettings(settingsJson),
+      settings: decodedSettings,
       subscriptionPlan: _mapIsarSubscriptionPlan(subscriptionPlan),
       subscriptionStatus: _mapIsarSubscriptionStatus(subscriptionStatus),
       isActive: isActive,
       currency: currency,
       locale: locale,
       timezone: timezone,
+      multiCurrencyEnabled: multiCurrency,
       defaultProfitMarginPercentage: defaultProfitMarginPercentage,
       subscriptionStartDate: subscriptionStartDate,
       subscriptionEndDate: subscriptionEndDate,
@@ -167,7 +176,9 @@ class IsarOrganization {
     slug = entity.slug;
     domain = entity.domain;
     logo = entity.logo;
-    settingsJson = _encodeSettings(entity.settings);
+    final settingsWithMultiCurrency = Map<String, dynamic>.from(entity.settings ?? {});
+    settingsWithMultiCurrency['multiCurrencyEnabled'] = entity.multiCurrencyEnabled;
+    settingsJson = _encodeSettings(settingsWithMultiCurrency);
     subscriptionPlan = _mapSubscriptionPlan(entity.subscriptionPlan);
     subscriptionStatus = _mapSubscriptionStatus(entity.subscriptionStatus);
     isActive = entity.isActive;

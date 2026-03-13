@@ -18,6 +18,7 @@ class OrganizationModel extends Organization {
     required super.createdAt,
     required super.updatedAt,
     super.defaultProfitMarginPercentage,
+    super.multiCurrencyEnabled,
     super.subscriptionStartDate,
     super.subscriptionEndDate,
     super.trialStartDate,
@@ -50,11 +51,12 @@ class OrganizationModel extends Organization {
       updatedAt: json['updatedAt'] != null 
         ? DateTime.parse(json['updatedAt'])
         : DateTime.now(),
-      // ✅ NUEVO: Extraer margen de ganancia desde settings
-      defaultProfitMarginPercentage: json['settings'] != null && 
+      // Extraer margen de ganancia desde settings
+      defaultProfitMarginPercentage: json['settings'] != null &&
         json['settings']['defaultProfitMarginPercentage'] != null
         ? (json['settings']['defaultProfitMarginPercentage'] as num).toDouble()
         : null,
+      multiCurrencyEnabled: json['multiCurrencyEnabled'] ?? false,
       subscriptionStartDate: json['subscriptionStartDate'] != null 
         ? DateTime.parse(json['subscriptionStartDate'])
         : null,
@@ -84,6 +86,7 @@ class OrganizationModel extends Organization {
       'settings': settings,
       'subscriptionPlan': subscriptionPlan.value,
       'subscriptionStatus': subscriptionStatus.value,
+      'multiCurrencyEnabled': multiCurrencyEnabled,
       'isActive': isActive,
       'currency': currency,
       'locale': locale,

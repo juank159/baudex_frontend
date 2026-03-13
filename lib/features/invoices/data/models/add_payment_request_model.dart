@@ -10,6 +10,11 @@ class AddPaymentRequestModel {
   final String? reference;
   final String? notes;
 
+  // Multi-moneda
+  final String? paymentCurrency;
+  final double? paymentCurrencyAmount;
+  final double? exchangeRate;
+
   const AddPaymentRequestModel({
     required this.amount,
     required this.paymentMethod,
@@ -17,6 +22,9 @@ class AddPaymentRequestModel {
     this.paymentDate,
     this.reference,
     this.notes,
+    this.paymentCurrency,
+    this.paymentCurrencyAmount,
+    this.exchangeRate,
   });
 
   Map<String, dynamic> toJson() {
@@ -30,6 +38,9 @@ class AddPaymentRequestModel {
     if (paymentDate != null) json['paymentDate'] = paymentDate;
     if (reference != null) json['reference'] = reference;
     if (notes != null) json['notes'] = notes;
+    if (paymentCurrency != null) json['paymentCurrency'] = paymentCurrency;
+    if (paymentCurrencyAmount != null) json['paymentCurrencyAmount'] = paymentCurrencyAmount;
+    if (exchangeRate != null) json['exchangeRate'] = exchangeRate;
 
     return json;
   }
@@ -41,6 +52,9 @@ class AddPaymentRequestModel {
     DateTime? paymentDate,
     String? reference,
     String? notes,
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) {
     return AddPaymentRequestModel(
       amount: amount,
@@ -49,6 +63,9 @@ class AddPaymentRequestModel {
       paymentDate: paymentDate?.toIso8601String(),
       reference: reference,
       notes: notes,
+      paymentCurrency: paymentCurrency,
+      paymentCurrencyAmount: paymentCurrencyAmount,
+      exchangeRate: exchangeRate,
     );
   }
 
@@ -90,12 +107,20 @@ class PaymentItemModel {
   final String? reference;
   final String? notes;
 
+  // Multi-moneda
+  final String? paymentCurrency;
+  final double? paymentCurrencyAmount;
+  final double? exchangeRate;
+
   const PaymentItemModel({
     required this.amount,
     required this.paymentMethod,
     this.bankAccountId,
     this.reference,
     this.notes,
+    this.paymentCurrency,
+    this.paymentCurrencyAmount,
+    this.exchangeRate,
   });
 
   Map<String, dynamic> toJson() {
@@ -107,6 +132,9 @@ class PaymentItemModel {
     if (bankAccountId != null) json['bankAccountId'] = bankAccountId;
     if (reference != null) json['reference'] = reference;
     if (notes != null) json['notes'] = notes;
+    if (paymentCurrency != null) json['paymentCurrency'] = paymentCurrency;
+    if (paymentCurrencyAmount != null) json['paymentCurrencyAmount'] = paymentCurrencyAmount;
+    if (exchangeRate != null) json['exchangeRate'] = exchangeRate;
 
     return json;
   }
@@ -117,6 +145,9 @@ class PaymentItemModel {
     String? bankAccountId,
     String? reference,
     String? notes,
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) {
     return PaymentItemModel(
       amount: amount,
@@ -124,6 +155,9 @@ class PaymentItemModel {
       bankAccountId: bankAccountId,
       reference: reference,
       notes: notes,
+      paymentCurrency: paymentCurrency,
+      paymentCurrencyAmount: paymentCurrencyAmount,
+      exchangeRate: exchangeRate,
     );
   }
 

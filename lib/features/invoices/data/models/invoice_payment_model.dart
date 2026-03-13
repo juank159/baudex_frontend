@@ -32,6 +32,14 @@ class InvoicePaymentModel {
   late DateTime createdAt;
   late DateTime updatedAt;
 
+  // Multi-moneda (almacenados como JSON en IsarInvoice, no como columnas ISAR propias)
+  @ignore
+  String? paymentCurrency;
+  @ignore
+  double? paymentCurrencyAmount;
+  @ignore
+  double? exchangeRate;
+
   InvoicePaymentModel();
 
   InvoicePaymentModel._({
@@ -48,6 +56,9 @@ class InvoicePaymentModel {
     this.bankAccount,
     required this.createdAt,
     required this.updatedAt,
+    this.paymentCurrency,
+    this.paymentCurrencyAmount,
+    this.exchangeRate,
   });
 
   /// Helper methods for parsing data safely
@@ -110,6 +121,13 @@ class InvoicePaymentModel {
         bankAccount: bankAccount,
         createdAt: _parseDateTime(json['createdAt']),
         updatedAt: _parseDateTime(json['updatedAt']),
+        paymentCurrency: json['paymentCurrency']?.toString(),
+        paymentCurrencyAmount: json['paymentCurrencyAmount'] != null
+            ? _parseToDouble(json['paymentCurrencyAmount'])
+            : null,
+        exchangeRate: json['exchangeRate'] != null
+            ? _parseToDouble(json['exchangeRate'])
+            : null,
       );
     } catch (e) {
       print('❌ Error en InvoicePaymentModel.fromJson: $e');
@@ -130,6 +148,9 @@ class InvoicePaymentModel {
       'createdById': createdById,
       'organizationId': organizationId,
       if (bankAccountId != null) 'bankAccountId': bankAccountId,
+      if (paymentCurrency != null) 'paymentCurrency': paymentCurrency,
+      if (paymentCurrencyAmount != null) 'paymentCurrencyAmount': paymentCurrencyAmount,
+      if (exchangeRate != null) 'exchangeRate': exchangeRate,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -150,6 +171,9 @@ class InvoicePaymentModel {
       bankAccount: payment.bankAccount,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
+      paymentCurrency: payment.paymentCurrency,
+      paymentCurrencyAmount: payment.paymentCurrencyAmount,
+      exchangeRate: payment.exchangeRate,
     );
   }
 
@@ -169,6 +193,9 @@ class InvoicePaymentModel {
       bankAccount: bankAccount,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      paymentCurrency: paymentCurrency,
+      paymentCurrencyAmount: paymentCurrencyAmount,
+      exchangeRate: exchangeRate,
     );
   }
 

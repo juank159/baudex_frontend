@@ -451,6 +451,9 @@ class IsarInvoice {
         'createdById': payment.createdById,
         'organizationId': payment.organizationId,
         'bankAccountId': payment.bankAccountId,
+        'paymentCurrency': payment.paymentCurrency,
+        'paymentCurrencyAmount': payment.paymentCurrencyAmount,
+        'exchangeRate': payment.exchangeRate,
         'createdAt': payment.createdAt.toIso8601String(),
         'updatedAt': payment.updatedAt.toIso8601String(),
       }).toList();
@@ -480,6 +483,9 @@ class IsarInvoice {
             'createdById': payment.createdById,
             'organizationId': payment.organizationId,
             'bankAccountId': payment.bankAccountId,
+            'paymentCurrency': payment.paymentCurrency,
+            'paymentCurrencyAmount': payment.paymentCurrencyAmount,
+            'exchangeRate': payment.exchangeRate,
             'createdAt': payment.createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
             'updatedAt': payment.updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
           };
@@ -514,6 +520,13 @@ class IsarInvoice {
             createdById: map['createdById'] ?? '',
             organizationId: map['organizationId'] ?? '',
             bankAccountId: map['bankAccountId'],
+            paymentCurrency: map['paymentCurrency'],
+            paymentCurrencyAmount: map['paymentCurrencyAmount'] != null
+                ? (map['paymentCurrencyAmount'] as num).toDouble()
+                : null,
+            exchangeRate: map['exchangeRate'] != null
+                ? (map['exchangeRate'] as num).toDouble()
+                : null,
             createdAt: map['createdAt'] != null
                 ? DateTime.parse(map['createdAt'])
                 : DateTime.now(),
