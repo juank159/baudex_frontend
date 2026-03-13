@@ -149,22 +149,17 @@ class SubscriptionOfflinePolicy extends GetxService {
       return true; // Todo permitido si no hay restriccion de solo lectura
     }
 
-    // Verificar si es una accion de solo lectura
+    final actionLower = action.toLowerCase();
+
+    // Solo permitir acciones explicitamente en la lista de permitidas
     for (final allowed in gracePeriodAllowedActions) {
-      if (action.toLowerCase().contains(allowed.toLowerCase())) {
+      if (actionLower.contains(allowed.toLowerCase())) {
         return true;
       }
     }
 
-    // Verificar si es una accion bloqueada
-    for (final blocked in gracePeriodBlockedActions) {
-      if (action.toLowerCase().contains(blocked.toLowerCase())) {
-        return false;
-      }
-    }
-
-    // Por defecto, permitir acciones no explicitamente bloqueadas
-    return true;
+    // Todo lo demas esta bloqueado durante periodo de gracia
+    return false;
   }
 
   /// Determinar el modo de operacion actual basado en la suscripcion

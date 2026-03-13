@@ -28,39 +28,42 @@ class PlanLimits extends Equatable {
   });
 
   /// Limites para plan trial
+  /// Recursos ilimitados, solo limita dispositivos conectados (maxUsers=2)
   static const trial = PlanLimits(
-    maxProducts: 50,
-    maxCustomers: 25,
-    maxInvoicesPerMonth: 100,
+    maxProducts: -1,
+    maxCustomers: -1,
+    maxInvoicesPerMonth: -1,
     maxUsers: 2,
-    maxStorageMB: 100,
-    maxExpensesPerMonth: 50,
-    maxCategoriesPerLevel: 10,
-    features: PlanFeatures.trial,
+    maxStorageMB: -1,
+    maxExpensesPerMonth: -1,
+    maxCategoriesPerLevel: -1,
+    features: PlanFeatures.allEnabled,
   );
 
   /// Limites para plan basico
+  /// Recursos ilimitados, solo limita dispositivos conectados (maxUsers=5)
   static const basic = PlanLimits(
-    maxProducts: 500,
-    maxCustomers: 200,
-    maxInvoicesPerMonth: 500,
+    maxProducts: -1,
+    maxCustomers: -1,
+    maxInvoicesPerMonth: -1,
     maxUsers: 5,
-    maxStorageMB: 500,
-    maxExpensesPerMonth: 200,
-    maxCategoriesPerLevel: 25,
-    features: PlanFeatures.basic,
+    maxStorageMB: -1,
+    maxExpensesPerMonth: -1,
+    maxCategoriesPerLevel: -1,
+    features: PlanFeatures.allEnabled,
   );
 
   /// Limites para plan premium
+  /// Recursos ilimitados, solo limita dispositivos conectados (maxUsers=10)
   static const premium = PlanLimits(
-    maxProducts: -1, // Ilimitado
+    maxProducts: -1,
     maxCustomers: -1,
     maxInvoicesPerMonth: -1,
-    maxUsers: 15,
-    maxStorageMB: 2000,
+    maxUsers: 10,
+    maxStorageMB: -1,
     maxExpensesPerMonth: -1,
     maxCategoriesPerLevel: -1,
-    features: PlanFeatures.premium,
+    features: PlanFeatures.allEnabled,
   );
 
   /// Limites para plan enterprise (todo ilimitado)
@@ -72,7 +75,7 @@ class PlanLimits extends Equatable {
     maxStorageMB: -1,
     maxExpensesPerMonth: -1,
     maxCategoriesPerLevel: -1,
-    features: PlanFeatures.enterprise,
+    features: PlanFeatures.allEnabled,
   );
 
   /// Obtener limites para un plan especifico

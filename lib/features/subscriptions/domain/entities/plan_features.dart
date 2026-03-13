@@ -46,77 +46,9 @@ class PlanFeatures extends Equatable {
     required this.prioritySupport,
   });
 
-  /// Features para plan trial
-  static const trial = PlanFeatures(
-    canExportReports: false,
-    canExportPdf: true,
-    canExportExcel: false,
-    canUseThermalPrinter: false,
-    canAccessAdvancedReports: false,
-    canUseMultipleWarehouses: false,
-    canUseApiIntegrations: false,
-    canUseBulkOperations: false,
-    canUseCustomBranding: false,
-    canAccessAuditLogs: false,
-    canUseAdvancedInventory: false,
-    canUseCreditNotes: true,
-    canUseCustomerCredits: true,
-    canUsePurchaseOrders: false,
-    canUseMultipleCurrencies: false,
-    canUseAdvancedPricing: false,
-    canScheduleReports: false,
-    canUseEmailNotifications: false,
-    prioritySupport: false,
-  );
-
-  /// Features para plan basico
-  static const basic = PlanFeatures(
-    canExportReports: true,
-    canExportPdf: true,
-    canExportExcel: true,
-    canUseThermalPrinter: true,
-    canAccessAdvancedReports: false,
-    canUseMultipleWarehouses: false,
-    canUseApiIntegrations: false,
-    canUseBulkOperations: true,
-    canUseCustomBranding: false,
-    canAccessAuditLogs: false,
-    canUseAdvancedInventory: true,
-    canUseCreditNotes: true,
-    canUseCustomerCredits: true,
-    canUsePurchaseOrders: true,
-    canUseMultipleCurrencies: false,
-    canUseAdvancedPricing: false,
-    canScheduleReports: false,
-    canUseEmailNotifications: true,
-    prioritySupport: false,
-  );
-
-  /// Features para plan premium
-  static const premium = PlanFeatures(
-    canExportReports: true,
-    canExportPdf: true,
-    canExportExcel: true,
-    canUseThermalPrinter: true,
-    canAccessAdvancedReports: true,
-    canUseMultipleWarehouses: true,
-    canUseApiIntegrations: false,
-    canUseBulkOperations: true,
-    canUseCustomBranding: true,
-    canAccessAuditLogs: true,
-    canUseAdvancedInventory: true,
-    canUseCreditNotes: true,
-    canUseCustomerCredits: true,
-    canUsePurchaseOrders: true,
-    canUseMultipleCurrencies: true,
-    canUseAdvancedPricing: true,
-    canScheduleReports: true,
-    canUseEmailNotifications: true,
-    prioritySupport: false,
-  );
-
-  /// Features para plan enterprise (todas las features)
-  static const enterprise = PlanFeatures(
+  /// Todas las features habilitadas (configuracion del backend)
+  /// La unica restriccion real por plan es maxDevices (dispositivos conectados)
+  static const allEnabled = PlanFeatures(
     canExportReports: true,
     canExportPdf: true,
     canExportExcel: true,
@@ -137,6 +69,12 @@ class PlanFeatures extends Equatable {
     canUseEmailNotifications: true,
     prioritySupport: true,
   );
+
+  /// Alias por retrocompatibilidad
+  static const trial = allEnabled;
+  static const basic = allEnabled;
+  static const premium = allEnabled;
+  static const enterprise = allEnabled;
 
   /// Verifica si una caracteristica especifica esta habilitada
   bool isFeatureEnabled(String featureName) {

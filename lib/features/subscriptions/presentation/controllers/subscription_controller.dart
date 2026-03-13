@@ -89,7 +89,14 @@ class SubscriptionController extends GetxController {
             results.contains(ConnectivityResult.mobile) ||
             results.contains(ConnectivityResult.ethernet);
 
+        final wasOffline = _isOfflineMode.value;
         _isOfflineMode.value = !connected;
+
+        if (connected && wasOffline) {
+          // Recargar suscripcion del servidor al reconectar
+          print('🔄 SubscriptionController: Reconectado - refrescando suscripción');
+          loadSubscription();
+        }
 
         if (connected && _wasExpiredWhileOffline.value) {
           _handleReconnectAfterOfflineExpiration();
@@ -109,6 +116,9 @@ class SubscriptionController extends GetxController {
   Future<void> loadSubscription() async {
     _isLoading.value = true;
     _error.value = null;
+
+    // Resetear flag para permitir nuevo diálogo si el estado cambió
+    _dialogShown = false;
 
     final result = await repository.getCurrentSubscription();
 
