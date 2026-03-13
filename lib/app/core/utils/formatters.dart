@@ -169,4 +169,54 @@ class AppFormatters {
       return 'Ahora';
     }
   }
+
+  // ==================== MULTI-MONEDA ====================
+
+  /// Mapa de monedas comunes con símbolo y decimales
+  static const _currencyMap = {
+    'USD': {'symbol': 'US\$', 'decimals': 2},
+    'EUR': {'symbol': '€', 'decimals': 2},
+    'COP': {'symbol': '\$', 'decimals': 0},
+    'MXN': {'symbol': 'MX\$', 'decimals': 2},
+    'BRL': {'symbol': 'R\$', 'decimals': 2},
+    'ARS': {'symbol': 'AR\$', 'decimals': 2},
+    'PEN': {'symbol': 'S/', 'decimals': 2},
+    'CLP': {'symbol': 'CL\$', 'decimals': 0},
+    'BOB': {'symbol': 'Bs', 'decimals': 2},
+    'VES': {'symbol': 'Bs.D', 'decimals': 2},
+    'GBP': {'symbol': '£', 'decimals': 2},
+    'DOP': {'symbol': 'RD\$', 'decimals': 2},
+    'GTQ': {'symbol': 'Q', 'decimals': 2},
+    'HNL': {'symbol': 'L', 'decimals': 2},
+    'NIO': {'symbol': 'C\$', 'decimals': 2},
+    'PAB': {'symbol': 'B/.', 'decimals': 2},
+    'PYG': {'symbol': '₲', 'decimals': 0},
+    'UYU': {'symbol': '\$U', 'decimals': 2},
+    'CRC': {'symbol': '₡', 'decimals': 0},
+  };
+
+  /// Formatea un monto en moneda extranjera con símbolo correcto
+  static String formatForeignCurrency(num? value, String currencyCode) {
+    if (value == null) return '0';
+    final info = _currencyMap[currencyCode.toUpperCase()];
+    final symbol = info?['symbol'] as String? ?? currencyCode;
+    final decimals = info?['decimals'] as int? ?? 2;
+    final format = NumberFormat.currency(
+      locale: 'en_US',
+      symbol: '$symbol ',
+      decimalDigits: decimals,
+    );
+    return format.format(value);
+  }
+
+  /// Muestra info de tasa de cambio: "1 USD = 4,000 COP"
+  static String formatExchangeInfo(String foreignCode, double rate, String baseCode) {
+    return '1 $foreignCode = ${formatCurrency(rate)} $baseCode';
+  }
+
+  /// Obtiene el símbolo de una moneda
+  static String getCurrencySymbol(String currencyCode) {
+    final info = _currencyMap[currencyCode.toUpperCase()];
+    return info?['symbol'] as String? ?? currencyCode;
+  }
 }
