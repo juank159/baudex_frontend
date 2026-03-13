@@ -21,6 +21,7 @@ class CustomTextField extends StatefulWidget {
   final VoidCallback? onTap;
   final Function(String)? onChanged;
   final List<TextInputFormatter>? inputFormatters;
+  final FocusNode? focusNode;
 
   const CustomTextField({
     super.key,
@@ -40,6 +41,7 @@ class CustomTextField extends StatefulWidget {
     this.onTap,
     this.onChanged,
     this.inputFormatters,
+    this.focusNode,
   });
 
   @override
@@ -284,6 +286,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
                 key: ValueKey('${widget.label}_${_activeController.hashCode}'),
                 controller:
                     _isActiveControllerSafe() ? _activeController : null,
+                focusNode: widget.focusNode,
                 obscureText: widget.obscureText,
                 keyboardType: widget.keyboardType,
                 validator: widget.validator,

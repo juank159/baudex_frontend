@@ -95,6 +95,7 @@ class AuthController extends GetxController {
   // Correos guardados
   final _savedEmails = <String>[].obs;
   final _showEmailSuggestions = false.obs;
+  bool _suppressSuggestions = false;
 
   // ==================== GETTERS ====================
 
@@ -692,13 +693,22 @@ class AuthController extends GetxController {
   /// Configurar listener para el campo de email
   void _setupEmailListener() {
     loginEmailController.addListener(() {
-      final text = loginEmailController.text.toLowerCase();
+      // Si se acaba de seleccionar un email, no reabrir las sugerencias
+      if (_suppressSuggestions) return;
+
+      final text = loginEmailController.text.toLowerCase().trim();
       if (text.isEmpty) {
         _showEmailSuggestions.value = false;
         return;
       }
 
-      // Mostrar sugerencias solo si hay texto y hay correos guardados que coincidan
+      // Si el texto coincide exactamente con un email guardado, no mostrar sugerencias
+      if (_savedEmails.any((email) => email.toLowerCase() == text)) {
+        _showEmailSuggestions.value = false;
+        return;
+      }
+
+      // Mostrar sugerencias solo si hay correos guardados que coincidan
       final hasMatches = _savedEmails.any(
         (email) => email.toLowerCase().contains(text),
       );
@@ -729,12 +739,15 @@ class AuthController extends GetxController {
 
   /// Seleccionar un correo de las sugerencias
   void selectSavedEmail(String email) {
+    _suppressSuggestions = true;
     loginEmailController.text = email;
     _showEmailSuggestions.value = false;
     // Mover el cursor al final
     loginEmailController.selection = TextSelection.fromPosition(
       TextPosition(offset: email.length),
     );
+    // Reactivar el listener después de que Flutter procese el cambio
+    Future.microtask(() => _suppressSuggestions = false);
   }
 
   /// Eliminar un correo guardado

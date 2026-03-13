@@ -60,6 +60,9 @@ class DashboardController extends GetxController {
   final _smartNotifications = <SmartNotification>[].obs;
   final _unreadNotificationsCount = 0.obs;
 
+  // Guard para evitar cargas concurrentes
+  bool _isLoadingData = false;
+
   // Error states
   final _statsError = Rxn<String>();
   final _activityError = Rxn<String>();
@@ -69,7 +72,7 @@ class DashboardController extends GetxController {
   // Filters
   final _selectedDateRange = Rxn<DateTimeRange>();
   final _selectedActivityTypes = <ActivityType>[].obs;
-  final _selectedPeriod = 'este_mes'.obs; // ✅ PERÍODO POR DEFECTO: ESTE MES (tiene más datos)
+  final _selectedPeriod = 'hoy'.obs;
 
   // Getters
   bool get isLoadingStats => _isLoadingStats.value;
@@ -117,13 +120,13 @@ class DashboardController extends GetxController {
     super.onInit();
     print('🚀 DashboardController: onInit() - Controlador iniciado');
 
-    // ✅ Establecer el rango de fechas para ESTE MES directamente (sin llamar a setPredefinedPeriod)
+    // Establecer el rango de fechas para HOY
     final now = Get.find<TenantDateTimeService>().now();
     _selectedDateRange.value = DateTimeRange(
-      start: DateTime(now.year, now.month, 1),
-      end: DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+      start: DateTime(now.year, now.month, now.day, 0, 0, 0),
+      end: DateTime(now.year, now.month, now.day, 23, 59, 59),
     );
-    print('🔄 Rango de fechas inicial (ESTE MES): ${_selectedDateRange.value?.start} - ${_selectedDateRange.value?.end}');
+    print('🔄 Rango de fechas inicial (HOY): ${_selectedDateRange.value?.start} - ${_selectedDateRange.value?.end}');
 
     // ✅ Marcar como cargando desde el inicio
     _isLoadingStats.value = true;
@@ -156,6 +159,13 @@ class DashboardController extends GetxController {
   }
 
   Future<void> _loadInitialData() async {
+    // Guard: evitar cargas concurrentes
+    if (_isLoadingData) {
+      print('📊 Dashboard: Carga ya en progreso, ignorando duplicado');
+      return;
+    }
+    _isLoadingData = true;
+
     try {
       print('📊 Dashboard: Iniciando carga de datos...');
 
@@ -224,6 +234,8 @@ class DashboardController extends GetxController {
       _isLoadingProfitability.value = false;
       update();
       _showSubscriptionDialogIfNeeded();
+    } finally {
+      _isLoadingData = false;
     }
   }
 
