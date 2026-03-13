@@ -39,41 +39,42 @@ class AuthRepositoryImpl implements AuthRepository {
     // Generar hash del password para uso offline
     final passwordHash = _hashPassword(password, email);
 
-    if (await networkInfo.isConnected) {
-      try {
-        final request = LoginRequestModel(email: email, password: password);
-        final response = await remoteDataSource.login(request);
+    // Login SIEMPRE intenta primero online (sin depender de NetworkInfo pre-check).
+    // El pre-check de NetworkInfo puede fallar por timeout del health ping,
+    // pero el servidor puede responder bien a requests reales.
+    try {
+      print('🔧 AuthRepository: Intentando login online...');
+      final request = LoginRequestModel(email: email, password: password);
+      final response = await remoteDataSource.login(request);
 
-        // Guardar datos localmente
-        await localDataSource.saveAuthData(response);
+      // Login exitoso - resetear reachability para que el resto de la app funcione
+      networkInfo.resetServerReachability();
 
-        // Guardar credenciales hasheadas para login offline
-        await localDataSource.saveOfflineCredentials(email, passwordHash);
-        print('🔐 AuthRepository: Credenciales offline guardadas para login futuro');
+      // Guardar datos localmente
+      await localDataSource.saveAuthData(response);
 
-        return Right(response.toAuthResult());
-      } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
-      } on ConnectionException catch (e) {
-        // Si hay error de conexión, intentar login offline
-        print('⚠️ AuthRepository: Error de conexión, intentando login offline...');
-        return _attemptOfflineLogin(email, passwordHash);
-      } on CacheException catch (e) {
-        return Left(CacheFailure(e.message));
-      } catch (e) {
-        // Si es un error de conexión, intentar login offline
-        if (e.toString().contains('SocketException') ||
-            e.toString().contains('Connection') ||
-            e.toString().contains('Network')) {
-          print('⚠️ AuthRepository: Error de red detectado, intentando login offline...');
-          return _attemptOfflineLogin(email, passwordHash);
-        }
-        return Left(UnknownFailure('Error inesperado durante el login: $e'));
-      }
-    } else {
-      // Sin conexión - intentar login offline
-      print('📴 AuthRepository: Sin conexión, intentando login offline...');
+      // Guardar credenciales hasheadas para login offline
+      await localDataSource.saveOfflineCredentials(email, passwordHash);
+      print('🔐 AuthRepository: Credenciales offline guardadas para login futuro');
+
+      return Right(response.toAuthResult());
+    } on ServerException catch (e) {
+      return Left(_mapServerExceptionToFailure(e));
+    } on ConnectionException catch (e) {
+      print('⚠️ AuthRepository: Error de conexión, intentando login offline...');
       return _attemptOfflineLogin(email, passwordHash);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } catch (e) {
+      // Si es un error de conexión, intentar login offline
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Connection') ||
+          e.toString().contains('Network') ||
+          e.toString().contains('timeout')) {
+        print('⚠️ AuthRepository: Error de red detectado, intentando login offline...');
+        return _attemptOfflineLogin(email, passwordHash);
+      }
+      return Left(UnknownFailure('Error inesperado durante el login: $e'));
     }
   }
 

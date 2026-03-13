@@ -167,14 +167,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> logout() async {
     try {
-      // El logout en este caso solo limpia datos locales
-      // pero podríamos hacer una llamada al servidor si fuera necesario
-      // await dioClient.post('/auth/logout');
-
-      // Por ahora solo retornamos exitosamente
-      return;
+      await dioClient.post(ApiConstants.logout);
     } catch (e) {
-      throw ServerException('Error durante el logout: $e');
+      // Si falla (ej: sin conexion), no bloquear el logout local
+      print('⚠️ Logout remoto falló (no crítico): $e');
     }
   }
 
