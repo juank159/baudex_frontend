@@ -56,7 +56,8 @@ class OrganizationModel extends Organization {
         json['settings']['defaultProfitMarginPercentage'] != null
         ? (json['settings']['defaultProfitMarginPercentage'] as num).toDouble()
         : null,
-      multiCurrencyEnabled: json['multiCurrencyEnabled'] ?? false,
+      multiCurrencyEnabled: json['multiCurrencyEnabled'] ??
+        (json['settings'] is Map ? json['settings']['multiCurrencyEnabled'] : null) ?? false,
       subscriptionStartDate: json['subscriptionStartDate'] != null 
         ? DateTime.parse(json['subscriptionStartDate'])
         : null,
@@ -86,7 +87,6 @@ class OrganizationModel extends Organization {
       'settings': settings,
       'subscriptionPlan': subscriptionPlan.value,
       'subscriptionStatus': subscriptionStatus.value,
-      'multiCurrencyEnabled': multiCurrencyEnabled,
       'isActive': isActive,
       'currency': currency,
       'locale': locale,

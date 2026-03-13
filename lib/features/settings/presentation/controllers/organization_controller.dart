@@ -207,12 +207,9 @@ class OrganizationController extends GetxController {
     if (org == null) return false;
 
     final settings = Map<String, dynamic>.from(org.settings ?? {});
-    final updates = <String, dynamic>{
-      'multiCurrencyEnabled': enabled,
-      'settings': settings,
-    };
+    settings['multiCurrencyEnabled'] = enabled;
 
-    return await updateCurrentOrganization(updates);
+    return await updateCurrentOrganization({'settings': settings});
   }
 
   /// Agregar una moneda aceptada
