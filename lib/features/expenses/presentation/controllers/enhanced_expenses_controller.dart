@@ -61,8 +61,8 @@ class EnhancedExpensesController extends GetxController {
   final _startDate = Rxn<DateTime>();
   final _endDate = Rxn<DateTime>();
 
-  // ✅ NUEVO: Filtro por período predefinido - Cambiado a 'all' por defecto
-  final _currentPeriod = 'all'.obs; // today, week, month, all
+  // ✅ Filtro por período predefinido - 'today' por defecto
+  final _currentPeriod = 'today'.obs; // today, week, month, all
 
   // ✅ NUEVO: Indicador de búsqueda en progreso
   final _isSearching = false.obs;
@@ -109,7 +109,7 @@ class EnhancedExpensesController extends GetxController {
       _currentType.value != null ||
       _selectedCategoryId.value != null ||
       _searchTerm.value.isNotEmpty ||
-      _currentPeriod.value != 'all';
+      _currentPeriod.value != 'today';
 
   @override
   void onInit() {
@@ -427,7 +427,7 @@ class EnhancedExpensesController extends GetxController {
     print('🗑️ Limpiando filtros de fecha');
     _startDate.value = null;
     _endDate.value = null;
-    _currentPeriod.value = 'all';
+    _currentPeriod.value = 'today';
     _loadExpenses(reset: true);
     // ✅ _loadStats() se llama automáticamente dentro de _loadExpenses
   }
@@ -473,7 +473,7 @@ class EnhancedExpensesController extends GetxController {
     _selectedCategoryId.value = null;
     _startDate.value = null;
     _endDate.value = null;
-    _currentPeriod.value = 'all';
+    _currentPeriod.value = 'today';
 
     searchController.clear();
     _searchTerm.value = '';
