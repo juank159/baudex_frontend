@@ -1702,10 +1702,14 @@ class InvoiceFormController extends GetxController {
     PaymentMethod paymentMethod,
     InvoiceStatus status,
     bool shouldPrint, {
-    String? bankAccountId, // 🏦 ID de la cuenta bancaria para registrar el pago
-    List<MultiplePaymentData>? multiplePayments, // 💳 Lista de pagos múltiples
-    bool createCreditForRemaining = false, // 📝 Crear crédito para saldo restante
-    double? balanceApplied, // 💰 NUEVO: Saldo a favor aplicado del cliente
+    String? bankAccountId,
+    List<MultiplePaymentData>? multiplePayments,
+    bool createCreditForRemaining = false,
+    double? balanceApplied,
+    // Multi-moneda
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) async {
     if (!_validateForm()) return false;
 
@@ -1758,7 +1762,10 @@ class InvoiceFormController extends GetxController {
           bankAccountId: bankAccountId,
           multiplePayments: multiplePayments,
           createCreditForRemaining: createCreditForRemaining,
-          balanceApplied: balanceApplied, // 💰 NUEVO: Pasar saldo aplicado
+          balanceApplied: balanceApplied,
+          paymentCurrency: paymentCurrency,
+          paymentCurrencyAmount: paymentCurrencyAmount,
+          exchangeRate: exchangeRate,
         );
       }
 
@@ -2095,7 +2102,10 @@ class InvoiceFormController extends GetxController {
     String? bankAccountId,
     List<MultiplePaymentData>? multiplePayments,
     bool createCreditForRemaining = false,
-    double? balanceApplied, // 💰 NUEVO: Saldo a favor aplicado del cliente
+    double? balanceApplied,
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) async {
     // 🔒 VALIDACIÓN FRONTEND: Verificar suscripción ANTES de llamar al backend
     // Usa validación ASYNC que consulta ISAR si no hay datos en memoria (offline)
@@ -2150,7 +2160,18 @@ class InvoiceFormController extends GetxController {
       print('💰 Saldo a favor aplicado: \$${balanceApplied.toStringAsFixed(2)}');
     }
 
-    // ✅ Para facturas a crédito puro, señalar que se debe generar CustomerCredit
+    // Incluir info de moneda del pago simple en metadata
+    if (paymentCurrency != null && multiplePayments == null) {
+      invoiceMetadata = {
+        ...?invoiceMetadata,
+        'paymentCurrency': paymentCurrency,
+        'paymentCurrencyAmount': paymentCurrencyAmount,
+        'exchangeRate': exchangeRate,
+      };
+      print('💱 Pago en moneda extranjera: $paymentCurrencyAmount $paymentCurrency (tasa: $exchangeRate)');
+    }
+
+    // Para facturas a crédito puro, señalar que se debe generar CustomerCredit
     if (paymentMethod == PaymentMethod.credit && status == InvoiceStatus.pending) {
       invoiceMetadata = {
         ...?invoiceMetadata,
@@ -2172,13 +2193,16 @@ class InvoiceFormController extends GetxController {
       final remaining = effectiveTotal - totalPaid;
 
       invoiceMetadata = {
-        ...?invoiceMetadata, // Mantener saldo aplicado si existe
+        ...?invoiceMetadata,
         'multiplePayments': multiplePayments.map((p) {
           return <String, dynamic>{
             'amount': p.amount,
             'method': p.method.name,
             'bankAccountId': p.bankAccountId,
             'bankAccountName': p.bankAccountName,
+            if (p.paymentCurrency != null) 'paymentCurrency': p.paymentCurrency,
+            if (p.paymentCurrencyAmount != null) 'paymentCurrencyAmount': p.paymentCurrencyAmount,
+            if (p.exchangeRate != null) 'exchangeRate': p.exchangeRate,
           };
         }).toList(),
         'totalPaid': totalPaid,

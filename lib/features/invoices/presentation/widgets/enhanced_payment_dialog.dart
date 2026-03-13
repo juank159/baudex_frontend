@@ -9,9 +9,9 @@ import '../../domain/entities/invoice.dart';
 import '../../../bank_accounts/domain/entities/bank_account.dart';
 import '../../../bank_accounts/presentation/controllers/bank_accounts_controller.dart';
 import '../../../bank_accounts/presentation/bindings/bank_accounts_binding.dart';
-// ✅ NUEVO: Import para verificar saldo a favor
 import '../../../customer_credits/presentation/controllers/customer_credit_controller.dart';
 import '../../../customer_credits/presentation/bindings/customer_credit_binding.dart';
+import '../../../settings/presentation/controllers/organization_controller.dart';
 
 // Formateador de input personalizado para números con formato de miles
 class CurrencyInputFormatter extends TextInputFormatter {
@@ -87,11 +87,19 @@ class MultiplePaymentData {
   final String? bankAccountId;
   final String? bankAccountName;
 
+  // Multi-moneda
+  final String? paymentCurrency;
+  final double? paymentCurrencyAmount;
+  final double? exchangeRate;
+
   const MultiplePaymentData({
     required this.amount,
     required this.method,
     this.bankAccountId,
     this.bankAccountName,
+    this.paymentCurrency,
+    this.paymentCurrencyAmount,
+    this.exchangeRate,
   });
 }
 
@@ -106,11 +114,13 @@ class EnhancedPaymentDialog extends StatefulWidget {
     InvoiceStatus status,
     bool shouldPrint, {
     String? bankAccountId,
-    // Pagos múltiples
     List<MultiplePaymentData>? multiplePayments,
     bool? createCreditForRemaining,
-    // ✅ NUEVO: Saldo a favor aplicado
     double? balanceApplied,
+    // Multi-moneda (pago simple)
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   })
   onPaymentConfirmed;
   final VoidCallback onCancel;
@@ -146,14 +156,26 @@ class _PaymentEntry {
   BankAccount? bankAccount;
   final TextEditingController amountController;
 
+  // Multi-moneda
+  String? currency; // null = moneda base
+  double? exchangeRate;
+  final TextEditingController foreignAmountController;
+  final TextEditingController exchangeRateController;
+
   _PaymentEntry({
     this.amount = 0,
     this.method = PaymentMethod.cash,
     this.bankAccount,
-  }) : amountController = TextEditingController();
+    this.currency,
+    this.exchangeRate,
+  }) : amountController = TextEditingController(),
+       foreignAmountController = TextEditingController(),
+       exchangeRateController = TextEditingController();
 
   void dispose() {
     amountController.dispose();
+    foreignAmountController.dispose();
+    exchangeRateController.dispose();
   }
 }
 
@@ -180,11 +202,20 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
   final List<_PaymentEntry> _multiplePayments = [];
   bool _createCreditForRemaining = false;
 
-  // 💰 NUEVO: Saldo a favor del cliente
+  // 💰 Saldo a favor del cliente
   bool _isLoadingBalance = false;
   double _availableBalance = 0.0;
-  bool _applyBalance = false; // Si el usuario quiere aplicar el saldo
-  double _balanceToApply = 0.0; // Monto del saldo a aplicar
+  bool _applyBalance = false;
+  double _balanceToApply = 0.0;
+
+  // Multi-moneda (pago simple)
+  bool _isMultiCurrencyEnabled = false;
+  List<Map<String, dynamic>> _acceptedCurrencies = [];
+  String _baseCurrency = 'COP';
+  String? _selectedCurrency; // null = moneda base
+  double? _exchangeRate;
+  final TextEditingController _foreignAmountController = TextEditingController();
+  final TextEditingController _exchangeRateController = TextEditingController();
 
   /// Total efectivo a pagar (total - saldo aplicado)
   double get _effectiveTotal => widget.total - (_applyBalance ? _balanceToApply : 0);
@@ -216,10 +247,13 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     );
     _animationController.forward();
 
-    // 🏦 Intentar obtener o inicializar el controlador de cuentas bancarias
+    // Cargar configuración multi-moneda de la organización
+    _loadMultiCurrencyConfig();
+
+    // Intentar obtener o inicializar el controlador de cuentas bancarias
     _initBankAccountsController();
 
-    // 💰 Cargar saldo a favor del cliente (si tiene customerId)
+    // Cargar saldo a favor del cliente (si tiene customerId)
     _loadClientBalance();
 
     // Para efectivo, inicializar con el total exacto formateado
@@ -264,7 +298,8 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     receivedController.dispose();
     receivedFocusNode.dispose();
     dialogFocusNode.dispose();
-    // Limpiar controladores de pagos múltiples
+    _foreignAmountController.dispose();
+    _exchangeRateController.dispose();
     for (final payment in _multiplePayments) {
       payment.dispose();
     }
@@ -474,6 +509,72 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     }
   }
 
+  /// Cargar configuración multi-moneda de la organización
+  void _loadMultiCurrencyConfig() {
+    try {
+      if (Get.isRegistered<OrganizationController>()) {
+        final orgCtrl = Get.find<OrganizationController>();
+        final org = orgCtrl.currentOrganization;
+        if (org != null) {
+          _baseCurrency = org.currency;
+          _isMultiCurrencyEnabled = org.multiCurrencyEnabled;
+          _acceptedCurrencies = org.acceptedCurrencies;
+        }
+      }
+    } catch (e) {
+      print('⚠️ Error cargando config multi-moneda: $e');
+    }
+  }
+
+  /// Seleccionar moneda para pago simple
+  void _selectCurrency(String? currencyCode) {
+    setState(() {
+      if (currencyCode == null || currencyCode == _baseCurrency) {
+        _selectedCurrency = null;
+        _exchangeRate = null;
+        _foreignAmountController.clear();
+        _exchangeRateController.clear();
+        // Restaurar el campo recibido con el total
+        receivedController.text = AppFormatters.formatNumber(
+          _effectiveTotal.round(),
+        );
+        _calculateChange();
+      } else {
+        _selectedCurrency = currencyCode;
+        // Buscar tasa por defecto
+        final currencyInfo = _acceptedCurrencies.firstWhere(
+          (c) => c['code'] == currencyCode,
+          orElse: () => <String, dynamic>{},
+        );
+        final defaultRate = (currencyInfo['defaultRate'] as num?)?.toDouble() ?? 1.0;
+        _exchangeRate = defaultRate;
+        _exchangeRateController.text = AppFormatters.formatNumber(defaultRate.round());
+        _foreignAmountController.clear();
+        // Limpiar campo recibido - se llenará cuando el usuario ingrese monto extranjero
+        receivedController.clear();
+        canProcess = false;
+      }
+    });
+  }
+
+  /// Recalcular monto base desde monto extranjero * tasa
+  void _recalculateForeignPayment() {
+    if (_selectedCurrency == null || _exchangeRate == null) return;
+    final foreignAmount = AppFormatters.parseNumber(_foreignAmountController.text) ?? 0.0;
+    if (foreignAmount <= 0 || _exchangeRate! <= 0) {
+      setState(() {
+        receivedController.text = '';
+        canProcess = false;
+      });
+      return;
+    }
+    final baseAmount = foreignAmount * _exchangeRate!;
+    setState(() {
+      receivedController.text = AppFormatters.formatNumber(baseAmount.round());
+      _calculateChange();
+    });
+  }
+
   void _calculateChange() {
     final received = AppFormatters.parseNumber(receivedController.text) ?? 0.0;
 
@@ -666,6 +767,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                             SizedBox(height: config.sectionSpacing),
                           ] else ...[
                             // MODO PAGO SIMPLE:
+                            // 3.0 Selector de moneda (si multi-moneda habilitado)
+                            if (_isMultiCurrencyEnabled && _acceptedCurrencies.isNotEmpty) ...[
+                              _buildCurrencySection(context, config),
+                              SizedBox(height: config.sectionSpacing),
+                            ],
+
                             // 3.1 Selector de cuenta bancaria (PRIMERO - para decidir si es transferencia)
                             if (selectedPaymentMethod != PaymentMethod.credit &&
                                 _bankAccountsController != null &&
@@ -675,14 +782,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                             ],
 
                             // 3.2 Dinero recibido y cambio (solo si es efectivo SIN cuenta bancaria)
-                            // Si hay cuenta seleccionada = transferencia, no necesita cambio
                             if (selectedPaymentMethod == PaymentMethod.cash && selectedBankAccount == null) ...[
                               _buildCashPaymentSection(context, config),
                               SizedBox(height: config.sectionSpacing),
                             ],
 
                             // 3.3 Info adicional (solo si NO hay cuenta seleccionada y NO es efectivo)
-                            // Cuando hay cuenta, la info se muestra en la sección de estado
                             if (selectedBankAccount == null && selectedPaymentMethod != PaymentMethod.cash) ...[
                               _buildOtherPaymentInfo(context, config),
                               SizedBox(height: config.sectionSpacing),
@@ -774,7 +879,13 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                               SizedBox(height: config.sectionSpacing),
                             ] else ...[
                               // MODO PAGO SIMPLE:
-                              // 3.1 Selector de cuenta bancaria (PRIMERO - para decidir si es transferencia)
+                              // 3.0 Selector de moneda (si multi-moneda habilitado)
+                              if (_isMultiCurrencyEnabled && _acceptedCurrencies.isNotEmpty) ...[
+                                _buildCurrencySection(context, config),
+                                SizedBox(height: config.sectionSpacing),
+                              ],
+
+                              // 3.1 Selector de cuenta bancaria
                               if (selectedPaymentMethod != PaymentMethod.credit &&
                                   _bankAccountsController != null &&
                                   _bankAccountsController!.activeAccounts.isNotEmpty) ...[
@@ -783,14 +894,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                               ],
 
                               // 3.2 Dinero recibido y cambio (solo si es efectivo SIN cuenta bancaria)
-                              // Si hay cuenta seleccionada = transferencia, no necesita cambio
                               if (selectedPaymentMethod == PaymentMethod.cash && selectedBankAccount == null) ...[
                                 _buildCashPaymentSection(context, config),
                                 SizedBox(height: config.sectionSpacing),
                               ],
 
-                              // 3.3 Info adicional (solo si NO hay cuenta seleccionada y NO es efectivo)
-                              // Cuando hay cuenta, la info se muestra en la sección de estado
+                              // 3.3 Info adicional
                               if (selectedBankAccount == null && selectedPaymentMethod != PaymentMethod.cash) ...[
                                 _buildOtherPaymentInfo(context, config),
                                 SizedBox(height: config.sectionSpacing),
@@ -2503,6 +2612,268 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     }
   }
 
+  // ==================== MULTI-MONEDA UI ====================
+
+  /// Sección de selector de moneda para pago simple
+  Widget _buildCurrencySection(BuildContext context, _DialogSizeConfig config) {
+    // Construir opciones: moneda base + monedas aceptadas
+    final currencyOptions = <Map<String, dynamic>>[
+      {'code': _baseCurrency, 'name': 'Moneda base', 'symbol': AppFormatters.getCurrencySymbol(_baseCurrency)},
+      ..._acceptedCurrencies,
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.infoGradient,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                Icons.currency_exchange,
+                color: Colors.white,
+                size: config.iconSmall - 2,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Moneda del Pago',
+              style: TextStyle(
+                fontSize: config.subtitleSize,
+                fontWeight: FontWeight.w600,
+                color: ElegantLightTheme.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: config.isMobile ? 8 : 10),
+
+        // Dropdown de moneda
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(config.radiusMedium),
+            boxShadow: ElegantLightTheme.elevatedShadow,
+            border: Border.all(
+              color: _selectedCurrency != null
+                  ? ElegantLightTheme.primaryBlue.withOpacity(0.3)
+                  : Colors.grey.withOpacity(0.2),
+            ),
+          ),
+          child: DropdownButtonFormField<String>(
+            value: _selectedCurrency ?? _baseCurrency,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(config.radiusMedium),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: config.isMobile ? 10 : 12,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            items: currencyOptions.map((currency) {
+              final code = currency['code'] as String;
+              final name = currency['name'] as String? ?? code;
+              final symbol = currency['symbol'] as String? ?? code;
+              return DropdownMenuItem<String>(
+                value: code,
+                child: Row(
+                  children: [
+                    Text(
+                      symbol,
+                      style: TextStyle(
+                        fontSize: config.subtitleSize,
+                        fontWeight: FontWeight.w700,
+                        color: ElegantLightTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$code - $name',
+                      style: TextStyle(
+                        fontSize: config.bodySize,
+                        color: ElegantLightTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+            onChanged: (value) => _selectCurrency(value == _baseCurrency ? null : value),
+          ),
+        ),
+
+        // Campos de tasa y monto extranjero (solo si moneda extranjera seleccionada)
+        if (_selectedCurrency != null) ...[
+          SizedBox(height: config.isMobile ? 10 : 12),
+
+          // Tasa de cambio
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tasa de cambio',
+                      style: TextStyle(
+                        fontSize: config.smallSize,
+                        fontWeight: FontWeight.w500,
+                        color: ElegantLightTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(config.radiusSmall),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      child: TextField(
+                        controller: _exchangeRateController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          CurrencyInputFormatter(),
+                        ],
+                        style: TextStyle(
+                          fontSize: config.bodySize,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: InputDecoration(
+                          prefixText: '1 $_selectedCurrency = ',
+                          prefixStyle: TextStyle(
+                            fontSize: config.smallSize,
+                            color: ElegantLightTheme.textTertiary,
+                          ),
+                          suffixText: _baseCurrency,
+                          suffixStyle: TextStyle(
+                            fontSize: config.smallSize,
+                            fontWeight: FontWeight.w600,
+                            color: ElegantLightTheme.primaryBlue,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                        onChanged: (value) {
+                          _exchangeRate = AppFormatters.parseNumber(value);
+                          _recalculateForeignPayment();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Monto en $_selectedCurrency',
+                      style: TextStyle(
+                        fontSize: config.smallSize,
+                        fontWeight: FontWeight.w500,
+                        color: ElegantLightTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(config.radiusSmall),
+                        border: Border.all(
+                          color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+                        ),
+                      ),
+                      child: TextField(
+                        controller: _foreignAmountController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          CurrencyInputFormatter(),
+                        ],
+                        style: TextStyle(
+                          fontSize: config.bodySize,
+                          fontWeight: FontWeight.w700,
+                          color: ElegantLightTheme.primaryBlue,
+                        ),
+                        decoration: InputDecoration(
+                          prefixText: '${AppFormatters.getCurrencySymbol(_selectedCurrency!)} ',
+                          prefixStyle: TextStyle(
+                            fontSize: config.bodySize,
+                            fontWeight: FontWeight.w700,
+                            color: ElegantLightTheme.primaryBlue,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          hintText: '0',
+                        ),
+                        onChanged: (value) => _recalculateForeignPayment(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // Info de equivalencia
+          if (_exchangeRate != null && _exchangeRate! > 0) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(config.isMobile ? 8 : 10),
+              decoration: BoxDecoration(
+                color: ElegantLightTheme.primaryBlue.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(config.radiusSmall),
+                border: Border.all(
+                  color: ElegantLightTheme.primaryBlue.withOpacity(0.15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: config.iconSmall,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      AppFormatters.formatExchangeInfo(_selectedCurrency!, _exchangeRate!, _baseCurrency),
+                      style: TextStyle(
+                        fontSize: config.smallSize,
+                        color: ElegantLightTheme.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (receivedController.text.isNotEmpty)
+                    Text(
+                      '= ${AppFormatters.formatCurrency(AppFormatters.parseNumber(receivedController.text) ?? 0)}',
+                      style: TextStyle(
+                        fontSize: config.smallSize,
+                        color: ElegantLightTheme.primaryBlue,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
   Widget _buildOtherPaymentInfo(BuildContext context, _DialogSizeConfig config) {
     return Container(
       width: double.infinity,
@@ -3264,6 +3635,11 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       Navigator.of(context).pop();
     }
 
+    // Determinar datos de moneda extranjera
+    final foreignAmount = _selectedCurrency != null
+        ? (AppFormatters.parseNumber(_foreignAmountController.text) ?? 0.0)
+        : null;
+
     widget.onPaymentConfirmed(
       received,
       change >= 0 ? change : 0.0,
@@ -3272,6 +3648,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       shouldPrint,
       bankAccountId: selectedBankAccount?.id,
       balanceApplied: _applyBalance ? _balanceToApply : null,
+      paymentCurrency: _selectedCurrency,
+      paymentCurrencyAmount: foreignAmount,
+      exchangeRate: _selectedCurrency != null ? _exchangeRate : null,
     );
   }
 
@@ -3283,11 +3662,19 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
           ? _getPaymentMethodFromBankAccount(p.bankAccount)
           : p.method;
 
+      // Datos de moneda extranjera por pago
+      final foreignAmount = p.currency != null
+          ? (AppFormatters.parseNumber(p.foreignAmountController.text) ?? 0.0)
+          : null;
+
       return MultiplePaymentData(
         amount: p.amount,
         method: method,
         bankAccountId: p.bankAccount?.id,
         bankAccountName: p.bankAccount?.name,
+        paymentCurrency: p.currency,
+        paymentCurrencyAmount: foreignAmount,
+        exchangeRate: p.currency != null ? p.exchangeRate : null,
       );
     }).toList();
 

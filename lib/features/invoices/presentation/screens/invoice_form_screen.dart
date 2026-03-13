@@ -1252,7 +1252,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               String? bankAccountId,
               List<MultiplePaymentData>? multiplePayments,
               bool? createCreditForRemaining,
-              double? balanceApplied, // ✅ NUEVO: Saldo a favor aplicado
+              double? balanceApplied,
+              String? paymentCurrency,
+              double? paymentCurrencyAmount,
+              double? exchangeRate,
             }) async {
               print('🎯 === PROCESANDO VENTA ===');
               print('📋 Estado: ${status.displayName}');
@@ -1262,6 +1265,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               print('💳 Pagos múltiples: ${multiplePayments?.length ?? 0}');
               print('📋 Crear crédito: $createCreditForRemaining');
               print('💰 Saldo aplicado: ${balanceApplied ?? 0}');
+              if (paymentCurrency != null) {
+                print('💱 Moneda pago: $paymentCurrency, Monto: $paymentCurrencyAmount, Tasa: $exchangeRate');
+              }
 
               try {
                 // Guardar la factura con el estado y método de pago correctos
@@ -1274,7 +1280,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   bankAccountId: bankAccountId,
                   multiplePayments: multiplePayments,
                   createCreditForRemaining: createCreditForRemaining ?? false,
-                  balanceApplied: balanceApplied, // ✅ NUEVO: Pasar saldo aplicado
+                  balanceApplied: balanceApplied,
+                  paymentCurrency: paymentCurrency,
+                  paymentCurrencyAmount: paymentCurrencyAmount,
+                  exchangeRate: exchangeRate,
                 );
 
                 print('🔍 SCREEN: saveInvoiceWithPayment returned: $success');
