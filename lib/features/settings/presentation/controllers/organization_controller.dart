@@ -188,6 +188,96 @@ class OrganizationController extends GetxController {
     return null;
   }
 
+  // ==================== MULTI-CURRENCY METHODS ====================
+
+  /// Verificar si multi-moneda está habilitado
+  bool get isMultiCurrencyEnabled =>
+      currentOrganization?.multiCurrencyEnabled ?? false;
+
+  /// Obtener monedas aceptadas
+  List<Map<String, dynamic>> get acceptedCurrencies =>
+      currentOrganization?.acceptedCurrencies ?? [];
+
+  /// Obtener moneda base de la organización
+  String get baseCurrency => currentOrganization?.currency ?? 'COP';
+
+  /// Activar/desactivar multi-moneda
+  Future<bool> toggleMultiCurrency(bool enabled) async {
+    final org = currentOrganization;
+    if (org == null) return false;
+
+    final settings = Map<String, dynamic>.from(org.settings ?? {});
+    final updates = <String, dynamic>{
+      'multiCurrencyEnabled': enabled,
+      'settings': settings,
+    };
+
+    return await updateCurrentOrganization(updates);
+  }
+
+  /// Agregar una moneda aceptada
+  Future<bool> addAcceptedCurrency(Map<String, dynamic> currency) async {
+    final org = currentOrganization;
+    if (org == null) return false;
+
+    final settings = Map<String, dynamic>.from(org.settings ?? {});
+    final currencies =
+        List<Map<String, dynamic>>.from(settings['acceptedCurrencies'] ?? []);
+
+    // Verificar que no exista ya
+    if (currencies.any((c) => c['code'] == currency['code'])) {
+      Get.snackbar(
+        'Moneda duplicada',
+        'La moneda ${currency['code']} ya está en la lista',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.orange.shade100,
+        colorText: Colors.orange.shade800,
+        icon: const Icon(Icons.warning, color: Colors.orange),
+        duration: const Duration(seconds: 2),
+      );
+      return false;
+    }
+
+    currencies.add(currency);
+    settings['acceptedCurrencies'] = currencies;
+
+    return await updateCurrentOrganization({'settings': settings});
+  }
+
+  /// Eliminar una moneda aceptada
+  Future<bool> removeAcceptedCurrency(String code) async {
+    final org = currentOrganization;
+    if (org == null) return false;
+
+    final settings = Map<String, dynamic>.from(org.settings ?? {});
+    final currencies =
+        List<Map<String, dynamic>>.from(settings['acceptedCurrencies'] ?? []);
+
+    currencies.removeWhere((c) => c['code'] == code);
+    settings['acceptedCurrencies'] = currencies;
+
+    return await updateCurrentOrganization({'settings': settings});
+  }
+
+  /// Actualizar tasa de cambio por defecto de una moneda
+  Future<bool> updateCurrencyRate(String code, double newRate) async {
+    final org = currentOrganization;
+    if (org == null) return false;
+
+    final settings = Map<String, dynamic>.from(org.settings ?? {});
+    final currencies =
+        List<Map<String, dynamic>>.from(settings['acceptedCurrencies'] ?? []);
+
+    final index = currencies.indexWhere((c) => c['code'] == code);
+    if (index == -1) return false;
+
+    currencies[index] = Map<String, dynamic>.from(currencies[index])
+      ..['defaultRate'] = newRate;
+    settings['acceptedCurrencies'] = currencies;
+
+    return await updateCurrentOrganization({'settings': settings});
+  }
+
   // ==================== PROFIT MARGIN METHODS ====================
 
   /// ✅ NUEVO: Obtener margen de ganancia actual (por defecto 20%)

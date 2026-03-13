@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../controllers/organization_controller.dart';
@@ -182,8 +183,10 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           const SizedBox(height: 24),
           const MainWarehouseSelector(),
           const SizedBox(height: 24),
+          _buildMultiCurrencyCard(),
+          const SizedBox(height: 24),
           _buildQuickActionsCard(),
-          const SizedBox(height: 100), // Extra space at bottom
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -199,6 +202,8 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           _buildCurrentOrganizationCard(),
           const SizedBox(height: 32),
           const MainWarehouseSelector(),
+          const SizedBox(height: 32),
+          _buildMultiCurrencyCard(),
           const SizedBox(height: 32),
           _buildQuickActionsCard(),
           const SizedBox(height: 100),
@@ -218,6 +223,8 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           const SizedBox(height: 32),
           const MainWarehouseSelector(),
           const SizedBox(height: 32),
+          _buildMultiCurrencyCard(),
+          const SizedBox(height: 32),
           _buildQuickActionsCard(),
           const SizedBox(height: 40),
         ],
@@ -226,6 +233,665 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
   }
 
 
+
+  // ==================== MULTI-CURRENCY SECTION ====================
+
+  /// Lista de monedas disponibles para agregar
+  static const _availableCurrencies = [
+    {'code': 'USD', 'name': 'Dólar Estadounidense', 'symbol': 'US\$'},
+    {'code': 'EUR', 'name': 'Euro', 'symbol': '€'},
+    {'code': 'GBP', 'name': 'Libra Esterlina', 'symbol': '£'},
+    {'code': 'MXN', 'name': 'Peso Mexicano', 'symbol': 'MX\$'},
+    {'code': 'BRL', 'name': 'Real Brasileño', 'symbol': 'R\$'},
+    {'code': 'ARS', 'name': 'Peso Argentino', 'symbol': 'AR\$'},
+    {'code': 'PEN', 'name': 'Sol Peruano', 'symbol': 'S/'},
+    {'code': 'CLP', 'name': 'Peso Chileno', 'symbol': 'CL\$'},
+    {'code': 'BOB', 'name': 'Boliviano', 'symbol': 'Bs'},
+    {'code': 'VES', 'name': 'Bolívar Digital', 'symbol': 'Bs.D'},
+    {'code': 'DOP', 'name': 'Peso Dominicano', 'symbol': 'RD\$'},
+    {'code': 'GTQ', 'name': 'Quetzal', 'symbol': 'Q'},
+    {'code': 'HNL', 'name': 'Lempira', 'symbol': 'L'},
+    {'code': 'NIO', 'name': 'Córdoba', 'symbol': 'C\$'},
+    {'code': 'PAB', 'name': 'Balboa', 'symbol': 'B/.'},
+    {'code': 'PYG', 'name': 'Guaraní', 'symbol': '₲'},
+    {'code': 'UYU', 'name': 'Peso Uruguayo', 'symbol': '\$U'},
+    {'code': 'CRC', 'name': 'Colón Costarricense', 'symbol': '₡'},
+    {'code': 'COP', 'name': 'Peso Colombiano', 'symbol': '\$'},
+  ];
+
+  Widget _buildMultiCurrencyCard() {
+    final controller = Get.find<OrganizationController>();
+
+    return FuturisticContainer(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.warningGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: ElegantLightTheme.glowShadow,
+                ),
+                child: const Icon(
+                  Icons.currency_exchange,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text(
+                  'Multi-Moneda',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Permite aceptar pagos en monedas diferentes a ${controller.baseCurrency}',
+            style: TextStyle(
+              color: ElegantLightTheme.textSecondary,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Toggle switch
+          Obx(() {
+            final enabled = controller.isMultiCurrencyEnabled;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: enabled
+                    ? ElegantLightTheme.successGradient.colors.first
+                        .withValues(alpha: 0.1)
+                    : ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: enabled
+                      ? ElegantLightTheme.successGradient.colors.first
+                          .withValues(alpha: 0.3)
+                      : ElegantLightTheme.textSecondary
+                          .withValues(alpha: 0.1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    enabled ? Icons.check_circle : Icons.toggle_off_outlined,
+                    color: enabled
+                        ? ElegantLightTheme.successGradient.colors.first
+                        : ElegantLightTheme.textSecondary,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Aceptar pagos en múltiples monedas',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: enabled,
+                    onChanged: (val) => controller.toggleMultiCurrency(val),
+                    activeColor:
+                        ElegantLightTheme.successGradient.colors.first,
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          // Lista de monedas aceptadas (solo si está habilitado)
+          Obx(() {
+            if (!controller.isMultiCurrencyEnabled) {
+              return const SizedBox.shrink();
+            }
+
+            final currencies = controller.acceptedCurrencies;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Monedas aceptadas (${currencies.length})',
+                      style: const TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _showAddCurrencyDialog(controller),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Agregar'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: ElegantLightTheme.primaryBlue,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (currencies.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: ElegantLightTheme.backgroundColor
+                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: ElegantLightTheme.textSecondary
+                            .withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.monetization_on_outlined,
+                          color: ElegantLightTheme.textSecondary,
+                          size: 36,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No hay monedas configuradas',
+                          style: TextStyle(
+                            color: ElegantLightTheme.textSecondary,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Agrega monedas para aceptar pagos en diferentes divisas',
+                          style: TextStyle(
+                            color: ElegantLightTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ...currencies.map((currency) => _buildCurrencyTile(
+                        currency,
+                        controller,
+                      )),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrencyTile(
+    Map<String, dynamic> currency,
+    OrganizationController controller,
+  ) {
+    final code = currency['code'] as String? ?? '';
+    final name = currency['name'] as String? ?? code;
+    final symbol = currency['symbol'] as String? ?? code;
+    final defaultRate = (currency['defaultRate'] as num?)?.toDouble() ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.infoGradient,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Text(
+                symbol,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$code - $name',
+                  style: const TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  defaultRate > 0
+                      ? AppFormatters.formatExchangeInfo(
+                          code, defaultRate, controller.baseCurrency)
+                      : 'Sin tasa por defecto',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Editar tasa
+          IconButton(
+            icon: const Icon(Icons.edit, size: 18),
+            color: ElegantLightTheme.primaryBlue,
+            tooltip: 'Editar tasa',
+            onPressed: () =>
+                _showEditRateDialog(controller, code, name, defaultRate),
+          ),
+          // Eliminar
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 18),
+            color: ElegantLightTheme.errorGradient.colors.first,
+            tooltip: 'Eliminar moneda',
+            onPressed: () => _confirmRemoveCurrency(controller, code, name),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddCurrencyDialog(OrganizationController controller) {
+    final baseCurrency = controller.baseCurrency;
+    final existing =
+        controller.acceptedCurrencies.map((c) => c['code']).toSet();
+
+    // Filtrar monedas: excluir la moneda base y las ya agregadas
+    final available = _availableCurrencies
+        .where((c) =>
+            c['code'] != baseCurrency && !existing.contains(c['code']))
+        .toList();
+
+    if (available.isEmpty) {
+      Get.snackbar(
+        'Sin monedas disponibles',
+        'Ya has agregado todas las monedas disponibles',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.orange.shade100,
+        colorText: Colors.orange.shade800,
+        icon: const Icon(Icons.info, color: Colors.orange),
+      );
+      return;
+    }
+
+    final rateController = TextEditingController();
+    String? selectedCode;
+
+    Get.dialog(
+      StatefulBuilder(
+        builder: (context, setDialogState) {
+          final selected = selectedCode != null
+              ? available.firstWhere((c) => c['code'] == selectedCode)
+              : null;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.infoGradient,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.add_circle_outline,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Agregar Moneda',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Selecciona la moneda:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                    ),
+                    hint: const Text('Seleccionar moneda'),
+                    value: selectedCode,
+                    items: available
+                        .map((c) => DropdownMenuItem<String>(
+                              value: c['code'] as String,
+                              child: Text(
+                                  '${c['symbol']} ${c['code']} - ${c['name']}'),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      setDialogState(() {
+                        selectedCode = val;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Tasa de cambio por defecto (1 ${selectedCode ?? '...'} = ? $baseCurrency):',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: rateController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      hintText: 'Ej: 4000',
+                      prefixIcon: const Icon(Icons.trending_up),
+                      suffixText: baseCurrency,
+                    ),
+                  ),
+                  if (selected != null && rateController.text.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: ElegantLightTheme.infoGradient.colors.first
+                            .withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline,
+                              size: 16, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Text(
+                            '1 ${selected['code']} = ${rateController.text} $baseCurrency',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: selectedCode == null
+                    ? null
+                    : () async {
+                        final rate =
+                            double.tryParse(rateController.text) ?? 0;
+                        final sel = available.firstWhere(
+                            (c) => c['code'] == selectedCode);
+                        final success = await controller.addAcceptedCurrency({
+                          'code': sel['code'],
+                          'name': sel['name'],
+                          'symbol': sel['symbol'],
+                          'defaultRate': rate,
+                        });
+                        if (success) {
+                          Get.back();
+                          Get.snackbar(
+                            'Moneda agregada',
+                            '${sel['code']} ha sido agregada exitosamente',
+                            snackPosition: SnackPosition.TOP,
+                            backgroundColor: Colors.green.shade100,
+                            colorText: Colors.green.shade800,
+                            icon: const Icon(Icons.check_circle,
+                                color: Colors.green),
+                            duration: const Duration(seconds: 2),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ElegantLightTheme.primaryBlue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Agregar'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showEditRateDialog(
+    OrganizationController controller,
+    String code,
+    String name,
+    double currentRate,
+  ) {
+    final rateController =
+        TextEditingController(text: currentRate > 0 ? currentRate.toString() : '');
+
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.infoGradient,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.edit, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Editar tasa $code',
+              style: const TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Tasa por defecto para $name:',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: rateController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                hintText: 'Ej: 4000',
+                prefixText: '1 $code = ',
+                suffixText: controller.baseCurrency,
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final rate = double.tryParse(rateController.text) ?? 0;
+              final success =
+                  await controller.updateCurrencyRate(code, rate);
+              if (success) {
+                Get.back();
+                Get.snackbar(
+                  'Tasa actualizada',
+                  'La tasa de $code ha sido actualizada',
+                  snackPosition: SnackPosition.TOP,
+                  backgroundColor: Colors.green.shade100,
+                  colorText: Colors.green.shade800,
+                  icon: const Icon(Icons.check_circle, color: Colors.green),
+                  duration: const Duration(seconds: 2),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ElegantLightTheme.primaryBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmRemoveCurrency(
+    OrganizationController controller,
+    String code,
+    String name,
+  ) {
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: ElegantLightTheme.errorGradient,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.delete_outline,
+                  color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Eliminar moneda',
+              style: TextStyle(
+                color: ElegantLightTheme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '¿Deseas eliminar $code ($name) de las monedas aceptadas?\n\nLos pagos existentes en esta moneda no se verán afectados.',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final success =
+                  await controller.removeAcceptedCurrency(code);
+              if (success) {
+                Get.back();
+                Get.snackbar(
+                  'Moneda eliminada',
+                  '$code ha sido removida de las monedas aceptadas',
+                  snackPosition: SnackPosition.TOP,
+                  backgroundColor: Colors.green.shade100,
+                  colorText: Colors.green.shade800,
+                  icon: const Icon(Icons.check_circle, color: Colors.green),
+                  duration: const Duration(seconds: 2),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ElegantLightTheme.errorGradient.colors.first,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== ORGANIZATION CARD ====================
 
   Widget _buildCurrentOrganizationCard() {
     final controller = Get.find<OrganizationController>();

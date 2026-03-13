@@ -1,11 +1,13 @@
 // lib/features/invoices/presentation/widgets/payment_history_widget.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
+import '../../../settings/presentation/controllers/organization_controller.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/entities/invoice_payment.dart';
 
@@ -476,6 +478,18 @@ class PaymentHistoryWidget extends StatelessWidget {
                   fontSize: 11,
                 ),
               ),
+              if (payment.isForeignCurrency) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '${AppFormatters.formatForeignCurrency(payment.paymentCurrencyAmount, payment.paymentCurrency!)} (${AppFormatters.formatExchangeInfo(payment.paymentCurrency!, payment.exchangeRate!, (Get.isRegistered<OrganizationController>() ? Get.find<OrganizationController>().baseCurrency : 'COP'))})',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ],
           ),
         ),
@@ -523,6 +537,16 @@ class PaymentHistoryWidget extends StatelessWidget {
                   fontSize: isTablet ? 11 : 12,
                 ),
               ),
+              if (payment.isForeignCurrency)
+                Text(
+                  '${AppFormatters.formatForeignCurrency(payment.paymentCurrencyAmount, payment.paymentCurrency!)} (${AppFormatters.formatExchangeInfo(payment.paymentCurrency!, payment.exchangeRate!, (Get.isRegistered<OrganizationController>() ? Get.find<OrganizationController>().baseCurrency : 'COP'))})',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: isTablet ? 10 : 11,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
             ],
           ),
         ),
