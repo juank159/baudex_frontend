@@ -902,26 +902,8 @@ class AppDrawer extends GetWidget<AppDrawerController> {
     if (item.route != null && item.route!.isNotEmpty) {
       final currentRoute = Get.currentRoute;
       if (currentRoute != item.route) {
-        try {
-          // offAllNamed remueve TODAS las rutas (incluyendo el drawer modal)
-          // y pone la nueva ruta como única. Esto evita:
-          // 1. Navigator locked (no hay Navigator.pop previo)
-          // 2. Stack infinito de rutas
-          // 3. FocusScopeNode disposed errors
-          Get.offAllNamed(item.route!);
-        } catch (e) {
-          print('Error al navegar a ${item.route}: $e');
-          Get.snackbar(
-            'Error de Navegacion',
-            'No se pudo acceder a ${item.title}.',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.orange.shade100,
-            colorText: Colors.orange.shade800,
-            icon: const Icon(Icons.warning, color: Colors.orange),
-          );
-        }
+        Get.offAllNamed(item.route!);
       } else {
-        // Ya estamos en esta ruta, solo cerrar drawer
         Navigator.pop(context);
       }
     } else {

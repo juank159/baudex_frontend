@@ -49,8 +49,11 @@ class InvoiceListController extends GetxController {
     _cachedInvoices = null;
     _cachedMeta = null;
     _lastCacheTime = null;
-    // print('🗑️ Caché de facturas invalidado');
+    _needsRefreshOnNextVisit = true;
   }
+
+  /// Flag para forzar refresh en la próxima visita (después de CRUD)
+  static bool _needsRefreshOnNextVisit = false;
 
   InvoiceListController({
     required GetInvoicesUseCase getInvoicesUseCase,
@@ -275,6 +278,12 @@ class InvoiceListController extends GetxController {
 
   /// ✅ AUTO-REFRESH: Determinar si debemos hacer auto-refresh
   bool _shouldAutoRefresh() {
+    // Si el caché fue invalidado (después de CRUD), forzar refresh
+    if (_needsRefreshOnNextVisit) {
+      _needsRefreshOnNextVisit = false;
+      return true;
+    }
+
     // Si nunca se ha hecho refresh, hacerlo
     if (_lastRefreshTime == null) {
       return true;

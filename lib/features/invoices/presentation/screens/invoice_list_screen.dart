@@ -16,7 +16,6 @@ import '../../domain/entities/invoice.dart';
 import '../../domain/usecases/get_invoice_stats_usecase.dart';
 import '../../domain/usecases/get_overdue_invoices_usecase.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
-import '../../../../app/core/navigation/app_route_observer.dart';
 
 /// Helper para asegurar que InvoiceStatsController esté registrado
 void _ensureStatsControllerRegistered() {
@@ -50,59 +49,23 @@ class InvoiceListScreen extends StatefulWidget {
   State<InvoiceListScreen> createState() => _InvoiceListScreenState();
 }
 
-class _InvoiceListScreenState extends State<InvoiceListScreen>
-    with WidgetsBindingObserver, RouteAware {
+class _InvoiceListScreenState extends State<InvoiceListScreen> {
   InvoiceListController? _controller;
 
-  // ✅ SOLUCIÓN: ScrollController manejado por el StatefulWidget
-  // Esto garantiza un lifecycle correcto y evita el error de múltiples posiciones
+  // ScrollController manejado por el StatefulWidget
   late final ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
-    // ✅ Crear ScrollController fresco para esta instancia del widget
     _scrollController = ScrollController();
-    // ✅ AUTO-REFRESH: Registrar observer del ciclo de vida de la app
-    WidgetsBinding.instance.addObserver(this);
     _initializeController();
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Suscribirse al RouteObserver para detectar navegación
-    final route = ModalRoute.of(context);
-    if (route != null) {
-      appRouteObserver.subscribe(this, route);
-    }
-  }
-
-  @override
   void dispose() {
-    appRouteObserver.unsubscribe(this);
-    // ✅ CRÍTICO: Disponer el ScrollController antes de cerrar
     _scrollController.dispose();
-    // ✅ AUTO-REFRESH: Remover observer
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  /// Se llama cuando una ruta que estaba encima se cierra y esta pantalla vuelve a ser visible
-  @override
-  void didPopNext() {
-    super.didPopNext();
-    // Refrescar datos automáticamente al regresar a esta pantalla
-    _controller?.refreshAllData();
-  }
-
-  /// ✅ AUTO-REFRESH: Detectar cuando la app/pantalla vuelve a primer plano
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
-      _controller?.checkAndRefreshIfNeeded();
-    }
   }
 
   Future<void> _initializeController() async {
@@ -111,10 +74,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
       setState(() {
         _controller = controller;
       });
-      // ✅ Configurar listener de scroll para paginación
       _setupScrollListener(controller);
-      // ✅ Refrescar datos al abrir la pantalla (funciona online y offline via ISAR)
-      controller.refreshAllData();
+      controller.checkAndRefreshIfNeeded();
     }
   }
 

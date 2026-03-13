@@ -12,7 +12,6 @@ import '../controllers/customer_credit_controller.dart';
 import '../widgets/create_credit_dialog.dart';
 import 'customer_account_unified_page.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
-import '../../../../app/core/navigation/app_route_observer.dart';
 
 /// Página principal de gestión de créditos de clientes
 class CustomerCreditsPage extends StatefulWidget {
@@ -22,53 +21,17 @@ class CustomerCreditsPage extends StatefulWidget {
   State<CustomerCreditsPage> createState() => _CustomerCreditsPageState();
 }
 
-class _CustomerCreditsPageState extends State<CustomerCreditsPage>
-    with WidgetsBindingObserver, RouteAware {
+class _CustomerCreditsPageState extends State<CustomerCreditsPage> {
   late CustomerCreditController controller;
 
   @override
   void initState() {
     super.initState();
     controller = Get.find<CustomerCreditController>();
-    WidgetsBinding.instance.addObserver(this);
 
-    // Refrescar datos al abrir la página (funciona online y offline via ISAR)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.refreshAllData();
     });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Suscribirse al RouteObserver para detectar navegación
-    final route = ModalRoute.of(context);
-    if (route != null) {
-      appRouteObserver.subscribe(this, route);
-    }
-  }
-
-  @override
-  void dispose() {
-    appRouteObserver.unsubscribe(this);
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  /// Se llama cuando una ruta que estaba encima se cierra y esta pantalla vuelve a ser visible
-  @override
-  void didPopNext() {
-    super.didPopNext();
-    // Refrescar datos automáticamente al regresar a esta pantalla
-    controller.refreshAllData();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Recargar datos cuando la app vuelve al foreground
-    if (state == AppLifecycleState.resumed) {
-      controller.refreshAllData();
-    }
   }
 
   @override
