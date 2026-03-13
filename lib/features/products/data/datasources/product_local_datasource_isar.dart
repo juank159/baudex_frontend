@@ -76,6 +76,10 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
                   ..createdById = product.createdById
                   ..createdAt = product.createdAt
                   ..updatedAt = product.updatedAt
+                  ..taxCategory = IsarProduct.mapTaxCategoryFromString(product.taxCategory)
+                  ..taxRate = product.taxRate
+                  ..isTaxable = product.isTaxable
+                  ..hasRetention = product.hasRetention
                   ..isSynced = true
                   ..metadataJson = _serializeProductData(product)
                   ..prices = product.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ?? []
@@ -103,6 +107,10 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
                   ..createdById = product.createdById
                   ..createdAt = product.createdAt
                   ..updatedAt = product.updatedAt
+                  ..taxCategory = IsarProduct.mapTaxCategoryFromString(product.taxCategory)
+                  ..taxRate = product.taxRate
+                  ..isTaxable = product.isTaxable
+                  ..hasRetention = product.hasRetention
                   ..isSynced = true
                   ..metadataJson = _serializeProductData(product)
                   ..prices = product.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ?? []
@@ -174,6 +182,10 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
                 ..createdById = product.createdById
                 ..createdAt = product.createdAt
                 ..updatedAt = product.updatedAt
+                ..taxCategory = IsarProduct.mapTaxCategoryFromString(product.taxCategory)
+                ..taxRate = product.taxRate
+                ..isTaxable = product.isTaxable
+                ..hasRetention = product.hasRetention
                 ..isSynced = true
                 ..metadataJson = _serializeProductData(product)
                 ..prices = product.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ?? []
@@ -201,6 +213,10 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
                 ..createdById = product.createdById
                 ..createdAt = product.createdAt
                 ..updatedAt = product.updatedAt
+                ..taxCategory = IsarProduct.mapTaxCategoryFromString(product.taxCategory)
+                ..taxRate = product.taxRate
+                ..isTaxable = product.isTaxable
+                ..hasRetention = product.hasRetention
                 ..isSynced = true
                 ..metadataJson = _serializeProductData(product)
                 ..prices = product.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ?? []
@@ -504,6 +520,10 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       category: deserializedData['category'],
       createdBy: deserializedData['createdBy'],
       metadata: deserializedData['metadata'],
+      taxCategory: IsarProduct.mapIsarTaxCategoryToString(isarProduct.taxCategory),
+      taxRate: isarProduct.taxRate,
+      isTaxable: isarProduct.isTaxable,
+      hasRetention: isarProduct.hasRetention,
     );
   }
 
@@ -920,6 +940,10 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       createdBy: deserializedData['createdBy'] as ProductCreatorModel?,
       createdAt: isarProduct.createdAt,
       updatedAt: isarProduct.updatedAt,
+      taxCategory: IsarProduct.mapIsarTaxCategoryToString(isarProduct.taxCategory),
+      taxRate: isarProduct.taxRate,
+      isTaxable: isarProduct.isTaxable,
+      hasRetention: isarProduct.hasRetention,
     );
   }
 

@@ -44,6 +44,7 @@ import 'package:baudex_desktop/features/invoices/data/models/invoice_form_models
 
 // ✅ NUEVO IMPORT: Controlador de impresión térmica
 import '../services/invoice_inventory_service.dart';
+import '../../../settings/presentation/controllers/user_preferences_controller.dart';
 
 class InvoiceFormController extends GetxController {
   // ==================== DEPENDENCIES ====================
@@ -63,6 +64,16 @@ class InvoiceFormController extends GetxController {
 
   // ✅ NUEVO: Servicio de integración con inventario (opcional)
   InvoiceInventoryService? _inventoryService;
+
+  // Helper para obtener preferencias de usuario
+  bool get shouldValidateStock {
+    try {
+      final ctrl = Get.find<UserPreferencesController>();
+      return ctrl.validateStockBeforeInvoice && !ctrl.allowOverselling;
+    } catch (_) {
+      return true; // default seguro
+    }
+  }
 
   InvoiceFormController({
     required CreateInvoiceUseCase createInvoiceUseCase,
@@ -1030,8 +1041,8 @@ class InvoiceFormController extends GetxController {
     } else {
       print('📦 Producto REGISTRADO: ${product.name}');
 
-      // Solo validar stock para productos registrados
-      if (product.stock <= 0) {
+      // Solo validar stock si la preferencia está activa y no permite sobreventa
+      if (shouldValidateStock && product.stock <= 0) {
         _showError('Sin Stock', '${product.name} no tiene stock disponible');
         return;
       }
@@ -1039,11 +1050,19 @@ class InvoiceFormController extends GetxController {
 
     _ensureProductIsAvailable(product);
 
+    // Buscar precio: price1, luego cualquier precio activo, luego sellingPrice
     final defaultPrice = product.getPriceByType(PriceType.price1);
-    final unitPrice = defaultPrice?.finalAmount ?? product.sellingPrice ?? 0;
+    double unitPrice = defaultPrice?.finalAmount ?? 0;
+    if (unitPrice <= 0) {
+      // Buscar cualquier precio activo que no sea cost
+      final anyPrice = product.prices?.firstWhereOrNull(
+        (p) => p.type != PriceType.cost && p.finalAmount > 0,
+      );
+      unitPrice = anyPrice?.finalAmount ?? product.sellingPrice ?? 0;
+    }
 
     if (unitPrice <= 0) {
-      _showError('Sin Precio', '${product.name} no tiene precio configurado');
+      _showError('Sin Precio', '${product.name} no tiene precio de venta configurado');
       return;
     }
 
@@ -1056,8 +1075,8 @@ class InvoiceFormController extends GetxController {
       final existingItem = _invoiceItems[existingIndex];
       final newQuantity = existingItem.quantity + quantity;
 
-      // Solo validar stock para productos registrados
-      if (!isTemporary && newQuantity > product.stock) {
+      // Solo validar stock si la preferencia está activa
+      if (!isTemporary && shouldValidateStock && newQuantity > product.stock) {
         _showError(
           'Stock Insuficiente',
           'Solo hay ${product.stock} unidades disponibles de ${product.name}',
@@ -1085,8 +1104,8 @@ class InvoiceFormController extends GetxController {
 
       _showProductUpdatedMessage(product.name, newQuantity);
     } else {
-      // Solo validar stock para productos registrados
-      if (!isTemporary && quantity > product.stock) {
+      // Solo validar stock si la preferencia está activa
+      if (!isTemporary && shouldValidateStock && quantity > product.stock) {
         _showError(
           'Stock Insuficiente',
           'Solo hay ${product.stock} unidades disponibles de ${product.name}',
@@ -1230,9 +1249,12 @@ class InvoiceFormController extends GetxController {
       }
 
       final uniqueResults = <String, Product>{};
+      final validateStock = shouldValidateStock;
       for (final product in results) {
-        if (product.status == ProductStatus.active && product.stock > 0) {
-          uniqueResults[product.id] = product;
+        if (product.status == ProductStatus.active) {
+          if (!validateStock || product.stock > 0) {
+            uniqueResults[product.id] = product;
+          }
         }
       }
 

@@ -102,35 +102,41 @@ class NotificationsListScreen extends GetView<NotificationsController> {
         ],
       ),
       iconTheme: const IconThemeData(color: Colors.white),
-      actions: [
-        const SyncStatusIcon(),
-        _buildAppBarActionButton(
-          icon: Icons.search_rounded,
-          tooltip: 'Buscar',
-          onPressed: () => _showSearchDialog(context),
-        ),
-        _buildAppBarActionButton(
-          icon: Icons.filter_list_rounded,
-          tooltip: 'Filtrar',
-          onPressed: () => _showFilterSheet(context),
-        ),
-        Obx(() {
-          final unreadCount = controller.unreadCount;
-          if (unreadCount == 0) return const SizedBox.shrink();
+      actions: isMobile
+          ? [
+              const SyncStatusIcon(),
+              _buildMobileMenuButton(context),
+              const SizedBox(width: 8),
+            ]
+          : [
+              const SyncStatusIcon(),
+              _buildAppBarActionButton(
+                icon: Icons.search_rounded,
+                tooltip: 'Buscar',
+                onPressed: () => _showSearchDialog(context),
+              ),
+              _buildAppBarActionButton(
+                icon: Icons.filter_list_rounded,
+                tooltip: 'Filtrar',
+                onPressed: () => _showFilterSheet(context),
+              ),
+              Obx(() {
+                final unreadCount = controller.unreadCount;
+                if (unreadCount == 0) return const SizedBox.shrink();
 
-          return _buildAppBarActionButton(
-            icon: Icons.done_all_rounded,
-            tooltip: 'Marcar todas como leidas',
-            onPressed: () => _confirmMarkAllAsRead(context),
-          );
-        }),
-        _buildAppBarActionButton(
-          icon: Icons.refresh_rounded,
-          tooltip: 'Actualizar',
-          onPressed: () => controller.refreshNotifications(),
-        ),
-        const SizedBox(width: 8),
-      ],
+                return _buildAppBarActionButton(
+                  icon: Icons.done_all_rounded,
+                  tooltip: 'Marcar todas como leidas',
+                  onPressed: () => _confirmMarkAllAsRead(context),
+                );
+              }),
+              _buildAppBarActionButton(
+                icon: Icons.refresh_rounded,
+                tooltip: 'Actualizar',
+                onPressed: () => controller.refreshNotifications(),
+              ),
+              const SizedBox(width: 8),
+            ],
     );
   }
 
@@ -165,6 +171,80 @@ class NotificationsListScreen extends GetView<NotificationsController> {
         ),
       ),
     );
+  }
+
+  Widget _buildMobileMenuButton(BuildContext context) {
+    return Obx(() {
+      final unreadCount = controller.unreadCount;
+      return PopupMenuButton<String>(
+        icon: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        offset: const Offset(0, 50),
+        onSelected: (value) {
+          switch (value) {
+            case 'search':
+              _showSearchDialog(context);
+              break;
+            case 'filter':
+              _showFilterSheet(context);
+              break;
+            case 'mark_read':
+              _confirmMarkAllAsRead(context);
+              break;
+            case 'refresh':
+              controller.refreshNotifications();
+              break;
+          }
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(
+            value: 'search',
+            child: ListTile(
+              leading: Icon(Icons.search_rounded),
+              title: Text('Buscar'),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'filter',
+            child: ListTile(
+              leading: Icon(Icons.filter_list_rounded),
+              title: Text('Filtrar'),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          if (unreadCount > 0)
+            PopupMenuItem(
+              value: 'mark_read',
+              child: ListTile(
+                leading: const Icon(Icons.done_all_rounded),
+                title: Text('Marcar todas como leídas ($unreadCount)'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          const PopupMenuItem(
+            value: 'refresh',
+            child: ListTile(
+              leading: Icon(Icons.refresh_rounded),
+              title: Text('Actualizar'),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildMobileLayout(BuildContext context) {

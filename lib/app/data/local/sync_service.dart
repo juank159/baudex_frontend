@@ -66,6 +66,9 @@ import '../../../features/bank_accounts/data/models/bank_account_model.dart';
 import '../../../features/bank_accounts/data/models/isar/isar_bank_account.dart';
 import '../../../features/bank_accounts/data/repositories/bank_account_offline_repository.dart'; // ⭐ FASE 1 - Problema 3
 
+// User Preferences
+import '../../../features/settings/presentation/controllers/user_preferences_controller.dart';
+
 // Invoices
 import '../../../features/invoices/data/datasources/invoice_remote_datasource.dart';
 import '../../../features/invoices/data/models/add_payment_request_model.dart';
@@ -3407,6 +3410,13 @@ class SyncService extends GetxService {
               ? null
               : invoiceNumber;
 
+          // Determinar si se debe saltar la validación de stock
+          bool skipStock = false;
+          try {
+            final prefsCtrl = Get.find<UserPreferencesController>();
+            skipStock = !prefsCtrl.validateStockBeforeInvoice || prefsCtrl.allowOverselling;
+          } catch (_) {}
+
           final request = CreateInvoiceRequestModel(
             customerId: finalData['customerId'],
             items: items,
@@ -3431,6 +3441,7 @@ class SyncService extends GetxService {
             terms: finalData['terms'],
             metadata: finalData['metadata'],
             bankAccountId: finalData['bankAccountId'],
+            skipStockValidation: skipStock,
           );
 
           final createdInvoice = await remoteDataSource.createInvoice(request);

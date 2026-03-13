@@ -18,6 +18,7 @@ class CreateInvoiceRequestModel {
   final String? terms;
   final Map<String, dynamic>? metadata;
   final String? bankAccountId; // 🏦 ID de la cuenta bancaria para registrar el pago
+  final bool skipStockValidation; // 📦 Saltar validación de stock
 
   const CreateInvoiceRequestModel({
     required this.customerId,
@@ -34,6 +35,7 @@ class CreateInvoiceRequestModel {
     this.terms,
     this.metadata,
     this.bankAccountId,
+    this.skipStockValidation = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -55,6 +57,7 @@ class CreateInvoiceRequestModel {
     if (terms != null) json['terms'] = terms;
     if (metadata != null) json['metadata'] = metadata;
     if (bankAccountId != null) json['bankAccountId'] = bankAccountId;
+    if (skipStockValidation) json['skipStockValidation'] = true;
 
     return json;
   }

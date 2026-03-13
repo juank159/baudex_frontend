@@ -623,7 +623,12 @@ class InvoiceCardWidget extends StatelessWidget {
                 // Acciones
                 if (!isMultiSelectMode) ...[
                   const SizedBox(width: 12),
-                  _buildActionMenu(context),
+                  _buildActionButton(
+                    'Imprimir',
+                    Icons.print,
+                    Colors.grey,
+                    () => onActionTap?.call('print'),
+                  ),
                 ],
               ],
             ),
@@ -950,7 +955,12 @@ class InvoiceCardWidget extends StatelessWidget {
                 // Acciones
                 if (!isMultiSelectMode) ...[
                   const SizedBox(width: 8),
-                  _buildActionMenu(context),
+                  _buildActionButton(
+                    'Imprimir',
+                    Icons.print,
+                    Colors.grey,
+                    () => onActionTap?.call('print'),
+                  ),
                 ],
               ],
             ),
@@ -1193,8 +1203,6 @@ class InvoiceCardWidget extends StatelessWidget {
           Colors.grey,
           () => onActionTap?.call('print'),
         ),
-        const Spacer(),
-        _buildActionMenu(context),
       ],
     );
   }
@@ -1250,301 +1258,6 @@ class InvoiceCardWidget extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildActionMenu(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.glassGradient,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: ElegantLightTheme.primaryGradient.colors.first.withValues(
-              alpha: 0.2,
-            ),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: PopupMenuButton<String>(
-        onSelected: (value) => onActionTap?.call(value),
-        icon: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            gradient: ElegantLightTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.more_vert, color: Colors.white, size: 16),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        color: Colors.transparent,
-        elevation: 0,
-        itemBuilder:
-            (context) => [
-              if (invoice.canBeEdited)
-                PopupMenuItem(
-                  value: 'edit',
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 2),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.glassGradient,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.blue.withValues(alpha: 0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.blue,
-                                Colors.blue.withValues(alpha: 0.8),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(
-                            Icons.edit,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Editar',
-                          style: TextStyle(
-                            color: ElegantLightTheme.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              PopupMenuItem(
-                value: 'print',
-                child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 2),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.glassGradient,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: Colors.grey.withValues(alpha: 0.4),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.grey.shade600,
-                              Colors.grey.shade500,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Icon(
-                          Icons.print,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Imprimir',
-                        style: TextStyle(
-                          color: ElegantLightTheme.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (invoice.status == InvoiceStatus.draft)
-                PopupMenuItem(
-                  value: 'confirm',
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 2),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.glassGradient,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.green.withValues(alpha: 0.4),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.green.withValues(alpha: 0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            gradient: ElegantLightTheme.successGradient,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(
-                            Icons.check_circle,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Confirmar',
-                          style: TextStyle(
-                            color: ElegantLightTheme.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (invoice.canBeCancelled)
-                PopupMenuItem(
-                  value: 'cancel',
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 2),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.glassGradient,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.orange.withValues(alpha: 0.4),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.orange.withValues(alpha: 0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            gradient: ElegantLightTheme.warningGradient,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(
-                            Icons.cancel,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Cancelar',
-                          style: TextStyle(
-                            color: ElegantLightTheme.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (invoice.canBeEdited)
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 2),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.glassGradient,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.red.withValues(alpha: 0.4),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.red.withValues(alpha: 0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            gradient: ElegantLightTheme.errorGradient,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(
-                            Icons.delete,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Eliminar',
-                          style: TextStyle(
-                            color: ElegantLightTheme.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
       ),
     );
   }

@@ -193,7 +193,7 @@ class IsarProduct {
       prices:
           model.prices?.map((p) => IsarProductPrice.fromModel(p)).toList() ??
           [],
-      taxCategory: _mapTaxCategoryFromString(model.taxCategory),
+      taxCategory: mapTaxCategoryFromString(model.taxCategory),
       taxRate: model.taxRate,
       isTaxable: model.isTaxable,
       taxDescription: model.taxDescription,
@@ -334,7 +334,7 @@ class IsarProduct {
     }
   }
 
-  static IsarTaxCategory _mapTaxCategoryFromString(String value) {
+  static IsarTaxCategory mapTaxCategoryFromString(String value) {
     switch (value.toUpperCase()) {
       case 'INC':
         return IsarTaxCategory.inc;
@@ -347,6 +347,21 @@ class IsarProduct {
       case 'IVA':
       default:
         return IsarTaxCategory.iva;
+    }
+  }
+
+  static String mapIsarTaxCategoryToString(IsarTaxCategory category) {
+    switch (category) {
+      case IsarTaxCategory.iva:
+        return 'IVA';
+      case IsarTaxCategory.inc:
+        return 'INC';
+      case IsarTaxCategory.incBolsa:
+        return 'INC_BOLSA';
+      case IsarTaxCategory.exento:
+        return 'EXENTO';
+      case IsarTaxCategory.noGravado:
+        return 'NO_GRAVADO';
     }
   }
 

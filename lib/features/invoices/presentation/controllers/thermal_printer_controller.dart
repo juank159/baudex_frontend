@@ -5,6 +5,7 @@ import 'package:image/image.dart' as img;
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -12,6 +13,7 @@ import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart' as esc_pos;
 import 'package:esc_pos_printer_plus/esc_pos_printer_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:isar/isar.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/invoice.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/data/local/isar_database.dart';
@@ -522,7 +524,8 @@ class ThermalPrinterController extends GetxController {
 
       // ✅ NUEVA LÓGICA: Usar configuración de impresora
       if (printerConfig != null) {
-        if (printerConfig.connectionType == settings.PrinterConnectionType.usb) {
+        if (printerConfig.connectionType ==
+            settings.PrinterConnectionType.usb) {
           print('🔌 Impresión USB configurada');
           success = await _printViaUSB(invoice);
         } else {
@@ -1281,7 +1284,8 @@ class ThermalPrinterController extends GetxController {
     }
   }
 
-  /// Cargar logo desde URL de la organización con cache
+  /// Cargar logo desde archivo local (guardado en configuración de organización)
+  /// Usa dart:ui para decodificar cualquier formato (AVIF, HEIF, WebP, PNG, JPG, etc.)
   Future<img.Image?> _loadLogoImage() async {
     try {
       // Cache válido → retornar inmediatamente
@@ -1291,68 +1295,92 @@ class ThermalPrinterController extends GetxController {
         }
       }
 
-      // Obtener URL del logo de la organización
-      final logoUrl = _cachedOrganization?.logo;
-      if (logoUrl == null || logoUrl.isEmpty) return null;
+      // 1. Buscar logo local guardado por el diálogo de organización
+      final orgId = _cachedOrganization?.id;
+      if (orgId == null) return null;
 
-      // Construir URL completa si es relativa
-      String fullUrl = logoUrl;
-      if (!logoUrl.startsWith('http')) {
-        final baseUrl = _cachedOrganization?.settings?['serverUrl'] as String? ?? '';
-        if (baseUrl.isNotEmpty) {
-          fullUrl = '$baseUrl$logoUrl';
-        } else {
-          return null;
-        }
+      final dir = await getApplicationDocumentsDirectory();
+      final logoPath = '${dir.path}/org_logos/$orgId.png';
+      final logoFile = File(logoPath);
+
+      Uint8List? bytes;
+
+      if (await logoFile.exists()) {
+        print('🖼️ Logo encontrado en archivo local: $logoPath');
+        bytes = await logoFile.readAsBytes();
+      } else {
+        // 2. Fallback: intentar descargar desde URL del servidor
+        final logoUrl = _cachedOrganization?.logo;
+        if (logoUrl == null || logoUrl.isEmpty) return null;
+
+        String fullUrl = logoUrl;
+        if (!logoUrl.startsWith('http')) return null;
+
+        print('🌐 Descargando logo desde: $fullUrl');
+        final client = HttpClient();
+        client.connectionTimeout = const Duration(seconds: 5);
+        final request = await client.getUrl(Uri.parse(fullUrl));
+        final response = await request.close();
+        if (response.statusCode != 200) return null;
+        bytes = await consolidateHttpClientResponseBytes(response);
       }
 
-      // Descargar imagen
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 5);
-      final request = await client.getUrl(Uri.parse(fullUrl));
-      final response = await request.close();
+      if (bytes == null || bytes.isEmpty) return null;
 
-      if (response.statusCode != 200) return null;
+      // Paso 1: dart:ui decodifica CUALQUIER formato (AVIF, HEIF, WebP, PNG, JPG)
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      print(
+        '🖼️ Logo decodificado: ${frameInfo.image.width}x${frameInfo.image.height}',
+      );
 
-      final bytes = await consolidateHttpClientResponseBytes(response);
-      final originalImage = img.decodeImage(bytes);
-      if (originalImage == null) return null;
+      // Paso 2: Convertir a PNG bytes (formato universal, buffer mutable)
+      final ByteData? pngData = await frameInfo.image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      frameInfo.image.dispose();
 
-      // Procesar para impresora térmica
+      if (pngData == null) {
+        print('⚠️ No se pudo convertir logo a PNG');
+        return null;
+      }
+
+      // Paso 3: Decodificar PNG con paquete image (crea buffer mutable)
+      final originalImage = img.decodePng(pngData.buffer.asUint8List());
+      if (originalImage == null) {
+        print('⚠️ No se pudo decodificar PNG del logo');
+        return null;
+      }
+
+      // Paso 4: Redimensionar
       final resized = img.copyResize(
         originalImage,
-        width: 480,
-        height: -1,
-        interpolation: img.Interpolation.nearest,
+        width: 300,
+        interpolation: img.Interpolation.linear,
       );
-      final processed = _processImageForThermal(resized);
 
-      _cachedLogo = processed;
+      print('🖼️ Logo listo para impresora: ${resized.width}x${resized.height}');
+
+      _cachedLogo = resized;
       _logoLoadTime = DateTime.now();
 
-      return processed;
+      return resized;
     } catch (e) {
       print('⚠️ Logo no disponible: $e');
       return null;
     }
   }
 
-  /// Procesar imagen para impresión térmica óptima
-  img.Image _processImageForThermal(img.Image image) {
-    // Convertir a escala de grises
-    final img.Image grayImage = img.grayscale(image);
-
-    // Aumentar contraste para mejor definición en impresora térmica
-    final img.Image contrastedImage = img.contrast(grayImage, contrast: 150);
-
-    // Aplicar dithering para mejor calidad en blanco y negro
-    final img.Image ditheredImage = img.monochrome(contrastedImage);
-
-    return ditheredImage;
-  }
-
-  /// Verificar si hay logo disponible (desde URL de organización)
+  /// Verificar si hay logo disponible (archivo local o URL de organización)
   Future<bool> _hasLogoAvailable() async {
+    // 1. Verificar archivo local
+    final orgId = _cachedOrganization?.id;
+    if (orgId != null) {
+      final dir = await getApplicationDocumentsDirectory();
+      final logoFile = File('${dir.path}/org_logos/$orgId.png');
+      if (await logoFile.exists()) return true;
+    }
+    // 2. Verificar URL del servidor
     final logoUrl = _cachedOrganization?.logo;
     return logoUrl != null && logoUrl.isNotEmpty;
   }
@@ -1392,7 +1420,9 @@ class ThermalPrinterController extends GetxController {
       final img.Image? logo = await _loadLogoImage();
 
       if (logo != null) {
-        printer.image(logo, align: esc_pos.PosAlign.center);
+        // Enviar imagen como raster ESC/POS manualmente
+        // (evita bug de "fixed-length list" en esc_pos_utils_plus + image v4)
+        _sendImageRaw(printer, logo);
         printer.feed(1);
 
         // Datos de la organización
@@ -1425,6 +1455,55 @@ class ThermalPrinterController extends GetxController {
       print('❌ Error imprimiendo logo: $e');
       await _printBusinessHeaderTextOnly(printer);
     }
+  }
+
+  /// Enviar imagen directamente como raster (GS v 0) sin pasar por la librería
+  void _sendImageRaw(NetworkPrinter printer, img.Image image) {
+    final int widthPx = image.width;
+    final int heightPx = image.height;
+    final int widthBytes = (widthPx + 7) ~/ 8;
+
+    // Convertir a 1-bit raster: pixel oscuro = imprimir, pixel claro = no
+    // Usa valores normalizados (0.0-1.0) para compatibilidad con image v4
+    final List<int> rasterData = [];
+    for (int y = 0; y < heightPx; y++) {
+      for (int xByte = 0; xByte < widthBytes; xByte++) {
+        int byte = 0;
+        for (int bit = 0; bit < 8; bit++) {
+          final int x = xByte * 8 + bit;
+          if (x < widthPx) {
+            final pixel = image.getPixel(x, y);
+            final num maxVal = pixel.maxChannelValue;
+            // Alpha blending con fondo blanco (transparente = blanco = no imprimir)
+            final double a = pixel.a / maxVal;
+            if (a < 0.01) continue; // transparente → no imprimir
+            final double r = (pixel.r / maxVal) * a + (1.0 - a);
+            final double g = (pixel.g / maxVal) * a + (1.0 - a);
+            final double b = (pixel.b / maxVal) * a + (1.0 - a);
+            final double luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            if (luminance < 0.5) {
+              byte |= (0x80 >> bit); // pixel oscuro → imprimir punto
+            }
+          }
+        }
+        rasterData.add(byte);
+      }
+    }
+
+    // Centrar imagen: ESC a 1
+    printer.rawBytes(Uint8List.fromList([0x1B, 0x61, 0x01]));
+
+    // Comando GS v 0 (raster bit image)
+    final List<int> cmd = [
+      0x1D, 0x76, 0x30, 0x00, // GS v 0 m=0 (normal density)
+      widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, // xL xH
+      heightPx & 0xFF, (heightPx >> 8) & 0xFF, // yL yH
+    ];
+    cmd.addAll(rasterData);
+    printer.rawBytes(Uint8List.fromList(cmd));
+
+    // Restaurar alineación izquierda: ESC a 0
+    printer.rawBytes(Uint8List.fromList([0x1B, 0x61, 0x00]));
   }
 
   /// Header solo texto (fallback cuando no hay logo)
@@ -1477,7 +1556,7 @@ class ThermalPrinterController extends GetxController {
     bool useMonochrome = true,
     int contrast = 250,
   }) {
-    // Estas configuraciones se pueden usar en _processImageForThermal
+    // Estas configuraciones se pueden usar en el procesamiento de imagen
     print('⚙️ Configuración de imagen actualizada');
     print('   - Ancho máximo: ${maxWidth}px');
     print('   - Monocromo: $useMonochrome');
@@ -1961,14 +2040,14 @@ class ThermalPrinterController extends GetxController {
       );
       printer.feed(1);
       printer.text(
-        'Desarrollado, Impreso yGenerado por Baudex',
+        'Desarrollado, Impreso y Generado por Baudex',
         styles: const esc_pos.PosStyles(
           align: esc_pos.PosAlign.center,
           fontType: esc_pos.PosFontType.fontB,
         ),
       );
       printer.text(
-        'Informacion: 3138448436',
+        'Información: 3138448436',
         styles: const esc_pos.PosStyles(
           align: esc_pos.PosAlign.center,
           fontType: esc_pos.PosFontType.fontB,

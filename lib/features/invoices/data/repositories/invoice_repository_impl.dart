@@ -25,6 +25,7 @@ import '../models/create_invoice_request_model.dart';
 import '../models/update_invoice_request_model.dart';
 import '../models/add_payment_request_model.dart';
 import '../models/invoice_item_model.dart' show CreateInvoiceItemRequestModel;
+import '../../../settings/presentation/controllers/user_preferences_controller.dart';
 
 import '../../../customer_credits/data/models/customer_credit_model.dart'
     show CreateCustomerCreditDto;
@@ -647,6 +648,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         print('🏦 Cuenta bancaria seleccionada: $bankAccountId');
       }
 
+      // Determinar si se debe saltar la validación de stock
+      bool skipStock = false;
+      try {
+        final prefsCtrl = Get.find<UserPreferencesController>();
+        skipStock = !prefsCtrl.validateStockBeforeInvoice || prefsCtrl.allowOverselling;
+      } catch (_) {}
+
       // Convertir parámetros a request model
       final request = CreateInvoiceRequestModel(
         customerId: customerId,
@@ -666,6 +674,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         terms: terms,
         metadata: metadata,
         bankAccountId: bankAccountId,
+        skipStockValidation: skipStock,
       );
 
       final createdInvoice = await remoteDataSource.createInvoice(request);

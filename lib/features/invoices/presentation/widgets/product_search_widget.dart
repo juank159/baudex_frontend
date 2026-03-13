@@ -282,7 +282,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
             if (_showResults && _searchResults.isNotEmpty && _selectedResultIndex >= 0) {
               print('🚫 INTERCEPTANDO Enter - hay selección activa ($_selectedResultIndex)');
               final selectedProduct = _searchResults[_selectedResultIndex];
-              if (selectedProduct.stock > 0) {
+              if (!widget.controller.shouldValidateStock || selectedProduct.stock > 0) {
                 _selectProduct(selectedProduct);
               }
               return KeyEventResult.handled; // ✅ Bloquear propagación
@@ -355,7 +355,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
                 print('🔍 SUBMIT: Hay selección activa ($_selectedResultIndex) - procesando producto seleccionado');
                 // Si hay selección activa, procesar ese producto en lugar de buscar
                 final selectedProduct = _searchResults[_selectedResultIndex];
-                if (selectedProduct.stock > 0) {
+                if (!widget.controller.shouldValidateStock || selectedProduct.stock > 0) {
                   _selectProduct(selectedProduct);
                 }
               }
@@ -401,6 +401,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
     bool isSelected = false,
   }) {
     final hasStock = product.stock > 0;
+    final canSelect = hasStock || !widget.controller.shouldValidateStock;
     final price = product.sellingPrice ?? 0.0;
 
     // Tamaños responsive
@@ -422,13 +423,13 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       child: Material(
         color: isSelected
             ? ElegantLightTheme.primaryBlue.withOpacity(0.08)
-            : hasStock
+            : canSelect
                 ? ElegantLightTheme.surfaceColor
                 : ElegantLightTheme.cardColor,
         borderRadius: BorderRadius.circular(isMobile ? 8 : 10),
         child: InkWell(
           borderRadius: BorderRadius.circular(isMobile ? 8 : 10),
-          onTap: hasStock ? () => _selectProduct(product) : () {
+          onTap: canSelect ? () => _selectProduct(product) : () {
             print('🔊 Producto sin stock: ${product.name}');
           },
           child: Container(
@@ -450,14 +451,14 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
                     width: iconSize,
                     height: iconSize,
                     decoration: BoxDecoration(
-                      gradient: hasStock
+                      gradient: canSelect
                           ? ElegantLightTheme.primaryGradient
                           : ElegantLightTheme.glassGradient,
                       borderRadius: BorderRadius.circular(isMobile ? 6 : 8),
                     ),
                     child: Icon(
                       Icons.inventory_2,
-                      color: hasStock
+                      color: canSelect
                           ? Colors.white
                           : ElegantLightTheme.textTertiary,
                       size: iconInnerSize,
@@ -477,7 +478,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: nameSize,
-                            color: hasStock
+                            color: canSelect
                                 ? ElegantLightTheme.textPrimary
                                 : ElegantLightTheme.textTertiary,
                           ),
@@ -495,7 +496,7 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: priceSize,
-                                color: hasStock
+                                color: canSelect
                                     ? ElegantLightTheme.primaryBlue
                                     : ElegantLightTheme.textTertiary,
                               ),
@@ -535,13 +536,13 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
                     width: actionSize,
                     height: actionSize,
                     decoration: BoxDecoration(
-                      gradient: hasStock
+                      gradient: canSelect
                           ? ElegantLightTheme.successGradient
                           : ElegantLightTheme.errorGradient,
                       borderRadius: BorderRadius.circular(isMobile ? 6 : 8),
                     ),
                     child: Icon(
-                      hasStock ? Icons.add : Icons.block,
+                      canSelect ? Icons.add : Icons.block,
                       color: Colors.white,
                       size: actionIconSize,
                     ),

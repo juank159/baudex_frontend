@@ -18,6 +18,13 @@ import 'services/password_validation_service.dart';
 import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
 import '../features/settings/presentation/bindings/settings_binding.dart';
+import '../features/settings/data/datasources/user_preferences_remote_datasource.dart';
+import '../features/settings/data/datasources/user_preferences_local_datasource.dart';
+import '../features/settings/data/repositories/user_preferences_repository_impl.dart';
+import '../features/settings/domain/repositories/user_preferences_repository.dart';
+import '../features/settings/domain/usecases/get_user_preferences_usecase.dart';
+import '../features/settings/domain/usecases/update_user_preferences_usecase.dart';
+import '../features/settings/presentation/controllers/user_preferences_controller.dart';
 import 'data/local/sync_service.dart';
 import 'data/local/full_sync_service.dart';
 import 'core/services/conflict_resolver.dart';
@@ -110,6 +117,9 @@ class InitialBinding implements Bindings {
 
     // ==================== SUBSCRIPTION SERVICES ====================
     _registerSubscriptionServices();
+
+    // ==================== USER PREFERENCES ====================
+    _registerUserPreferences();
 
     print('✅ SimpleAppBinding: Dependencias básicas registradas exitosamente');
   }
@@ -537,6 +547,52 @@ class InitialBinding implements Bindings {
       print('✅ Servicios de suscripción registrados');
     } catch (e) {
       print('⚠️ Error al registrar servicios de suscripción: $e');
+    }
+  }
+
+  void _registerUserPreferences() {
+    try {
+      Get.lazyPut<UserPreferencesRemoteDataSource>(
+        () => UserPreferencesRemoteDataSourceImpl(
+          dioClient: Get.find<DioClient>(),
+        ),
+        fenix: true,
+      );
+
+      Get.lazyPut<UserPreferencesLocalDataSource>(
+        () => UserPreferencesLocalDataSourceImpl(),
+        fenix: true,
+      );
+
+      Get.lazyPut<UserPreferencesRepository>(
+        () => UserPreferencesRepositoryImpl(
+          remoteDataSource: Get.find<UserPreferencesRemoteDataSource>(),
+          localDataSource: Get.find<UserPreferencesLocalDataSource>(),
+          networkInfo: Get.find<NetworkInfo>(),
+        ),
+        fenix: true,
+      );
+
+      Get.lazyPut(
+        () => GetUserPreferencesUseCase(Get.find<UserPreferencesRepository>()),
+        fenix: true,
+      );
+      Get.lazyPut(
+        () => UpdateUserPreferencesUseCase(Get.find<UserPreferencesRepository>()),
+        fenix: true,
+      );
+
+      Get.put<UserPreferencesController>(
+        UserPreferencesController(
+          getUserPreferencesUseCase: Get.find<GetUserPreferencesUseCase>(),
+          updateUserPreferencesUseCase: Get.find<UpdateUserPreferencesUseCase>(),
+        ),
+        permanent: true,
+      );
+
+      print('✅ UserPreferencesController registrado permanentemente');
+    } catch (e) {
+      print('⚠️ Error al registrar UserPreferences: $e');
     }
   }
 }

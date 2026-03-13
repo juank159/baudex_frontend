@@ -1,5 +1,6 @@
 // lib/features/settings/presentation/widgets/edit_organization_dialog.dart
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1272,7 +1273,21 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog>
     final logoDir = Directory('${dir.path}/org_logos');
     if (!await logoDir.exists()) await logoDir.create(recursive: true);
     final destPath = '${logoDir.path}/${widget.organization.id}.png';
-    await file.copy(destPath);
+
+    // Convertir a PNG real independientemente del formato original
+    // (AVIF, HEIF, WebP, JPG, etc. → PNG)
+    // dart:ui usa los codecs nativos del SO para decodificar cualquier formato
+    final bytes = await file.readAsBytes();
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frameInfo = await codec.getNextFrame();
+    final pngByteData = await frameInfo.image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    frameInfo.image.dispose();
+
+    if (pngByteData != null) {
+      await File(destPath).writeAsBytes(pngByteData.buffer.asUint8List());
+    }
   }
 
   Future<void> _deleteLogoLocally() async {
