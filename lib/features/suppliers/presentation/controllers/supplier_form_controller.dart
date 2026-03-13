@@ -511,8 +511,8 @@ class SupplierFormController extends GetxController {
           colorText: Colors.green.shade800,
         );
 
-        // Volver a la lista y forzar refresco
-        Get.offAllNamed('/suppliers');
+        // Volver a la lista (ya está en el stack)
+        Get.back();
       },
     );
   }
@@ -606,8 +606,8 @@ class SupplierFormController extends GetxController {
           colorText: Colors.green.shade800,
         );
 
-        // Volver a la lista y forzar refresco
-        Get.offAllNamed('/suppliers');
+        // Volver a la lista (ya está en el stack)
+        Get.back();
       },
     );
   }

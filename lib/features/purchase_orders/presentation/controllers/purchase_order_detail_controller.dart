@@ -230,7 +230,7 @@ class PurchaseOrderDetailController extends GetxController {
               } catch (e) {
                 print('⚠️ No se pudo refrescar la lista: $e');
               }
-              Get.offAllNamed('/purchase-orders');
+              Get.back();
             }
           });
         },
@@ -442,7 +442,7 @@ class PurchaseOrderDetailController extends GetxController {
           // para asegurar que los snackbars se muestren correctamente
           Future.delayed(const Duration(milliseconds: 1500), () {
             if (Get.isRegistered<PurchaseOrderDetailController>()) {
-              Get.offAllNamed('/purchase-orders');
+              Get.back();
             }
           });
         },

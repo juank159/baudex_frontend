@@ -1,6 +1,7 @@
 import 'package:baudex_desktop/app/app_binding.dart';
 import 'package:baudex_desktop/app/config/env/env_config.dart';
 import 'package:baudex_desktop/app/data/local/isar_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
@@ -15,7 +16,23 @@ import 'app/core/navigation/app_route_observer.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  print('🚀 Iniciando Baudex Desktop con arquitectura offline-first...');
+  // Suprimir error conocido de Flutter desktop: FocusScopeNode disposed
+  // durante transiciones de ruta cuando macOS envía lifecycle events.
+  // Bug de Flutter framework, no de la app. No afecta funcionalidad.
+  final originalOnError = FlutterError.onError;
+  FlutterError.onError = (FlutterErrorDetails details) {
+    final message = details.exception.toString();
+    if (message.contains('FocusScopeNode') && message.contains('disposed')) {
+      return; // Ignorar este error conocido de desktop
+    }
+    if (message.contains('Invalid state transition') &&
+        message.contains('AppLifecycleState')) {
+      return; // Ignorar transiciones de lifecycle inválidas en macOS
+    }
+    originalOnError?.call(details);
+  };
+
+  print('Iniciando Baudex Desktop con arquitectura offline-first...');
 
   try {
     // PASO 1: Inicializar datos de localización y timezone

@@ -109,7 +109,7 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, size: 20),
-        onPressed: () => Get.offAllNamed(AppRoutes.customers),
+        onPressed: () => Get.back(),
       ),
       actions: [
         const SyncStatusIcon(),
@@ -2133,7 +2133,7 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
             CustomButton(
               text: 'Volver a Clientes',
               icon: Icons.arrow_back,
-              onPressed: () => Get.offAllNamed('/customers'),
+              onPressed: () => Get.back(),
             ),
           ],
         ),

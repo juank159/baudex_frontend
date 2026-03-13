@@ -1607,7 +1607,7 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
       if (Get.isRegistered<EnhancedExpensesController>()) {
         Get.find<EnhancedExpensesController>().refreshExpenses();
       }
-      Get.offAllNamed(AppRoutes.expenses);
+      Get.back();
     }
   }
 
@@ -1644,7 +1644,7 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
       if (Get.isRegistered<EnhancedExpensesController>()) {
         Get.find<EnhancedExpensesController>().refreshExpenses();
       }
-      Get.offAllNamed(AppRoutes.expenses);
+      Get.back();
     }
   }
 

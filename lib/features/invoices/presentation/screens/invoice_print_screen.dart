@@ -64,7 +64,7 @@ class InvoicePrintScreen extends StatelessWidget {
         icon: const Icon(Icons.arrow_back),
         onPressed: () {
           // Navega directamente al dashboard y elimina el historial
-          Get.offAllNamed(AppRoutes.invoices);
+          Get.back();
         },
       ),
       actions: [

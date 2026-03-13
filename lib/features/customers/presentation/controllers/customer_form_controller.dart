@@ -450,11 +450,7 @@ class CustomerFormController extends GetxController {
         // Refrescar listado de clientes para que aparezca el nuevo
         _refreshCustomersList();
 
-        if (Get.currentRoute.contains('/customers/create')) {
-          Get.offAllNamed('/customers');
-        } else {
-          Get.back(result: customer);
-        }
+        Get.back(result: customer);
       },
     );
   }
@@ -515,7 +511,7 @@ class CustomerFormController extends GetxController {
         // Refrescar listado de clientes para que refleje los cambios
         _refreshCustomersList();
 
-        Get.offAllNamed('/customers/detail/${customer.id}');
+        Get.back(result: customer);
       },
     );
   }

@@ -891,11 +891,9 @@ class AppDrawer extends GetWidget<AppDrawerController> {
       return;
     }
 
-    // Cerrar el drawer
-    Navigator.pop(context);
-
     // Ejecutar acción personalizada si existe
     if (item.onTap != null) {
+      Navigator.pop(context);
       item.onTap!();
       return;
     }
@@ -905,24 +903,32 @@ class AppDrawer extends GetWidget<AppDrawerController> {
       final currentRoute = Get.currentRoute;
       if (currentRoute != item.route) {
         try {
-          Get.toNamed(item.route!);
+          // offAllNamed remueve TODAS las rutas (incluyendo el drawer modal)
+          // y pone la nueva ruta como única. Esto evita:
+          // 1. Navigator locked (no hay Navigator.pop previo)
+          // 2. Stack infinito de rutas
+          // 3. FocusScopeNode disposed errors
+          Get.offAllNamed(item.route!);
         } catch (e) {
-          print('❌ Error al navegar a ${item.route}: $e');
+          print('Error al navegar a ${item.route}: $e');
           Get.snackbar(
-            'Error de Navegación',
-            'No se pudo acceder a ${item.title}. La pantalla aún no está disponible.',
+            'Error de Navegacion',
+            'No se pudo acceder a ${item.title}.',
             snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.orange.shade100,
             colorText: Colors.orange.shade800,
             icon: const Icon(Icons.warning, color: Colors.orange),
           );
         }
+      } else {
+        // Ya estamos en esta ruta, solo cerrar drawer
+        Navigator.pop(context);
       }
     } else {
-      // Mostrar mensaje si la ruta no está disponible
+      Navigator.pop(context);
       Get.snackbar(
-        'Próximamente',
-        '${item.title} estará disponible pronto.',
+        'Proximamente',
+        '${item.title} estara disponible pronto.',
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.blue.shade100,
         colorText: Colors.blue.shade800,
@@ -1395,7 +1401,7 @@ class AppDrawer extends GetWidget<AppDrawerController> {
   void _handleUserAction(String action, AuthController authController) {
     switch (action) {
       case 'profile':
-        Get.toNamed(AppRoutes.profile);
+        Get.offAllNamed(AppRoutes.profile);
         break;
       case 'settings':
         // TODO: Implementar pantalla de configuración de usuario

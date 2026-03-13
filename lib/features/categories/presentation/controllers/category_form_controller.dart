@@ -1036,7 +1036,7 @@ class CategoryFormController extends GetxController {
 
         // Pequeño delay para que se complete el refresh
         Future.delayed(const Duration(milliseconds: 500), () {
-          Get.offAllNamed('/categories');
+          Get.back();
         });
       },
     );
@@ -1083,7 +1083,7 @@ class CategoryFormController extends GetxController {
 
         // Pequeño delay para que se complete el refresh
         Future.delayed(const Duration(milliseconds: 500), () {
-          Get.offAllNamed('/categories');
+          Get.back();
         });
       },
     );

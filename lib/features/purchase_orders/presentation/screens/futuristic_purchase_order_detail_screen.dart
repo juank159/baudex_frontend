@@ -648,7 +648,7 @@ class FuturisticPurchaseOrderDetailScreen
             FuturisticButton(
               text: 'Volver al listado',
               icon: Icons.arrow_back,
-              onPressed: () => Get.offAllNamed('/purchase-orders'),
+              onPressed: () => Get.back(),
             ),
           ],
         ),

@@ -2347,7 +2347,7 @@ class InvoiceFormController extends GetxController {
       },
       (invoice) {
         _showSuccessWithStatus('Factura actualizada exitosamente', status);
-        Get.offAndToNamed('/invoices/detail/${invoice.id}');
+        Get.back(result: invoice);
         return invoice; // ✅ RETORNAR LA FACTURA ACTUALIZADA
       },
     );

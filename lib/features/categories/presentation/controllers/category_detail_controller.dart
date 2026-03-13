@@ -266,7 +266,7 @@ class CategoryDetailController extends GetxController
   /// Navegar a categoría padre
   void goToParentCategory() {
     if (_category.value?.parent != null) {
-      Get.offNamed('/categories/detail/${_category.value!.parent!.id}');
+      Get.toNamed('/categories/detail/${_category.value!.parent!.id}');
     }
   }
 

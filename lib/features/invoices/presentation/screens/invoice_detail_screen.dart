@@ -170,7 +170,7 @@ class InvoiceDetailScreen extends StatelessWidget {
               FuturisticButton(
                 text: 'Volver a Facturas',
                 icon: Icons.arrow_back,
-                onPressed: () => Get.offAllNamed('/invoices'),
+                onPressed: () => Get.back(),
               ),
             ],
           ),
@@ -202,7 +202,7 @@ class InvoiceDetailScreen extends StatelessWidget {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-        onPressed: () => Get.offAllNamed(AppRoutes.invoices),
+        onPressed: () => Get.back(),
         tooltip: 'Volver a facturas',
       ),
       title: GetBuilder<InvoiceDetailController>(
@@ -3621,7 +3621,7 @@ class InvoiceDetailScreen extends StatelessWidget {
           const SizedBox(height: 24),
           CustomButton(
             text: 'Volver a Facturas',
-            onPressed: () => Get.offAllNamed('/invoices'),
+            onPressed: () => Get.back(),
           ),
         ],
       ),
@@ -3814,7 +3814,7 @@ class InvoiceDetailScreen extends StatelessWidget {
       shadowColor: Colors.black.withValues(alpha: 0.2),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => Get.offAllNamed(AppRoutes.invoices),
+        onPressed: () => Get.back(),
         tooltip: 'Volver a facturas',
       ),
       title: GetBuilder<InvoiceDetailController>(

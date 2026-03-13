@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'app_drawer.dart';
-import '../controllers/app_drawer_controller.dart';
 import '../../core/utils/responsive_helper.dart';
 
 /// Scaffold reutilizable con drawer integrado
@@ -39,9 +38,6 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Asegurar que el drawer controller esté registrado
-    Get.lazyPut<AppDrawerController>(() => AppDrawerController());
-    
     return Scaffold(
       appBar: appBar,
       drawer: includeDrawer ? _buildDrawer(context) : null,

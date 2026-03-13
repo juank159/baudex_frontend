@@ -57,7 +57,7 @@
 //       ),
 //       leading: IconButton(
 //         icon: const Icon(Icons.arrow_back, color: Colors.white),
-//         onPressed: () => Get.offAllNamed(AppRoutes.products),
+//         onPressed: () => Get.back(),
 //       ),
 //       actions: [
 //         IconButton(
@@ -1541,7 +1541,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, size: 20),
-        onPressed: () => Get.offAllNamed(AppRoutes.products),
+        onPressed: () => Get.back(),
       ),
       actions: [
         if (controller.hasProduct) ...[
@@ -3412,7 +3412,7 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
             ElegantButton(
               text: 'Volver a Productos',
               icon: Icons.arrow_back,
-              onPressed: () => Get.offAllNamed(AppRoutes.products),
+              onPressed: () => Get.back(),
             ),
           ],
         ),

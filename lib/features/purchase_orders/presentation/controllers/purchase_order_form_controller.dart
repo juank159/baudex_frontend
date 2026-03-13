@@ -776,13 +776,7 @@ class PurchaseOrderFormController extends GetxController
       );
 
       // Navegar a la lista con parámetro para indicar que hay una nueva orden
-      Get.offAllNamed(
-        '/purchase-orders',
-        parameters: {
-          'newOrderId': createdOrder.id,
-          'action': isEditMode.value ? 'updated' : 'created',
-        },
-      );
+      Get.back();
 
       // Esperar un momento para que la navegación complete
       await Future.delayed(const Duration(milliseconds: 500));

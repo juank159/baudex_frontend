@@ -851,12 +851,12 @@ class ProductFormController extends GetxController {
 
         // ✅ CAMBIO: Navegar a la lista de productos y refrescar datos
         if (Get.currentRoute.contains('/products/create')) {
-          // ✅ MEJORADO: Navegar con pequeño delay para evitar errores de disposal
+          // Volver al listado (ya está en el stack)
           Future.delayed(const Duration(milliseconds: 50), () {
-            Get.offAllNamed('/products');
+            Get.back();
           });
 
-          // Limpiar filtros y refrescar la lista después de la navegación
+          // Refrescar la lista después de la navegación
           Future.delayed(const Duration(milliseconds: 150), () {
             try {
               // Verificar si el controller ya existe antes de buscarlo
@@ -995,12 +995,12 @@ class ProductFormController extends GetxController {
 
           _showSuccess('Producto actualizado exitosamente');
 
-          // ✅ CAMBIO: Navegar con pequeño delay para evitar errores de disposal
+          // Volver al listado (ya está en el stack)
           Future.delayed(const Duration(milliseconds: 50), () {
-            Get.offAllNamed('/products');
+            Get.back();
           });
 
-          // Limpiar filtros y refrescar la lista después de la navegación
+          // Refrescar la lista después de la navegación
           Future.delayed(const Duration(milliseconds: 150), () {
             try {
               // Verificar si el controller ya existe antes de buscarlo

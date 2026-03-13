@@ -545,7 +545,7 @@ class CreateTransferController extends GetxController {
           );
           
           // Navigate to transfers list and refresh data
-          Get.offNamed('/inventory/transfers');
+          Get.back();
           
           // Ensure the transfers controller refreshes its data
           try {
