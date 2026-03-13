@@ -2243,7 +2243,7 @@ class SyncService extends GetxService {
           // ✅ FASE 1 - PROBLEMA 3: Leer datos frescos de ISAR para categorías offline
           Map<String, dynamic> finalData = data;
 
-          if (operation.entityId.startsWith('cat_')) {
+          if (operation.entityId.startsWith('category_offline_')) {
             AppLogger.d(
               'Categoría offline detectada - leyendo datos actuales de ISAR',
               tag: 'SYNC',
@@ -2307,7 +2307,7 @@ class SyncService extends GetxService {
           );
 
           // ✅ Actualizar ISAR con el ID real del servidor
-          if (operation.entityId.startsWith('cat_')) {
+          if (operation.entityId.startsWith('category_offline_')) {
             try {
               final isar = IsarDatabase.instance.database;
               final isarCategory = await isar.isarCategorys
@@ -2342,6 +2342,54 @@ class SyncService extends GetxService {
                     op.operationType == SyncOperationType.update) {
                   await _isarDatabase.deleteSyncOperation(op.id);
                 }
+              }
+
+              // --- REFERENCE RESOLUTION: Actualizar productos que referencian esta categoría offline ---
+              try {
+                final oldCategoryId = operation.entityId;
+                final newCategoryId = createdCategory.id;
+
+                // 1. Actualizar IsarProducts en ISAR
+                final productsWithOldCategory = await isar.isarProducts
+                    .filter()
+                    .categoryIdEqualTo(oldCategoryId)
+                    .findAll();
+
+                if (productsWithOldCategory.isNotEmpty) {
+                  await isar.writeTxn(() async {
+                    for (final product in productsWithOldCategory) {
+                      product.categoryId = newCategoryId;
+                      await isar.isarProducts.put(product);
+                    }
+                  });
+                  AppLogger.i(
+                    'Actualizados ${productsWithOldCategory.length} productos: categoryId $oldCategoryId → $newCategoryId',
+                    tag: 'SYNC',
+                  );
+                }
+
+                // 2. Actualizar payloads de SyncQueue pendientes de Product
+                final allPendingOps = await _isarDatabase.getPendingSyncOperations();
+                for (final op in allPendingOps) {
+                  if (op.entityType == 'Product' || op.entityType == 'product') {
+                    try {
+                      final payload = jsonDecode(op.payload);
+                      if (payload['categoryId'] == oldCategoryId) {
+                        payload['categoryId'] = newCategoryId;
+                        await _isarDatabase.updateSyncOperationPayload(
+                          op.id,
+                          jsonEncode(payload),
+                        );
+                        AppLogger.d(
+                          'Payload actualizado para producto ${op.entityId}: categoryId → $newCategoryId',
+                          tag: 'SYNC',
+                        );
+                      }
+                    } catch (_) {}
+                  }
+                }
+              } catch (e) {
+                AppLogger.w('Error en reference resolution category→product: $e', tag: 'SYNC');
               }
             } catch (e) {
               AppLogger.w('Error actualizando categoría en ISAR: $e', tag: 'SYNC');
@@ -2382,6 +2430,26 @@ class SyncService extends GetxService {
           );
           await remoteDataSource.deleteCategory(operation.entityId);
           AppLogger.i('Categoría eliminada en servidor', tag: 'SYNC');
+
+          // Limpiar categoría de ISAR después de eliminar en servidor
+          try {
+            final isar = IsarDatabase.instance.database;
+            final isarCategory = await isar.isarCategorys
+                .filter()
+                .serverIdEqualTo(operation.entityId)
+                .findFirst();
+            if (isarCategory != null) {
+              await isar.writeTxn(() async {
+                await isar.isarCategorys.delete(isarCategory.id);
+              });
+              AppLogger.d(
+                'Categoría eliminada de ISAR: ${operation.entityId}',
+                tag: 'SYNC',
+              );
+            }
+          } catch (e) {
+            AppLogger.w('Error limpiando categoría de ISAR: $e', tag: 'SYNC');
+          }
           break;
 
         default:

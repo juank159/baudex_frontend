@@ -994,10 +994,10 @@ class FullSyncService extends GetxService {
         getId: (e) => e.id,
       );
 
-      // Categories: prefix 'cat_'
+      // Categories: prefix 'category_offline_'
       totalCleaned += await _cleanupEntity<IsarCategory>(
         collection: _isar.isarCategorys,
-        prefix: 'cat_',
+        prefix: 'category_offline_',
         pendingIds: pendingEntityIds,
         getServerId: (e) => e.serverId,
         getId: (e) => e.id,
