@@ -933,9 +933,11 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     DateTime? paymentDate,
     String? reference,
     String? notes,
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) async {
     if (!(await networkInfo.isConnected)) {
-      // ✅ Fallback offline: delegar al repositorio offline
       if (offlineRepository != null) {
         print('📱 Sin conexión - procesando pago offline para factura $invoiceId');
         networkInfo.markServerUnreachable();
@@ -947,6 +949,9 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
           paymentDate: paymentDate,
           reference: reference,
           notes: notes,
+          paymentCurrency: paymentCurrency,
+          paymentCurrencyAmount: paymentCurrencyAmount,
+          exchangeRate: exchangeRate,
         );
       }
       return const Left(
@@ -962,6 +967,9 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         paymentDate: paymentDate?.toIso8601String(),
         reference: reference,
         notes: notes,
+        paymentCurrency: paymentCurrency,
+        paymentCurrencyAmount: paymentCurrencyAmount,
+        exchangeRate: exchangeRate,
       );
 
       final updatedInvoice = await remoteDataSource.addPayment(
@@ -1020,6 +1028,9 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         bankAccountId: p.bankAccountId,
         reference: p.reference,
         notes: p.notes,
+        paymentCurrency: p.paymentCurrency,
+        paymentCurrencyAmount: p.paymentCurrencyAmount,
+        exchangeRate: p.exchangeRate,
       )).toList();
 
       final request = AddMultiplePaymentsRequestModel(

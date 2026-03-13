@@ -3730,6 +3730,13 @@ class SyncService extends GetxService {
               paymentDate: data['paymentDate'],
               reference: data['reference'],
               notes: data['notes'],
+              paymentCurrency: data['paymentCurrency'],
+              paymentCurrencyAmount: data['paymentCurrencyAmount'] != null
+                  ? (data['paymentCurrencyAmount'] as num).toDouble()
+                  : null,
+              exchangeRate: data['exchangeRate'] != null
+                  ? (data['exchangeRate'] as num).toDouble()
+                  : null,
             );
 
             final updatedInvoice = await remoteDataSource.addPayment(

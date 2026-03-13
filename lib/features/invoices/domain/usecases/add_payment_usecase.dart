@@ -19,6 +19,9 @@ class AddPaymentUseCase implements UseCase<Invoice, AddPaymentParams> {
       paymentDate: params.paymentDate,
       reference: params.reference,
       notes: params.notes,
+      paymentCurrency: params.paymentCurrency,
+      paymentCurrencyAmount: params.paymentCurrencyAmount,
+      exchangeRate: params.exchangeRate,
     );
   }
 }
@@ -31,6 +34,10 @@ class AddPaymentParams {
   final DateTime? paymentDate;
   final String? reference;
   final String? notes;
+  // Multi-moneda
+  final String? paymentCurrency;
+  final double? paymentCurrencyAmount;
+  final double? exchangeRate;
 
   const AddPaymentParams({
     required this.invoiceId,
@@ -40,5 +47,8 @@ class AddPaymentParams {
     this.paymentDate,
     this.reference,
     this.notes,
+    this.paymentCurrency,
+    this.paymentCurrencyAmount,
+    this.exchangeRate,
   });
 }

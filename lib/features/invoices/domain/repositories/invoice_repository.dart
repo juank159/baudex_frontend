@@ -100,6 +100,10 @@ abstract class InvoiceRepository {
     DateTime? paymentDate,
     String? reference,
     String? notes,
+    // Multi-moneda
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   });
 
   /// Agregar múltiples pagos a factura (pagos divididos entre métodos)
@@ -243,9 +247,13 @@ class PaymentItemData {
   final double amount;
   final PaymentMethod paymentMethod;
   final String? bankAccountId;
-  final String? bankAccountName; // Para mostrar en UI
+  final String? bankAccountName;
   final String? reference;
   final String? notes;
+  // Multi-moneda
+  final String? paymentCurrency;
+  final double? paymentCurrencyAmount;
+  final double? exchangeRate;
 
   const PaymentItemData({
     required this.amount,
@@ -254,6 +262,9 @@ class PaymentItemData {
     this.bankAccountName,
     this.reference,
     this.notes,
+    this.paymentCurrency,
+    this.paymentCurrencyAmount,
+    this.exchangeRate,
   });
 
   bool get isValid => amount > 0;

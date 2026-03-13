@@ -838,6 +838,9 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
     DateTime? paymentDate,
     String? reference,
     String? notes,
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) async {
     AppLogger.d('InvoiceOfflineRepository: addPayment offline invoiceId=$invoiceId amount=$amount');
     try {
@@ -894,6 +897,9 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
         createdById: createdById,
         organizationId: organizationId,
         bankAccountId: bankAccountId,
+        paymentCurrency: paymentCurrency,
+        paymentCurrencyAmount: paymentCurrencyAmount,
+        exchangeRate: exchangeRate,
         createdAt: now,
         updatedAt: now,
       );
@@ -930,6 +936,9 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
             'bankAccountId': bankAccountId,
             'paymentDate': (paymentDate ?? now).toIso8601String(),
             'reference': reference,
+            if (paymentCurrency != null) 'paymentCurrency': paymentCurrency,
+            if (paymentCurrencyAmount != null) 'paymentCurrencyAmount': paymentCurrencyAmount,
+            if (exchangeRate != null) 'exchangeRate': exchangeRate,
             'notes': notes,
           },
           organizationId: organizationId,
@@ -1147,6 +1156,11 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
           _normalizePaymentMethodName(methodName),
         );
 
+        // Multi-moneda del pago individual
+        final payCurrency = paymentData['paymentCurrency'] as String?;
+        final payCurrencyAmount = (paymentData['paymentCurrencyAmount'] as num?)?.toDouble();
+        final payExchangeRate = (paymentData['exchangeRate'] as num?)?.toDouble();
+
         paymentRecords.add(InvoicePayment(
           id: 'payment_offline_${now.millisecondsSinceEpoch}_${i}_${invoiceId.hashCode}',
           amount: amount,
@@ -1158,6 +1172,9 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
           createdById: createdById,
           organizationId: organizationId,
           bankAccountId: payBankAccountId,
+          paymentCurrency: payCurrency,
+          paymentCurrencyAmount: payCurrencyAmount,
+          exchangeRate: payExchangeRate,
           createdAt: now,
           updatedAt: now,
         ));
@@ -1168,6 +1185,11 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
                invoiceStatus == InvoiceStatus.partiallyPaid) {
       // Pago simple: crear un registro de pago por el monto correspondiente
       final cashAmount = invoiceTotal - balanceApplied;
+      // Multi-moneda del pago simple (desde metadata)
+      final simpleCurrency = metadata?['paymentCurrency'] as String?;
+      final simpleCurrencyAmount = (metadata?['paymentCurrencyAmount'] as num?)?.toDouble();
+      final simpleExchangeRate = (metadata?['exchangeRate'] as num?)?.toDouble();
+
       if (cashAmount > 0) {
         paymentRecords.add(InvoicePayment(
           id: 'payment_offline_${now.millisecondsSinceEpoch}_${invoiceId.hashCode}',
@@ -1178,6 +1200,9 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
           createdById: createdById,
           organizationId: organizationId,
           bankAccountId: bankAccountId,
+          paymentCurrency: simpleCurrency,
+          paymentCurrencyAmount: simpleCurrencyAmount,
+          exchangeRate: simpleExchangeRate,
           createdAt: now,
           updatedAt: now,
         ));

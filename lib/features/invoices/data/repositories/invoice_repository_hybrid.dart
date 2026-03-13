@@ -547,6 +547,9 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
     DateTime? paymentDate,
     String? reference,
     String? notes,
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) async {
     if (await networkInfo.isConnected) {
       try {
@@ -557,6 +560,9 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
           paymentDate: paymentDate?.toIso8601String(),
           reference: reference,
           notes: notes,
+          paymentCurrency: paymentCurrency,
+          paymentCurrencyAmount: paymentCurrencyAmount,
+          exchangeRate: exchangeRate,
         );
 
         final remoteInvoice = await remoteDataSource.addPayment(

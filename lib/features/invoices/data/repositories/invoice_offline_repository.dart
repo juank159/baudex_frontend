@@ -593,6 +593,9 @@ class InvoiceOfflineRepository implements InvoiceRepository {
     DateTime? paymentDate,
     String? reference,
     String? notes,
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) async {
     try {
       final isarInvoice =
