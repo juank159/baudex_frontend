@@ -552,6 +552,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
 
     final rateController = TextEditingController();
     String? selectedCode;
+    String previewText = '';
 
     Get.dialog(
       StatefulBuilder(
@@ -643,12 +644,26 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      hintText: 'Ej: 4000',
+                      hintText: 'Ej: 4.000',
                       prefixIcon: const Icon(Icons.trending_up),
                       suffixText: baseCurrency,
                     ),
+                    onChanged: (val) {
+                      setDialogState(() {
+                        final parsed = AppFormatters.parseNumber(val);
+                        if (parsed != null && selected != null) {
+                          previewText = AppFormatters.formatExchangeInfo(
+                            selected['code'] as String,
+                            parsed,
+                            baseCurrency,
+                          );
+                        } else {
+                          previewText = '';
+                        }
+                      });
+                    },
                   ),
-                  if (selected != null && rateController.text.isNotEmpty) ...[
+                  if (selected != null && previewText.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -662,9 +677,11 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                           const Icon(Icons.info_outline,
                               size: 16, color: Colors.blue),
                           const SizedBox(width: 8),
-                          Text(
-                            '1 ${selected['code']} = ${rateController.text} $baseCurrency',
-                            style: const TextStyle(fontSize: 13),
+                          Expanded(
+                            child: Text(
+                              previewText,
+                              style: const TextStyle(fontSize: 13),
+                            ),
                           ),
                         ],
                       ),
@@ -683,7 +700,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                     ? null
                     : () async {
                         final rate =
-                            double.tryParse(rateController.text) ?? 0;
+                            AppFormatters.parseNumber(rateController.text) ?? 0;
                         final sel = available.firstWhere(
                             (c) => c['code'] == selectedCode);
                         final success = await controller.addAcceptedCurrency({
@@ -728,83 +745,120 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
     String name,
     double currentRate,
   ) {
-    final rateController =
-        TextEditingController(text: currentRate > 0 ? currentRate.toString() : '');
+    final rateController = TextEditingController(
+      text: currentRate > 0 ? AppFormatters.formatRate(currentRate) : '',
+    );
 
     Get.dialog(
-      AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: ElegantLightTheme.infoGradient,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.edit, color: Colors.white, size: 20),
+      StatefulBuilder(
+        builder: (context, setDialogState) {
+          final parsed = AppFormatters.parseNumber(rateController.text);
+          final previewText = parsed != null && parsed > 0
+              ? AppFormatters.formatExchangeInfo(
+                  code, parsed, controller.baseCurrency)
+              : '';
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(width: 12),
-            Text(
-              'Editar tasa $code',
-              style: const TextStyle(
-                color: ElegantLightTheme.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Tasa por defecto para $name:',
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: rateController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.infoGradient,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child:
+                      const Icon(Icons.edit, color: Colors.white, size: 20),
                 ),
-                hintText: 'Ej: 4000',
-                prefixText: '1 $code = ',
-                suffixText: controller.baseCurrency,
-              ),
-              autofocus: true,
+                const SizedBox(width: 12),
+                Text(
+                  'Editar tasa $code',
+                  style: const TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final rate = double.tryParse(rateController.text) ?? 0;
-              final success =
-                  await controller.updateCurrencyRate(code, rate);
-              if (success) {
-                Get.back();
-                Get.snackbar(
-                  'Tasa actualizada',
-                  'La tasa de $code ha sido actualizada',
-                  snackPosition: SnackPosition.TOP,
-                  backgroundColor: Colors.green.shade100,
-                  colorText: Colors.green.shade800,
-                  icon: const Icon(Icons.check_circle, color: Colors.green),
-                  duration: const Duration(seconds: 2),
-                );
-              }
-            },
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tasa por defecto para $name:',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: rateController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    hintText: 'Ej: 4.000',
+                    prefixText: '1 $code = ',
+                    suffixText: controller.baseCurrency,
+                  ),
+                  autofocus: true,
+                  onChanged: (_) => setDialogState(() {}),
+                ),
+                if (previewText.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: ElegantLightTheme.infoGradient.colors.first
+                          .withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline,
+                            size: 16, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            previewText,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final rate =
+                      AppFormatters.parseNumber(rateController.text) ?? 0;
+                  final success =
+                      await controller.updateCurrencyRate(code, rate);
+                  if (success) {
+                    Get.back();
+                    Get.snackbar(
+                      'Tasa actualizada',
+                      'La tasa de $code ha sido actualizada',
+                      snackPosition: SnackPosition.TOP,
+                      backgroundColor: Colors.green.shade100,
+                      colorText: Colors.green.shade800,
+                      icon: const Icon(Icons.check_circle,
+                          color: Colors.green),
+                      duration: const Duration(seconds: 2),
+                    );
+                  }
+                },
             style: ElevatedButton.styleFrom(
               backgroundColor: ElegantLightTheme.primaryBlue,
               foregroundColor: Colors.white,
@@ -812,9 +866,11 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text('Guardar'),
-          ),
-        ],
+                child: const Text('Guardar'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

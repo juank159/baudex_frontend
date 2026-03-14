@@ -170,6 +170,19 @@ class AppFormatters {
     }
   }
 
+  /// Formatea un número con separadores de miles y decimales opcionales (formato es_CO).
+  /// Útil para tasas de cambio: formatRate(4000) => "4.000", formatRate(0.12) => "0,12"
+  static String formatRate(num? value) {
+    if (value == null) return '';
+    if (value == value.roundToDouble() && value >= 1) {
+      // Entero o sin decimales significativos
+      return numberFormat.format(value);
+    }
+    // Con decimales
+    final decimalFormat = NumberFormat('#,##0.######', 'es_CO');
+    return decimalFormat.format(value);
+  }
+
   // ==================== MULTI-MONEDA ====================
 
   /// Mapa de monedas comunes con símbolo y decimales

@@ -44,6 +44,45 @@ class CurrencyInputFormatter extends TextInputFormatter {
   }
 }
 
+// Formateador para tasas de cambio que permite decimales (ej: 4.000 o 0,12)
+class RateInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    // Permitir dígitos, puntos (miles) y coma (decimal) en formato es_CO
+    String cleaned = newValue.text.replaceAll(RegExp(r'[^\d.,]'), '');
+
+    if (cleaned.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+
+    // Parsear usando AppFormatters (maneja formato es_CO: punto=miles, coma=decimal)
+    final parsed = AppFormatters.parseNumber(cleaned);
+    if (parsed == null) {
+      return oldValue;
+    }
+
+    // Re-formatear con AppFormatters.formatRate
+    String formatted = AppFormatters.formatRate(parsed);
+
+    // Si el usuario acaba de escribir una coma, mantenerla al final
+    if (cleaned.endsWith(',') && !formatted.contains(',')) {
+      formatted = '$formatted,';
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
 /// Clase para manejar tamaños responsive del diálogo
 class _DialogSizeConfig {
   final bool isMobile;
@@ -548,7 +587,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
         );
         final defaultRate = (currencyInfo['defaultRate'] as num?)?.toDouble() ?? 1.0;
         _exchangeRate = defaultRate;
-        _exchangeRateController.text = AppFormatters.formatNumber(defaultRate.round());
+        _exchangeRateController.text = AppFormatters.formatRate(defaultRate);
         _foreignAmountController.clear();
         // Limpiar campo recibido - se llenará cuando el usuario ingrese monto extranjero
         receivedController.clear();
@@ -2738,10 +2777,10 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                       ),
                       child: TextField(
                         controller: _exchangeRateController,
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          CurrencyInputFormatter(),
+                          FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+                          RateInputFormatter(),
                         ],
                         style: TextStyle(
                           fontSize: config.bodySize,
