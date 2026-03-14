@@ -47,14 +47,15 @@ class SettingsBinding extends Bindings {
       print('✅ SettingsLocalDataSource registrado');
     }
 
-    // Organization Remote DataSource
+    // Organization Remote DataSource (permanent: dependencia del repo/controller global)
     if (!Get.isRegistered<OrganizationRemoteDataSource>()) {
-      Get.lazyPut<OrganizationRemoteDataSource>(
-        () => OrganizationRemoteDataSourceImpl(
+      Get.put<OrganizationRemoteDataSource>(
+        OrganizationRemoteDataSourceImpl(
           dioClient: Get.find(),
         ),
+        permanent: true,
       );
-      print('✅ OrganizationRemoteDataSource registrado');
+      print('✅ OrganizationRemoteDataSource registrado (permanent)');
     }
 
     // Printer Settings Remote DataSource
@@ -97,16 +98,17 @@ class SettingsBinding extends Bindings {
       print('✅ SettingsRepository registrado');
     }
 
-    // Organization Repository
+    // Organization Repository (permanent: dependencia de OrganizationController global)
     if (!Get.isRegistered<OrganizationRepository>()) {
-      Get.lazyPut<OrganizationRepository>(
-        () => OrganizationRepositoryImpl(
+      Get.put<OrganizationRepository>(
+        OrganizationRepositoryImpl(
           remoteDataSource: Get.find<OrganizationRemoteDataSource>(),
           networkInfo: Get.find<NetworkInfo>(),
           offlineRepository: OrganizationOfflineRepository(),
         ),
+        permanent: true,
       );
-      print('✅ OrganizationRepository registrado');
+      print('✅ OrganizationRepository registrado (permanent)');
     }
   }
 
@@ -197,14 +199,15 @@ class SettingsBinding extends Bindings {
       print('✅ SettingsController registrado');
     }
 
-    // Organization Controller
+    // Organization Controller (permanent: usado globalmente por suscripción, settings, multi-moneda)
     if (!Get.isRegistered<OrganizationController>()) {
-      Get.lazyPut<OrganizationController>(
-        () => OrganizationController(
+      Get.put<OrganizationController>(
+        OrganizationController(
           Get.find<OrganizationRepository>(),
         ),
+        permanent: true,
       );
-      print('✅ OrganizationController registrado');
+      print('✅ OrganizationController registrado (permanent)');
     }
   }
 
