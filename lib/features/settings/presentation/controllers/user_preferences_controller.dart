@@ -62,12 +62,9 @@ class UserPreferencesController extends GetxController {
 
       result.fold(
         (failure) {
-          _errorMessage.value = failure.message;
-          _showSnackbar(
-            title: 'Error',
-            message: 'No se pudieron cargar las preferencias: ${failure.message}',
-            isError: true,
-          );
+          // No mostrar snackbar si es error de cache/conexión — los getters
+          // ya tienen valores por defecto seguros (autoDeductInventory ?? true, etc.)
+          print('⚠️ UserPreferences: ${failure.message} — usando valores por defecto');
         },
         (preferences) {
           _userPreferences.value = preferences;

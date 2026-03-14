@@ -23,8 +23,8 @@ class UserPreferencesScreen extends StatelessWidget {
           ? _buildLoadingState()
           : MainLayout(
               title: 'Preferencias de Usuario',
-              showBackButton: true,
-              showDrawer: false,
+              showBackButton: false,
+              showDrawer: true,
               actions: _buildAppBarActions(context),
               body: _buildFuturisticContent(context),
             ),
