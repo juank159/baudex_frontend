@@ -7638,6 +7638,9 @@ class MockInvoiceRepository extends _i1.Mock implements _i89.InvoiceRepository {
     DateTime? paymentDate,
     String? reference,
     String? notes,
+    String? paymentCurrency,
+    double? paymentCurrencyAmount,
+    double? exchangeRate,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -7651,6 +7654,9 @@ class MockInvoiceRepository extends _i1.Mock implements _i89.InvoiceRepository {
             #paymentDate: paymentDate,
             #reference: reference,
             #notes: notes,
+            #paymentCurrency: paymentCurrency,
+            #paymentCurrencyAmount: paymentCurrencyAmount,
+            #exchangeRate: exchangeRate,
           },
         ),
         returnValue: _i38.Future<_i5.Either<_i43.Failure, _i90.Invoice>>.value(
@@ -7667,6 +7673,9 @@ class MockInvoiceRepository extends _i1.Mock implements _i89.InvoiceRepository {
               #paymentDate: paymentDate,
               #reference: reference,
               #notes: notes,
+              #paymentCurrency: paymentCurrency,
+              #paymentCurrencyAmount: paymentCurrencyAmount,
+              #exchangeRate: exchangeRate,
             },
           ),
         )),
