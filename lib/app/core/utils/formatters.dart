@@ -106,6 +106,65 @@ class AppFormatters {
     return double.tryParse(cleaned);
   }
 
+  /// Parsea tasas de cambio de forma inteligente, detectando si el punto
+  /// es separador decimal o de miles según el contexto.
+  ///
+  /// Ejemplos:
+  ///   parseRate("0.12")     => 0.12  (punto = decimal, porque empieza con "0.")
+  ///   parseRate("0,12")     => 0.12  (coma = decimal en es_CO)
+  ///   parseRate("4.000")    => 4000  (punto = miles, 3 dígitos después)
+  ///   parseRate("4.000,50") => 4000.5 (punto = miles, coma = decimal)
+  ///   parseRate("1.5")      => 1.5   (punto = decimal, 1 dígito después)
+  ///   parseRate("100.25")   => 100.25 (punto = decimal, 2 dígitos después)
+  static double? parseRate(String? value) {
+    if (value == null || value.isEmpty) return null;
+
+    String cleaned = value.replaceAll(RegExp(r'[\$\s]'), '');
+    if (cleaned.isEmpty) return null;
+
+    // Caso 1: tiene puntos Y comas → formato es_CO completo (1.234,56)
+    if (cleaned.contains('.') && cleaned.contains(',')) {
+      return parseNumber(cleaned);
+    }
+
+    // Caso 2: solo comas, sin puntos → coma es decimal (0,12 o 1.234)
+    if (cleaned.contains(',') && !cleaned.contains('.')) {
+      cleaned = cleaned.replaceAll(',', '.');
+      return double.tryParse(cleaned);
+    }
+
+    // Caso 3: solo puntos, sin comas
+    if (cleaned.contains('.')) {
+      final dotCount = '.'.allMatches(cleaned).length;
+
+      if (dotCount > 1) {
+        // Múltiples puntos = separadores de miles (1.234.567)
+        cleaned = cleaned.replaceAll('.', '');
+        return double.tryParse(cleaned);
+      }
+
+      // Un solo punto → detectar intención
+      final parts = cleaned.split('.');
+
+      // Si la parte izquierda es "0", el punto es decimal (0.12, 0.5)
+      if (parts[0] == '0') {
+        return double.tryParse(cleaned);
+      }
+
+      // Si la parte derecha tiene exactamente 3 dígitos → miles en es_CO (4.000)
+      if (parts[1].length == 3) {
+        cleaned = cleaned.replaceAll('.', '');
+        return double.tryParse(cleaned);
+      }
+
+      // Cualquier otro caso → decimal (1.5, 100.25, 3.14)
+      return double.tryParse(cleaned);
+    }
+
+    // Sin separadores
+    return double.tryParse(cleaned);
+  }
+
   /// Convierte un DateTime a la timezone del tenant antes de formatear
   static DateTime _toTenantTime(DateTime date) {
     try {

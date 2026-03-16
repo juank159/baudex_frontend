@@ -62,8 +62,8 @@ class RateInputFormatter extends TextInputFormatter {
       return const TextEditingValue(text: '');
     }
 
-    // Parsear usando AppFormatters (maneja formato es_CO: punto=miles, coma=decimal)
-    final parsed = AppFormatters.parseNumber(cleaned);
+    // Parsear usando parseRate (detecta inteligentemente punto decimal vs miles)
+    final parsed = AppFormatters.parseRate(cleaned);
     if (parsed == null) {
       return oldValue;
     }
@@ -2802,7 +2802,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
                         onChanged: (value) {
-                          _exchangeRate = AppFormatters.parseNumber(value);
+                          _exchangeRate = AppFormatters.parseRate(value);
                           _recalculateForeignPayment();
                         },
                       ),

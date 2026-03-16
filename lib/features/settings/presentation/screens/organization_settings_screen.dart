@@ -650,7 +650,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                     ),
                     onChanged: (val) {
                       setDialogState(() {
-                        final parsed = AppFormatters.parseNumber(val);
+                        final parsed = AppFormatters.parseRate(val);
                         if (parsed != null && selected != null) {
                           previewText = AppFormatters.formatExchangeInfo(
                             selected['code'] as String,
@@ -700,7 +700,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                     ? null
                     : () async {
                         final rate =
-                            AppFormatters.parseNumber(rateController.text) ?? 0;
+                            AppFormatters.parseRate(rateController.text) ?? 0;
                         final sel = available.firstWhere(
                             (c) => c['code'] == selectedCode);
                         final success = await controller.addAcceptedCurrency({
@@ -752,7 +752,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
     Get.dialog(
       StatefulBuilder(
         builder: (context, setDialogState) {
-          final parsed = AppFormatters.parseNumber(rateController.text);
+          final parsed = AppFormatters.parseRate(rateController.text);
           final previewText = parsed != null && parsed > 0
               ? AppFormatters.formatExchangeInfo(
                   code, parsed, controller.baseCurrency)
@@ -842,7 +842,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
               ElevatedButton(
                 onPressed: () async {
                   final rate =
-                      AppFormatters.parseNumber(rateController.text) ?? 0;
+                      AppFormatters.parseRate(rateController.text) ?? 0;
                   final success =
                       await controller.updateCurrencyRate(code, rate);
                   if (success) {
