@@ -206,10 +206,20 @@ class OrganizationController extends GetxController {
     final org = currentOrganization;
     if (org == null) return false;
 
-    final settings = Map<String, dynamic>.from(org.settings ?? {});
-    settings['multiCurrencyEnabled'] = enabled;
+    final settings = _buildSettings(org);
+    settings['multiCurrencyEnabled'] = enabled; // Sobreescribir con el nuevo valor
 
     return await updateCurrentOrganization({'settings': settings});
+  }
+
+  /// Construye el mapa de settings completo preservando multiCurrencyEnabled.
+  /// Necesario porque ISAR toEntity() hace remove('multiCurrencyEnabled')
+  /// del mapa settings, así que org.settings puede no tenerlo.
+  Map<String, dynamic> _buildSettings(Organization org) {
+    final settings = Map<String, dynamic>.from(org.settings ?? {});
+    // Siempre inyectar desde el campo de la entidad (fuente de verdad)
+    settings['multiCurrencyEnabled'] = org.multiCurrencyEnabled;
+    return settings;
   }
 
   /// Agregar una moneda aceptada
@@ -217,7 +227,7 @@ class OrganizationController extends GetxController {
     final org = currentOrganization;
     if (org == null) return false;
 
-    final settings = Map<String, dynamic>.from(org.settings ?? {});
+    final settings = _buildSettings(org);
     final currencies =
         List<Map<String, dynamic>>.from(settings['acceptedCurrencies'] ?? []);
 
@@ -246,7 +256,7 @@ class OrganizationController extends GetxController {
     final org = currentOrganization;
     if (org == null) return false;
 
-    final settings = Map<String, dynamic>.from(org.settings ?? {});
+    final settings = _buildSettings(org);
     final currencies =
         List<Map<String, dynamic>>.from(settings['acceptedCurrencies'] ?? []);
 
@@ -261,7 +271,7 @@ class OrganizationController extends GetxController {
     final org = currentOrganization;
     if (org == null) return false;
 
-    final settings = Map<String, dynamic>.from(org.settings ?? {});
+    final settings = _buildSettings(org);
     final currencies =
         List<Map<String, dynamic>>.from(settings['acceptedCurrencies'] ?? []);
 

@@ -64,8 +64,8 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                   ? _buildLoadingState()
                   : MainLayout(
                       title: _getResponsiveTitle(context),
-                      showBackButton: true,
-                      showDrawer: false,
+                      showBackButton: false,
+                      showDrawer: true,
                       actions: _buildAppBarActions(context),
                       body: _buildFuturisticContent(context),
                     ),
