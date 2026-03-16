@@ -281,9 +281,9 @@ class AppFormatters {
     return format.format(value);
   }
 
-  /// Muestra info de tasa de cambio: "1 USD = 4,000 COP"
+  /// Muestra info de tasa de cambio: "1 USD = 4.000 COP", "1 VES = 8,26 COP"
   static String formatExchangeInfo(String foreignCode, double rate, String baseCode) {
-    return '1 $foreignCode = ${formatCurrency(rate)} $baseCode';
+    return '1 $foreignCode = ${formatRate(rate)} $baseCode';
   }
 
   /// Obtiene el símbolo de una moneda

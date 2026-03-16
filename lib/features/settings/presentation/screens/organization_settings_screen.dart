@@ -629,10 +629,19 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Tasa de cambio por defecto (1 ${selectedCode ?? '...'} = ? $baseCurrency):',
+                    '¿Cuántos $baseCurrency vale 1 ${selectedCode ?? '...'}?',
                     style: const TextStyle(
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Ej: Si 1 USD = 4.000 $baseCurrency, escribe 4000',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -644,8 +653,8 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      hintText: 'Ej: 4.000',
-                      prefixIcon: const Icon(Icons.trending_up),
+                      hintText: 'Ej: 4.000 o 8,26',
+                      prefixText: '1 ${selectedCode ?? '...'} = ',
                       suffixText: baseCurrency,
                     ),
                     onChanged: (val) {
@@ -789,8 +798,17 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Tasa por defecto para $name:',
+                  '¿Cuántos ${controller.baseCurrency} vale 1 $code?',
                   style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Ej: Si 1 $code = 8,26 ${controller.baseCurrency}, escribe 8,26',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -801,7 +819,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    hintText: 'Ej: 4.000',
+                    hintText: 'Ej: 4.000 o 8,26',
                     prefixText: '1 $code = ',
                     suffixText: controller.baseCurrency,
                   ),

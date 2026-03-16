@@ -588,10 +588,21 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
         final defaultRate = (currencyInfo['defaultRate'] as num?)?.toDouble() ?? 1.0;
         _exchangeRate = defaultRate;
         _exchangeRateController.text = AppFormatters.formatRate(defaultRate);
-        _foreignAmountController.clear();
-        // Limpiar campo recibido - se llenará cuando el usuario ingrese monto extranjero
-        receivedController.clear();
-        canProcess = false;
+
+        // Auto-calcular monto en moneda extranjera desde el total de la factura
+        if (_exchangeRate != null && _exchangeRate! > 0) {
+          // Redondear hacia arriba para cubrir el total completo
+          final foreignAmount = (_effectiveTotal / _exchangeRate!).ceilToDouble();
+          _foreignAmountController.text = AppFormatters.formatNumber(foreignAmount.round());
+          // Calcular equivalente en moneda base
+          final baseAmount = foreignAmount * _exchangeRate!;
+          receivedController.text = AppFormatters.formatNumber(baseAmount.round());
+          _calculateChange();
+        } else {
+          _foreignAmountController.clear();
+          receivedController.clear();
+          canProcess = false;
+        }
       }
     });
   }
