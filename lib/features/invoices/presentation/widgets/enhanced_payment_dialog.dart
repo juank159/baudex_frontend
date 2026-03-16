@@ -590,12 +590,14 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
         _exchangeRateController.text = AppFormatters.formatRate(defaultRate);
 
         // Auto-calcular monto en moneda extranjera desde el total de la factura
+        // Tasa = cuántas unidades extranjeras vale 1 base (ej: 1 COP = 0,12 VES)
+        // foreignAmount = baseAmount * rate
         if (_exchangeRate != null && _exchangeRate! > 0) {
           // Redondear hacia arriba para cubrir el total completo
-          final foreignAmount = (_effectiveTotal / _exchangeRate!).ceilToDouble();
+          final foreignAmount = (_effectiveTotal * _exchangeRate!).ceilToDouble();
           _foreignAmountController.text = AppFormatters.formatNumber(foreignAmount.round());
-          // Calcular equivalente en moneda base
-          final baseAmount = foreignAmount * _exchangeRate!;
+          // Calcular equivalente en moneda base: baseAmount = foreignAmount / rate
+          final baseAmount = foreignAmount / _exchangeRate!;
           receivedController.text = AppFormatters.formatNumber(baseAmount.round());
           _calculateChange();
         } else {
@@ -607,7 +609,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     });
   }
 
-  /// Recalcular monto base desde monto extranjero * tasa
+  /// Recalcular monto base desde monto extranjero / tasa
+  /// Tasa = cuántas unidades extranjeras vale 1 base (ej: 1 COP = 0,12 VES)
+  /// baseAmount = foreignAmount / rate
   void _recalculateForeignPayment() {
     if (_selectedCurrency == null || _exchangeRate == null) return;
     final foreignAmount = AppFormatters.parseNumber(_foreignAmountController.text) ?? 0.0;
@@ -618,7 +622,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       });
       return;
     }
-    final baseAmount = foreignAmount * _exchangeRate!;
+    final baseAmount = foreignAmount / _exchangeRate!;
     setState(() {
       receivedController.text = AppFormatters.formatNumber(baseAmount.round());
       _calculateChange();
@@ -2798,12 +2802,12 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                           fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
-                          prefixText: '1 $_selectedCurrency = ',
+                          prefixText: '1 $_baseCurrency = ',
                           prefixStyle: TextStyle(
                             fontSize: config.smallSize,
                             color: ElegantLightTheme.textTertiary,
                           ),
-                          suffixText: _baseCurrency,
+                          suffixText: _selectedCurrency,
                           suffixStyle: TextStyle(
                             fontSize: config.smallSize,
                             fontWeight: FontWeight.w600,
@@ -2898,7 +2902,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      AppFormatters.formatExchangeInfo(_selectedCurrency!, _exchangeRate!, _baseCurrency),
+                      AppFormatters.formatExchangeInfo(_baseCurrency, _exchangeRate!, _selectedCurrency!),
                       style: TextStyle(
                         fontSize: config.smallSize,
                         color: ElegantLightTheme.primaryBlue,

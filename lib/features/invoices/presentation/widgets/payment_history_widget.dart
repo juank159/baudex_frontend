@@ -481,7 +481,7 @@ class PaymentHistoryWidget extends StatelessWidget {
               if (payment.isForeignCurrency) ...[
                 const SizedBox(height: 2),
                 Text(
-                  '${AppFormatters.formatForeignCurrency(payment.paymentCurrencyAmount, payment.paymentCurrency!)} (${AppFormatters.formatExchangeInfo(payment.paymentCurrency!, payment.exchangeRate!, (Get.isRegistered<OrganizationController>() ? Get.find<OrganizationController>().baseCurrency : 'COP'))})',
+                  '${AppFormatters.formatForeignCurrency(payment.paymentCurrencyAmount, payment.paymentCurrency!)} (${AppFormatters.formatExchangeInfo((Get.isRegistered<OrganizationController>() ? Get.find<OrganizationController>().baseCurrency : 'COP'), payment.exchangeRate!, payment.paymentCurrency!)})',
                   style: TextStyle(
                     color: ElegantLightTheme.textSecondary,
                     fontSize: 10,
@@ -539,7 +539,7 @@ class PaymentHistoryWidget extends StatelessWidget {
               ),
               if (payment.isForeignCurrency)
                 Text(
-                  '${AppFormatters.formatForeignCurrency(payment.paymentCurrencyAmount, payment.paymentCurrency!)} (${AppFormatters.formatExchangeInfo(payment.paymentCurrency!, payment.exchangeRate!, (Get.isRegistered<OrganizationController>() ? Get.find<OrganizationController>().baseCurrency : 'COP'))})',
+                  '${AppFormatters.formatForeignCurrency(payment.paymentCurrencyAmount, payment.paymentCurrency!)} (${AppFormatters.formatExchangeInfo((Get.isRegistered<OrganizationController>() ? Get.find<OrganizationController>().baseCurrency : 'COP'), payment.exchangeRate!, payment.paymentCurrency!)})',
                   style: TextStyle(
                     color: ElegantLightTheme.textSecondary,
                     fontSize: isTablet ? 10 : 11,

@@ -497,7 +497,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                 Text(
                   defaultRate > 0
                       ? AppFormatters.formatExchangeInfo(
-                          code, defaultRate, controller.baseCurrency)
+                          controller.baseCurrency, defaultRate, code)
                       : 'Sin tasa por defecto',
                   style: TextStyle(
                     color: ElegantLightTheme.textSecondary,
@@ -629,7 +629,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    '¿Cuántos $baseCurrency vale 1 ${selectedCode ?? '...'}?',
+                    'Tasa de cambio (1 $baseCurrency = ? ${selectedCode ?? '...'}):',
                     style: const TextStyle(
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
@@ -637,7 +637,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Ej: Si 1 USD = 4.000 $baseCurrency, escribe 4000',
+                    'Ingresa la tasa tal como la encuentras en internet',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey.shade600,
@@ -653,18 +653,18 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      hintText: 'Ej: 4.000 o 8,26',
-                      prefixText: '1 ${selectedCode ?? '...'} = ',
-                      suffixText: baseCurrency,
+                      hintText: 'Ej: 0,12 o 4.000',
+                      prefixText: '1 $baseCurrency = ',
+                      suffixText: selectedCode ?? '...',
                     ),
                     onChanged: (val) {
                       setDialogState(() {
                         final parsed = AppFormatters.parseRate(val);
                         if (parsed != null && selected != null) {
                           previewText = AppFormatters.formatExchangeInfo(
-                            selected['code'] as String,
-                            parsed,
                             baseCurrency,
+                            parsed,
+                            selected['code'] as String,
                           );
                         } else {
                           previewText = '';
@@ -764,7 +764,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           final parsed = AppFormatters.parseRate(rateController.text);
           final previewText = parsed != null && parsed > 0
               ? AppFormatters.formatExchangeInfo(
-                  code, parsed, controller.baseCurrency)
+                  controller.baseCurrency, parsed, code)
               : '';
 
           return AlertDialog(
@@ -798,12 +798,12 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '¿Cuántos ${controller.baseCurrency} vale 1 $code?',
+                  'Tasa de cambio para $name (1 ${controller.baseCurrency} = ? $code):',
                   style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Ej: Si 1 $code = 8,26 ${controller.baseCurrency}, escribe 8,26',
+                  'Ingresa la tasa tal como la encuentras en internet',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey.shade600,
@@ -819,9 +819,9 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    hintText: 'Ej: 4.000 o 8,26',
-                    prefixText: '1 $code = ',
-                    suffixText: controller.baseCurrency,
+                    hintText: 'Ej: 0,12 o 4.000',
+                    prefixText: '1 ${controller.baseCurrency} = ',
+                    suffixText: code,
                   ),
                   autofocus: true,
                   onChanged: (_) => setDialogState(() {}),
