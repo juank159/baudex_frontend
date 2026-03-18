@@ -71,7 +71,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<OrganizationController>();
-    
+
     return AnimatedBuilder(
       animation: _animationController,
       builder: (context, child) {
@@ -79,16 +79,16 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           opacity: _fadeAnimation,
           child: SlideTransition(
             position: _slideAnimation,
-            child: Obx(
-              () => controller.isLoading
-                  ? _buildLoadingState()
-                  : MainLayout(
-                      title: _getResponsiveTitle(context),
-                      showBackButton: false,
-                      showDrawer: true,
-                      actions: _buildAppBarActions(context),
-                      body: _buildFuturisticContent(context),
-                    ),
+            child: MainLayout(
+              title: _getResponsiveTitle(context),
+              showBackButton: false,
+              showDrawer: true,
+              actions: _buildAppBarActions(context),
+              body: Obx(
+                () => controller.isLoading
+                    ? _buildSkeletonContent(context)
+                    : _buildFuturisticContent(context),
+              ),
             ),
           ),
         );
@@ -119,7 +119,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
     ];
   }
 
-  Widget _buildLoadingState() {
+  Widget _buildSkeletonContent(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -131,44 +131,155 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           ],
         ),
       ),
-      child: Center(
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                gradient: ElegantLightTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: ElegantLightTheme.glowShadow,
-              ),
-              child: const Icon(
-                Icons.corporate_fare,
-                color: Colors.white,
-                size: 50,
-              ),
+            // Skeleton: Organization info card
+            _buildSkeletonCard(
+              headerIcon: Icons.apartment,
+              headerWidth: 220,
+              children: [
+                // Subscription card skeleton
+                _buildShimmerBox(height: 180, radius: 20),
+                const SizedBox(height: 24),
+                // Devices skeleton
+                _buildShimmerBox(height: 120, radius: 16),
+                const SizedBox(height: 24),
+                // Details skeleton
+                _buildSkeletonDetailRows(),
+              ],
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Cargando configuración...',
-              style: TextStyle(
-                color: ElegantLightTheme.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+            const SizedBox(height: 32),
+            // Skeleton: Warehouse selector
+            _buildSkeletonCard(
+              headerIcon: Icons.warehouse,
+              headerWidth: 180,
+              children: [
+                _buildShimmerBox(height: 52, radius: 12),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Preparando tu centro de organización',
-              style: TextStyle(
-                color: ElegantLightTheme.textSecondary,
-                fontSize: 14,
-              ),
+            const SizedBox(height: 32),
+            // Skeleton: Multi-currency
+            _buildSkeletonCard(
+              headerIcon: Icons.currency_exchange,
+              headerWidth: 140,
+              children: [
+                _buildShimmerBox(height: 52, radius: 12),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSkeletonCard({
+    required IconData headerIcon,
+    required double headerWidth,
+    required List<Widget> children,
+  }) {
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, child) {
+        final pulse = ((_shimmerController.value * 2.0 - 1.0).abs() * 0.4) + 0.3;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300.withValues(alpha: pulse),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(headerIcon, color: Colors.grey.shade400, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  Container(
+                    width: headerWidth,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300.withValues(alpha: pulse),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              ...children,
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSkeletonDetailRows() {
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, child) {
+        final pulse = ((_shimmerController.value * 2.0 - 1.0).abs() * 0.4) + 0.3;
+        return Column(
+          children: List.generate(5, (index) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: ElegantLightTheme.textSecondary.withValues(alpha: 0.06),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300.withValues(alpha: pulse),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    width: 70,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200.withValues(alpha: pulse),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300.withValues(alpha: pulse),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 
