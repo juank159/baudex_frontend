@@ -497,7 +497,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                 Text(
                   defaultRate > 0
                       ? AppFormatters.formatExchangeInfo(
-                          controller.baseCurrency, defaultRate, code)
+                          code, defaultRate, controller.baseCurrency)
                       : 'Sin tasa por defecto',
                   style: TextStyle(
                     color: ElegantLightTheme.textSecondary,
@@ -629,7 +629,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Tasa de cambio (1 $baseCurrency = ? ${selectedCode ?? '...'}):',
+                    'Tasa de cambio (1 ${selectedCode ?? '...'} = ? $baseCurrency):',
                     style: const TextStyle(
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
@@ -653,18 +653,18 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      hintText: 'Ej: 0,12 o 4.000',
-                      prefixText: '1 $baseCurrency = ',
-                      suffixText: selectedCode ?? '...',
+                      hintText: 'Ej: 4.000 o 8,27',
+                      prefixText: '1 ${selectedCode ?? '...'} = ',
+                      suffixText: baseCurrency,
                     ),
                     onChanged: (val) {
                       setDialogState(() {
                         final parsed = AppFormatters.parseRate(val);
                         if (parsed != null && selected != null) {
                           previewText = AppFormatters.formatExchangeInfo(
-                            baseCurrency,
-                            parsed,
                             selected['code'] as String,
+                            parsed,
+                            baseCurrency,
                           );
                         } else {
                           previewText = '';
@@ -764,7 +764,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           final parsed = AppFormatters.parseRate(rateController.text);
           final previewText = parsed != null && parsed > 0
               ? AppFormatters.formatExchangeInfo(
-                  controller.baseCurrency, parsed, code)
+                  code, parsed, controller.baseCurrency)
               : '';
 
           return AlertDialog(
@@ -798,7 +798,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Tasa de cambio para $name (1 ${controller.baseCurrency} = ? $code):',
+                  'Tasa de cambio para $name (1 $code = ? ${controller.baseCurrency}):',
                   style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 4),
@@ -819,9 +819,9 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    hintText: 'Ej: 0,12 o 4.000',
-                    prefixText: '1 ${controller.baseCurrency} = ',
-                    suffixText: code,
+                    hintText: 'Ej: 4.000 o 8,27',
+                    prefixText: '1 $code = ',
+                    suffixText: controller.baseCurrency,
                   ),
                   autofocus: true,
                   onChanged: (_) => setDialogState(() {}),

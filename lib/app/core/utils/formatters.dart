@@ -281,10 +281,10 @@ class AppFormatters {
     return format.format(value);
   }
 
-  /// Muestra info de tasa de cambio: "1 COP = 0,12 VES", "1 COP = 4.000 USD"
-  /// rate = cuántas unidades extranjeras vale 1 unidad base
-  static String formatExchangeInfo(String baseCode, double rate, String foreignCode) {
-    return '1 $baseCode = ${formatRate(rate)} $foreignCode';
+  /// Muestra info de tasa de cambio: "1 USD = 4.000 COP", "1 VES = 8,27 COP"
+  /// rate = cuántas unidades base vale 1 unidad extranjera (ej: 1 USD = 4.000 COP)
+  static String formatExchangeInfo(String foreignCode, double rate, String baseCode) {
+    return '1 $foreignCode = ${formatRate(rate)} $baseCode';
   }
 
   /// Obtiene el símbolo de una moneda

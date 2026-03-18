@@ -590,14 +590,14 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
         _exchangeRateController.text = AppFormatters.formatRate(defaultRate);
 
         // Auto-calcular monto en moneda extranjera desde el total de la factura
-        // Tasa = cuántas unidades extranjeras vale 1 base (ej: 1 COP = 0,12 VES)
-        // foreignAmount = baseAmount * rate
+        // Tasa = cuántas unidades base vale 1 extranjera (ej: 1 USD = 4.000 COP)
+        // foreignAmount = baseAmount / rate
         if (_exchangeRate != null && _exchangeRate! > 0) {
           // Redondear hacia arriba para cubrir el total completo
-          final foreignAmount = (_effectiveTotal * _exchangeRate!).ceilToDouble();
+          final foreignAmount = (_effectiveTotal / _exchangeRate!).ceilToDouble();
           _foreignAmountController.text = AppFormatters.formatNumber(foreignAmount.round());
-          // Calcular equivalente en moneda base: baseAmount = foreignAmount / rate
-          final baseAmount = foreignAmount / _exchangeRate!;
+          // Calcular equivalente en moneda base: baseAmount = foreignAmount * rate
+          final baseAmount = foreignAmount * _exchangeRate!;
           receivedController.text = AppFormatters.formatNumber(baseAmount.round());
           _calculateChange();
         } else {
@@ -609,9 +609,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     });
   }
 
-  /// Recalcular monto base desde monto extranjero / tasa
-  /// Tasa = cuántas unidades extranjeras vale 1 base (ej: 1 COP = 0,12 VES)
-  /// baseAmount = foreignAmount / rate
+  /// Recalcular monto base desde monto extranjero * tasa
+  /// Tasa = cuántas unidades base vale 1 extranjera (ej: 1 USD = 4.000 COP)
+  /// baseAmount = foreignAmount * rate
   void _recalculateForeignPayment() {
     if (_selectedCurrency == null || _exchangeRate == null) return;
     final foreignAmount = AppFormatters.parseNumber(_foreignAmountController.text) ?? 0.0;
@@ -622,7 +622,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
       });
       return;
     }
-    final baseAmount = foreignAmount / _exchangeRate!;
+    final baseAmount = foreignAmount * _exchangeRate!;
     setState(() {
       receivedController.text = AppFormatters.formatNumber(baseAmount.round());
       _calculateChange();
@@ -1123,6 +1123,10 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
   }
 
   Widget _buildTotalCard(BuildContext context, _DialogSizeConfig config) {
+    // Calcular equivalente en moneda extranjera si aplica
+    final hasForeign = _selectedCurrency != null && _exchangeRate != null && _exchangeRate! > 0;
+    final foreignTotal = hasForeign ? _effectiveTotal / _exchangeRate! : 0.0;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(config.cardPadding),
@@ -1168,13 +1172,25 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
           ),
           SizedBox(height: config.isMobile ? 6 : 8),
           Text(
-            AppFormatters.formatCurrency(widget.total),
+            AppFormatters.formatCurrency(_effectiveTotal),
             style: TextStyle(
               fontSize: config.totalSize,
               fontWeight: FontWeight.bold,
               color: ElegantLightTheme.primaryBlue,
             ),
           ),
+          // Equivalente en moneda extranjera
+          if (hasForeign) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${AppFormatters.formatForeignCurrency(foreignTotal, _selectedCurrency!)}',
+              style: TextStyle(
+                fontSize: config.bodySize,
+                fontWeight: FontWeight.w600,
+                color: ElegantLightTheme.accentOrange,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1781,6 +1797,11 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
 
   Widget _buildCashPaymentSection(BuildContext context, _DialogSizeConfig config) {
     final isValidAmount = change >= 0;
+    final isForeign = _selectedCurrency != null;
+    final currencyLabel = isForeign ? _selectedCurrency! : _baseCurrency;
+    final currencySymbol = isForeign
+        ? AppFormatters.getCurrencySymbol(_selectedCurrency!)
+        : '\$';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1801,7 +1822,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
             ),
             const SizedBox(width: 8),
             Text(
-              'Dinero Recibido',
+              'Dinero Recibido ($currencyLabel)',
               style: TextStyle(
                 fontSize: config.subtitleSize,
                 fontWeight: FontWeight.w600,
@@ -1812,7 +1833,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
         ),
         SizedBox(height: config.isMobile ? 8 : 10),
 
-        // Campo de dinero recibido
+        // Campo de dinero recibido (moneda extranjera o base según selección)
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -1820,8 +1841,8 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
             boxShadow: ElegantLightTheme.elevatedShadow,
           ),
           child: TextField(
-            controller: receivedController,
-            focusNode: receivedFocusNode,
+            controller: isForeign ? _foreignAmountController : receivedController,
+            focusNode: isForeign ? null : receivedFocusNode,
             keyboardType: TextInputType.number,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
@@ -1844,10 +1865,13 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                       : ElegantLightTheme.errorGradient,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  Icons.attach_money,
-                  color: Colors.white,
-                  size: config.iconSmall,
+                child: Text(
+                  currencySymbol,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: config.iconSmall,
+                  ),
                 ),
               ),
               suffixIcon: Icon(
@@ -1891,15 +1915,58 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                 fontSize: config.bodySize,
               ),
             ),
-            onChanged: (value) => _calculateChange(),
+            onChanged: (value) {
+              if (isForeign) {
+                _recalculateForeignPayment();
+              } else {
+                _calculateChange();
+              }
+            },
             onTap: () {
-              receivedController.selection = TextSelection(
+              final ctrl = isForeign ? _foreignAmountController : receivedController;
+              ctrl.selection = TextSelection(
                 baseOffset: 0,
-                extentOffset: receivedController.text.length,
+                extentOffset: ctrl.text.length,
               );
             },
           ),
         ),
+
+        // Equivalente en moneda base (solo cuando se paga en moneda extranjera)
+        if (isForeign && receivedController.text.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.primaryBlue.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: ElegantLightTheme.primaryBlue.withOpacity(0.15),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.swap_horiz,
+                  size: config.iconSmall,
+                  color: ElegantLightTheme.primaryBlue,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Equivale a ${AppFormatters.formatCurrency(AppFormatters.parseNumber(receivedController.text) ?? 0)} $_baseCurrency',
+                  style: TextStyle(
+                    fontSize: config.smallSize,
+                    fontWeight: FontWeight.w600,
+                    color: ElegantLightTheme.primaryBlue,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
         SizedBox(height: config.isMobile ? 10 : 12),
 
         // Cambio
@@ -1950,17 +2017,35 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                   ),
                 ],
               ),
-              Text(
-                isValidAmount
-                    ? AppFormatters.formatCurrency(change)
-                    : 'Falta ${AppFormatters.formatCurrency(change.abs())}',
-                style: TextStyle(
-                  fontSize: config.subtitleSize,
-                  fontWeight: FontWeight.bold,
-                  color: isValidAmount
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFEF4444),
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    isValidAmount
+                        ? AppFormatters.formatCurrency(change)
+                        : 'Falta ${AppFormatters.formatCurrency(change.abs())}',
+                    style: TextStyle(
+                      fontSize: config.subtitleSize,
+                      fontWeight: FontWeight.bold,
+                      color: isValidAmount
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFEF4444),
+                    ),
+                  ),
+                  if (isForeign && _exchangeRate != null && _exchangeRate! > 0 && change != 0)
+                    Text(
+                      isValidAmount
+                          ? AppFormatters.formatForeignCurrency(change / _exchangeRate!, _selectedCurrency!)
+                          : 'Falta ${AppFormatters.formatForeignCurrency(change.abs() / _exchangeRate!, _selectedCurrency!)}',
+                      style: TextStyle(
+                        fontSize: config.smallSize,
+                        fontWeight: FontWeight.w500,
+                        color: isValidAmount
+                            ? const Color(0xFF10B981).withOpacity(0.8)
+                            : const Color(0xFFEF4444).withOpacity(0.8),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
@@ -2769,111 +2854,54 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
           SizedBox(height: config.isMobile ? 10 : 12),
 
           // Tasa de cambio
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tasa de cambio',
-                      style: TextStyle(
-                        fontSize: config.smallSize,
-                        fontWeight: FontWeight.w500,
-                        color: ElegantLightTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(config.radiusSmall),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      child: TextField(
-                        controller: _exchangeRateController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
-                          RateInputFormatter(),
-                        ],
-                        style: TextStyle(
-                          fontSize: config.bodySize,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        decoration: InputDecoration(
-                          prefixText: '1 $_baseCurrency = ',
-                          prefixStyle: TextStyle(
-                            fontSize: config.smallSize,
-                            color: ElegantLightTheme.textTertiary,
-                          ),
-                          suffixText: _selectedCurrency,
-                          suffixStyle: TextStyle(
-                            fontSize: config.smallSize,
-                            fontWeight: FontWeight.w600,
-                            color: ElegantLightTheme.primaryBlue,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                        onChanged: (value) {
-                          _exchangeRate = AppFormatters.parseRate(value);
-                          _recalculateForeignPayment();
-                        },
-                      ),
-                    ),
-                  ],
+              Text(
+                'Tasa de cambio',
+                style: TextStyle(
+                  fontSize: config.smallSize,
+                  fontWeight: FontWeight.w500,
+                  color: ElegantLightTheme.textSecondary,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Monto en $_selectedCurrency',
-                      style: TextStyle(
-                        fontSize: config.smallSize,
-                        fontWeight: FontWeight.w500,
-                        color: ElegantLightTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(config.radiusSmall),
-                        border: Border.all(
-                          color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _foreignAmountController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          CurrencyInputFormatter(),
-                        ],
-                        style: TextStyle(
-                          fontSize: config.bodySize,
-                          fontWeight: FontWeight.w700,
-                          color: ElegantLightTheme.primaryBlue,
-                        ),
-                        decoration: InputDecoration(
-                          prefixText: '${AppFormatters.getCurrencySymbol(_selectedCurrency!)} ',
-                          prefixStyle: TextStyle(
-                            fontSize: config.bodySize,
-                            fontWeight: FontWeight.w700,
-                            color: ElegantLightTheme.primaryBlue,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          hintText: '0',
-                        ),
-                        onChanged: (value) => _recalculateForeignPayment(),
-                      ),
-                    ),
+              const SizedBox(height: 4),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(config.radiusSmall),
+                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                ),
+                child: TextField(
+                  controller: _exchangeRateController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+                    RateInputFormatter(),
                   ],
+                  style: TextStyle(
+                    fontSize: config.bodySize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    prefixText: '1 $_selectedCurrency = ',
+                    prefixStyle: TextStyle(
+                      fontSize: config.smallSize,
+                      color: ElegantLightTheme.textTertiary,
+                    ),
+                    suffixText: _baseCurrency,
+                    suffixStyle: TextStyle(
+                      fontSize: config.smallSize,
+                      fontWeight: FontWeight.w600,
+                      color: ElegantLightTheme.primaryBlue,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  onChanged: (value) {
+                    _exchangeRate = AppFormatters.parseRate(value);
+                    _recalculateForeignPayment();
+                  },
                 ),
               ),
             ],
@@ -2902,7 +2930,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      AppFormatters.formatExchangeInfo(_baseCurrency, _exchangeRate!, _selectedCurrency!),
+                      AppFormatters.formatExchangeInfo(_selectedCurrency!, _exchangeRate!, _baseCurrency),
                       style: TextStyle(
                         fontSize: config.smallSize,
                         color: ElegantLightTheme.primaryBlue,
@@ -2910,15 +2938,6 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                       ),
                     ),
                   ),
-                  if (receivedController.text.isNotEmpty)
-                    Text(
-                      '= ${AppFormatters.formatCurrency(AppFormatters.parseNumber(receivedController.text) ?? 0)}',
-                      style: TextStyle(
-                        fontSize: config.smallSize,
-                        color: ElegantLightTheme.primaryBlue,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
                 ],
               ),
             ),

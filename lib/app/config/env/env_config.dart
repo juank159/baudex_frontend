@@ -72,13 +72,17 @@ class EnvConfig {
   /// URL base completa del API
   static String get baseUrl {
     final protocol = isProduction ? 'https' : 'http';
-    return '$protocol://$serverIP:$serverPort/api';
+    final defaultPort = isProduction ? 443 : 80;
+    final portSuffix = serverPort == defaultPort ? '' : ':$serverPort';
+    return '$protocol://$serverIP$portSuffix/api';
   }
 
   /// URL base sin /api (para WebSocket, etc.)
   static String get serverUrl {
     final protocol = isProduction ? 'https' : 'http';
-    return '$protocol://$serverIP:$serverPort';
+    final defaultPort = isProduction ? 443 : 80;
+    final portSuffix = serverPort == defaultPort ? '' : ':$serverPort';
+    return '$protocol://$serverIP$portSuffix';
   }
 
   // ===========================================
