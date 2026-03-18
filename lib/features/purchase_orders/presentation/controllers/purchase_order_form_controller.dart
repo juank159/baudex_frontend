@@ -528,14 +528,7 @@ class PurchaseOrderFormController extends GetxController
   // ==================== FORM SUBMISSION ====================
 
   Future<void> savePurchaseOrder() async {
-    print('💾 Intentando guardar orden de compra...');
-    print('📋 isFormValid: ${isFormValid.value}');
-    print('📋 formKey valid: ${formKey.currentState?.validate()}');
-    print('📋 selectedSupplierId: ${selectedSupplierId.value}');
-    print('📋 items count: ${items.length}');
-
     if (!isFormValid.value || !formKey.currentState!.validate()) {
-      print('❌ Formulario no válido');
       Get.snackbar(
         'Error',
         'Por favor complete los campos requeridos',
@@ -547,15 +540,12 @@ class PurchaseOrderFormController extends GetxController
     }
 
     try {
-      print('🔄 Iniciando proceso de guardado...');
       isSaving.value = true;
       error.value = '';
 
       if (isEditMode.value) {
-        print('📝 Modo edición - actualizando orden existente');
         await _updatePurchaseOrder();
       } else {
-        print('🆕 Modo creación - creando nueva orden');
         await _createPurchaseOrder();
       }
     } catch (e) {
@@ -573,37 +563,7 @@ class PurchaseOrderFormController extends GetxController
   }
 
   Future<void> _createPurchaseOrder() async {
-    print('🏗️ Construyendo parámetros para crear orden de compra...');
-
-    // Debug información del proveedor
-    print('🏢 DEBUG PROVEEDOR:');
-    print('🏢 selectedSupplierId: "${selectedSupplierId.value}"');
-    print('🏢 selectedSupplierName: "${selectedSupplierName.value}"');
-    print(
-      '🏢 selectedSupplier: ${selectedSupplier.value?.toString() ?? "null"}',
-    );
-    print('🏢 supplierController.text: "${supplierController.text}"');
-
-    print('📋 Items totales en la lista: ${items.length}');
-
-    // Debug: Mostrar todos los items antes del filtrado
-    for (int i = 0; i < items.length; i++) {
-      final item = items[i];
-      print(
-        '📋 Item $i: productId=${item.productId}, productName=${item.productName}, quantity=${item.quantity}, unitPrice=${item.unitPrice}, isValid=${item.isValid}',
-      );
-    }
-
     final validItems = items.where((item) => item.isValid).toList();
-    print('📋 Items válidos después del filtrado: ${validItems.length}');
-
-    // Debug: Mostrar items válidos
-    for (int i = 0; i < validItems.length; i++) {
-      final item = validItems[i];
-      print(
-        '📋 Valid Item $i: productId=${item.productId}, productName=${item.productName}, quantity=${item.quantity}, unitPrice=${item.unitPrice}',
-      );
-    }
 
     final params = CreatePurchaseOrderParams(
       supplierId: selectedSupplierId.value,
@@ -621,9 +581,6 @@ class PurchaseOrderFormController extends GetxController
           validItems.asMap().entries.map((entry) {
             final index = entry.key;
             final item = entry.value;
-            print(
-              '📋 Mapeando item $index: productId=${item.productId}, lineNumber=${index + 1}',
-            );
             return item.toCreateParams(lineNumber: index + 1);
           }).toList(),
       notes:
@@ -652,22 +609,7 @@ class PurchaseOrderFormController extends GetxController
               : null,
     );
 
-    print('📤 Enviando datos al use case...');
-    print(
-      '📋 Params: supplierId=${params.supplierId}, items=${params.items.length}',
-    );
-
-    // Debug: Mostrar parámetros finales
-    for (int i = 0; i < params.items.length; i++) {
-      final item = params.items[i];
-      print(
-        '📋 Final Param Item $i: productId=${item.productId}, quantity=${item.quantity}, lineNumber=${item.lineNumber}',
-      );
-    }
-
     final result = await createPurchaseOrderUseCase(params);
-
-    print('🔄 Use case completado, procesando resultado...');
 
     result.fold(
       (failure) {
@@ -684,13 +626,6 @@ class PurchaseOrderFormController extends GetxController
       (createdPurchaseOrder) {
         print(
           '✅ Orden de compra creada exitosamente: ${createdPurchaseOrder.id}',
-        );
-        Get.snackbar(
-          'Éxito',
-          'Orden de compra creada correctamente',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
         );
 
         // Navegar y actualizar la lista de órdenes de compra
@@ -757,14 +692,6 @@ class PurchaseOrderFormController extends GetxController
         );
       },
       (updatedPurchaseOrder) {
-        Get.snackbar(
-          'Éxito',
-          'Orden de compra actualizada correctamente',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-        );
-
         // Navegar y actualizar la lista de órdenes de compra
         _navigateToListAndRefresh(updatedPurchaseOrder);
       },
@@ -774,62 +701,32 @@ class PurchaseOrderFormController extends GetxController
   /// Navega a la lista de órdenes de compra y la actualiza para mostrar la nueva orden
   Future<void> _navigateToListAndRefresh(PurchaseOrder createdOrder) async {
     try {
-      print(
-        '🔄 Navegando a lista y actualizando con nueva orden: ${createdOrder.id}',
-      );
-
-      // Navegar a la lista con parámetro para indicar que hay una nueva orden
+      // Navegar de vuelta a la lista
       Get.back();
 
-      // Esperar un momento para que la navegación complete
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Esperar a que la navegación complete
+      await Future.delayed(const Duration(milliseconds: 300));
 
-      // Buscar el controlador de la lista y actualizarla
+      // Refrescar la lista (ya viene ordenada por fecha DESC, la nueva orden aparece primera)
       if (Get.isRegistered<PurchaseOrdersController>()) {
         final listController = Get.find<PurchaseOrdersController>();
-        print('✅ Controlador de lista encontrado, actualizando...');
-
-        // Usar el método especializado para actualización después de cambios
-        await listController.refreshAfterOrderChange(
-          createdOrder.id,
-          isUpdate: isEditMode.value,
-        );
-
-        // Mostrar notificación de éxito personalizada
-        _showSuccessNotification(createdOrder);
-      } else {
-        print(
-          '⚠️ Controlador de lista no encontrado, la lista se actualizará al cargar',
-        );
-        // Como backup, mostrar notificación y la lista se cargará automáticamente
-        _showSuccessNotification(createdOrder);
+        await listController.refreshPurchaseOrders();
       }
+
+      // Mostrar notificación de éxito
+      _showSuccessNotification(createdOrder);
     } catch (e) {
       print('❌ Error al actualizar lista después de crear orden: $e');
-      // Si hay error, al menos mostramos que la orden se procesó exitosamente
-      Get.snackbar(
-        isEditMode.value ? 'Orden Actualizada' : 'Orden Creada',
-        'La acción se completó correctamente. Desliza para actualizar la lista si es necesario.',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.blue.shade50,
-        colorText: Colors.blue.shade800,
-        icon: Icon(
-          isEditMode.value ? Icons.edit_note : Icons.add_task,
-          color: Colors.blue,
-        ),
-        duration: const Duration(seconds: 4),
-      );
     }
   }
 
-  /// Muestra una notificación de éxito personalizada
   void _showSuccessNotification(PurchaseOrder order) {
     final isUpdate = isEditMode.value;
     final actionText = isUpdate ? 'actualizada' : 'creada';
     final icon = isUpdate ? Icons.edit_note : Icons.add_task;
-    final title = isUpdate ? '📝 Orden Actualizada' : '🎉 ¡Nueva Orden Creada!';
+    final title = isUpdate ? 'Orden Actualizada' : 'Orden Creada';
 
-    Future.delayed(const Duration(milliseconds: 700), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       Get.snackbar(
         title,
         'Orden ${order.orderNumber ?? '#${order.id.substring(0, 8)}'} $actionText exitosamente',
@@ -839,11 +736,10 @@ class PurchaseOrderFormController extends GetxController
         borderColor: Colors.green.shade300,
         borderWidth: 1.5,
         icon: Icon(icon, color: Colors.green.shade600, size: 24),
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 3),
         margin: const EdgeInsets.all(12),
         borderRadius: 12,
         isDismissible: true,
-        animationDuration: const Duration(milliseconds: 500),
       );
     });
   }
