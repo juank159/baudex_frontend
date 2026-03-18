@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../../features/settings/presentation/controllers/organization_controller.dart';
 import '../../../features/settings/data/models/isar/isar_organization.dart';
+import '../../../features/subscriptions/data/models/isar/isar_subscription.dart';
+import '../../../features/subscriptions/presentation/controllers/subscription_controller.dart';
 import '../../../app/core/network/network_info.dart';
 import '../../../app/data/local/isar_database.dart';
 import '../widgets/subscription_error_dialog.dart';
@@ -191,9 +193,9 @@ class SubscriptionValidationService {
   }
 
   /// Obtener datos de suscripción de ISAR (cache local)
+  /// Busca PRIMERO en IsarSubscription (más completo) y luego fallback a IsarOrganization
   static Future<SubscriptionData?> _getSubscriptionFromIsar() async {
     try {
-      // Obtener instancia de ISAR
       final Isar isar;
       try {
         isar = IsarDatabase.instance.database;
@@ -202,21 +204,41 @@ class SubscriptionValidationService {
         return null;
       }
 
-      // Buscar organización en cache
+      // PASO 1: Buscar en IsarSubscription (fuente más completa y precisa)
+      final isarSub = await isar.isarSubscriptions.where().findFirst();
+      if (isarSub != null) {
+        print('✅ Datos obtenidos de IsarSubscription (cache completo)');
+        print('   - Status: ${isarSub.status}');
+        print('   - End Date: ${isarSub.endDate}');
+        print('   - Plan: ${isarSub.plan}');
+        print('   - Last Sync: ${isarSub.lastSyncAt}');
+
+        return SubscriptionData(
+          status: isarSub.status.name.toLowerCase(),
+          endDate: isarSub.endDate,
+          trialEndDate: isarSub.trialEndsAt,
+          hasValidSubscription: isarSub.isActive && !isarSub.isExpired,
+          isTrialExpired: isarSub.isTrial && isarSub.isExpired,
+          planName: isarSub.plan.name.toLowerCase(),
+          source: 'isar_subscription',
+          lastSyncAt: isarSub.lastSyncAt,
+        );
+      }
+
+      // PASO 2: Fallback a IsarOrganization (datos básicos de suscripción)
       final isarOrg = await isar.isarOrganizations
           .filter()
           .deletedAtIsNull()
           .findFirst();
 
       if (isarOrg == null) {
-        print('⚠️ No hay organización en ISAR');
+        print('⚠️ No hay datos de suscripción en ISAR');
         return null;
       }
 
-      print('✅ Datos obtenidos de ISAR (cache local)');
+      print('✅ Datos obtenidos de IsarOrganization (fallback)');
       print('   - Status: ${isarOrg.subscriptionStatus}');
       print('   - End Date: ${isarOrg.subscriptionEndDate}');
-      print('   - Last Sync: ${isarOrg.lastSyncAt}');
 
       return SubscriptionData(
         status: isarOrg.subscriptionStatus.name.toLowerCase(),
@@ -327,9 +349,14 @@ class SubscriptionValidationService {
   static void _showNoSubscriptionDataDialog(String context) {
     SubscriptionErrorDialog.showAccessDenied(
       customTitle: 'Sin datos de suscripción',
-      customMessage: 'No se puede verificar tu suscripción en este momento. Para $context, necesitas conexión a internet al menos una vez para validar tu suscripción.\n\nConéctate a internet y reinicia la app.',
-      actionText: 'Entendido',
-      onActionPressed: () => Get.back(),
+      customMessage: 'No se puede verificar tu suscripción en este momento. Para $context, necesitas conexión a internet al menos una vez para validar tu suscripción.\n\nConéctate a internet e intenta de nuevo.',
+      actionText: 'Reintentar',
+      onActionPressed: () {
+        Get.back();
+        if (Get.isRegistered<SubscriptionController>()) {
+          Get.find<SubscriptionController>().loadSubscription();
+        }
+      },
     );
   }
 

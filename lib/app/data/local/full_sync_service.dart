@@ -24,6 +24,7 @@ import '../../../features/customer_credits/data/datasources/customer_credit_remo
 import '../../../features/inventory/data/datasources/inventory_remote_datasource.dart';
 import '../../../features/inventory/data/datasources/inventory_local_datasource_isar.dart';
 import '../../../features/notifications/data/datasources/notification_remote_datasource.dart';
+import '../../../features/subscriptions/data/datasources/subscription_remote_datasource.dart';
 import '../../../features/settings/data/datasources/organization_remote_datasource.dart';
 import '../../../features/settings/data/datasources/printer_settings_remote_datasource.dart';
 import '../../../features/settings/data/models/isar/isar_organization.dart';
@@ -141,7 +142,7 @@ class FullSyncService extends GetxService {
   // Tier 3: Entidades transaccionales
   // Tier 4: Entidades derivadas + notificaciones
   static const List<List<String>> _syncTiers = [
-    ['Organización', 'Categorías', 'Categorías de Gastos'],
+    ['Organización', 'Suscripción', 'Categorías', 'Categorías de Gastos'],
     ['Productos', 'Clientes', 'Proveedores', 'Cuentas Bancarias', 'Almacenes', 'Impresoras'],
     ['Facturas', 'Gastos', 'Órdenes de Compra'],
     ['Notas de Crédito', 'Créditos de Clientes', 'Lotes de Inventario', 'Movimientos de Inventario', 'Notificaciones'],
@@ -240,6 +241,7 @@ class FullSyncService extends GetxService {
 
       final syncFunctions = <String, Future<int> Function()>{
         'Organización': _syncOrganization,
+        'Suscripción': _syncSubscription,
         'Categorías': _syncCategories,
         'Categorías de Gastos': _syncExpenseCategories,
         'Productos': _syncProducts,
@@ -395,6 +397,23 @@ class FullSyncService extends GetxService {
 
     final orgModel = await remoteDS.getCurrentOrganization();
     await offlineRepo.cacheOrganization(orgModel);
+
+    return 1;
+  }
+
+  /// Sincronizar suscripción del server a ISAR (single record)
+  Future<int> _syncSubscription() async {
+    final remoteDS = Get.isRegistered<SubscriptionRemoteDataSource>()
+        ? Get.find<SubscriptionRemoteDataSource>()
+        : SubscriptionRemoteDataSourceImpl(dioClient: Get.find<DioClient>());
+
+    final subscriptionModel = await remoteDS.getCurrentSubscription();
+    final entity = subscriptionModel.toEntity();
+    final isarSub = IsarSubscription.fromEntity(entity);
+
+    await _isar.writeTxn(() async {
+      await _isar.isarSubscriptions.putByServerId(isarSub);
+    });
 
     return 1;
   }

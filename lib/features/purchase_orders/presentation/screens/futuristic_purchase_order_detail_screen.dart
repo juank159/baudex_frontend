@@ -10,6 +10,7 @@ import '../widgets/futuristic_purchase_order_widgets.dart';
 import '../widgets/smart_workflow_widget.dart';
 import '../widgets/advanced_stats_widget.dart';
 import '../widgets/custom_receive_dialog.dart';
+import '../widgets/purchase_order_skeleton_widget.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
@@ -51,52 +52,8 @@ class FuturisticPurchaseOrderDetailScreen
   }
 
   Widget _buildLoadingState() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                gradient: ElegantLightTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: ElegantLightTheme.glowShadow,
-              ),
-              child: const Icon(
-                Icons.hourglass_top,
-                color: ElegantLightTheme.textPrimary,
-                size: 50,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Cargando orden de compra...',
-              style: TextStyle(
-                color: ElegantLightTheme.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Preparando la experiencia futurista',
-              style: TextStyle(
-                color: ElegantLightTheme.textSecondary,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return const Scaffold(
+      body: PurchaseOrderDetailSkeleton(),
     );
   }
 
@@ -114,29 +71,29 @@ class FuturisticPurchaseOrderDetailScreen
       ),
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             // Header con información clave
             _buildFuturisticHeader(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
             // Workflow inteligente
             SmartWorkflowWidget(
               order: controller.purchaseOrder.value!,
               onAction: _handleWorkflowAction,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
             // Tabs futuristas
             _buildFuturisticTabs(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
             // Contenido del tab seleccionado
             Obx(() => _buildFuturisticTabContent()),
 
             // Espacio adicional al final
-            const SizedBox(height: 100),
+            const SizedBox(height: 60),
           ],
         ),
       ),
@@ -148,183 +105,146 @@ class FuturisticPurchaseOrderDetailScreen
       hasGlow: true,
       child: Obx(() {
         final order = controller.purchaseOrder.value!;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final screenWidth = constraints.maxWidth;
+            final isDesktop = screenWidth >= 800;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: ElegantLightTheme.glowShadow,
-                  ),
-                  child: const Icon(
-                    Icons.shopping_cart,
-                    color: ElegantLightTheme.textPrimary,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        order.orderNumber ?? 'Sin número',
-                        style: const TextStyle(
-                          color: ElegantLightTheme.textPrimary,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        order.supplierName ?? 'Sin proveedor',
-                        style: TextStyle(
-                          color: ElegantLightTheme.textSecondary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            // Métricas principales responsive
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final screenWidth = constraints.maxWidth;
-                int crossAxisCount;
-                double childAspectRatio;
-
-                if (screenWidth >= 1200) {
-                  // Desktop: 4 columnas
-                  crossAxisCount = 4;
-                  childAspectRatio = 1.2;
-                } else if (screenWidth >= 800) {
-                  // Tablet: 2 columnas
-                  crossAxisCount = 2;
-                  childAspectRatio = 1.8;
-                } else {
-                  // Mobile: 2 columnas más compactas
-                  crossAxisCount = 2;
-                  childAspectRatio = 1.4;
-                }
-
-                return GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: crossAxisCount,
-                  childAspectRatio: childAspectRatio,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
+                // Título + Estado en una fila compacta
+                Row(
                   children: [
-                    _buildMetricCard(
-                      'Items',
-                      '${order.itemsCount}',
-                      Icons.inventory_2,
-                      ElegantLightTheme.infoGradient.colors.first,
-                      screenWidth,
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: ElegantLightTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: ElegantLightTheme.glowShadow,
+                      ),
+                      child: const Icon(
+                        Icons.shopping_cart,
+                        color: ElegantLightTheme.textPrimary,
+                        size: 22,
+                      ),
                     ),
-                    _buildMetricCard(
-                      'Cantidad',
-                      '${order.totalQuantity}',
-                      Icons.format_list_numbered,
-                      ElegantLightTheme.warningGradient.colors.first,
-                      screenWidth,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            order.orderNumber ?? 'Sin número',
+                            style: TextStyle(
+                              color: ElegantLightTheme.textPrimary,
+                              fontSize: isDesktop ? 20 : 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            order.supplierName ?? 'Sin proveedor',
+                            style: TextStyle(
+                              color: ElegantLightTheme.textSecondary,
+                              fontSize: isDesktop ? 14 : 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    _buildMetricCard(
-                      'Progreso',
-                      controller.progressPercentage,
-                      Icons.trending_up,
-                      ElegantLightTheme.successGradient.colors.first,
-                      screenWidth,
-                    ),
-                    _buildMetricCard(
-                      'Prioridad',
-                      order.priority.displayPriority,
-                      Icons.priority_high,
-                      controller.getPriorityColor(order.priority),
-                      screenWidth,
+                    FuturisticStatusChip(
+                      status: order.status,
+                      size: isDesktop ? 0.9 : 0.8,
                     ),
                   ],
-                );
-              },
-            ),
-          ],
+                ),
+                const SizedBox(height: 12),
+                // Métricas como chips inline compactos
+                _buildCompactMetrics(order, isDesktop),
+              ],
+            );
+          },
         );
       }),
     );
   }
 
-  Widget _buildMetricCard(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-    double screenWidth,
-  ) {
-    // Tamaños responsivos
-    double iconSize;
-    double valueFontSize;
-    double labelFontSize;
-    double spacing;
+  Widget _buildCompactMetrics(PurchaseOrder order, bool isDesktop) {
+    final metrics = [
+      _MetricData(
+        'Items',
+        '${order.itemsCount}',
+        Icons.inventory_2,
+        ElegantLightTheme.infoGradient.colors.first,
+      ),
+      _MetricData(
+        'Cantidad',
+        '${order.totalQuantity}',
+        Icons.format_list_numbered,
+        ElegantLightTheme.warningGradient.colors.first,
+      ),
+      _MetricData(
+        'Progreso',
+        controller.progressPercentage,
+        Icons.trending_up,
+        ElegantLightTheme.successGradient.colors.first,
+      ),
+      _MetricData(
+        'Prioridad',
+        order.priority.displayPriority,
+        Icons.priority_high,
+        controller.getPriorityColor(order.priority),
+      ),
+    ];
 
-    if (screenWidth >= 1200) {
-      // Desktop
-      iconSize = 24;
-      valueFontSize = 16;
-      labelFontSize = 10;
-      spacing = 8;
-    } else if (screenWidth >= 800) {
-      // Tablet
-      iconSize = 20;
-      valueFontSize = 14;
-      labelFontSize = 9;
-      spacing = 6;
-    } else {
-      // Mobile
-      iconSize = 18;
-      valueFontSize = 12;
-      labelFontSize = 8;
-      spacing = 4;
-    }
+    return Row(
+      children: metrics
+          .map((m) => Expanded(
+                child: _buildMetricChip(m, isDesktop),
+              ))
+          .toList(),
+    );
+  }
 
+  Widget _buildMetricChip(_MetricData metric, bool isDesktop) {
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 3),
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 10 : 6,
+        vertical: isDesktop ? 10 : 8,
+      ),
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.glassGradient,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3), width: 1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: metric.color.withValues(alpha: 0.25),
+          width: 1,
+        ),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: color, size: iconSize),
-          SizedBox(height: spacing),
+          Icon(metric.icon, color: metric.color, size: isDesktop ? 18 : 15),
+          const SizedBox(height: 4),
           Text(
-            value,
+            metric.value,
             style: TextStyle(
               color: ElegantLightTheme.textPrimary,
-              fontSize: valueFontSize,
+              fontSize: isDesktop ? 14 : 12,
               fontWeight: FontWeight.w700,
             ),
-            textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          SizedBox(height: spacing / 2),
+          const SizedBox(height: 1),
           Text(
-            label,
+            metric.label,
             style: TextStyle(
               color: ElegantLightTheme.textSecondary,
-              fontSize: labelFontSize,
+              fontSize: isDesktop ? 10 : 9,
               fontWeight: FontWeight.w500,
             ),
-            textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -335,18 +255,19 @@ class FuturisticPurchaseOrderDetailScreen
 
   Widget _buildFuturisticTabs() {
     return Obx(
-      () => FuturisticContainer(
-        child: Column(
+      () => Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          gradient: ElegantLightTheme.cardGradient,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: ElegantLightTheme.elevatedShadow,
+        ),
+        child: Row(
           children: [
-            // Tab headers
-            Row(
-              children: [
-                _buildTabHeader('General', 0, Icons.info),
-                _buildTabHeader('Items', 1, Icons.inventory),
-                _buildTabHeader('Cronología', 2, Icons.timeline),
-                _buildTabHeader('Análisis', 3, Icons.analytics),
-              ],
-            ),
+            _buildTabHeader('General', 0, Icons.info_outline),
+            _buildTabHeader('Items', 1, Icons.inventory_2_outlined),
+            _buildTabHeader('Cronología', 2, Icons.timeline),
+            _buildTabHeader('Análisis', 3, Icons.analytics_outlined),
           ],
         ),
       ),
@@ -361,32 +282,38 @@ class FuturisticPurchaseOrderDetailScreen
         onTap: () => controller.switchTab(index),
         child: AnimatedContainer(
           duration: ElegantLightTheme.normalAnimation,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          margin: const EdgeInsets.all(2),
           decoration: BoxDecoration(
             gradient: isSelected ? ElegantLightTheme.primaryGradient : null,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             boxShadow: isSelected ? ElegantLightTheme.glowShadow : null,
           ),
-          child: Column(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
                 color:
                     isSelected ? Colors.white : ElegantLightTheme.textSecondary,
-                size: 20,
+                size: 16,
               ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: TextStyle(
-                  color:
-                      isSelected
-                          ? Colors.white
-                          : ElegantLightTheme.textSecondary,
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color:
+                        isSelected
+                            ? Colors.white
+                            : ElegantLightTheme.textSecondary,
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -413,7 +340,6 @@ class FuturisticPurchaseOrderDetailScreen
   Widget _buildGeneralTab() {
     return FuturisticContainer(
       child: Obx(() {
-        final order = controller.purchaseOrder.value!;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -421,14 +347,14 @@ class FuturisticPurchaseOrderDetailScreen
               'Información General',
               style: TextStyle(
                 color: ElegantLightTheme.textPrimary,
-                fontSize: 20,
+                fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
             ...controller.purchaseOrderSummary.map(
               (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: _buildInfoRow(
                   item['label'],
                   item['value'],
@@ -452,11 +378,11 @@ class FuturisticPurchaseOrderDetailScreen
           'Items de la Orden',
           style: TextStyle(
             color: ElegantLightTheme.textPrimary,
-            fontSize: 20,
+            fontSize: 17,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
         Obx(
           () => Column(
             children:
@@ -464,7 +390,7 @@ class FuturisticPurchaseOrderDetailScreen
                     .map(
                       (item) => FuturisticItemCard(
                         item: item,
-                        onTap: null, // Quitar navegación al kardex
+                        onTap: null,
                       ),
                     )
                     .toList(),
@@ -1016,6 +942,15 @@ class FuturisticPurchaseOrderDetailScreen
       barrierDismissible: false,
     );
   }
+}
+
+class _MetricData {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _MetricData(this.label, this.value, this.icon, this.color);
 }
 
 // Painter para efectos de partículas en el fondo

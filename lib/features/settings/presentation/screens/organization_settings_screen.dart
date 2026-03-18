@@ -4,8 +4,12 @@ import 'package:get/get.dart';
 
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/core/network/network_info.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
+import '../../../auth/data/datasources/auth_remote_datasource.dart';
+import '../../../auth/data/models/active_session_model.dart';
+import '../../../subscriptions/presentation/controllers/subscription_controller.dart';
 import '../controllers/organization_controller.dart';
 import '../widgets/edit_organization_dialog.dart';
 import '../widgets/main_warehouse_selector.dart';
@@ -22,6 +26,12 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  // Device sessions state
+  List<ActiveSessionModel> _sessions = [];
+  bool _sessionsLoading = false;
+  String? _sessionsError;
+  bool _sessionsLoaded = false;
 
   @override
   void initState() {
@@ -1107,7 +1117,11 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
         // Información de suscripción
         _buildFuturisticSubscriptionCard(organization),
         const SizedBox(height: 24),
-        
+
+        // Dispositivos conectados
+        _buildDeviceSessionsCard(),
+        const SizedBox(height: 24),
+
         // Detalles de organización
         _buildFuturisticDetailsSection(organization),
         
@@ -1606,6 +1620,479 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
 
   void _showEditOrganizationDialog(organization) {
     Get.dialog(EditOrganizationDialog(organization: organization));
+  }
+
+  // ==================== DEVICE SESSIONS SECTION ====================
+
+  Future<void> _loadDeviceSessions() async {
+    if (_sessionsLoading) return;
+    setState(() {
+      _sessionsLoading = true;
+      _sessionsError = null;
+    });
+
+    try {
+      if (!Get.isRegistered<AuthRemoteDataSource>()) {
+        setState(() {
+          _sessionsError = 'Servicio no disponible';
+          _sessionsLoading = false;
+        });
+        return;
+      }
+      final remoteDS = Get.find<AuthRemoteDataSource>();
+      final sessions = await remoteDS.getActiveSessions();
+      setState(() {
+        _sessions = sessions;
+        _sessionsLoading = false;
+        _sessionsLoaded = true;
+      });
+    } catch (e) {
+      setState(() {
+        _sessionsError = 'Error al cargar dispositivos';
+        _sessionsLoading = false;
+      });
+    }
+  }
+
+  Future<void> _revokeSession(String sessionId) async {
+    try {
+      final remoteDS = Get.find<AuthRemoteDataSource>();
+      await remoteDS.revokeSession(sessionId);
+      setState(() {
+        _sessions.removeWhere((s) => s.id == sessionId);
+      });
+      Get.snackbar(
+        'Sesión cerrada',
+        'El dispositivo ha sido desconectado',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green.shade100,
+        colorText: Colors.green.shade800,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'No se pudo cerrar la sesión',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
+
+  Future<void> _revokeAllOtherSessions() async {
+    final confirmed = await Get.dialog<bool>(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+            SizedBox(width: 8),
+            Text('Confirmar'),
+          ],
+        ),
+        content: const Text(
+          'Se cerrarán todas las sesiones excepto la actual. '
+          'Los demás dispositivos deberán iniciar sesión nuevamente.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Get.back(result: true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cerrar todas'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final remoteDS = Get.find<AuthRemoteDataSource>();
+      final count = await remoteDS.revokeAllOtherSessions();
+      await _loadDeviceSessions();
+      Get.snackbar(
+        'Sesiones cerradas',
+        '$count dispositivo(s) desconectado(s)',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green.shade100,
+        colorText: Colors.green.shade800,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'No se pudieron cerrar las sesiones',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
+
+  int get _maxDevices {
+    if (Get.isRegistered<SubscriptionController>()) {
+      return Get.find<SubscriptionController>().limits?.maxDevices ?? 2;
+    }
+    return 2;
+  }
+
+  bool get _isUnlimitedDevices => _maxDevices == -1;
+
+  Widget _buildDeviceSessionsCard() {
+    final isOnline = Get.isRegistered<NetworkInfo>()
+        ? Get.find<NetworkInfo>().isServerReachable
+        : false;
+
+    // Cargar sesiones la primera vez si hay conexión
+    if (isOnline && !_sessionsLoaded && !_sessionsLoading) {
+      Future.microtask(() => _loadDeviceSessions());
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final isMobile = screenWidth < 600;
+        final isTablet = screenWidth >= 600 && screenWidth < 1000;
+        final containerPadding = isMobile ? 16.0 : isTablet ? 20.0 : 24.0;
+        final iconPadding = isMobile ? 6.0 : isTablet ? 7.0 : 8.0;
+        final iconSize = isMobile ? 14.0 : isTablet ? 15.0 : 16.0;
+        final titleFontSize = isMobile ? 14.0 : isTablet ? 15.0 : 16.0;
+        final spacing = isMobile ? 10.0 : isTablet ? 11.0 : 12.0;
+
+        return Container(
+          padding: EdgeInsets.all(containerPadding),
+          decoration: BoxDecoration(
+            gradient: ElegantLightTheme.glassGradient,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(iconPadding),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.devices, color: Colors.white, size: iconSize),
+                  ),
+                  SizedBox(width: spacing),
+                  Expanded(
+                    child: Text(
+                      'Dispositivos Conectados',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (isOnline)
+                    IconButton(
+                      icon: Icon(
+                        Icons.refresh,
+                        size: iconSize,
+                        color: ElegantLightTheme.textSecondary,
+                      ),
+                      onPressed: _loadDeviceSessions,
+                      tooltip: 'Actualizar',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              if (!isOnline)
+                _buildOfflineDevicesPlaceholder()
+              else if (_sessionsLoading && !_sessionsLoaded)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              else if (_sessionsError != null && _sessions.isEmpty)
+                _buildSessionsErrorState()
+              else
+                _buildSessionsList(isMobile),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOfflineDevicesPlaceholder() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.wifi_off, color: Colors.grey.shade400, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Requiere conexión a internet para ver los dispositivos conectados.',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSessionsErrorState() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red.shade400, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _sessionsError ?? 'Error desconocido',
+                  style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: _loadDeviceSessions,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Reintentar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSessionsList(bool isMobile) {
+    final maxDevices = _maxDevices;
+    final activeCount = _sessions.length;
+    final isUnlimited = _isUnlimitedDevices;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Device count with progress
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.smartphone,
+                color: ElegantLightTheme.primaryGradient.colors.first,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isUnlimited
+                          ? '$activeCount dispositivo(s) conectado(s)'
+                          : '$activeCount de $maxDevices dispositivo(s)',
+                      style: TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (!isUnlimited) ...[
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: maxDevices > 0
+                              ? (activeCount / maxDevices).clamp(0.0, 1.0)
+                              : 0,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            activeCount >= maxDevices
+                                ? Colors.red.shade400
+                                : activeCount >= maxDevices * 0.8
+                                    ? Colors.orange.shade400
+                                    : ElegantLightTheme.primaryGradient.colors.first,
+                          ),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Session list
+        if (_sessions.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'No hay sesiones activas',
+              style: TextStyle(
+                color: ElegantLightTheme.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+          )
+        else
+          ..._sessions.map((session) => _buildSessionTile(session, isMobile)),
+
+        // Revoke all button
+        if (_sessions.length > 1) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _revokeAllOtherSessions,
+              icon: Icon(Icons.logout, size: 16, color: Colors.red.shade600),
+              label: Text(
+                'Cerrar todas las demás sesiones',
+                style: TextStyle(color: Colors.red.shade600, fontSize: 13),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: Colors.red.shade300),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSessionTile(ActiveSessionModel session, bool isMobile) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              session.deviceIcon,
+              color: ElegantLightTheme.primaryGradient.colors.first,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  session.deviceDisplayName,
+                  style: TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: isMobile ? 13 : 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isMobile
+                      ? session.lastActivityDisplay
+                      : '${session.ipAddress ?? "IP desconocida"} - ${session.lastActivityDisplay}',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: isMobile ? 11 : 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (session.lastActivityDisplay == 'Activo ahora')
+            Container(
+              width: 8,
+              height: 8,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withValues(alpha: 0.4),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+            ),
+          IconButton(
+            icon: Icon(
+              Icons.logout,
+              size: 18,
+              color: Colors.red.shade400,
+            ),
+            onPressed: () => _revokeSession(session.id),
+            tooltip: 'Cerrar sesión',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildQuickActionsCard() {

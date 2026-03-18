@@ -11,6 +11,7 @@ import '../models/update_profile_request_model.dart';
 import '../models/refresh_token_response_model.dart';
 import '../models/profile_response_model.dart';
 import '../models/user_model.dart';
+import '../models/active_session_model.dart';
 import '../models/api_error_model.dart';
 
 /// Contrato para el datasource remoto de autenticación
@@ -23,6 +24,9 @@ abstract class AuthRemoteDataSource {
   Future<void> logout();
   Future<UserModel> updateProfile(UpdateProfileRequestModel request);
   Future<void> changePassword(ChangePasswordRequestModel request);
+  Future<List<ActiveSessionModel>> getActiveSessions();
+  Future<void> revokeSession(String sessionId);
+  Future<int> revokeAllOtherSessions();
 }
 
 /// Implementación del datasource remoto usando Dio
@@ -229,6 +233,66 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'Error del servidor: ${response.statusMessage}',
         statusCode: response.statusCode,
       );
+    }
+  }
+
+  @override
+  Future<List<ActiveSessionModel>> getActiveSessions() async {
+    try {
+      final response = await dioClient.get(ApiConstants.sessions);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> sessionsList;
+        final data = response.data;
+
+        if (data is List) {
+          sessionsList = data;
+        } else if (data is Map && data.containsKey('data') && data['data'] is List) {
+          sessionsList = data['data'] as List;
+        } else if (data is Map && data.containsKey('success') && data['data'] is List) {
+          sessionsList = data['data'] as List;
+        } else {
+          sessionsList = [];
+        }
+
+        return sessionsList
+            .map((json) => ActiveSessionModel.fromJson(json as Map<String, dynamic>))
+            .toList();
+      }
+      throw ServerException('Error al obtener sesiones activas');
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException || e is ConnectionException) rethrow;
+      throw ServerException('Error inesperado al obtener sesiones: $e');
+    }
+  }
+
+  @override
+  Future<void> revokeSession(String sessionId) async {
+    try {
+      await dioClient.delete('${ApiConstants.sessions}/$sessionId');
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException || e is ConnectionException) rethrow;
+      throw ServerException('Error al revocar sesión: $e');
+    }
+  }
+
+  @override
+  Future<int> revokeAllOtherSessions() async {
+    try {
+      final response = await dioClient.delete(ApiConstants.sessions);
+      if (response.statusCode == 200 && response.data is Map) {
+        return response.data['revokedCount'] as int? ?? 0;
+      }
+      return 0;
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException || e is ConnectionException) rethrow;
+      throw ServerException('Error al revocar sesiones: $e');
     }
   }
 

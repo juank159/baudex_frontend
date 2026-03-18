@@ -202,6 +202,7 @@
 // }
 
 // lib/app/core/network/dio_client.dart
+import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart' as getx;
@@ -233,6 +234,7 @@ class DioClient {
       headers: {
         'Content-Type': ApiConstants.contentType,
         'Accept': ApiConstants.accept,
+        'User-Agent': _buildUserAgent(),
       },
     );
 
@@ -263,6 +265,39 @@ class DioClient {
           },
         ),
       );
+    }
+  }
+
+  static String _buildUserAgent() {
+    try {
+      final os = Platform.operatingSystem; // macos, windows, linux, android, ios
+      final osVersion = Platform.operatingSystemVersion;
+      final String deviceType;
+      final String osName;
+
+      if (Platform.isMacOS) {
+        deviceType = 'Desktop';
+        osName = 'macOS';
+      } else if (Platform.isWindows) {
+        deviceType = 'Desktop';
+        osName = 'Windows';
+      } else if (Platform.isLinux) {
+        deviceType = 'Desktop';
+        osName = 'Linux';
+      } else if (Platform.isAndroid) {
+        deviceType = 'Mobile';
+        osName = 'Android';
+      } else if (Platform.isIOS) {
+        deviceType = 'Mobile';
+        osName = 'iOS';
+      } else {
+        deviceType = 'Unknown';
+        osName = os;
+      }
+
+      return 'Baudex/$deviceType ($osName; $osVersion)';
+    } catch (e) {
+      return 'Baudex/Unknown';
     }
   }
 

@@ -3,13 +3,13 @@ import 'package:baudex_desktop/app/ui/layouts/main_layout.dart';
 import 'package:baudex_desktop/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/spectacular_floating_action_button.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/purchase_orders_controller.dart';
 import '../widgets/purchase_order_card_widget.dart';
 import '../widgets/purchase_order_filter_widget.dart';
+import '../widgets/purchase_order_skeleton_widget.dart';
 import '../widgets/purchase_order_stats_widget.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
@@ -383,7 +383,7 @@ class _PurchaseOrdersListScreenState extends State<PurchaseOrdersListScreen> {
     final padding = isDesktop ? 32.0 : isTablet ? 24.0 : 16.0;
 
     if (controller.isLoading.value && controller.purchaseOrders.isEmpty) {
-      return const Center(child: LoadingWidget());
+      return const PurchaseOrderSkeletonList();
     }
 
     if (controller.error.value.isNotEmpty && controller.purchaseOrders.isEmpty) {
@@ -461,7 +461,10 @@ class _PurchaseOrdersListScreenState extends State<PurchaseOrdersListScreen> {
     
     return Obx(() {
       if (controller.stats.value == null && controller.isLoading.value) {
-        return const Center(child: LoadingWidget());
+        return Padding(
+          padding: EdgeInsets.all(padding),
+          child: const PurchaseOrderStatsSkeleton(),
+        );
       }
 
       if (controller.stats.value == null) {

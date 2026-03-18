@@ -11,6 +11,7 @@ class PlanLimits extends Equatable {
   final int maxCustomers;
   final int maxInvoicesPerMonth;
   final int maxUsers;
+  final int maxDevices;
   final int maxStorageMB;
   final int maxExpensesPerMonth;
   final int maxCategoriesPerLevel;
@@ -21,45 +22,46 @@ class PlanLimits extends Equatable {
     required this.maxCustomers,
     required this.maxInvoicesPerMonth,
     required this.maxUsers,
+    this.maxDevices = 2,
     required this.maxStorageMB,
     required this.maxExpensesPerMonth,
     required this.maxCategoriesPerLevel,
     required this.features,
   });
 
-  /// Limites para plan trial
-  /// Recursos ilimitados, solo limita dispositivos conectados (maxUsers=2)
+  /// Limites para plan trial (2 dispositivos)
   static const trial = PlanLimits(
     maxProducts: -1,
     maxCustomers: -1,
     maxInvoicesPerMonth: -1,
-    maxUsers: 2,
+    maxUsers: -1,
+    maxDevices: 2,
     maxStorageMB: -1,
     maxExpensesPerMonth: -1,
     maxCategoriesPerLevel: -1,
     features: PlanFeatures.allEnabled,
   );
 
-  /// Limites para plan basico
-  /// Recursos ilimitados, solo limita dispositivos conectados (maxUsers=5)
+  /// Limites para plan basico (5 dispositivos)
   static const basic = PlanLimits(
     maxProducts: -1,
     maxCustomers: -1,
     maxInvoicesPerMonth: -1,
-    maxUsers: 5,
+    maxUsers: -1,
+    maxDevices: 5,
     maxStorageMB: -1,
     maxExpensesPerMonth: -1,
     maxCategoriesPerLevel: -1,
     features: PlanFeatures.allEnabled,
   );
 
-  /// Limites para plan premium
-  /// Recursos ilimitados, solo limita dispositivos conectados (maxUsers=10)
+  /// Limites para plan premium (10 dispositivos)
   static const premium = PlanLimits(
     maxProducts: -1,
     maxCustomers: -1,
     maxInvoicesPerMonth: -1,
-    maxUsers: 10,
+    maxUsers: -1,
+    maxDevices: 10,
     maxStorageMB: -1,
     maxExpensesPerMonth: -1,
     maxCategoriesPerLevel: -1,
@@ -72,6 +74,7 @@ class PlanLimits extends Equatable {
     maxCustomers: -1,
     maxInvoicesPerMonth: -1,
     maxUsers: -1,
+    maxDevices: -1,
     maxStorageMB: -1,
     maxExpensesPerMonth: -1,
     maxCategoriesPerLevel: -1,
@@ -106,6 +109,9 @@ class PlanLimits extends Equatable {
 
   /// Verificar si el limite de usuarios es ilimitado
   bool get hasUnlimitedUsers => isUnlimited(maxUsers);
+
+  /// Verificar si el limite de dispositivos es ilimitado
+  bool get hasUnlimitedDevices => isUnlimited(maxDevices);
 
   /// Verificar si el almacenamiento es ilimitado
   bool get hasUnlimitedStorage => isUnlimited(maxStorageMB);
@@ -160,6 +166,7 @@ class PlanLimits extends Equatable {
         maxCustomers,
         maxInvoicesPerMonth,
         maxUsers,
+        maxDevices,
         maxStorageMB,
         maxExpensesPerMonth,
         maxCategoriesPerLevel,
@@ -171,6 +178,7 @@ class PlanLimits extends Equatable {
     int? maxCustomers,
     int? maxInvoicesPerMonth,
     int? maxUsers,
+    int? maxDevices,
     int? maxStorageMB,
     int? maxExpensesPerMonth,
     int? maxCategoriesPerLevel,
@@ -181,6 +189,7 @@ class PlanLimits extends Equatable {
       maxCustomers: maxCustomers ?? this.maxCustomers,
       maxInvoicesPerMonth: maxInvoicesPerMonth ?? this.maxInvoicesPerMonth,
       maxUsers: maxUsers ?? this.maxUsers,
+      maxDevices: maxDevices ?? this.maxDevices,
       maxStorageMB: maxStorageMB ?? this.maxStorageMB,
       maxExpensesPerMonth: maxExpensesPerMonth ?? this.maxExpensesPerMonth,
       maxCategoriesPerLevel:
