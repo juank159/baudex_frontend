@@ -130,13 +130,19 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
             }
             isarPO.items.clear();
 
-            // Crear y guardar nuevos items
-            final isarItems = model.items!.map((itemModel) {
+            // Crear y guardar nuevos items con IDs únicos garantizados
+            final isarItems = <IsarPurchaseOrderItem>[];
+            for (int idx = 0; idx < model.items!.length; idx++) {
+              final itemModel = model.items![idx];
               final qty = double.tryParse(itemModel.quantity ?? '0')?.toInt() ?? 0;
               final price = double.tryParse(itemModel.unitCost ?? '0') ?? 0.0;
               final total = double.tryParse(itemModel.totalCost ?? '0') ?? (qty * price);
-              return IsarPurchaseOrderItem.create(
-                itemId: itemModel.id ?? '${model.id}_item_${model.items!.indexOf(itemModel)}',
+              // Generar itemId único: usar id del modelo SOLO si no es null ni vacío
+              final itemId = (itemModel.id != null && itemModel.id!.isNotEmpty)
+                  ? itemModel.id!
+                  : '${model.id}_item_$idx';
+              isarItems.add(IsarPurchaseOrderItem.create(
+                itemId: itemId,
                 purchaseOrderServerId: model.id,
                 productId: itemModel.productId ?? '',
                 productName: itemModel.product?['name'] ?? 'Producto sin nombre',
@@ -157,8 +163,8 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
                 notes: itemModel.notes,
                 createdAt: itemModel.createdAt != null ? (DateTime.tryParse(itemModel.createdAt!) ?? DateTime.now()) : DateTime.now(),
                 updatedAt: itemModel.updatedAt != null ? (DateTime.tryParse(itemModel.updatedAt!) ?? DateTime.now()) : DateTime.now(),
-              );
-            }).toList();
+              ));
+            }
 
             await isar.isarPurchaseOrderItems.putAll(isarItems);
             isarPO.items.addAll(isarItems);
@@ -239,13 +245,19 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
             }
             isarPO.items.clear();
 
-            // Crear y guardar nuevos items
-            final isarItems = purchaseOrder.items!.map((itemModel) {
+            // Crear y guardar nuevos items con IDs únicos garantizados
+            final isarItems = <IsarPurchaseOrderItem>[];
+            for (int idx = 0; idx < purchaseOrder.items!.length; idx++) {
+              final itemModel = purchaseOrder.items![idx];
               final qty = double.tryParse(itemModel.quantity ?? '0')?.toInt() ?? 0;
               final price = double.tryParse(itemModel.unitCost ?? '0') ?? 0.0;
               final total = double.tryParse(itemModel.totalCost ?? '0') ?? (qty * price);
-              return IsarPurchaseOrderItem.create(
-                itemId: itemModel.id ?? '${purchaseOrder.id}_item_${purchaseOrder.items!.indexOf(itemModel)}',
+              // Generar itemId único: usar id del modelo SOLO si no es null ni vacío
+              final itemId = (itemModel.id != null && itemModel.id!.isNotEmpty)
+                  ? itemModel.id!
+                  : '${purchaseOrder.id}_item_$idx';
+              isarItems.add(IsarPurchaseOrderItem.create(
+                itemId: itemId,
                 purchaseOrderServerId: purchaseOrder.id,
                 productId: itemModel.productId ?? '',
                 productName: itemModel.product?['name'] ?? 'Producto sin nombre',
@@ -266,8 +278,8 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
                 notes: itemModel.notes,
                 createdAt: itemModel.createdAt != null ? (DateTime.tryParse(itemModel.createdAt!) ?? DateTime.now()) : DateTime.now(),
                 updatedAt: itemModel.updatedAt != null ? (DateTime.tryParse(itemModel.updatedAt!) ?? DateTime.now()) : DateTime.now(),
-              );
-            }).toList();
+              ));
+            }
 
             await isar.isarPurchaseOrderItems.putAll(isarItems);
             isarPO.items.addAll(isarItems);

@@ -765,7 +765,9 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       double totalDiscountAmount = 0.0;
 
       // Transform CreatePurchaseOrderItemParams to PurchaseOrderItem entities
-      final List<PurchaseOrderItem> purchaseOrderItems = params.items.map((itemParam) {
+      final List<PurchaseOrderItem> purchaseOrderItems = [];
+      for (int idx = 0; idx < params.items.length; idx++) {
+        final itemParam = params.items[idx];
         // Calculate item amounts
         final itemSubtotal = itemParam.quantity * itemParam.unitPrice;
         final itemDiscountAmount = itemSubtotal * (itemParam.discountPercentage / 100);
@@ -777,8 +779,8 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         totalTaxAmount += itemTaxAmount;
         totalDiscountAmount += itemDiscountAmount;
 
-        return PurchaseOrderItem(
-          id: '',  // Will be filled when synced
+        purchaseOrderItems.add(PurchaseOrderItem(
+          id: '${tempId}_item_$idx',  // ID único por item para ISAR
           productId: itemParam.productId,
           productName: itemParam.productName ?? '',
           productCode: null,
@@ -798,8 +800,8 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           notes: itemParam.notes,
           createdAt: now,
           updatedAt: now,
-        );
-      }).toList();
+        ));
+      }
 
       final totalAmount = subtotal + totalTaxAmount;
 
