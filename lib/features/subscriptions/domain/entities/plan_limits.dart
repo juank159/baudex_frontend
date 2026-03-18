@@ -42,39 +42,39 @@ class PlanLimits extends Equatable {
     features: PlanFeatures.allEnabled,
   );
 
-  /// Limites para plan basico (5 dispositivos)
+  /// Limites para plan basico (2 dispositivos)
   static const basic = PlanLimits(
     maxProducts: -1,
     maxCustomers: -1,
     maxInvoicesPerMonth: -1,
     maxUsers: -1,
-    maxDevices: 5,
+    maxDevices: 2,
     maxStorageMB: -1,
     maxExpensesPerMonth: -1,
     maxCategoriesPerLevel: -1,
     features: PlanFeatures.allEnabled,
   );
 
-  /// Limites para plan premium (10 dispositivos)
+  /// Limites para plan premium (3 dispositivos)
   static const premium = PlanLimits(
     maxProducts: -1,
     maxCustomers: -1,
     maxInvoicesPerMonth: -1,
     maxUsers: -1,
-    maxDevices: 10,
+    maxDevices: 3,
     maxStorageMB: -1,
     maxExpensesPerMonth: -1,
     maxCategoriesPerLevel: -1,
     features: PlanFeatures.allEnabled,
   );
 
-  /// Limites para plan enterprise (todo ilimitado)
+  /// Limites para plan enterprise (5 dispositivos)
   static const enterprise = PlanLimits(
     maxProducts: -1,
     maxCustomers: -1,
     maxInvoicesPerMonth: -1,
     maxUsers: -1,
-    maxDevices: -1,
+    maxDevices: 5,
     maxStorageMB: -1,
     maxExpensesPerMonth: -1,
     maxCategoriesPerLevel: -1,

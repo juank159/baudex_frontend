@@ -10,6 +10,8 @@ import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../../../auth/data/datasources/auth_remote_datasource.dart';
 import '../../../auth/data/models/active_session_model.dart';
+import '../../../subscriptions/domain/entities/plan_limits.dart';
+import '../../../subscriptions/domain/entities/subscription_enums.dart';
 import '../../../subscriptions/presentation/controllers/subscription_controller.dart';
 import '../controllers/organization_controller.dart';
 import '../widgets/edit_organization_dialog.dart';
@@ -1874,8 +1876,6 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
     return 2;
   }
 
-  bool get _isUnlimitedDevices => _maxDevices == -1;
-
   Widget _buildDeviceSessionsCard() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2145,69 +2145,165 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
     );
   }
 
+  String get _currentPlanName {
+    if (Get.isRegistered<SubscriptionController>()) {
+      return Get.find<SubscriptionController>().currentPlan.displayName;
+    }
+    return 'Plan de Prueba';
+  }
+
+  String get _upgradePlanName {
+    if (Get.isRegistered<SubscriptionController>()) {
+      final current = Get.find<SubscriptionController>().currentPlan;
+      switch (current) {
+        case SubscriptionPlan.trial:
+        case SubscriptionPlan.basic:
+          return 'Plan Premium';
+        case SubscriptionPlan.premium:
+          return 'Plan Empresarial';
+        case SubscriptionPlan.enterprise:
+          return '';
+      }
+    }
+    return 'Plan Premium';
+  }
+
+  int get _upgradeMaxDevices {
+    if (Get.isRegistered<SubscriptionController>()) {
+      final current = Get.find<SubscriptionController>().currentPlan;
+      switch (current) {
+        case SubscriptionPlan.trial:
+        case SubscriptionPlan.basic:
+          return PlanLimits.premium.maxDevices;
+        case SubscriptionPlan.premium:
+          return PlanLimits.enterprise.maxDevices;
+        case SubscriptionPlan.enterprise:
+          return -1;
+      }
+    }
+    return PlanLimits.premium.maxDevices;
+  }
+
   Widget _buildSessionsList(bool isMobile) {
     final maxDevices = _maxDevices;
     final activeCount = _sessions.length;
-    final isUnlimited = _isUnlimitedDevices;
+    final isAtLimit = maxDevices > 0 && activeCount >= maxDevices;
+    final isNearLimit = maxDevices > 0 && activeCount >= (maxDevices * 0.8);
+
+    final Color barColor;
+    if (isAtLimit) {
+      barColor = const Color(0xFFE53935);
+    } else if (isNearLimit) {
+      barColor = const Color(0xFFFFA726);
+    } else {
+      barColor = ElegantLightTheme.primaryGradient.colors.first;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Device count with progress
+        // Device count header
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+              color: isAtLimit
+                  ? const Color(0xFFE53935).withValues(alpha: 0.2)
+                  : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.smartphone,
-                color: ElegantLightTheme.primaryGradient.colors.first,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isUnlimited
-                          ? '$activeCount dispositivo(s) conectado(s)'
-                          : '$activeCount de $maxDevices dispositivo(s)',
-                      style: TextStyle(
+              Row(
+                children: [
+                  Icon(
+                    Icons.devices,
+                    color: barColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '$activeCount de $maxDevices dispositivos',
+                      style: const TextStyle(
                         color: ElegantLightTheme.textPrimary,
-                        fontSize: 14,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: barColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _currentPlanName,
+                      style: TextStyle(
+                        color: barColor,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (!isUnlimited) ...[
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: maxDevices > 0
-                              ? (activeCount / maxDevices).clamp(0.0, 1.0)
-                              : 0,
-                          backgroundColor: Colors.grey.shade200,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            activeCount >= maxDevices
-                                ? Colors.red.shade400
-                                : activeCount >= maxDevices * 0.8
-                                    ? Colors.orange.shade400
-                                    : ElegantLightTheme.primaryGradient.colors.first,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: maxDevices > 0
+                      ? (activeCount / maxDevices).clamp(0.0, 1.0)
+                      : 0,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                  minHeight: 6,
+                ),
+              ),
+              if (isAtLimit) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE53935).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFFE53935).withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 16, color: Color(0xFFE53935)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Límite alcanzado. Al conectar un nuevo dispositivo se cerrará la sesión más antigua automáticamente.',
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 11,
+                            height: 1.3,
                           ),
-                          minHeight: 6,
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
+              ],
+              if (_upgradePlanName.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Actualiza a $_upgradePlanName para $_upgradeMaxDevices dispositivos',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
