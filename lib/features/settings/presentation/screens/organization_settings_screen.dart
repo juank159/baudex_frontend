@@ -4,7 +4,8 @@ import 'package:get/get.dart';
 
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
-import '../../../../app/core/network/network_info.dart';
+import '../../../../app/core/errors/exceptions.dart';
+import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../../../auth/data/datasources/auth_remote_datasource.dart';
@@ -26,6 +27,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late AnimationController _shimmerController;
 
   // Device sessions state
   List<ActiveSessionModel> _sessions = [];
@@ -50,11 +52,19 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
       CurvedAnimation(parent: _animationController, curve: ElegantLightTheme.elasticCurve),
     );
     _animationController.forward();
+
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+
+    Future.microtask(() => _loadDeviceSessions());
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _shimmerController.dispose();
     super.dispose();
   }
 
@@ -1626,29 +1636,38 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
 
   Future<void> _loadDeviceSessions() async {
     if (_sessionsLoading) return;
+    if (!mounted) return;
     setState(() {
       _sessionsLoading = true;
       _sessionsError = null;
     });
 
     try {
-      if (!Get.isRegistered<AuthRemoteDataSource>()) {
-        setState(() {
-          _sessionsError = 'Servicio no disponible';
-          _sessionsLoading = false;
-        });
-        return;
+      final AuthRemoteDataSource remoteDS;
+      if (Get.isRegistered<AuthRemoteDataSource>()) {
+        remoteDS = Get.find<AuthRemoteDataSource>();
+      } else {
+        remoteDS = AuthRemoteDataSourceImpl(dioClient: Get.find<DioClient>());
       }
-      final remoteDS = Get.find<AuthRemoteDataSource>();
       final sessions = await remoteDS.getActiveSessions();
+      if (!mounted) return;
       setState(() {
         _sessions = sessions;
         _sessionsLoading = false;
         _sessionsLoaded = true;
       });
-    } catch (e) {
+    } on ConnectionException {
+      if (!mounted) return;
       setState(() {
-        _sessionsError = 'Error al cargar dispositivos';
+        _sessionsError = 'offline';
+        _sessionsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _sessionsError = e.toString().contains('conexión') || e.toString().contains('Socket')
+            ? 'offline'
+            : 'Error al cargar dispositivos';
         _sessionsLoading = false;
       });
     }
@@ -1747,15 +1766,6 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
   bool get _isUnlimitedDevices => _maxDevices == -1;
 
   Widget _buildDeviceSessionsCard() {
-    final isOnline = Get.isRegistered<NetworkInfo>()
-        ? Get.find<NetworkInfo>().isServerReachable
-        : false;
-
-    // Cargar sesiones la primera vez si hay conexión
-    if (isOnline && !_sessionsLoaded && !_sessionsLoading) {
-      Future.microtask(() => _loadDeviceSessions());
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
@@ -1802,14 +1812,23 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                       ),
                     ),
                   ),
-                  if (isOnline)
+                  if (_sessionsLoaded)
                     IconButton(
-                      icon: Icon(
-                        Icons.refresh,
-                        size: iconSize,
-                        color: ElegantLightTheme.textSecondary,
-                      ),
-                      onPressed: _loadDeviceSessions,
+                      icon: _sessionsLoading
+                          ? SizedBox(
+                              width: iconSize,
+                              height: iconSize,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: ElegantLightTheme.textSecondary,
+                              ),
+                            )
+                          : Icon(
+                              Icons.refresh,
+                              size: iconSize,
+                              color: ElegantLightTheme.textSecondary,
+                            ),
+                      onPressed: _sessionsLoading ? null : _loadDeviceSessions,
                       tooltip: 'Actualizar',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -1818,19 +1837,10 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
               ),
               const SizedBox(height: 16),
 
-              if (!isOnline)
+              if (_sessionsLoading && !_sessionsLoaded)
+                _buildSessionsSkeletonLoading()
+              else if (_sessionsError == 'offline')
                 _buildOfflineDevicesPlaceholder()
-              else if (_sessionsLoading && !_sessionsLoaded)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                )
               else if (_sessionsError != null && _sessions.isEmpty)
                 _buildSessionsErrorState()
               else
@@ -1846,20 +1856,38 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+        ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Icon(Icons.wifi_off, color: Colors.grey.shade400, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Requiere conexión a internet para ver los dispositivos conectados.',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 13,
+          Row(
+            children: [
+              Icon(Icons.wifi_off, color: ElegantLightTheme.textSecondary, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Sin conexión al servidor. Verifica tu red e intenta de nuevo.',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: _loadDeviceSessions,
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Reintentar'),
+              style: TextButton.styleFrom(
+                foregroundColor: ElegantLightTheme.primaryBlue,
               ),
             ),
           ),
@@ -1898,6 +1926,111 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSessionsSkeletonLoading() {
+    return Column(
+      children: [
+        // Counter skeleton
+        _buildShimmerBox(height: 56, radius: 12),
+        const SizedBox(height: 12),
+        // Session tile skeletons
+        _buildSessionSkeletonTile(),
+        const SizedBox(height: 8),
+        _buildSessionSkeletonTile(),
+      ],
+    );
+  }
+
+  Widget _buildSessionSkeletonTile() {
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, child) {
+        final pulse = ((_shimmerController.value * 2.0 - 1.0).abs() * 0.4) + 0.3;
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+            ),
+          ),
+          child: Row(
+            children: [
+              // Icon placeholder
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300.withValues(alpha: pulse),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 130,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300.withValues(alpha: pulse),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      width: 190,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200.withValues(alpha: pulse),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Container(
+                      width: 80,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200.withValues(alpha: pulse),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200.withValues(alpha: pulse),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildShimmerBox({required double height, double? width, double radius = 8}) {
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, child) {
+        final pulse = ((_shimmerController.value * 2.0 - 1.0).abs() * 0.4) + 0.3;
+        return Container(
+          width: width ?? double.infinity,
+          height: height,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade300.withValues(alpha: pulse),
+            borderRadius: BorderRadius.circular(radius),
+          ),
+        );
+      },
     );
   }
 
@@ -2011,29 +2144,62 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
   }
 
   Widget _buildSessionTile(ActiveSessionModel session, bool isMobile) {
+    final statusColor = session.activityStatusColor;
+    final isActive = session.isRecentlyActive;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
+          color: isActive
+              ? statusColor.withValues(alpha: 0.25)
+              : ElegantLightTheme.textSecondary.withValues(alpha: 0.1),
         ),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              session.deviceIcon,
-              color: ElegantLightTheme.primaryGradient.colors.first,
-              size: 20,
-            ),
+          // Device icon with status indicator
+          Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  session.deviceIcon,
+                  color: ElegantLightTheme.primaryGradient.colors.first,
+                  size: 22,
+                ),
+              ),
+              // Status dot overlay
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: isActive
+                        ? [
+                            BoxShadow(
+                              color: statusColor.withValues(alpha: 0.5),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2047,38 +2213,40 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                     fontWeight: FontWeight.w600,
                     fontSize: isMobile ? 13 : 14,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
-                  isMobile
-                      ? session.lastActivityDisplay
-                      : '${session.ipAddress ?? "IP desconocida"} - ${session.lastActivityDisplay}',
+                  session.deviceSubtitle,
                   style: TextStyle(
                     color: ElegantLightTheme.textSecondary,
-                    fontSize: isMobile ? 11 : 12,
+                    fontSize: 11,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 4),
+                // Status badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    session.activityStatusText,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          if (session.lastActivityDisplay == 'Activo ahora')
-            Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: Colors.green,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withValues(alpha: 0.4),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
-            ),
           IconButton(
             icon: Icon(
               Icons.logout,
