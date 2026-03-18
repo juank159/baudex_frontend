@@ -754,10 +754,10 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
   Future<Either<Failure, PurchaseOrder>> _createPurchaseOrderOffline(
     CreatePurchaseOrderParams params,
   ) async {
-    print('📱 PurchaseOrderRepository: Creating purchase order offline');
     try {
       final now = DateTime.now();
-      final tempId = 'po_offline_${now.millisecondsSinceEpoch}_${params.supplierId.hashCode}';
+      final random = (now.microsecond * 1000 + DateTime.now().hashCode.abs() % 1000000).toString().padLeft(6, '0');
+      final tempId = 'po_offline_${now.millisecondsSinceEpoch}_$random';
 
       // Calculate totals from items (params doesn't have subtotal, taxAmount, discountAmount, totalAmount)
       double subtotal = 0.0;
@@ -780,16 +780,16 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         totalDiscountAmount += itemDiscountAmount;
 
         purchaseOrderItems.add(PurchaseOrderItem(
-          id: '${tempId}_item_$idx',  // ID único por item para ISAR
+          id: '${tempId}_item_$idx',
           productId: itemParam.productId,
           productName: itemParam.productName ?? '',
           productCode: null,
           productDescription: null,
-          unit: '',  // Will be filled when synced
+          unit: '',
           quantity: itemParam.quantity,
-          receivedQuantity: null,
-          damagedQuantity: null,
-          missingQuantity: null,
+          receivedQuantity: 0,
+          damagedQuantity: 0,
+          missingQuantity: 0,
           unitPrice: itemParam.unitPrice,
           discountPercentage: itemParam.discountPercentage,
           discountAmount: itemDiscountAmount,
@@ -838,6 +838,21 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         PurchaseOrderModel.fromEntity(tempPurchaseOrder),
       );
 
+      // Mark as unsynced so FullSync doesn't overwrite while pending
+      try {
+        final isar = IsarDatabase.instance.database;
+        final isarPO = await isar.isarPurchaseOrders
+            .filter()
+            .serverIdEqualTo(tempId)
+            .findFirst();
+        if (isarPO != null) {
+          await isar.writeTxn(() async {
+            isarPO.markAsUnsynced();
+            await isar.isarPurchaseOrders.put(isarPO);
+          });
+        }
+      } catch (_) {}
+
       // Add to sync queue
       try {
         final syncService = Get.find<SyncService>();
@@ -858,26 +873,24 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
             'contactPhone': params.contactPhone,
             'contactEmail': params.contactEmail,
             'attachments': params.attachments,
-            'items': params.items.map((item) => {
-              'productId': item.productId,
-              'quantity': item.quantity,
-              'unitPrice': item.unitPrice,
-              'discountPercentage': item.discountPercentage,
-              'taxPercentage': item.taxPercentage,
-              if (item.notes != null) 'notes': item.notes,
+            'items': params.items.asMap().entries.map((entry) => {
+              'productId': entry.value.productId,
+              'lineNumber': entry.key + 1,
+              'quantity': entry.value.quantity,
+              'unitCost': entry.value.unitPrice,
+              'discountPercentage': entry.value.discountPercentage,
+              'taxPercentage': entry.value.taxPercentage,
+              if (entry.value.notes != null) 'notes': entry.value.notes,
             }).toList(),
           },
           priority: 1,
         );
-        print('📤 PurchaseOrderRepository: Operation added to sync queue');
       } catch (e) {
-        print('⚠️ Error adding to sync queue: $e');
+        print('⚠️ Error adding PO to sync queue: $e');
       }
 
-      print('✅ Purchase order created offline successfully');
       return Right(tempPurchaseOrder);
     } catch (e) {
-      print('❌ Error creating purchase order offline: $e');
       return Left(CacheFailure('Error al crear orden de compra offline: $e'));
     }
   }

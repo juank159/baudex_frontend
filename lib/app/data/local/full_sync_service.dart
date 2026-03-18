@@ -1029,10 +1029,10 @@ class FullSyncService extends GetxService {
         getId: (e) => e.id,
       );
 
-      // Purchase Orders: prefix 'po_'
+      // Purchase Orders: prefix 'po_offline_'
       totalCleaned += await _cleanupEntity<IsarPurchaseOrder>(
         collection: _isar.isarPurchaseOrders,
-        prefix: 'po_',
+        prefix: 'po_offline_',
         pendingIds: pendingEntityIds,
         getServerId: (e) => e.serverId,
         getId: (e) => e.id,
