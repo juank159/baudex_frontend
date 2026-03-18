@@ -301,32 +301,9 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
   Future<Either<Failure, PurchaseOrder>> createPurchaseOrder(
     CreatePurchaseOrderParams params,
   ) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final createdPurchaseOrder = await remoteDataSource.createPurchaseOrder(params);
-
-        // Intentar agregar al cache (no bloquear si falla)
-        try {
-          await localDataSource.cachePurchaseOrder(createdPurchaseOrder);
-        } catch (e) {
-          print('Error al guardar orden de compra en cache: $e');
-          // No bloquear la aplicación por errores de cache
-        }
-
-        return Right(createdPurchaseOrder.toEntity());
-      } on ServerException catch (e) {
-        print('⚠️ [PO_REPO] ServerException en create: ${e.message} - Fallback offline...');
-        return _createPurchaseOrderOffline(params);
-      } on ConnectionException catch (e) {
-        print('⚠️ [PO_REPO] ConnectionException en create: ${e.message} - Fallback offline...');
-        return _createPurchaseOrderOffline(params);
-      } catch (e) {
-        print('⚠️ [PO_REPO] Exception en create: $e - Fallback offline...');
-        return _createPurchaseOrderOffline(params);
-      }
-    } else {
-      return _createPurchaseOrderOffline(params);
-    }
+    // Siempre offline-first: guardar localmente y retornar inmediatamente.
+    // El SyncService se encarga de enviar al servidor en background.
+    return _createPurchaseOrderOffline(params);
   }
 
   @override

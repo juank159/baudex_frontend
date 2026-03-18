@@ -96,125 +96,90 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
   }
 
   Widget _buildStepperHeader() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth >= 1200;
-        final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1200;
-        
-        return Container(
-          padding: EdgeInsets.all(isDesktop ? 24 : isTablet ? 20 : AppDimensions.paddingMedium),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.white, Colors.blue.shade50.withOpacity(0.3)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    final stepIcons = [Icons.store, Icons.inventory_2, Icons.note_add];
+    final stepLabels = ['Básica', 'Productos', 'Adicional'];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-          child: Column(
-            children: [
-              // Progress indicator mejorado y responsivo
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isDesktop ? 32 : isTablet ? 24 : 16,
-                ),
-                child: Row(
-                  children: [
-                    for (int i = 0; i < 3; i++) ...[
-                      Expanded(
-                        child: Obx(() => AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          height: isDesktop ? 6 : 5,
-                          decoration: BoxDecoration(
-                            gradient: controller.currentStep.value >= i
-                                ? LinearGradient(
-                                    colors: [AppColors.primary, AppColors.primary.withOpacity(0.7)],
-                                  )
-                                : null,
-                            color: controller.currentStep.value >= i
-                                ? null
-                                : Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(3),
-                            boxShadow: controller.currentStep.value >= i
-                                ? [
-                                    BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.3),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 1),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                        )),
-                      ),
-                      if (i < 2) SizedBox(width: isDesktop ? 8 : 6),
-                    ],
-                  ],
-                ),
-              ),
-          
-              const SizedBox(height: AppDimensions.paddingMedium),
-          
-              // Step titles
-              Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              for (int i = 0; i < 3; i++)
-                Expanded(
-                  child: Obx(() => GestureDetector(
-                    onTap: () => controller.goToStep(i),
-                    child: Column(
+        ],
+      ),
+      child: Row(
+        children: [
+          for (int i = 0; i < 3; i++) ...[
+            Expanded(
+              child: Obx(() {
+                final isActive = controller.currentStep.value == i;
+                final isDone = controller.currentStep.value > i;
+                return GestureDetector(
+                  onTap: () => controller.goToStep(i),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? AppColors.primary.withOpacity(0.1)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 32,
-                          height: 32,
+                          width: 24,
+                          height: 24,
                           decoration: BoxDecoration(
-                            color: controller.currentStep.value >= i
+                            color: isActive || isDone
                                 ? AppColors.primary
                                 : Colors.grey.shade300,
                             shape: BoxShape.circle,
                           ),
                           child: Center(
-                            child: Text(
-                              '${i + 1}',
-                              style: TextStyle(
-                                color: controller.currentStep.value >= i
-                                    ? Colors.white
-                                    : Colors.grey.shade600,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            child: isDone
+                                ? const Icon(Icons.check, color: Colors.white, size: 14)
+                                : Icon(stepIcons[i], color: Colors.white, size: 13),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          controller.getStepTitle(i),
-                          style: Get.textTheme.bodySmall?.copyWith(
-                            color: controller.currentStep.value == i
-                                ? AppColors.primary
-                                : Colors.grey.shade600,
-                            fontWeight: controller.currentStep.value == i
-                                ? FontWeight.w600
-                                : FontWeight.normal,
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            stepLabels[i],
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                              color: isActive
+                                  ? AppColors.primary
+                                  : isDone
+                                      ? AppColors.primary.withOpacity(0.7)
+                                      : Colors.grey.shade500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
-                  )),
-                ),
-            ],
-          ),
+                  ),
+                );
+              }),
+            ),
+            if (i < 2)
+              Obx(() => Container(
+                width: 20,
+                height: 2,
+                color: controller.currentStep.value > i
+                    ? AppColors.primary
+                    : Colors.grey.shade300,
+              )),
+          ],
         ],
-          ),
-        );
-      },
+      ),
     );
   }
 
@@ -239,48 +204,6 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Título principal con diseño mejorado
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue.shade50, Colors.indigo.shade50],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade600,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.info_outline, color: Colors.white, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Información Básica',
-                  style: Get.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppDimensions.paddingLarge),
-
           // Proveedor
           Text(
             'Proveedor *',
@@ -518,46 +441,31 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
 
   Widget _buildOptimizedItemsHeader() {
     return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary.withOpacity(0.06), Colors.white],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
+        color: AppColors.primary.withOpacity(0.04),
         border: Border(
-          bottom: BorderSide(color: AppColors.primary.withOpacity(0.2)),
+          bottom: BorderSide(color: AppColors.primary.withOpacity(0.15)),
         ),
       ),
-      child: Row(
-        children: [
-          Icon(Icons.inventory_2, color: AppColors.primary, size: 24),
-          const SizedBox(width: AppDimensions.paddingSmall),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Productos en la Orden',
-                  style: Get.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-                Obx(() {
-                  final completed = controller.items.where((i) => i.isValid).length;
-                  return Text(
-                    '$completed producto${completed != 1 ? 's' : ''} agregado${completed != 1 ? 's' : ''} • Total: ${AppFormatters.formatCurrency(controller.totalAmount.value)}',
-                    style: Get.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade700,
-                    ),
-                  );
-                }),
-              ],
+      child: Obx(() {
+        final completed = controller.items.where((i) => i.isValid).length;
+        return Row(
+          children: [
+            Icon(Icons.inventory_2, color: AppColors.primary, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              '$completed producto${completed != 1 ? 's' : ''}',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary),
             ),
-          ),
-        ],
-      ),
+            const Spacer(),
+            Text(
+              AppFormatters.formatCurrency(controller.totalAmount.value),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
+            ),
+          ],
+        );
+      }),
     );
   }
 
@@ -570,7 +478,7 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
       final hasActiveItem = controller.activeItemIndex.value >= 0;
 
       return ListView.builder(
-        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         itemCount: controller.items.length + (hasActiveItem ? 0 : 1),
         itemBuilder: (context, index) {
           // Items
@@ -630,55 +538,45 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
   }
 
   Widget _buildCompactTotalsSummary() {
-    return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.05),
-        border: Border(
-          top: BorderSide(color: AppColors.primary.withOpacity(0.2)),
+    return Obx(() {
+      final validCount = controller.items.where((i) => i.isValid).length;
+      final hasActiveItem = controller.activeItemIndex.value >= 0;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.05),
+          border: Border(
+            top: BorderSide(color: AppColors.primary.withOpacity(0.2)),
+          ),
         ),
-      ),
-      child: Obx(() => Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: Row(
+          children: [
+            if (hasActiveItem)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: Colors.orange.shade700),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Agrega el producto para continuar',
+                    style: TextStyle(fontSize: 12, color: Colors.orange.shade700, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              )
+            else
               Text(
-                'Resumen',
-                style: Get.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                '$validCount producto${validCount != 1 ? 's' : ''}',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
               ),
-              Text(
-                '${controller.items.length} productos',
-                style: Get.textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'Total',
-                style: Get.textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey.shade700,
-                ),
-              ),
-              Text(
-                AppFormatters.formatCurrency(controller.totalAmount.value),
-                style: Get.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      )),
-    );
+            const Spacer(),
+            Text(
+              AppFormatters.formatCurrency(controller.totalAmount.value),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildAdditionalInfoStep() {
@@ -1074,8 +972,9 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
         final isMobile = constraints.maxWidth < 600;
         
         return Container(
-          padding: EdgeInsets.all(
-            isDesktop ? 24 : isTablet ? 20 : AppDimensions.paddingMedium,
+          padding: EdgeInsets.symmetric(
+            horizontal: isDesktop ? 24 : isTablet ? 20 : 14,
+            vertical: isMobile ? 10 : 16,
           ),
           constraints: BoxConstraints(
             maxWidth: isDesktop ? 1000 : isTablet ? 800 : double.infinity,
@@ -1084,19 +983,11 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
             horizontal: isDesktop ? 32 : isTablet ? 24 : 0,
           ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.white, Colors.blue.shade50.withOpacity(0.3)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(isDesktop ? 16 : 12),
-              topRight: Radius.circular(isDesktop ? 16 : 12),
-            ),
+            color: Colors.white,
             boxShadow: [
               BoxShadow(
                 color: Colors.grey.withOpacity(0.1),
-                blurRadius: 8,
+                blurRadius: 4,
                 offset: const Offset(0, -2),
               ),
             ],
@@ -1104,31 +995,6 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
           child: SafeArea(
             top: false,
             child: Obx(() {
-              // Responsive button layout for mobile
-              if (isMobile && !controller.isFirstStep) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CustomButton(
-                      text: controller.isLastStep ? controller.saveButtonText : 'Siguiente',
-                      onPressed: controller.isLastStep
-                          ? (controller.isSaving.value ? null : controller.savePurchaseOrder)
-                          : (controller.canProceed ? controller.nextStep : null),
-                      isLoading: controller.isLastStep ? controller.isSaving.value : false,
-                      icon: controller.isLastStep ? Icons.save : Icons.arrow_forward,
-                    ),
-                    const SizedBox(height: 12),
-                    CustomButton(
-                      text: 'Anterior',
-                      onPressed: controller.previousStep,
-                      type: ButtonType.outline,
-                      icon: Icons.arrow_back,
-                    ),
-                  ],
-                );
-              }
-              
-              // Standard horizontal layout for desktop/tablet
               return Row(
                 children: [
                   if (!controller.isFirstStep) ...[
@@ -1140,9 +1006,9 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
                         icon: Icons.arrow_back,
                       ),
                     ),
-                    SizedBox(width: isDesktop ? 20 : AppDimensions.paddingMedium),
+                    SizedBox(width: isMobile ? 12 : isDesktop ? 20 : AppDimensions.paddingMedium),
                   ],
-                  
+
                   Expanded(
                     flex: controller.isFirstStep ? 3 : 2,
                     child: controller.isLastStep

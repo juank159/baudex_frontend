@@ -168,8 +168,9 @@ class PurchaseOrderFormController extends GetxController
     orderDateController.addListener(_validateForm);
     expectedDeliveryDateController.addListener(_validateForm);
 
-    // Escuchar cambios en items
+    // Escuchar cambios en items y en el item activo
     ever(items, (_) => _validateForm());
+    ever(activeItemIndex, (_) => _validateForm());
   }
 
   void _disposeControllers() {
@@ -334,9 +335,11 @@ class PurchaseOrderFormController extends GetxController
       case 0: // Información básica
         isStepValid.value = hasSupplier && hasValidDate;
         break;
-      case 1: // Items
+      case 1: // Items - todos deben ser válidos y ninguno en edición activa
         isStepValid.value =
-            items.isNotEmpty && items.every((item) => item.isValid);
+            items.isNotEmpty &&
+            items.every((item) => item.isValid) &&
+            activeItemIndex.value < 0;
         break;
       case 2: // Información adicional
         isStepValid.value = true; // Información adicional es opcional

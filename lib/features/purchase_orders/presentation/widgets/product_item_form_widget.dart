@@ -202,54 +202,44 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
   Widget _buildSearchOnly() {
     return Container(
       key: const ValueKey('search_only'),
-      margin: const EdgeInsets.only(bottom: AppDimensions.paddingSmall),
-      padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-        border: Border.all(color: AppColors.primary.withOpacity(0.4), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.primary.withOpacity(0.4), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'Producto #${widget.index + 1}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '#${widget.index + 1}',
+                  style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Text(
+                'Buscar producto',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Busca y selecciona un producto',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           ProductSelectorWidget(
             selectedProduct: null,
             controller: Get.find<PurchaseOrderFormController>(),
-            hint: 'Buscar por nombre, SKU o codigo...',
+            hint: 'Nombre, SKU o código...',
             activateOnTextFieldTap: true,
             onProductSelected: widget.onProductSelected,
             onClearProduct: () {},
@@ -269,24 +259,17 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
 
     return Container(
       key: const ValueKey('full_form'),
-      margin: const EdgeInsets.only(bottom: AppDimensions.paddingSmall),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-        border: Border.all(color: AppColors.primary, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.12),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.primary, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header con producto seleccionado
+          // Header compacto con producto seleccionado
           _buildProductHeader(),
 
           // Campos animados
@@ -295,13 +278,11 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
             child: FadeTransition(
               opacity: _fieldsOpacity,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
                 child: Column(
                   children: [
-                    // Row de campos
                     _buildFieldsRow(),
-                    const SizedBox(height: 14),
-                    // Total + boton
+                    const SizedBox(height: 10),
                     _buildTotalBar(total, isValid),
                   ],
                 ),
@@ -315,95 +296,47 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
 
   Widget _buildProductHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withOpacity(0.06),
-            Colors.white,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.primary.withOpacity(0.04),
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(AppDimensions.radiusMedium - 1),
-          topRight: Radius.circular(AppDimensions.radiusMedium - 1),
+          topLeft: Radius.circular(9),
+          topRight: Radius.circular(9),
         ),
       ),
       child: Row(
         children: [
-          // Badge numero
           Container(
-            width: 32,
-            height: 32,
+            width: 26,
+            height: 26,
             decoration: BoxDecoration(
               gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Center(
               child: Text(
                 '#${widget.index + 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.inventory_2, color: AppColors.primary, size: 18),
-          ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.item.productName,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'Ingresa cantidad y precio de compra',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
+            child: Text(
+              widget.item.productName,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          // Cambiar producto
-          Tooltip(
-            message: 'Cambiar producto',
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () {
-                  widget.onProductSelected(null);
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.shade200),
-                  ),
-                  child: Icon(Icons.refresh, color: Colors.orange.shade700, size: 18),
-                ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => widget.onProductSelected(null),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(Icons.swap_horiz, color: Colors.orange.shade700, size: 20),
               ),
             ),
           ),
@@ -508,59 +441,42 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
 
   Widget _buildTotalBar(double total, bool isValid) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isValid
-            ? AppColors.success.withOpacity(0.08)
-            : AppColors.grey100,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+        color: isValid ? AppColors.success.withOpacity(0.08) : AppColors.grey100,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isValid
-              ? AppColors.success.withOpacity(0.3)
-              : AppColors.grey200,
+          color: isValid ? AppColors.success.withOpacity(0.3) : AppColors.grey200,
         ),
       ),
       child: Row(
         children: [
-          // Total
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Total del item',
-                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                AppFormatters.formatCurrency(total),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: isValid ? AppColors.success : AppColors.textPrimary,
-                ),
-              ),
-            ],
+          Text(
+            AppFormatters.formatCurrency(total),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: isValid ? AppColors.success : AppColors.textPrimary,
+            ),
           ),
           const Spacer(),
-          // Boton agregar
-          ElevatedButton.icon(
-            onPressed: isValid
-                ? () {
-                    widget.onComplete?.call();
-                  }
-                : null,
-            icon: Icon(isValid ? Icons.check_circle : Icons.add_circle, size: 20),
-            label: Text(isValid ? 'Agregar' : 'Completa los campos'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.success,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: AppColors.grey200,
-              disabledForegroundColor: AppColors.textSecondary,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+          SizedBox(
+            height: 36,
+            child: ElevatedButton.icon(
+              onPressed: isValid ? () => widget.onComplete?.call() : null,
+              icon: Icon(Icons.check_circle, size: 18),
+              label: Text(isValid ? 'Agregar' : 'Completar', style: const TextStyle(fontSize: 13)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppColors.grey200,
+                disabledForegroundColor: AppColors.textSecondary,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: isValid ? 1 : 0,
               ),
-              elevation: isValid ? 2 : 0,
             ),
           ),
         ],
@@ -578,95 +494,57 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
 
     return Container(
       key: const ValueKey('completed'),
-      margin: const EdgeInsets.only(bottom: AppDimensions.paddingSmall),
+      margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-        border: Border.all(
-          color: AppColors.success.withOpacity(0.35),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.success.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.success.withOpacity(0.3)),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: widget.onEdit,
-          borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+          borderRadius: BorderRadius.circular(8),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Row(
               children: [
-                // Badge numero verde
                 Container(
-                  width: 34,
-                  height: 34,
+                  width: 26,
+                  height: 26,
                   decoration: BoxDecoration(
                     gradient: AppColors.successGradient,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Center(
                     child: Text(
                       '#${widget.index + 1}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
-                // Info
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         widget.item.productName,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 3),
                       Row(
                         children: [
                           Text(
                             '${widget.item.quantity} x ${AppFormatters.formatCurrency(widget.item.unitPrice)}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            ),
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                           ),
                           if (hasDiscount) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.warning.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                '-${widget.item.discountPercentage.toStringAsFixed(0)}%',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.warningDark,
-                                ),
-                              ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '-${widget.item.discountPercentage.toStringAsFixed(0)}%',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.warningDark),
                             ),
                           ],
                         ],
@@ -674,19 +552,11 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
                     ],
                   ),
                 ),
-                // Total
                 Text(
                   AppFormatters.formatCurrency(total),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.success,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.success),
                 ),
-                const SizedBox(width: 8),
-                // Botones
-                if (widget.onEdit != null)
-                  _actionIcon(Icons.edit_outlined, AppColors.primary, widget.onEdit!),
+                const SizedBox(width: 4),
                 if (widget.onRemove != null)
                   _actionIcon(Icons.close, AppColors.error, widget.onRemove!),
               ],

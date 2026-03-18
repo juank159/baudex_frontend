@@ -926,13 +926,16 @@ class SyncService extends GetxService {
         );
       }
 
-      // Errores de validación del backend (400) no se deben reintentar
+      // Errores de validación del backend (400) y conflictos no se deben reintentar
       if (errorMsg.contains('solicitud incorrecta') ||
           errorMsg.contains('bad request') ||
           errorMsg.contains('must be a valid') ||
           errorMsg.contains('debe ser un') ||
           errorMsg.contains('ya existe') ||
-          errorMsg.contains('already exists')) {
+          errorMsg.contains('already exists') ||
+          errorMsg.contains('duplicate key') ||
+          errorMsg.contains('unique constraint') ||
+          errorMsg.contains('violates unique')) {
         AppLogger.w(
           '${operation.entityType}:${operation.entityId} error de validación permanente - no reintentar: $e',
           tag: 'SYNC',
