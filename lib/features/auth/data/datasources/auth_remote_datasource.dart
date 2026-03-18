@@ -58,6 +58,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {
+      if (e is ServerException || e is ConnectionException) rethrow;
       throw ServerException('Error inesperado durante el login: $e');
     }
   }

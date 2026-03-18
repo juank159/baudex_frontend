@@ -2282,7 +2282,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Límite alcanzado. Al conectar un nuevo dispositivo se cerrará la sesión más antigua automáticamente.',
+                          'Límite alcanzado. Cierra sesión en uno de tus dispositivos para poder conectar otro.',
                           style: TextStyle(
                             color: Colors.red.shade700,
                             fontSize: 11,

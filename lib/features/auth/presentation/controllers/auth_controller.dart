@@ -197,6 +197,80 @@ class AuthController extends GetxController {
   }
 
   /// Ejecutar Full Sync en background después del login
+  void _showDeviceLimitDialog(String message) {
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        icon: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.devices, color: Colors.orange.shade700, size: 32),
+        ),
+        title: const Text(
+          'Límite de dispositivos',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              style: const TextStyle(fontSize: 14, height: 1.4),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.blue.shade100),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: Colors.blue.shade600, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Puedes administrar tus dispositivos desde Configuración > Dispositivos Conectados.',
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Get.back(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade600,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text('Entendido', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
   void _triggerFullSync() {
     try {
       if (Get.isRegistered<FullSyncService>()) {
@@ -280,14 +354,19 @@ class AuthController extends GetxController {
       result.fold(
         (failure) {
           print('❌ AuthController: Error en login - ${failure.message}');
-          Get.snackbar(
-            'Error de Login',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-            icon: const Icon(Icons.error, color: Colors.red),
-          );
+          // Detectar error de límite de dispositivos (403 del backend)
+          if (failure.code == 403 && failure.message.contains('dispositivo')) {
+            _showDeviceLimitDialog(failure.message);
+          } else {
+            Get.snackbar(
+              'Error de Login',
+              failure.message,
+              snackPosition: SnackPosition.TOP,
+              backgroundColor: Colors.red.shade100,
+              colorText: Colors.red.shade800,
+              icon: const Icon(Icons.error, color: Colors.red),
+            );
+          }
         },
         (authResult) async {
           print('✅ AuthController: Login exitoso - ${authResult.user.email}');
