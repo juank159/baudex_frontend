@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
-import '../../../../app/shared/widgets/custom_text_field_safe.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/products_controller.dart';
@@ -1275,16 +1274,7 @@ class _LoadMoreIndicator extends StatelessWidget {
         );
       }
 
-      // Auto-cargar cuando el usuario llega al final
-      if (controller.canLoadMore) {
-        // Trigger automático de carga
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (controller.canLoadMore) {
-            controller.loadMoreProducts();
-          }
-        });
-      }
-
+      // La paginación automática se maneja via scrollController listener en el controller
       return const SizedBox(height: 20);
     });
   }

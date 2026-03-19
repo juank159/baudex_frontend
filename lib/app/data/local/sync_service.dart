@@ -1984,6 +1984,42 @@ class SyncService extends GetxService {
             }
           }
 
+          // Resolver categoryId temporal si es necesario
+          String? resolvedCategoryId = finalData['categoryId'];
+          if (resolvedCategoryId != null &&
+              resolvedCategoryId.startsWith('category_offline_')) {
+            AppLogger.d(
+              'CategoryId temporal detectado: $resolvedCategoryId - buscando ID real en ISAR...',
+              tag: 'SYNC',
+            );
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarCategory = await isar.isarCategorys
+                  .filter()
+                  .serverIdEqualTo(resolvedCategoryId)
+                  .findFirst();
+              if (isarCategory != null && !isarCategory.serverId.startsWith('category_offline_')) {
+                resolvedCategoryId = isarCategory.serverId;
+                AppLogger.d(
+                  'CategoryId resuelto: $resolvedCategoryId',
+                  tag: 'SYNC',
+                );
+              } else {
+                AppLogger.w(
+                  'CategoryId temporal no resuelto, enviando sin categoría',
+                  tag: 'SYNC',
+                );
+                resolvedCategoryId = null;
+              }
+            } catch (e) {
+              AppLogger.w(
+                'Error resolviendo categoryId temporal: $e',
+                tag: 'SYNC',
+              );
+              resolvedCategoryId = null;
+            }
+          }
+
           // Preparar request de creación
           final request = CreateProductRequestModel.fromParams(
             name: finalData['name'],
@@ -2014,7 +2050,7 @@ class SyncService extends GetxService {
                     ? List<String>.from(finalData['images'])
                     : null,
             metadata: finalData['metadata'],
-            categoryId: finalData['categoryId'],
+            categoryId: resolvedCategoryId ?? finalData['categoryId'] ?? '',
             prices:
                 finalData['prices'] != null
                     ? (finalData['prices'] as List)
@@ -2114,6 +2150,26 @@ class SyncService extends GetxService {
             tag: 'SYNC',
           );
 
+          // Resolver categoryId temporal en UPDATE también
+          String? updateCategoryId = data['categoryId'];
+          if (updateCategoryId != null &&
+              updateCategoryId.startsWith('category_offline_')) {
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarCat = await isar.isarCategorys
+                  .filter()
+                  .serverIdEqualTo(updateCategoryId)
+                  .findFirst();
+              if (isarCat != null && !isarCat.serverId.startsWith('category_offline_')) {
+                updateCategoryId = isarCat.serverId;
+              } else {
+                updateCategoryId = null;
+              }
+            } catch (_) {
+              updateCategoryId = null;
+            }
+          }
+
           // Preparar request de actualización
           final updateRequest = UpdateProductRequestModel.fromParams(
             name: data['name'],
@@ -2144,7 +2200,7 @@ class SyncService extends GetxService {
                     ? List<String>.from(data['images'])
                     : null,
             metadata: data['metadata'],
-            categoryId: data['categoryId'],
+            categoryId: updateCategoryId,
             prices:
                 data['prices'] != null
                     ? (data['prices'] as List)

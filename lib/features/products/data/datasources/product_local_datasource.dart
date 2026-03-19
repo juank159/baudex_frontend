@@ -474,7 +474,7 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
         productId: priceData['productId'] as String,
         type: PriceType.values.firstWhere((t) => t.name == priceData['type']),
         amount: (priceData['amount'] as num).toDouble(),
-        currency: priceData['currency'] as String? ?? 'USD',
+        currency: priceData['currency'] as String? ?? 'COP',
         status: PriceStatus.values.firstWhere((s) => s.name == (priceData['status'] ?? 'active')),
         discountPercentage: (priceData['discountPercentage'] as num?)?.toDouble() ?? 0.0,
         minQuantity: (priceData['minQuantity'] as num?)?.toDouble() ?? 1.0,

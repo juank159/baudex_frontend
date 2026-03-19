@@ -88,13 +88,16 @@ class ProductsController extends GetxController {
   // Debounce timer for search
   Timer? _searchDebounceTimer;
 
+  // Listener function reference para poder removerlo en onClose
+  VoidCallback? _scrollListenerFn;
+
   // Configuración
   static const int _pageSize = 20;
 
-  // Cache para carga rápida
-  static List<Product>? _cachedProducts;
-  static ProductStats? _cachedStats;
-  static DateTime? _lastCacheTime;
+  // Cache para carga rápida (por instancia, no static para evitar leak entre usuarios)
+  List<Product>? _cachedProducts;
+  ProductStats? _cachedStats;
+  DateTime? _lastCacheTime;
   static const _cacheValidityDuration = Duration(minutes: 5);
 
   // ==================== GETTERS ====================
@@ -142,14 +145,6 @@ class ProductsController extends GetxController {
   int get searchFieldRebuildKey => _searchFieldRebuildKey.value;
 
   // ==================== LIFECYCLE ====================
-
-  // @override
-  // void onInit() {
-  //   super.onInit();
-  //   _setupScrollListener();
-  //   loadProducts();
-  //   loadStats();
-  // }
 
   @override
   void onInit() {
@@ -256,16 +251,17 @@ class ProductsController extends GetxController {
 
   @override
   void onClose() {
-    // Solo cancelar el timer, NO disponer los controllers
-    // porque este controller es permanente y se reutiliza
     _searchDebounceTimer?.cancel();
     _searchDebounceTimer = null;
-    // NO llamar dispose en searchController y scrollController
-    // porque el controller es permanente
+    // Remover scroll listener para evitar memory leak
+    if (_scrollListenerFn != null) {
+      scrollController.removeListener(_scrollListenerFn!);
+      _scrollListenerFn = null;
+    }
+    searchController.dispose();
+    scrollController.dispose();
     super.onClose();
   }
-
-  // ==================== INITIALIZATION ====================
 
   // ==================== PUBLIC METHODS ====================
 
@@ -412,43 +408,6 @@ class ProductsController extends GetxController {
   }
 
   /// Cargar productos
-  // Future<void> loadProducts({bool showLoading = true}) async {
-  //   if (showLoading) _isLoading.value = true;
-
-  //   try {
-  //     final result = await _getProductsUseCase(
-  //       GetProductsParams(
-  //         page: 1,
-  //         limit: _pageSize,
-  //         search: _searchTerm.value.isEmpty ? null : _searchTerm.value,
-  //         status: _currentStatus.value,
-  //         type: _currentType.value,
-  //         categoryId: _selectedCategoryId.value,
-  //         inStock: _inStock.value,
-  //         lowStock: _lowStock.value,
-  //         minPrice: _minPrice.value,
-  //         maxPrice: _maxPrice.value,
-  //         priceType: _priceType.value,
-  //         sortBy: _sortBy.value,
-  //         sortOrder: _sortOrder.value,
-  //       ),
-  //     );
-
-  //     result.fold(
-  //       (failure) {
-  //         _showError('Error al cargar productos', failure.message);
-  //         _products.clear();
-  //       },
-  //       (paginatedResult) {
-  //         _products.value = paginatedResult.data;
-  //         _updatePaginationInfo(paginatedResult.meta);
-  //       },
-  //     );
-  //   } finally {
-  //     _isLoading.value = false;
-  //   }
-  // }
-
   Future<void> loadProducts({bool showLoading = true}) async {
     if (showLoading) _isLoading.value = true;
 
@@ -516,12 +475,6 @@ class ProductsController extends GetxController {
   }
 
   /// Refrescar productos
-  // Future<void> refreshProducts() async {
-  //   _currentPage.value = 1;
-  //   await loadProducts(showLoading: false);
-  //   await loadStats();
-  // }
-
   Future<void> refreshProducts() async {
     print('🔄 ProductsController: Refrescando datos...');
 
@@ -586,113 +539,6 @@ class ProductsController extends GetxController {
       _isDeleting.value = false;
     }
   }
-
-  // Future<void> loadStats() async {
-  //   print('📊 ProductsController: Iniciando carga de estadísticas...');
-
-  //   try {
-  //     final result = await _getProductStatsUseCase(const NoParams());
-
-  //     result.fold(
-  //       (failure) {
-  //         print(
-  //           '❌ ProductsController: Error al cargar estadísticas - ${failure.message}',
-  //         );
-
-  //         // ✅ MEJORADO: Solo mostrar error si no hay estadísticas previas
-  //         if (_stats.value == null) {
-  //           _showError(
-  //             'Error al cargar estadísticas',
-  //             failure.message,
-  //             duration: const Duration(seconds: 3),
-  //           );
-  //         } else {
-  //           print('⚠️ Manteniendo estadísticas anteriores debido al error');
-  //         }
-
-  //         // ✅ MEJORADO: Solo resetear si no hay estadísticas previas
-  //         if (_stats.value == null) {
-  //           _stats.value = const ProductStats(
-  //             total: 0,
-  //             active: 0,
-  //             inactive: 0,
-  //             outOfStock: 0,
-  //             lowStock: 0,
-  //             activePercentage: 0.0,
-  //             totalValue: 0.0,
-  //             averagePrice: 0.0,
-  //           );
-  //         }
-  //       },
-  //       (stats) {
-  //         print('✅ ProductsController: Estadísticas cargadas exitosamente');
-  //         print(
-  //           '📊 Stats: total=${stats.total}, active=${stats.active}, lowStock=${stats.lowStock}',
-  //         );
-
-  //         // ✅ MEJORADO: Validación y logs más detallados
-  //         if (stats.total >= 0 && stats.active >= 0) {
-  //           _stats.value = stats;
-  //           print('✅ Estadísticas asignadas al observable');
-
-  //           // ✅ AÑADIDO: Debug adicional para stock bajo
-  //           if (stats.lowStock > 0) {
-  //             print('🔍 Detectados ${stats.lowStock} productos con stock bajo');
-
-  //             // ✅ OPCIONAL: Cargar productos con stock bajo para verificar
-  //             _verifyLowStockProducts();
-  //           } else {
-  //             print('✅ No hay productos con stock bajo');
-  //           }
-  //         } else {
-  //           print(
-  //             '⚠️ Estadísticas recibidas con valores negativos: total=${stats.total}, active=${stats.active}',
-  //           );
-
-  //           // ✅ MANTENER estadísticas anteriores si las nuevas son inválidas
-  //           if (_stats.value == null) {
-  //             _stats.value = const ProductStats(
-  //               total: 0,
-  //               active: 0,
-  //               inactive: 0,
-  //               outOfStock: 0,
-  //               lowStock: 0,
-  //               activePercentage: 0.0,
-  //               totalValue: 0.0,
-  //               averagePrice: 0.0,
-  //             );
-  //           }
-  //         }
-  //       },
-  //     );
-  //   } catch (e, stackTrace) {
-  //     print(
-  //       '💥 ProductsController: Error inesperado al cargar estadísticas - $e',
-  //     );
-  //     print('🔍 StackTrace: $stackTrace');
-
-  //     // ✅ MEJORADO: Solo mostrar error si es crítico
-  //     if (_stats.value == null) {
-  //       _showError(
-  //         'Error inesperado',
-  //         'No se pudieron cargar las estadísticas: ${e.toString()}',
-  //       );
-
-  //       _stats.value = const ProductStats(
-  //         total: 0,
-  //         active: 0,
-  //         inactive: 0,
-  //         outOfStock: 0,
-  //         lowStock: 0,
-  //         activePercentage: 0.0,
-  //         totalValue: 0.0,
-  //         averagePrice: 0.0,
-  //       );
-  //     }
-  //   }
-
-  //   print('🏁 ProductsController: Carga de estadísticas finalizada');
-  // }
 
   Future<void> loadStats() async {
     await _loadStatsInternal();
@@ -780,11 +626,6 @@ class ProductsController extends GetxController {
     }
   }
 
-  // Future<void> refreshStats() async {
-  //   print('🔄 ProductsController: Refrescando estadísticas...');
-  //   await loadStats();
-  // }
-
   Future<void> refreshStats() async {
     print('🔄 ProductsController: Refrescando solo estadísticas...');
     await _loadStatsInternal();
@@ -792,57 +633,6 @@ class ProductsController extends GetxController {
 
   /// ✅ AÑADIDO: Método para verificar si las estadísticas están cargadas
   bool get hasValidStats => _stats.value != null && _stats.value!.total >= 0;
-
-  // Future<void> loadLowStockProducts() async {
-  //   print('📋 ProductsController: Cargando productos con stock bajo...');
-  //   _isLoading.value = true;
-
-  //   try {
-  //     final result = await _getLowStockProductsUseCase(const NoParams());
-
-  //     result.fold(
-  //       (failure) {
-  //         print(
-  //           '❌ Error al cargar productos con stock bajo: ${failure.message}',
-  //         );
-  //         _showError(
-  //           'Error al cargar productos con stock bajo',
-  //           failure.message,
-  //         );
-  //       },
-  //       (products) {
-  //         print('✅ Productos con stock bajo cargados: ${products.length}');
-
-  //         _products.value = products;
-
-  //         // Actualizar meta para mostrar resultados
-  //         _currentPage.value = 1;
-  //         _totalItems.value = products.length;
-  //         _totalPages.value = 1;
-  //         _hasNextPage.value = false;
-  //         _hasPreviousPage.value = false;
-
-  //         // ✅ AÑADIDO: Mensaje informativo
-  //         if (products.isNotEmpty) {
-  //           _showSuccess(
-  //             'Se encontraron ${products.length} productos con stock bajo',
-  //           );
-  //         } else {
-  //           _showSuccess('¡Excelente! No hay productos con stock bajo');
-  //         }
-
-  //         // ✅ AÑADIDO: Debug de productos encontrados
-  //         for (final product in products) {
-  //           print(
-  //             '   - ${product.name}: stock=${product.stock}, minStock=${product.minStock}',
-  //           );
-  //         }
-  //       },
-  //     );
-  //   } finally {
-  //     _isLoading.value = false;
-  //   }
-  // }
 
   Future<void> loadLowStockProducts() async {
     print('📋 ProductsController: Cargando productos con stock bajo...');
@@ -1146,14 +936,16 @@ class ProductsController extends GetxController {
 
   /// Configurar listener del scroll para paginación infinita
   void _setupScrollListener() {
-    scrollController.addListener(() {
-      if (scrollController.position.pixels >=
-          scrollController.position.maxScrollExtent - 200) {
+    _scrollListenerFn = () {
+      if (scrollController.hasClients &&
+          scrollController.position.pixels >=
+              scrollController.position.maxScrollExtent - 200) {
         if (!_isLoadingMore.value && _hasNextPage.value) {
           loadMoreProducts();
         }
       }
-    });
+    };
+    scrollController.addListener(_scrollListenerFn!);
   }
 
   /// Actualizar información de paginación
@@ -1166,18 +958,6 @@ class ProductsController extends GetxController {
   }
 
   /// Mostrar mensaje de error
-  // void _showError(String title, String message) {
-  //   Get.snackbar(
-  //     title,
-  //     message,
-  //     snackPosition: SnackPosition.TOP,
-  //     backgroundColor: Colors.red.shade100,
-  //     colorText: Colors.red.shade800,
-  //     icon: const Icon(Icons.error, color: Colors.red),
-  //     duration: const Duration(seconds: 4),
-  //   );
-  // }
-
   void _showError(String title, String message, {Duration? duration}) {
     Get.snackbar(
       title,
