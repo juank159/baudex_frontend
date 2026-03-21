@@ -79,6 +79,8 @@ class CreatePurchaseOrderItemRequestModel {
   final int lineNumber;
   final int quantity;
   final double unitCost;
+  final double? taxPercentage;
+  final double? discountPercentage;
   final String? expectedDate;
   final String? notes;
   final Map<String, dynamic>? metadata;
@@ -88,6 +90,8 @@ class CreatePurchaseOrderItemRequestModel {
     required this.lineNumber,
     required this.quantity,
     required this.unitCost,
+    this.taxPercentage,
+    this.discountPercentage,
     this.expectedDate,
     this.notes,
     this.metadata,
@@ -104,11 +108,9 @@ class CreatePurchaseOrderItemRequestModel {
       lineNumber: params.lineNumber ?? 1,
       quantity: params.quantity,
       unitCost: params.unitPrice,
+      taxPercentage: params.taxPercentage > 0 ? params.taxPercentage : null,
+      discountPercentage: params.discountPercentage > 0 ? params.discountPercentage : null,
       notes: params.notes,
-      metadata: {
-        'discountPercentage': params.discountPercentage,
-        'taxPercentage': params.taxPercentage,
-      },
     );
   }
 }

@@ -24,8 +24,11 @@ class PurchaseOrderModel {
   final String? actualDeliveryDate;
   final String? supplierReference;
   final String? terms;
+  @JsonKey(fromJson: _parseStringFromDynamic)
   final String? taxPercentage;
+  @JsonKey(fromJson: _parseStringFromDynamic)
   final String? discountPercentage;
+  @JsonKey(fromJson: _parseStringFromDynamic)
   final String? shippingCost;
   final String? currency;
   @JsonKey(fromJson: _parseDouble)
@@ -338,13 +341,25 @@ class PurchaseOrderItemModel {
   final String? updatedAt;
   final String? deletedAt;
   final int? lineNumber;
+  @JsonKey(fromJson: _parseStringFromDynamic)
   final String? quantity;
+  @JsonKey(fromJson: _parseStringFromDynamic)
   final String? unitCost;
   @JsonKey(fromJson: _parseStringFromDynamic)
+  final String? subtotal;
+  @JsonKey(fromJson: _parseStringFromDynamic)
+  final String? taxPercentage;
+  @JsonKey(fromJson: _parseStringFromDynamic)
+  final String? taxAmount;
+  @JsonKey(name: 'total', fromJson: _parseStringFromDynamic)
   final String? totalCost;
+  @JsonKey(fromJson: _parseStringFromDynamic)
   final String? receivedQuantity;
+  @JsonKey(fromJson: _parseStringFromDynamic)
   final String? damagedQuantity;
+  @JsonKey(fromJson: _parseStringFromDynamic)
   final String? missingQuantity;
+  @JsonKey(fromJson: _parseStringFromDynamic)
   final String? pendingQuantity;
   final String? expectedDate;
   final String? lastReceivedDate;
@@ -363,6 +378,9 @@ class PurchaseOrderItemModel {
     this.lineNumber,
     this.quantity,
     this.unitCost,
+    this.subtotal,
+    this.taxPercentage,
+    this.taxAmount,
     this.totalCost,
     this.receivedQuantity,
     this.damagedQuantity,
@@ -383,6 +401,12 @@ class PurchaseOrderItemModel {
 
   PurchaseOrderItem toEntity() {
     try {
+      final parsedUnitCost = double.tryParse(unitCost ?? '0') ?? 0.0;
+      final parsedQuantity = double.tryParse(quantity ?? '0')?.toInt() ?? 0;
+      final parsedSubtotal = double.tryParse(subtotal ?? '0') ?? (parsedQuantity * parsedUnitCost);
+      final parsedTaxPct = double.tryParse(taxPercentage ?? '0') ?? 0.0;
+      final parsedTaxAmt = double.tryParse(taxAmount ?? '0') ?? 0.0;
+      final parsedTotal = double.tryParse(totalCost ?? '0') ?? (parsedSubtotal + parsedTaxAmt);
       return PurchaseOrderItem(
         id: id ?? '',
         productId: productId ?? '',
@@ -390,17 +414,17 @@ class PurchaseOrderItemModel {
         productCode: product?['sku'],
         productDescription: product?['description'],
         unit: '',
-        quantity: double.tryParse(quantity ?? '0')?.toInt() ?? 0,
+        quantity: parsedQuantity,
         receivedQuantity: double.tryParse(receivedQuantity ?? '0')?.toInt() ?? 0,
         damagedQuantity: double.tryParse(damagedQuantity ?? '0')?.toInt(),
         missingQuantity: double.tryParse(missingQuantity ?? '0')?.toInt(),
-        unitPrice: double.tryParse(unitCost ?? '0') ?? 0.0,
+        unitPrice: parsedUnitCost,
         discountPercentage: 0.0,
         discountAmount: 0.0,
-        subtotal: double.tryParse(totalCost ?? '0') ?? 0.0,
-        taxPercentage: 0.0,
-        taxAmount: 0.0,
-        totalAmount: double.tryParse(totalCost ?? '0') ?? 0.0,
+        subtotal: parsedSubtotal,
+        taxPercentage: parsedTaxPct,
+        taxAmount: parsedTaxAmt,
+        totalAmount: parsedTotal,
         notes: notes,
         createdAt: createdAt != null && createdAt!.isNotEmpty ? DateTime.parse(createdAt!) : DateTime.now(),
         updatedAt: updatedAt != null && updatedAt!.isNotEmpty ? DateTime.parse(updatedAt!) : DateTime.now(),
@@ -452,6 +476,9 @@ class PurchaseOrderItemModel {
       lineNumber: 1,
       quantity: entity.quantity.toString(),
       unitCost: entity.unitPrice.toString(),
+      subtotal: entity.subtotal.toString(),
+      taxPercentage: entity.taxPercentage.toString(),
+      taxAmount: entity.taxAmount.toString(),
       totalCost: entity.totalAmount.toString(),
       receivedQuantity: (entity.receivedQuantity ?? 0).toString(),
       damagedQuantity: (entity.damagedQuantity ?? 0).toString(),

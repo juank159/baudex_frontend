@@ -3986,7 +3986,7 @@ class SyncService extends GetxService {
                               'productId': item.productId,
                               'productName': item.productName,
                               'quantity': item.quantity,
-                              'unitPrice': item.unitPrice,
+                              'unitCost': item.unitPrice,
                               'discountPercentage': item.discountPercentage,
                               'taxPercentage': item.taxPercentage,
                               'notes': item.notes,
