@@ -1815,8 +1815,12 @@ class InvoiceFormController extends GetxController {
 
       if (!printerConfigLoaded) {
         print(
-          '⚠️ No se pudo cargar configuración de impresora, continuando con valores por defecto',
+          '❌ No se pudo cargar configuración de impresora',
         );
+        _showPrintError(
+          'No hay impresora configurada. Configura una en Configuración > Impresoras.',
+        );
+        return;
       }
 
       // Usar el controlador de impresión térmica
@@ -1850,6 +1854,16 @@ class InvoiceFormController extends GetxController {
     try {
       _isPrinting.value = true;
       print('🖨️ Impresión manual solicitada para factura: ${invoice.number}');
+
+      // Asegurar que la configuración de impresora esté cargada
+      final printerConfigLoaded =
+          await _thermalPrinterController.ensurePrinterConfigLoaded();
+      if (!printerConfigLoaded) {
+        _showPrintError(
+          'No hay impresora configurada. Configura una en Configuración > Impresoras.',
+        );
+        return;
+      }
 
       final success = await _thermalPrinterController.printInvoice(invoice);
 

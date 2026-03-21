@@ -54,8 +54,8 @@ class _InvoiceSettingsScreenState extends State<InvoiceSettingsScreen>
             position: _slideAnimation,
             child: MainLayout(
               title: _getResponsiveTitle(context),
-              showBackButton: true,
-              showDrawer: false,
+              showBackButton: false,
+              showDrawer: true,
               actions: _buildAppBarActions(context),
               body: _buildFuturisticContent(context),
             ),

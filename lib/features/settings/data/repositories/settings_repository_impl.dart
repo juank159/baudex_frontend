@@ -1,4 +1,6 @@
 // lib/features/settings/data/repositories/settings_repository_impl.dart
+import 'dart:async';
+import 'dart:io';
 import 'package:dartz/dartz.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/errors/failures.dart';
@@ -271,8 +273,24 @@ class SettingsRepositoryImpl implements SettingsRepository {
         return Left(ServerFailure('Formato de dirección IP inválido'));
       }
 
-      await Future.delayed(const Duration(milliseconds: 2000));
-      return const Right(true);
+      // Test real: intentar conexión TCP al puerto de la impresora
+      try {
+        final socket = await Socket.connect(
+          ipAddress,
+          port,
+          timeout: const Duration(seconds: 5),
+        );
+        await socket.close();
+        return const Right(true);
+      } on SocketException catch (e) {
+        return Left(ServerFailure(
+          'No se pudo conectar a $ipAddress:$port - ${e.message}',
+        ));
+      } on TimeoutException {
+        return Left(ServerFailure(
+          'Timeout: La impresora en $ipAddress:$port no responde',
+        ));
+      }
     } catch (e) {
       return Left(ServerFailure('Error al probar conexión de red: $e'));
     }
@@ -280,14 +298,40 @@ class SettingsRepositoryImpl implements SettingsRepository {
 
   Future<Either<Failure, bool>> _testUsbPrinter(PrinterSettings settings) async {
     try {
-      await Future.delayed(const Duration(milliseconds: 1500));
-
-      final usbPath = settings.usbPath?.toUpperCase() ?? '';
+      final usbPath = settings.usbPath ?? '';
       if (usbPath.isEmpty) {
-        return Left(ServerFailure('La ruta USB no puede estar vacía'));
+        return Left(ServerFailure('El nombre de impresora USB no puede estar vacío'));
       }
 
-      return const Right(true);
+      // Test real: verificar que la impresora existe en el sistema
+      if (Platform.isMacOS || Platform.isLinux) {
+        final result = await Process.run('lpstat', ['-p', usbPath]);
+        if (result.exitCode == 0) {
+          final output = result.stdout.toString();
+          if (output.contains('idle') || output.contains('enabled') || output.contains(usbPath)) {
+            return const Right(true);
+          }
+          return Left(ServerFailure(
+            'Impresora "$usbPath" encontrada pero no disponible: $output',
+          ));
+        } else {
+          return Left(ServerFailure(
+            'Impresora "$usbPath" no encontrada en el sistema',
+          ));
+        }
+      } else if (Platform.isWindows) {
+        final result = await Process.run('wmic', [
+          'printer', 'where', 'name="$usbPath"', 'get', 'name', '/format:list',
+        ]);
+        if (result.exitCode == 0 && result.stdout.toString().contains(usbPath)) {
+          return const Right(true);
+        }
+        return Left(ServerFailure(
+          'Impresora "$usbPath" no encontrada en Windows',
+        ));
+      }
+
+      return Left(ServerFailure('Plataforma no soportada para test USB'));
     } catch (e) {
       return Left(ServerFailure('Error al probar conexión USB: $e'));
     }

@@ -885,71 +885,57 @@ class InvoiceListController extends GetxController {
   Future<void> printInvoice(String invoiceId) async {
     try {
       _isPrinting.value = true;
-      // print('🖨️ === INICIANDO IMPRESIÓN DESDE LISTADO ===');
-      // print('   - Invoice ID: $invoiceId');
 
       // Obtener la factura completa
       final result = await _getInvoiceByIdUseCase(
         GetInvoiceByIdParams(id: invoiceId),
       );
 
+      // Extraer invoice del Either sin callback async (evita race condition)
+      Invoice? invoice;
       result.fold(
         (failure) {
-          // print('❌ Error al obtener factura: ${failure.message}');
           _showError('Error', 'No se pudo cargar la factura para imprimir');
         },
-        (invoice) async {
-          // print('✅ Factura obtenida: ${invoice.number}');
-          // print('   - Cliente: ${invoice.customerName}');
-          // print('   - Total: \$${invoice.total.toStringAsFixed(2)}');
-
-          // ✅ NUEVO ENFOQUE: Usar ThermalPrinterController mejorado
-          try {
-            // Obtener el ThermalPrinterController
-            final thermalController = Get.find<ThermalPrinterController>();
-
-            // ✅ CLAVE: Asegurar que la configuración de impresora esté cargada
-            // print('🔄 Verificando configuración de impresora antes de imprimir...');
-            final printerConfigLoaded =
-                await thermalController.ensurePrinterConfigLoaded();
-
-            if (!printerConfigLoaded) {
-              // print('❌ No se pudo cargar configuración de impresora');
-              _showError(
-                'Error de configuración',
-                'No hay impresora configurada. Configura una en Configuración > Impresoras.',
-              );
-              return;
-            }
-
-            // print('✅ Configuración de impresora verificada exitosamente');
-
-            // Imprimir la factura
-            final success = await thermalController.printInvoice(invoice);
-
-            if (success) {
-              // print('✅ Impresión exitosa desde listado');
-              _showSuccess('Factura ${invoice.number} impresa exitosamente');
-            } else {
-              // print('❌ Error en impresión desde listado');
-              final error = thermalController.lastError ?? "Error desconocido";
-              _showError(
-                'Error de impresión',
-                'No se pudo imprimir la factura: $error',
-              );
-            }
-          } catch (e) {
-            // print('❌ Error en el proceso de impresión: $e');
-            _showError(
-              'Error de impresión',
-              'No se pudo completar la impresión. Verifica la configuración de la impresora.',
-            );
-          }
+        (inv) {
+          invoice = inv;
         },
       );
+
+      if (invoice == null) return;
+
+      // Obtener el ThermalPrinterController
+      final thermalController = Get.find<ThermalPrinterController>();
+
+      // Asegurar que la configuración de impresora esté cargada
+      final printerConfigLoaded =
+          await thermalController.ensurePrinterConfigLoaded();
+
+      if (!printerConfigLoaded) {
+        _showError(
+          'Error de configuración',
+          'No hay impresora configurada. Configura una en Configuración > Impresoras.',
+        );
+        return;
+      }
+
+      // Imprimir la factura
+      final success = await thermalController.printInvoice(invoice!);
+
+      if (success) {
+        _showSuccess('Factura ${invoice!.number} impresa exitosamente');
+      } else {
+        final error = thermalController.lastError ?? "Error desconocido";
+        _showError(
+          'Error de impresión',
+          'No se pudo imprimir la factura: $error',
+        );
+      }
     } catch (e) {
-      // print('💥 Error inesperado al imprimir: $e');
-      _showError('Error inesperado', 'No se pudo imprimir la factura');
+      _showError(
+        'Error de impresión',
+        'No se pudo completar la impresión. Verifica la configuración de la impresora.',
+      );
     } finally {
       _isPrinting.value = false;
     }

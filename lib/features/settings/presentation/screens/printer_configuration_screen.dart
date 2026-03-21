@@ -110,8 +110,8 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
         position: _slideAnimation,
         child: MainLayout(
           title: _getResponsiveTitle(context),
-          showBackButton: true,
-          showDrawer: false,
+          showBackButton: false,
+          showDrawer: true,
           actions: [
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -423,18 +423,166 @@ class _PrinterConfigurationScreenState extends State<PrinterConfigurationScreen>
                 },
               ),
             ] else ...[
-              CustomTextField(
-                controller: _usbPathController,
-                label: 'Ruta USB',
-                hint: '/dev/usb/lp0 o COM1',
-                prefixIcon: Icons.usb,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'La ruta USB es requerida';
-                  }
-                  return null;
-                },
-              ),
+              // Sección USB con detección elegante
+              Obx(() {
+                final isSearching = settingsController.isDiscovering.value;
+                final printers = settingsController.discoveredPrinters;
+                final hasResults = printers.isNotEmpty;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Botón detectar con estilo futurístico
+                    _buildFuturisticButton(
+                      text: isSearching ? 'Detectando...' : 'Detectar Impresoras del Sistema',
+                      icon: Icons.radar,
+                      onPressed: isSearching ? null : () => settingsController.discoverSystemPrinters(),
+                      gradient: ElegantLightTheme.infoGradient,
+                      isLoading: isSearching,
+                    ),
+
+                    // Lista de impresoras detectadas
+                    if (hasResults) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              ElegantLightTheme.successGreen.withValues(alpha: 0.08),
+                              ElegantLightTheme.successGreen.withValues(alpha: 0.03),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: ElegantLightTheme.successGreen.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.check_circle,
+                                    color: ElegantLightTheme.successGreen, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${printers.length} impresora${printers.length > 1 ? 's' : ''} detectada${printers.length > 1 ? 's' : ''}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: ElegantLightTheme.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            ...printers.map((name) {
+                              final isSelected = _usbPathController.text == name;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () {
+                                      setState(() {
+                                        _usbPathController.text = name;
+                                      });
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: ElegantLightTheme.fastAnimation,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        gradient: isSelected
+                                            ? ElegantLightTheme.glassPrimaryGradient
+                                            : ElegantLightTheme.glassGradient,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.5)
+                                              : Colors.white.withValues(alpha: 0.4),
+                                          width: isSelected ? 2 : 1,
+                                        ),
+                                        boxShadow: isSelected
+                                            ? ElegantLightTheme.glowShadow
+                                            : null,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(
+                                              gradient: isSelected
+                                                  ? ElegantLightTheme.primaryGradient
+                                                  : LinearGradient(
+                                                      colors: [Colors.grey.shade300, Colors.grey.shade400],
+                                                    ),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Icon(
+                                              Icons.print,
+                                              color: Colors.white,
+                                              size: 14,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              name,
+                                              style: TextStyle(
+                                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                                fontSize: 13,
+                                                color: isSelected
+                                                    ? ElegantLightTheme.primaryBlue
+                                                    : ElegantLightTheme.textPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                          if (isSelected)
+                                            Icon(Icons.check_circle,
+                                                color: ElegantLightTheme.primaryBlue, size: 20),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // Campo manual (siempre visible)
+                    CustomTextField(
+                      controller: _usbPathController,
+                      label: 'Nombre de Impresora',
+                      hint: 'Ej: EPSON_TM_T20III, POS-80, ...',
+                      prefixIcon: Icons.usb,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El nombre de impresora es requerido';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (!hasResults)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Usa "Detectar" para encontrar impresoras o escribe el nombre manualmente',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: ElegantLightTheme.textTertiary,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              }),
             ],
             const SizedBox(height: 24),
 

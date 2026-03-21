@@ -1,4 +1,5 @@
 // lib/features/settings/presentation/controllers/settings_controller.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
@@ -64,6 +65,10 @@ class SettingsController extends GetxController {
   final _invoiceSettings = Rxn<InvoiceSettings>();
   final _printerSettings = <PrinterSettings>[].obs;
   final _defaultPrinter = Rxn<PrinterSettings>();
+
+  // Descubrimiento de impresoras del sistema
+  final discoveredPrinters = <String>[].obs;
+  final isDiscovering = false.obs;
 
   // ==================== GETTERS ====================
 
@@ -455,6 +460,70 @@ class SettingsController extends GetxController {
       return false;
     } finally {
       _isTestingConnection.value = false;
+    }
+  }
+
+  // ==================== DESCUBRIMIENTO DE IMPRESORAS ====================
+
+  /// Detecta impresoras instaladas en el sistema operativo (USB + red locales)
+  Future<void> discoverSystemPrinters() async {
+    if (isDiscovering.value) return;
+
+    try {
+      isDiscovering.value = true;
+      discoveredPrinters.clear();
+
+      List<String> printers = [];
+
+      if (Platform.isMacOS || Platform.isLinux) {
+        // Usar lpstat -a para listar impresoras CUPS
+        final result = await Process.run('lpstat', ['-a']);
+        if (result.exitCode == 0) {
+          final lines = result.stdout.toString().split('\n');
+          for (final line in lines) {
+            final trimmed = line.trim();
+            if (trimmed.isNotEmpty) {
+              // Format: "printer_name accepting requests since ..."
+              final name = trimmed.split(' ').first;
+              if (name.isNotEmpty) {
+                printers.add(name);
+              }
+            }
+          }
+        }
+      } else if (Platform.isWindows) {
+        // Usar wmic para listar impresoras Windows
+        final result = await Process.run('wmic', [
+          'printer', 'get', 'name', '/format:list',
+        ]);
+        if (result.exitCode == 0) {
+          final lines = result.stdout.toString().split('\n');
+          for (final line in lines) {
+            final trimmed = line.trim();
+            if (trimmed.startsWith('Name=')) {
+              final name = trimmed.substring(5).trim();
+              if (name.isNotEmpty) {
+                printers.add(name);
+              }
+            }
+          }
+        }
+      }
+
+      discoveredPrinters.addAll(printers);
+      print('🔍 Impresoras del sistema detectadas: ${printers.length}');
+      for (final p in printers) {
+        print('   - $p');
+      }
+
+      if (printers.isEmpty) {
+        _showError('Sin impresoras', 'No se detectaron impresoras en el sistema');
+      }
+    } catch (e) {
+      print('❌ Error detectando impresoras del sistema: $e');
+      _showError('Error', 'No se pudieron detectar impresoras: $e');
+    } finally {
+      isDiscovering.value = false;
     }
   }
 

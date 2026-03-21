@@ -363,25 +363,66 @@ class ThermalPrinterController extends GetxController {
     try {
       print('🔍 Buscando impresoras en red...');
 
-      // Limpiar lista anterior
       _networkPrinters.clear();
 
-      // Probar IP conocida primero
-      final isAvailable = await _testNetworkPrinter(
-        SATQ22UEConfig.defaultNetworkIP,
-        SATQ22UEConfig.defaultNetworkPort,
-      );
+      // Construir lista de IPs a escanear
+      final ipsToScan = <String>{SATQ22UEConfig.defaultNetworkIP};
 
-      if (isAvailable) {
-        _networkPrinters.add(
-          const NetworkPrinterInfo(
-            name: 'SAT Q22UE',
-            ip: SATQ22UEConfig.defaultNetworkIP,
-            port: SATQ22UEConfig.defaultNetworkPort,
-            isConnected: false,
-          ),
+      // Intentar detectar subnet local y agregar IPs comunes
+      try {
+        final interfaces = await NetworkInterface.list(
+          type: InternetAddressType.IPv4,
         );
-        print('✅ Impresora SAT encontrada en IP conocida');
+        for (final iface in interfaces) {
+          for (final addr in iface.addresses) {
+            final parts = addr.address.split('.');
+            if (parts.length == 4) {
+              final subnet = '${parts[0]}.${parts[1]}.${parts[2]}';
+              // IPs comunes donde suelen estar las impresoras térmicas
+              for (final lastOctet in [1, 100, 101, 150, 181, 200, 250]) {
+                ipsToScan.add('$subnet.$lastOctet');
+              }
+            }
+          }
+        }
+      } catch (e) {
+        print('⚠️ No se pudo detectar subnet local: $e');
+      }
+
+      print('🔍 Escaneando ${ipsToScan.length} IPs...');
+
+      // Escanear en paralelo con timeout corto
+      final futures = ipsToScan.map((ip) async {
+        try {
+          final socket = await Socket.connect(
+            ip,
+            SATQ22UEConfig.defaultNetworkPort,
+            timeout: const Duration(seconds: 2),
+          );
+          await socket.close();
+          return ip;
+        } catch (_) {
+          return null;
+        }
+      });
+
+      final results = await Future.wait(futures);
+      final foundIps = results.whereType<String>().toList();
+
+      for (final ip in foundIps) {
+        _networkPrinters.add(NetworkPrinterInfo(
+          name: ip == SATQ22UEConfig.defaultNetworkIP
+              ? 'SAT Q22UE'
+              : 'Impresora ($ip)',
+          ip: ip,
+          port: SATQ22UEConfig.defaultNetworkPort,
+          isConnected: true,
+        ));
+        print('✅ Impresora encontrada en $ip');
+      }
+
+      if (_networkPrinters.isEmpty) {
+        print('⚠️ No se encontraron impresoras en red');
       }
     } catch (e) {
       print('❌ Error en descubrimiento de red: $e');
@@ -533,22 +574,11 @@ class ThermalPrinterController extends GetxController {
           success = await _printViaNetworkWithConfig(invoice, printerConfig);
         }
       } else {
-        // Fallback a la lógica anterior
-        if (Platform.isWindows) {
-          print('🪟 Windows detectado - Forzando impresión por red');
-          success = await _printViaNetwork(invoice);
-        } else if (!kIsWeb && !GetPlatform.isMobile && _preferUSB.value) {
-          print('💻 Intentando impresión USB primero...');
-          success = await _printViaUSB(invoice);
-
-          if (!success) {
-            print('🔄 USB falló, intentando red...');
-            success = await _printViaNetwork(invoice);
-          }
-        } else {
-          print('📱 Imprimiendo solo por red...');
-          success = await _printViaNetwork(invoice);
-        }
+        // Sin configuración de impresora
+        print('❌ No hay impresora configurada');
+        _lastError.value =
+            'No hay impresora configurada. Ve a Configuración > Impresoras para agregar una.';
+        success = false;
       }
 
       if (success) {
@@ -582,15 +612,23 @@ class ThermalPrinterController extends GetxController {
     try {
       print('🔌 Intentando impresión USB...');
 
-      // TODO: Implementar impresión USB directa
-      // Esto requiere librerías específicas del SO o comandos del sistema
+      final config = _currentPrinterConfig.value;
+      final usbPath = config?.usbPath;
+      if (usbPath == null || usbPath.isEmpty) {
+        _lastError.value = 'No hay ruta USB configurada';
+        return false;
+      }
 
+      // Generar bytes ESC/POS de la factura
+      final bytes = await _generateInvoiceEscPosBytes(invoice);
+
+      // Enviar bytes a la impresora USB según plataforma
       if (Platform.isWindows) {
-        return await _printUSBWindows(invoice);
+        return await _printToUSBWindows(usbPath, bytes);
       } else if (Platform.isLinux) {
-        return await _printUSBLinux(invoice);
+        return await _printToUSBLinux(usbPath, bytes);
       } else if (Platform.isMacOS) {
-        return await _printUSBMacOS(invoice);
+        return await _printToUSBMacOS(usbPath, bytes);
       }
 
       print('⚠️ Impresión USB no soportada en esta plataforma');
@@ -603,22 +641,327 @@ class ThermalPrinterController extends GetxController {
     }
   }
 
-  Future<bool> _printUSBWindows(Invoice invoice) async {
-    print('🪟 Impresión USB Windows no implementada aún');
-    _lastError.value = 'Impresión USB Windows no implementada';
-    return false;
+  /// Genera bytes de raster ESC/POS para una imagen (logo)
+  List<int> _generateImageRasterBytes(img.Image image) {
+    final int widthPx = image.width;
+    final int heightPx = image.height;
+    final int widthBytes = (widthPx + 7) ~/ 8;
+
+    final List<int> rasterData = [];
+    for (int y = 0; y < heightPx; y++) {
+      for (int xByte = 0; xByte < widthBytes; xByte++) {
+        int byte = 0;
+        for (int bit = 0; bit < 8; bit++) {
+          final int x = xByte * 8 + bit;
+          if (x < widthPx) {
+            final pixel = image.getPixel(x, y);
+            final num maxVal = pixel.maxChannelValue;
+            final double a = pixel.a / maxVal;
+            if (a < 0.01) continue;
+            final double r = (pixel.r / maxVal) * a + (1.0 - a);
+            final double g = (pixel.g / maxVal) * a + (1.0 - a);
+            final double b = (pixel.b / maxVal) * a + (1.0 - a);
+            final double luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            if (luminance < 0.5) {
+              byte |= (0x80 >> bit);
+            }
+          }
+        }
+        rasterData.add(byte);
+      }
+    }
+
+    final List<int> result = [];
+    // Centrar imagen: ESC a 1
+    result.addAll([0x1B, 0x61, 0x01]);
+    // Comando GS v 0 (raster bit image)
+    result.addAll([
+      0x1D, 0x76, 0x30, 0x00,
+      widthBytes & 0xFF, (widthBytes >> 8) & 0xFF,
+      heightPx & 0xFF, (heightPx >> 8) & 0xFF,
+    ]);
+    result.addAll(rasterData);
+    // Restaurar alineación izquierda: ESC a 0
+    result.addAll([0x1B, 0x61, 0x00]);
+    return result;
   }
 
-  Future<bool> _printUSBLinux(Invoice invoice) async {
-    print('🐧 Impresión USB Linux no implementada aún');
-    _lastError.value = 'Impresión USB Linux no implementada';
-    return false;
-  }
+  /// Genera bytes ESC/POS completos para una factura (usado para impresión USB)
+  Future<Uint8List> _generateInvoiceEscPosBytes(Invoice invoice) async {
+    final config = _currentPrinterConfig.value;
+    final profile = await esc_pos.CapabilityProfile.load();
 
-  Future<bool> _printUSBMacOS(Invoice invoice) async {
-    print('🍎 Impresión USB macOS no implementada aún');
-    _lastError.value = 'Impresión USB macOS no implementada';
-    return false;
+    esc_pos.PaperSize paperSize = esc_pos.PaperSize.mm80;
+    if (config?.paperSize == settings.PaperSize.mm58) {
+      paperSize = esc_pos.PaperSize.mm58;
+    }
+
+    final gen = esc_pos.Generator(paperSize, profile);
+    List<int> bytes = [];
+
+    // Inicialización
+    bytes.addAll(SATQ22UEConfig.initializeCommands);
+
+    // === HEADER CON LOGO ===
+    final org = _cachedOrganization;
+    final businessName = org?.businessName ?? 'Mi Negocio';
+
+    // Intentar imprimir logo
+    bool logoImpreso = false;
+    try {
+      final hasLogo = await _hasLogoAvailable();
+      if (hasLogo) {
+        final logo = await _loadLogoImage();
+        if (logo != null) {
+          bytes.addAll(_generateImageRasterBytes(logo));
+          bytes.addAll(gen.feed(1));
+          logoImpreso = true;
+        }
+      }
+    } catch (e) {
+      print('⚠️ Logo no disponible para USB: $e');
+    }
+
+    // Si no hay logo, imprimir nombre de empresa grande
+    if (!logoImpreso) {
+      bytes.addAll(gen.text(
+        businessName,
+        styles: const esc_pos.PosStyles(
+          align: esc_pos.PosAlign.center,
+          bold: true,
+          height: esc_pos.PosTextSize.size2,
+          width: esc_pos.PosTextSize.size2,
+        ),
+      ));
+    }
+
+    if (org != null) {
+      if (org.address.isNotEmpty) {
+        bytes.addAll(gen.text(org.address,
+            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
+      }
+      if (org.phone.isNotEmpty) {
+        bytes.addAll(gen.text('Tel: ${org.phone}',
+            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
+      }
+      if (org.taxId.isNotEmpty) {
+        bytes.addAll(gen.text('NIT: ${org.taxId}',
+            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
+      }
+      if (org.email.isNotEmpty) {
+        bytes.addAll(gen.text(org.email,
+            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center)));
+      }
+    }
+    bytes.addAll(gen.feed(1));
+
+    // === INFO FACTURA ===
+    bytes.addAll(gen.text(
+      'FACTURA DE VENTA',
+      styles: const esc_pos.PosStyles(
+        align: esc_pos.PosAlign.center,
+        bold: true,
+      ),
+    ));
+    bytes.addAll(gen.feed(1));
+
+    bytes.addAll(gen.row([
+      esc_pos.PosColumn(text: 'No:', width: 4,
+          styles: const esc_pos.PosStyles(bold: true)),
+      esc_pos.PosColumn(text: invoice.number, width: 8,
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right)),
+    ]));
+
+    final now = DateTime.now();
+    final dateStr =
+        '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    bytes.addAll(gen.row([
+      esc_pos.PosColumn(text: 'Fecha:', width: 4,
+          styles: const esc_pos.PosStyles(bold: true)),
+      esc_pos.PosColumn(text: dateStr, width: 8,
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right)),
+    ]));
+
+    bytes.addAll(gen.row([
+      esc_pos.PosColumn(text: 'Pago:', width: 4,
+          styles: const esc_pos.PosStyles(bold: true)),
+      esc_pos.PosColumn(text: invoice.paymentMethodDisplayName, width: 8,
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right)),
+    ]));
+
+    bytes.addAll(gen.hr());
+
+    // === CLIENTE ===
+    bytes.addAll(gen.text('CLIENTE:',
+        styles: const esc_pos.PosStyles(bold: true)));
+    bytes.addAll(gen.text(invoice.customerName));
+    bytes.addAll(gen.hr());
+
+    // === ITEMS ===
+    bytes.addAll(gen.text(
+      'ITEM      CANT.       V.UNIT                              TOTAL',
+      styles: esc_pos.PosStyles(
+        align: esc_pos.PosAlign.left,
+        bold: true,
+        fontType: esc_pos.PosFontType.fontB,
+      ),
+    ));
+    bytes.addAll(gen.hr(ch: '-', linesAfter: 0));
+
+    int itemNumber = 1;
+    for (final item in invoice.items) {
+      bytes.addAll(gen.text(
+        '${itemNumber.toString().padLeft(2, '0')} - ${item.description.toUpperCase()}',
+        styles: const esc_pos.PosStyles(bold: true, align: esc_pos.PosAlign.left),
+      ));
+
+      final quantity = item.quantity.toInt().toString();
+      final total = item.quantity * item.unitPrice;
+
+      bytes.addAll(gen.row([
+        esc_pos.PosColumn(text: '', width: 2,
+            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center)),
+        esc_pos.PosColumn(text: quantity, width: 2,
+            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left)),
+        esc_pos.PosColumn(
+            text: AppFormatters.formatCurrency(item.unitPrice), width: 4,
+            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left)),
+        esc_pos.PosColumn(
+            text: AppFormatters.formatCurrency(total), width: 4,
+            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right, bold: true)),
+      ]));
+
+      if (item.notes != null && item.notes!.isNotEmpty) {
+        bytes.addAll(gen.text(item.notes!,
+            styles: const esc_pos.PosStyles(
+              fontType: esc_pos.PosFontType.fontB,
+              align: esc_pos.PosAlign.left,
+            )));
+      } else if (item.description.toLowerCase().contains('impresora') ||
+          item.description.toLowerCase().contains('equipo') ||
+          item.description.toLowerCase().contains('dispositivo')) {
+        bytes.addAll(gen.text('GARANTIA DE 3 MESES POR DEFECTOS DE FABRICA',
+            styles: const esc_pos.PosStyles(
+              fontType: esc_pos.PosFontType.fontB,
+              align: esc_pos.PosAlign.left,
+            )));
+      }
+
+      itemNumber++;
+    }
+
+    bytes.addAll(gen.hr(ch: '-', linesAfter: 0));
+    bytes.addAll(gen.text('TOTAL ITEMS: ${invoice.items.length}',
+        styles: const esc_pos.PosStyles(bold: true, align: esc_pos.PosAlign.left)));
+    bytes.addAll(gen.feed(1));
+
+    // === TOTALES ===
+    if (invoice.discountAmount > 0) {
+      bytes.addAll(gen.row([
+        esc_pos.PosColumn(text: 'Descuento:', width: 8,
+            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left)),
+        esc_pos.PosColumn(
+            text: '-${AppFormatters.formatCurrency(invoice.discountAmount)}',
+            width: 4,
+            styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right, bold: true)),
+      ]));
+    }
+
+    bytes.addAll(gen.hr(ch: '='));
+
+    bytes.addAll(gen.row([
+      esc_pos.PosColumn(text: 'TOTAL A PAGAR:', width: 5,
+          styles: const esc_pos.PosStyles(
+            align: esc_pos.PosAlign.left, bold: true,
+            width: esc_pos.PosTextSize.size1, height: esc_pos.PosTextSize.size3,
+          )),
+      esc_pos.PosColumn(
+          text: AppFormatters.formatCurrency(invoice.total), width: 7,
+          styles: const esc_pos.PosStyles(
+            align: esc_pos.PosAlign.right, bold: true,
+            width: esc_pos.PosTextSize.size1, height: esc_pos.PosTextSize.size3,
+          )),
+    ]));
+
+    bytes.addAll(gen.hr(ch: '='));
+
+    // === PAGO EN EFECTIVO ===
+    if (_hasCashPaymentDetails(invoice)) {
+      final receivedAmount = _getReceivedAmount(invoice);
+      final changeAmount = _getChangeAmount(invoice);
+
+      if (receivedAmount > 0) {
+        bytes.addAll(gen.text('DETALLE DE PAGO EN EFECTIVO',
+            styles: const esc_pos.PosStyles(
+              align: esc_pos.PosAlign.center, bold: true, underline: true,
+            )));
+        bytes.addAll(gen.feed(1));
+
+        bytes.addAll(gen.row([
+          esc_pos.PosColumn(text: 'Dinero Recibido:', width: 8,
+              styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left, bold: true)),
+          esc_pos.PosColumn(
+              text: AppFormatters.formatCurrency(receivedAmount), width: 4,
+              styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right, bold: true)),
+        ]));
+
+        if (changeAmount > 0) {
+          bytes.addAll(gen.row([
+            esc_pos.PosColumn(text: 'Cambio:', width: 8,
+                styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left, bold: true)),
+            esc_pos.PosColumn(
+                text: AppFormatters.formatCurrency(changeAmount), width: 4,
+                styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right, bold: true)),
+          ]));
+        } else if (changeAmount == 0) {
+          bytes.addAll(gen.text('Pago exacto - Sin cambio',
+              styles: const esc_pos.PosStyles(
+                align: esc_pos.PosAlign.center,
+                fontType: esc_pos.PosFontType.fontB,
+              )));
+        }
+        bytes.addAll(gen.feed(1));
+      }
+    }
+
+    // === FOOTER ===
+    final timeStr =
+        '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    bytes.addAll(gen.text('Impreso: $timeStr',
+        styles: const esc_pos.PosStyles(
+          align: esc_pos.PosAlign.center,
+          fontType: esc_pos.PosFontType.fontB,
+        )));
+
+    final footerMsg = org?.footerMessage ?? 'Gracias por su compra';
+    bytes.addAll(gen.text(footerMsg,
+        styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true)));
+    bytes.addAll(gen.feed(1));
+    bytes.addAll(gen.text('Desarrollado, Impreso y Generado por Baudex',
+        styles: const esc_pos.PosStyles(
+          align: esc_pos.PosAlign.center,
+          fontType: esc_pos.PosFontType.fontB,
+        )));
+    bytes.addAll(gen.text('Información: 3138448436',
+        styles: const esc_pos.PosStyles(
+          align: esc_pos.PosAlign.center,
+          fontType: esc_pos.PosFontType.fontB,
+        )));
+
+    bytes.addAll(gen.feed(3));
+
+    // Corte de papel si está habilitado
+    if (config?.autoCut ?? true) {
+      bytes.addAll(SATQ22UEConfig.cutCommands);
+    }
+
+    // Abrir caja registradora si está habilitado
+    if (config?.cashDrawer ?? false) {
+      bytes.addAll(SATQ22UEConfig.openDrawerCommands);
+    }
+
+    print('📝 Factura ESC/POS generada: ${bytes.length} bytes');
+    return Uint8List.fromList(bytes);
   }
 
   // ==================== IMPRESIÓN USB PARA PÁGINAS DE PRUEBA ====================
@@ -1459,51 +1802,7 @@ class ThermalPrinterController extends GetxController {
 
   /// Enviar imagen directamente como raster (GS v 0) sin pasar por la librería
   void _sendImageRaw(NetworkPrinter printer, img.Image image) {
-    final int widthPx = image.width;
-    final int heightPx = image.height;
-    final int widthBytes = (widthPx + 7) ~/ 8;
-
-    // Convertir a 1-bit raster: pixel oscuro = imprimir, pixel claro = no
-    // Usa valores normalizados (0.0-1.0) para compatibilidad con image v4
-    final List<int> rasterData = [];
-    for (int y = 0; y < heightPx; y++) {
-      for (int xByte = 0; xByte < widthBytes; xByte++) {
-        int byte = 0;
-        for (int bit = 0; bit < 8; bit++) {
-          final int x = xByte * 8 + bit;
-          if (x < widthPx) {
-            final pixel = image.getPixel(x, y);
-            final num maxVal = pixel.maxChannelValue;
-            // Alpha blending con fondo blanco (transparente = blanco = no imprimir)
-            final double a = pixel.a / maxVal;
-            if (a < 0.01) continue; // transparente → no imprimir
-            final double r = (pixel.r / maxVal) * a + (1.0 - a);
-            final double g = (pixel.g / maxVal) * a + (1.0 - a);
-            final double b = (pixel.b / maxVal) * a + (1.0 - a);
-            final double luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-            if (luminance < 0.5) {
-              byte |= (0x80 >> bit); // pixel oscuro → imprimir punto
-            }
-          }
-        }
-        rasterData.add(byte);
-      }
-    }
-
-    // Centrar imagen: ESC a 1
-    printer.rawBytes(Uint8List.fromList([0x1B, 0x61, 0x01]));
-
-    // Comando GS v 0 (raster bit image)
-    final List<int> cmd = [
-      0x1D, 0x76, 0x30, 0x00, // GS v 0 m=0 (normal density)
-      widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, // xL xH
-      heightPx & 0xFF, (heightPx >> 8) & 0xFF, // yL yH
-    ];
-    cmd.addAll(rasterData);
-    printer.rawBytes(Uint8List.fromList(cmd));
-
-    // Restaurar alineación izquierda: ESC a 0
-    printer.rawBytes(Uint8List.fromList([0x1B, 0x61, 0x00]));
+    printer.rawBytes(Uint8List.fromList(_generateImageRasterBytes(image)));
   }
 
   /// Header solo texto (fallback cuando no hay logo)
