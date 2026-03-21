@@ -18,7 +18,6 @@ import 'package:baudex_desktop/features/customers/presentation/screens/customer_
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_stats_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/modern_customers_list_screen.dart';
 import 'package:baudex_desktop/features/inventory/domain/repositories/inventory_repository.dart';
-import 'package:baudex_desktop/features/inventory/presentation/controllers/inventory_controller.dart';
 import 'package:baudex_desktop/features/invoices/presentation/bindings/invoice_binding.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_detail_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_screen_wrapper.dart';
@@ -642,11 +641,10 @@ class AppPages {
         }
 
         // Registrar binding completo de inventario
-        if (!Get.isRegistered<InventoryController>()) {
-          print('📊 [CENTRO INVENTARIO] Registrando InventoryBinding...');
-          InventoryBinding().dependencies();
-          print('✅ [CENTRO INVENTARIO] InventoryBinding registrado');
-        }
+        // _safePut() dentro de InventoryBinding maneja re-registración segura
+        print('📊 [CENTRO INVENTARIO] Registrando InventoryBinding...');
+        InventoryBinding().dependencies();
+        print('✅ [CENTRO INVENTARIO] InventoryBinding registrado');
       }),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),

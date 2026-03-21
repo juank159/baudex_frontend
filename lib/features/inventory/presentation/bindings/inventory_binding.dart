@@ -68,6 +68,14 @@ import '../../../products/data/repositories/product_repository_impl.dart';
 import '../../../../app/data/local/isar_database.dart';
 
 class InventoryBinding extends Bindings {
+  /// Helper: delete + put to guarantee fresh instance (survives Get.offAllNamed)
+  void _safePut<T>(T instance, {String? tag}) {
+    if (Get.isRegistered<T>(tag: tag)) {
+      Get.delete<T>(tag: tag, force: true);
+    }
+    Get.put<T>(instance, tag: tag);
+  }
+
   @override
   void dependencies() {
     // Asegurar SearchProductsUseCase disponible (normalmente registrado por ProductBinding)
@@ -98,19 +106,20 @@ class InventoryBinding extends Bindings {
     }
 
     // Core dependencies - use global instances
-    Get.lazyPut<FlutterSecureStorage>(() => const FlutterSecureStorage());
-    Get.lazyPut<NetworkInfo>(() => Get.find());
+    if (!Get.isRegistered<FlutterSecureStorage>()) {
+      Get.lazyPut<FlutterSecureStorage>(() => const FlutterSecureStorage());
+    }
 
-    // Data sources - use put for immediate availability
-    Get.put<InventoryRemoteDataSource>(
+    // Data sources - safePut guarantees fresh instance after route disposal
+    _safePut<InventoryRemoteDataSource>(
       InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
     );
-    Get.put<InventoryLocalDataSource>(
+    _safePut<InventoryLocalDataSource>(
       InventoryLocalDataSourceIsar(Get.find<IsarDatabase>()),
     );
 
-    // Repository - register with put for immediate availability
-    Get.put<InventoryRepository>(
+    // Repository
+    _safePut<InventoryRepository>(
       InventoryRepositoryImpl(
         remoteDataSource: Get.find(),
         localDataSource: Get.find(),
@@ -118,61 +127,61 @@ class InventoryBinding extends Bindings {
       ),
     );
 
-    // Use cases - Query operations (usar Get.put para disponibilidad inmediata)
-    Get.put(GetInventoryBalancesUseCase(Get.find()));
-    Get.put(GetInventoryMovementsUseCase(Get.find()));
-    Get.put(GetWarehouseMovementsUseCase(Get.find()));
-    Get.put(GetInventoryStatsUseCase(Get.find()));
-    Get.put(inventory_usecases.GetLowStockProductsUseCase(Get.find()), tag: 'inventory');
-    Get.put(GetInventoryMovementByIdUseCase(Get.find()));
-    Get.put(SearchInventoryMovementsUseCase(Get.find()));
-    Get.put(GetInventoryBalanceByProductUseCase(Get.find()));
-    Get.put(GetBalancesByProductsUseCase(Get.find()));
-    Get.put(GetOutOfStockProductsUseCase(Get.find()));
-    Get.put(GetExpiredProductsUseCase(Get.find()));
-    Get.put(GetNearExpiryProductsUseCase(Get.find()));
+    // Use cases - Query operations
+    _safePut(GetInventoryBalancesUseCase(Get.find()));
+    _safePut(GetInventoryMovementsUseCase(Get.find()));
+    _safePut(GetWarehouseMovementsUseCase(Get.find()));
+    _safePut(GetInventoryStatsUseCase(Get.find()));
+    _safePut(inventory_usecases.GetLowStockProductsUseCase(Get.find()), tag: 'inventory');
+    _safePut(GetInventoryMovementByIdUseCase(Get.find()));
+    _safePut(SearchInventoryMovementsUseCase(Get.find()));
+    _safePut(GetInventoryBalanceByProductUseCase(Get.find()));
+    _safePut(GetBalancesByProductsUseCase(Get.find()));
+    _safePut(GetOutOfStockProductsUseCase(Get.find()));
+    _safePut(GetExpiredProductsUseCase(Get.find()));
+    _safePut(GetNearExpiryProductsUseCase(Get.find()));
 
-    // Use cases - Movement operations (usar Get.put para disponibilidad inmediata)
-    Get.put<CreateInventoryMovementUseCase>(CreateInventoryMovementUseCase(Get.find()));
-    Get.put<UpdateInventoryMovementUseCase>(UpdateInventoryMovementUseCase(Get.find()));
-    Get.put<DeleteInventoryMovementUseCase>(DeleteInventoryMovementUseCase(Get.find()));
-    Get.put<ConfirmInventoryMovementUseCase>(ConfirmInventoryMovementUseCase(Get.find()));
-    Get.put<CancelInventoryMovementUseCase>(CancelInventoryMovementUseCase(Get.find()));
+    // Use cases - Movement operations
+    _safePut<CreateInventoryMovementUseCase>(CreateInventoryMovementUseCase(Get.find()));
+    _safePut<UpdateInventoryMovementUseCase>(UpdateInventoryMovementUseCase(Get.find()));
+    _safePut<DeleteInventoryMovementUseCase>(DeleteInventoryMovementUseCase(Get.find()));
+    _safePut<ConfirmInventoryMovementUseCase>(ConfirmInventoryMovementUseCase(Get.find()));
+    _safePut<CancelInventoryMovementUseCase>(CancelInventoryMovementUseCase(Get.find()));
 
     // Use cases - FIFO operations
-    Get.put<CalculateFifoConsumptionUseCase>(CalculateFifoConsumptionUseCase(Get.find()));
-    Get.put<ProcessOutboundMovementFifoUseCase>(ProcessOutboundMovementFifoUseCase(Get.find()));
-    Get.put<ProcessBulkOutboundMovementFifoUseCase>(ProcessBulkOutboundMovementFifoUseCase(Get.find()));
+    _safePut<CalculateFifoConsumptionUseCase>(CalculateFifoConsumptionUseCase(Get.find()));
+    _safePut<ProcessOutboundMovementFifoUseCase>(ProcessOutboundMovementFifoUseCase(Get.find()));
+    _safePut<ProcessBulkOutboundMovementFifoUseCase>(ProcessBulkOutboundMovementFifoUseCase(Get.find()));
 
     // Use cases - Stock operations
-    Get.put<CreateStockAdjustmentUseCase>(CreateStockAdjustmentUseCase(Get.find()));
-    Get.put<CreateBulkStockAdjustmentsUseCase>(CreateBulkStockAdjustmentsUseCase(Get.find()));
+    _safePut<CreateStockAdjustmentUseCase>(CreateStockAdjustmentUseCase(Get.find()));
+    _safePut<CreateBulkStockAdjustmentsUseCase>(CreateBulkStockAdjustmentsUseCase(Get.find()));
 
     // Use cases - Transfer operations
-    Get.put<CreateInventoryTransferUseCase>(CreateInventoryTransferUseCase(Get.find()));
-    Get.put<ConfirmInventoryTransferUseCase>(ConfirmInventoryTransferUseCase(Get.find()));
+    _safePut<CreateInventoryTransferUseCase>(CreateInventoryTransferUseCase(Get.find()));
+    _safePut<ConfirmInventoryTransferUseCase>(ConfirmInventoryTransferUseCase(Get.find()));
 
     // Use cases - Reports
-    Get.put(GetInventoryValuationUseCase(Get.find()));
-    Get.put(GetKardexReportUseCase(Get.find()));
-    Get.put(GetInventoryAgingUseCase(Get.find()));
+    _safePut(GetInventoryValuationUseCase(Get.find()));
+    _safePut(GetKardexReportUseCase(Get.find()));
+    _safePut(GetInventoryAgingUseCase(Get.find()));
 
     // Use cases - Batches
-    Get.put(GetInventoryBatchesUseCase(Get.find()));
-    
-    // Use cases - Warehouses (usar Get.put para disponibilidad inmediata)
-    Get.put(GetWarehousesUseCase(Get.find()));
-    Get.put(CreateWarehouseUseCase(Get.find()));
-    Get.put(UpdateWarehouseUseCase(Get.find()));
-    Get.put(DeleteWarehouseUseCase(Get.find()));
-    Get.put(GetWarehouseByIdUseCase(Get.find()));
-    Get.put(CheckWarehouseCodeExistsUseCase(Get.find()));
-    Get.put(CheckWarehouseHasMovementsUseCase(Get.find()));
-    Get.put(GetActiveWarehousesCountUseCase(Get.find()));
-    Get.put(GetWarehouseStatsUseCase(Get.find()));
+    _safePut(GetInventoryBatchesUseCase(Get.find()));
 
-    // Controllers (usar Get.put para disponibilidad inmediata)
-    Get.put<InventoryController>(
+    // Use cases - Warehouses
+    _safePut(GetWarehousesUseCase(Get.find()));
+    _safePut(CreateWarehouseUseCase(Get.find()));
+    _safePut(UpdateWarehouseUseCase(Get.find()));
+    _safePut(DeleteWarehouseUseCase(Get.find()));
+    _safePut(GetWarehouseByIdUseCase(Get.find()));
+    _safePut(CheckWarehouseCodeExistsUseCase(Get.find()));
+    _safePut(CheckWarehouseHasMovementsUseCase(Get.find()));
+    _safePut(GetActiveWarehousesCountUseCase(Get.find()));
+    _safePut(GetWarehouseStatsUseCase(Get.find()));
+
+    // Controllers - safePut guarantees fresh instance
+    _safePut<InventoryController>(
       InventoryController(
         getInventoryBalancesUseCase: Get.find(),
         getInventoryMovementsUseCase: Get.find(),
@@ -184,7 +193,7 @@ class InventoryBinding extends Bindings {
       ),
     );
 
-    Get.put<InventoryMovementsController>(
+    _safePut<InventoryMovementsController>(
       InventoryMovementsController(
         getInventoryMovementsUseCase: Get.find(),
         getWarehouseMovementsUseCase: Get.find(),
@@ -193,77 +202,77 @@ class InventoryBinding extends Bindings {
         confirmInventoryMovementUseCase: Get.find(),
         cancelInventoryMovementUseCase: Get.find(),
         calculateFifoConsumptionUseCase: Get.find(),
-        searchProductsUseCase: Get.find(), // From products module
+        searchProductsUseCase: Get.find(),
       ),
     );
 
-    Get.put<InventoryAdjustmentsController>(
+    _safePut<InventoryAdjustmentsController>(
       InventoryAdjustmentsController(
         createStockAdjustmentUseCase: Get.find(),
         getInventoryBalanceByProductUseCase: Get.find(),
-        searchProductsUseCase: Get.find(), // From products module
-        getWarehousesUseCase: Get.find(), // For warehouse selection
+        searchProductsUseCase: Get.find(),
+        getWarehousesUseCase: Get.find(),
       ),
     );
 
-    Get.put<InventoryBulkAdjustmentsController>(
+    _safePut<InventoryBulkAdjustmentsController>(
       InventoryBulkAdjustmentsController(
         createBulkStockAdjustmentsUseCase: Get.find<CreateBulkStockAdjustmentsUseCase>(),
         getInventoryBalanceByProductUseCase: Get.find<GetInventoryBalanceByProductUseCase>(),
-        searchProductsUseCase: Get.find(), // From products module
-        getWarehousesUseCase: Get.find(), // For warehouse selection
+        searchProductsUseCase: Get.find(),
+        getWarehousesUseCase: Get.find(),
       ),
     );
 
-    // New controllers for the complete inventory system
-    Get.put<KardexController>(
+    _safePut<KardexController>(
       KardexController(
         getKardexReportUseCase: Get.find(),
       ),
     );
 
-    Get.put<InventoryBalanceController>(
+    _safePut<InventoryBalanceController>(
       InventoryBalanceController(
         getInventoryBalancesUseCase: Get.find(),
         getInventoryValuationUseCase: Get.find(),
       ),
     );
 
-    Get.put<InventoryBatchesController>(
+    _safePut<InventoryBatchesController>(
       InventoryBatchesController(
         getInventoryBatchesUseCase: Get.find(),
       ),
     );
 
-    // New controllers for transfers and aging reports
-    Get.put<InventoryTransfersController>(
+    _safePut<InventoryTransfersController>(
       InventoryTransfersController(
         createTransferUseCase: Get.find(),
         confirmTransferUseCase: Get.find(),
         getMovementsUseCase: Get.find(),
         cancelInventoryMovementUseCase: Get.find(),
         getWarehousesUseCase: Get.find(),
-        searchProductsUseCase: Get.find(), // From products module
+        searchProductsUseCase: Get.find(),
         getInventoryBalanceByProductUseCase: Get.find(),
       ),
     );
 
-    Get.put<InventoryAgingController>(
+    _safePut<InventoryAgingController>(
       InventoryAgingController(
         getInventoryAgingUseCase: Get.find(),
       ),
     );
 
-    Get.put<WarehousesController>(
-      WarehousesController(
-        getWarehousesUseCase: Get.find(),
-        getWarehouseStatsUseCase: Get.find(),
-        deleteWarehouseUseCase: Get.find(),
-      ),
-      permanent: true, // Mantener el controlador en memoria
-    );
+    if (!Get.isRegistered<WarehousesController>()) {
+      Get.put<WarehousesController>(
+        WarehousesController(
+          getWarehousesUseCase: Get.find(),
+          getWarehouseStatsUseCase: Get.find(),
+          deleteWarehouseUseCase: Get.find(),
+        ),
+        permanent: true,
+      );
+    }
 
-    Get.put<WarehouseFormController>(
+    _safePut<WarehouseFormController>(
       WarehouseFormController(
         createWarehouseUseCase: Get.find(),
         updateWarehouseUseCase: Get.find(),
@@ -272,7 +281,7 @@ class InventoryBinding extends Bindings {
       ),
     );
 
-    Get.put<WarehouseDetailController>(
+    _safePut<WarehouseDetailController>(
       WarehouseDetailController(
         getWarehouseByIdUseCase: Get.find(),
         deleteWarehouseUseCase: Get.find(),
