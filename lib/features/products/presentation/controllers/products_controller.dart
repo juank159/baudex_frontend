@@ -1,14 +1,12 @@
 // lib/features/products/presentation/controllers/products_controller.dart
 import 'dart:async';
 import 'package:baudex_desktop/app/core/models/pagination_meta.dart';
-import 'package:baudex_desktop/features/categories/domain/repositories/category_repository.dart';
 import 'package:baudex_desktop/features/products/domain/entities/product_stats.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
-import '../../domain/repositories/product_repository.dart';
 import '../../domain/usecases/get_products_usecase.dart';
 import '../../domain/usecases/delete_product_usecase.dart';
 import '../../domain/usecases/search_products_usecase.dart';
@@ -77,10 +75,6 @@ class ProductsController extends GetxController {
   final _priceType = PriceType.price1.obs;
   final _inStock = Rxn<bool>();
   final _lowStock = Rxn<bool>();
-
-  // ✅ Contador para forzar reconstrucción del campo de búsqueda solo cuando se limpia
-  final _searchFieldRebuildKey = 0.obs;
-
   // UI Controllers - TextEditingController normal (el controller es permanente)
   final searchController = TextEditingController();
   final scrollController = ScrollController();
@@ -140,9 +134,6 @@ class ProductsController extends GetxController {
   double get loadingProgress => totalPages > 0 ? currentPage / totalPages : 0.0;
   bool get canLoadMore =>
       hasNextPage && !_isLoadingMore.value && !_isLoading.value;
-
-  // ✅ Getter para el contador de reconstrucción del campo de búsqueda
-  int get searchFieldRebuildKey => _searchFieldRebuildKey.value;
 
   // ==================== LIFECYCLE ====================
 
@@ -214,7 +205,7 @@ class ProductsController extends GetxController {
     }
 
     // Solo cargar si no hay datos y no está cargando
-    if (_products.isEmpty && !_isLoading.value && !isLoading) {
+    if (_products.isEmpty && !_isLoading.value) {
       print('🔄 ProductsController: Cargando datos por primera vez...');
       await loadInitialData();
     } else {
@@ -239,9 +230,11 @@ class ProductsController extends GetxController {
 
   /// Refresca datos en segundo plano sin mostrar loading
   Future<void> _refreshInBackground() async {
+    if (isClosed) return;
     print('🔄 ProductsController: Refrescando en segundo plano...');
     try {
       await Future.wait([_loadProductsInternal(), _loadStatsInternal()]);
+      if (isClosed) return;
       _updateCache();
       print('✅ Actualización en segundo plano completada');
     } catch (e) {
@@ -324,7 +317,7 @@ class ProductsController extends GetxController {
       result.fold(
         (failure) {
           print('❌ Error al cargar productos: ${failure.message}');
-          _products.clear();
+          // No borrar productos existentes en error - datos stale son mejor que nada
         },
         (paginatedResult) {
           _products.value = paginatedResult.data;
@@ -334,7 +327,7 @@ class ProductsController extends GetxController {
       );
     } catch (e) {
       print('❌ Error inesperado cargando productos: $e');
-      _products.clear();
+      // No borrar productos existentes en error - offline-first
     }
   }
 
@@ -544,88 +537,6 @@ class ProductsController extends GetxController {
     await _loadStatsInternal();
   }
 
-  Future<void> _verifyLowStockProducts() async {
-    try {
-      print('🔍 Verificando productos con stock bajo...');
-
-      final result = await _getLowStockProductsUseCase(const NoParams());
-
-      result.fold(
-        (failure) {
-          print(
-            '❌ Error al verificar productos con stock bajo: ${failure.message}',
-          );
-        },
-        (products) {
-          print('📋 Productos con stock bajo verificados: ${products.length}');
-
-          for (final product in products) {
-            print(
-              '   - ${product.name}: stock=${product.stock}, minStock=${product.minStock}',
-            );
-          }
-
-          // ✅ Verificar consistencia con estadísticas
-          final statsLowStock = _stats.value?.lowStock ?? 0;
-          if (products.length != statsLowStock) {
-            print(
-              '⚠️ INCONSISTENCIA: Stats=$statsLowStock, Productos encontrados=${products.length}',
-            );
-
-            // ✅ OPCIONAL: Actualizar estadísticas con el valor correcto
-            if (_stats.value != null) {
-              _stats.value = _stats.value!.copyWith(lowStock: products.length);
-              print('🔄 Estadísticas corregidas: lowStock=${products.length}');
-            }
-          }
-        },
-      );
-    } catch (e) {
-      print('❌ Error inesperado al verificar productos con stock bajo: $e');
-    }
-  }
-
-  Future<void> verifyLowStockConsistency() async {
-    if (_stats.value == null || _stats.value!.lowStock == 0) {
-      print('ℹ️ No hay productos con stock bajo según estadísticas');
-      return;
-    }
-
-    try {
-      print('🔍 Verificando consistencia de productos con stock bajo...');
-
-      final result = await _getLowStockProductsUseCase(const NoParams());
-
-      result.fold(
-        (failure) {
-          print(
-            '❌ Error al verificar productos con stock bajo: ${failure.message}',
-          );
-        },
-        (products) {
-          print('📋 Productos con stock bajo verificados: ${products.length}');
-
-          final statsLowStock = _stats.value?.lowStock ?? 0;
-          if (products.length != statsLowStock) {
-            print(
-              '⚠️ INCONSISTENCIA: Stats=$statsLowStock, Productos encontrados=${products.length}',
-            );
-
-            // Actualizar estadísticas con el valor correcto
-            if (_stats.value != null) {
-              _stats.value = _stats.value!.copyWith(lowStock: products.length);
-              print('🔄 Estadísticas corregidas: lowStock=${products.length}');
-            }
-          } else {
-            print('✅ Consistencia verificada correctamente');
-          }
-        },
-      );
-    } catch (e) {
-      print('❌ Error inesperado al verificar consistencia: $e');
-    }
-  }
-
   Future<void> refreshStats() async {
     print('🔄 ProductsController: Refrescando solo estadísticas...');
     await _loadStatsInternal();
@@ -678,37 +589,6 @@ class ProductsController extends GetxController {
     }
   }
 
-  /// Cargar productos por categoría
-  Future<void> loadProductsByCategory(String categoryId) async {
-    _isLoading.value = true;
-
-    try {
-      final result = await _getProductsByCategoryUseCase(
-        GetProductsByCategoryParams(categoryId: categoryId),
-      );
-
-      result.fold(
-        (failure) {
-          _showError(
-            'Error al cargar productos por categoría',
-            failure.message,
-          );
-        },
-        (products) {
-          _products.value = products;
-          _selectedCategoryId.value = categoryId;
-          // Actualizar meta para mostrar resultados
-          _currentPage.value = 1;
-          _totalItems.value = products.length;
-          _totalPages.value = 1;
-          _hasNextPage.value = false;
-          _hasPreviousPage.value = false;
-        },
-      );
-    } finally {
-      _isLoading.value = false;
-    }
-  }
 
   // ==================== FILTER & SORT METHODS ====================
 
@@ -836,12 +716,11 @@ class ProductsController extends GetxController {
     }
   }
 
-  /// Actualizar búsqueda (método legacy mantenido para compatibilidad)
+  /// Actualizar búsqueda
   void updateSearch(String value) {
     _searchTerm.value = value;
     if (value.trim().isEmpty) {
       _searchResults.clear();
-      // ✅ Notificar al widget de búsqueda que debe reconstruirse
       update(['search_field']);
       loadProducts();
     } else if (value.trim().length >= 2) {

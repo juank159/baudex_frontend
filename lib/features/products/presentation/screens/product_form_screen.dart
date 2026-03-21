@@ -1222,8 +1222,8 @@ class ProductFormScreen extends GetView<ProductFormController> {
       return const SizedBox.shrink();
     }
 
-    final costPrice = double.tryParse(costText) ?? 0;
-    final sellPrice = double.tryParse(sellText) ?? 0;
+    final costPrice = AppFormatters.parseNumber(costText) ?? 0;
+    final sellPrice = AppFormatters.parseNumber(sellText) ?? 0;
     final margin = controller.calculateMargin(costPrice, sellPrice);
 
     return Container(
@@ -1582,49 +1582,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
   }
 
   // ==================== ACTIONS ====================
-
-  Widget _buildTabletActions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: ElegantButton(
-            text: 'Cancelar',
-            icon: Icons.close,
-            gradient: LinearGradient(
-              colors: [Colors.grey.shade400, Colors.grey.shade600],
-            ),
-            onPressed: () => Get.back(),
-          ),
-        ),
-        SizedBox(width: context.horizontalSpacing),
-        Expanded(
-          flex: 2,
-          child: GetBuilder<ProductFormController>(
-            builder:
-                (controller) => ElegantButton(
-                  text:
-                      controller.isSaving
-                          ? 'Guardando...'
-                          : controller.saveButtonText,
-                  icon: controller.isEditMode ? Icons.update : Icons.save,
-                  gradient: ElegantLightTheme.successGradient,
-                  onPressed:
-                      controller.isSaving
-                          ? null
-                          : () {
-                            try {
-                              controller.saveProduct();
-                            } catch (e) {
-                              print('❌ Error al guardar: $e');
-                            }
-                          },
-                  isLoading: controller.isSaving,
-                ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildBottomActions(BuildContext context) {
     final isMobile = ResponsiveHelper.isMobile(context);

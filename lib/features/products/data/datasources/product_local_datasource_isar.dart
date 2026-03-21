@@ -368,8 +368,11 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
               ..createdAt = DateTime.now()
               ..updatedAt = DateTime.now()
               ..lastSyncAt = DateTime.now()
-              ..version = 1 // ✅ Campo requerido
-              // Serializar estadísticas como JSON string
+              ..version = 1
+              ..taxCategory = IsarTaxCategory.iva
+              ..taxRate = 19.0
+              ..isTaxable = true
+              ..hasRetention = false
               ..metadataJson = jsonEncode(stats.toJson());
 
         await isar.isarProducts.putByServerId(statsProduct);
@@ -462,11 +465,17 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
       final Isar isar = _database.database as Isar;
 
       await isar.writeTxn(() async {
-        // Limpiar todos los productos
-        await isar.isarProducts.clear();
+        // Solo eliminar productos sincronizados - proteger offline no sincronizados
+        final syncedProducts = await isar.isarProducts
+            .filter()
+            .isSyncedEqualTo(true)
+            .findAll();
+        for (final product in syncedProducts) {
+          await isar.isarProducts.delete(product.id);
+        }
       });
 
-      print('🧹 ISAR: Cache de productos limpiado');
+      print('🧹 ISAR: Cache de productos sincronizados limpiado');
     } catch (e) {
       print('❌ Error al limpiar cache de ISAR: $e');
       throw CacheException('Error al limpiar cache de ISAR: $e');
@@ -629,17 +638,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
     }
   }
 
-  /// Serializar lista de precios a JSON string para almacenar en ISAR (método legacy)
-  String _serializePrices(List<ProductPriceModel> prices) {
-    try {
-      final pricesJson = prices.map((price) => price.toJson()).toList();
-      return jsonEncode(pricesJson);
-    } catch (e) {
-      print('❌ Error al serializar precios: $e');
-      return '[]'; // Retornar array vacío en caso de error
-    }
-  }
-
   /// Deserializar datos completos del producto desde JSON string
   Map<String, dynamic> _deserializeProductData(String? metadataJson) {
     try {
@@ -700,31 +698,6 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
         'createdBy': null,
         'metadata': null,
       };
-    }
-  }
-
-  /// Deserializar precios desde JSON string almacenado en ISAR
-  List<ProductPriceModel>? _deserializePrices(String pricesJsonString) {
-    try {
-      if (pricesJsonString.isEmpty || pricesJsonString == 'null') {
-        return null;
-      }
-
-      final pricesJson = jsonDecode(pricesJsonString);
-      if (pricesJson is List) {
-        return pricesJson
-            .map((priceJson) => ProductPriceModel.fromJson(priceJson))
-            .toList();
-      } else {
-        print(
-          '⚠️ Formato de precios JSON inesperado: ${pricesJson.runtimeType}',
-        );
-        return null;
-      }
-    } catch (e) {
-      print('❌ Error al deserializar precios: $e');
-      print('📋 JSON problemático: $pricesJsonString');
-      return null;
     }
   }
 

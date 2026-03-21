@@ -1,5 +1,4 @@
 // lib/features/products/presentation/controllers/product_form_controller.dart
-import 'package:baudex_desktop/features/products/data/models/update_product_request_model.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../domain/entities/product.dart';
@@ -20,7 +19,6 @@ import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
 // ✅ IMPORT PARA CONTROLLERS QUE NECESITAN REFRESH
 import 'products_controller.dart';
-import 'product_detail_controller.dart';
 // ✅ IMPORT PARA UNIDADES DE MEDIDA
 import '../widgets/unit_selector_widget.dart';
 // ✅ IMPORT PARA SECURE STORAGE
@@ -79,8 +77,8 @@ class ProductFormController extends GetxController {
   final _availableCategories = <Category>[].obs;
 
   // ========== FACTURACIÓN ELECTRÓNICA ==========
-  final _selectedTaxCategory = TaxCategory.iva.obs;
-  final _isTaxable = true.obs;
+  final _selectedTaxCategory = TaxCategory.noGravado.obs;
+  final _isTaxable = false.obs;
   final _hasRetention = false.obs;
   final _selectedRetentionCategory = Rxn<RetentionCategory>();
   // ========== FIN FACTURACIÓN ELECTRÓNICA ==========
@@ -178,28 +176,32 @@ class ProductFormController extends GetxController {
 
   // ==================== PRIVATE INITIALIZATION ====================
 
-  /// ✅ Inicialización sin bloqueos
+  /// Inicialización sin bloqueos
   void _initializeForm() {
     print('⚙️ ProductFormController: Configurando formulario...');
 
     // Configurar valores por defecto inmediatamente (síncronos)
     _setDefaultValues();
 
-    // ✅ NUEVO: Cargar categorías disponibles
-    Future.microtask(() => _loadAvailableCategories());
+    // Cargar categorías primero, luego producto (coordinado)
+    Future.microtask(() => _loadDataSequentially());
 
-    // Si es modo edición, cargar datos de forma asíncrona SIN AWAIT
+    print('✅ ProductFormController: Inicialización completada');
+  }
+
+  /// Cargar datos en orden: categorías primero, luego producto
+  Future<void> _loadDataSequentially() async {
+    await _loadAvailableCategories();
+
+    if (isClosed) return;
+
     if (isEditMode) {
       print(
         '📝 ProductFormController: Modo edición detectado, cargando producto...',
       );
       _isEditing.value = true;
-
-      // ✅ CLAVE: Usar Future.microtask para no bloquear onInit
-      Future.microtask(() => loadProductForEditing());
+      await loadProductForEditing();
     }
-
-    print('✅ ProductFormController: Inicialización completada');
   }
 
   /// Configurar valores por defecto (operaciones síncronas únicamente)
@@ -239,7 +241,7 @@ class ProductFormController extends GetxController {
     costPriceController = TextEditingController();
 
     // Controladores de facturación electrónica
-    taxRateController = TextEditingController(text: '19');
+    taxRateController = TextEditingController(text: '0');
     taxDescriptionController = TextEditingController();
     retentionRateController = TextEditingController(text: '0');
 
@@ -466,29 +468,36 @@ class ProductFormController extends GetxController {
         GetProductByIdParams(id: productId),
       );
 
+      if (isClosed) return;
+
       result.fold(
         (failure) {
           print(
             '❌ ProductFormController: Error al cargar producto - ${failure.message}',
           );
-          _showError('Error al cargar producto', failure.message);
-          // En caso de error, volver a la lista
-          Get.back();
+          if (!isClosed) {
+            _showError('Error al cargar producto', failure.message);
+            Get.back();
+          }
         },
         (product) {
           print(
             '✅ ProductFormController: Producto cargado exitosamente - ${product.name}',
           );
-          _originalProduct.value = product;
-          _populateForm(product);
+          if (!isClosed) {
+            _originalProduct.value = product;
+            _populateForm(product);
+          }
         },
       );
     } catch (e) {
       print(
         '💥 ProductFormController: Error inesperado al cargar producto - $e',
       );
-      _showError('Error inesperado', 'No se pudo cargar el producto: $e');
-      Get.back();
+      if (!isClosed) {
+        _showError('Error inesperado', 'No se pudo cargar el producto: $e');
+        Get.back();
+      }
     } finally {
       _isLoading.value = false;
       print('🏁 ProductFormController: Carga de producto finalizada');
@@ -497,6 +506,9 @@ class ProductFormController extends GetxController {
 
   /// Guardar producto (crear o actualizar)
   Future<void> saveProduct() async {
+    // Protección contra doble-click
+    if (_isSaving.value) return;
+
     print('💾 ProductFormController: Iniciando guardado de producto...');
 
     if (!await _validateForm()) {
@@ -624,23 +636,15 @@ class ProductFormController extends GetxController {
 
   /// Generar SKU automático
   void generateSku() {
-    if (nameController.text.isNotEmpty) {
-      final name = nameController.text.toUpperCase();
-      final timestamp = DateTime.now().millisecondsSinceEpoch
-          .toString()
-          .substring(8);
-      final generatedSku =
-          '${name.substring(0, name.length.clamp(0, 3))}$timestamp';
-      skuController.text = generatedSku;
-
-      print('🎲 ProductFormController: SKU generado - $generatedSku');
-    }
-  }
-
-  /// Validar SKU único
-  Future<bool> validateSku(String sku) async {
-    // TODO: Implementar validación de SKU único
-    return true;
+    final timestamp = DateTime.now().millisecondsSinceEpoch
+        .toString()
+        .substring(8);
+    final name = nameController.text.trim().toUpperCase();
+    final prefix = name.isNotEmpty
+        ? name.substring(0, name.length.clamp(0, 3))
+        : 'PRD';
+    skuController.text = '$prefix$timestamp';
+    print('🎲 ProductFormController: SKU generado - ${skuController.text}');
   }
 
   /// Calcular margen de ganancia
@@ -848,37 +852,7 @@ class ProductFormController extends GetxController {
           '✅ ProductFormController: Producto creado exitosamente - ${product.name}',
         );
         _showSuccess('Producto creado exitosamente');
-
-        // ✅ CAMBIO: Navegar a la lista de productos y refrescar datos
-        if (Get.currentRoute.contains('/products/create')) {
-          // Volver al listado (ya está en el stack)
-          Future.delayed(const Duration(milliseconds: 50), () {
-            Get.back();
-          });
-
-          // Refrescar la lista después de la navegación
-          Future.delayed(const Duration(milliseconds: 150), () {
-            try {
-              // Verificar si el controller ya existe antes de buscarlo
-              if (Get.isRegistered<ProductsController>()) {
-                final productsController = Get.find<ProductsController>();
-                print(
-                  '🔄 ProductFormController: Limpiando filtros y refrescando después de crear producto',
-                );
-                productsController.clearFiltersAndRefresh();
-              } else {
-                print(
-                  '⚠️ ProductsController no registrado aún, el refresh se hará automáticamente en onInit',
-                );
-              }
-            } catch (e) {
-              print('⚠️ Error al refrescar lista: $e');
-            }
-          });
-        } else {
-          // Si estamos en otra ruta (ej: editar), mantener el comportamiento anterior
-          Get.back();
-        }
+        _navigateBackToProductList();
       },
     );
   }
@@ -994,31 +968,7 @@ class ProductFormController extends GetxController {
           }
 
           _showSuccess('Producto actualizado exitosamente');
-
-          // Volver al listado (ya está en el stack)
-          Future.delayed(const Duration(milliseconds: 50), () {
-            Get.back();
-          });
-
-          // Refrescar la lista después de la navegación
-          Future.delayed(const Duration(milliseconds: 150), () {
-            try {
-              // Verificar si el controller ya existe antes de buscarlo
-              if (Get.isRegistered<ProductsController>()) {
-                final productsController = Get.find<ProductsController>();
-                print(
-                  '🔄 ProductFormController: Limpiando filtros y refrescando después de actualizar producto',
-                );
-                productsController.clearFiltersAndRefresh();
-              } else {
-                print(
-                  '⚠️ ProductsController no registrado aún, el refresh se hará automáticamente en onInit',
-                );
-              }
-            } catch (e) {
-              print('⚠️ Error al refrescar lista: $e');
-            }
-          });
+          _navigateBackToProductList();
         },
       );
     } catch (e, stackTrace) {
@@ -1030,7 +980,7 @@ class ProductFormController extends GetxController {
 
   /// Validar formulario (ahora async para validar duplicados)
   Future<bool> _validateForm() async {
-    if (!formKey.currentState!.validate()) {
+    if (formKey.currentState == null || !formKey.currentState!.validate()) {
       print('❌ ProductFormController: Validación de campos falló');
       return false;
     }
@@ -1052,9 +1002,8 @@ class ProductFormController extends GetxController {
     }
 
     if (skuController.text.trim().isEmpty) {
-      print('❌ ProductFormController: SKU vacío');
-      _showError('Error de validación', 'El SKU es requerido');
-      return false;
+      generateSku();
+      print('🎲 ProductFormController: SKU vacío, generado automáticamente: ${skuController.text}');
     }
 
     // ==================== ✅ VALIDACIÓN DE DUPLICADOS ====================
@@ -1293,112 +1242,6 @@ class ProductFormController extends GetxController {
     return prices;
   }
 
-  /// Construir lista de precios para actualización (con IDs)
-  List<UpdateProductPriceRequestModel> _buildPricesListForUpdate() {
-    final prices = <UpdateProductPriceRequestModel>[];
-    final originalPrices = _originalProduct.value?.prices ?? [];
-
-    // Helper function para encontrar precio original por tipo
-    String? findOriginalPriceId(PriceType type) {
-      try {
-        final originalPrice = originalPrices.firstWhere(
-          (price) => price.type == type,
-        );
-        return originalPrice.id;
-      } catch (e) {
-        return null; // No existe precio original de este tipo
-      }
-    }
-
-    if (price1Controller.text.isNotEmpty) {
-      final amount = AppFormatters.parseNumber(price1Controller.text);
-      if (amount != null && amount > 0) {
-        prices.add(
-          UpdateProductPriceRequestModel(
-            id: findOriginalPriceId(
-              PriceType.price1,
-            ), // ID existente o null para crear
-            type: PriceType.price1.name,
-            name: 'Precio al público',
-            amount: amount,
-            currency: 'COP',
-          ),
-        );
-      }
-    }
-
-    if (price2Controller.text.isNotEmpty) {
-      final amount = AppFormatters.parseNumber(price2Controller.text);
-      if (amount != null && amount > 0) {
-        prices.add(
-          UpdateProductPriceRequestModel(
-            id: findOriginalPriceId(PriceType.price2),
-            type: PriceType.price2.name,
-            name: 'Precio mayorista',
-            amount: amount,
-            currency: 'COP',
-          ),
-        );
-      }
-    }
-
-    if (price3Controller.text.isNotEmpty) {
-      final amount = AppFormatters.parseNumber(price3Controller.text);
-      if (amount != null && amount > 0) {
-        prices.add(
-          UpdateProductPriceRequestModel(
-            id: findOriginalPriceId(PriceType.price3),
-            type: PriceType.price3.name,
-            name: 'Precio distribuidor',
-            amount: amount,
-            currency: 'COP',
-          ),
-        );
-      }
-    }
-
-    if (specialPriceController.text.isNotEmpty) {
-      final amount = AppFormatters.parseNumber(specialPriceController.text);
-      if (amount != null && amount > 0) {
-        prices.add(
-          UpdateProductPriceRequestModel(
-            id: findOriginalPriceId(PriceType.special),
-            type: PriceType.special.name,
-            name: 'Precio especial',
-            amount: amount,
-            currency: 'COP',
-          ),
-        );
-      }
-    }
-
-    if (costPriceController.text.isNotEmpty) {
-      final amount = AppFormatters.parseNumber(costPriceController.text);
-      if (amount != null && amount > 0) {
-        prices.add(
-          UpdateProductPriceRequestModel(
-            id: findOriginalPriceId(PriceType.cost),
-            type: PriceType.cost.name,
-            name: 'Precio de costo',
-            amount: amount,
-            currency: 'COP',
-          ),
-        );
-      }
-    }
-
-    print(
-      '🏷️ ProductFormController: Construidos ${prices.length} precios para actualización',
-    );
-    for (final price in prices) {
-      print(
-        '   - Tipo: ${price.type}, ID: ${price.id ?? "NUEVO"}, Cantidad: ${price.amount}',
-      );
-    }
-
-    return prices;
-  }
-
   List<CreateProductPriceParams> _buildPricesListForUpdateAsCreateParams() {
     final prices = <CreateProductPriceParams>[];
     final originalPrices = _originalProduct.value?.prices ?? [];
@@ -1547,45 +1390,6 @@ class ProductFormController extends GetxController {
     return prices;
   }
 
-  /// Verificar si hay cambios en los precios
-  bool _hasPriceChanges() {
-    if (_originalProduct.value?.prices == null) return false;
-
-    final originalPrices = _originalProduct.value!.prices!;
-    final currentPrices = _buildPricesList();
-
-    // Comparar si hay diferencias
-    for (final currentPrice in currentPrices) {
-      try {
-        final originalPrice = originalPrices.firstWhere(
-          (price) => price.type == currentPrice.type,
-        );
-
-        if (originalPrice.amount != currentPrice.amount) {
-          return true;
-        }
-      } catch (e) {
-        // No existe precio original de este tipo, es un precio nuevo
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /// Calcular precios sugeridos
-  void _calculateSuggestedPrices() {
-    final costText = costPriceController.text;
-    if (costText.isEmpty) return;
-
-    final cost = AppFormatters.parseNumber(costText);
-    if (cost == null || cost <= 0) return;
-
-    price1Controller.text = (cost * 1.30).toStringAsFixed(2); // +30%
-    price2Controller.text = (cost * 1.20).toStringAsFixed(2); // +20%
-    price3Controller.text = (cost * 1.15).toStringAsFixed(2); // +15%
-  }
-
   /// Limpiar controladores
   void _clearControllers() {
     nameController.clear();
@@ -1696,6 +1500,35 @@ class ProductFormController extends GetxController {
       icon: const Icon(Icons.check_circle, color: Colors.green),
       duration: const Duration(seconds: 3),
     );
+  }
+
+  /// Navegar de vuelta al listado de productos
+  /// Usa Get.until() para volver siempre al listado, sin importar
+  /// si el usuario llegó desde Lista→Editar o Lista→Detalle→Editar
+  void _navigateBackToProductList() {
+    try {
+      Get.until((route) => route.settings.name == '/products');
+    } catch (e) {
+      print('⚠️ Error en Get.until: $e, usando Get.back()');
+      try {
+        Get.back();
+      } catch (_) {}
+    }
+
+    // Refrescar la lista después de la navegación
+    Future.delayed(const Duration(milliseconds: 100), () {
+      try {
+        if (Get.isRegistered<ProductsController>()) {
+          final productsController = Get.find<ProductsController>();
+          print(
+            '🔄 ProductFormController: Refrescando lista de productos',
+          );
+          productsController.clearFiltersAndRefresh();
+        }
+      } catch (e) {
+        print('⚠️ Error al refrescar lista: $e');
+      }
+    });
   }
 
   /// Mostrar mensaje de información

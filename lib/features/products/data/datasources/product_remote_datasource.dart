@@ -320,6 +320,8 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       } else {
         throw _handleErrorResponse(response);
       }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
     } catch (e) {
       rethrow;
     }

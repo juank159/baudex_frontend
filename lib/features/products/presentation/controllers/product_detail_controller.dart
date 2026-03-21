@@ -13,6 +13,7 @@ import '../../domain/usecases/delete_product_usecase.dart';
 
 // Import del tema elegante
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import 'products_controller.dart';
 
 /// Controller para manejar la pantalla de detalles del producto
 ///
@@ -156,21 +157,23 @@ class ProductDetailController extends GetxController
         GetProductByIdParams(id: productId),
       );
 
+      if (isClosed) return;
+
       // Manejar el resultado usando fold pattern
       result.fold(
         // Caso de error
         (failure) {
           print('❌ Error al cargar producto: ${failure.message}');
-          _showError('Error al cargar producto', failure.message);
-
-          // Limpiar producto actual en caso de error
-          _product.value = null;
+          if (!isClosed) {
+            _showError('Error al cargar producto', failure.message);
+            _product.value = null;
+          }
         },
         // Caso de éxito
         (product) {
           print('✅ Producto cargado exitosamente: ${product.name}');
+          if (isClosed) return;
 
-          // Validar integridad de los datos antes de asignar
           if (_validateProductData(product)) {
             _product.value = product;
             print('✅ Producto asignado correctamente al estado');
@@ -227,11 +230,6 @@ class ProductDetailController extends GetxController
       if (product.sku.isEmpty) {
         print('❌ Producto sin SKU');
         return false;
-      }
-
-      // Validar lista de precios si existe
-      if (product.prices != null) {
-        for (int i = 0; i < product.prices!.length; i++) {}
       }
 
       // Validar valores numéricos básicos
@@ -352,12 +350,22 @@ class ProductDetailController extends GetxController
         (_) {
           print('✅ Producto eliminado exitosamente');
 
-          // Mostrar mensaje de éxito
           _showSuccess('Producto eliminado exitosamente');
 
-          // Volver a la lista de productos después de un delay
-          Future.delayed(const Duration(seconds: 1), () {
-            Get.back();
+          // Volver a la lista de productos
+          try {
+            Get.until((route) => route.settings.name == '/products');
+          } catch (e) {
+            if (!isClosed) Get.back();
+          }
+
+          // Refrescar la lista
+          Future.delayed(const Duration(milliseconds: 100), () {
+            try {
+              if (Get.isRegistered<ProductsController>()) {
+                Get.find<ProductsController>().clearFiltersAndRefresh();
+              }
+            } catch (_) {}
           });
         },
       );
@@ -920,50 +928,6 @@ class ProductDetailController extends GetxController
     }
   }
 
-  /// Obtener precio original (sin descuentos aplicados)
-  double? getOriginalPriceByType(String priceType) {
-    try {
-      if (!hasProduct || product!.prices == null) {
-        return null;
-      }
-
-      for (final price in product!.prices!) {
-        final currentPriceType = _priceTypeToString(price.type);
-
-        if (currentPriceType == priceType && price.isActive) {
-          return _safeParseDouble(price.amount);
-        }
-      }
-
-      return null;
-    } catch (e) {
-      print('❌ Error al obtener precio original "$priceType": $e');
-      return null;
-    }
-  }
-
-  /// Obtener porcentaje de descuento aplicado
-  double getDiscountPercentageByType(String priceType) {
-    try {
-      if (!hasProduct || product!.prices == null) {
-        return 0.0;
-      }
-
-      for (final price in product!.prices!) {
-        final currentPriceType = _priceTypeToString(price.type);
-
-        if (currentPriceType == priceType && price.isActive) {
-          return _safeParseDouble(price.discountPercentage);
-        }
-      }
-
-      return 0.0;
-    } catch (e) {
-      print('❌ Error al obtener porcentaje de descuento "$priceType": $e');
-      return 0.0;
-    }
-  }
-
   /// Verificar si el producto tiene precios válidos
   ///
   /// Un precio es válido si:
@@ -998,27 +962,6 @@ class ProductDetailController extends GetxController
     }
   }
 
-  /// Obtener cantidad mínima requerida para un tipo de precio
-  double getMinQuantityByType(String priceType) {
-    try {
-      if (!hasProduct || product!.prices == null) {
-        return 1.0;
-      }
-
-      for (final price in product!.prices!) {
-        final currentPriceType = _priceTypeToString(price.type);
-
-        if (currentPriceType == priceType && price.isActive) {
-          return _safeParseDouble(price.minQuantity);
-        }
-      }
-
-      return 1.0;
-    } catch (e) {
-      print('❌ Error al obtener cantidad mínima "$priceType": $e');
-      return 1.0;
-    }
-  }
   // ==================== MÉTODOS HELPER DE ESTADO Y UI ====================
 
   /// Obtener color apropiado según el estado del stock
@@ -1151,29 +1094,6 @@ class ProductDetailController extends GetxController
     }
   }
 
-  /// Convertir String a enum PriceType
-  ///
-  /// Mapeo con valor por defecto para casos no reconocidos
-  PriceType _stringToPriceType(String priceTypeString) {
-    switch (priceTypeString.toLowerCase()) {
-      case 'price1':
-        return PriceType.price1;
-      case 'price2':
-        return PriceType.price2;
-      case 'price3':
-        return PriceType.price3;
-      case 'special':
-        return PriceType.special;
-      case 'cost':
-        return PriceType.cost;
-      default:
-        print(
-          '⚠️ Tipo de precio no reconocido: $priceTypeString, usando price1',
-        );
-        return PriceType.price1;
-    }
-  }
-
   /// Parsear valor dinámico a double de forma segura
   ///
   /// Maneja conversiones desde diferentes tipos:
@@ -1262,99 +1182,6 @@ class ProductDetailController extends GetxController
       isDismissible: true,
       shouldIconPulse: false,
     );
-  }
-
-  // ==================== MÉTODOS DE DEBUG Y UTILIDADES ====================
-
-  /// Imprimir información completa del producto para debugging
-  ///
-  /// Útil durante desarrollo para verificar el estado del controller
-  void debugProductInfo() {
-    if (!hasProduct) {
-      print('🐛 DEBUG: No hay producto cargado');
-      return;
-    }
-
-    print('🐛 ===== DEBUG: Información del producto =====');
-    print('   📋 ID: $productId');
-    print('   🏷️ Nombre: $productName');
-    print('   📄 SKU: $productSku');
-    print('   📦 Stock actual: $currentStock');
-    print('   ⚠️ Stock mínimo: $minStock');
-    print('   ✅ Estado activo: $isActive');
-    print('   📊 En stock: $isInStock');
-    print('   🔶 Stock bajo: $isLowStock');
-    print('   💰 Precios válidos: $hasValidPrices');
-    print('   🔢 Cantidad de precios: ${activeProductPrices.length}');
-    print('   🖼️ Imagen principal: ${primaryImage ?? "Sin imagen"}');
-    print('   📂 Categoría: ${product!.category?.name ?? "Sin categoría"}');
-    print('   👤 Creado por: ${product!.createdBy?.fullName ?? "Desconocido"}');
-    print('🐛 ===============================================');
-  }
-
-  /// Obtener resumen del estado actual del controller
-  ///
-  /// Retorna un mapa con información útil para debugging
-  Map<String, dynamic> getControllerState() {
-    return {
-      'hasProduct': hasProduct,
-      'isLoading': isLoading,
-      'isUpdatingStock': isUpdatingStock,
-      'isDeleting': isDeleting,
-      'productId': productId,
-      'productName': productName,
-      'hasValidPrices': hasValidPrices,
-      'activeProductPrices': activeProductPrices.length,
-      'stockStatus': getStockStatusText(),
-    };
-  }
-
-  /// Validar estado del controller
-  ///
-  /// Verifica que el controller esté en un estado consistente
-  bool validateControllerState() {
-    try {
-      // Verificar que el productId es válido
-      if (productId.isEmpty) {
-        print('❌ Estado inválido: productId vacío');
-        return false;
-      }
-
-      // Si hay producto, verificar que sea válido
-      if (hasProduct) {
-        if (!_validateProductData(product!)) {
-          print('❌ Estado inválido: datos de producto inconsistentes');
-          return false;
-        }
-      }
-
-      // Verificar que no hay estados de carga conflictivos
-      if (isLoading && isUpdatingStock) {
-        print('⚠️ Estados de carga múltiples activos simultáneamente');
-      }
-
-      print('✅ Estado del controller validado correctamente');
-      return true;
-    } catch (e) {
-      print('❌ Error al validar estado del controller: $e');
-      return false;
-    }
-  }
-
-  // ==================== MÉTODOS DE LIMPIEZA ADICIONALES ====================
-
-  /// Limpiar estado del producto (útil para testing o reset)
-  void clearProductState() {
-    print('🧹 Limpiando estado del producto...');
-
-    _product.value = null;
-    _isLoading.value = false;
-    _isUpdatingStock.value = false;
-    _isDeleting.value = false;
-
-    stockController.clear();
-
-    print('✅ Estado del producto limpiado');
   }
 
   /// Verificar si hay operaciones en progreso
