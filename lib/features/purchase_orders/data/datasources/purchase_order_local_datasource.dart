@@ -136,7 +136,10 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
               final itemModel = model.items![idx];
               final qty = double.tryParse(itemModel.quantity ?? '0')?.toInt() ?? 0;
               final price = double.tryParse(itemModel.unitCost ?? '0') ?? 0.0;
-              final total = double.tryParse(itemModel.totalCost ?? '0') ?? (qty * price);
+              final itemSubtotal = double.tryParse(itemModel.subtotal ?? '0') ?? (qty * price);
+              final itemTaxPct = double.tryParse(itemModel.taxPercentage ?? '0') ?? 0.0;
+              final itemTaxAmt = double.tryParse(itemModel.taxAmount ?? '0') ?? 0.0;
+              final total = double.tryParse(itemModel.totalCost ?? '0') ?? (itemSubtotal + itemTaxAmt);
               // Generar itemId único: usar id del modelo SOLO si no es null ni vacío
               final itemId = (itemModel.id != null && itemModel.id!.isNotEmpty)
                   ? itemModel.id!
@@ -156,9 +159,9 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
                 unitPrice: price,
                 discountPercentage: 0,
                 discountAmount: 0,
-                subtotal: total,
-                taxPercentage: 0,
-                taxAmount: 0,
+                subtotal: itemSubtotal,
+                taxPercentage: itemTaxPct,
+                taxAmount: itemTaxAmt,
                 totalAmount: total,
                 notes: itemModel.notes,
                 createdAt: itemModel.createdAt != null ? (DateTime.tryParse(itemModel.createdAt!) ?? DateTime.now()) : DateTime.now(),
@@ -251,7 +254,10 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
               final itemModel = purchaseOrder.items![idx];
               final qty = double.tryParse(itemModel.quantity ?? '0')?.toInt() ?? 0;
               final price = double.tryParse(itemModel.unitCost ?? '0') ?? 0.0;
-              final total = double.tryParse(itemModel.totalCost ?? '0') ?? (qty * price);
+              final itemSubtotal = double.tryParse(itemModel.subtotal ?? '0') ?? (qty * price);
+              final itemTaxPct = double.tryParse(itemModel.taxPercentage ?? '0') ?? 0.0;
+              final itemTaxAmt = double.tryParse(itemModel.taxAmount ?? '0') ?? 0.0;
+              final total = double.tryParse(itemModel.totalCost ?? '0') ?? (itemSubtotal + itemTaxAmt);
               // Generar itemId único: usar id del modelo SOLO si no es null ni vacío
               final itemId = (itemModel.id != null && itemModel.id!.isNotEmpty)
                   ? itemModel.id!
@@ -271,9 +277,9 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
                 unitPrice: price,
                 discountPercentage: 0,
                 discountAmount: 0,
-                subtotal: total,
-                taxPercentage: 0,
-                taxAmount: 0,
+                subtotal: itemSubtotal,
+                taxPercentage: itemTaxPct,
+                taxAmount: itemTaxAmt,
                 totalAmount: total,
                 notes: itemModel.notes,
                 createdAt: itemModel.createdAt != null ? (DateTime.tryParse(itemModel.createdAt!) ?? DateTime.now()) : DateTime.now(),
