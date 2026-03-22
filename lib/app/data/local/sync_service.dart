@@ -3489,10 +3489,80 @@ class SyncService extends GetxService {
                   .findFirst();
 
               if (isarCustomer != null) {
-                // El serverId sigue siendo el temporal → Customer aún no sincronizado
-                throw Exception(
-                  'Customer $resolvedCustomerId aún no sincronizado - se reintentará',
-                );
+                // Customer encontrado con temp serverId → verificar si hay sync pendiente
+                final pendingCustomerOps = await _isarDatabase.getPendingSyncOperationsByType('Customer');
+                final hasCustomerSync = pendingCustomerOps.any((op) {
+                  try {
+                    final opData = jsonDecode(op.payload);
+                    final opId = opData['id'] ?? opData['tempId'] ?? '';
+                    return opId == resolvedCustomerId || op.payload.contains(resolvedCustomerId);
+                  } catch (_) {
+                    return false;
+                  }
+                });
+
+                if (hasCustomerSync) {
+                  // Hay sync pendiente → esperar a que se resuelva
+                  throw Exception(
+                    'Customer $resolvedCustomerId aún no sincronizado - se reintentará',
+                  );
+                }
+
+                // NO hay sync pendiente → buscar customer con mismo nombre pero UUID real
+                final customerName = isarCustomer.name;
+                if (customerName != null && customerName.isNotEmpty) {
+                  final realCustomer = await isar.isarCustomers
+                      .filter()
+                      .nameEqualTo(customerName)
+                      .and()
+                      .not()
+                      .serverIdStartsWith('customer_offline_')
+                      .and()
+                      .not()
+                      .serverIdStartsWith('customer_')
+                      .findFirst();
+
+                  if (realCustomer != null && realCustomer.serverId != null) {
+                    resolvedCustomerId = realCustomer.serverId!;
+                    AppLogger.i(
+                      'Customer temp ID resuelto por nombre "$customerName" → ${realCustomer.serverId}',
+                      tag: 'SYNC',
+                    );
+                  } else {
+                    // Buscar con regex UUID directamente
+                    final allCustomers = await isar.isarCustomers
+                        .filter()
+                        .nameEqualTo(customerName)
+                        .findAll();
+                    final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+                    final realMatch = allCustomers.where((c) => c.serverId != null && uuidRegex.hasMatch(c.serverId!)).firstOrNull;
+
+                    if (realMatch != null) {
+                      resolvedCustomerId = realMatch.serverId!;
+                      AppLogger.i(
+                        'Customer temp ID resuelto por nombre+UUID "$customerName" → ${realMatch.serverId}',
+                        tag: 'SYNC',
+                      );
+                    } else {
+                      // No hay sync pendiente ni customer real → error permanente
+                      AppLogger.e(
+                        'Customer $resolvedCustomerId no tiene UUID real y no hay sync pendiente - marcando como fallido',
+                        tag: 'SYNC',
+                      );
+                      throw Exception(
+                        'PERMANENT: Customer $resolvedCustomerId no tiene UUID real y no hay operación de sync pendiente',
+                      );
+                    }
+                  }
+                } else {
+                  AppLogger.e(
+                    'Customer $resolvedCustomerId sin nombre - no se puede resolver',
+                    tag: 'SYNC',
+                  );
+                  throw Exception(
+                    'PERMANENT: Customer $resolvedCustomerId sin nombre para resolución alternativa',
+                  );
+                }
               } else {
                 // Customer no encontrado con temp ID → ya sincronizado y serverId cambió
                 // El payload ya debería tener el UUID real (actualizado por Customer handler)
@@ -3503,6 +3573,12 @@ class SyncService extends GetxService {
               }
             } catch (e) {
               if (e.toString().contains('aún no sincronizado')) rethrow;
+              if (e.toString().contains('PERMANENT:')) {
+                // Error permanente - marcar operación como fallida definitivamente
+                AppLogger.e('Error permanente resolviendo customerId: $e', tag: 'SYNC');
+                await _isarDatabase.markSyncOperationFailed(operation.id, e.toString());
+                return;
+              }
               AppLogger.w('Error resolviendo customerId temporal: $e', tag: 'SYNC');
             }
           }
@@ -5914,6 +5990,9 @@ class SyncService extends GetxService {
         );
       }
       final data = jsonDecode(operation.payload);
+
+      // Limpiar campos que el backend no acepta
+      data.remove('isActive');
 
       switch (operation.operationType) {
         case SyncOperationType.create:

@@ -39,12 +39,13 @@ class SettingsBinding extends Bindings {
   }
 
   void _registerDataSources() {
-    // Settings Local DataSource
+    // Settings Local DataSource (permanent: dependencia del SettingsController global)
     if (!Get.isRegistered<SettingsLocalDataSource>()) {
-      Get.lazyPut<SettingsLocalDataSource>(
-        () => SettingsLocalDataSourceImpl(),
+      Get.put<SettingsLocalDataSource>(
+        SettingsLocalDataSourceImpl(),
+        permanent: true,
       );
-      print('✅ SettingsLocalDataSource registrado');
+      print('✅ SettingsLocalDataSource registrado (permanent)');
     }
 
     // Organization Remote DataSource (permanent: dependencia del repo/controller global)
@@ -58,44 +59,37 @@ class SettingsBinding extends Bindings {
       print('✅ OrganizationRemoteDataSource registrado (permanent)');
     }
 
-    // Printer Settings Remote DataSource
+    // Printer Settings Remote DataSource (permanent: dependencia del SettingsController global)
     if (!Get.isRegistered<PrinterSettingsRemoteDataSource>()) {
-      Get.lazyPut<PrinterSettingsRemoteDataSource>(
-        () => PrinterSettingsRemoteDataSourceImpl(
+      Get.put<PrinterSettingsRemoteDataSource>(
+        PrinterSettingsRemoteDataSourceImpl(
           dioClient: Get.find(),
         ),
+        permanent: true,
       );
-      print('✅ PrinterSettingsRemoteDataSource registrado');
+      print('✅ PrinterSettingsRemoteDataSource registrado (permanent)');
     }
   }
 
   void _registerRepositories() {
-    // Settings Repository
+    // Settings Repository (permanent: dependencia del SettingsController global)
     if (!Get.isRegistered<SettingsRepository>()) {
-      Get.lazyPut<SettingsRepository>(
-        () {
-          // Obtener remote datasource de forma segura
-          PrinterSettingsRemoteDataSource? printerRemoteDS;
-          try {
-            if (Get.isRegistered<PrinterSettingsRemoteDataSource>()) {
-              printerRemoteDS = Get.find<PrinterSettingsRemoteDataSource>();
-            } else {
-              printerRemoteDS = PrinterSettingsRemoteDataSourceImpl(
-                dioClient: Get.find(),
-              );
-            }
-          } catch (_) {
-            print('⚠️ PrinterSettingsRemoteDataSource no disponible - modo offline');
-          }
+      PrinterSettingsRemoteDataSource? printerRemoteDS;
+      try {
+        printerRemoteDS = Get.find<PrinterSettingsRemoteDataSource>();
+      } catch (_) {
+        print('⚠️ PrinterSettingsRemoteDataSource no disponible - modo offline');
+      }
 
-          return SettingsRepositoryImpl(
-            localDataSource: Get.find<SettingsLocalDataSource>(),
-            printerRemoteDataSource: printerRemoteDS,
-            networkInfo: Get.isRegistered<NetworkInfo>() ? Get.find<NetworkInfo>() : null,
-          );
-        },
+      Get.put<SettingsRepository>(
+        SettingsRepositoryImpl(
+          localDataSource: Get.find<SettingsLocalDataSource>(),
+          printerRemoteDataSource: printerRemoteDS,
+          networkInfo: Get.isRegistered<NetworkInfo>() ? Get.find<NetworkInfo>() : null,
+        ),
+        permanent: true,
       );
-      print('✅ SettingsRepository registrado');
+      print('✅ SettingsRepository registrado (permanent)');
     }
 
     // Organization Repository (permanent: dependencia de OrganizationController global)
@@ -113,77 +107,47 @@ class SettingsBinding extends Bindings {
   }
 
   void _registerUseCases() {
-    // App Settings Use Cases
+    final repo = Get.find<SettingsRepository>();
+
     if (!Get.isRegistered<GetAppSettingsUseCase>()) {
-      Get.lazyPut<GetAppSettingsUseCase>(
-        () => GetAppSettingsUseCase(Get.find<SettingsRepository>()),
-      );
+      Get.put(GetAppSettingsUseCase(repo), permanent: true);
     }
-
     if (!Get.isRegistered<SaveAppSettingsUseCase>()) {
-      Get.lazyPut<SaveAppSettingsUseCase>(
-        () => SaveAppSettingsUseCase(Get.find<SettingsRepository>()),
-      );
+      Get.put(SaveAppSettingsUseCase(repo), permanent: true);
     }
-
-    // Invoice Settings Use Cases
     if (!Get.isRegistered<GetInvoiceSettingsUseCase>()) {
-      Get.lazyPut<GetInvoiceSettingsUseCase>(
-        () => GetInvoiceSettingsUseCase(Get.find<SettingsRepository>()),
-      );
+      Get.put(GetInvoiceSettingsUseCase(repo), permanent: true);
     }
-
     if (!Get.isRegistered<SaveInvoiceSettingsUseCase>()) {
-      Get.lazyPut<SaveInvoiceSettingsUseCase>(
-        () => SaveInvoiceSettingsUseCase(Get.find<SettingsRepository>()),
-      );
+      Get.put(SaveInvoiceSettingsUseCase(repo), permanent: true);
     }
-
-    // Printer Settings Use Cases
     if (!Get.isRegistered<GetAllPrinterSettingsUseCase>()) {
-      Get.lazyPut<GetAllPrinterSettingsUseCase>(
-        () => GetAllPrinterSettingsUseCase(Get.find<SettingsRepository>()),
-      );
+      Get.put(GetAllPrinterSettingsUseCase(repo), permanent: true);
     }
-
     if (!Get.isRegistered<GetDefaultPrinterSettingsUseCase>()) {
-      Get.lazyPut<GetDefaultPrinterSettingsUseCase>(
-        () => GetDefaultPrinterSettingsUseCase(Get.find<SettingsRepository>()),
-      );
+      Get.put(GetDefaultPrinterSettingsUseCase(repo), permanent: true);
     }
-
     if (!Get.isRegistered<SavePrinterSettingsUseCase>()) {
-      Get.lazyPut<SavePrinterSettingsUseCase>(
-        () => SavePrinterSettingsUseCase(Get.find<SettingsRepository>()),
-      );
+      Get.put(SavePrinterSettingsUseCase(repo), permanent: true);
     }
-
     if (!Get.isRegistered<DeletePrinterSettingsUseCase>()) {
-      Get.lazyPut<DeletePrinterSettingsUseCase>(
-        () => DeletePrinterSettingsUseCase(Get.find<SettingsRepository>()),
-      );
+      Get.put(DeletePrinterSettingsUseCase(repo), permanent: true);
     }
-
     if (!Get.isRegistered<SetDefaultPrinterUseCase>()) {
-      Get.lazyPut<SetDefaultPrinterUseCase>(
-        () => SetDefaultPrinterUseCase(Get.find<SettingsRepository>()),
-      );
+      Get.put(SetDefaultPrinterUseCase(repo), permanent: true);
     }
-
     if (!Get.isRegistered<TestPrinterConnectionUseCase>()) {
-      Get.lazyPut<TestPrinterConnectionUseCase>(
-        () => TestPrinterConnectionUseCase(Get.find<SettingsRepository>()),
-      );
+      Get.put(TestPrinterConnectionUseCase(repo), permanent: true);
     }
 
-    print('✅ Casos de uso registrados');
+    print('✅ Casos de uso registrados (permanent)');
   }
 
   void _registerControllers() {
-    // Settings Controller
+    // Settings Controller (permanent: ThermalPrinterController lo necesita al imprimir desde cualquier pantalla)
     if (!Get.isRegistered<SettingsController>()) {
-      Get.lazyPut<SettingsController>(
-        () => SettingsController(
+      Get.put<SettingsController>(
+        SettingsController(
           getAppSettingsUseCase: Get.find<GetAppSettingsUseCase>(),
           saveAppSettingsUseCase: Get.find<SaveAppSettingsUseCase>(),
           getInvoiceSettingsUseCase: Get.find<GetInvoiceSettingsUseCase>(),
@@ -195,8 +159,9 @@ class SettingsBinding extends Bindings {
           setDefaultPrinterUseCase: Get.find<SetDefaultPrinterUseCase>(),
           testPrinterConnectionUseCase: Get.find<TestPrinterConnectionUseCase>(),
         ),
+        permanent: true,
       );
-      print('✅ SettingsController registrado');
+      print('✅ SettingsController registrado (permanent)');
     }
 
     // Organization Controller (permanent: usado globalmente por suscripción, settings, multi-moneda)
