@@ -3509,50 +3509,33 @@ class SyncService extends GetxService {
                 }
 
                 // NO hay sync pendiente → buscar customer con mismo nombre pero UUID real
-                final customerName = isarCustomer.name;
-                if (customerName != null && customerName.isNotEmpty) {
-                  final realCustomer = await isar.isarCustomers
+                final customerName = isarCustomer.fullName;
+                if (customerName.isNotEmpty) {
+                  // Buscar todos los customers con mismo firstName
+                  final allCustomers = await isar.isarCustomers
                       .filter()
-                      .nameEqualTo(customerName)
+                      .firstNameEqualTo(isarCustomer.firstName)
                       .and()
-                      .not()
-                      .serverIdStartsWith('customer_offline_')
-                      .and()
-                      .not()
-                      .serverIdStartsWith('customer_')
-                      .findFirst();
+                      .lastNameEqualTo(isarCustomer.lastName)
+                      .findAll();
+                  final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+                  final realCustomer = allCustomers.where((c) => c.serverId != null && uuidRegex.hasMatch(c.serverId!)).firstOrNull;
 
-                  if (realCustomer != null && realCustomer.serverId != null) {
+                  if (realCustomer != null) {
                     resolvedCustomerId = realCustomer.serverId!;
                     AppLogger.i(
                       'Customer temp ID resuelto por nombre "$customerName" → ${realCustomer.serverId}',
                       tag: 'SYNC',
                     );
                   } else {
-                    // Buscar con regex UUID directamente
-                    final allCustomers = await isar.isarCustomers
-                        .filter()
-                        .nameEqualTo(customerName)
-                        .findAll();
-                    final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
-                    final realMatch = allCustomers.where((c) => c.serverId != null && uuidRegex.hasMatch(c.serverId!)).firstOrNull;
-
-                    if (realMatch != null) {
-                      resolvedCustomerId = realMatch.serverId!;
-                      AppLogger.i(
-                        'Customer temp ID resuelto por nombre+UUID "$customerName" → ${realMatch.serverId}',
-                        tag: 'SYNC',
-                      );
-                    } else {
-                      // No hay sync pendiente ni customer real → error permanente
-                      AppLogger.e(
-                        'Customer $resolvedCustomerId no tiene UUID real y no hay sync pendiente - marcando como fallido',
-                        tag: 'SYNC',
-                      );
-                      throw Exception(
-                        'PERMANENT: Customer $resolvedCustomerId no tiene UUID real y no hay operación de sync pendiente',
-                      );
-                    }
+                    // No hay sync pendiente ni customer real → error permanente
+                    AppLogger.e(
+                      'Customer $resolvedCustomerId no tiene UUID real y no hay sync pendiente - marcando como fallido',
+                      tag: 'SYNC',
+                    );
+                    throw Exception(
+                      'PERMANENT: Customer $resolvedCustomerId no tiene UUID real y no hay operación de sync pendiente',
+                    );
                   }
                 } else {
                   AppLogger.e(
