@@ -255,7 +255,6 @@ class SettingsRepositoryImpl implements SettingsRepository {
       'autoCut': settings.autoCut,
       'cashDrawer': settings.cashDrawer,
       'isDefault': settings.isDefault,
-      'isActive': settings.isActive,
     };
   }
 

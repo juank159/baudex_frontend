@@ -974,10 +974,8 @@ class ThermalPrinterController extends GetxController {
     );
 
     try {
-      // Usar el generador de comandos ESC/POS directamente
       final profile = await esc_pos.CapabilityProfile.load();
 
-      // Crear el tamaño de papel correcto
       esc_pos.PaperSize paperSize;
       if (config.paperSize == settings.PaperSize.mm58) {
         paperSize = esc_pos.PaperSize.mm58;
@@ -985,14 +983,13 @@ class ThermalPrinterController extends GetxController {
         paperSize = esc_pos.PaperSize.mm80;
       }
 
-      // Crear generador de comandos ESC/POS
       final generator = esc_pos.Generator(paperSize, profile);
       List<int> commands = [];
 
-      // Comandos de inicialización
+      // Inicialización
       commands.addAll(SATQ22UEConfig.initializeCommands);
 
-      // Título centrado y grande
+      // Título — idéntico a la versión de red
       commands.addAll(
         generator.text(
           'PÁGINA DE PRUEBA',
@@ -1006,56 +1003,74 @@ class ThermalPrinterController extends GetxController {
       );
       commands.addAll(generator.feed(2));
 
-      // Información del sistema
-      commands.addAll(
-        generator.text(
-          'Sistema: Baudex Desktop',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
-        ),
-      );
+      // Info de la impresora configurada — idéntico a la versión de red
       commands.addAll(
         generator.text(
           'Impresora: ${config.name}',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true),
         ),
       );
       commands.addAll(
         generator.text(
-          'Conexión: USB',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+          'Tipo: ${config.connectionType.name.toUpperCase()}',
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
         ),
       );
-      commands.addAll(
-        generator.text(
-          'Ruta: ${config.usbPath}',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
-        ),
-      );
+      if (config.connectionType == settings.PrinterConnectionType.network) {
+        commands.addAll(generator.text(
+          'IP: ${config.ipAddress}',
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ));
+        commands.addAll(generator.text(
+          'Puerto: ${config.port}',
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ));
+      } else {
+        commands.addAll(generator.text(
+          'USB: ${config.usbPath}',
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ));
+      }
       commands.addAll(
         generator.text(
           'Papel: ${config.paperSize == settings.PaperSize.mm58 ? "58mm" : "80mm"}',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
+      commands.addAll(
+        generator.text(
+          'Auto-corte: ${config.autoCut ? "SÍ" : "NO"}',
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+        ),
+      );
+      commands.addAll(generator.feed(2));
+
+      // Info del sistema
+      commands.addAll(
+        generator.text(
+          'Sistema: Baudex Desktop',
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
         ),
       );
       commands.addAll(
         generator.text(
           'Fecha: ${DateTime.now().toString().split(' ')[0]}',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
         ),
       );
       commands.addAll(
         generator.text(
           'Hora: ${DateTime.now().toString().split(' ')[1].split('.')[0]}',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
         ),
       );
       commands.addAll(generator.feed(2));
 
-      // Línea separadora
+      // Separador
       commands.addAll(
         generator.text(
           '================================',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
         ),
       );
       commands.addAll(generator.feed(1));
@@ -1064,7 +1079,7 @@ class ThermalPrinterController extends GetxController {
       commands.addAll(
         generator.text(
           'Prueba de caracteres:',
-          styles: esc_pos.PosStyles(bold: true),
+          styles: const esc_pos.PosStyles(bold: true),
         ),
       );
       commands.addAll(generator.text('ABCDEFGHIJKLMNOPQRSTUVWXYZ'));
@@ -1077,19 +1092,19 @@ class ThermalPrinterController extends GetxController {
       commands.addAll(
         generator.text(
           'Izquierda',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.left),
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.left),
         ),
       );
       commands.addAll(
         generator.text(
           'Centro',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center),
         ),
       );
       commands.addAll(
         generator.text(
           'Derecha',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.right),
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right),
         ),
       );
       commands.addAll(generator.feed(2));
@@ -1097,41 +1112,27 @@ class ThermalPrinterController extends GetxController {
       // Mensaje final
       commands.addAll(
         generator.text(
-          'Impresión exitosa!',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true),
+          'Configuración exitosa!',
+          styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.center, bold: true),
         ),
       );
-      commands.addAll(generator.feed(2));
+      commands.addAll(generator.feed(3));
 
-      // Línea separadora final
-      commands.addAll(
-        generator.text(
-          '================================',
-          styles: esc_pos.PosStyles(align: esc_pos.PosAlign.center),
-        ),
-      );
-      commands.addAll(generator.feed(1));
-
-      // Corte de papel si está habilitado
+      // Corte de papel
       if (config.autoCut) {
         commands.addAll(SATQ22UEConfig.cutCommands);
       }
 
-      // Abrir caja registradora si está habilitado
+      // Caja registradora
       if (config.cashDrawer) {
         commands.addAll(SATQ22UEConfig.openDrawerCommands);
       }
 
       final data = Uint8List.fromList(commands);
-
-      print(
-        '📝 Contenido generado con Generator ESC/POS: ${data.length} bytes',
-      );
       print('✅ Contenido USB generado: ${data.length} bytes');
       return data;
     } catch (e) {
       print('❌ Error generando contenido USB: $e');
-      // Fallback a formato simple si hay error
       return Uint8List.fromList(
         utf8.encode('Error generando contenido de prueba: $e'),
       );
