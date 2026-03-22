@@ -1,6 +1,8 @@
 // lib/app/core/storage/secure_storage_service.dart
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
@@ -218,25 +220,26 @@ class SecureStorageService {
     }
   }
 
-  /// Limpiar todo el almacenamiento (preservando device ID)
+  /// Limpiar todo el almacenamiento excepto device ID.
+  /// Usa borrado selectivo para evitar race conditions.
   Future<void> clearAll() async {
     try {
-      // Preservar device ID antes de limpiar
-      final deviceId = await _readSecure(_deviceIdKey);
-
       if (await _shouldUseSharedPreferences()) {
         final prefs = await SharedPreferences.getInstance();
-        final keys = prefs.getKeys().where((key) => key.startsWith('secure_')).toList();
+        final keys = prefs.getKeys()
+            .where((key) => key.startsWith('secure_') && key != 'secure_$_deviceIdKey')
+            .toList();
         for (final key in keys) {
           await prefs.remove(key);
         }
       } else {
-        await _storage.deleteAll();
-      }
-
-      // Restaurar device ID después de limpiar
-      if (deviceId != null && deviceId.isNotEmpty) {
-        await _writeSecure(_deviceIdKey, deviceId);
+        // Leer todas las keys y borrar solo las que NO son deviceId
+        final allData = await _storage.readAll();
+        for (final key in allData.keys) {
+          if (key != _deviceIdKey) {
+            await _storage.delete(key: key);
+          }
+        }
       }
     } catch (e) {
       throw Exception('Error al limpiar almacenamiento: $e');
@@ -372,35 +375,71 @@ class SecureStorageService {
 
   static const String _deviceIdKey = 'device_unique_id';
 
+  /// Cache en memoria para evitar lecturas repetidas al storage
+  static String? _cachedDeviceId;
+
   /// Obtener o generar un ID único para este dispositivo.
-  /// Se genera una sola vez y persiste entre reinicios de la app.
+  /// Usa un fingerprint basado en hostname + plataforma + UUID persistido,
+  /// hasheado con HMAC-SHA256 para no exponer datos del hardware.
   Future<String> getOrCreateDeviceId() async {
+    // 1. Retornar cache en memoria si existe
+    if (_cachedDeviceId != null) return _cachedDeviceId!;
+
     try {
+      // 2. Intentar leer del storage persistente
       final existing = await _readSecure(_deviceIdKey);
       if (existing != null && existing.isNotEmpty) {
+        _cachedDeviceId = existing;
         return existing;
       }
-      // Generar nuevo UUID v4
-      final newId = _generateUuidV4();
-      await _writeSecure(_deviceIdKey, newId);
+
+      // 3. Generar nuevo device ID basado en fingerprint del hardware
+      final fingerprint = _generateDeviceFingerprint();
+      await _writeSecure(_deviceIdKey, fingerprint);
+      _cachedDeviceId = fingerprint;
+
       if (kDebugMode) {
-        print('🆔 SecureStorageService: Nuevo Device ID generado: $newId');
+        print('🆔 Device ID generado y persistido (${fingerprint.substring(0, 12)}...)');
       }
-      return newId;
+      return fingerprint;
     } catch (e) {
-      // Si falla el storage, generar uno temporal (no se persistirá)
+      // 4. Si falla el storage, usar cache o generar temporal determinístico
+      if (_cachedDeviceId != null) return _cachedDeviceId!;
+
+      // Generar un fingerprint determinístico (mismo hardware = mismo ID)
+      final fallback = _generateDeviceFingerprint();
+      _cachedDeviceId = fallback;
       if (kDebugMode) {
-        print('⚠️ SecureStorageService: Error obteniendo Device ID, generando temporal: $e');
+        print('⚠️ Storage falló, usando fingerprint en memoria: $e');
       }
+      return fallback;
+    }
+  }
+
+  /// Genera un fingerprint determinístico basado en atributos del hardware.
+  /// Mismo equipo físico = mismo fingerprint, incluso sin storage.
+  static String _generateDeviceFingerprint() {
+    try {
+      final hostname = Platform.localHostname;
+      final os = Platform.operatingSystem;
+      final osVersion = Platform.operatingSystemVersion;
+      final processors = Platform.numberOfProcessors.toString();
+
+      // HMAC-SHA256 con salt fijo para no exponer datos del hardware
+      final data = '$hostname|$os|$osVersion|$processors|baudex-device';
+      final hmac = Hmac(sha256, utf8.encode('baudex-device-fp-2024'));
+      final digest = hmac.convert(utf8.encode(data));
+      return digest.toString(); // 64 chars hex
+    } catch (e) {
+      // Fallback: UUID v4 aleatorio si Platform falla
       return _generateUuidV4();
     }
   }
 
-  /// Generar UUID v4 usando Random.secure()
+  /// Generar UUID v4 usando Random.secure() (fallback)
   static String _generateUuidV4() {
     final rng = Random.secure();
     final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
-    // Set version 4 and variant bits
     bytes[6] = (bytes[6] & 0x0F) | 0x40;
     bytes[8] = (bytes[8] & 0x3F) | 0x80;
 

@@ -11,6 +11,11 @@ class ApiInterceptor extends Interceptor {
   // Header key para idempotencia
   static const String idempotencyKeyHeader = 'Idempotency-Key';
 
+  // Cache en memoria para evitar lecturas repetidas
+  String? _cachedToken;
+  String? _cachedDeviceId;
+  bool _cacheInitialized = false;
+
   ApiInterceptor(this._storageService);
 
   @override
@@ -18,22 +23,44 @@ class ApiInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    // Agregar token de autorización si existe
-    final token = await _storageService.getToken();
-    if (token != null && token.isNotEmpty) {
-      options.headers[ApiConstants.authorization] =
-          '${ApiConstants.bearerPrefix}$token';
-    }
-
-    // Agregar headers adicionales
-    options.headers['X-Requested-With'] = 'XMLHttpRequest';
-
-    // Agregar Device ID único para identificar este dispositivo
     try {
-      final deviceId = await _storageService.getOrCreateDeviceId();
-      options.headers['X-Device-ID'] = deviceId;
+      // I/O paralelo en primera request, cache en las siguientes
+      if (!_cacheInitialized) {
+        final results = await Future.wait([
+          _storageService.getToken(),
+          _storageService.getOrCreateDeviceId(),
+        ]);
+        _cachedToken = results[0];
+        _cachedDeviceId = results[1];
+        _cacheInitialized = true;
+      } else {
+        // Refrescar solo el token (puede cambiar durante la sesión)
+        _cachedToken = await _storageService.getToken();
+      }
+
+      // Token de autorización
+      if (_cachedToken != null && _cachedToken!.isNotEmpty) {
+        options.headers[ApiConstants.authorization] =
+            '${ApiConstants.bearerPrefix}$_cachedToken';
+      }
+
+      // Headers estándar
+      options.headers['X-Requested-With'] = 'XMLHttpRequest';
+
+      // Device ID (estable durante toda la sesión)
+      if (_cachedDeviceId != null) {
+        options.headers['X-Device-ID'] = _cachedDeviceId;
+      }
     } catch (_) {
-      // No bloquear requests si falla obtener device ID
+      // Fallback: intentar solo el token si algo falla
+      try {
+        final token = await _storageService.getToken();
+        if (token != null && token.isNotEmpty) {
+          options.headers[ApiConstants.authorization] =
+              '${ApiConstants.bearerPrefix}$token';
+        }
+      } catch (_) {}
+      options.headers['X-Requested-With'] = 'XMLHttpRequest';
     }
 
     // Agregar Idempotency-Key para operaciones que modifican datos
@@ -109,8 +136,9 @@ class ApiInterceptor extends Interceptor {
         final newToken = await _refreshToken(refreshToken);
 
         if (newToken != null) {
-          // Guardar nuevo token
+          // Guardar nuevo token y actualizar cache
           await _storageService.saveToken(newToken);
+          _cachedToken = newToken;
 
           // Reintentar la solicitud original
           final options = err.requestOptions;
