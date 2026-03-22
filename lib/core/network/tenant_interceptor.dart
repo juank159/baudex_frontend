@@ -34,7 +34,7 @@ class TenantInterceptor extends Interceptor {
       final host = uri.host;
       print('🌐 Request host: $host');
 
-      if (!_isIPAddress(host) && host.contains('.') && !host.startsWith('www.')) {
+      if (!_isIPAddress(host) && host.contains('.') && !host.startsWith('www.') && !_isHostingProviderDomain(host)) {
         final subdomain = host.split('.').first;
         print('🔍 Detected subdomain: $subdomain');
         if (!_isSystemSubdomain(subdomain)) {
@@ -44,7 +44,7 @@ class TenantInterceptor extends Interceptor {
           print('⚠️ TENANT: Ignoring system subdomain: $subdomain');
         }
       } else {
-        print('🔍 No valid subdomain detected (IP or system domain)');
+        print('⚠️ TENANT: No valid subdomain (IP, system domain, or hosting provider)');
       }
     }
 
@@ -107,8 +107,26 @@ class TenantInterceptor extends Interceptor {
       'staging',
       'dev',
       'test',
+      'baudex-backend',
     ];
     return systemSubdomains.contains(subdomain.toLowerCase());
+  }
+
+  /// Verifica si el host pertenece a un proveedor de hosting conocido
+  /// donde el subdominio NO es un tenant sino un nombre de app
+  bool _isHostingProviderDomain(String host) {
+    const hostingDomains = [
+      'onrender.com',
+      'herokuapp.com',
+      'railway.app',
+      'fly.dev',
+      'vercel.app',
+      'netlify.app',
+      'azurewebsites.net',
+      'cloudfront.net',
+    ];
+    final hostLower = host.toLowerCase();
+    return hostingDomains.any((domain) => hostLower.endsWith(domain));
   }
 
   /// Verifica si el host es una dirección IP (IPv4 o IPv6)

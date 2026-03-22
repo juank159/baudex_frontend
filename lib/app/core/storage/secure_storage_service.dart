@@ -23,16 +23,21 @@ class SecureStorageService {
   /// Método para detectar si debemos usar SharedPreferences como fallback
   static Future<bool> _shouldUseSharedPreferences() async {
     if (_useSharedPreferences) return true;
-    
-    // Solo en macOS, hacer una prueba rápida
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
+
+    // En macOS y Windows, hacer una prueba rápida del secure storage
+    if (defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.windows) {
       try {
         await _storage.write(key: 'test_key', value: 'test_value');
+        final testVal = await _storage.read(key: 'test_key');
         await _storage.delete(key: 'test_key');
-        return false; // Keychain funciona
+        if (testVal != 'test_value') {
+          throw Exception('Secure storage read/write mismatch');
+        }
+        return false; // Secure storage funciona
       } catch (e) {
         if (kDebugMode) {
-          print('⚠️ Keychain no disponible en macOS, usando SharedPreferences como fallback');
+          print('⚠️ Secure storage no disponible en ${defaultTargetPlatform.name}, usando SharedPreferences como fallback: $e');
         }
         _useSharedPreferences = true;
         return true;
