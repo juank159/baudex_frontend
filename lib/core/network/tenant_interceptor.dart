@@ -1,96 +1,77 @@
 // lib/core/network/tenant_interceptor.dart
-import 'dart:io';
 import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
 import 'package:dio/dio.dart';
 
 class TenantInterceptor extends Interceptor {
   final SecureStorageService _secureStorage;
 
+  // Cache en memoria para evitar lecturas de storage en cada request
+  static String? _cachedSlug;
+  static bool _cacheInitialized = false;
+
   TenantInterceptor(this._secureStorage);
+
+  /// Actualizar cache cuando el tenant cambia (login, logout)
+  static void updateCachedSlug(String? slug) {
+    _cachedSlug = slug;
+    _cacheInitialized = slug != null;
+  }
+
+  /// Obtener el slug cacheado (para verificar disponibilidad antes de API calls)
+  static String? get cachedSlug => _cachedSlug;
+
+  /// Forzar re-lectura del storage en el próximo request
+  static void invalidateCache() {
+    _cacheInitialized = false;
+  }
 
   @override
   void onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    print('🏢 ==================== TENANT INTERCEPTOR ====================');
-    print('🔍 Processing request: ${options.method} ${options.path}');
+    // Leer de storage solo una vez, luego usar cache
+    if (!_cacheInitialized) {
+      try {
+        _cachedSlug = await _secureStorage.getTenantSlug();
+      } catch (_) {
+        // Si falla storage, continuar sin tenant
+      }
+      _cacheInitialized = true;
+    }
 
-    // 1. Intentar obtener el tenant desde el storage
-    final tenantSlug = await _secureStorage.getTenantSlug();
-
-    // DEBUG: Log detallado del tenant
-    print('🔍 TENANT DEBUG: Storage tenant slug: $tenantSlug');
-
-    if (tenantSlug != null && tenantSlug.isNotEmpty) {
-      // Tenant del storage tiene PRIORIDAD absoluta
-      options.headers['X-Tenant-Slug'] = tenantSlug;
-      print('✅ TENANT: Using tenant from storage: $tenantSlug');
+    if (_cachedSlug != null && _cachedSlug!.isNotEmpty) {
+      options.headers['X-Tenant-Slug'] = _cachedSlug;
+      options.headers['X-Client-Type'] = 'flutter-app';
     } else {
-      print('⚠️ TENANT: No tenant found in storage');
-
-      // 2. Solo usar subdominio como fallback si NO hay tenant en storage
+      // Fallback: intentar subdominio solo para dominios custom
       final uri = Uri.parse(options.baseUrl + options.path);
       final host = uri.host;
-      print('🌐 Request host: $host');
 
-      if (!_isIPAddress(host) && host.contains('.') && !host.startsWith('www.') && !_isHostingProviderDomain(host)) {
+      if (!_isIPAddress(host) &&
+          host.contains('.') &&
+          !host.startsWith('www.') &&
+          !_isHostingProviderDomain(host)) {
         final subdomain = host.split('.').first;
-        print('🔍 Detected subdomain: $subdomain');
         if (!_isSystemSubdomain(subdomain)) {
           options.headers['X-Tenant-Slug'] = subdomain;
-          print('✅ TENANT: Using subdomain as fallback tenant: $subdomain');
-        } else {
-          print('⚠️ TENANT: Ignoring system subdomain: $subdomain');
+          options.headers['X-Client-Type'] = 'flutter-app';
         }
-      } else {
-        print('⚠️ TENANT: No valid subdomain (IP, system domain, or hosting provider)');
       }
     }
-
-    // 3. Agregar header de identificación para debugging
-    if (options.headers['X-Tenant-Slug'] != null) {
-      options.headers['X-Client-Type'] = 'flutter-app';
-      print(
-        '✅ TENANT: Final tenant header: ${options.headers['X-Tenant-Slug']}',
-      );
-    } else {
-      print('❌ TENANT: No tenant header will be sent!');
-    }
-
-    // Log all headers being sent
-    print('📋 Final request headers:');
-    options.headers.forEach((key, value) {
-      print('   $key: $value');
-    });
-    print(
-      '🏢 ==================== END TENANT INTERCEPTOR ====================',
-    );
 
     super.onRequest(options, handler);
   }
 
   @override
-  void onResponse(Response response, ResponseInterceptorHandler handler) {
-    // Log del tenant actual en desarrollo
-    if (response.requestOptions.headers.containsKey('X-Tenant-Slug')) {
-      final tenant = response.requestOptions.headers['X-Tenant-Slug'];
-      print('🏢 API Response for tenant: $tenant');
-    }
-
-    super.onResponse(response, handler);
-  }
-
-  @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    // Manejar errores relacionados con tenant
     if (err.response?.statusCode == 400) {
       final errorMessage = err.response?.data?['message']?.toString() ?? '';
       if (errorMessage.contains('Organización no encontrada') ||
           errorMessage.contains('Organization not found')) {
-        // Error específico de tenant no válido
+        // Invalidar cache para forzar re-lectura en próximo request
+        _cacheInitialized = false;
         print('❌ Tenant Error: $errorMessage');
-        // Podrías emitir un evento para cambiar de tenant o mostrar selector
       }
     }
 
@@ -112,8 +93,6 @@ class TenantInterceptor extends Interceptor {
     return systemSubdomains.contains(subdomain.toLowerCase());
   }
 
-  /// Verifica si el host pertenece a un proveedor de hosting conocido
-  /// donde el subdominio NO es un tenant sino un nombre de app
   bool _isHostingProviderDomain(String host) {
     const hostingDomains = [
       'onrender.com',
@@ -129,24 +108,11 @@ class TenantInterceptor extends Interceptor {
     return hostingDomains.any((domain) => hostLower.endsWith(domain));
   }
 
-  /// Verifica si el host es una dirección IP (IPv4 o IPv6)
   bool _isIPAddress(String host) {
-    // Verificar IPv4 (formato: 192.168.1.8)
     final ipv4Regex = RegExp(r'^(\d{1,3}\.){3}\d{1,3}$');
-    if (ipv4Regex.hasMatch(host)) {
-      return true;
-    }
-
-    // Verificar IPv6 (contiene ':')
-    if (host.contains(':')) {
-      return true;
-    }
-
-    // También considerar localhost como IP para este contexto
-    if (host == 'localhost' || host == '127.0.0.1') {
-      return true;
-    }
-
+    if (ipv4Regex.hasMatch(host)) return true;
+    if (host.contains(':')) return true;
+    if (host == 'localhost' || host == '127.0.0.1') return true;
     return false;
   }
 }

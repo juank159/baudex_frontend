@@ -1,5 +1,6 @@
 // lib/core/storage/tenant_storage.dart
 import 'package:baudex_desktop/app/core/storage/secure_storage_service.dart';
+import '../network/tenant_interceptor.dart';
 
 abstract class TenantStorage {
   Future<String?> getTenantSlug();
@@ -23,11 +24,14 @@ class TenantStorageImpl implements TenantStorage {
   @override
   Future<void> setTenantSlug(String tenantSlug) async {
     await _secureStorage.saveTenantSlug(tenantSlug);
+    // Actualizar cache del interceptor inmediatamente
+    TenantInterceptor.updateCachedSlug(tenantSlug);
   }
 
   @override
   Future<void> clearTenantSlug() async {
     await _secureStorage.deleteTenantSlug();
+    TenantInterceptor.updateCachedSlug(null);
   }
 
   @override

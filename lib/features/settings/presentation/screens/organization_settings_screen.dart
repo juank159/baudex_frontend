@@ -6,8 +6,10 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../../../../app/core/network/dio_client.dart';
+import '../../../../app/core/storage/secure_storage_service.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
+import '../../../../core/network/tenant_interceptor.dart';
 import '../../../auth/data/datasources/auth_remote_datasource.dart';
 import '../../../auth/data/models/active_session_model.dart';
 import '../../../subscriptions/domain/entities/plan_limits.dart';
@@ -36,10 +38,6 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
   bool _sessionsLoading = false;
   String? _sessionsError;
   bool _sessionsLoaded = false;
-
-  // Throttle: evitar recargas frecuentes de sesiones
-  static DateTime? _lastSessionsLoadTime;
-  static List<ActiveSessionModel>? _cachedSessions;
 
   @override
   void initState() {
@@ -1751,20 +1749,36 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
 
   // ==================== DEVICE SESSIONS SECTION ====================
 
-  Future<void> _loadDeviceSessions({bool forceRefresh = false}) async {
+  Future<void> _loadDeviceSessions() async {
     if (_sessionsLoading) return;
     if (!mounted) return;
 
-    // Usar cache si hay datos recientes (menos de 30 segundos) y no es forzado
-    if (!forceRefresh &&
-        _cachedSessions != null &&
-        _lastSessionsLoadTime != null &&
-        DateTime.now().difference(_lastSessionsLoadTime!).inSeconds < 30) {
-      setState(() {
-        _sessions = _cachedSessions!;
-        _sessionsLoaded = true;
-      });
-      return;
+    // Verificar que el tenant esté disponible antes de hacer el API call
+    if (TenantInterceptor.cachedSlug == null || TenantInterceptor.cachedSlug!.isEmpty) {
+      // Forzar re-lectura del storage por si el cache no se inicializó aún
+      TenantInterceptor.invalidateCache();
+      try {
+        final storage = Get.find<SecureStorageService>();
+        final slug = await storage.getTenantSlug();
+        if (slug != null && slug.isNotEmpty) {
+          TenantInterceptor.updateCachedSlug(slug);
+        } else {
+          // Tenant no disponible — no intentar el API call
+          if (!mounted) return;
+          setState(() {
+            _sessionsError = 'offline';
+            _sessionsLoading = false;
+          });
+          return;
+        }
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _sessionsError = 'offline';
+          _sessionsLoading = false;
+        });
+        return;
+      }
     }
 
     setState(() {
@@ -1782,12 +1796,9 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
       final sessions = await remoteDS.getActiveSessions();
       if (!mounted) return;
 
-      // Deduplicar por ID para evitar entradas duplicadas del backend
+      // Deduplicar por ID
       final seen = <String>{};
       final uniqueSessions = sessions.where((s) => seen.add(s.id)).toList();
-
-      _cachedSessions = uniqueSessions;
-      _lastSessionsLoadTime = DateTime.now();
 
       setState(() {
         _sessions = uniqueSessions;
@@ -1796,32 +1807,15 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
       });
     } on ConnectionException {
       if (!mounted) return;
-      // Si hay cache, usar datos anteriores en vez de mostrar error
-      if (_cachedSessions != null) {
-        setState(() {
-          _sessions = _cachedSessions!;
-          _sessionsLoading = false;
-          _sessionsLoaded = true;
-        });
-        return;
-      }
       setState(() {
         _sessionsError = 'offline';
         _sessionsLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
-      // Si hay cache, usar datos anteriores
-      if (_cachedSessions != null) {
-        setState(() {
-          _sessions = _cachedSessions!;
-          _sessionsLoading = false;
-          _sessionsLoaded = true;
-        });
-        return;
-      }
+      final msg = e.toString();
       setState(() {
-        _sessionsError = e.toString().contains('conexión') || e.toString().contains('Socket')
+        _sessionsError = msg.contains('conexión') || msg.contains('Socket') || msg.contains('Organización')
             ? 'offline'
             : 'Error al cargar dispositivos';
         _sessionsLoading = false;
@@ -1892,7 +1886,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
     try {
       final remoteDS = Get.find<AuthRemoteDataSource>();
       final count = await remoteDS.revokeAllOtherSessions();
-      await _loadDeviceSessions(forceRefresh: true);
+      await _loadDeviceSessions();
       Get.snackbar(
         'Sesiones cerradas',
         '$count dispositivo(s) desconectado(s)',
@@ -1982,7 +1976,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                               size: iconSize,
                               color: ElegantLightTheme.textSecondary,
                             ),
-                      onPressed: _sessionsLoading ? null : () => _loadDeviceSessions(forceRefresh: true),
+                      onPressed: _sessionsLoading ? null : () => _loadDeviceSessions(),
                       tooltip: 'Actualizar',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -2037,7 +2031,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           SizedBox(
             width: double.infinity,
             child: TextButton.icon(
-              onPressed: () => _loadDeviceSessions(forceRefresh: true),
+              onPressed: () => _loadDeviceSessions(),
               icon: const Icon(Icons.refresh, size: 16),
               label: const Text('Reintentar'),
               style: TextButton.styleFrom(
@@ -2074,7 +2068,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           ),
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: () => _loadDeviceSessions(forceRefresh: true),
+            onPressed: () => _loadDeviceSessions(),
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Reintentar'),
           ),
