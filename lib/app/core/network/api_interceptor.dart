@@ -25,8 +25,16 @@ class ApiInterceptor extends Interceptor {
           '${ApiConstants.bearerPrefix}$token';
     }
 
-    // Agregar headers adicionales si es necesario
+    // Agregar headers adicionales
     options.headers['X-Requested-With'] = 'XMLHttpRequest';
+
+    // Agregar Device ID único para identificar este dispositivo
+    try {
+      final deviceId = await _storageService.getOrCreateDeviceId();
+      options.headers['X-Device-ID'] = deviceId;
+    } catch (_) {
+      // No bloquear requests si falla obtener device ID
+    }
 
     // Agregar Idempotency-Key para operaciones que modifican datos
     if (_requiresIdempotency(options.method)) {

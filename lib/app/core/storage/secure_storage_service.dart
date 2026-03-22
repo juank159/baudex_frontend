@@ -1,5 +1,6 @@
 // lib/app/core/storage/secure_storage_service.dart
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
@@ -217,18 +218,25 @@ class SecureStorageService {
     }
   }
 
-  /// Limpiar todo el almacenamiento
+  /// Limpiar todo el almacenamiento (preservando device ID)
   Future<void> clearAll() async {
     try {
+      // Preservar device ID antes de limpiar
+      final deviceId = await _readSecure(_deviceIdKey);
+
       if (await _shouldUseSharedPreferences()) {
         final prefs = await SharedPreferences.getInstance();
-        // Obtener todas las claves que empiecen con 'secure_'
         final keys = prefs.getKeys().where((key) => key.startsWith('secure_')).toList();
         for (final key in keys) {
           await prefs.remove(key);
         }
       } else {
         await _storage.deleteAll();
+      }
+
+      // Restaurar device ID después de limpiar
+      if (deviceId != null && deviceId.isNotEmpty) {
+        await _writeSecure(_deviceIdKey, deviceId);
       }
     } catch (e) {
       throw Exception('Error al limpiar almacenamiento: $e');
@@ -358,6 +366,50 @@ class SecureStorageService {
       print('❌ SecureStorageService: Error al limpiar datos de tenant: $e');
       throw Exception('Error al limpiar datos de tenant: $e');
     }
+  }
+
+  // ===================== DEVICE ID MANAGEMENT =====================
+
+  static const String _deviceIdKey = 'device_unique_id';
+
+  /// Obtener o generar un ID único para este dispositivo.
+  /// Se genera una sola vez y persiste entre reinicios de la app.
+  Future<String> getOrCreateDeviceId() async {
+    try {
+      final existing = await _readSecure(_deviceIdKey);
+      if (existing != null && existing.isNotEmpty) {
+        return existing;
+      }
+      // Generar nuevo UUID v4
+      final newId = _generateUuidV4();
+      await _writeSecure(_deviceIdKey, newId);
+      if (kDebugMode) {
+        print('🆔 SecureStorageService: Nuevo Device ID generado: $newId');
+      }
+      return newId;
+    } catch (e) {
+      // Si falla el storage, generar uno temporal (no se persistirá)
+      if (kDebugMode) {
+        print('⚠️ SecureStorageService: Error obteniendo Device ID, generando temporal: $e');
+      }
+      return _generateUuidV4();
+    }
+  }
+
+  /// Generar UUID v4 usando Random.secure()
+  static String _generateUuidV4() {
+    final rng = Random.secure();
+    final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
+    // Set version 4 and variant bits
+    bytes[6] = (bytes[6] & 0x0F) | 0x40;
+    bytes[8] = (bytes[8] & 0x3F) | 0x80;
+
+    String hex(int byte) => byte.toRadixString(16).padLeft(2, '0');
+    return '${hex(bytes[0])}${hex(bytes[1])}${hex(bytes[2])}${hex(bytes[3])}-'
+        '${hex(bytes[4])}${hex(bytes[5])}-'
+        '${hex(bytes[6])}${hex(bytes[7])}-'
+        '${hex(bytes[8])}${hex(bytes[9])}-'
+        '${hex(bytes[10])}${hex(bytes[11])}${hex(bytes[12])}${hex(bytes[13])}${hex(bytes[14])}${hex(bytes[15])}';
   }
 
   // ===================== AUTH HELPER METHODS =====================
