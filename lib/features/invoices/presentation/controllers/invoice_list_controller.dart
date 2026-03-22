@@ -885,6 +885,7 @@ class InvoiceListController extends GetxController {
   Future<void> printInvoice(String invoiceId) async {
     try {
       _isPrinting.value = true;
+      print('🖨️ [LIST] Iniciando impresión de factura: $invoiceId');
 
       // Obtener la factura completa
       final result = await _getInvoiceByIdUseCase(
@@ -895,21 +896,38 @@ class InvoiceListController extends GetxController {
       Invoice? invoice;
       result.fold(
         (failure) {
+          print('❌ [LIST] Error obteniendo factura: ${failure.message}');
           _showError('Error', 'No se pudo cargar la factura para imprimir');
         },
         (inv) {
           invoice = inv;
+          print('✅ [LIST] Factura obtenida: ${inv.number}');
         },
       );
 
-      if (invoice == null) return;
+      if (invoice == null) {
+        print('❌ [LIST] Invoice es null, abortando impresión');
+        return;
+      }
 
       // Obtener el ThermalPrinterController
-      final thermalController = Get.find<ThermalPrinterController>();
+      ThermalPrinterController thermalController;
+      try {
+        thermalController = Get.find<ThermalPrinterController>();
+        print('✅ [LIST] ThermalPrinterController encontrado');
+      } catch (e) {
+        print('❌ [LIST] ThermalPrinterController NO encontrado: $e');
+        _showError(
+          'Error de impresión',
+          'Controlador de impresión no disponible. Reinicia la app.',
+        );
+        return;
+      }
 
       // Asegurar que la configuración de impresora esté cargada
       final printerConfigLoaded =
           await thermalController.ensurePrinterConfigLoaded();
+      print('🔧 [LIST] Configuración de impresora cargada: $printerConfigLoaded');
 
       if (!printerConfigLoaded) {
         _showError(
@@ -920,18 +938,22 @@ class InvoiceListController extends GetxController {
       }
 
       // Imprimir la factura
+      print('🖨️ [LIST] Enviando a imprimir...');
       final success = await thermalController.printInvoice(invoice!);
+      print('🖨️ [LIST] Resultado de impresión: $success');
 
       if (success) {
         _showSuccess('Factura ${invoice!.number} impresa exitosamente');
       } else {
         final error = thermalController.lastError ?? "Error desconocido";
+        print('❌ [LIST] Error de impresión: $error');
         _showError(
           'Error de impresión',
           'No se pudo imprimir la factura: $error',
         );
       }
     } catch (e) {
+      print('💥 [LIST] Error inesperado en impresión: $e');
       _showError(
         'Error de impresión',
         'No se pudo completar la impresión. Verifica la configuración de la impresora.',

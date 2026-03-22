@@ -772,9 +772,10 @@ class ThermalPrinterController extends GetxController {
           styles: const esc_pos.PosStyles(align: esc_pos.PosAlign.right)),
     ]));
 
-    final now = DateTime.now();
+    // Fecha de la factura (fecha de emisión, NO hora de impresión)
+    final invoiceDate = invoice.date;
     final dateStr =
-        '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+        '${invoiceDate.day.toString().padLeft(2, '0')}/${invoiceDate.month.toString().padLeft(2, '0')}/${invoiceDate.year} ${invoiceDate.hour.toString().padLeft(2, '0')}:${invoiceDate.minute.toString().padLeft(2, '0')}:${invoiceDate.second.toString().padLeft(2, '0')}';
     bytes.addAll(gen.row([
       esc_pos.PosColumn(text: 'Fecha:', width: 4,
           styles: const esc_pos.PosStyles(bold: true)),
@@ -925,8 +926,10 @@ class ThermalPrinterController extends GetxController {
     }
 
     // === FOOTER ===
+    // Hora real de impresión (NO la fecha de la factura)
+    final printTime = DateTime.now();
     final timeStr =
-        '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+        '${printTime.day.toString().padLeft(2, '0')}/${printTime.month.toString().padLeft(2, '0')}/${printTime.year} ${printTime.hour.toString().padLeft(2, '0')}:${printTime.minute.toString().padLeft(2, '0')}:${printTime.second.toString().padLeft(2, '0')}';
     bytes.addAll(gen.text('Impreso: $timeStr',
         styles: const esc_pos.PosStyles(
           align: esc_pos.PosAlign.center,
@@ -1942,10 +1945,10 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
         ),
       ]);
 
-      // Fecha con hora exacta de impresión
-      final now = DateTime.now();
+      // Fecha de la factura (fecha de emisión, NO hora de impresión)
+      final invoiceDate = invoice.date;
       final dateStr =
-          '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+          '${invoiceDate.day.toString().padLeft(2, '0')}/${invoiceDate.month.toString().padLeft(2, '0')}/${invoiceDate.year} ${invoiceDate.hour.toString().padLeft(2, '0')}:${invoiceDate.minute.toString().padLeft(2, '0')}:${invoiceDate.second.toString().padLeft(2, '0')}';
       printer.row([
         esc_pos.PosColumn(
           text: 'Fecha:',
