@@ -37,6 +37,10 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
   String? _sessionsError;
   bool _sessionsLoaded = false;
 
+  // Throttle: evitar recargas frecuentes de sesiones
+  static DateTime? _lastSessionsLoadTime;
+  static List<ActiveSessionModel>? _cachedSessions;
+
   @override
   void initState() {
     super.initState();
@@ -1747,9 +1751,22 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
 
   // ==================== DEVICE SESSIONS SECTION ====================
 
-  Future<void> _loadDeviceSessions() async {
+  Future<void> _loadDeviceSessions({bool forceRefresh = false}) async {
     if (_sessionsLoading) return;
     if (!mounted) return;
+
+    // Usar cache si hay datos recientes (menos de 30 segundos) y no es forzado
+    if (!forceRefresh &&
+        _cachedSessions != null &&
+        _lastSessionsLoadTime != null &&
+        DateTime.now().difference(_lastSessionsLoadTime!).inSeconds < 30) {
+      setState(() {
+        _sessions = _cachedSessions!;
+        _sessionsLoaded = true;
+      });
+      return;
+    }
+
     setState(() {
       _sessionsLoading = true;
       _sessionsError = null;
@@ -1764,19 +1781,45 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
       }
       final sessions = await remoteDS.getActiveSessions();
       if (!mounted) return;
+
+      // Deduplicar por ID para evitar entradas duplicadas del backend
+      final seen = <String>{};
+      final uniqueSessions = sessions.where((s) => seen.add(s.id)).toList();
+
+      _cachedSessions = uniqueSessions;
+      _lastSessionsLoadTime = DateTime.now();
+
       setState(() {
-        _sessions = sessions;
+        _sessions = uniqueSessions;
         _sessionsLoading = false;
         _sessionsLoaded = true;
       });
     } on ConnectionException {
       if (!mounted) return;
+      // Si hay cache, usar datos anteriores en vez de mostrar error
+      if (_cachedSessions != null) {
+        setState(() {
+          _sessions = _cachedSessions!;
+          _sessionsLoading = false;
+          _sessionsLoaded = true;
+        });
+        return;
+      }
       setState(() {
         _sessionsError = 'offline';
         _sessionsLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
+      // Si hay cache, usar datos anteriores
+      if (_cachedSessions != null) {
+        setState(() {
+          _sessions = _cachedSessions!;
+          _sessionsLoading = false;
+          _sessionsLoaded = true;
+        });
+        return;
+      }
       setState(() {
         _sessionsError = e.toString().contains('conexión') || e.toString().contains('Socket')
             ? 'offline'
@@ -1849,7 +1892,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
     try {
       final remoteDS = Get.find<AuthRemoteDataSource>();
       final count = await remoteDS.revokeAllOtherSessions();
-      await _loadDeviceSessions();
+      await _loadDeviceSessions(forceRefresh: true);
       Get.snackbar(
         'Sesiones cerradas',
         '$count dispositivo(s) desconectado(s)',
@@ -1939,7 +1982,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                               size: iconSize,
                               color: ElegantLightTheme.textSecondary,
                             ),
-                      onPressed: _sessionsLoading ? null : _loadDeviceSessions,
+                      onPressed: _sessionsLoading ? null : () => _loadDeviceSessions(forceRefresh: true),
                       tooltip: 'Actualizar',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -1994,7 +2037,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           SizedBox(
             width: double.infinity,
             child: TextButton.icon(
-              onPressed: _loadDeviceSessions,
+              onPressed: () => _loadDeviceSessions(forceRefresh: true),
               icon: const Icon(Icons.refresh, size: 16),
               label: const Text('Reintentar'),
               style: TextButton.styleFrom(
@@ -2031,7 +2074,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           ),
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: _loadDeviceSessions,
+            onPressed: () => _loadDeviceSessions(forceRefresh: true),
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Reintentar'),
           ),

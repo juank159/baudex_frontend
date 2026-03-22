@@ -774,8 +774,10 @@ class ThermalPrinterController extends GetxController {
 
     // Fecha de la factura (fecha de emisión, NO hora de impresión)
     final invoiceDate = invoice.date;
-    final dateStr =
-        '${invoiceDate.day.toString().padLeft(2, '0')}/${invoiceDate.month.toString().padLeft(2, '0')}/${invoiceDate.year} ${invoiceDate.hour.toString().padLeft(2, '0')}:${invoiceDate.minute.toString().padLeft(2, '0')}:${invoiceDate.second.toString().padLeft(2, '0')}';
+    final hasTime = invoiceDate.hour != 0 || invoiceDate.minute != 0 || invoiceDate.second != 0;
+    final dateStr = hasTime
+        ? '${invoiceDate.day.toString().padLeft(2, '0')}/${invoiceDate.month.toString().padLeft(2, '0')}/${invoiceDate.year} ${invoiceDate.hour.toString().padLeft(2, '0')}:${invoiceDate.minute.toString().padLeft(2, '0')}:${invoiceDate.second.toString().padLeft(2, '0')}'
+        : '${invoiceDate.day.toString().padLeft(2, '0')}/${invoiceDate.month.toString().padLeft(2, '0')}/${invoiceDate.year}';
     bytes.addAll(gen.row([
       esc_pos.PosColumn(text: 'Fecha:', width: 4,
           styles: const esc_pos.PosStyles(bold: true)),
@@ -1947,8 +1949,10 @@ if (\$result) { Write-Output 'OK' } else { Write-Output 'FAILED'; exit 1 }
 
       // Fecha de la factura (fecha de emisión, NO hora de impresión)
       final invoiceDate = invoice.date;
-      final dateStr =
-          '${invoiceDate.day.toString().padLeft(2, '0')}/${invoiceDate.month.toString().padLeft(2, '0')}/${invoiceDate.year} ${invoiceDate.hour.toString().padLeft(2, '0')}:${invoiceDate.minute.toString().padLeft(2, '0')}:${invoiceDate.second.toString().padLeft(2, '0')}';
+      final hasTime = invoiceDate.hour != 0 || invoiceDate.minute != 0 || invoiceDate.second != 0;
+      final dateStr = hasTime
+          ? '${invoiceDate.day.toString().padLeft(2, '0')}/${invoiceDate.month.toString().padLeft(2, '0')}/${invoiceDate.year} ${invoiceDate.hour.toString().padLeft(2, '0')}:${invoiceDate.minute.toString().padLeft(2, '0')}:${invoiceDate.second.toString().padLeft(2, '0')}'
+          : '${invoiceDate.day.toString().padLeft(2, '0')}/${invoiceDate.month.toString().padLeft(2, '0')}/${invoiceDate.year}';
       printer.row([
         esc_pos.PosColumn(
           text: 'Fecha:',

@@ -664,8 +664,8 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        // Errores de validación (400, 422) NO se deben crear offline - el usuario debe corregir
-        if (e.statusCode == 400 || e.statusCode == 422) {
+        // Errores de validación (400, 409, 422) NO se deben crear offline - el usuario debe corregir
+        if (e.statusCode == 400 || e.statusCode == 409 || e.statusCode == 422) {
           print('❌ Error de validación al crear cliente: ${e.message}');
           return Left(ServerFailure(e.message));
         }

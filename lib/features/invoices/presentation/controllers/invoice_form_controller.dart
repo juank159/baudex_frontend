@@ -1633,12 +1633,23 @@ class InvoiceFormController extends GetxController {
   // ==================== DATE MANAGEMENT ====================
 
   void setInvoiceDate(DateTime date) {
+    // Preservar hora actual si el DatePicker devuelve solo fecha (hora 00:00:00)
+    if (date.hour == 0 && date.minute == 0 && date.second == 0) {
+      try {
+        final dtService = Get.find<TenantDateTimeService>();
+        final now = dtService.now();
+        date = DateTime(date.year, date.month, date.day, now.hour, now.minute, now.second);
+      } catch (_) {
+        final now = DateTime.now();
+        date = DateTime(date.year, date.month, date.day, now.hour, now.minute, now.second);
+      }
+    }
     _invoiceDate.value = date;
     final daysDifference = _dueDate.value.difference(_invoiceDate.value).inDays;
     if (daysDifference < 1) {
-      _dueDate.value = date.add(const Duration(days: 30));
+      _dueDate.value = DateTime(date.year, date.month, date.day).add(const Duration(days: 30));
     }
-    print('📅 Fecha de factura: ${date.toString().split(' ')[0]}');
+    print('📅 Fecha de factura: $date');
   }
 
   void setDueDate(DateTime date) {

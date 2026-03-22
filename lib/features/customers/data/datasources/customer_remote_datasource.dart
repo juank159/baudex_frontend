@@ -232,7 +232,14 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
-      throw _handleDioException(e);
+      // Propagar ServerException directamente para preservar statusCode
+      final handled = _handleDioException(e);
+      if (handled is ServerException) {
+        throw handled;
+      }
+      throw handled;
+    } on ServerException {
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al crear cliente: $e');
     }
