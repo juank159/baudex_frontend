@@ -724,33 +724,27 @@ class PurchaseOrderFormController extends GetxController
         );
       },
       (updatedPurchaseOrder) {
-        // Navegar y actualizar la lista de órdenes de compra
         _navigateToListAndRefresh(updatedPurchaseOrder);
       },
     );
   }
 
-  /// Navega a la lista de órdenes de compra y la actualiza para mostrar la nueva orden
-  Future<void> _navigateToListAndRefresh(PurchaseOrder savedOrder) async {
-    try {
-      // Pop hasta llegar al listado (funciona tanto desde list→edit como list→detail→edit)
-      Get.until((route) =>
-          route.settings.name == '/purchase-orders' || route.isFirst);
+  /// Navega al listado inmediatamente y refresca en background
+  void _navigateToListAndRefresh(PurchaseOrder savedOrder) {
+    // Navegar inmediatamente — no bloquear al usuario
+    Get.until((route) =>
+        route.settings.name == '/purchase-orders' || route.isFirst);
 
-      // Esperar a que la navegación complete
-      await Future.delayed(const Duration(milliseconds: 300));
+    // Mostrar notificación de éxito inmediatamente
+    _showSuccessNotification(savedOrder);
 
-      // Refrescar la lista (ya viene ordenada por fecha DESC, la orden aparece primera)
+    // Refrescar la lista en background (no bloquea)
+    Future.microtask(() async {
       if (Get.isRegistered<PurchaseOrdersController>()) {
         final listController = Get.find<PurchaseOrdersController>();
         await listController.refreshPurchaseOrders();
       }
-
-      // Mostrar notificación de éxito
-      _showSuccessNotification(savedOrder);
-    } catch (e) {
-      print('❌ Error al actualizar lista después de guardar orden: $e');
-    }
+    });
   }
 
   void _showSuccessNotification(PurchaseOrder order) {

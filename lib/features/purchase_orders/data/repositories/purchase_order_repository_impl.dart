@@ -310,52 +310,16 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
   Future<Either<Failure, PurchaseOrder>> updatePurchaseOrder(
     UpdatePurchaseOrderParams params,
   ) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final updatedPurchaseOrder = await remoteDataSource.updatePurchaseOrder(params);
-
-        // Actualizar cache
-        await localDataSource.cachePurchaseOrder(updatedPurchaseOrder);
-
-        return Right(updatedPurchaseOrder.toEntity());
-      } on ServerException catch (e) {
-        print('⚠️ [PO_REPO] ServerException en update: ${e.message} - Fallback offline...');
-        return _updatePurchaseOrderOffline(params);
-      } on ConnectionException catch (e) {
-        print('⚠️ [PO_REPO] ConnectionException en update: ${e.message} - Fallback offline...');
-        return _updatePurchaseOrderOffline(params);
-      } catch (e) {
-        print('⚠️ [PO_REPO] Exception en update: $e - Fallback offline...');
-        return _updatePurchaseOrderOffline(params);
-      }
-    } else {
-      return _updatePurchaseOrderOffline(params);
-    }
+    // Siempre offline-first: guardar localmente y retornar inmediatamente.
+    // El SyncService se encarga de enviar al servidor en background.
+    return _updatePurchaseOrderOffline(params);
   }
 
   @override
   Future<Either<Failure, void>> deletePurchaseOrder(String id) async {
-    if (await networkInfo.isConnected) {
-      try {
-        await remoteDataSource.deletePurchaseOrder(id);
-
-        // Eliminar del cache
-        await localDataSource.removeCachedPurchaseOrder(id);
-
-        return const Right(null);
-      } on ServerException catch (e) {
-        print('⚠️ [PO_REPO] ServerException en delete: ${e.message} - Fallback offline...');
-        return _deletePurchaseOrderOffline(id);
-      } on ConnectionException catch (e) {
-        print('⚠️ [PO_REPO] ConnectionException en delete: ${e.message} - Fallback offline...');
-        return _deletePurchaseOrderOffline(id);
-      } catch (e) {
-        print('⚠️ [PO_REPO] Exception en delete: $e - Fallback offline...');
-        return _deletePurchaseOrderOffline(id);
-      }
-    } else {
-      return _deletePurchaseOrderOffline(id);
-    }
+    // Siempre offline-first: eliminar localmente y retornar inmediatamente.
+    // El SyncService se encarga de enviar al servidor en background.
+    return _deletePurchaseOrderOffline(id);
   }
 
   @override
