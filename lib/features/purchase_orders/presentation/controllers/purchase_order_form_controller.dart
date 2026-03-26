@@ -741,7 +741,7 @@ class PurchaseOrderFormController extends GetxController
     );
   }
 
-  /// Navega al listado inmediatamente y refresca en background
+  /// Navega al listado inmediatamente y actualiza la PO en la lista
   void _navigateToListAndRefresh(PurchaseOrder savedOrder) {
     // Navegar inmediatamente — no bloquear al usuario
     Get.until((route) =>
@@ -750,11 +750,12 @@ class PurchaseOrderFormController extends GetxController
     // Mostrar notificación de éxito inmediatamente
     _showSuccessNotification(savedOrder);
 
-    // Refrescar la lista en background (no bloquea)
-    Future.microtask(() async {
+    // Actualizar la PO directamente en la lista (sin re-cargar del servidor)
+    // Esto evita que el servidor sobrescriba cambios offline aún no sincronizados
+    Future.microtask(() {
       if (Get.isRegistered<PurchaseOrdersController>()) {
         final listController = Get.find<PurchaseOrdersController>();
-        await listController.refreshPurchaseOrders();
+        listController.updateOrderInList(savedOrder);
       }
     });
   }

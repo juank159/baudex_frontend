@@ -390,6 +390,20 @@ class PurchaseOrdersController extends GetxController {
     loadPurchaseOrders();
   }
 
+  /// Actualizar una PO específica en la lista en memoria (sin re-cargar del servidor)
+  void updateOrderInList(PurchaseOrder updatedOrder) {
+    final index = purchaseOrders.indexWhere((o) => o.id == updatedOrder.id);
+    if (index >= 0) {
+      purchaseOrders[index] = updatedOrder;
+    } else {
+      // Orden nueva — agregar al inicio
+      purchaseOrders.insert(0, updatedOrder);
+    }
+    // Actualizar lista filtrada
+    filteredPurchaseOrders.value = List.from(purchaseOrders);
+    print('✅ Orden ${updatedOrder.id.substring(0, 8)} actualizada en lista (total: ${updatedOrder.totalAmount})');
+  }
+
   // ==================== FILTERING ====================
 
   void applyFilters() {
