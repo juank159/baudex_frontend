@@ -89,26 +89,34 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
   @override
   Future<Either<Failure, PurchaseOrder>> getPurchaseOrderById(String id) async {
+    // Cache-first: si el cache tiene items completos, retornar inmediatamente
+    final cacheResult = await _getPurchaseOrderByIdFromCache(id);
+    final cachedOrder = cacheResult.fold((_) => null, (order) => order);
+
+    // Usar cache SOLO si tiene items (el listado guarda sin items)
+    if (cachedOrder != null && cachedOrder.items.isNotEmpty) {
+      return Right(cachedOrder);
+    }
+
+    // Sin cache completo → intentar servidor
     if (await networkInfo.isConnected) {
       try {
         final remotePurchaseOrder = await remoteDataSource.getPurchaseOrderById(id);
-        
-        // Actualizar cache con la orden obtenida
         try {
           await localDataSource.cachePurchaseOrder(remotePurchaseOrder);
         } catch (e) {
           print('Error al guardar en cache: $e');
-          // No bloquear la aplicación por errores de cache
         }
-        
         return Right(remotePurchaseOrder.toEntity());
-      } on ServerException catch (_) {
-        return _getPurchaseOrderByIdFromCache(id);
       } catch (_) {
-        return _getPurchaseOrderByIdFromCache(id);
+        // Si el servidor falla, retornar cache aunque sea sin items
+        if (cachedOrder != null) return Right(cachedOrder);
+        return Left(CacheFailure('Orden de compra no encontrada'));
       }
     } else {
-      return _getPurchaseOrderByIdFromCache(id);
+      // Sin conexión, retornar lo que tengamos en cache
+      if (cachedOrder != null) return Right(cachedOrder);
+      return Left(CacheFailure('Orden de compra no encontrada'));
     }
   }
 

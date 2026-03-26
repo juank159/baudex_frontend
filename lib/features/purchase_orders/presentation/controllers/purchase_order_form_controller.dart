@@ -465,7 +465,9 @@ class PurchaseOrderFormController extends GetxController
   }
 
   void removeItem(int index) {
+    if (index < 0 || index >= items.length) return;
     if (items.length > 1) {
+      final removedName = items[index].productName;
       items.removeAt(index);
       if (activeItemIndex.value == index) {
         activeItemIndex.value = -1;
@@ -473,6 +475,16 @@ class PurchaseOrderFormController extends GetxController
         activeItemIndex.value--;
       }
       calculateTotals();
+      Get.snackbar(
+        'Producto eliminado',
+        '"$removedName" eliminado. Quedan ${items.length} productos.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange.shade100,
+        colorText: Colors.orange.shade900,
+        duration: const Duration(seconds: 2),
+        margin: const EdgeInsets.all(12),
+        icon: Icon(Icons.delete_outline, color: Colors.orange.shade700),
+      );
     }
   }
 
