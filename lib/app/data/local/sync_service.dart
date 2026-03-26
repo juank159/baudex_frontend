@@ -935,9 +935,14 @@ class SyncService extends GetxService {
           errorMsg.contains('already exists') ||
           errorMsg.contains('duplicate key') ||
           errorMsg.contains('unique constraint') ||
-          errorMsg.contains('violates unique')) {
+          errorMsg.contains('violates unique') ||
+          errorMsg.contains('violates not-null') ||
+          errorMsg.contains('violates foreign key') ||
+          errorMsg.contains('violates check constraint') ||
+          errorMsg.contains('invalid input syntax') ||
+          errorMsg.contains('cannot be modified')) {
         AppLogger.w(
-          '${operation.entityType}:${operation.entityId} error de validación permanente - no reintentar: $e',
+          '${operation.entityType}:${operation.entityId} error permanente - no reintentar: $e',
           tag: 'SYNC',
         );
         // Marcar como completada con error para que no se reintente más

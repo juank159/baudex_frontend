@@ -476,35 +476,75 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
   }
 
   Widget _buildItemSearchBar() {
-    return Container(
-      height: 36,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-      ),
-      child: TextField(
-        controller: controller.itemSearchController,
-        onChanged: (value) => controller.itemSearchQuery.value = value,
-        style: const TextStyle(fontSize: 13),
-        decoration: InputDecoration(
-          hintText: 'Buscar en productos agregados...',
-          hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
-          prefixIcon: Icon(Icons.search, size: 18, color: AppColors.primary.withOpacity(0.6)),
-          suffixIcon: Obx(() => controller.itemSearchQuery.value.isNotEmpty
-              ? GestureDetector(
-                  onTap: controller.clearItemSearch,
-                  child: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
-                )
-              : const SizedBox.shrink()),
-          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          isDense: true,
+    return Obx(() {
+      final isSearching = controller.itemSearchQuery.value.isNotEmpty;
+      final filteredCount = controller.filteredItemIndices.length;
+      final totalValid = controller.items.where((i) => i.isValid).length;
+
+      return Container(
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSearching ? AppColors.primary : AppColors.primary.withOpacity(0.2),
+            width: isSearching ? 1.5 : 1,
+          ),
+          boxShadow: isSearching
+              ? [BoxShadow(color: AppColors.primary.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2))]
+              : null,
         ),
-      ),
-    );
+        child: Row(
+          children: [
+            const SizedBox(width: 10),
+            Icon(Icons.search, size: 18, color: isSearching ? AppColors.primary : Colors.grey.shade400),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: controller.itemSearchController,
+                onChanged: (value) => controller.itemSearchQuery.value = value,
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Buscar en $totalValid productos...',
+                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  isDense: true,
+                ),
+              ),
+            ),
+            if (isSearching) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: filteredCount > 0 ? AppColors.primary.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$filteredCount',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: filteredCount > 0 ? AppColors.primary : Colors.orange.shade700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: controller.clearItemSearch,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
+                ),
+              ),
+            ],
+            if (!isSearching) const SizedBox(width: 10),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildOptimizedItemsList() {
@@ -521,21 +561,30 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
       if (isSearching && filteredIndices.isEmpty) {
         return Center(
           child: Padding(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
-                const SizedBox(height: 12),
+                Icon(Icons.search_off_rounded, size: 40, color: Colors.grey.shade300),
+                const SizedBox(height: 10),
                 Text(
-                  'No se encontró "${controller.itemSearchQuery.value}"',
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  'Sin resultados para "${controller.itemSearchQuery.value}"',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: controller.clearItemSearch,
-                  child: const Text('Limpiar búsqueda'),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 32,
+                  child: OutlinedButton.icon(
+                    onPressed: controller.clearItemSearch,
+                    icon: const Icon(Icons.clear, size: 14),
+                    label: const Text('Limpiar', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      foregroundColor: AppColors.primary,
+                      side: BorderSide(color: AppColors.primary.withOpacity(0.3)),
+                    ),
+                  ),
                 ),
               ],
             ),

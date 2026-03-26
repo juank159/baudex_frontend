@@ -151,9 +151,32 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
     }
     if (_isUpdatingInternally) _isUpdatingInternally = false;
 
-    // Si se activa para edición y ya tiene producto, mostrar campos
+    // Si se activa para edición y ya tiene producto, mostrar campos + auto-scroll
     if (!oldWidget.isActive && widget.isActive && widget.item.productId.isNotEmpty) {
       _fieldsAnimController.forward();
+      // Auto-scroll after form expansion animation completes
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (!mounted) return;
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          alignment: 0.15,
+        );
+      });
+    }
+
+    // Auto-scroll when becoming active (even without product selected)
+    if (!oldWidget.isActive && widget.isActive && widget.item.productId.isEmpty) {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          alignment: 0.15,
+        );
+      });
     }
   }
 

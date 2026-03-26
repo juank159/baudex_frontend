@@ -164,29 +164,30 @@ class UpdatePurchaseOrderRequestModel {
   }
 
   factory UpdatePurchaseOrderRequestModel.fromParams(UpdatePurchaseOrderParams params) {
-    // Enviar campos que el backend DTO permite directamente
+    // Build metadata only if there are actual values (avoid sending empty {})
+    final metadataMap = <String, dynamic>{
+      if (params.priority != null) 'priority': params.priority!.name,
+      if (params.orderDate != null) 'orderDate': params.orderDate!.toIso8601String(),
+      if (params.deliveredDate != null) 'deliveredDate': params.deliveredDate!.toIso8601String(),
+      if (params.internalNotes != null) 'internalNotes': params.internalNotes,
+      if (params.deliveryAddress != null) 'deliveryAddress': params.deliveryAddress,
+      if (params.contactPerson != null) 'contactPerson': params.contactPerson,
+      if (params.contactPhone != null) 'contactPhone': params.contactPhone,
+      if (params.contactEmail != null) 'contactEmail': params.contactEmail,
+      if (params.attachments != null) 'attachments': params.attachments,
+    };
+
     return UpdatePurchaseOrderRequestModel(
-      supplierId: params.supplierId, // Ahora permitido por el backend
+      supplierId: params.supplierId,
       expectedDeliveryDate: params.expectedDeliveryDate?.toIso8601String(),
       status: params.status?.name,
       currency: params.currency,
       notes: params.notes,
-      // Enviar items para actualizar productos
       items: params.items
           ?.map((item) => UpdatePurchaseOrderItemRequestModel.fromParams(item))
           .toList(),
-      // Campos adicionales en metadata si el backend los permite
-      metadata: {
-        if (params.priority != null) 'priority': params.priority!.name,
-        if (params.orderDate != null) 'orderDate': params.orderDate!.toIso8601String(),
-        if (params.deliveredDate != null) 'deliveredDate': params.deliveredDate!.toIso8601String(),
-        if (params.internalNotes != null) 'internalNotes': params.internalNotes,
-        if (params.deliveryAddress != null) 'deliveryAddress': params.deliveryAddress,
-        if (params.contactPerson != null) 'contactPerson': params.contactPerson,
-        if (params.contactPhone != null) 'contactPhone': params.contactPhone,
-        if (params.contactEmail != null) 'contactEmail': params.contactEmail,
-        if (params.attachments != null) 'attachments': params.attachments,
-      },
+      // Only include metadata if it has actual values
+      metadata: metadataMap.isNotEmpty ? metadataMap : null,
     );
   }
 }
@@ -216,7 +217,21 @@ class UpdatePurchaseOrderItemRequestModel {
   factory UpdatePurchaseOrderItemRequestModel.fromJson(Map<String, dynamic> json) =>
       _$UpdatePurchaseOrderItemRequestModelFromJson(json);
 
-  Map<String, dynamic> toJson() => _$UpdatePurchaseOrderItemRequestModelToJson(this);
+  Map<String, dynamic> toJson() {
+    // Custom toJson to omit null fields (generated version sends id: null which
+    // causes backend to treat existing items as NEW, duplicating them)
+    final Map<String, dynamic> json = {
+      'productId': productId,
+      'quantity': quantity,
+      'unitCost': unitCost,
+      'discountPercentage': discountPercentage,
+      'taxPercentage': taxPercentage,
+    };
+    if (id != null) json['id'] = id;
+    if (receivedQuantity != null) json['receivedQuantity'] = receivedQuantity;
+    if (notes != null) json['notes'] = notes;
+    return json;
+  }
 
   factory UpdatePurchaseOrderItemRequestModel.fromParams(UpdatePurchaseOrderItemParams params) {
     return UpdatePurchaseOrderItemRequestModel(
