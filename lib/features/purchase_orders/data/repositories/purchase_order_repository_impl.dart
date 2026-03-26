@@ -933,8 +933,12 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           totalTaxAmount += itemTaxAmount;
           totalDiscountAmount += itemDiscountAmount;
 
+          // Generate temp ID for new items to avoid ISAR unique constraint on ''
+          final itemId = (itemParam.id != null && itemParam.id!.isNotEmpty)
+              ? itemParam.id!
+              : 'item_offline_${DateTime.now().millisecondsSinceEpoch}_${itemParam.productId.hashCode.abs()}';
           return PurchaseOrderItem(
-            id: itemParam.id ?? '',
+            id: itemId,
             productId: itemParam.productId,
             productName: '',  // Keep existing or will be filled when synced
             productCode: null,
@@ -1022,7 +1026,7 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
             if (params.contactEmail != null) 'contactEmail': params.contactEmail,
             if (params.attachments != null) 'attachments': params.attachments,
             if (params.items != null) 'items': params.items!.map((item) => {
-              if (item.id != null) 'id': item.id,
+              if (item.id != null && item.id!.isNotEmpty && !item.id!.startsWith('item_offline_')) 'id': item.id,
               'productId': item.productId,
               'quantity': item.quantity,
               if (item.receivedQuantity != null) 'receivedQuantity': item.receivedQuantity,

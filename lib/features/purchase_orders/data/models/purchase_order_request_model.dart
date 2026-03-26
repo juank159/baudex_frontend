@@ -227,7 +227,7 @@ class UpdatePurchaseOrderItemRequestModel {
       'discountPercentage': discountPercentage,
       'taxPercentage': taxPercentage,
     };
-    if (id != null) json['id'] = id;
+    if (id != null && id!.isNotEmpty && !id!.startsWith('item_offline_')) json['id'] = id;
     if (receivedQuantity != null) json['receivedQuantity'] = receivedQuantity;
     if (notes != null) json['notes'] = notes;
     return json;
