@@ -608,16 +608,14 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
   }
 
   Widget _actionIcon(IconData icon, Color color, VoidCallback onTap) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(6),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Icon(icon, size: 18, color: color),
-        ),
-      ),
+    return IconButton(
+      onPressed: onTap,
+      icon: Icon(icon, size: 20, color: color),
+      iconSize: 20,
+      padding: const EdgeInsets.all(4),
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      splashRadius: 18,
+      tooltip: icon == Icons.close ? 'Eliminar producto' : null,
     );
   }
 }

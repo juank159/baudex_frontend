@@ -199,19 +199,59 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
 
   @override
   Future<PurchaseOrderModel?> getCachedPurchaseOrderById(String id) async {
+    // 1. Buscar directamente en ISAR con items cargados (IsarLinks requiere load() explícito)
     try {
-      final cachedOrders = await getCachedPurchaseOrders();
-
-      for (final order in cachedOrders) {
-        if (order.id == id) {
-          return order;
+      final isar = IsarDatabase.instance.database;
+      final isarPO = await isar.isarPurchaseOrders
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+      if (isarPO != null) {
+        await isarPO.items.load(); // CRÍTICO: cargar items vinculados
+        final entity = isarPO.toEntity();
+        if (entity.items.isNotEmpty) {
+          print('✅ PO $id leída de ISAR con ${entity.items.length} items');
+          return PurchaseOrderModel.fromEntity(entity);
         }
       }
-
-      return null;
     } catch (e) {
-      throw CacheException('Error al buscar orden de compra en cache: $e');
+      print('⚠️ Error leyendo PO por ID de ISAR: $e');
     }
+
+    // 2. Fallback a SecureStorage (JSON completo puede tener items)
+    try {
+      final cachedData = await secureStorageService.read(
+        ApiConstants.purchaseOrdersCacheKey,
+      );
+      if (cachedData != null) {
+        final List<dynamic> jsonList = json.decode(cachedData);
+        for (final jsonItem in jsonList) {
+          final order = PurchaseOrderModel.fromJson(jsonItem);
+          if (order.id == id) {
+            return order;
+          }
+        }
+      }
+    } catch (e) {
+      print('⚠️ Error buscando PO en SecureStorage: $e');
+    }
+
+    // 3. Último intento: ISAR sin items (mejor que nada)
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarPO = await isar.isarPurchaseOrders
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+      if (isarPO != null) {
+        print('⚠️ PO $id encontrada en ISAR pero sin items');
+        return PurchaseOrderModel.fromEntity(isarPO.toEntity());
+      }
+    } catch (e) {
+      print('⚠️ Error en último intento ISAR: $e');
+    }
+
+    return null;
   }
 
   @override
