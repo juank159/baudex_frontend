@@ -36,18 +36,23 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     if (await networkInfo.isConnected) {
       try {
         final remotePurchaseOrders = await remoteDataSource.getPurchaseOrders(params);
-        
-        // FASE 3: Cachear TODAS las páginas a ISAR (upsert por serverId evita duplicados)
+
+        // Cachear en ISAR (respetando POs con cambios locales no sincronizados)
         try {
           await localDataSource.cachePurchaseOrders(remotePurchaseOrders.data);
         } catch (e) {
           print('Error al guardar en cache: $e');
-          // No bloquear la aplicación por errores de cache
         }
-        
+
+        // Convertir datos del servidor a entities
+        var resultData = remotePurchaseOrders.data.map((model) => model.toEntity()).toList();
+
+        // Reemplazar POs que tienen cambios locales pendientes con la versión local
+        resultData = await _mergeWithLocalChanges(resultData);
+
         return Right(
           PaginatedResult<PurchaseOrder>(
-            data: remotePurchaseOrders.data.map((model) => model.toEntity()).toList(),
+            data: resultData,
             meta: remotePurchaseOrders.meta,
           ),
         );
@@ -58,6 +63,51 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       }
     } else {
       return _getPurchaseOrdersFromCache(params);
+    }
+  }
+
+  /// Reemplaza POs del servidor con versiones locales si tienen cambios no sincronizados
+  Future<List<PurchaseOrder>> _mergeWithLocalChanges(List<PurchaseOrder> serverOrders) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      // Buscar POs con cambios locales (isSynced = false)
+      final unsyncedPOs = await isar.isarPurchaseOrders
+          .filter()
+          .isSyncedEqualTo(false)
+          .findAll();
+
+      if (unsyncedPOs.isEmpty) {
+        print('✅ Todas las POs están sincronizadas - usando datos del servidor');
+        return serverOrders;
+      }
+      print('🔍 ${unsyncedPOs.length} POs con cambios locales pendientes encontradas');
+
+      // Cargar items para cada PO no sincronizada
+      final unsyncedMap = <String, PurchaseOrder>{};
+      for (final isarPO in unsyncedPOs) {
+        await isarPO.items.load();
+        unsyncedMap[isarPO.serverId] = isarPO.toEntity();
+      }
+
+      // Reemplazar en la lista
+      var replaced = 0;
+      final merged = serverOrders.map((serverOrder) {
+        final localOrder = unsyncedMap[serverOrder.id];
+        if (localOrder != null) {
+          replaced++;
+          return localOrder;
+        }
+        return serverOrder;
+      }).toList();
+
+      if (replaced > 0) {
+        print('🔄 $replaced POs reemplazadas con versiones locales (cambios pendientes)');
+      }
+
+      return merged;
+    } catch (e) {
+      print('⚠️ Error merging local changes: $e');
+      return serverOrders;
     }
   }
 
@@ -985,6 +1035,24 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       await localDataSource.cachePurchaseOrder(
         PurchaseOrderModel.fromEntity(updatedPurchaseOrder),
       );
+
+      // Marcar PO como no sincronizada para que _mergeWithLocalChanges() la preserve
+      try {
+        final isar = IsarDatabase.instance.database;
+        final isarPO = await isar.isarPurchaseOrders
+            .filter()
+            .serverIdEqualTo(params.id)
+            .findFirst();
+        if (isarPO != null) {
+          isarPO.markAsUnsynced();
+          await isar.writeTxn(() async {
+            await isar.isarPurchaseOrders.put(isarPO);
+          });
+          print('🔓 PO ${params.id} marcada como no sincronizada');
+        }
+      } catch (e) {
+        print('⚠️ Error marcando PO como no sincronizada: $e');
+      }
 
       // Add to sync queue
       try {

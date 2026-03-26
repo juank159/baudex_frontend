@@ -111,6 +111,10 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
               .findFirst();
 
           if (isarPO != null) {
+            // NO sobrescribir POs con cambios locales pendientes
+            if (!isarPO.isSynced) {
+              continue;
+            }
             isarPO.updateFromModel(model);
           } else {
             isarPO = IsarPurchaseOrder.fromModel(model);

@@ -4567,8 +4567,29 @@ class SyncService extends GetxService {
                       : null,
             );
 
-            await remoteDataSource.updatePurchaseOrder(updateParams);
+            final updatedPO = await remoteDataSource.updatePurchaseOrder(updateParams);
             AppLogger.i('Orden de compra actualizada en servidor', tag: 'SYNC');
+
+            // ✅ Marcar PO como sincronizada en ISAR y actualizar con datos del servidor
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarPO = await isar.isarPurchaseOrders
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+              if (isarPO != null) {
+                isarPO.markAsSynced();
+                await isar.writeTxn(() async {
+                  await isar.isarPurchaseOrders.put(isarPO);
+                });
+                AppLogger.d(
+                  'PO ${operation.entityId} marcada como sincronizada en ISAR',
+                  tag: 'SYNC',
+                );
+              }
+            } catch (e) {
+              AppLogger.w('Error marcando PO como sincronizada: $e', tag: 'SYNC');
+            }
           }
           break;
 
