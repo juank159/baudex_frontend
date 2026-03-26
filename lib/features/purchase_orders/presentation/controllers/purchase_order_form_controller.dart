@@ -74,6 +74,10 @@ class PurchaseOrderFormController extends GetxController
   // Active item tracking
   final RxInt activeItemIndex = (-1).obs;
 
+  // Search within added items
+  final itemSearchController = TextEditingController();
+  final RxString itemSearchQuery = ''.obs;
+
   // Validation flags
   final RxBool supplierError = false.obs;
   final RxBool orderDateError = false.obs;
@@ -189,6 +193,7 @@ class PurchaseOrderFormController extends GetxController
       _safeDispose(contactPersonController, 'contactPersonController');
       _safeDispose(contactPhoneController, 'contactPhoneController');
       _safeDispose(contactEmailController, 'contactEmailController');
+      _safeDispose(itemSearchController, 'itemSearchController');
       print('✅ Todos los controladores disposed correctamente');
     } catch (e) {
       print('❌ Error disposing controladores: $e');
@@ -412,9 +417,36 @@ class PurchaseOrderFormController extends GetxController
   // ==================== ITEMS MANAGEMENT ====================
 
   void addEmptyItem() {
+    clearItemSearch();
     items.add(PurchaseOrderItemForm());
     activeItemIndex.value = items.length - 1;
     calculateTotals();
+  }
+
+  void clearItemSearch() {
+    itemSearchQuery.value = '';
+    itemSearchController.clear();
+  }
+
+  /// Retorna los índices originales de items que coinciden con la búsqueda
+  List<int> get filteredItemIndices {
+    final query = itemSearchQuery.value.toLowerCase().trim();
+    if (query.isEmpty) {
+      return List.generate(items.length, (i) => i);
+    }
+    final indices = <int>[];
+    for (var i = 0; i < items.length; i++) {
+      // Siempre mostrar el item activo (en edición)
+      if (i == activeItemIndex.value) {
+        indices.add(i);
+        continue;
+      }
+      final name = items[i].productName.toLowerCase();
+      if (name.contains(query)) {
+        indices.add(i);
+      }
+    }
+    return indices;
   }
 
   void completeActiveItem() {
@@ -832,6 +864,7 @@ class PurchaseOrderFormController extends GetxController
 
     items.clear();
     addEmptyItem();
+    clearItemSearch();
 
     showDeliveryInfo.value = false;
     currentStep.value = 0;

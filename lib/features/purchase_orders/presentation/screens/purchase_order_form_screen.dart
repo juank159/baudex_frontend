@@ -425,47 +425,85 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
   Widget _buildItemsStep() {
     return Column(
       children: [
-        // Header mejorado y compacto
         _buildOptimizedItemsHeader(),
-
-        // Lista de items optimizada para muchos productos
         Expanded(
           child: _buildOptimizedItemsList(),
         ),
-
-        // Resumen de totales compacto
         _buildCompactTotalsSummary(),
       ],
     );
   }
 
   Widget _buildOptimizedItemsHeader() {
+    return Obx(() {
+      final completed = controller.items.where((i) => i.isValid).length;
+      final showSearch = completed >= 3;
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.04),
+          border: Border(
+            bottom: BorderSide(color: AppColors.primary.withOpacity(0.15)),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.inventory_2, color: AppColors.primary, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '$completed producto${completed != 1 ? 's' : ''}',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary),
+                ),
+                const Spacer(),
+                Text(
+                  AppFormatters.formatCurrency(controller.totalAmount.value),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
+                ),
+              ],
+            ),
+            if (showSearch) ...[
+              const SizedBox(height: 8),
+              _buildItemSearchBar(),
+            ],
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildItemSearchBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      height: 36,
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.04),
-        border: Border(
-          bottom: BorderSide(color: AppColors.primary.withOpacity(0.15)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: TextField(
+        controller: controller.itemSearchController,
+        onChanged: (value) => controller.itemSearchQuery.value = value,
+        style: const TextStyle(fontSize: 13),
+        decoration: InputDecoration(
+          hintText: 'Buscar en productos agregados...',
+          hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+          prefixIcon: Icon(Icons.search, size: 18, color: AppColors.primary.withOpacity(0.6)),
+          suffixIcon: Obx(() => controller.itemSearchQuery.value.isNotEmpty
+              ? GestureDetector(
+                  onTap: controller.clearItemSearch,
+                  child: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
+                )
+              : const SizedBox.shrink()),
+          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          isDense: true,
         ),
       ),
-      child: Obx(() {
-        final completed = controller.items.where((i) => i.isValid).length;
-        return Row(
-          children: [
-            Icon(Icons.inventory_2, color: AppColors.primary, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              '$completed producto${completed != 1 ? 's' : ''}',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary),
-            ),
-            const Spacer(),
-            Text(
-              AppFormatters.formatCurrency(controller.totalAmount.value),
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
-            ),
-          ],
-        );
-      }),
     );
   }
 
@@ -476,43 +514,74 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
       }
 
       final hasActiveItem = controller.activeItemIndex.value >= 0;
+      final isSearching = controller.itemSearchQuery.value.isNotEmpty;
+      final filteredIndices = controller.filteredItemIndices;
+
+      // Si busca y no hay resultados
+      if (isSearching && filteredIndices.isEmpty) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+                const SizedBox(height: 12),
+                Text(
+                  'No se encontró "${controller.itemSearchQuery.value}"',
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: controller.clearItemSearch,
+                  child: const Text('Limpiar búsqueda'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      final showAddButton = !hasActiveItem && !isSearching;
+      final itemCount = filteredIndices.length + (showAddButton ? 1 : 0);
 
       return ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        itemCount: controller.items.length + (hasActiveItem ? 0 : 1),
-        itemBuilder: (context, index) {
-          // Items
-          if (index < controller.items.length) {
-            final item = controller.items[index];
-            final isActive = controller.activeItemIndex.value == index;
+        itemCount: itemCount,
+        itemBuilder: (context, listIndex) {
+          if (listIndex < filteredIndices.length) {
+            final originalIndex = filteredIndices[listIndex];
+            final item = controller.items[originalIndex];
+            final isActive = controller.activeItemIndex.value == originalIndex;
 
             return ProductItemFormWidget(
-              key: ValueKey('item_${item.productId}_$index'),
+              key: ValueKey('item_${item.productId}_$originalIndex'),
               item: item,
-              index: index,
+              index: originalIndex,
               isActive: isActive,
               onQuantityChanged: (value) =>
-                  controller.updateItemQuantity(index, value),
+                  controller.updateItemQuantity(originalIndex, value),
               onPriceChanged: (value) =>
-                  controller.updateItemPrice(index, value),
+                  controller.updateItemPrice(originalIndex, value),
               onDiscountChanged: (value) =>
-                  controller.updateItemDiscount(index, value),
+                  controller.updateItemDiscount(originalIndex, value),
               onRemove: controller.items.length > 1
-                  ? () => controller.removeItem(index)
+                  ? () => controller.removeItem(originalIndex)
                   : null,
               onComplete: () => controller.completeActiveItem(),
-              onEdit: () => controller.editItem(index),
+              onEdit: () => controller.editItem(originalIndex),
               onProductSelected: (product) {
                 if (product != null) {
-                  controller.selectProductForItem(index, product);
+                  controller.selectProductForItem(originalIndex, product);
                 } else {
-                  controller.updateItemProduct(index, '', '', 0.0);
+                  controller.updateItemProduct(originalIndex, '', '', 0.0);
                 }
               },
             );
           }
 
-          // Boton "Agregar Otro Producto"
+          // Botón "Agregar Otro Producto"
           return Padding(
             padding: const EdgeInsets.only(top: AppDimensions.paddingSmall),
             child: OutlinedButton.icon(
