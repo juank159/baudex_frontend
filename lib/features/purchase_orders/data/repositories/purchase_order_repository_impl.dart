@@ -893,6 +893,12 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         double totalTaxAmount = 0.0;
         double totalDiscountAmount = 0.0;
 
+        // Build lookup for existing item names from cached order
+        final existingNames = <String, PurchaseOrderItem>{};
+        for (final item in cachedPurchaseOrder.items) {
+          existingNames[item.productId] = item;
+        }
+
         updatedItems = params.items!.map((itemParam) {
           // Calculate item amounts
           final itemSubtotal = itemParam.quantity * itemParam.unitPrice;
@@ -909,13 +915,18 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           final itemId = (itemParam.id != null && itemParam.id!.isNotEmpty)
               ? itemParam.id!
               : 'item_offline_${DateTime.now().millisecondsSinceEpoch}_${itemParam.productId.hashCode.abs()}';
+          // Preserve product name: from params, then cached item, then fallback
+          final existingItem = existingNames[itemParam.productId];
+          final productName = itemParam.productName ?? existingItem?.productName ?? '';
+          final productCode = existingItem?.productCode;
+          final productDescription = existingItem?.productDescription;
           return PurchaseOrderItem(
             id: itemId,
             productId: itemParam.productId,
-            productName: '',  // Keep existing or will be filled when synced
-            productCode: null,
-            productDescription: null,
-            unit: '',
+            productName: productName,
+            productCode: productCode,
+            productDescription: productDescription,
+            unit: existingItem?.unit ?? '',
             quantity: itemParam.quantity,
             receivedQuantity: itemParam.receivedQuantity,
             damagedQuantity: null,

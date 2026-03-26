@@ -9,6 +9,7 @@ import '../../domain/repositories/purchase_order_repository.dart';
 import '../models/purchase_order_model.dart';
 import '../models/isar/isar_purchase_order.dart';
 import '../models/isar/isar_purchase_order_item.dart';
+import '../../../../features/products/data/models/isar/isar_product.dart';
 
 abstract class PurchaseOrderLocalDataSource {
   Future<List<PurchaseOrderModel>> getCachedPurchaseOrders();
@@ -208,8 +209,10 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
           .findFirst();
       if (isarPO != null) {
         await isarPO.items.load(); // CRÍTICO: cargar items vinculados
-        final entity = isarPO.toEntity();
-        if (entity.items.isNotEmpty) {
+        if (isarPO.items.isNotEmpty) {
+          // Enriquecer nombres de productos desde IsarProduct si están vacíos
+          await _enrichItemProductNames(isar, isarPO.items.toList());
+          final entity = isarPO.toEntity();
           print('✅ PO $id leída de ISAR con ${entity.items.length} items');
           return PurchaseOrderModel.fromEntity(entity);
         }
@@ -252,6 +255,54 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
     }
 
     return null;
+  }
+
+  /// Enriquecer nombres de productos en items de PO desde la colección IsarProduct
+  Future<void> _enrichItemProductNames(Isar isar, List<IsarPurchaseOrderItem> items) async {
+    // Recopilar productIds que necesitan nombre
+    final needsName = <String>{};
+    for (final item in items) {
+      if (item.productName.isEmpty || item.productName == 'Producto sin nombre') {
+        needsName.add(item.productId);
+      }
+    }
+    if (needsName.isEmpty) return;
+
+    // Buscar nombres en IsarProduct
+    final productNames = <String, String>{};
+    for (final productId in needsName) {
+      final product = await isar.isarProducts
+          .filter()
+          .serverIdEqualTo(productId)
+          .findFirst();
+      if (product != null) {
+        productNames[productId] = product.name;
+      }
+    }
+
+    if (productNames.isEmpty) return;
+
+    // Actualizar items en memoria (y en ISAR para persistir la corrección)
+    var updated = 0;
+    for (final item in items) {
+      final name = productNames[item.productId];
+      if (name != null && (item.productName.isEmpty || item.productName == 'Producto sin nombre')) {
+        item.productName = name;
+        updated++;
+      }
+    }
+
+    // Persistir corrección en ISAR para que no se repita
+    if (updated > 0) {
+      try {
+        await isar.writeTxn(() async {
+          await isar.isarPurchaseOrderItems.putAll(items.where((item) => productNames.containsKey(item.productId)).toList());
+        });
+        print('🔧 $updated items enriquecidos con nombres de productos desde IsarProduct');
+      } catch (e) {
+        print('⚠️ Error persistiendo nombres enriquecidos: $e');
+      }
+    }
   }
 
   @override

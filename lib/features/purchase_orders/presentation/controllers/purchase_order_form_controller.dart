@@ -1060,6 +1060,7 @@ class PurchaseOrderItemForm {
     return UpdatePurchaseOrderItemParams(
       id: id, // Incluir ID para items existentes (null para nuevos)
       productId: productId,
+      productName: productName.isNotEmpty ? productName : null,
       quantity: quantity,
       unitPrice: unitPrice,
       discountPercentage: discountPercentage,

@@ -277,6 +277,7 @@ class UpdatePurchaseOrderParams {
 class UpdatePurchaseOrderItemParams {
   final String? id;
   final String productId;
+  final String? productName; // Para display offline (no se envía al backend)
   final int quantity;
   final int? receivedQuantity;
   final double unitPrice;
@@ -287,6 +288,7 @@ class UpdatePurchaseOrderItemParams {
   const UpdatePurchaseOrderItemParams({
     this.id,
     required this.productId,
+    this.productName,
     required this.quantity,
     this.receivedQuantity,
     required this.unitPrice,
