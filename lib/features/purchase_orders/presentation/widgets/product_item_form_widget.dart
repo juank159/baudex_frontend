@@ -252,10 +252,14 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                'Buscar producto',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+              Expanded(
+                child: Text(
+                  'Buscar producto',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                ),
               ),
+              if (widget.onRemove != null)
+                _actionIcon(Icons.close, AppColors.error, widget.onRemove!),
             ],
           ),
           const SizedBox(height: 8),
@@ -363,6 +367,10 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
               ),
             ),
           ),
+          if (widget.onRemove != null) ...[
+            const SizedBox(width: 4),
+            _actionIcon(Icons.close, AppColors.error, widget.onRemove!),
+          ],
         ],
       ),
     );
@@ -523,68 +531,77 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.success.withOpacity(0.3)),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onEdit,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            child: Row(
-              children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.successGradient,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '#${widget.index + 1}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        child: Row(
+          children: [
+            // Zona tappable para editar (todo excepto el botón eliminar)
+            Expanded(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: widget.onEdit,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Row(
                     children: [
-                      Text(
-                        widget.item.productName,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Row(
-                        children: [
-                          Text(
-                            '${widget.item.quantity} x ${AppFormatters.formatCurrency(widget.item.unitPrice)}',
-                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.successGradient,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '#${widget.index + 1}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                           ),
-                          if (hasDiscount) ...[
-                            const SizedBox(width: 6),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              '-${widget.item.discountPercentage.toStringAsFixed(0)}%',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.warningDark),
+                              widget.item.productName,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  '${widget.item.quantity} x ${AppFormatters.formatCurrency(widget.item.unitPrice)}',
+                                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                ),
+                                if (hasDiscount) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '-${widget.item.discountPercentage.toStringAsFixed(0)}%',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.warningDark),
+                                  ),
+                                ],
+                              ],
                             ),
                           ],
-                        ],
+                        ),
+                      ),
+                      Text(
+                        AppFormatters.formatCurrency(total),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.success),
                       ),
                     ],
                   ),
                 ),
-                Text(
-                  AppFormatters.formatCurrency(total),
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.success),
-                ),
-                const SizedBox(width: 4),
-                if (widget.onRemove != null)
-                  _actionIcon(Icons.close, AppColors.error, widget.onRemove!),
-              ],
+              ),
             ),
-          ),
+            // Botón eliminar FUERA del InkWell de edición
+            if (widget.onRemove != null) ...[
+              const SizedBox(width: 4),
+              _actionIcon(Icons.close, AppColors.error, widget.onRemove!),
+            ],
+          ],
         ),
       ),
     );
@@ -597,7 +614,7 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
         borderRadius: BorderRadius.circular(6),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(8),
           child: Icon(icon, size: 18, color: color),
         ),
       ),
