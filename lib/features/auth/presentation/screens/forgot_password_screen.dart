@@ -338,7 +338,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       case 1:
         icon = Icons.pin_outlined;
         title = 'Ingresa el Código';
-        subtitle = 'Enviamos un código de 6 dígitos a ${_emailController.text}';
+        subtitle = 'Enviamos un código de 6 dígitos a ${_emailController.text}\nEl código es válido por 10 minutos';
         break;
       case 2:
         icon = Icons.lock_outline;

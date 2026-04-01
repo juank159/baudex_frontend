@@ -299,6 +299,20 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           ),
           textAlign: TextAlign.center,
         ),
+        const SizedBox(height: 8),
+        Text(
+          'El código es válido por 10 minutos',
+          style: TextStyle(
+            fontSize: Responsive.getFontSize(
+              context,
+              mobile: 12,
+              tablet: 13,
+              desktop: 14,
+            ),
+            color: ElegantLightTheme.textTertiary,
+          ),
+          textAlign: TextAlign.center,
+        ),
       ],
     );
   }
