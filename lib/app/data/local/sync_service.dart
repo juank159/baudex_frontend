@@ -274,9 +274,13 @@ class SyncService extends GetxService {
       // Si cambia de offline a online, sincronizar
       if (!wasOnline && _isOnline.value) {
         AppLogger.i('Conectividad restaurada', tag: 'SYNC');
-        await syncAll();
-        // FASE 5: Pull automático al reconectar
-        await _pullServerChanges();
+        // Solo sincronizar si el usuario está autenticado
+        if (await _isUserAuthenticated()) {
+          await syncAll();
+          await _pullServerChanges();
+        } else {
+          AppLogger.d('Sync omitido - usuario no autenticado', tag: 'SYNC');
+        }
       } else if (wasOnline && !_isOnline.value) {
         AppLogger.i('Conectividad perdida', tag: 'SYNC');
       }
@@ -295,15 +299,19 @@ class SyncService extends GetxService {
 
         if (!wasOnline && _isOnline.value) {
           AppLogger.i('Conectividad restaurada: $results', tag: 'SYNC');
-          // Resetear cooldown de NetworkInfo para permitir reconexión inmediata
-          try {
-            final networkInfo = Get.find<NetworkInfo>();
-            networkInfo.resetServerReachability();
-            AppLogger.i('NetworkInfo cooldown reseteado por restauración de conectividad', tag: 'SYNC');
-          } catch (_) {}
-          await syncAll();
-          // FASE 5: Pull automático al reconectar
-          await _pullServerChanges();
+          // Solo sincronizar si el usuario está autenticado
+          if (await _isUserAuthenticated()) {
+            // Resetear cooldown de NetworkInfo para permitir reconexión inmediata
+            try {
+              final networkInfo = Get.find<NetworkInfo>();
+              networkInfo.resetServerReachability();
+              AppLogger.i('NetworkInfo cooldown reseteado por restauración de conectividad', tag: 'SYNC');
+            } catch (_) {}
+            await syncAll();
+            await _pullServerChanges();
+          } else {
+            AppLogger.d('Sync omitido - usuario no autenticado', tag: 'SYNC');
+          }
         } else if (wasOnline && !_isOnline.value) {
           AppLogger.i('Conectividad perdida: $results', tag: 'SYNC');
         }
@@ -322,6 +330,16 @@ class SyncService extends GetxService {
           result == ConnectivityResult.mobile ||
           result == ConnectivityResult.ethernet,
     );
+  }
+
+  /// Verificar si el usuario está autenticado (tiene token almacenado)
+  Future<bool> _isUserAuthenticated() async {
+    try {
+      final storage = Get.find<SecureStorageService>();
+      return await storage.hasToken();
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Configurar sincronización periódica optimizada
@@ -615,6 +633,12 @@ class SyncService extends GetxService {
   /// Se ejecuta después del PUSH cuando se restaura la conectividad.
   /// Throttle: máximo una vez cada 5 minutos para evitar carga excesiva.
   Future<void> _pullServerChanges() async {
+    // No hacer pull si el usuario no está autenticado
+    if (!await _isUserAuthenticated()) {
+      AppLogger.d('Pull omitido - usuario no autenticado', tag: 'SYNC');
+      return;
+    }
+
     // Throttle: no hacer pull si ya se hizo hace menos de 2 minutos
     if (_lastPullTime != null) {
       final elapsed = DateTime.now().difference(_lastPullTime!);

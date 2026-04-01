@@ -75,8 +75,16 @@ import '../features/subscriptions/presentation/bindings/subscription_binding.dar
 import 'shared/services/subscription_offline_policy.dart';
 
 class InitialBinding implements Bindings {
+  static bool _initialized = false;
+
   @override
   void dependencies() {
+    if (_initialized) {
+      print('⚠️ InitialBinding: Ya inicializado, omitiendo...');
+      return;
+    }
+    _initialized = true;
+
     print('🚀 SimpleAppBinding: Iniciando dependencias básicas offline-first...');
 
     // ==================== CORE DEPENDENCIES ====================
@@ -446,6 +454,12 @@ class InitialBinding implements Bindings {
   }
 
   void _registerSyncService() {
+    // Guard: evitar doble inicialización si dependencies() se llama más de una vez
+    if (Get.isRegistered<SyncService>()) {
+      print('🔄 SyncService ya registrado, omitiendo...');
+      return;
+    }
+
     print('🔄 Registrando servicio de sincronización offline-first...');
 
     // SyncService requiere IsarDatabase como dependencia

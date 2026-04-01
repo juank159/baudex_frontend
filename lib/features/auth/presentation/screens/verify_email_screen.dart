@@ -90,8 +90,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       final authController = Get.find<AuthController>();
       await authController.verifyEmail(_email, code);
 
-      _isLoading.value = false;
-
+      // Navegar primero, luego snackbar
+      Get.offAllNamed('/login');
       Get.snackbar(
         'Verificación exitosa',
         'Tu correo ha sido verificado correctamente',
@@ -100,8 +100,6 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         colorText: Colors.green.shade800,
         icon: const Icon(Icons.check_circle, color: Colors.green),
       );
-
-      Get.offAllNamed('/login');
     } catch (e) {
       _isLoading.value = false;
       Get.snackbar(

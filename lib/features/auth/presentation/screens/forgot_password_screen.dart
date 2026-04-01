@@ -200,8 +200,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         _passwordController.text,
       );
 
-      _isLoading.value = false;
-
+      // Navegar primero, luego snackbar (Get.back antes de snackbar
+      // para evitar que el snackbar interfiera con la navegación)
+      Get.back();
       Get.snackbar(
         'Contraseña actualizada',
         'Tu contraseña ha sido cambiada exitosamente',
@@ -210,9 +211,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         colorText: Colors.green.shade800,
         icon: const Icon(Icons.check_circle, color: Colors.green),
       );
-
-      // Volver al login (ya está en el stack debajo)
-      Get.back();
     } catch (e) {
       _isLoading.value = false;
       Get.snackbar(
