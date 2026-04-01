@@ -12,6 +12,13 @@ import '../../domain/usecases/register_with_onboarding_usecase.dart'
     show RegisterWithOnboardingParams;
 import '../../domain/usecases/change_password_usecase.dart'
     show ChangePasswordParams;
+import '../../domain/usecases/verify_email_usecase.dart' show VerifyEmailParams;
+import '../../domain/usecases/resend_verification_usecase.dart'
+    show ResendVerificationParams;
+import '../../domain/usecases/forgot_password_usecase.dart'
+    show ForgotPasswordParams;
+import '../../domain/usecases/reset_password_usecase.dart'
+    show ResetPasswordParams;
 import '../../../../core/storage/tenant_storage.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 // ✅ IMPORT PARA LIMPIAR CACHE DE CATEGORÍAS AL LOGOUT
@@ -28,6 +35,10 @@ class AuthController extends GetxController {
   final UseCase<Unit, NoParams> _logoutUseCase;
   final UseCase<Unit, ChangePasswordParams> _changePasswordUseCase;
   final UseCase<bool, NoParams> _isAuthenticatedUseCase;
+  final UseCase<bool, VerifyEmailParams> _verifyEmailUseCase;
+  final UseCase<bool, ResendVerificationParams> _resendVerificationUseCase;
+  final UseCase<bool, ForgotPasswordParams> _forgotPasswordUseCase;
+  final UseCase<bool, ResetPasswordParams> _resetPasswordUseCase;
   final TenantStorage _tenantStorage;
   final SecureStorageService _secureStorageService;
 
@@ -40,6 +51,10 @@ class AuthController extends GetxController {
     required UseCase<Unit, NoParams> logoutUseCase,
     required UseCase<Unit, ChangePasswordParams> changePasswordUseCase,
     required UseCase<bool, NoParams> isAuthenticatedUseCase,
+    required UseCase<bool, VerifyEmailParams> verifyEmailUseCase,
+    required UseCase<bool, ResendVerificationParams> resendVerificationUseCase,
+    required UseCase<bool, ForgotPasswordParams> forgotPasswordUseCase,
+    required UseCase<bool, ResetPasswordParams> resetPasswordUseCase,
     required TenantStorage tenantStorage,
     required SecureStorageService secureStorageService,
   }) : _loginUseCase = loginUseCase,
@@ -49,6 +64,10 @@ class AuthController extends GetxController {
        _logoutUseCase = logoutUseCase,
        _changePasswordUseCase = changePasswordUseCase,
        _isAuthenticatedUseCase = isAuthenticatedUseCase,
+       _verifyEmailUseCase = verifyEmailUseCase,
+       _resendVerificationUseCase = resendVerificationUseCase,
+       _forgotPasswordUseCase = forgotPasswordUseCase,
+       _resetPasswordUseCase = resetPasswordUseCase,
        _tenantStorage = tenantStorage,
        _secureStorageService = secureStorageService;
 
@@ -385,6 +404,15 @@ class AuthController extends GetxController {
             loginEmailController.text.trim(),
           );
 
+          // Verificar si el email está verificado
+          if (!authResult.user.isEmailVerified) {
+            print('📧 AuthController: Email no verificado, redirigiendo a verificación...');
+            final email = loginEmailController.text.trim();
+            _clearLoginForm();
+            Get.offAllNamed(AppRoutes.verifyEmail, arguments: {'email': email});
+            return;
+          }
+
           _clearLoginForm();
 
           Get.snackbar(
@@ -468,7 +496,7 @@ class AuthController extends GetxController {
 
           Get.snackbar(
             'Registro Exitoso',
-            '¡Cuenta creada exitosamente! Tu almacén principal ya está configurado.',
+            '¡Cuenta creada! Verifica tu correo electrónico para continuar.',
             snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
@@ -476,16 +504,9 @@ class AuthController extends GetxController {
             duration: const Duration(seconds: 4),
           );
 
-          print('🔧 AuthController: Navegando al login...');
-          // Ir al login en lugar del dashboard
-          Get.offAllNamed(AppRoutes.login);
-
-          // Pre-llenar el email en el login después de un pequeño delay
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (_isControllerActive(loginEmailController)) {
-              loginEmailController.text = email;
-            }
-          });
+          print('🔧 AuthController: Navegando a verificación de email...');
+          // Ir a verificación de email
+          Get.offAllNamed(AppRoutes.verifyEmail, arguments: {'email': email});
         },
       );
     } catch (e) {
@@ -634,6 +655,57 @@ class AuthController extends GetxController {
     } finally {
       _isLoading.value = false;
     }
+  }
+
+  // ==================== EMAIL VERIFICATION & PASSWORD RESET ====================
+
+  /// Verificar email con código de 6 dígitos
+  Future<void> verifyEmail(String email, String code) async {
+    final result = await _verifyEmailUseCase(
+      VerifyEmailParams(email: email, code: code),
+    );
+    result.fold(
+      (failure) => throw Exception(failure.message),
+      (_) => print('✅ AuthController: Email verificado exitosamente'),
+    );
+  }
+
+  /// Reenviar código de verificación de email
+  Future<void> resendVerificationCode(String email) async {
+    final result = await _resendVerificationUseCase(
+      ResendVerificationParams(email: email),
+    );
+    result.fold(
+      (failure) => throw Exception(failure.message),
+      (_) => print('✅ AuthController: Código de verificación reenviado'),
+    );
+  }
+
+  /// Solicitar código de recuperación de contraseña
+  Future<void> forgotPassword(String email) async {
+    final result = await _forgotPasswordUseCase(
+      ForgotPasswordParams(email: email),
+    );
+    result.fold(
+      (failure) => throw Exception(failure.message),
+      (_) => print('✅ AuthController: Código de recuperación enviado'),
+    );
+  }
+
+  /// Reenviar código de recuperación de contraseña (usa forgotPassword)
+  Future<void> resendForgotPasswordCode(String email) async {
+    await forgotPassword(email);
+  }
+
+  /// Restablecer contraseña con código
+  Future<void> resetPassword(String email, String code, String newPassword) async {
+    final result = await _resetPasswordUseCase(
+      ResetPasswordParams(email: email, code: code, newPassword: newPassword),
+    );
+    result.fold(
+      (failure) => throw Exception(failure.message),
+      (_) => print('✅ AuthController: Contraseña restablecida exitosamente'),
+    );
   }
 
   /// Ir a la pantalla de registro

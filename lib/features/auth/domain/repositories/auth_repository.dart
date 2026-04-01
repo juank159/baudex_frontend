@@ -200,5 +200,40 @@ abstract class AuthRepository {
   /// Retorna [Right] con [Unit] si es exitoso
   /// Retorna [Left] con [Failure] si hay error
   Future<Either<Failure, Unit>> clearLocalAuth();
+
+  /// Verificar email con código de 6 dígitos
+  ///
+  /// Retorna [Right] con [bool] si es exitoso
+  /// Retorna [Left] con [Failure] si hay error
+  Future<Either<Failure, bool>> verifyEmail({
+    required String email,
+    required String code,
+  });
+
+  /// Reenviar código de verificación
+  ///
+  /// Retorna [Right] con [bool] si es exitoso
+  /// Retorna [Left] con [Failure] si hay error
+  Future<Either<Failure, bool>> resendVerificationCode({
+    required String email,
+  });
+
+  /// Solicitar código de recuperación de contraseña
+  ///
+  /// Retorna [Right] con [bool] si es exitoso
+  /// Retorna [Left] con [Failure] si hay error
+  Future<Either<Failure, bool>> forgotPassword({
+    required String email,
+  });
+
+  /// Restablecer contraseña con código
+  ///
+  /// Retorna [Right] con [bool] si es exitoso
+  /// Retorna [Left] con [Failure] si hay error
+  Future<Either<Failure, bool>> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  });
 }
 

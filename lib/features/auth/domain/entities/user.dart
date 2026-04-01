@@ -46,6 +46,9 @@ class User extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   
+  // Email verification
+  final bool isEmailVerified;
+
   // MULTITENANT: Información de la organización del usuario
   final String organizationId;
   final String organizationSlug;
@@ -63,6 +66,7 @@ class User extends Equatable {
     this.lastLoginAt,
     required this.createdAt,
     required this.updatedAt,
+    this.isEmailVerified = false,
     required this.organizationId,
     required this.organizationSlug,
     this.organizationName,
@@ -92,6 +96,7 @@ class User extends Equatable {
     DateTime? lastLoginAt,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isEmailVerified,
     String? organizationId,
     String? organizationSlug,
     String? organizationName,
@@ -108,6 +113,7 @@ class User extends Equatable {
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       organizationId: organizationId ?? this.organizationId,
       organizationSlug: organizationSlug ?? this.organizationSlug,
       organizationName: organizationName ?? this.organizationName,
@@ -127,6 +133,7 @@ class User extends Equatable {
     lastLoginAt,
     createdAt,
     updatedAt,
+    isEmailVerified,
     organizationId,
     organizationSlug,
     organizationName,

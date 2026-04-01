@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/custom_text_field.dart';
@@ -260,14 +261,7 @@ class LoginScreen extends GetView<AuthController> {
   // ==================== ACCIONES ====================
 
   void _onForgotPassword() {
-    Get.snackbar(
-      'Funcionalidad no implementada',
-      'La recuperación de contraseña estará disponible pronto',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.orange.shade100,
-      colorText: Colors.orange.shade800,
-      icon: const Icon(Icons.info, color: Colors.orange),
-    );
+    Get.toNamed(AppRoutes.forgotPassword);
   }
 }
 

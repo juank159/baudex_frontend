@@ -120,6 +120,8 @@ import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../../features/auth/presentation/screens/login_screen.dart';
 import '../../../features/auth/presentation/screens/register_screen.dart';
 import '../../../features/auth/presentation/screens/profile_screen.dart';
+import '../../../features/auth/presentation/screens/verify_email_screen.dart';
+import '../../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../shared/screens/not_found_screen.dart';
 import 'app_routes.dart';
 
@@ -177,6 +179,22 @@ class AppPages {
     GetPage(
       name: AppRoutes.register,
       page: () => const RegisterScreen(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      preventDuplicates: true,
+    ),
+
+    GetPage(
+      name: AppRoutes.verifyEmail,
+      page: () => const VerifyEmailScreen(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+      preventDuplicates: true,
+    ),
+
+    GetPage(
+      name: AppRoutes.forgotPassword,
+      page: () => const ForgotPasswordScreen(),
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
       preventDuplicates: true,

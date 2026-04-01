@@ -13,6 +13,10 @@ import '../../domain/usecases/get_profile_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/change_password_usecase.dart';
 import '../../domain/usecases/is_authenticated_usecase.dart';
+import '../../domain/usecases/verify_email_usecase.dart';
+import '../../domain/usecases/resend_verification_usecase.dart';
+import '../../domain/usecases/forgot_password_usecase.dart';
+import '../../domain/usecases/reset_password_usecase.dart';
 import '../../../../core/storage/tenant_storage.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 import '../../../../app/core/network/network_info.dart';
@@ -88,6 +92,27 @@ class AuthBindingStub implements Bindings {
       fenix: true,
     );
 
+    // Email verification & password reset use cases
+    Get.lazyPut(
+      () => VerifyEmailUseCase(Get.find<AuthRepository>()),
+      fenix: true,
+    );
+
+    Get.lazyPut(
+      () => ResendVerificationUseCase(Get.find<AuthRepository>()),
+      fenix: true,
+    );
+
+    Get.lazyPut(
+      () => ForgotPasswordUseCase(Get.find<AuthRepository>()),
+      fenix: true,
+    );
+
+    Get.lazyPut(
+      () => ResetPasswordUseCase(Get.find<AuthRepository>()),
+      fenix: true,
+    );
+
     // AuthController
     Get.put<AuthController>(
       AuthController(
@@ -98,6 +123,10 @@ class AuthBindingStub implements Bindings {
         logoutUseCase: Get.find<LogoutUseCase>(),
         changePasswordUseCase: Get.find<ChangePasswordUseCase>(),
         isAuthenticatedUseCase: Get.find<IsAuthenticatedUseCase>(),
+        verifyEmailUseCase: Get.find<VerifyEmailUseCase>(),
+        resendVerificationUseCase: Get.find<ResendVerificationUseCase>(),
+        forgotPasswordUseCase: Get.find<ForgotPasswordUseCase>(),
+        resetPasswordUseCase: Get.find<ResetPasswordUseCase>(),
         tenantStorage: Get.find<TenantStorage>(),
         secureStorageService: Get.find<SecureStorageService>(),
       ),

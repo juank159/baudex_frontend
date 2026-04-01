@@ -27,6 +27,10 @@ abstract class AuthRemoteDataSource {
   Future<List<ActiveSessionModel>> getActiveSessions();
   Future<void> revokeSession(String sessionId);
   Future<int> revokeAllOtherSessions();
+  Future<bool> verifyEmail(String email, String code);
+  Future<bool> resendVerificationCode(String email);
+  Future<bool> forgotPassword(String email);
+  Future<bool> resetPassword(String email, String code, String newPassword);
 }
 
 /// Implementación del datasource remoto usando Dio
@@ -190,6 +194,121 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw _handleDioException(e);
     } catch (e) {
       throw ServerException('Error inesperado al cambiar contraseña: $e');
+    }
+  }
+
+  @override
+  Future<bool> verifyEmail(String email, String code) async {
+    try {
+      final response = await dioClient.post(
+        ApiConstants.verifyEmail,
+        data: {
+          'email': email,
+          'code': code,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = response.data;
+
+        if (responseData['success'] == true) {
+          return true;
+        } else {
+          throw ServerException('Respuesta inválida del servidor');
+        }
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException || e is ConnectionException) rethrow;
+      throw ServerException('Error inesperado al verificar email: $e');
+    }
+  }
+
+  @override
+  Future<bool> resendVerificationCode(String email) async {
+    try {
+      final response = await dioClient.post(
+        ApiConstants.resendVerification,
+        data: {'email': email},
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = response.data;
+
+        if (responseData['success'] == true) {
+          return true;
+        } else {
+          throw ServerException('Respuesta inválida del servidor');
+        }
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException || e is ConnectionException) rethrow;
+      throw ServerException('Error inesperado al reenviar código: $e');
+    }
+  }
+
+  @override
+  Future<bool> forgotPassword(String email) async {
+    try {
+      final response = await dioClient.post(
+        ApiConstants.forgotPassword,
+        data: {'email': email},
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = response.data;
+
+        if (responseData['success'] == true) {
+          return true;
+        } else {
+          throw ServerException('Respuesta inválida del servidor');
+        }
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException || e is ConnectionException) rethrow;
+      throw ServerException('Error inesperado al solicitar recuperación: $e');
+    }
+  }
+
+  @override
+  Future<bool> resetPassword(String email, String code, String newPassword) async {
+    try {
+      final response = await dioClient.post(
+        ApiConstants.resetPassword,
+        data: {
+          'email': email,
+          'code': code,
+          'newPassword': newPassword,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = response.data;
+
+        if (responseData['success'] == true) {
+          return true;
+        } else {
+          throw ServerException('Respuesta inválida del servidor');
+        }
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException || e is ConnectionException) rethrow;
+      throw ServerException('Error inesperado al restablecer contraseña: $e');
     }
   }
 

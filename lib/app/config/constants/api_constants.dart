@@ -58,6 +58,10 @@ class ApiConstants {
   static const String sessions = '$authBase/sessions';
   static const String profile = '$authBase/profile';
   static const String refreshToken = '$authBase/refresh';
+  static const String verifyEmail = '$authBase/verify-email';
+  static const String resendVerification = '$authBase/resend-verification';
+  static const String forgotPassword = '$authBase/forgot-password';
+  static const String resetPassword = '$authBase/reset-password';
 
   // User Endpoints
   static const String usersBase = '/users';

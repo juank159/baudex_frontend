@@ -504,6 +504,89 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, bool>> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final result = await remoteDataSource.verifyEmail(email, code);
+        return Right(result);
+      } on ServerException catch (e) {
+        return Left(_mapServerExceptionToFailure(e));
+      } on ConnectionException catch (e) {
+        return Left(ConnectionFailure(e.message));
+      } catch (e) {
+        return Left(UnknownFailure('Error al verificar email: $e'));
+      }
+    } else {
+      return const Left(ConnectionFailure.noInternet);
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> resendVerificationCode({
+    required String email,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final result = await remoteDataSource.resendVerificationCode(email);
+        return Right(result);
+      } on ServerException catch (e) {
+        return Left(_mapServerExceptionToFailure(e));
+      } on ConnectionException catch (e) {
+        return Left(ConnectionFailure(e.message));
+      } catch (e) {
+        return Left(UnknownFailure('Error al reenviar código: $e'));
+      }
+    } else {
+      return const Left(ConnectionFailure.noInternet);
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> forgotPassword({
+    required String email,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final result = await remoteDataSource.forgotPassword(email);
+        return Right(result);
+      } on ServerException catch (e) {
+        return Left(_mapServerExceptionToFailure(e));
+      } on ConnectionException catch (e) {
+        return Left(ConnectionFailure(e.message));
+      } catch (e) {
+        return Left(UnknownFailure('Error al solicitar recuperación: $e'));
+      }
+    } else {
+      return const Left(ConnectionFailure.noInternet);
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final result = await remoteDataSource.resetPassword(email, code, newPassword);
+        return Right(result);
+      } on ServerException catch (e) {
+        return Left(_mapServerExceptionToFailure(e));
+      } on ConnectionException catch (e) {
+        return Left(ConnectionFailure(e.message));
+      } catch (e) {
+        return Left(UnknownFailure('Error al restablecer contraseña: $e'));
+      }
+    } else {
+      return const Left(ConnectionFailure.noInternet);
+    }
+  }
+
   // ================== MÉTODOS PRIVADOS ==================
 
   /// Obtener perfil desde cache local
