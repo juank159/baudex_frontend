@@ -404,17 +404,11 @@ class AuthController extends GetxController {
             loginEmailController.text.trim(),
           );
 
-          // Verificar si el email está verificado
-          if (!authResult.user.isEmailVerified) {
-            print('📧 AuthController: Email no verificado, redirigiendo a verificación...');
-            final email = loginEmailController.text.trim();
-            _clearLoginForm();
-            Get.offAllNamed(AppRoutes.verifyEmail, arguments: {'email': email});
-            return;
-          }
-
           _clearLoginForm();
 
+          print('🔧 AuthController: Navegando al dashboard...');
+          // Navegar al dashboard
+          Get.offAllNamed(AppRoutes.dashboard);
           Get.snackbar(
             'Bienvenido',
             'Sesión iniciada exitosamente',
@@ -423,10 +417,6 @@ class AuthController extends GetxController {
             colorText: Colors.green.shade800,
             icon: const Icon(Icons.check_circle, color: Colors.green),
           );
-
-          print('🔧 AuthController: Navegando al dashboard...');
-          // Navegar al dashboard
-          Get.offAllNamed(AppRoutes.dashboard);
 
           // Iniciar Full Sync en background (después de navegar al dashboard)
           _triggerFullSync();
@@ -494,6 +484,9 @@ class AuthController extends GetxController {
           final email = registerEmailController.text.trim();
           _clearRegisterForm();
 
+          print('🔧 AuthController: Navegando a verificación de email...');
+          // Navegar primero, luego snackbar
+          Get.offAllNamed(AppRoutes.verifyEmail, arguments: {'email': email});
           Get.snackbar(
             'Registro Exitoso',
             '¡Cuenta creada! Verifica tu correo electrónico para continuar.',
@@ -503,10 +496,6 @@ class AuthController extends GetxController {
             icon: const Icon(Icons.check_circle, color: Colors.green),
             duration: const Duration(seconds: 4),
           );
-
-          print('🔧 AuthController: Navegando a verificación de email...');
-          // Ir a verificación de email
-          Get.offAllNamed(AppRoutes.verifyEmail, arguments: {'email': email});
         },
       );
     } catch (e) {
