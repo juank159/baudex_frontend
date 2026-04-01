@@ -6,6 +6,7 @@ import '../../domain/repositories/organization_repository.dart';
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/services/password_validation_service.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
 
 class OrganizationController extends GetxController {
   // ==================== DEPENDENCIES ====================
@@ -31,7 +32,11 @@ class OrganizationController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadCurrentOrganization();
+    // Solo cargar organización si el usuario está autenticado
+    if (Get.isRegistered<AuthController>() &&
+        Get.find<AuthController>().isAuthenticated) {
+      loadCurrentOrganization();
+    }
   }
 
   // ==================== PUBLIC METHODS ====================
@@ -52,7 +57,13 @@ class OrganizationController extends GetxController {
         },
       );
     } catch (e) {
-      _handleError('Error inesperado al cargar organización: $e');
+      // Solo mostrar error si el usuario está autenticado
+      if (Get.isRegistered<AuthController>() &&
+          Get.find<AuthController>().isAuthenticated) {
+        _handleError('Error inesperado al cargar organización: $e');
+      } else {
+        print('⚠️ OrganizationController: Error pre-login ignorado: $e');
+      }
     } finally {
       _setLoading(false);
     }
@@ -422,12 +433,20 @@ class OrganizationController extends GetxController {
   }
 
   void _handleFailure(Failure failure) {
-    // ✅ NO mostrar snackbars de error de conexión cuando backend está offline
-    // El usuario ya sabe que está trabajando offline
+    // NO mostrar snackbars de error de conexión cuando backend está offline
     if (failure is ConnectionFailure) {
       print('⚠️ OrganizationController: Sin conexión - trabajando offline');
-      _error.value = null; // No mostrar error en UI
-      return; // NO mostrar snackbar
+      _error.value = null;
+      return;
+    }
+
+    // NO mostrar snackbars si el usuario no está autenticado
+    // (errores de tenant/org son esperados antes del login)
+    if (!Get.isRegistered<AuthController>() ||
+        !Get.find<AuthController>().isAuthenticated) {
+      print('⚠️ OrganizationController: Usuario no autenticado - ignorando error');
+      _error.value = null;
+      return;
     }
 
     String message;
