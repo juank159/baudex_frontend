@@ -523,6 +523,7 @@
 // lib/features/categories/presentation/controllers/category_form_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
@@ -614,6 +615,7 @@ class CategoryFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    SyncService.notifyFormOpened();
     print('🚀 CategoryFormController onInit started');
 
     _setupSlugGeneration();
@@ -659,6 +661,7 @@ class CategoryFormController extends GetxController {
 
   @override
   void onClose() {
+    SyncService.notifyFormClosed();
     // SafeTextEditingController handles safe disposal automatically
     nameController.dispose();
     descriptionController.dispose();
@@ -1029,15 +1032,13 @@ class CategoryFormController extends GetxController {
         print('   🏷️  Category Name: ${category.name}');
         print('   🔗 Category Slug: ${category.slug}');
         print('   📊 Category Status: ${category.status.name}');
-        _showSuccess('Categoría creada exitosamente');
 
         // Refrescar la lista antes de navegar
         _refreshCategoriesList();
 
-        // Pequeño delay para que se complete el refresh
-        Future.delayed(const Duration(milliseconds: 500), () {
-          Get.back();
-        });
+        // Navegar primero, luego snackbar (se muestra en el listado)
+        Get.back();
+        _showSuccess('Categoría creada exitosamente');
       },
     );
   }
@@ -1076,15 +1077,13 @@ class CategoryFormController extends GetxController {
       },
       (category) {
         print('✅ Category updated successfully: ${category.name}');
-        _showSuccess('Categoría actualizada exitosamente');
 
         // Refrescar la lista antes de navegar
         _refreshCategoriesList();
 
-        // Pequeño delay para que se complete el refresh
-        Future.delayed(const Duration(milliseconds: 500), () {
-          Get.back();
-        });
+        // Navegar primero, luego snackbar (se muestra en el listado)
+        Get.back();
+        _showSuccess('Categoría actualizada exitosamente');
       },
     );
   }

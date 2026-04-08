@@ -1,6 +1,7 @@
 // lib/features/inventory/presentation/controllers/warehouse_form_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/data/local/sync_service.dart';
 // import '../../../../app/config/routes/app_routes.dart'; // No needed anymore
 import '../../domain/entities/warehouse.dart';
 import '../../domain/usecases/create_warehouse_usecase.dart';
@@ -68,6 +69,7 @@ class WarehouseFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    SyncService.notifyFormOpened();
     _initializeControllers();
     _setupFormListeners();
 
@@ -85,6 +87,7 @@ class WarehouseFormController extends GetxController {
 
   @override
   void onClose() {
+    SyncService.notifyFormClosed();
     nameController.dispose();
     codeController.dispose();
     descriptionController.dispose();
@@ -239,8 +242,15 @@ class WarehouseFormController extends GetxController {
         );
       },
       (warehouse) {
-        // Navegar al listado de almacenes y refrescar la lista
         _navigateToWarehousesList(warehouse);
+        Get.snackbar(
+          'Éxito',
+          'Almacén creado exitosamente',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.green.shade100,
+          colorText: Colors.green.shade800,
+          icon: const Icon(Icons.check_circle, color: Colors.green),
+        );
       },
     );
   }
@@ -280,8 +290,15 @@ class WarehouseFormController extends GetxController {
         _warehouse.value = warehouse;
         _isDirty.value = false;
 
-        // Navegar al listado de almacenes y refrescar la lista
         _navigateToWarehousesList(warehouse);
+        Get.snackbar(
+          'Éxito',
+          'Almacén actualizado exitosamente',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.green.shade100,
+          colorText: Colors.green.shade800,
+          icon: const Icon(Icons.check_circle, color: Colors.green),
+        );
       },
     );
   }

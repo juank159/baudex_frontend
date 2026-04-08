@@ -797,6 +797,11 @@ class ProductLocalDataSourceIsar implements ProductLocalDataSource {
             ..createdById = product.createdBy?.id ?? ''
             ..createdAt = product.createdAt
             ..updatedAt = product.updatedAt
+            ..taxCategory = IsarProduct.mapTaxCategoryFromString(product.taxCategory.value)
+            ..taxRate = product.taxRate
+            ..isTaxable = product.isTaxable
+            ..taxDescription = product.taxDescription
+            ..hasRetention = product.hasRetention
             ..isSynced = false // Marcar como no sincronizado
             ..version = 1; // ✅ Campo requerido
 

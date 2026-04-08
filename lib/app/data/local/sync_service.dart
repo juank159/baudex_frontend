@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isar/isar.dart';
 import '../../core/network/network_info.dart';
 import '../../core/network/dio_client.dart';
@@ -85,6 +86,7 @@ import '../../../features/purchase_orders/data/datasources/purchase_order_remote
 import '../../../features/purchase_orders/domain/entities/purchase_order.dart';
 import '../../../features/purchase_orders/domain/repositories/purchase_order_repository.dart';
 import '../../../features/purchase_orders/data/models/isar/isar_purchase_order.dart';
+import '../../../features/purchase_orders/data/models/isar/isar_purchase_order_item.dart';
 // PurchaseOrderOfflineRepository ya no se usa aquí - lectura directa de ISAR en sync handler
 
 // Inventory
@@ -154,6 +156,46 @@ class SyncService extends GetxService {
   _isarDatabase; // Use dynamic to support both IsarDatabase and MockIsarDatabase
   final Connectivity _connectivity = Connectivity();
 
+  // Guard: pausar pull periódico cuando hay formularios activos
+  static int _activeFormCount = 0;
+  static void notifyFormOpened() => _activeFormCount++;
+  static void notifyFormClosed() {
+    if (_activeFormCount > 0) _activeFormCount--;
+  }
+  static bool get hasActiveForm => _activeFormCount > 0;
+
+  // Mapeo temp→real IDs para resolver referencias entre sesiones
+  static final Map<String, String> _tempToRealIdMap = {};
+  static const String _tempIdMapPrefix = 'temp_id_map_';
+
+  /// Registrar mapeo de temp ID → real ID (persistido en SharedPreferences)
+  static Future<void> registerTempIdMapping(String tempId, String realId) async {
+    _tempToRealIdMap[tempId] = realId;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('$_tempIdMapPrefix$tempId', realId);
+    } catch (_) {}
+  }
+
+  /// Buscar ID real para un temp ID (en memoria primero, luego SharedPreferences)
+  static Future<String?> lookupTempIdMapping(String tempId) async {
+    // Primero buscar en memoria
+    if (_tempToRealIdMap.containsKey(tempId)) {
+      return _tempToRealIdMap[tempId];
+    }
+    // Luego en SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final realId = prefs.getString('$_tempIdMapPrefix$tempId');
+      if (realId != null) {
+        _tempToRealIdMap[tempId] = realId; // Cache en memoria
+      }
+      return realId;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // Estado de conectividad
   final Rx<bool> _isOnline = false.obs;
   bool get isOnline => _isOnline.value;
@@ -161,6 +203,7 @@ class SyncService extends GetxService {
   // Estado de sincronización
   final Rx<SyncState> _syncState = SyncState.idle.obs;
   SyncState get syncState => _syncState.value;
+  Rx<SyncState> get syncStateObs => _syncState;
 
   // Operaciones pendientes
   final RxInt _pendingOperationsCount = 0.obs;
@@ -373,8 +416,52 @@ class SyncService extends GetxService {
           );
           await syncAll();
         }
+
+        // Pull periódico cada ~60s para sincronización multi-usuario
+        if (_isOnline.value && _shouldPeriodicPull()) {
+          await _periodicPull();
+        }
       },
     );
+  }
+
+  /// Verifica si es momento de hacer un pull periódico (cada 60s)
+  bool _shouldPeriodicPull() {
+    // No hacer pull si hay formularios abiertos (evita tráfico innecesario)
+    if (hasActiveForm) return false;
+    if (_lastPullTime == null) return true;
+    return DateTime.now().difference(_lastPullTime!) > const Duration(seconds: 60);
+  }
+
+  /// Pull periódico: descarga cambios del servidor y notifica controllers si hay novedades
+  Future<void> _periodicPull() async {
+    try {
+      if (!await _isUserAuthenticated()) return;
+      if (!Get.isRegistered<FullSyncService>()) return;
+
+      final fullSyncService = Get.find<FullSyncService>();
+      if (fullSyncService.isSyncing.value) return;
+
+      AppLogger.d('Pull periódico multi-usuario iniciado...', tag: 'SYNC');
+      _lastPullTime = DateTime.now();
+
+      final result = await fullSyncService.performFullSync(skipCleanup: true);
+
+      if (result.totalSynced > 0) {
+        AppLogger.i(
+          'Pull periódico: ${result.totalSynced} registros nuevos - notificando controllers',
+          tag: 'SYNC',
+        );
+        // Forzar transición syncing→idle para notificar SyncAutoRefreshMixin en todos los controllers
+        _syncState.value = SyncState.syncing;
+        await Future.delayed(const Duration(milliseconds: 100));
+        _syncState.value = SyncState.idle;
+      } else {
+        AppLogger.d('Pull periódico: sin cambios del servidor', tag: 'SYNC');
+      }
+    } catch (e) {
+      AppLogger.e('Error en pull periódico: $e', tag: 'SYNC');
+    }
   }
 
   /// Actualizar conteo de operaciones pendientes
@@ -639,12 +726,12 @@ class SyncService extends GetxService {
       return;
     }
 
-    // Throttle: no hacer pull si ya se hizo hace menos de 2 minutos
+    // Throttle: no hacer pull si ya se hizo hace menos de 45 segundos
     if (_lastPullTime != null) {
       final elapsed = DateTime.now().difference(_lastPullTime!);
-      if (elapsed.inMinutes < 2) {
+      if (elapsed.inSeconds < 45) {
         AppLogger.d(
-          'Pull omitido - último pull hace ${elapsed.inSeconds}s (mínimo 2min)',
+          'Pull omitido - último pull hace ${elapsed.inSeconds}s (mínimo 45s)',
           tag: 'SYNC',
         );
         return;
@@ -685,6 +772,13 @@ class SyncService extends GetxService {
 
       if (result.hasErrors) {
         AppLogger.w('PULL con errores: ${result.errors}', tag: 'SYNC');
+      }
+
+      // Notificar controllers si el pull trajo cambios nuevos
+      if (result.totalSynced > 0) {
+        _syncState.value = SyncState.syncing;
+        await Future.delayed(const Duration(milliseconds: 100));
+        _syncState.value = SyncState.idle;
       }
     } catch (e) {
       AppLogger.e('Error en PULL del servidor: $e', tag: 'SYNC');
@@ -830,9 +924,11 @@ class SyncService extends GetxService {
       }
 
       // IDEMPOTENCIA: Verificar si ya fue procesada
+      // Incluir operation.id para distinguir diferentes operaciones sobre la misma entidad
+      // (ej: dos UPDATEs distintos al mismo PO deben tener claves diferentes)
       final idempotencyService = Get.find<IdempotencyService>();
       final idempotencyKey =
-          '${operation.operationType.name}_${operation.entityType}_${operation.entityId}';
+          '${operation.operationType.name}_${operation.entityType}_${operation.entityId}_${operation.id}';
 
       final alreadyProcessed = await idempotencyService.isOperationProcessed(idempotencyKey);
       if (alreadyProcessed) {
@@ -932,7 +1028,7 @@ class SyncService extends GetxService {
       try {
         final idempotencyService = Get.find<IdempotencyService>();
         final idempotencyKey =
-            '${operation.operationType.name}_${operation.entityType}_${operation.entityId}';
+            '${operation.operationType.name}_${operation.entityType}_${operation.entityId}_${operation.id}';
         await idempotencyService.markAsFailed(
           idempotencyKey: idempotencyKey,
           errorMessage: e.toString(),
@@ -2134,15 +2230,32 @@ class SyncService extends GetxService {
             tag: 'SYNC',
           );
 
-          // ✅ AUTOMATIZACIÓN: Actualizar producto offline en ISAR con el nuevo ID del servidor
+          // ✅ Actualizar producto offline en ISAR con el nuevo ID del servidor
           if (operation.entityId.startsWith('product_offline_')) {
             try {
-              AppLogger.d(
-                'Actualizando producto offline en ISAR con nuevo ID del servidor...',
-                tag: 'SYNC',
-              );
+              final isar = IsarDatabase.instance.database;
 
-              // Eliminar operaciones UPDATE obsoletas para este producto offline
+              // 1. Actualizar serverId en ISAR con ID real del servidor
+              final isarProduct = await isar.isarProducts
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+
+              if (isarProduct != null) {
+                isarProduct.serverId = createdProduct.id;
+                isarProduct.markAsSynced();
+                await isar.writeTxn(() async {
+                  await isar.isarProducts.put(isarProduct);
+                });
+                // Persistir mapeo temp→real para resolver referencias en futuras sesiones
+                await registerTempIdMapping(operation.entityId, createdProduct.id);
+                AppLogger.i(
+                  'ISAR producto actualizado: ${operation.entityId} → ${createdProduct.id}',
+                  tag: 'SYNC',
+                );
+              }
+
+              // 2. Eliminar operaciones UPDATE obsoletas
               final pendingOps = await _isarDatabase.getPendingSyncOperations();
               for (final op in pendingOps) {
                 if (op.entityId == operation.entityId &&
@@ -2155,17 +2268,77 @@ class SyncService extends GetxService {
                 }
               }
 
+              // 3. Actualizar productId en ops pendientes que referencian el temp ID
+              final tempProductId = operation.entityId;
+              final realProductId = createdProduct.id;
+              for (final op in pendingOps) {
+                // Actualizar en Invoice y PurchaseOrder (create + update)
+                final isInvoice = op.entityType == 'Invoice' || op.entityType == 'invoice';
+                final isPO = op.entityType == 'PurchaseOrder' || op.entityType == 'purchase_order';
+                if (isInvoice || isPO) {
+                  try {
+                    final opPayload = jsonDecode(op.payload);
+                    bool updated = false;
+
+                    // Actualizar productId en items
+                    if (opPayload['items'] != null) {
+                      for (final item in opPayload['items']) {
+                        if (item['productId'] == tempProductId) {
+                          item['productId'] = realProductId;
+                          updated = true;
+                        }
+                      }
+                    }
+
+                    if (updated) {
+                      await _isarDatabase.updateSyncOperationPayload(
+                        op.id,
+                        jsonEncode(opPayload),
+                      );
+                      AppLogger.i(
+                        'ProductId actualizado en ${op.entityType} pendiente: $tempProductId → $realProductId',
+                        tag: 'SYNC',
+                      );
+                    }
+                  } catch (e) {
+                    AppLogger.w('Error actualizando productId en op ${op.id}: $e', tag: 'SYNC');
+                  }
+                }
+              }
+
+              // 4. Actualizar productId en IsarPurchaseOrderItem que referencian el temp ID
+              try {
+                final isar = IsarDatabase.instance.database;
+                final poItems = await isar.isarPurchaseOrderItems
+                    .filter()
+                    .productIdEqualTo(tempProductId)
+                    .findAll();
+                if (poItems.isNotEmpty) {
+                  await isar.writeTxn(() async {
+                    for (final poItem in poItems) {
+                      poItem.productId = realProductId;
+                    }
+                    await isar.isarPurchaseOrderItems.putAll(poItems);
+                  });
+                  AppLogger.i(
+                    'ProductId actualizado en ${poItems.length} IsarPurchaseOrderItems: $tempProductId → $realProductId',
+                    tag: 'SYNC',
+                  );
+                }
+              } catch (e) {
+                AppLogger.w(
+                  'Error actualizando productId en PO items ISAR: $e',
+                  tag: 'SYNC',
+                );
+              }
+
               AppLogger.i(
                 'Producto offline sincronizado: ${operation.entityId} → ${createdProduct.id}',
                 tag: 'SYNC',
               );
-              AppLogger.d(
-                'El producto será actualizado automáticamente en ISAR cuando se cachee del servidor',
-                tag: 'SYNC',
-              );
             } catch (e) {
               AppLogger.w(
-                'Error limpiando operaciones obsoletas: $e',
+                'Error en post-sync de producto: $e',
                 tag: 'SYNC',
               );
               // No hacer rethrow - la creación fue exitosa, este es solo cleanup
@@ -2905,6 +3078,46 @@ class SyncService extends GetxService {
                   await _isarDatabase.deleteSyncOperation(op.id);
                 }
               }
+
+              // ✅ CRÍTICO: Actualizar supplierId temporal en PurchaseOrder pendientes
+              // DRY: Replica patrón Customer CREATE → Invoice (L2705-2733)
+              final tempSupplierId = operation.entityId;
+              final realSupplierId = createdSupplier.id;
+              if (tempSupplierId != realSupplierId) {
+                for (final op in pendingOps) {
+                  if ((op.entityType == 'PurchaseOrder' || op.entityType == 'purchase_order') &&
+                      op.operationType == SyncOperationType.create) {
+                    try {
+                      final opPayload = jsonDecode(op.payload);
+                      final opSupplierId = opPayload['supplierId'] as String?;
+                      if (opSupplierId == tempSupplierId) {
+                        opPayload['supplierId'] = realSupplierId;
+                        await _isarDatabase.updateSyncOperationPayload(
+                          op.id,
+                          jsonEncode(opPayload),
+                        );
+
+                        // También actualizar en ISAR
+                        final isarPO = await isar.isarPurchaseOrders
+                            .filter()
+                            .serverIdEqualTo(op.entityId)
+                            .findFirst();
+                        if (isarPO != null) {
+                          isarPO.supplierId = realSupplierId;
+                          await isar.writeTxn(() => isar.isarPurchaseOrders.put(isarPO));
+                        }
+
+                        AppLogger.i(
+                          'Actualizado supplierId en PO:${op.entityId}: $tempSupplierId → $realSupplierId',
+                          tag: 'SYNC',
+                        );
+                      }
+                    } catch (e) {
+                      AppLogger.w('Error actualizando supplierId en PO: $e', tag: 'SYNC');
+                    }
+                  }
+                }
+              }
             } catch (e) {
               AppLogger.w('Error actualizando proveedor en ISAR: $e', tag: 'SYNC');
             }
@@ -2912,16 +3125,43 @@ class SyncService extends GetxService {
           break;
 
         case SyncOperationType.update:
+          final action = data['action'] as String?;
           AppLogger.d(
-            'Actualizando proveedor en servidor: ${operation.entityId}',
+            'Actualizando proveedor en servidor: ${operation.entityId} (action: $action)',
             tag: 'SYNC',
           );
-          final updateRequest = UpdateSupplierRequestModel.fromJson(data);
-          await remoteDataSource.updateSupplier(
-            operation.entityId,
-            updateRequest,
-          );
-          AppLogger.i('Proveedor actualizado en servidor', tag: 'SYNC');
+
+          if (action == 'updateStatus') {
+            final status = data['status'] as String? ?? 'active';
+            await remoteDataSource.updateSupplierStatus(
+              operation.entityId,
+              status,
+            );
+            AppLogger.i('Estado de proveedor actualizado en servidor: $status', tag: 'SYNC');
+          } else if (action == 'restore') {
+            await remoteDataSource.restoreSupplier(operation.entityId);
+            AppLogger.i('Proveedor restaurado en servidor', tag: 'SYNC');
+          } else {
+            final updateRequest = UpdateSupplierRequestModel.fromJson(data);
+            await remoteDataSource.updateSupplier(
+              operation.entityId,
+              updateRequest,
+            );
+            AppLogger.i('Proveedor actualizado en servidor', tag: 'SYNC');
+          }
+
+          // Marcar como synced en ISAR
+          try {
+            final isar = IsarDatabase.instance.database;
+            final isarSupplier = await isar.isarSuppliers
+                .filter()
+                .serverIdEqualTo(operation.entityId)
+                .findFirst();
+            if (isarSupplier != null) {
+              isarSupplier.markAsSynced();
+              await isar.writeTxn(() => isar.isarSuppliers.put(isarSupplier));
+            }
+          } catch (_) {}
           break;
 
         case SyncOperationType.delete:
@@ -3547,7 +3787,7 @@ class SyncService extends GetxService {
                       .and()
                       .lastNameEqualTo(isarCustomer.lastName)
                       .findAll();
-                  final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+                  final uuidRegex = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
                   final realCustomer = allCustomers.where((c) => c.serverId != null && uuidRegex.hasMatch(c.serverId!)).firstOrNull;
 
                   if (realCustomer != null) {
@@ -4051,8 +4291,12 @@ class SyncService extends GetxService {
                   .findFirst();
 
               if (isarPO != null) {
-                await isarPO.items.load();
-                final order = isarPO.toEntity();
+                // Usar query directa (más confiable que IsarLinks)
+                final directItems = await isar.isarPurchaseOrderItems
+                    .filter()
+                    .purchaseOrderServerIdEqualTo(operation.entityId)
+                    .findAll();
+                final order = isarPO.toEntityWithItems(directItems);
                 finalData = {
                   'supplierId': order.supplierId,
                   'priority': order.priority.name,
@@ -4149,6 +4393,129 @@ class SyncService extends GetxService {
             }
           }
 
+          // ✅ Validar supplierId antes de enviar (DRY: patrón Invoice CREATE con customerId)
+          String resolvedSupplierId = finalData['supplierId'] ?? '';
+          final supplierUuidRegex = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+          if (resolvedSupplierId.startsWith('supplier_offline_') ||
+              (resolvedSupplierId.startsWith('supplier_') && !supplierUuidRegex.hasMatch(resolvedSupplierId))) {
+            // El supplierId es temporal — buscar si ya fue sincronizado
+            try {
+              final isar = IsarDatabase.instance.database;
+
+              // Verificar si hay sync pendiente de este Supplier
+              final pendingSupplierOps = await _isarDatabase.getPendingSyncOperationsByType('Supplier');
+              final hasSupplierSync = pendingSupplierOps.any((op) =>
+                op.entityId == resolvedSupplierId &&
+                op.operationType == SyncOperationType.create);
+
+              if (hasSupplierSync) {
+                // Supplier aún no sincronizado — reintentar después
+                AppLogger.w(
+                  'PO tiene supplierId temporal: $resolvedSupplierId - Supplier aún pendiente de sync',
+                  tag: 'SYNC',
+                );
+                throw ServerException('Supplier pendiente de sincronización');
+              }
+
+              // No hay sync pendiente → buscar supplier con mismo nombre pero UUID real
+              final isarSupplier = await isar.isarSuppliers
+                  .filter()
+                  .serverIdEqualTo(resolvedSupplierId)
+                  .findFirst();
+              if (isarSupplier != null) {
+                // Encontrado por tempId → buscar otro con UUID real por nombre
+                final allSuppliers = await isar.isarSuppliers
+                    .filter()
+                    .nameEqualTo(isarSupplier.name)
+                    .findAll();
+                final realSupplier = allSuppliers.where(
+                  (s) => s.serverId != null && supplierUuidRegex.hasMatch(s.serverId!),
+                ).firstOrNull;
+                if (realSupplier != null) {
+                  resolvedSupplierId = realSupplier.serverId!;
+                  AppLogger.i(
+                    'supplierId resuelto por nombre "${isarSupplier.name}": ${finalData['supplierId']} → $resolvedSupplierId',
+                    tag: 'SYNC',
+                  );
+                } else {
+                  throw ServerException('Supplier no encontrado con UUID real');
+                }
+              } else {
+                throw ServerException('Supplier $resolvedSupplierId no encontrado en ISAR');
+              }
+            } catch (e) {
+              if (e is ServerException) rethrow;
+              AppLogger.w('Error resolviendo supplierId temporal: $e', tag: 'SYNC');
+              throw ServerException('Supplier pendiente de sincronización');
+            }
+          }
+          finalData['supplierId'] = resolvedSupplierId;
+
+          // ✅ Resolver productIds temporales (product_offline_*) antes de enviar
+          if (finalData['items'] != null) {
+            final isar = IsarDatabase.instance.database;
+            for (final item in (finalData['items'] as List)) {
+              final pid = item['productId'] as String?;
+              if (pid != null && pid.startsWith('product_offline_')) {
+                final isarProduct = await isar.isarProducts
+                    .filter()
+                    .serverIdEqualTo(pid)
+                    .findFirst();
+                if (isarProduct != null && !isarProduct.serverId.startsWith('product_offline_')) {
+                  AppLogger.i(
+                    'PO CREATE: productId resuelto via ISAR $pid → ${isarProduct.serverId}',
+                    tag: 'SYNC',
+                  );
+                  item['productId'] = isarProduct.serverId;
+                } else {
+                  final mappedId = await lookupTempIdMapping(pid);
+                  if (mappedId != null) {
+                    AppLogger.i(
+                      'PO CREATE: productId resuelto via mapeo $pid → $mappedId',
+                      tag: 'SYNC',
+                    );
+                    item['productId'] = mappedId;
+                  } else {
+                    // 3. Last resort: buscar nombre vía IsarPurchaseOrderItem → luego producto por nombre
+                    String? productName = item['productName'] as String?;
+                    if (productName == null || productName.isEmpty) {
+                      final poItem = await isar.isarPurchaseOrderItems
+                          .filter()
+                          .productIdEqualTo(pid)
+                          .findFirst();
+                      productName = poItem?.productName;
+                    }
+                    if (productName != null && productName.isNotEmpty) {
+                      final productByName = await isar.isarProducts
+                          .filter()
+                          .nameEqualTo(productName)
+                          .findFirst();
+                      if (productByName != null &&
+                          !productByName.serverId.startsWith('product_offline_')) {
+                        AppLogger.i(
+                          'PO CREATE: productId resuelto via nombre "$productName" $pid → ${productByName.serverId}',
+                          tag: 'SYNC',
+                        );
+                        item['productId'] = productByName.serverId;
+                        await registerTempIdMapping(pid, productByName.serverId);
+                      } else {
+                        AppLogger.w(
+                          'PO CREATE: productId temporal no resuelto: $pid — producto "$productName" no encontrado',
+                          tag: 'SYNC',
+                        );
+                      }
+                    } else {
+                      AppLogger.w(
+                        'PO CREATE: productId temporal no resuelto: $pid — sin nombre para búsqueda',
+                        tag: 'SYNC',
+                      );
+                    }
+                  }
+                }
+              }
+            }
+          }
+
           // Parsear items
           final itemParams =
               (finalData['items'] as List)
@@ -4223,10 +4590,52 @@ class SyncService extends GetxService {
                   .findFirst();
 
               if (isarPO != null) {
+                final oldTempPOId = operation.entityId;
                 isarPO.serverId = createdPO.id;
                 isarPO.markAsSynced();
                 await isar.writeTxn(() async {
                   await isar.isarPurchaseOrders.put(isarPO);
+
+                  // Reemplazar items locales (IDs temporales) con items del servidor (IDs reales)
+                  final serverPOEntity = createdPO.toEntity();
+                  if (serverPOEntity.items.isNotEmpty) {
+                    // Solo borrar items locales si tenemos items del servidor para reemplazarlos
+                    final oldItems = await isar.isarPurchaseOrderItems
+                        .filter()
+                        .purchaseOrderServerIdEqualTo(oldTempPOId)
+                        .findAll();
+                    if (oldItems.isNotEmpty) {
+                      await isar.isarPurchaseOrderItems
+                          .deleteAll(oldItems.map((i) => i.id).toList());
+                    }
+
+                    final newIsarItems = serverPOEntity.items.map((item) {
+                      final isarItem = IsarPurchaseOrderItem.fromEntity(item);
+                      isarItem.purchaseOrderServerId = createdPO.id;
+                      return isarItem;
+                    }).toList();
+                    await isar.isarPurchaseOrderItems.putAll(newIsarItems);
+                    AppLogger.d(
+                      '${newIsarItems.length} PO items reemplazados con IDs del servidor (PO ${createdPO.id})',
+                      tag: 'SYNC',
+                    );
+                  } else {
+                    // Servidor no devolvió items: solo actualizar purchaseOrderServerId
+                    final localItems = await isar.isarPurchaseOrderItems
+                        .filter()
+                        .purchaseOrderServerIdEqualTo(oldTempPOId)
+                        .findAll();
+                    if (localItems.isNotEmpty) {
+                      for (final item in localItems) {
+                        item.purchaseOrderServerId = createdPO.id;
+                      }
+                      await isar.isarPurchaseOrderItems.putAll(localItems);
+                      AppLogger.w(
+                        'Servidor no devolvió items - ${localItems.length} items locales actualizados con FK ${createdPO.id}',
+                        tag: 'SYNC',
+                      );
+                    }
+                  }
                 });
                 AppLogger.i(
                   'ISAR orden de compra actualizada: ${operation.entityId} → ${createdPO.id}',
@@ -4456,7 +4865,7 @@ class SyncService extends GetxService {
               case 'receive':
                 final receiveItems = (data['items'] as List?)?.map((item) {
                   return ReceivePurchaseOrderItemParams(
-                    itemId: item['itemId'] as String,
+                    itemId: (item['itemId'] ?? item['purchaseOrderItemId']) as String,
                     receivedQuantity: (item['receivedQuantity'] as num).toInt(),
                     notes: item['notes'] as String?,
                   );
@@ -4516,6 +4925,75 @@ class SyncService extends GetxService {
             }
           } else {
             // Actualización normal de campos
+
+            // ✅ Resolver productIds temporales (product_offline_*) antes de enviar
+            if (data['items'] != null) {
+              final isar = IsarDatabase.instance.database;
+              for (final item in (data['items'] as List)) {
+                final pid = item['productId'] as String?;
+                if (pid != null && pid.startsWith('product_offline_')) {
+                  // 1. Buscar por serverId en ISAR (funciona si producto aún no sincronizado)
+                  final isarProduct = await isar.isarProducts
+                      .filter()
+                      .serverIdEqualTo(pid)
+                      .findFirst();
+                  if (isarProduct != null && !isarProduct.serverId.startsWith('product_offline_')) {
+                    AppLogger.i(
+                      'PO UPDATE: productId resuelto via ISAR $pid → ${isarProduct.serverId}',
+                      tag: 'SYNC',
+                    );
+                    item['productId'] = isarProduct.serverId;
+                  } else {
+                    // 2. Fallback: buscar en mapeo persistido (producto ya sincronizado en sesión anterior)
+                    final mappedId = await lookupTempIdMapping(pid);
+                    if (mappedId != null) {
+                      AppLogger.i(
+                        'PO UPDATE: productId resuelto via mapeo $pid → $mappedId',
+                        tag: 'SYNC',
+                      );
+                      item['productId'] = mappedId;
+                    } else {
+                      // 3. Last resort: buscar nombre vía IsarPurchaseOrderItem → luego producto por nombre
+                      String? productName = item['productName'] as String?;
+                      if (productName == null || productName.isEmpty) {
+                        // El payload no tiene productName, buscarlo en IsarPurchaseOrderItem
+                        final poItem = await isar.isarPurchaseOrderItems
+                            .filter()
+                            .productIdEqualTo(pid)
+                            .findFirst();
+                        productName = poItem?.productName;
+                      }
+                      if (productName != null && productName.isNotEmpty) {
+                        final productByName = await isar.isarProducts
+                            .filter()
+                            .nameEqualTo(productName)
+                            .findFirst();
+                        if (productByName != null &&
+                            !productByName.serverId.startsWith('product_offline_')) {
+                          AppLogger.i(
+                            'PO UPDATE: productId resuelto via nombre "$productName" $pid → ${productByName.serverId}',
+                            tag: 'SYNC',
+                          );
+                          item['productId'] = productByName.serverId;
+                          await registerTempIdMapping(pid, productByName.serverId);
+                        } else {
+                          AppLogger.w(
+                            'PO UPDATE: productId temporal no resuelto: $pid — producto "$productName" no encontrado',
+                            tag: 'SYNC',
+                          );
+                        }
+                      } else {
+                        AppLogger.w(
+                          'PO UPDATE: productId temporal no resuelto: $pid — sin nombre para búsqueda',
+                          tag: 'SYNC',
+                        );
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
             List<UpdatePurchaseOrderItemParams>? updateItemParams;
             if (data['items'] != null) {
               updateItemParams =
@@ -4591,10 +5069,19 @@ class SyncService extends GetxService {
                       : null,
             );
 
+            // Diagnóstico: imprimir payload antes de enviar
+            AppLogger.d('PO UPDATE → id=${updateParams.id}, items=${updateParams.items?.length ?? 0}', tag: 'SYNC');
+            if (updateParams.items != null) {
+              for (int i = 0; i < updateParams.items!.length; i++) {
+                final it = updateParams.items![i];
+                AppLogger.d('  Item[$i]: id=${it.id}, productId=${it.productId}, qty=${it.quantity}, unitPrice=${it.unitPrice}', tag: 'SYNC');
+              }
+            }
+
             final updatedPO = await remoteDataSource.updatePurchaseOrder(updateParams);
             AppLogger.i('Orden de compra actualizada en servidor', tag: 'SYNC');
 
-            // ✅ Marcar PO como sincronizada en ISAR y actualizar con datos del servidor
+            // ✅ Marcar PO como sincronizada en ISAR y actualizar items con IDs del servidor
             try {
               final isar = IsarDatabase.instance.database;
               final isarPO = await isar.isarPurchaseOrders
@@ -4605,6 +5092,33 @@ class SyncService extends GetxService {
                 isarPO.markAsSynced();
                 await isar.writeTxn(() async {
                   await isar.isarPurchaseOrders.put(isarPO);
+
+                  // Actualizar items en ISAR con IDs asignados por el servidor
+                  // (evita duplicación si el usuario edita la PO otra vez offline)
+                  final serverPOEntity = updatedPO.toEntity();
+                  if (serverPOEntity.items.isNotEmpty) {
+                    // Eliminar items locales (pueden tener IDs temporales)
+                    final oldItems = await isar.isarPurchaseOrderItems
+                        .filter()
+                        .purchaseOrderServerIdEqualTo(operation.entityId)
+                        .findAll();
+                    if (oldItems.isNotEmpty) {
+                      await isar.isarPurchaseOrderItems
+                          .deleteAll(oldItems.map((i) => i.id).toList());
+                    }
+
+                    // Insertar items del servidor con IDs reales
+                    final newIsarItems = serverPOEntity.items.map((item) {
+                      final isarItem = IsarPurchaseOrderItem.fromEntity(item);
+                      isarItem.purchaseOrderServerId = operation.entityId;
+                      return isarItem;
+                    }).toList();
+                    await isar.isarPurchaseOrderItems.putAll(newIsarItems);
+                    AppLogger.d(
+                      '${newIsarItems.length} items ISAR actualizados con IDs del servidor para PO ${operation.entityId}',
+                      tag: 'SYNC',
+                    );
+                  }
                 });
                 AppLogger.d(
                   'PO ${operation.entityId} marcada como sincronizada en ISAR',

@@ -1,8 +1,15 @@
 // lib/features/purchase_orders/presentation/bindings/purchase_orders_binding.dart
 import 'package:get/get.dart';
+import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/network/network_info.dart';
+import '../../../../app/data/local/isar_database.dart';
+import '../../../inventory/data/datasources/inventory_remote_datasource.dart';
+import '../../../inventory/data/datasources/inventory_local_datasource.dart';
+import '../../../inventory/data/datasources/inventory_local_datasource_isar.dart';
+import '../../../inventory/data/repositories/inventory_repository_impl.dart';
+import '../../../inventory/domain/repositories/inventory_repository.dart';
 import '../../../inventory/domain/usecases/create_inventory_movement_usecase.dart';
-import '../../../inventory/presentation/bindings/inventory_binding.dart';
+import '../../../inventory/domain/usecases/get_warehouses_usecase.dart';
 import '../../data/datasources/purchase_order_local_datasource.dart';
 import '../../data/datasources/purchase_order_remote_datasource.dart';
 import '../../data/repositories/purchase_order_repository_impl.dart';
@@ -19,7 +26,6 @@ import '../../domain/usecases/send_purchase_order_usecase.dart';
 import '../../domain/usecases/receive_purchase_order_usecase.dart';
 import '../../domain/usecases/receive_purchase_order_and_update_inventory_usecase.dart';
 import '../../domain/usecases/cancel_purchase_order_usecase.dart';
-import '../../../inventory/domain/usecases/get_warehouses_usecase.dart';
 import '../controllers/purchase_orders_controller.dart';
 import '../controllers/purchase_order_detail_controller.dart';
 
@@ -81,11 +87,43 @@ class PurchaseOrdersBinding extends Bindings {
     );
   }
 
-  // Helper method to ensure inventory dependencies are registered
+  /// Registrar SOLO las dependencias de inventario que PO necesita.
+  /// NO carga InventoryBinding completo (evita 12 controllers + 30+ requests).
   void _ensureInventoryDependencies() {
+    if (Get.isRegistered<CreateInventoryMovementUseCase>() &&
+        Get.isRegistered<GetWarehousesUseCase>()) {
+      return; // Ya están registradas
+    }
+
+    // DataSources
+    if (!Get.isRegistered<InventoryRemoteDataSource>()) {
+      Get.lazyPut<InventoryRemoteDataSource>(
+        () => InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
+      );
+    }
+    if (!Get.isRegistered<InventoryLocalDataSource>()) {
+      Get.lazyPut<InventoryLocalDataSource>(
+        () => InventoryLocalDataSourceIsar(Get.find<IsarDatabase>()),
+      );
+    }
+
+    // Repository
+    if (!Get.isRegistered<InventoryRepository>()) {
+      Get.lazyPut<InventoryRepository>(
+        () => InventoryRepositoryImpl(
+          remoteDataSource: Get.find(),
+          localDataSource: Get.find(),
+          networkInfo: Get.find(),
+        ),
+      );
+    }
+
+    // Solo 2 use cases necesarios para PO
     if (!Get.isRegistered<CreateInventoryMovementUseCase>()) {
-      print('🔧 Purchase Orders: Registering inventory dependencies...');
-      InventoryBinding().dependencies();
+      Get.lazyPut(() => CreateInventoryMovementUseCase(Get.find()));
+    }
+    if (!Get.isRegistered<GetWarehousesUseCase>()) {
+      Get.lazyPut(() => GetWarehousesUseCase(Get.find()));
     }
   }
 }
@@ -98,18 +136,6 @@ class PurchaseOrderDetailBinding extends Bindings {
     
     // Ensure all required dependencies are registered
     _ensurePurchaseOrderDependencies();
-
-    // Ensure inventory dependencies are loaded for warehouse functionality
-    if (!Get.isRegistered<GetWarehousesUseCase>()) {
-      print('🔧 Loading inventory dependencies for warehouse selection...');
-      // Import and load inventory binding if needed
-      try {
-        Get.find<GetWarehousesUseCase>();
-      } catch (e) {
-        // If GetWarehousesUseCase is not available, we'll handle this in the controller
-        print('⚠️ GetWarehousesUseCase not globally available');
-      }
-    }
 
     // Detail Controller
     Get.lazyPut(() => PurchaseOrderDetailController(
@@ -186,11 +212,38 @@ class PurchaseOrderDetailBinding extends Bindings {
     }
   }
 
-  // Helper method to ensure inventory dependencies are registered
+  /// Registrar SOLO las dependencias de inventario que PO necesita.
+  /// NO carga InventoryBinding completo (evita 12 controllers + 30+ requests).
   void _ensureInventoryDependencies() {
+    if (Get.isRegistered<CreateInventoryMovementUseCase>() &&
+        Get.isRegistered<GetWarehousesUseCase>()) {
+      return;
+    }
+
+    if (!Get.isRegistered<InventoryRemoteDataSource>()) {
+      Get.lazyPut<InventoryRemoteDataSource>(
+        () => InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
+      );
+    }
+    if (!Get.isRegistered<InventoryLocalDataSource>()) {
+      Get.lazyPut<InventoryLocalDataSource>(
+        () => InventoryLocalDataSourceIsar(Get.find<IsarDatabase>()),
+      );
+    }
+    if (!Get.isRegistered<InventoryRepository>()) {
+      Get.lazyPut<InventoryRepository>(
+        () => InventoryRepositoryImpl(
+          remoteDataSource: Get.find(),
+          localDataSource: Get.find(),
+          networkInfo: Get.find(),
+        ),
+      );
+    }
     if (!Get.isRegistered<CreateInventoryMovementUseCase>()) {
-      print('🔧 Purchase Order Detail: Registering inventory dependencies...');
-      InventoryBinding().dependencies();
+      Get.lazyPut(() => CreateInventoryMovementUseCase(Get.find()));
+    }
+    if (!Get.isRegistered<GetWarehousesUseCase>()) {
+      Get.lazyPut(() => GetWarehousesUseCase(Get.find()));
     }
   }
 }

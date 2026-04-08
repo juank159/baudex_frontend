@@ -592,14 +592,16 @@ class CustomerCreditRemoteDataSourceImpl implements CustomerCreditRemoteDataSour
 
   /// Maneja respuestas de error del servidor
   ServerException _handleErrorResponse(Response response) {
-    final message = response.data?['message'] ?? 'Error en la solicitud';
+    final errData = response.data;
+    final message = (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error en la solicitud';
     return ServerException(message);
   }
 
   /// Maneja excepciones de Dio
   ServerException _handleDioException(DioException e) {
     if (e.response != null) {
-      final message = e.response?.data?['message'] ?? e.message ?? 'Error de conexión';
+      final errData = e.response?.data;
+      final message = (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? e.message ?? 'Error de conexión';
       return ServerException(message);
     }
     switch (e.type) {

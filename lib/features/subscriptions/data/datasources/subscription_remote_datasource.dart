@@ -165,7 +165,8 @@ class SubscriptionRemoteDataSourceImpl implements SubscriptionRemoteDataSource {
         return 'Tiempo de respuesta agotado';
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
-        final message = e.response?.data?['message'] ?? 'Error del servidor';
+        final errData = e.response?.data;
+        final message = (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error del servidor';
         return '[$statusCode] $message';
       case DioExceptionType.cancel:
         return 'Peticion cancelada';

@@ -1,6 +1,8 @@
 // lib/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart
+import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/usecases/get_purchase_order_by_id_usecase.dart';
@@ -13,7 +15,8 @@ import '../../domain/usecases/cancel_purchase_order_usecase.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
 import '../../../inventory/domain/usecases/get_warehouses_usecase.dart';
 import '../../../inventory/domain/entities/warehouse.dart';
-import 'package:collection/collection.dart';
+import '../../../inventory/data/models/warehouse_model.dart';
+import '../../../inventory/data/datasources/inventory_local_datasource_isar.dart';
 import 'purchase_orders_controller.dart';
 
 class PurchaseOrderDetailController extends GetxController {
@@ -470,40 +473,80 @@ class PurchaseOrderDetailController extends GetxController {
 
       result.fold(
         (failure) {
-          print('❌ Error loading warehouses: ${failure.message}');
-          availableWarehouses.clear();
+          print('⚠️ Error loading warehouses from server: ${failure.message}');
+          // Fallback a cache offline
+          _loadWarehousesFromCache();
         },
         (warehouses) {
           availableWarehouses.value =
               warehouses.where((w) => w.isActive).toList();
-
-          // Auto-select logic
-          if (availableWarehouses.length == 1) {
-            // If only one warehouse, auto-select it
-            selectedWarehouse.value = availableWarehouses.first;
-            print(
-              '🏢 Auto-selected single warehouse: ${selectedWarehouse.value!.name}',
-            );
-          } else if (availableWarehouses.isNotEmpty) {
-            // If multiple warehouses, try to find "principal" or first one
-            final principalWarehouse = availableWarehouses.firstWhereOrNull(
-              (w) =>
-                  w.name.toLowerCase().contains('principal') ||
-                  w.code.toLowerCase().contains('main'),
-            );
-            selectedWarehouse.value =
-                principalWarehouse ?? availableWarehouses.first;
-            print(
-              '🏢 Auto-selected warehouse: ${selectedWarehouse.value!.name}',
-            );
-          }
+          _autoSelectWarehouse();
         },
       );
     } catch (e) {
-      print('❌ Exception loading warehouses: $e');
-      availableWarehouses.clear();
+      print('⚠️ Exception loading warehouses: $e');
+      // Fallback a cache offline
+      _loadWarehousesFromCache();
     } finally {
       isLoadingWarehouses.value = false;
+    }
+  }
+
+  /// Fallback offline: leer warehouses desde SharedPreferences o memory cache
+  Future<void> _loadWarehousesFromCache() async {
+    // Intento 1: SharedPreferences (persistido por FullSyncService)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('inventory_warehouses_cache');
+      if (cached != null) {
+        final cacheData = jsonDecode(cached) as Map<String, dynamic>;
+        final List<dynamic> warehouseList = cacheData['data'] ?? [];
+        if (warehouseList.isNotEmpty) {
+          final warehouses = warehouseList
+              .map((json) => WarehouseModel.fromJson(json as Map<String, dynamic>))
+              .where((w) => w.isActive)
+              .map((m) => m.toEntity())
+              .toList();
+          if (warehouses.isNotEmpty) {
+            availableWarehouses.value = warehouses;
+            _autoSelectWarehouse();
+            print('✅ ${warehouses.length} warehouses cargados desde cache offline');
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      print('⚠️ Error leyendo warehouses de SharedPreferences: $e');
+    }
+
+    // Intento 2: Memory cache estático de InventoryLocalDataSourceIsar
+    try {
+      final memoryCached = InventoryLocalDataSourceIsar.getWarehousesMemoryCache();
+      if (memoryCached != null && memoryCached.isNotEmpty) {
+        availableWarehouses.value = memoryCached
+            .where((w) => w.isActive)
+            .map((m) => m.toEntity())
+            .toList();
+        _autoSelectWarehouse();
+        print('✅ ${availableWarehouses.length} warehouses cargados desde memory cache');
+        return;
+      }
+    } catch (_) {}
+
+    availableWarehouses.clear();
+  }
+
+  /// Auto-seleccionar warehouse (principal o único)
+  void _autoSelectWarehouse() {
+    if (availableWarehouses.length == 1) {
+      selectedWarehouse.value = availableWarehouses.first;
+    } else if (availableWarehouses.isNotEmpty) {
+      final main = availableWarehouses.firstWhereOrNull(
+        (w) => w.isMainWarehouse ||
+            w.name.toLowerCase().contains('principal') ||
+            w.code.toLowerCase().contains('main'),
+      );
+      selectedWarehouse.value = main ?? availableWarehouses.first;
     }
   }
 

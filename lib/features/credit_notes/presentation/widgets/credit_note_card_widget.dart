@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/presentation/widgets/offline_badge.dart';
 import '../../domain/entities/credit_note.dart';
 import 'credit_note_status_widget.dart';
 
@@ -47,14 +48,20 @@ class CreditNoteCardWidget extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            creditNote.number,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: ElegantLightTheme.textPrimary,
-                              letterSpacing: -0.3,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                creditNote.number,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: ElegantLightTheme.textPrimary,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              OfflineBadge(entityId: creditNote.id, offlinePrefixes: const ['creditnote_offline_']),
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(

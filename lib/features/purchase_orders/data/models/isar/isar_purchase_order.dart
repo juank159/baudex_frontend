@@ -246,6 +246,40 @@ class IsarPurchaseOrder {
     );
   }
 
+  /// Convierte a entidad usando items externos (cargados por query directa,
+  /// NO por IsarLinks que puede estar vacío/roto)
+  PurchaseOrder toEntityWithItems(List<IsarPurchaseOrderItem> externalItems) {
+    return PurchaseOrder(
+      id: serverId,
+      orderNumber: orderNumber,
+      supplierId: supplierId,
+      supplierName: supplierName,
+      status: _mapIsarPurchaseOrderStatus(status),
+      priority: _mapIsarPurchaseOrderPriority(priority),
+      orderDate: orderDate,
+      expectedDeliveryDate: expectedDeliveryDate,
+      deliveredDate: deliveredDate,
+      currency: currency,
+      subtotal: subtotal,
+      taxAmount: taxAmount,
+      discountAmount: discountAmount,
+      totalAmount: totalAmount,
+      items: externalItems.map((item) => item.toEntity()).toList(),
+      notes: notes,
+      internalNotes: internalNotes,
+      deliveryAddress: deliveryAddress,
+      contactPerson: contactPerson,
+      contactPhone: contactPhone,
+      contactEmail: contactEmail,
+      attachments: attachmentsJson != null ? _decodeStringList(attachmentsJson!) : null,
+      createdBy: createdBy,
+      approvedBy: approvedBy,
+      approvedAt: approvedAt,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+
   // Helpers para mapeo de enums
   static IsarPurchaseOrderStatus _mapPurchaseOrderStatus(PurchaseOrderStatus status) {
     switch (status) {

@@ -27,8 +27,8 @@ class ServerFailure extends Failure {
           code: statusCode,
         );
       case 401:
-        return const ServerFailure(
-          'No autorizado. Inicie sesión nuevamente.',
+        return ServerFailure(
+          message.isNotEmpty ? message : 'No autorizado. Inicie sesión nuevamente.',
           code: 401,
         );
       case 403:

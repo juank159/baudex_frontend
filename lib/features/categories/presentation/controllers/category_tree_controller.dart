@@ -1,12 +1,14 @@
 // lib/features/categories/presentation/controllers/category_tree_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../domain/entities/category_tree.dart';
 import '../../domain/usecases/get_category_tree_usecase.dart';
 
-class CategoryTreeController extends GetxController {
+class CategoryTreeController extends GetxController
+    with SyncAutoRefreshMixin {
   // Dependencies
   final GetCategoryTreeUseCase _getCategoryTreeUseCase;
 
@@ -57,8 +59,14 @@ class CategoryTreeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     loadCategoryTree();
     _setupSearchListener();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    loadCategoryTree(showLoading: false);
   }
 
   @override

@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/purchase_order.dart';
@@ -12,7 +13,8 @@ import '../../domain/usecases/get_purchase_order_stats_usecase.dart';
 import '../../domain/usecases/approve_purchase_order_usecase.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
 
-class PurchaseOrdersController extends GetxController {
+class PurchaseOrdersController extends GetxController
+    with SyncAutoRefreshMixin {
   final GetPurchaseOrdersUseCase getPurchaseOrdersUseCase;
   final DeletePurchaseOrderUseCase deletePurchaseOrderUseCase;
   final SearchPurchaseOrdersUseCase searchPurchaseOrdersUseCase;
@@ -26,6 +28,35 @@ class PurchaseOrdersController extends GetxController {
     required this.getPurchaseOrderStatsUseCase,
     required this.approvePurchaseOrderUseCase,
   });
+
+  // ==================== CACHÉ ESTÁTICO (DRY: InvoiceListController) ====================
+  static List<PurchaseOrder>? _cachedOrders;
+  static PurchaseOrderStats? _cachedStats;
+  static DateTime? _lastCacheTime;
+  static const _cacheValidityDuration = Duration(minutes: 5);
+  static bool _needsRefreshOnNextVisit = false;
+
+  static bool _isCacheValid() {
+    if (_cachedOrders == null || _lastCacheTime == null) return false;
+    return DateTime.now().difference(_lastCacheTime!) < _cacheValidityDuration;
+  }
+
+  static void _updateCache(List<PurchaseOrder> orders, PurchaseOrderStats? statsData) {
+    _cachedOrders = List.from(orders);
+    _cachedStats = statsData;
+    _lastCacheTime = DateTime.now();
+  }
+
+  /// Invalidar cache para forzar refresh en próxima visita
+  static void invalidateCache() {
+    _cachedOrders = null;
+    _cachedStats = null;
+    _lastCacheTime = null;
+    _needsRefreshOnNextVisit = true;
+  }
+
+  // Guard para evitar refresh concurrentes en background
+  bool _isRefreshingInBackground = false;
 
   // ==================== REACTIVE VARIABLES ====================
 
@@ -72,8 +103,15 @@ class PurchaseOrdersController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     _initializeData();
     _setupSearchListener();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    invalidateCache();
+    _refreshInBackground();
   }
 
   @override
@@ -131,9 +169,64 @@ class PurchaseOrdersController extends GetxController {
 
   Timer? _searchTimer;
 
+  /// Refrescar datos en background sin afectar UI
+  Future<void> _refreshInBackground() async {
+    if (_isRefreshingInBackground) return; // Evitar llamadas concurrentes
+    _isRefreshingInBackground = true;
+    try {
+      final params = PurchaseOrderQueryParams(
+        page: 1,
+        limit: pageSize,
+        sortBy: sortBy.value,
+        sortOrder: sortOrder.value,
+      );
+      final result = await getPurchaseOrdersUseCase(params);
+      result.fold((_) {}, (response) {
+        if (!isClosed) {
+          purchaseOrders.value = response.data;
+          if (searchQuery.value.isEmpty) {
+            filteredPurchaseOrders.value = response.data;
+          }
+          _updateCache(response.data, stats.value);
+        }
+      });
+      // También refrescar stats en background
+      final statsResult = await getPurchaseOrderStatsUseCase(const NoParams());
+      statsResult.fold((_) {}, (s) {
+        if (!isClosed) {
+          stats.value = s;
+          _cachedStats = s;
+        }
+      });
+    } catch (_) {
+    } finally {
+      _isRefreshingInBackground = false;
+    }
+  }
+
+  /// Verificar si hay filtros activos
+  bool _hasActiveFilters() {
+    return statusFilter.value != null || priorityFilter.value != null ||
+        supplierIdFilter.value.isNotEmpty || startDateFilter.value != null ||
+        endDateFilter.value != null || showOverdueOnly.value ||
+        showPendingApprovalOnly.value;
+  }
+
   // ==================== DATA LOADING ====================
 
-  Future<void> loadPurchaseOrders({bool showLoading = true}) async {
+  Future<void> loadPurchaseOrders({bool showLoading = true, bool forceRefresh = false}) async {
+    // Cache-first: Si hay cache válido y no hay filtros/búsqueda, usar cache
+    if (!forceRefresh && !_needsRefreshOnNextVisit && _isCacheValid() &&
+        currentPage.value == 1 && searchQuery.value.isEmpty && !_hasActiveFilters()) {
+      purchaseOrders.value = List.from(_cachedOrders!);
+      filteredPurchaseOrders.value = List.from(_cachedOrders!);
+      if (_cachedStats != null) stats.value = _cachedStats;
+      isLoading.value = false;
+      _refreshInBackground();
+      return;
+    }
+    _needsRefreshOnNextVisit = false;
+
     try {
       if (showLoading) isLoading.value = true;
       error.value = '';
@@ -184,6 +277,11 @@ class PurchaseOrdersController extends GetxController {
           // Si no hay búsqueda activa, actualizar lista filtrada
           if (searchQuery.value.isEmpty) {
             filteredPurchaseOrders.value = purchaseOrders;
+          }
+
+          // Actualizar cache en página 1 sin filtros
+          if (currentPage.value == 1 && searchQuery.value.isEmpty && !_hasActiveFilters()) {
+            _updateCache(purchaseOrders.toList(), stats.value);
           }
         },
       );
@@ -321,8 +419,8 @@ class PurchaseOrdersController extends GetxController {
       filteredPurchaseOrders.clear();
       error.value = '';
 
-      // Load fresh data
-      await loadPurchaseOrders(showLoading: false);
+      // Load fresh data — SIEMPRE forzar refresh (no usar cache)
+      await loadPurchaseOrders(showLoading: false, forceRefresh: true);
       await loadStats();
 
       print('✅ PurchaseOrdersController: Refresh completed successfully');
@@ -344,7 +442,7 @@ class PurchaseOrdersController extends GetxController {
         '🎆 Actualizando lista después de ${isUpdate ? 'actualizar' : 'crear'} orden: $newOrderId',
       );
 
-      // Forzar refresh completo para asegurar que aparezca la nueva orden
+      invalidateCache();
       await refreshPurchaseOrders();
 
       // Si tenemos el ID de la nueva orden, intentar ponerla al inicio
@@ -387,7 +485,7 @@ class PurchaseOrdersController extends GetxController {
   void reloadPurchaseOrders() {
     currentPage.value = 1;
     purchaseOrders.clear();
-    loadPurchaseOrders();
+    loadPurchaseOrders(forceRefresh: true);
   }
 
   /// Actualizar una PO específica en la lista en memoria (sin re-cargar del servidor)
@@ -452,6 +550,7 @@ class PurchaseOrdersController extends GetxController {
               : 'asc';
     }
 
+    invalidateCache(); // Cache tiene orden anterior
     currentPage.value = 1;
     purchaseOrders.clear();
     loadPurchaseOrders();
@@ -508,7 +607,7 @@ class PurchaseOrdersController extends GetxController {
               colorText: Colors.green.shade800,
             );
 
-            // Recargar lista
+            invalidateCache();
             refreshPurchaseOrders();
           },
         );
@@ -558,6 +657,7 @@ class PurchaseOrdersController extends GetxController {
             purchaseOrders[index] = approvedOrder;
             filteredPurchaseOrders.refresh();
           }
+          invalidateCache();
         },
       );
     } catch (e) {

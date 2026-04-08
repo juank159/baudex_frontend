@@ -1,6 +1,8 @@
 // lib/features/purchase_orders/presentation/controllers/purchase_order_form_controller.dart
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import '../../../../app/data/local/sync_service.dart';
+import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/usecases/create_purchase_order_usecase.dart';
@@ -78,6 +80,9 @@ class PurchaseOrderFormController extends GetxController
   final itemSearchController = TextEditingController();
   final RxString itemSearchQuery = ''.obs;
 
+  // ScrollController para la lista de items
+  final itemsScrollController = ScrollController();
+
   // Validation flags
   final RxBool supplierError = false.obs;
   final RxBool orderDateError = false.obs;
@@ -93,6 +98,7 @@ class PurchaseOrderFormController extends GetxController
   void onInit() {
     print('🏗️ PurchaseOrderFormController onInit iniciado');
     super.onInit();
+    SyncService.notifyFormOpened();
     try {
       // Initialize truly unique form key using timestamp to prevent GlobalKey conflicts
       final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -111,6 +117,7 @@ class PurchaseOrderFormController extends GetxController
 
   @override
   void onClose() {
+    SyncService.notifyFormClosed();
     print(
       '🗑️ PurchaseOrderFormController: Iniciando dispose de controladores...',
     );
@@ -128,6 +135,9 @@ class PurchaseOrderFormController extends GetxController
       error.value = '';
       items.clear();
 
+      // Dispose scroll controller
+      itemsScrollController.dispose();
+
       // Dispose all text controllers
       _disposeControllers();
 
@@ -142,7 +152,10 @@ class PurchaseOrderFormController extends GetxController
   // ==================== INITIALIZATION ====================
 
   void _initializeForm() {
-    // Valores por defecto
+    // Valores por defecto — usar timezone del tenant (no DateTime.now() del device)
+    final dtService = Get.find<TenantDateTimeService>();
+    orderDate.value = dtService.now();
+    expectedDeliveryDate.value = dtService.now().add(const Duration(days: 7));
     currencyController.text = 'COP';
     orderDateController.text = _formatDate(orderDate.value);
     expectedDeliveryDateController.text = _formatDate(
@@ -421,6 +434,28 @@ class PurchaseOrderFormController extends GetxController
     items.add(PurchaseOrderItemForm());
     activeItemIndex.value = items.length - 1;
     calculateTotals();
+    // Auto-scroll al nuevo item después de que el frame se renderice
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (itemsScrollController.hasClients) {
+        itemsScrollController.animateTo(
+          itemsScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _scrollToItem(int index) {
+    if (!itemsScrollController.hasClients) return;
+    // Estimar posición: cada item completado ~60px, item activo ~280px
+    final estimatedOffset = index * 65.0;
+    final maxScroll = itemsScrollController.position.maxScrollExtent;
+    itemsScrollController.animateTo(
+      estimatedOffset.clamp(0.0, maxScroll),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   void clearItemSearch() {
@@ -750,6 +785,9 @@ class PurchaseOrderFormController extends GetxController
     // Mostrar notificación de éxito inmediatamente
     _showSuccessNotification(savedOrder);
 
+    // Invalidar cache para que loadPurchaseOrders() no sobreescriba con datos viejos
+    PurchaseOrdersController.invalidateCache();
+
     // Actualizar la PO directamente en la lista (sin re-cargar del servidor)
     // Esto evita que el servidor sobrescriba cambios offline aún no sincronizados
     Future.microtask(() {
@@ -762,25 +800,50 @@ class PurchaseOrderFormController extends GetxController
 
   void _showSuccessNotification(PurchaseOrder order) {
     final isUpdate = isEditMode.value;
-    final actionText = isUpdate ? 'actualizada' : 'creada';
-    final icon = isUpdate ? Icons.edit_note : Icons.add_task;
-    final title = isUpdate ? 'Orden Actualizada' : 'Orden Creada';
+    final hasTempId = order.id.startsWith('po_offline_') ||
+        (order.id.startsWith('po_') && !RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$').hasMatch(order.id));
+    // Detectar offline para CREATEs (ID temporal) Y para UPDATEs (servidor no alcanzable)
+    bool isOffline = hasTempId;
+    if (!isOffline && isUpdate) {
+      try {
+        final networkInfo = Get.find<NetworkInfo>();
+        isOffline = !networkInfo.isServerReachable;
+      } catch (_) {}
+    }
 
     Future.delayed(const Duration(milliseconds: 300), () {
-      Get.snackbar(
-        title,
-        'Orden ${order.orderNumber ?? '#${order.id.substring(0, 8)}'} $actionText exitosamente',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.shade50,
-        colorText: Colors.green.shade800,
-        borderColor: Colors.green.shade300,
-        borderWidth: 1.5,
-        icon: Icon(icon, color: Colors.green.shade600, size: 24),
-        duration: const Duration(seconds: 3),
-        margin: const EdgeInsets.all(12),
-        borderRadius: 12,
-        isDismissible: true,
-      );
+      if (isOffline) {
+        Get.snackbar(
+          'Guardado Offline',
+          'Se sincronizará automáticamente cuando vuelva la conexión',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+          icon: Icon(Icons.cloud_off, color: Colors.orange.shade800, size: 24),
+          duration: const Duration(seconds: 3),
+          margin: const EdgeInsets.all(12),
+          borderRadius: 12,
+          isDismissible: true,
+        );
+      } else {
+        final actionText = isUpdate ? 'actualizada' : 'creada';
+        final icon = isUpdate ? Icons.edit_note : Icons.add_task;
+        final title = isUpdate ? 'Orden Actualizada' : 'Orden Creada';
+        Get.snackbar(
+          title,
+          'Orden ${order.orderNumber ?? '#${order.id.substring(0, 8)}'} $actionText exitosamente',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.green.shade50,
+          colorText: Colors.green.shade800,
+          borderColor: Colors.green.shade300,
+          borderWidth: 1.5,
+          icon: Icon(icon, color: Colors.green.shade600, size: 24),
+          duration: const Duration(seconds: 3),
+          margin: const EdgeInsets.all(12),
+          borderRadius: 12,
+          isDismissible: true,
+        );
+      }
     });
   }
 
@@ -971,11 +1034,36 @@ class PurchaseOrderFormController extends GetxController
 
   void selectProductForItem(int index, Product product) {
     if (index >= 0 && index < items.length) {
+      // Verificar si el producto ya existe en items completados
+      final existingIndex = items.indexWhere(
+        (item) => item.productId == product.id && item.isValid,
+      );
+
+      if (existingIndex >= 0 && existingIndex != index) {
+        // Remover el item vacío actual
+        items.removeAt(index);
+        // Activar el item existente para edición
+        final adjustedIndex = existingIndex > index ? existingIndex - 1 : existingIndex;
+        activeItemIndex.value = adjustedIndex;
+        calculateTotals();
+        _validateForm();
+        Get.snackbar(
+          'Producto ya existe',
+          '${product.name} ya está en la lista. Puedes editarlo directamente.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+        // Scroll al item existente
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToItem(adjustedIndex);
+        });
+        return;
+      }
+
       final currentItem = items[index];
       final updatedItem = currentItem.copyWith(
         productId: product.id,
         productName: product.name,
-        // ✅ NO usar precio de venta - iniciar en 0 para que el usuario ingrese el precio de compra
         unitPrice: 0.0,
       );
       items[index] = updatedItem;

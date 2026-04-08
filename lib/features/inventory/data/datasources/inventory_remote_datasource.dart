@@ -1155,7 +1155,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         return Exception('Tiempo de espera agotado. Verifica tu conexión.');
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
-        final message = e.response?.data?['message'] ?? 'Error del servidor';
+        final errData = e.response?.data;
+        final message = (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error del servidor';
         return Exception('Error $statusCode: $message');
       case DioExceptionType.cancel:
         return Exception('Operación cancelada');

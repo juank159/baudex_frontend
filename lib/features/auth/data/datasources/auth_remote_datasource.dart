@@ -39,12 +39,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   const AuthRemoteDataSourceImpl({required this.dioClient});
 
+  static final _publicAuthOptions = Options(
+    extra: {'skip_auth_interceptor': true},
+  );
+
   @override
   Future<AuthResponseModel> login(LoginRequestModel request) async {
     try {
       final response = await dioClient.post(
         ApiConstants.login,
         data: request.toJson(),
+        options: _publicAuthOptions,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -73,6 +78,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final response = await dioClient.post(
         ApiConstants.register,
         data: request.toJson(),
+        options: _publicAuthOptions,
       );
 
       if (response.statusCode == 201 || response.statusCode == 200) {
@@ -206,6 +212,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           'email': email,
           'code': code,
         },
+        options: _publicAuthOptions,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -233,6 +240,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final response = await dioClient.post(
         ApiConstants.resendVerification,
         data: {'email': email},
+        options: _publicAuthOptions,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -260,6 +268,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final response = await dioClient.post(
         ApiConstants.forgotPassword,
         data: {'email': email},
+        options: _publicAuthOptions,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -291,6 +300,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           'code': code,
           'newPassword': newPassword,
         },
+        options: _publicAuthOptions,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {

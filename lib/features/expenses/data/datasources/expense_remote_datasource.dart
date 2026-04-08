@@ -120,8 +120,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
 
       return ExpensesListResponseModel.fromJson(response.data);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener gastos',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener gastos',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -144,8 +145,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
 
       throw ServerException('Gasto no encontrado', statusCode: 404);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener el gasto',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -174,8 +176,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         statusCode: 500,
       );
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al crear el gasto',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al crear el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -207,8 +210,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         statusCode: 500,
       );
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al actualizar el gasto',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al actualizar el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -224,8 +228,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     try {
       await dioClient.delete('${ApiConstants.expenses}/$id');
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al eliminar el gasto',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al eliminar el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -253,8 +258,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         statusCode: 500,
       );
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al enviar el gasto',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al enviar el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -286,8 +292,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         statusCode: 500,
       );
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al aprobar el gasto',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al aprobar el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -316,8 +323,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         statusCode: 500,
       );
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al rechazar el gasto',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al rechazar el gasto',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -345,8 +353,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         statusCode: 500,
       );
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al marcar como pagado',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al marcar como pagado',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -368,8 +377,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
       final List<dynamic> data = response.data['data'] ?? [];
       return data.map((expense) => ExpenseModel.fromJson(expense)).toList();
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al buscar gastos',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al buscar gastos',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -398,8 +408,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
 
       return ExpenseStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener estadísticas',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener estadísticas',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -435,8 +446,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
 
       return ExpenseCategoriesResponseModel.fromJson(response.data);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener categorías',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener categorías',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -472,8 +484,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
 
       return ExpenseCategoriesResponseModel.fromJson(response.data);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener categorías con estadísticas',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -493,8 +506,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
       );
       return ExpenseCategoryModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener la categoría',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener la categoría',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -517,8 +531,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
 
       return ExpenseCategoryModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al crear la categoría',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al crear la categoría',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -542,8 +557,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
 
       return ExpenseCategoryModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al actualizar la categoría',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al actualizar la categoría',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -559,8 +575,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     try {
       await dioClient.delete('${ApiConstants.expenseCategories}/$id');
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al eliminar la categoría',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al eliminar la categoría',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -586,8 +603,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
           .map((category) => ExpenseCategoryModel.fromJson(category))
           .toList();
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al buscar categorías',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al buscar categorías',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -618,8 +636,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
       final List<dynamic> urls = response.data['attachmentUrls'] ?? [];
       return urls.cast<String>();
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al subir adjuntos',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al subir adjuntos',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -637,8 +656,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         '${ApiConstants.expenses}/$expenseId/attachments/$filename',
       );
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al eliminar adjunto',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al eliminar adjunto',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {

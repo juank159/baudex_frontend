@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/presentation/widgets/offline_badge.dart';
 import '../../domain/entities/supplier.dart';
 
 class SupplierCardWidget extends StatelessWidget {
@@ -109,39 +110,52 @@ class SupplierCardWidget extends StatelessWidget {
                       ),
                     ),
 
-                    // Badge de estado con gradiente
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: _getStatusGradient().scale(0.3),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _getStatusColor().withValues(alpha: 0.2),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
+                    // Badge de estado + offline
+                    Flexible(
+                      flex: 0,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            _getStatusIcon(),
-                            size: 10,
-                            color: _getStatusColor(),
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            _getStatusText(),
-                            style: TextStyle(
-                              color: _getStatusColor(),
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
                             ),
+                            decoration: BoxDecoration(
+                              gradient: _getStatusGradient().scale(0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _getStatusColor().withValues(alpha: 0.2),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _getStatusIcon(),
+                                  size: 10,
+                                  color: _getStatusColor(),
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  _getStatusText(),
+                                  style: TextStyle(
+                                    color: _getStatusColor(),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          OfflineBadge(
+                            entityId: supplier.id,
+                            offlinePrefixes: const ['supplier_offline_'],
                           ),
                         ],
                       ),
@@ -473,6 +487,10 @@ class SupplierCardWidget extends StatelessWidget {
                           ),
                         ],
                       ),
+                    ),
+                    OfflineBadge(
+                      entityId: supplier.id,
+                      offlinePrefixes: const ['supplier_offline_'],
                     ),
                     const SizedBox(height: 12),
 

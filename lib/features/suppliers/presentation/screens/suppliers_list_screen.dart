@@ -494,8 +494,8 @@ class SuppliersListScreen extends GetView<SuppliersController> {
     return Center(
       child: Container(
         constraints: BoxConstraints(maxWidth: isMobile ? 340 : 480),
-        margin: const EdgeInsets.all(24),
-        padding: EdgeInsets.all(isMobile ? 32 : 48),
+        margin: EdgeInsets.all(isMobile ? 16 : 24),
+        padding: EdgeInsets.all(isMobile ? 20 : 40),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
@@ -508,14 +508,15 @@ class SuppliersListScreen extends GetView<SuppliersController> {
             ),
           ],
         ),
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Icono con gradiente circular
             Container(
-              width: isMobile ? 100 : 120,
-              height: isMobile ? 100 : 120,
+              width: isMobile ? 64 : 90,
+              height: isMobile ? 64 : 90,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -535,7 +536,7 @@ class SuppliersListScreen extends GetView<SuppliersController> {
               ),
               child: Icon(
                 hasSearch ? Icons.search_off : Icons.business_outlined,
-                size: isMobile ? 50 : 60,
+                size: isMobile ? 32 : 44,
                 color:
                     hasSearch
                         ? ElegantLightTheme.accentOrange
@@ -543,7 +544,7 @@ class SuppliersListScreen extends GetView<SuppliersController> {
               ),
             ),
 
-            SizedBox(height: isMobile ? 24 : 32),
+            SizedBox(height: isMobile ? 16 : 24),
 
             // Título
             Text(
@@ -551,7 +552,7 @@ class SuppliersListScreen extends GetView<SuppliersController> {
                   ? 'No se encontraron proveedores'
                   : 'No hay proveedores registrados',
               style: TextStyle(
-                fontSize: isMobile ? 20 : 24,
+                fontSize: isMobile ? 16 : 20,
                 color: ElegantLightTheme.textPrimary,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
@@ -559,7 +560,7 @@ class SuppliersListScreen extends GetView<SuppliersController> {
               textAlign: TextAlign.center,
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // Descripción
             Text(
@@ -568,13 +569,13 @@ class SuppliersListScreen extends GetView<SuppliersController> {
                   : 'Comienza agregando tu primer proveedor para llevar un mejor control',
               style: TextStyle(
                 color: ElegantLightTheme.textSecondary,
-                fontSize: isMobile ? 14 : 15,
-                height: 1.5,
+                fontSize: isMobile ? 13 : 14,
+                height: 1.4,
               ),
               textAlign: TextAlign.center,
             ),
 
-            SizedBox(height: isMobile ? 28 : 36),
+            SizedBox(height: isMobile ? 20 : 28),
 
             // Botón elegante
             if (hasSearch)
@@ -599,6 +600,7 @@ class SuppliersListScreen extends GetView<SuppliersController> {
                 isOutline: false,
               ),
           ],
+        ),
         ),
       ),
     );

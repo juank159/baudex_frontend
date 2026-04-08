@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
 import '../../../../app/core/utils/number_input_formatter.dart';
 import '../../domain/entities/customer.dart';
@@ -128,6 +129,7 @@ class CustomerFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    SyncService.notifyFormOpened();
     _log('🚀 CustomerFormController: Inicializando...');
     _log(
       '🔍 CustomerFormController: isEditMode = $isEditMode, customerId = "$customerId"',
@@ -138,8 +140,9 @@ class CustomerFormController extends GetxController {
 
   @override
   void onClose() {
+    SyncService.notifyFormClosed();
     _log('🔚 CustomerFormController: Liberando recursos...');
-    
+
     try {
       _log('⏹️ Cancelando timer de validación de email...');
       _emailValidationTimer?.cancel();
@@ -445,12 +448,13 @@ class CustomerFormController extends GetxController {
         _log(
           '✅ CustomerFormController: Cliente creado exitosamente - ${customer.displayName}',
         );
-        _showSuccess('Cliente creado exitosamente');
 
         // Refrescar listado de clientes para que aparezca el nuevo
         _refreshCustomersList();
 
+        // Navegar primero, luego snackbar (se muestra en el listado)
         Get.back(result: customer);
+        _showSuccess('Cliente creado exitosamente');
       },
     );
   }
@@ -506,12 +510,13 @@ class CustomerFormController extends GetxController {
         _log(
           '✅ CustomerFormController: Cliente actualizado exitosamente - ${customer.displayName}',
         );
-        _showSuccess('Cliente actualizado exitosamente');
 
         // Refrescar listado de clientes para que refleje los cambios
         _refreshCustomersList();
 
+        // Navegar primero, luego snackbar (se muestra en el listado)
         Get.back(result: customer);
+        _showSuccess('Cliente actualizado exitosamente');
       },
     );
   }

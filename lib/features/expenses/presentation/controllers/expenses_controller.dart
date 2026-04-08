@@ -1,6 +1,8 @@
 // lib/features/expenses/presentation/controllers/expenses_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/cache_first_mixin.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/repositories/expense_repository.dart' show PaginationMeta;
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_stats.dart';
@@ -10,7 +12,8 @@ import '../../domain/usecases/get_expense_stats_usecase.dart';
 import '../../domain/usecases/approve_expense_usecase.dart';
 import '../../domain/usecases/submit_expense_usecase.dart';
 
-class ExpensesController extends GetxController {
+class ExpensesController extends GetxController
+    with CacheFirstMixin<Expense>, SyncAutoRefreshMixin {
   // Dependencies
   final GetExpensesUseCase _getExpensesUseCase;
   final DeleteExpenseUseCase _deleteExpenseUseCase;
@@ -107,7 +110,20 @@ class ExpensesController extends GetxController {
   void onInit() {
     super.onInit();
     _setupScrollListener();
+    setupSyncListener();
     print('🎯 ExpensesController onInit() llamado');
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    invalidateCache();
+    await _refreshInBackground();
+  }
+
+  Future<void> _refreshInBackground() async {
+    refreshInBackground(() async {
+      await Future.wait([_fetchExpenses(), loadStats()]);
+    });
   }
 
   @override
@@ -149,49 +165,72 @@ class ExpensesController extends GetxController {
 
   // ==================== PUBLIC METHODS ====================
 
-  Future<void> loadExpenses({bool showLoading = true}) async {
-    if (_isLoading.value) {
-      print('⚠️ Ya hay una carga en progreso, ignorando...');
+  Future<void> loadExpenses({bool showLoading = true, bool forceRefresh = false}) async {
+    if (_isLoading.value) return;
+
+    // Cache-first
+    if (tryLoadFromCache(
+      onHit: (items) { _expenses.value = List.from(items); },
+      onStatsHit: (s) => _stats.value = s as ExpenseStats?,
+      hasFilters: _hasActiveFilters(),
+      isFirstPage: _currentPage.value == 1,
+      isSearching: _searchTerm.value.isNotEmpty,
+      forceRefresh: forceRefresh,
+    )) {
+      _isLoading.value = false;
+      refreshInBackground(() async {
+        await Future.wait([_fetchExpenses(), loadStats()]);
+      });
       return;
     }
 
     if (showLoading) _isLoading.value = true;
 
     try {
-      print('📦 Cargando gastos...');
-
-      final result = await _getExpensesUseCase(
-        GetExpensesParams(
-          page: 1,
-          limit: _pageSize,
-          search: _searchTerm.value.isEmpty ? null : _searchTerm.value,
-          status: _currentStatus.value?.name,
-          type: _currentType.value?.name,
-          categoryId: _selectedCategoryId.value,
-          startDate: _startDate.value,
-          endDate: _endDate.value,
-          orderBy: _sortBy.value,
-          orderDirection: _sortOrder.value,
-        ),
-      );
-
-      result.fold(
-        (failure) {
-          _showError('Error al cargar gastos', failure.message);
-          _expenses.clear();
-        },
-        (paginatedResult) {
-          _expenses.value = paginatedResult.data;
-          _updatePaginationInfo(paginatedResult.meta);
-          print('✅ Gastos cargados: ${paginatedResult.data.length}');
-        },
-      );
+      await _fetchExpenses();
     } catch (e) {
       print('❌ Error inesperado al cargar gastos: $e');
-      _showError('Error inesperado', 'Error al cargar gastos');
     } finally {
       _isLoading.value = false;
     }
+  }
+
+  Future<void> _fetchExpenses() async {
+    final result = await _getExpensesUseCase(
+      GetExpensesParams(
+        page: 1,
+        limit: _pageSize,
+        search: _searchTerm.value.isEmpty ? null : _searchTerm.value,
+        status: _currentStatus.value?.name,
+        type: _currentType.value?.name,
+        categoryId: _selectedCategoryId.value,
+        startDate: _startDate.value,
+        endDate: _endDate.value,
+        orderBy: _sortBy.value,
+        orderDirection: _sortOrder.value,
+      ),
+    );
+
+    result.fold(
+      (failure) {
+        _showError('Error al cargar gastos', failure.message);
+      },
+      (paginatedResult) {
+        _expenses.value = paginatedResult.data;
+        _updatePaginationInfo(paginatedResult.meta);
+        if (_currentPage.value == 1 && !_hasActiveFilters()) {
+          updateCache(paginatedResult.data, stats: _stats.value);
+        }
+      },
+    );
+  }
+
+  bool _hasActiveFilters() {
+    return _currentStatus.value != null ||
+        _currentType.value != null ||
+        _selectedCategoryId.value != null ||
+        _startDate.value != null ||
+        _endDate.value != null;
   }
 
   Future<void> loadMoreExpenses() async {
@@ -233,21 +272,17 @@ class ExpensesController extends GetxController {
   }
 
   Future<void> refreshExpenses() async {
-    if (_isRefreshing.value) {
-      print('⚠️ Ya hay un refresco en progreso, ignorando...');
-      return;
-    }
+    if (_isRefreshing.value) return;
 
-    print('🔄 Refrescando gastos...');
     _isRefreshing.value = true;
     _currentPage.value = 1;
+    invalidateCache();
 
     try {
       await Future.wait([
-        loadExpenses(showLoading: false),
+        loadExpenses(showLoading: false, forceRefresh: true),
         loadStats(),
       ]);
-      print('✅ Refresco completado exitosamente');
     } catch (e) {
       print('❌ Error durante el refresco: $e');
     } finally {
@@ -272,6 +307,7 @@ class ExpensesController extends GetxController {
         (_) {
           _showSuccess('Gasto eliminado exitosamente');
           _expenses.removeWhere((expense) => expense.id == expenseId);
+          invalidateCache();
           refreshExpenses();
           print('✅ Gasto eliminado exitosamente');
         },
@@ -301,6 +337,7 @@ class ExpensesController extends GetxController {
           if (index != -1) {
             _expenses[index] = updatedExpense;
           }
+          invalidateCache();
           refreshExpenses();
           print('✅ Gasto aprobado exitosamente');
         },
@@ -330,6 +367,7 @@ class ExpensesController extends GetxController {
           if (index != -1) {
             _expenses[index] = updatedExpense;
           }
+          invalidateCache();
           refreshExpenses();
           print('✅ Gasto enviado para aprobación');
         },

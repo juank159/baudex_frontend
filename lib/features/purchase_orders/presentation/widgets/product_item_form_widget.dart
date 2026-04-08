@@ -268,6 +268,7 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
             controller: Get.find<PurchaseOrderFormController>(),
             hint: 'Nombre, SKU o código...',
             activateOnTextFieldTap: true,
+            autoActivate: true,
             onProductSelected: widget.onProductSelected,
             onClearProduct: () {},
           ),

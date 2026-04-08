@@ -1,6 +1,7 @@
 // lib/features/products/presentation/controllers/product_form_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/data/local/sync_service.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
 import '../../domain/repositories/product_repository.dart';
@@ -146,6 +147,7 @@ class ProductFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    SyncService.notifyFormOpened();
     print('🚀 ProductFormController: Inicializando...');
     print(
       '🔍 ProductFormController: isEditMode = $isEditMode, productId = "$productId"',
@@ -157,6 +159,7 @@ class ProductFormController extends GetxController {
 
   @override
   void onClose() {
+    SyncService.notifyFormClosed();
     print('🔚 ProductFormController: Iniciando liberación de recursos...');
 
     // Marcar como en proceso de disposal
@@ -851,8 +854,8 @@ class ProductFormController extends GetxController {
         print(
           '✅ ProductFormController: Producto creado exitosamente - ${product.name}',
         );
-        _showSuccess('Producto creado exitosamente');
         _navigateBackToProductList();
+        _showSuccess('Producto creado exitosamente');
       },
     );
   }
@@ -967,8 +970,8 @@ class ProductFormController extends GetxController {
             print('⚠️ El producto actualizado NO tiene precios');
           }
 
-          _showSuccess('Producto actualizado exitosamente');
           _navigateBackToProductList();
+          _showSuccess('Producto actualizado exitosamente');
         },
       );
     } catch (e, stackTrace) {
@@ -1506,6 +1509,11 @@ class ProductFormController extends GetxController {
   /// Usa Get.until() para volver siempre al listado, sin importar
   /// si el usuario llegó desde Lista→Editar o Lista→Detalle→Editar
   void _navigateBackToProductList() {
+    // Refrescar lista antes de navegar para que el listado muestre el producto nuevo
+    if (Get.isRegistered<ProductsController>()) {
+      Get.find<ProductsController>().refreshProducts();
+    }
+
     try {
       Get.until((route) => route.settings.name == '/products');
     } catch (e) {
@@ -1514,21 +1522,6 @@ class ProductFormController extends GetxController {
         Get.back();
       } catch (_) {}
     }
-
-    // Refrescar la lista después de la navegación
-    Future.delayed(const Duration(milliseconds: 100), () {
-      try {
-        if (Get.isRegistered<ProductsController>()) {
-          final productsController = Get.find<ProductsController>();
-          print(
-            '🔄 ProductFormController: Refrescando lista de productos',
-          );
-          productsController.clearFiltersAndRefresh();
-        }
-      } catch (e) {
-        print('⚠️ Error al refrescar lista: $e');
-      }
-    });
   }
 
   /// Mostrar mensaje de información

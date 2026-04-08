@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/presentation/widgets/offline_badge.dart';
 import '../../domain/entities/customer.dart';
 
 class ModernCustomerCardWidget extends StatelessWidget {
@@ -78,6 +79,8 @@ class ModernCustomerCardWidget extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              OfflineBadge(entityId: customer.id, offlinePrefixes: const ['customer_']),
+                              const SizedBox(width: 6),
                               _buildStatusBadge(),
                             ],
                           ),
@@ -270,7 +273,9 @@ class ModernCustomerCardWidget extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
+                          OfflineBadge(entityId: customer.id, offlinePrefixes: const ['customer_']),
+                          const SizedBox(width: 8),
                           _buildStatusBadge(),
                         ],
                       ),

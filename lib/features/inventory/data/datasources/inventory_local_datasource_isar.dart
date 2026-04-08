@@ -1078,6 +1078,9 @@ class InventoryLocalDataSourceIsar implements InventoryLocalDataSource {
     AppLogger.d('🏭 Warehouses actualizados en memory cache estático: ${warehouses.length}');
   }
 
+  /// Getter estático para leer warehouses desde memory cache (usado por PO detail offline)
+  static List<WarehouseModel>? getWarehousesMemoryCache() => _warehousesMemoryCache;
+
   @override
   Future<void> cacheWarehouses(List<WarehouseModel> warehouses) async {
     // Siempre guardar en memoria (nunca falla)

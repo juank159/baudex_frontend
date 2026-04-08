@@ -14,6 +14,7 @@ import '../../domain/entities/purchase_order.dart';
 import '../widgets/supplier_selector_widget.dart';
 import '../widgets/product_selector_widget.dart';
 import '../widgets/product_item_form_widget.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
 class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
   const PurchaseOrderFormScreen({super.key});
@@ -31,6 +32,7 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
           ElegantLightTheme.primaryBlue,
         ],
         actions: [
+          const SyncStatusIcon(),
           if (!controller.isLoading.value)
             TextButton(
               onPressed: controller.clearForm,
@@ -438,6 +440,9 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
     return Obx(() {
       final completed = controller.items.where((i) => i.isValid).length;
       final showSearch = completed >= 3;
+      final hasActiveItem = controller.activeItemIndex.value >= 0;
+      final isSearching = controller.itemSearchQuery.value.isNotEmpty;
+      final showAddButton = !hasActiveItem && !isSearching;
 
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -463,6 +468,25 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
                   AppFormatters.formatCurrency(controller.totalAmount.value),
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
                 ),
+                if (showAddButton) ...[
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    height: 32,
+                    child: OutlinedButton.icon(
+                      onPressed: controller.addEmptyItem,
+                      icon: const Icon(Icons.add_circle_outline, size: 16),
+                      label: const Text('Agregar', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(color: AppColors.primary.withOpacity(0.5), width: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             if (showSearch) ...[
@@ -592,63 +616,38 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
         );
       }
 
-      final showAddButton = !hasActiveItem && !isSearching;
-      final itemCount = filteredIndices.length + (showAddButton ? 1 : 0);
-
       return ListView.builder(
+        controller: controller.itemsScrollController,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        itemCount: itemCount,
+        itemCount: filteredIndices.length,
         itemBuilder: (context, listIndex) {
-          if (listIndex < filteredIndices.length) {
-            final originalIndex = filteredIndices[listIndex];
-            final item = controller.items[originalIndex];
-            final isActive = controller.activeItemIndex.value == originalIndex;
+          final originalIndex = filteredIndices[listIndex];
+          final item = controller.items[originalIndex];
+          final isActive = controller.activeItemIndex.value == originalIndex;
 
-            return ProductItemFormWidget(
-              key: ValueKey('item_${item.productId}_$originalIndex'),
-              item: item,
-              index: originalIndex,
-              isActive: isActive,
-              onQuantityChanged: (value) =>
-                  controller.updateItemQuantity(originalIndex, value),
-              onPriceChanged: (value) =>
-                  controller.updateItemPrice(originalIndex, value),
-              onDiscountChanged: (value) =>
-                  controller.updateItemDiscount(originalIndex, value),
-              onRemove: controller.items.length > 1
-                  ? () => controller.removeItem(originalIndex)
-                  : null,
-              onComplete: () => controller.completeActiveItem(),
-              onEdit: () => controller.editItem(originalIndex),
-              onProductSelected: (product) {
-                if (product != null) {
-                  controller.selectProductForItem(originalIndex, product);
-                } else {
-                  controller.updateItemProduct(originalIndex, '', '', 0.0);
-                }
-              },
-            );
-          }
-
-          // Botón "Agregar Otro Producto"
-          return Padding(
-            padding: const EdgeInsets.only(top: AppDimensions.paddingSmall),
-            child: OutlinedButton.icon(
-              onPressed: controller.addEmptyItem,
-              icon: const Icon(Icons.add_circle_outline, size: 20),
-              label: const Text('Agregar Otro Producto'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: BorderSide(
-                  color: AppColors.primary.withOpacity(0.5),
-                  width: 1.5,
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                ),
-              ),
-            ),
+          return ProductItemFormWidget(
+            key: ValueKey('item_${item.productId}_$originalIndex'),
+            item: item,
+            index: originalIndex,
+            isActive: isActive,
+            onQuantityChanged: (value) =>
+                controller.updateItemQuantity(originalIndex, value),
+            onPriceChanged: (value) =>
+                controller.updateItemPrice(originalIndex, value),
+            onDiscountChanged: (value) =>
+                controller.updateItemDiscount(originalIndex, value),
+            onRemove: controller.items.length > 1
+                ? () => controller.removeItem(originalIndex)
+                : null,
+            onComplete: () => controller.completeActiveItem(),
+            onEdit: () => controller.editItem(originalIndex),
+            onProductSelected: (product) {
+              if (product != null) {
+                controller.selectProductForItem(originalIndex, product);
+              } else {
+                controller.updateItemProduct(originalIndex, '', '', 0.0);
+              }
+            },
           );
         },
       );

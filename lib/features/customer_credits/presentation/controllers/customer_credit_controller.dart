@@ -1,13 +1,15 @@
 // lib/features/customer_credits/presentation/controllers/customer_credit_controller.dart
 
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../invoices/presentation/controllers/invoice_list_controller.dart';
 import '../../data/models/customer_credit_model.dart';
 import '../../domain/entities/customer_credit.dart';
 import '../../domain/repositories/customer_credit_repository.dart';
 
 /// Controlador para gestión de créditos de clientes
-class CustomerCreditController extends GetxController {
+class CustomerCreditController extends GetxController
+    with SyncAutoRefreshMixin {
   final CustomerCreditRepository repository;
 
   CustomerCreditController({
@@ -48,8 +50,16 @@ class CustomerCreditController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     // Carga inicial de datos
     _initialLoad();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    _isLoadInProgress = false;
+    _initialLoadDone = false;
+    refreshAllData();
   }
 
   /// Carga inicial de datos (créditos y estadísticas en paralelo)

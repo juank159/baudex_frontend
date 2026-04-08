@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:baudex_desktop/app/core/models/pagination_meta.dart';
 import 'package:flutter/material.dart' hide Notification;
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../../dashboard/domain/entities/notification.dart';
 import '../../domain/repositories/notification_repository.dart';
@@ -15,7 +16,8 @@ import '../../domain/usecases/delete_notification_usecase.dart';
 import '../../domain/usecases/get_unread_count_usecase.dart';
 import '../../domain/usecases/search_notifications_usecase.dart';
 
-class NotificationsController extends GetxController {
+class NotificationsController extends GetxController
+    with SyncAutoRefreshMixin {
   // Dependencies
   final GetNotificationsUseCase _getNotificationsUseCase;
   final GetNotificationByIdUseCase _getNotificationByIdUseCase;
@@ -148,9 +150,19 @@ class NotificationsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     _setupScrollListener();
     _setupSearchListener();
     _setupAutoRefresh();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    _cachedNotifications = null;
+    _cachedUnreadCount = null;
+    _cachedStats = null;
+    _lastCacheTime = null;
+    _refreshInBackground();
   }
 
   @override

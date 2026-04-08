@@ -1,6 +1,7 @@
 // lib/features/credit_notes/presentation/controllers/credit_note_form_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../domain/entities/credit_note.dart';
 import '../../domain/entities/credit_note_item.dart';
@@ -111,12 +112,14 @@ class CreditNoteFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    SyncService.notifyFormOpened();
     _date.value = Get.find<TenantDateTimeService>().now();
     _initializeForm();
   }
 
   @override
   void onClose() {
+    SyncService.notifyFormClosed();
     numberController.dispose();
     notesController.dispose();
     termsController.dispose();

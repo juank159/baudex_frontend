@@ -1,5 +1,6 @@
 // lib/features/purchase_orders/data/models/purchase_order_request_model.dart
 import 'package:json_annotation/json_annotation.dart';
+import '../../domain/entities/purchase_order.dart';
 import '../../domain/repositories/purchase_order_repository.dart';
 
 part 'purchase_order_request_model.g.dart';
@@ -180,7 +181,7 @@ class UpdatePurchaseOrderRequestModel {
     return UpdatePurchaseOrderRequestModel(
       supplierId: params.supplierId,
       expectedDeliveryDate: params.expectedDeliveryDate?.toIso8601String(),
-      status: params.status?.name,
+      status: params.status != null ? _statusToBackend(params.status!) : null,
       currency: params.currency,
       notes: params.notes,
       items: params.items
@@ -189,6 +190,18 @@ class UpdatePurchaseOrderRequestModel {
       // Only include metadata if it has actual values
       metadata: metadataMap.isNotEmpty ? metadataMap : null,
     );
+  }
+
+  /// Convierte enum de status a formato backend (snake_case)
+  /// Backend usa: draft, pending, approved, sent, partially_received, received, cancelled, closed
+  /// Dart .name produce: partiallyReceived (camelCase) — incorrecto para backend
+  static String _statusToBackend(PurchaseOrderStatus status) {
+    switch (status) {
+      case PurchaseOrderStatus.partiallyReceived:
+        return 'partially_received';
+      default:
+        return status.name; // draft, pending, approved, sent, received, cancelled
+    }
   }
 }
 

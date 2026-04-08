@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/models/pagination_meta.dart';
+import '../../../../app/core/mixins/cache_first_mixin.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/usecases/get_customers_usecase.dart';
 import '../../domain/usecases/delete_customer_usecase.dart';
 import '../../domain/usecases/search_customers_usecase.dart';
 
-class CustomersController extends GetxController {
+class CustomersController extends GetxController
+    with CacheFirstMixin<Customer>, SyncAutoRefreshMixin {
   // Dependencies
   final GetCustomersUseCase _getCustomersUseCase;
   final DeleteCustomerUseCase _deleteCustomerUseCase;
@@ -100,7 +103,14 @@ class CustomersController extends GetxController {
     super.onInit();
     _setupSearchListener();
     _setupScrollListener();
+    setupSyncListener();
     print('🎯 CustomersController onInit() llamado');
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    invalidateCache();
+    await _refreshInBackground();
   }
 
   @override
@@ -147,49 +157,73 @@ class CustomersController extends GetxController {
   // ==================== PUBLIC METHODS ====================
 
   /// Cargar clientes
-  Future<void> loadCustomers({bool showLoading = true}) async {
+  Future<void> loadCustomers({bool showLoading = true, bool forceRefresh = false}) async {
     // Evitar múltiples llamadas simultáneas
-    if (_isLoading.value) {
-      print('⚠️ Ya hay una carga en progreso, ignorando...');
+    if (_isLoading.value) return;
+
+    // Cache-first: mostrar datos inmediatos si disponibles
+    if (tryLoadFromCache(
+      onHit: (items) { _customers.value = List.from(items); },
+      hasFilters: _hasActiveFilters(),
+      isFirstPage: _currentPage.value == 1,
+      isSearching: _searchTerm.value.isNotEmpty,
+      forceRefresh: forceRefresh,
+    )) {
+      _isLoading.value = false;
+      refreshInBackground(() => _fetchCustomers());
       return;
     }
 
     if (showLoading) _isLoading.value = true;
 
     try {
-      print('📦 Cargando clientes... (searchTerm="${_searchTerm.value}")');
-
-      final result = await _getCustomersUseCase(
-        GetCustomersParams(
-          page: 1,
-          limit: _pageSize,
-          search: _searchTerm.value.isEmpty ? null : _searchTerm.value,
-          status: _currentStatus.value,
-          documentType: _currentDocumentType.value,
-          city: _selectedCity.value.isEmpty ? null : _selectedCity.value,
-          state: _selectedState.value.isEmpty ? null : _selectedState.value,
-          sortBy: _sortBy.value,
-          sortOrder: _sortOrder.value,
-        ),
-      );
-
-      result.fold(
-        (failure) {
-          _showError('Error al cargar clientes', failure.message);
-          _customers.clear();
-        },
-        (paginatedResult) {
-          _customers.value = paginatedResult.data;
-          _updatePaginationInfo(paginatedResult.meta);
-          print('✅ Clientes cargados: ${paginatedResult.data.length}');
-        },
-      );
+      await _fetchCustomers();
     } catch (e) {
       print('❌ Error inesperado al cargar clientes: $e');
-      _showError('Error inesperado', 'Error al cargar clientes');
     } finally {
       _isLoading.value = false;
     }
+  }
+
+  Future<void> _fetchCustomers() async {
+    final result = await _getCustomersUseCase(
+      GetCustomersParams(
+        page: 1,
+        limit: _pageSize,
+        search: _searchTerm.value.isEmpty ? null : _searchTerm.value,
+        status: _currentStatus.value,
+        documentType: _currentDocumentType.value,
+        city: _selectedCity.value.isEmpty ? null : _selectedCity.value,
+        state: _selectedState.value.isEmpty ? null : _selectedState.value,
+        sortBy: _sortBy.value,
+        sortOrder: _sortOrder.value,
+      ),
+    );
+
+    result.fold(
+      (failure) {
+        _showError('Error al cargar clientes', failure.message);
+      },
+      (paginatedResult) {
+        _customers.value = paginatedResult.data;
+        _updatePaginationInfo(paginatedResult.meta);
+        // Actualizar cache si es página 1 sin filtros
+        if (_currentPage.value == 1 && !_hasActiveFilters()) {
+          updateCache(paginatedResult.data);
+        }
+      },
+    );
+  }
+
+  bool _hasActiveFilters() {
+    return _currentStatus.value != null ||
+        _currentDocumentType.value != null ||
+        _selectedCity.value.isNotEmpty ||
+        _selectedState.value.isNotEmpty;
+  }
+
+  Future<void> _refreshInBackground() async {
+    refreshInBackground(() => _fetchCustomers());
   }
 
   /// Cargar más clientes (paginación)
@@ -232,18 +266,14 @@ class CustomersController extends GetxController {
 
   /// Refrescar clientes
   Future<void> refreshCustomers() async {
-    if (_isRefreshing.value) {
-      print('⚠️ Ya hay un refresco en progreso, ignorando...');
-      return;
-    }
+    if (_isRefreshing.value) return;
 
-    print('🔄 Refrescando clientes...');
     _isRefreshing.value = true;
     _currentPage.value = 1;
+    invalidateCache();
 
     try {
-      await loadCustomers(showLoading: false);
-      print('✅ Refresco completado exitosamente');
+      await loadCustomers(showLoading: false, forceRefresh: true);
     } catch (e) {
       print('❌ Error durante el refresco: $e');
     } finally {
@@ -299,12 +329,10 @@ class CustomersController extends GetxController {
         },
         (_) {
           _showSuccess('Cliente eliminado exitosamente');
-          // Remover de la lista local
           _customers.removeWhere((customer) => customer.id == customerId);
           _searchResults.removeWhere((customer) => customer.id == customerId);
-          // Recargar para actualizar contadores
+          invalidateCache();
           refreshCustomers();
-          print('✅ Cliente eliminado exitosamente');
         },
       );
     } finally {

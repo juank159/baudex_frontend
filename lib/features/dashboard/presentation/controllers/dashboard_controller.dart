@@ -8,6 +8,7 @@ import 'package:baudex_desktop/features/dashboard/domain/usecases/get_profitabil
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/network/network_info.dart';
@@ -24,7 +25,8 @@ import '../../domain/entities/notification.dart' as dashboard;
 import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/usecases/usecase.dart';
 
-class DashboardController extends GetxController {
+class DashboardController extends GetxController
+    with SyncAutoRefreshMixin {
   final GetDashboardStatsUseCase _getDashboardStatsUseCase;
   final GetRecentActivityUseCase _getRecentActivityUseCase;
   final GetDashboardNotificationsUseCase _getNotificationsUseCase;
@@ -118,6 +120,7 @@ class DashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     print('🚀 DashboardController: onInit() - Controlador iniciado');
 
     // Establecer el rango de fechas para HOY
@@ -142,6 +145,12 @@ class DashboardController extends GetxController {
 
     // ✅ Cargar datos inmediatamente cuando el widget está listo (SIN DELAY, SIN DOBLE CARGA)
     _loadInitialData();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    _isLoadingData = false;
+    refreshAll();
   }
 
   /// ✅ Mostrar diálogo de suscripción DESPUÉS de que el Dashboard esté listo

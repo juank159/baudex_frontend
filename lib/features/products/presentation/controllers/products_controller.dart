@@ -5,6 +5,8 @@ import 'package:baudex_desktop/features/products/domain/entities/product_stats.d
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/usecases/usecase.dart';
+import '../../../../app/core/mixins/cache_first_mixin.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
 import '../../domain/usecases/get_products_usecase.dart';
@@ -15,7 +17,8 @@ import '../../domain/usecases/get_low_stock_products_usecase.dart'
     as products_usecases;
 import '../../domain/usecases/get_products_by_category_usecase.dart';
 
-class ProductsController extends GetxController {
+class ProductsController extends GetxController
+    with CacheFirstMixin<Product>, SyncAutoRefreshMixin {
   // Dependencies
   final GetProductsUseCase _getProductsUseCase;
   final DeleteProductUseCase _deleteProductUseCase;
@@ -88,11 +91,7 @@ class ProductsController extends GetxController {
   // Configuración
   static const int _pageSize = 20;
 
-  // Cache para carga rápida (por instancia, no static para evitar leak entre usuarios)
-  List<Product>? _cachedProducts;
-  ProductStats? _cachedStats;
-  DateTime? _lastCacheTime;
-  static const _cacheValidityDuration = Duration(minutes: 5);
+  // Cache ahora gestionado por CacheFirstMixin (static, cross-instancia)
 
   // ==================== GETTERS ====================
 
@@ -142,8 +141,18 @@ class ProductsController extends GetxController {
     super.onInit();
     _setupScrollListener();
     _setupSearchListener();
-    // ❌ NO cargar datos automáticamente - esperar a que esté autenticado
-    // loadInitialData(); // Se llamará cuando sea necesario
+    setupSyncListener();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    invalidateCache();
+    refreshInBackground(() async {
+      await Future.wait([_loadProductsInternal(), _loadStatsInternal()]);
+      if (!isClosed && _currentPage.value == 1 && !_hasActiveFilters()) {
+        updateCache(_products.toList(), stats: _stats.value);
+      }
+    });
   }
 
   /// Configurar listener de búsqueda con debounce
@@ -189,57 +198,33 @@ class ProductsController extends GetxController {
 
   /// Asegurar que los datos estén cargados (llamar solo cuando esté autenticado)
   Future<void> ensureDataLoaded() async {
-    // Primero, intentar usar caché para mostrar datos inmediatamente
-    if (_products.isEmpty && _isCacheValid()) {
-      print('🚀 ProductsController: Usando caché para carga instantánea');
-      _products.value = List.from(_cachedProducts!);
-      if (_cachedStats != null) {
-        _stats.value = _cachedStats;
-      }
-      // Luego actualizar en segundo plano si el caché tiene más de 1 minuto
-      if (_lastCacheTime != null &&
-          DateTime.now().difference(_lastCacheTime!) > const Duration(minutes: 1)) {
-        _refreshInBackground();
-      }
+    // Cache-first: mostrar datos inmediatos
+    if (_products.isEmpty && hasCachedData) {
+      _products.value = List<Product>.from(cachedItems!);
+      final cachedSt = getCachedStats<ProductStats>();
+      if (cachedSt != null) _stats.value = cachedSt;
+      refreshInBackground(() async {
+        await Future.wait([_loadProductsInternal(), _loadStatsInternal()]);
+        if (!isClosed && _currentPage.value == 1 && !_hasActiveFilters()) {
+          updateCache(_products.toList(), stats: _stats.value);
+        }
+      });
       return;
     }
 
-    // Solo cargar si no hay datos y no está cargando
     if (_products.isEmpty && !_isLoading.value) {
-      print('🔄 ProductsController: Cargando datos por primera vez...');
       await loadInitialData();
-    } else {
-      print('🔄 ProductsController: Datos ya cargados o cargando...');
     }
   }
 
-  /// Verifica si el caché es válido
-  bool _isCacheValid() {
-    if (_cachedProducts == null || _cachedProducts!.isEmpty) return false;
-    if (_lastCacheTime == null) return false;
-    return DateTime.now().difference(_lastCacheTime!) < _cacheValidityDuration;
-  }
-
-  /// Actualiza el caché con los datos actuales
-  void _updateCache() {
-    _cachedProducts = List.from(_products);
-    _cachedStats = _stats.value;
-    _lastCacheTime = DateTime.now();
-    print('💾 ProductsController: Caché actualizado con ${_products.length} productos');
-  }
-
-  /// Refresca datos en segundo plano sin mostrar loading
-  Future<void> _refreshInBackground() async {
-    if (isClosed) return;
-    print('🔄 ProductsController: Refrescando en segundo plano...');
-    try {
-      await Future.wait([_loadProductsInternal(), _loadStatsInternal()]);
-      if (isClosed) return;
-      _updateCache();
-      print('✅ Actualización en segundo plano completada');
-    } catch (e) {
-      print('⚠️ Error en actualización en segundo plano: $e');
-    }
+  bool _hasActiveFilters() {
+    return _currentStatus.value != null ||
+        _currentType.value != null ||
+        _selectedCategoryId.value != null ||
+        _inStock.value != null ||
+        _lowStock.value != null ||
+        _minPrice.value != null ||
+        _maxPrice.value != null;
   }
 
   @override
@@ -282,8 +267,10 @@ class ProductsController extends GetxController {
         _loadStatsInternal(),
       ]);
 
-      // ✅ NUEVO: Actualizar caché después de cargar
-      _updateCache();
+      // Actualizar cache del mixin
+      if (_currentPage.value == 1 && !_hasActiveFilters()) {
+        updateCache(_products.toList(), stats: _stats.value);
+      }
 
       print('✅ Carga inicial completada exitosamente');
     } catch (e) {
@@ -469,14 +456,14 @@ class ProductsController extends GetxController {
 
   /// Refrescar productos
   Future<void> refreshProducts() async {
-    print('🔄 ProductsController: Refrescando datos...');
-
     _currentPage.value = 1;
+    invalidateCache();
 
-    // ✅ OPTIMIZACIÓN: Recargar productos y estadísticas en paralelo
     await Future.wait([_loadProductsInternal(), _loadStatsInternal()]);
 
-    print('✅ Datos refrescados exitosamente');
+    if (_currentPage.value == 1 && !_hasActiveFilters()) {
+      updateCache(_products.toList(), stats: _stats.value);
+    }
   }
 
   /// Buscar productos
@@ -522,9 +509,8 @@ class ProductsController extends GetxController {
         },
         (_) {
           _showSuccess('Producto eliminado exitosamente');
-          // Remover de la lista local
           _products.removeWhere((product) => product.id == productId);
-          // Recargar para actualizar contadores
+          invalidateCache();
           refreshProducts();
         },
       );

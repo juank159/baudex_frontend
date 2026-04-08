@@ -146,23 +146,51 @@ class PurchaseOrderCardWidget extends StatelessWidget {
               ),
             ),
 
-            // Estado
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalSpacing.clamp(2.0, 6.0),
-                vertical: 1.5,
-              ),
-              decoration: BoxDecoration(
-                color: _getStatusColor().withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                _getStatusText(),
-                style: TextStyle(
-                  fontSize: smallFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: _getStatusColor(),
-                ),
+            // Estado + Badge offline (Flexible para evitar overflow)
+            Flexible(
+              flex: 0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalSpacing.clamp(2.0, 6.0),
+                      vertical: 1.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor().withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _getStatusText(),
+                      style: TextStyle(
+                        fontSize: smallFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: _getStatusColor(),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (_isOfflinePending())
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.cloud_upload_outlined, size: 12, color: Colors.orange.shade700),
+                            const SizedBox(width: 3),
+                            Text('Pendiente', style: TextStyle(fontSize: 10, color: Colors.orange.shade700), overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
@@ -281,5 +309,17 @@ class PurchaseOrderCardWidget extends StatelessWidget {
       case PurchaseOrderStatus.cancelled:
         return 'Cancelada';
     }
+  }
+
+  bool _isOfflinePending() {
+    final id = purchaseOrder.id;
+    if (id.startsWith('po_offline_')) return true;
+    if (id.startsWith('po_') && !_isUUID(id)) return true;
+    return false;
+  }
+
+  static bool _isUUID(String value) {
+    return RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+        .hasMatch(value.toLowerCase());
   }
 }

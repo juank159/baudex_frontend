@@ -36,13 +36,22 @@ class PaginationMeta extends Equatable {
 
   factory PaginationMeta.fromJson(Map<String, dynamic> json) {
     return PaginationMeta(
-      page: (json['page'] as num?)?.toInt() ?? 1,
-      limit: (json['limit'] as num?)?.toInt() ?? 20,
-      totalItems: (json['totalItems'] as num?)?.toInt() ?? 0,
-      totalPages: (json['totalPages'] as num?)?.toInt() ?? 1,
+      page: _parseIntSafe(json['page'], 1),
+      limit: _parseIntSafe(json['limit'], 20),
+      totalItems: _parseIntSafe(json['totalItems'], 0),
+      totalPages: _parseIntSafe(json['totalPages'], 1),
       hasNextPage: json['hasNextPage'] as bool? ?? false,
       hasPreviousPage: json['hasPreviousPage'] as bool? ?? false,
     );
+  }
+
+  /// Parsea un valor que puede venir como int, num o String del servidor
+  static int _parseIntSafe(dynamic value, int defaultValue) {
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? defaultValue;
+    return defaultValue;
   }
 
   Map<String, dynamic> toJson() {

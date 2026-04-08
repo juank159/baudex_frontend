@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/models/pagination_meta.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/usecases/get_invoices_usecase.dart';
@@ -13,7 +14,8 @@ import '../../domain/usecases/get_invoice_by_id_usecase.dart';
 import '../controllers/thermal_printer_controller.dart';
 import '../controllers/invoice_stats_controller.dart';
 
-class InvoiceListController extends GetxController {
+class InvoiceListController extends GetxController
+    with SyncAutoRefreshMixin {
   // Dependencies
   final GetInvoicesUseCase _getInvoicesUseCase;
   final SearchInvoicesUseCase _searchInvoicesUseCase;
@@ -191,16 +193,18 @@ class InvoiceListController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // print('🚀 InvoiceListController: Inicializando...');
-
-    // ✅ NOTA: El ScrollController ahora es manejado por el StatefulWidget (InvoiceListScreen)
-    // No es necesario crear ni configurar listener aquí - el widget gestiona su propio lifecycle
-    // _createFreshScrollController();
-    // _setupScrollListener();
+    setupSyncListener();
 
     _setupSearchListener();
     loadInvoices();
     _loadInvoiceStatsIfAvailable();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    invalidateCache();
+    _isLoadInProgress = false;
+    _refreshInBackground();
   }
 
   @override

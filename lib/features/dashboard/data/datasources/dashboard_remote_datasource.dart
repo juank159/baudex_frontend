@@ -128,8 +128,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       print('📊 [DASHBOARD] Data portion: ${response.data['data']}');
       return DashboardStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener estadísticas del dashboard',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -157,8 +158,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       // Por ahora retornamos lista vacía
       return <RecentActivityModel>[];
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener actividad reciente',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener actividad reciente',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -185,8 +187,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       // Por ahora retornamos lista vacía
       return <NotificationModel>[];
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener notificaciones',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener notificaciones',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -208,8 +211,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         statusCode: 501,
       );
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al marcar notificación como leída',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -230,8 +234,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         statusCode: 501,
       );
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al marcar todas las notificaciones como leídas',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -252,8 +257,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
         statusCode: 501,
       );
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al eliminar notificación',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al eliminar notificación',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -270,8 +276,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       // TODO: Implementar endpoint para conteo de notificaciones no leídas
       return 0;
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener conteo de notificaciones',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -305,8 +312,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return SalesStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener estadísticas de ventas',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -342,8 +350,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return InvoiceStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener estadísticas de facturas',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -364,8 +373,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return ProductStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener estadísticas de productos',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -401,8 +411,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return CustomerStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener estadísticas de clientes',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -436,8 +447,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return ExpenseStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener estadísticas de gastos',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -471,8 +483,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener productos más vendidos',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -501,8 +514,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener mejores clientes',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener mejores clientes',
         statusCode: e.response?.statusCode ?? 500,
       );
     }
@@ -530,8 +544,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener ventas por categoría',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener ventas por categoría',
         statusCode: e.response?.statusCode ?? 500,
       );
     }
@@ -559,8 +574,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener desglose de gastos',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener desglose de gastos',
         statusCode: e.response?.statusCode ?? 500,
       );
     }
@@ -588,8 +604,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener flujo de caja',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener flujo de caja',
         statusCode: e.response?.statusCode ?? 500,
       );
     }
@@ -617,8 +634,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener estadísticas de métodos de pago',
         statusCode: e.response?.statusCode ?? 500,
       );
@@ -647,8 +665,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       return Map<String, dynamic>.from(response.data['data'] ?? {});
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener KPIs financieros',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener KPIs financieros',
         statusCode: e.response?.statusCode ?? 500,
       );
     }
@@ -690,8 +709,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       print('🔍 PROFITABILITY DEBUG: Data portion = $responseData');
       return ProfitabilityStatsModel.fromJson(responseData);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ??
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ??
             'Error al obtener métricas de rentabilidad',
         statusCode: e.response?.statusCode ?? 500,
       );

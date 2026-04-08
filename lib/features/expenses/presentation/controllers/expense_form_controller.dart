@@ -1,6 +1,7 @@
 // lib/features/expenses/presentation/controllers/expense_form_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_category.dart';
@@ -144,6 +145,7 @@ class ExpenseFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    SyncService.notifyFormOpened();
     _setupListeners();
     
     // Verificar si es modo edición
@@ -161,6 +163,7 @@ class ExpenseFormController extends GetxController {
 
   @override
   void onClose() {
+    SyncService.notifyFormClosed();
     descriptionController.dispose();
     amountController.dispose();
     vendorController.dispose();

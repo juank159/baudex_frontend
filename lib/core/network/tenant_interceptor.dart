@@ -66,7 +66,10 @@ class TenantInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (err.response?.statusCode == 400) {
-      final errorMessage = err.response?.data?['message']?.toString() ?? '';
+      final responseData = err.response?.data;
+      final errorMessage = (responseData is Map<String, dynamic>)
+          ? responseData['message']?.toString() ?? ''
+          : '';
       if (errorMessage.contains('Organización no encontrada') ||
           errorMessage.contains('Organization not found')) {
         // Invalidar cache para forzar re-lectura en próximo request

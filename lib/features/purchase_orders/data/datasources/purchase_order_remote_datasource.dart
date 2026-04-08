@@ -269,10 +269,15 @@ class PurchaseOrderRemoteDataSourceImpl
   ) async {
     try {
       final requestModel = UpdatePurchaseOrderRequestModel.fromParams(params);
+      final requestBody = requestModel.toJson();
+
+      // Diagnóstico: loggear request body para debug de validación
+      print('📤 PO UPDATE request → PATCH ${ApiConstants.purchaseOrders}/${params.id}');
+      print('📤 PO UPDATE body: $requestBody');
 
       final response = await dioClient.patch(
         '${ApiConstants.purchaseOrders}/${params.id}',
-        data: requestModel.toJson(),
+        data: requestBody,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -291,6 +296,10 @@ class PurchaseOrderRemoteDataSourceImpl
         throw ServerException('Error del servidor: ${response.statusCode}');
       }
     } on DioException catch (e) {
+      // Loggear respuesta completa de error para diagnóstico
+      if (e.response?.data != null) {
+        print('❌ PO UPDATE error response: ${e.response?.data}');
+      }
       throw ServerException(_handleDioError(e));
     } catch (e) {
       throw ServerException('Error inesperado: $e');

@@ -99,14 +99,15 @@ class NotificationResponseModel {
 
     // Construir meta desde campos planos (total, page, totalPages, limit)
     // El dashboard puede no tener estos campos, usar valores por defecto
-    final total = responseData['total'] as int? ??
-                  responseData['totalItems'] as int? ??
-                  responseData['unreadCount'] as int? ??
+    // Nota: El servidor puede enviar valores como String o int
+    final total = _parseIntSafe(responseData['total']) ??
+                  _parseIntSafe(responseData['totalItems']) ??
+                  _parseIntSafe(responseData['unreadCount']) ??
                   notificationsCount;
-    final page = responseData['page'] as int? ?? 1;
-    final totalPages = responseData['totalPages'] as int? ??
+    final page = _parseIntSafe(responseData['page']) ?? 1;
+    final totalPages = _parseIntSafe(responseData['totalPages']) ??
                        (total > 0 ? ((total / 20).ceil()) : 1);
-    final limit = responseData['limit'] as int? ?? 20;
+    final limit = _parseIntSafe(responseData['limit']) ?? 20;
 
     return PaginationMeta(
       page: page,
@@ -116,6 +117,15 @@ class NotificationResponseModel {
       hasNextPage: page < totalPages,
       hasPreviousPage: page > 1,
     );
+  }
+
+  /// Parsea un valor que puede venir como int, num o String del servidor
+  static int? _parseIntSafe(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   /// Convertir a JSON

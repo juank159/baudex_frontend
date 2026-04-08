@@ -292,9 +292,13 @@ class NotificationRemoteDataSourceImpl
         data = data['data'] as Map<String, dynamic>;
       }
 
-      // Buscar unreadCount en diferentes niveles
+      // Buscar unreadCount en diferentes niveles (servidor puede enviar String o int)
       if (data.containsKey('unreadCount')) {
-        return data['unreadCount'] as int? ?? 0;
+        final value = data['unreadCount'];
+        if (value is int) return value;
+        if (value is num) return value.toInt();
+        if (value is String) return int.tryParse(value) ?? 0;
+        return 0;
       }
 
       // Si no hay unreadCount, contar las notificaciones manualmente
@@ -510,7 +514,8 @@ class NotificationRemoteDataSourceImpl
 
       case DioExceptionType.badResponse:
         final statusCode = error.response?.statusCode;
-        final message = error.response?.data?['message'] ?? 'Error desconocido';
+        final errData = error.response?.data;
+        final message = (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error desconocido';
 
         switch (statusCode) {
           case 400:
@@ -553,7 +558,8 @@ class NotificationRemoteDataSourceImpl
 
   ServerException _handleErrorResponse(Response response) {
     final statusCode = response.statusCode;
-    final message = response.data?['message'] ?? 'Error desconocido';
+    final errData = response.data;
+    final message = (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error desconocido';
 
     switch (statusCode) {
       case 400:

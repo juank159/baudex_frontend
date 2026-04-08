@@ -413,7 +413,7 @@ class DioClient {
 
       case DioExceptionType.badResponse:
         final statusCode = error.response?.statusCode;
-        final message = error.response?.data?['message'] ?? 'Error desconocido';
+        final message = _extractErrorMessage(error.response?.data);
 
         // 🔒 CRITICAL FIX: Return ServerException with statusCode for subscription errors
         if (statusCode == 403) {
@@ -430,7 +430,7 @@ class DioClient {
             if (!skipAuthInterceptor) {
               _handleUnauthorized();
             }
-            return ServerException('No autorizado: $message', statusCode: 401);
+            return ServerException(message, statusCode: 401);
           case 404:
             return ServerException('Recurso no encontrado: $message', statusCode: 404);
           case 409:
@@ -462,27 +462,31 @@ class DioClient {
     }
   }
 
-  // Manejo de token expirado
+  // Manejo de token expirado (solo para requests autenticadas)
   void _handleUnauthorized() {
+    // Verificar si el usuario está en una pantalla de auth (login/register/etc.)
+    // En ese caso, un 401 significa "credenciales incorrectas", NO "sesión expirada"
+    final currentRoute = getx.Get.currentRoute;
+    if (currentRoute == '/login' || currentRoute == '/register' ||
+        currentRoute == '/forgot-password' || currentRoute == '/verify-email') {
+      print('🔑 401 en pantalla de auth ($currentRoute) - ignorando _handleUnauthorized');
+      return;
+    }
+
     print('🔑 Token expirado - limpiando datos de autenticación');
-    // Limpiar datos de autenticación
     _storageService.deleteToken();
     _storageService.deleteUserData();
 
-    // ✅ SOLUCIÓN: No hacer redirect automático desde interceptor HTTP
-    // El AuthController manejará el redirect cuando detecte que no hay token
     print('⚠️ Sesión expirada - AuthController manejará el redirect');
-    
+
     // Notificar al AuthController para que maneje el logout
     try {
       if (getx.Get.isRegistered<AuthController>()) {
         final authController = getx.Get.find<AuthController>();
-        // Usar el método de logout que ya maneja la navegación correctamente
         authController.logout();
       }
     } catch (e) {
       print('⚠️ No se pudo notificar al AuthController: $e');
-      // Como fallback, solo mostrar mensaje al usuario sin redirect inmediato
       getx.Get.snackbar(
         'Sesión Expirada',
         'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
@@ -490,6 +494,22 @@ class DioClient {
         duration: const Duration(seconds: 5),
       );
     }
+  }
+
+  /// Extrae mensaje de error de forma segura de response.data
+  /// Maneja Map, String, List y null sin crashear
+  static String _extractErrorMessage(dynamic data, [String defaultMessage = 'Error desconocido']) {
+    if (data == null) return defaultMessage;
+    if (data is Map<String, dynamic>) {
+      return data['message']?.toString() ?? defaultMessage;
+    }
+    if (data is Map) {
+      return data['message']?.toString() ?? defaultMessage;
+    }
+    if (data is String && data.isNotEmpty) {
+      return data;
+    }
+    return defaultMessage;
   }
 
   // Getter para acceso directo a Dio si es necesario

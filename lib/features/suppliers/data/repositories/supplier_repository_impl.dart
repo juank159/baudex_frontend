@@ -555,12 +555,46 @@ class SupplierRepositoryImpl implements SupplierRepository {
         
         return Right(supplierModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _updateSupplierStatusOffline(id, status);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _updateSupplierStatusOffline(id, status);
       }
     } else {
-      return Left(ServerFailure('No hay conexión a internet para actualizar estado'));
+      return _updateSupplierStatusOffline(id, status);
+    }
+  }
+
+  Future<Either<Failure, Supplier>> _updateSupplierStatusOffline(
+    String id,
+    SupplierStatus status,
+  ) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarSupplier = await isar.isarSuppliers
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      if (isarSupplier == null) {
+        return Left(ServerFailure('Proveedor no encontrado localmente'));
+      }
+
+      isarSupplier.status = _mapSupplierStatusToIsar(status);
+      isarSupplier.markAsUnsynced();
+      await isar.writeTxn(() => isar.isarSuppliers.put(isarSupplier));
+
+      final syncService = Get.find<SyncService>();
+      await syncService.addOperationForCurrentUser(
+        entityType: 'Supplier',
+        entityId: id,
+        operationType: SyncOperationType.update,
+        data: {'id': id, 'action': 'updateStatus', 'status': status.name},
+        priority: 2,
+      );
+
+      return Right(isarSupplier.toEntity());
+    } catch (e) {
+      return Left(ServerFailure('Error actualizando estado offline: $e'));
     }
   }
 
@@ -611,18 +645,32 @@ class SupplierRepositoryImpl implements SupplierRepository {
     if (await networkInfo.isConnected) {
       try {
         final supplierModel = await remoteDataSource.restoreSupplier(id);
-        
+
         // Actualizar cache
         await localDataSource.cacheSupplier(supplierModel);
-        
+
+        // Actualizar ISAR
+        try {
+          final isar = IsarDatabase.instance.database;
+          final isarSupplier = await isar.isarSuppliers
+              .filter()
+              .serverIdEqualTo(id)
+              .findFirst();
+          if (isarSupplier != null) {
+            isarSupplier.deletedAt = null;
+            isarSupplier.markAsSynced();
+            await isar.writeTxn(() => isar.isarSuppliers.put(isarSupplier));
+          }
+        } catch (_) {}
+
         return Right(supplierModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _restoreSupplierOffline(id);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _restoreSupplierOffline(id);
       }
     } else {
-      return Left(ServerFailure('No hay conexión a internet para restaurar proveedor'));
+      return _restoreSupplierOffline(id);
     }
   }
 
@@ -641,12 +689,12 @@ class SupplierRepositoryImpl implements SupplierRepository {
         );
         return Right(isValid);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _validateDocumentOffline(documentType, documentNumber, excludeId);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _validateDocumentOffline(documentType, documentNumber, excludeId);
       }
     } else {
-      return Left(ServerFailure('No hay conexión a internet para validar documento'));
+      return _validateDocumentOffline(documentType, documentNumber, excludeId);
     }
   }
 
@@ -660,12 +708,12 @@ class SupplierRepositoryImpl implements SupplierRepository {
         final isValid = await remoteDataSource.validateCode(code, excludeId: excludeId);
         return Right(isValid);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _validateCodeOffline(code, excludeId);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _validateCodeOffline(code, excludeId);
       }
     } else {
-      return Left(ServerFailure('No hay conexión a internet para validar código'));
+      return _validateCodeOffline(code, excludeId);
     }
   }
 
@@ -679,12 +727,12 @@ class SupplierRepositoryImpl implements SupplierRepository {
         final isValid = await remoteDataSource.validateEmail(email, excludeId: excludeId);
         return Right(isValid);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _validateEmailOffline(email, excludeId);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _validateEmailOffline(email, excludeId);
       }
     } else {
-      return Left(ServerFailure('No hay conexión a internet para validar email'));
+      return _validateEmailOffline(email, excludeId);
     }
   }
 
@@ -703,12 +751,12 @@ class SupplierRepositoryImpl implements SupplierRepository {
         );
         return Right(isUnique);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        return _validateDocumentOffline(documentType, documentNumber, excludeId);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        return _validateDocumentOffline(documentType, documentNumber, excludeId);
       }
     } else {
-      return Left(ServerFailure('No hay conexión a internet para validar documento'));
+      return _validateDocumentOffline(documentType, documentNumber, excludeId);
     }
   }
 
@@ -1099,6 +1147,106 @@ class SupplierRepositoryImpl implements SupplierRepository {
     } catch (e) {
       print('❌ Error deleting supplier offline: $e');
       return Left(CacheFailure('Error al eliminar proveedor offline: $e'));
+    }
+  }
+
+  /// Restaurar proveedor offline (reverse softDelete en ISAR + sync queue)
+  Future<Either<Failure, Supplier>> _restoreSupplierOffline(String id) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarSupplier = await isar.isarSuppliers
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      if (isarSupplier == null) {
+        return Left(ServerFailure('Proveedor no encontrado localmente'));
+      }
+
+      isarSupplier.deletedAt = null;
+      isarSupplier.markAsUnsynced();
+      await isar.writeTxn(() => isar.isarSuppliers.put(isarSupplier));
+
+      final syncService = Get.find<SyncService>();
+      await syncService.addOperationForCurrentUser(
+        entityType: 'Supplier',
+        entityId: id,
+        operationType: SyncOperationType.update,
+        data: {'id': id, 'action': 'restore'},
+        priority: 2,
+      );
+
+      return Right(isarSupplier.toEntity());
+    } catch (e) {
+      return Left(ServerFailure('Error restaurando proveedor offline: $e'));
+    }
+  }
+
+  /// Validar documento contra datos locales en ISAR
+  Future<Either<Failure, bool>> _validateDocumentOffline(
+    DocumentType documentType,
+    String documentNumber,
+    String? excludeId,
+  ) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarDocType = _mapDocumentTypeToIsar(documentType);
+      var query = isar.isarSuppliers
+          .filter()
+          .documentTypeEqualTo(isarDocType)
+          .documentNumberEqualTo(documentNumber)
+          .deletedAtIsNull();
+
+      if (excludeId != null) {
+        query = query.not().serverIdEqualTo(excludeId);
+      }
+
+      final match = await query.findFirst();
+      // true = válido (no existe duplicado)
+      return Right(match == null);
+    } catch (_) {
+      // En caso de error, permitir la operación (el servidor validará al sincronizar)
+      return const Right(true);
+    }
+  }
+
+  /// Validar código contra datos locales en ISAR
+  Future<Either<Failure, bool>> _validateCodeOffline(String code, String? excludeId) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      var query = isar.isarSuppliers
+          .filter()
+          .codeEqualTo(code)
+          .deletedAtIsNull();
+
+      if (excludeId != null) {
+        query = query.not().serverIdEqualTo(excludeId);
+      }
+
+      final match = await query.findFirst();
+      return Right(match == null);
+    } catch (_) {
+      return const Right(true);
+    }
+  }
+
+  /// Validar email contra datos locales en ISAR
+  Future<Either<Failure, bool>> _validateEmailOffline(String email, String? excludeId) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      var query = isar.isarSuppliers
+          .filter()
+          .emailEqualTo(email)
+          .deletedAtIsNull();
+
+      if (excludeId != null) {
+        query = query.not().serverIdEqualTo(excludeId);
+      }
+
+      final match = await query.findFirst();
+      return Right(match == null);
+    } catch (_) {
+      return const Right(true);
     }
   }
 

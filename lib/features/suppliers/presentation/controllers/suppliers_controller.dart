@@ -4,6 +4,8 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/core/models/pagination_meta.dart';
+import '../../../../app/core/mixins/cache_first_mixin.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/supplier.dart';
@@ -12,7 +14,8 @@ import '../../domain/usecases/delete_supplier_usecase.dart';
 import '../../domain/usecases/search_suppliers_usecase.dart';
 import '../../domain/usecases/get_supplier_stats_usecase.dart';
 
-class SuppliersController extends GetxController {
+class SuppliersController extends GetxController
+    with CacheFirstMixin<Supplier>, SyncAutoRefreshMixin {
   final GetSuppliersUseCase getSuppliersUseCase;
   final DeleteSupplierUseCase deleteSupplierUseCase;
   final SearchSuppliersUseCase searchSuppliersUseCase;
@@ -70,12 +73,19 @@ class SuppliersController extends GetxController {
     super.onInit();
     _initializeData();
     _setupSearchListener();
+    setupSyncListener();
 
     // Check if we need to refresh data
     final args = Get.arguments as Map<String, dynamic>?;
     if (args != null && args['refresh'] == true) {
       refreshSuppliers();
     }
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    invalidateCache();
+    await _refreshInBackground();
   }
 
   @override
@@ -122,9 +132,68 @@ class SuppliersController extends GetxController {
 
   Timer? _searchTimer;
 
+  /// Verificar si hay filtros activos
+  bool _hasActiveFilters() {
+    return statusFilter.value != null || documentTypeFilter.value != null ||
+        currencyFilter.value.isNotEmpty || hasEmailFilter.value ||
+        hasPhoneFilter.value || hasCreditLimitFilter.value || hasDiscountFilter.value;
+  }
+
+  /// Refrescar datos en background sin afectar UI
+  Future<void> _refreshInBackground() async {
+    await refreshInBackground(() => _fetchSuppliersAndStats());
+  }
+
+  /// Fetch suppliers + stats del servidor (para background refresh)
+  Future<void> _fetchSuppliersAndStats() async {
+    try {
+      final params = SupplierQueryParams(
+        page: 1,
+        limit: pageSize,
+        sortBy: sortBy.value,
+        sortOrder: sortOrder.value,
+      );
+      final result = await getSuppliersUseCase(params);
+      result.fold((_) {}, (response) {
+        if (!isClosed) {
+          suppliers.value = response.data;
+          if (searchQuery.value.isEmpty) {
+            filteredSuppliers.value = response.data;
+          }
+          updateCache(response.data, stats: stats.value);
+        }
+      });
+      // Stats en background
+      final statsResult = await getSupplierStatsUseCase(const NoParams());
+      statsResult.fold((_) {}, (s) {
+        if (!isClosed) {
+          stats.value = s;
+          updateCache(suppliers.toList(), stats: s);
+        }
+      });
+    } catch (_) {}
+  }
+
   // ==================== DATA LOADING ====================
 
-  Future<void> loadSuppliers({bool showLoading = true}) async {
+  Future<void> loadSuppliers({bool showLoading = true, bool forceRefresh = false}) async {
+    // Cache-first: usar cache si disponible y sin filtros/búsqueda
+    if (tryLoadFromCache(
+      onHit: (items) {
+        suppliers.value = List.from(items);
+        filteredSuppliers.value = List.from(items);
+      },
+      onStatsHit: (s) => stats.value = s as SupplierStats?,
+      hasFilters: _hasActiveFilters(),
+      isFirstPage: currentPage.value == 1,
+      isSearching: searchQuery.value.isNotEmpty,
+      forceRefresh: forceRefresh,
+    )) {
+      isLoading.value = false;
+      refreshInBackground(() => _fetchSuppliersAndStats());
+      return;
+    }
+
     try {
       if (showLoading) isLoading.value = true;
       error.value = '';
@@ -173,6 +242,11 @@ class SuppliersController extends GetxController {
           // Si no hay búsqueda activa, actualizar lista filtrada
           if (searchQuery.value.isEmpty) {
             filteredSuppliers.value = suppliers;
+          }
+
+          // Actualizar cache si es página 1 sin filtros
+          if (currentPage.value == 1 && searchQuery.value.isEmpty && !_hasActiveFilters()) {
+            updateCache(suppliers.toList(), stats: stats.value);
           }
         },
       );
@@ -281,18 +355,20 @@ class SuppliersController extends GetxController {
       return;
     }
 
+    invalidateCache();
     isRefreshing.value = true;
     currentPage.value = 1;
     suppliers.clear();
-    await loadSuppliers(showLoading: false);
+    await loadSuppliers(showLoading: false, forceRefresh: true);
     await loadStats();
     isRefreshing.value = false;
   }
 
   void reloadSuppliers() {
+    invalidateCache();
     currentPage.value = 1;
     suppliers.clear();
-    loadSuppliers();
+    loadSuppliers(forceRefresh: true);
   }
 
   // ==================== FILTERING ====================
@@ -327,17 +403,16 @@ class SuppliersController extends GetxController {
 
   void sortSuppliers(String field) {
     if (sortBy.value == field) {
-      // Cambiar orden si es el mismo campo
       sortOrder.value = sortOrder.value == 'asc' ? 'desc' : 'asc';
     } else {
-      // Nuevo campo, empezar con ascendente
       sortBy.value = field;
       sortOrder.value = 'asc';
     }
 
+    invalidateCache();
     currentPage.value = 1;
     suppliers.clear();
-    loadSuppliers();
+    loadSuppliers(forceRefresh: true);
   }
 
   // ==================== SUPPLIER ACTIONS ====================
@@ -392,6 +467,7 @@ class SuppliersController extends GetxController {
             );
 
             // Recargar lista
+            invalidateCache();
             refreshSuppliers();
           },
         );
@@ -407,6 +483,17 @@ class SuppliersController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// Actualizar un supplier en la lista (después de crear/editar)
+  void updateSupplierInList(Supplier updatedSupplier) {
+    final index = suppliers.indexWhere((s) => s.id == updatedSupplier.id);
+    if (index >= 0) {
+      suppliers[index] = updatedSupplier;
+    } else {
+      suppliers.insert(0, updatedSupplier);
+    }
+    filteredSuppliers.value = List.from(suppliers);
   }
 
   // ==================== NAVIGATION ====================

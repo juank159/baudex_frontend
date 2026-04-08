@@ -8,6 +8,7 @@ import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/number_input_formatter.dart';
+import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 import '../controllers/supplier_form_controller.dart';
 import '../widgets/supplier_form_sections.dart';
 import '../../domain/entities/supplier.dart';
@@ -21,6 +22,7 @@ class SupplierFormScreen extends GetView<SupplierFormController> {
       title: controller.titleText,
       showBackButton: true,
       actions: [
+        const SyncStatusIcon(),
         IconButton(
           icon: const Icon(Icons.help_outline),
           onPressed: _showHelp,

@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/organization_controller.dart';
 import '../../domain/entities/organization.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
 
 class EditOrganizationDialog extends StatefulWidget {
   final Organization organization;
@@ -46,6 +47,8 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog>
   String? _currentLogoPath;
   bool _logoDeleted = false;
   bool _isSaving = false;
+  bool _isPasswordSectionExpanded = false;
+  bool _isChangingPassword = false;
 
   late String _selectedCurrency;
   late String _selectedLocale;
@@ -177,6 +180,13 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog>
     _phoneController.dispose();
     _emailController.dispose();
     _footerMessageController.dispose();
+    // Limpiar campos de contraseña si quedaron con datos
+    try {
+      final authController = Get.find<AuthController>();
+      authController.currentPasswordController.clear();
+      authController.newPasswordController.clear();
+      authController.confirmPasswordController.clear();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -575,6 +585,19 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog>
               helperText: 'Ej: Gracias por su compra',
             ),
           ),
+
+          const SizedBox(height: 28),
+
+          // --- Seguridad ---
+          _buildSectionHeader(
+            'Seguridad',
+            Icons.shield_rounded,
+            const LinearGradient(
+              colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildChangePasswordSection(),
 
           const SizedBox(height: 28),
 
@@ -1081,6 +1104,391 @@ class _EditOrganizationDialogState extends State<EditOrganizationDialog>
         ],
       ),
     );
+  }
+
+  // ==================== CHANGE PASSWORD SECTION ====================
+
+  Widget _buildChangePasswordSection() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.04),
+            offset: const Offset(0, 4),
+            blurRadius: 12,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header colapsable
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                setState(() => _isPasswordSectionExpanded = !_isPasswordSectionExpanded);
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.lock_outline_rounded,
+                        size: 18,
+                        color: Color(0xFF7C3AED),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Cambiar Contraseña',
+                            style: TextStyle(
+                              color: ElegantLightTheme.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Actualiza tu contraseña de acceso',
+                            style: TextStyle(
+                              color: ElegantLightTheme.textTertiary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _isPasswordSectionExpanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 250),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: ElegantLightTheme.textSecondary,
+                        size: 24,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Contenido expandible
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
+            child: _isPasswordSectionExpanded
+                ? _buildPasswordForm()
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPasswordForm() {
+    final authController = Get.find<AuthController>();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Form(
+        key: authController.changePasswordFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Divider(
+              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.1),
+              height: 1,
+            ),
+            const SizedBox(height: 16),
+
+            // Contraseña actual
+            Obx(
+              () => TextFormField(
+                controller: authController.currentPasswordController,
+                obscureText: !authController.isCurrentPasswordVisible,
+                decoration: _elegantInputDecoration(
+                  label: 'Contraseña Actual',
+                  icon: Icons.lock_outline,
+                ).copyWith(
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      authController.isCurrentPasswordVisible
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                      size: 20,
+                      color: ElegantLightTheme.textTertiary,
+                    ),
+                    onPressed: authController.toggleCurrentPasswordVisibility,
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'La contraseña actual es requerida';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Nueva contraseña
+            Obx(
+              () => TextFormField(
+                controller: authController.newPasswordController,
+                obscureText: !authController.isNewPasswordVisible,
+                decoration: _elegantInputDecoration(
+                  label: 'Nueva Contraseña',
+                  icon: Icons.lock_rounded,
+                ).copyWith(
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      authController.isNewPasswordVisible
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                      size: 20,
+                      color: ElegantLightTheme.textTertiary,
+                    ),
+                    onPressed: authController.toggleNewPasswordVisibility,
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'La nueva contraseña es requerida';
+                  }
+                  if (value.length < 6) return 'Debe tener al menos 6 caracteres';
+                  if (value.length > 50) return 'No puede exceder 50 caracteres';
+                  if (!RegExp(r'[a-z]').hasMatch(value)) {
+                    return 'Debe contener al menos una minúscula';
+                  }
+                  if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                    return 'Debe contener al menos una mayúscula';
+                  }
+                  if (!RegExp(r'\d').hasMatch(value)) {
+                    return 'Debe contener al menos un número';
+                  }
+                  final currentPw = authController.currentPasswordController.text;
+                  if (currentPw.isNotEmpty && value == currentPw) {
+                    return 'Debe ser diferente a la contraseña actual';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Confirmar contraseña
+            TextFormField(
+              controller: authController.confirmPasswordController,
+              obscureText: true,
+              decoration: _elegantInputDecoration(
+                label: 'Confirmar Nueva Contraseña',
+                icon: Icons.lock_outline_rounded,
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'La confirmación es requerida';
+                }
+                if (value != authController.newPasswordController.text) {
+                  return 'Las contraseñas no coinciden';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+
+            // Requisitos de contraseña
+            _buildPasswordRequirements(),
+            const SizedBox(height: 18),
+
+            // Botón cambiar contraseña
+            Align(
+              alignment: Alignment.centerRight,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _isChangingPassword ? null : _changePassword,
+                  borderRadius: BorderRadius.circular(12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+                    decoration: BoxDecoration(
+                      gradient: _isChangingPassword
+                          ? null
+                          : const LinearGradient(
+                              colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
+                            ),
+                      color: _isChangingPassword
+                          ? ElegantLightTheme.textTertiary.withValues(alpha: 0.3)
+                          : null,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: _isChangingPassword
+                          ? []
+                          : [
+                              BoxShadow(
+                                color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                                offset: const Offset(0, 3),
+                                blurRadius: 10,
+                              ),
+                            ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_isChangingPassword)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        else
+                          const Icon(Icons.lock_reset_rounded, color: Colors.white, size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isChangingPassword ? 'Cambiando...' : 'Cambiar Contraseña',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordRequirements() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF7C3AED).withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, size: 15, color: const Color(0xFF7C3AED).withValues(alpha: 0.8)),
+              const SizedBox(width: 6),
+              Text(
+                'La nueva contraseña debe contener:',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.9),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildPwRequirement('Al menos 6 caracteres'),
+          _buildPwRequirement('Una letra minúscula (a-z)'),
+          _buildPwRequirement('Una letra mayúscula (A-Z)'),
+          _buildPwRequirement('Un número (0-9)'),
+          _buildPwRequirement('Diferente a la contraseña actual'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPwRequirement(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        children: [
+          Icon(
+            Icons.check_circle_outline,
+            size: 13,
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.6),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 11,
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _changePassword() async {
+    final authController = Get.find<AuthController>();
+    if (!authController.changePasswordFormKey.currentState!.validate()) return;
+
+    setState(() => _isChangingPassword = true);
+
+    try {
+      final success = await authController.changePasswordSilent();
+      if (success && mounted) {
+        setState(() {
+          _isPasswordSectionExpanded = false;
+          _isChangingPassword = false;
+        });
+        Get.snackbar(
+          'Contraseña Actualizada',
+          'Tu contraseña ha sido cambiada exitosamente',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: ElegantLightTheme.successGreen.withValues(alpha: 0.15),
+          colorText: ElegantLightTheme.successGreen,
+          icon: const Icon(Icons.check_circle_rounded, color: ElegantLightTheme.successGreen),
+          duration: const Duration(seconds: 3),
+          margin: const EdgeInsets.all(12),
+          borderRadius: 14,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isChangingPassword = false);
+        final message = e.toString().replaceFirst('Exception: ', '');
+        Get.snackbar(
+          'Error',
+          message,
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: ElegantLightTheme.errorRed.withValues(alpha: 0.15),
+          colorText: ElegantLightTheme.errorRed,
+          icon: const Icon(Icons.error_rounded, color: ElegantLightTheme.errorRed),
+          duration: const Duration(seconds: 4),
+          margin: const EdgeInsets.all(12),
+          borderRadius: 14,
+        );
+      }
+    }
   }
 
   // ==================== SYSTEM INFO ====================

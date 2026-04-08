@@ -27,8 +27,9 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
 
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener organización actual',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener organización actual',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -51,8 +52,9 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
 
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al actualizar organización',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al actualizar organización',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -70,8 +72,9 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
 
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener organización',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener organización',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {
@@ -102,8 +105,9 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
       return success;
     } on DioException catch (e) {
       print('❌ Error DioException: ${e.response?.data}');
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al actualizar margen de ganancia',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al actualizar margen de ganancia',
         statusCode: e.response?.statusCode ?? 500,
       );
     } catch (e) {

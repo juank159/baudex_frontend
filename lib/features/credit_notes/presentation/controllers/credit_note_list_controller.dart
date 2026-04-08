@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../app/core/models/pagination_meta.dart';
+import '../../../../app/core/mixins/cache_first_mixin.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/credit_note.dart';
 import '../../domain/usecases/get_credit_notes.dart';
 import '../../domain/usecases/delete_credit_note.dart';
@@ -13,7 +15,8 @@ import '../../domain/usecases/cancel_credit_note.dart';
 import '../../domain/usecases/download_credit_note_pdf.dart';
 import '../../domain/repositories/credit_note_repository.dart';
 
-class CreditNoteListController extends GetxController {
+class CreditNoteListController extends GetxController
+    with CacheFirstMixin<CreditNote>, SyncAutoRefreshMixin {
   // Dependencies
   final GetCreditNotes _getCreditNotesUseCase;
   final DeleteCreditNote _deleteCreditNoteUseCase;
@@ -107,7 +110,14 @@ class CreditNoteListController extends GetxController {
     super.onInit();
     _setupSearchListener();
     _setupScrollListener();
+    setupSyncListener();
     loadCreditNotes();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    invalidateCache();
+    refreshInBackground(() => _fetchCreditNotes());
   }
 
   @override
@@ -144,51 +154,79 @@ class CreditNoteListController extends GetxController {
 
   // ==================== DATA LOADING ====================
 
-  Future<void> loadCreditNotes({bool showLoading = true}) async {
-    if (showLoading) {
-      _isLoading.value = true;
+  Future<void> loadCreditNotes({bool showLoading = true, bool forceRefresh = false}) async {
+    // Cache-first
+    if (tryLoadFromCache(
+      onHit: (items) { _creditNotes.value = List.from(items); },
+      hasFilters: _hasActiveFilters(),
+      isFirstPage: _currentPage.value == 1,
+      isSearching: _searchQuery.value.isNotEmpty,
+      forceRefresh: forceRefresh,
+    )) {
+      _isLoading.value = false;
+      refreshInBackground(() => _fetchCreditNotes());
+      return;
     }
 
+    if (showLoading) _isLoading.value = true;
+
     try {
-      final params = QueryCreditNotesParams(
-        page: _currentPage.value,
-        limit: _itemsPerPage.value,
-        search: searchQuery.isNotEmpty ? searchQuery : null,
-        status: selectedStatus,
-        type: selectedType,
-        reason: selectedReason,
-        invoiceId: invoiceId,
-        customerId: customerId,
-        startDate: startDate,
-        endDate: endDate,
-        sortBy: _sortBy.value,
-        sortOrder: _sortOrder.value,
-      );
-
-      final result = await _getCreditNotesUseCase(params);
-
-      result.fold(
-        (failure) {
-          Get.snackbar(
-            'Error',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red,
-            colorText: Colors.white,
-          );
-        },
-        (paginatedResult) {
-          if (_currentPage.value == 1) {
-            _creditNotes.value = paginatedResult.data;
-          } else {
-            _creditNotes.addAll(paginatedResult.data);
-          }
-          _paginationMeta.value = paginatedResult.meta;
-        },
-      );
+      await _fetchCreditNotes();
     } finally {
       _isLoading.value = false;
     }
+  }
+
+  Future<void> _fetchCreditNotes() async {
+    final params = QueryCreditNotesParams(
+      page: _currentPage.value,
+      limit: _itemsPerPage.value,
+      search: searchQuery.isNotEmpty ? searchQuery : null,
+      status: selectedStatus,
+      type: selectedType,
+      reason: selectedReason,
+      invoiceId: invoiceId,
+      customerId: customerId,
+      startDate: startDate,
+      endDate: endDate,
+      sortBy: _sortBy.value,
+      sortOrder: _sortOrder.value,
+    );
+
+    final result = await _getCreditNotesUseCase(params);
+
+    result.fold(
+      (failure) {
+        Get.snackbar(
+          'Error',
+          failure.message,
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      },
+      (paginatedResult) {
+        if (_currentPage.value == 1) {
+          _creditNotes.value = paginatedResult.data;
+          if (!_hasActiveFilters()) {
+            updateCache(paginatedResult.data);
+          }
+        } else {
+          _creditNotes.addAll(paginatedResult.data);
+        }
+        _paginationMeta.value = paginatedResult.meta;
+      },
+    );
+  }
+
+  bool _hasActiveFilters() {
+    return _selectedStatus.value != null ||
+        _selectedType.value != null ||
+        _selectedReason.value != null ||
+        _invoiceId.value != null ||
+        _customerId.value != null ||
+        _startDate.value != null ||
+        _endDate.value != null;
   }
 
   Future<void> loadMoreCreditNotes() async {
@@ -207,7 +245,8 @@ class CreditNoteListController extends GetxController {
   Future<void> refreshCreditNotes() async {
     _isRefreshing.value = true;
     _currentPage.value = 1;
-    await loadCreditNotes(showLoading: false);
+    invalidateCache();
+    await loadCreditNotes(showLoading: false, forceRefresh: true);
     _isRefreshing.value = false;
   }
 
@@ -294,6 +333,7 @@ class CreditNoteListController extends GetxController {
             _creditNotes[index] = creditNote;
             _creditNotes.refresh();
           }
+          invalidateCache();
 
           Get.snackbar(
             'Confirmada',
@@ -336,6 +376,7 @@ class CreditNoteListController extends GetxController {
             _creditNotes[index] = creditNote;
             _creditNotes.refresh();
           }
+          invalidateCache();
 
           Get.snackbar(
             'Cancelada',
@@ -394,6 +435,7 @@ class CreditNoteListController extends GetxController {
         (_) {
           // Remover de la lista
           _creditNotes.removeWhere((cn) => cn.id == id);
+          invalidateCache();
 
           Get.snackbar(
             'Eliminada',

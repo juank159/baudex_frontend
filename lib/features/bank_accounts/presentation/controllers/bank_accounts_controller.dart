@@ -1,10 +1,13 @@
 // lib/features/bank_accounts/presentation/controllers/bank_accounts_controller.dart
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/cache_first_mixin.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/bank_account.dart';
 import '../../domain/repositories/bank_account_repository.dart';
 
 /// Controlador para la gestión de cuentas bancarias
-class BankAccountsController extends GetxController {
+class BankAccountsController extends GetxController
+    with CacheFirstMixin<BankAccount>, SyncAutoRefreshMixin {
   final BankAccountRepository repository;
 
   BankAccountsController({required this.repository});
@@ -32,7 +35,14 @@ class BankAccountsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     loadBankAccounts();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    invalidateCache();
+    loadBankAccounts(refresh: true);
   }
 
   // ==================== GETTERS ====================
@@ -70,10 +80,28 @@ class BankAccountsController extends GetxController {
   Future<void> loadBankAccounts({bool refresh = false}) async {
     if (isLoading.value && !refresh) return;
 
+    // Cache-first (sin filtros activos y no es refresh)
+    if (!refresh && tryLoadFromCache(
+      onHit: (items) { bankAccounts.value = List.from(items); defaultAccount.value = items.where((a) => a.isDefault).firstOrNull; },
+      hasFilters: filterType.value != null || showInactive.value,
+      isFirstPage: true,
+      isSearching: false,
+    )) {
+      isLoading.value = false;
+      refreshInBackground(() => _fetchBankAccounts());
+      return;
+    }
+
     isLoading.value = true;
     errorMessage.value = '';
     hasError.value = false;
 
+    await _fetchBankAccounts();
+
+    isLoading.value = false;
+  }
+
+  Future<void> _fetchBankAccounts() async {
     final result = await repository.getBankAccounts(
       includeInactive: showInactive.value,
     );
@@ -85,12 +113,12 @@ class BankAccountsController extends GetxController {
       },
       (accounts) {
         bankAccounts.value = accounts;
-        // Actualizar cuenta predeterminada
         defaultAccount.value = accounts.where((a) => a.isDefault).firstOrNull;
+        if (filterType.value == null && !showInactive.value) {
+          updateCache(accounts);
+        }
       },
     );
-
-    isLoading.value = false;
   }
 
   /// Cargar cuentas activas
@@ -154,7 +182,6 @@ class BankAccountsController extends GetxController {
       (account) {
         bankAccounts.add(account);
         if (account.isDefault) {
-          // Quitar isDefault de las demás en la lista local
           bankAccounts.value = bankAccounts.map((a) {
             if (a.id != account.id && a.isDefault) {
               return a.copyWith(isDefault: false);
@@ -163,6 +190,7 @@ class BankAccountsController extends GetxController {
           }).toList();
           defaultAccount.value = account;
         }
+        invalidateCache();
         return true;
       },
     );
@@ -214,7 +242,6 @@ class BankAccountsController extends GetxController {
           bankAccounts[index] = updatedAccount;
         }
         if (updatedAccount.isDefault) {
-          // Actualizar defaultAccount y quitar flag de otras
           bankAccounts.value = bankAccounts.map((a) {
             if (a.id != id && a.isDefault) {
               return a.copyWith(isDefault: false);
@@ -223,6 +250,7 @@ class BankAccountsController extends GetxController {
           }).toList();
           defaultAccount.value = updatedAccount;
         }
+        invalidateCache();
         return true;
       },
     );
@@ -250,6 +278,7 @@ class BankAccountsController extends GetxController {
           defaultAccount.value =
               bankAccounts.where((a) => a.isDefault).firstOrNull;
         }
+        invalidateCache();
         return true;
       },
     );

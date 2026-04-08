@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/inventory_balance.dart';
@@ -18,7 +19,8 @@ import '../../domain/repositories/inventory_repository.dart';
 import '../services/inventory_export_service.dart';
 import 'inventory_transfers_controller.dart';
 
-class InventoryController extends GetxController {
+class InventoryController extends GetxController
+    with SyncAutoRefreshMixin {
   final GetInventoryBalancesUseCase getInventoryBalancesUseCase;
   final GetInventoryMovementsUseCase getInventoryMovementsUseCase;
   final GetInventoryStatsUseCase getInventoryStatsUseCase;
@@ -103,8 +105,14 @@ class InventoryController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     _initializeData();
     _setupSearchListener();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    refreshData();
   }
 
   @override

@@ -71,18 +71,20 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       return CreditNoteModel.fromJson(creditNoteJson);
     } on DioException catch (e) {
       print('❌ Error Dio al crear nota de crédito: ${e.response?.statusCode}');
+      final errData = e.response?.data;
+      final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
         throw NotFoundException(
-          e.response?.data['message'] ?? 'Factura no encontrada',
+          errMsg ?? 'Factura no encontrada',
         );
       }
       if (e.response?.statusCode == 400) {
         throw ValidationException([
-          e.response?.data['message'] ?? 'Datos inválidos',
+          errMsg ?? 'Datos inválidos',
         ]);
       }
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al crear nota de crédito',
+        errMsg ?? 'Error al crear nota de crédito',
       );
     } catch (e) {
       print('❌ Error inesperado al crear nota de crédito: $e');
@@ -124,11 +126,13 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       print(
         '❌ Error Dio al obtener nota de crédito: ${e.response?.statusCode}',
       );
+      final errData = e.response?.data;
+      final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
         throw NotFoundException('Nota de crédito no encontrada');
       }
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener nota de crédito',
+        errMsg ?? 'Error al obtener nota de crédito',
       );
     } catch (e) {
       print('❌ Error inesperado al obtener nota de crédito: $e');
@@ -155,8 +159,9 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       print(
         '❌ Error Dio al obtener notas de crédito: ${e.response?.statusCode}',
       );
+      final errData = e.response?.data;
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener notas de crédito',
+        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener notas de crédito',
       );
     } catch (e) {
       print('❌ Error inesperado al obtener notas de crédito: $e');
@@ -197,11 +202,13 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       print(
         '❌ Error Dio al obtener notas de crédito de factura: ${e.response?.statusCode}',
       );
+      final errData = e.response?.data;
+      final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
         throw NotFoundException('Factura no encontrada');
       }
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener notas de crédito',
+        errMsg ?? 'Error al obtener notas de crédito',
       );
     } catch (e) {
       print('❌ Error inesperado al obtener notas de crédito de factura: $e');
@@ -244,16 +251,18 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       print(
         '❌ Error Dio al actualizar nota de crédito: ${e.response?.statusCode}',
       );
+      final errData = e.response?.data;
+      final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
         throw NotFoundException('Nota de crédito no encontrada');
       }
       if (e.response?.statusCode == 400) {
         throw ValidationException([
-          e.response?.data['message'] ?? 'Datos inválidos',
+          errMsg ?? 'Datos inválidos',
         ]);
       }
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al actualizar nota de crédito',
+        errMsg ?? 'Error al actualizar nota de crédito',
       );
     } catch (e) {
       print('❌ Error inesperado al actualizar nota de crédito: $e');
@@ -290,16 +299,18 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       print(
         '❌ Error Dio al confirmar nota de crédito: ${e.response?.statusCode}',
       );
+      final errData = e.response?.data;
+      final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
         throw NotFoundException('Nota de crédito no encontrada');
       }
       if (e.response?.statusCode == 400) {
         throw ValidationException([
-          e.response?.data['message'] ?? 'No se puede confirmar',
+          errMsg ?? 'No se puede confirmar',
         ]);
       }
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al confirmar nota de crédito',
+        errMsg ?? 'Error al confirmar nota de crédito',
       );
     } catch (e) {
       print('❌ Error inesperado al confirmar nota de crédito: $e');
@@ -336,16 +347,18 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       print(
         '❌ Error Dio al cancelar nota de crédito: ${e.response?.statusCode}',
       );
+      final errData = e.response?.data;
+      final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
         throw NotFoundException('Nota de crédito no encontrada');
       }
       if (e.response?.statusCode == 400) {
         throw ValidationException([
-          e.response?.data['message'] ?? 'No se puede cancelar',
+          errMsg ?? 'No se puede cancelar',
         ]);
       }
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al cancelar nota de crédito',
+        errMsg ?? 'Error al cancelar nota de crédito',
       );
     } catch (e) {
       print('❌ Error inesperado al cancelar nota de crédito: $e');
@@ -363,16 +376,18 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       print(
         '❌ Error Dio al eliminar nota de crédito: ${e.response?.statusCode}',
       );
+      final errData = e.response?.data;
+      final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
         throw NotFoundException('Nota de crédito no encontrada');
       }
       if (e.response?.statusCode == 400) {
         throw ValidationException([
-          e.response?.data['message'] ?? 'No se puede eliminar',
+          errMsg ?? 'No se puede eliminar',
         ]);
       }
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al eliminar nota de crédito',
+        errMsg ?? 'Error al eliminar nota de crédito',
       );
     } catch (e) {
       print('❌ Error inesperado al eliminar nota de crédito: $e');
@@ -409,11 +424,13 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       print(
         '❌ Error Dio al obtener monto acreditable: ${e.response?.statusCode}',
       );
+      final errData = e.response?.data;
+      final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
         throw NotFoundException('Factura no encontrada');
       }
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener monto acreditable',
+        errMsg ?? 'Error al obtener monto acreditable',
       );
     } catch (e) {
       print('❌ Error inesperado al obtener monto acreditable: $e');
@@ -436,11 +453,13 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       return response.data as List<int>;
     } on DioException catch (e) {
       print('❌ Error Dio al descargar PDF: ${e.response?.statusCode}');
+      final errData = e.response?.data;
+      final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
         throw NotFoundException('Nota de crédito no encontrada');
       }
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al descargar PDF',
+        errMsg ?? 'Error al descargar PDF',
       );
     } catch (e) {
       print('❌ Error inesperado al descargar PDF: $e');
@@ -478,11 +497,13 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       print(
         '❌ Error Dio al obtener cantidades disponibles: ${e.response?.statusCode}',
       );
+      final errData = e.response?.data;
+      final errMsg = (errData is Map ? errData['message']?.toString() : errData?.toString());
       if (e.response?.statusCode == 404) {
         throw NotFoundException('Factura no encontrada');
       }
       throw ServerException(
-        e.response?.data['message'] ?? 'Error al obtener cantidades disponibles',
+        errMsg ?? 'Error al obtener cantidades disponibles',
       );
     } catch (e) {
       print('❌ Error inesperado al obtener cantidades disponibles: $e');

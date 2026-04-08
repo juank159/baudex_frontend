@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/number_input_formatter.dart';
+import '../../../../app/data/local/sync_service.dart';
+import '../controllers/suppliers_controller.dart';
 import '../../domain/entities/supplier.dart';
 import '../../domain/usecases/create_supplier_usecase.dart';
 import '../../domain/usecases/update_supplier_usecase.dart';
@@ -77,6 +79,7 @@ class SupplierFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    SyncService.notifyFormOpened();
     // Initialize unique FormKey
     formKey = GlobalKey<FormState>();
     _initializeForm();
@@ -85,6 +88,7 @@ class SupplierFormController extends GetxController {
 
   @override
   void onClose() {
+    SyncService.notifyFormClosed();
     _debounceTimer?.cancel();
     _disposeControllers();
     super.onClose();
@@ -503,6 +507,14 @@ class SupplierFormController extends GetxController {
         );
       },
       (createdSupplier) {
+        // Invalidar cache para que el listado refresque al volver
+        if (Get.isRegistered<SuppliersController>()) {
+          Get.find<SuppliersController>().invalidateCache();
+        }
+
+        // Navegar primero, luego snackbar (se muestra en el listado)
+        Get.back();
+
         Get.snackbar(
           'Éxito',
           'Proveedor creado correctamente',
@@ -510,9 +522,6 @@ class SupplierFormController extends GetxController {
           backgroundColor: Colors.green.shade100,
           colorText: Colors.green.shade800,
         );
-
-        // Volver a la lista (ya está en el stack)
-        Get.back();
       },
     );
   }
@@ -598,6 +607,14 @@ class SupplierFormController extends GetxController {
         );
       },
       (updatedSupplier) {
+        // Invalidar cache para que el listado refresque al volver
+        if (Get.isRegistered<SuppliersController>()) {
+          Get.find<SuppliersController>().invalidateCache();
+        }
+
+        // Navegar primero, luego snackbar (se muestra en el listado)
+        Get.back();
+
         Get.snackbar(
           'Éxito',
           'Proveedor actualizado correctamente',
@@ -605,9 +622,6 @@ class SupplierFormController extends GetxController {
           backgroundColor: Colors.green.shade100,
           colorText: Colors.green.shade800,
         );
-
-        // Volver a la lista (ya está en el stack)
-        Get.back();
       },
     );
   }

@@ -832,6 +832,14 @@ class ProductRepositoryImpl implements ProductRepository {
           createdBy: null, // Will be set from authentication when syncing
           createdAt: now,
           updatedAt: now,
+          // Campos fiscales
+          taxCategory: taxCategory ?? TaxCategory.iva,
+          taxRate: taxRate ?? 19.0,
+          isTaxable: isTaxable ?? true,
+          taxDescription: taxDescription,
+          retentionCategory: retentionCategory,
+          retentionRate: retentionRate,
+          hasRetention: hasRetention ?? false,
         );
 
         // Cache el producto localmente

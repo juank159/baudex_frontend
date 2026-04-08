@@ -1,5 +1,6 @@
 // lib/features/invoices/presentation/controllers/invoice_form_controller.dart
 import 'dart:async';
+import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
@@ -278,6 +279,7 @@ class InvoiceFormController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    SyncService.notifyFormOpened();
     final instanceId = hashCode;
     print(
       '🚀 InvoiceFormController: Inicializando punto de venta... (Instance: $instanceId)',
@@ -385,6 +387,7 @@ class InvoiceFormController extends GetxController {
 
   @override
   void onClose() {
+    SyncService.notifyFormClosed();
     print('🔚 InvoiceFormController: Liberando recursos...');
     _disposeControllers();
     super.onClose();
@@ -2395,8 +2398,9 @@ class InvoiceFormController extends GetxController {
         return null;
       },
       (invoice) {
-        _showSuccessWithStatus('Factura actualizada exitosamente', status);
+        // Navegar primero, luego snackbar (se muestra en el listado)
         Get.back(result: invoice);
+        _showSuccessWithStatus('Factura actualizada exitosamente', status);
         return invoice; // ✅ RETORNAR LA FACTURA ACTUALIZADA
       },
     );

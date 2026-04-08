@@ -1317,10 +1317,15 @@ class PurchaseOrderOfflineRepository implements PurchaseOrderRepository {
     List<UpdatePurchaseOrderItemParams> itemParams,
   ) async {
     await _isar.writeTxn(() async {
-      // Load current items
-      await purchaseOrder.items.load();
-
-      // Clear existing items
+      // Eliminar items existentes de la colección (no solo los links)
+      final oldItems = await _isar.isarPurchaseOrderItems
+          .filter()
+          .purchaseOrderServerIdEqualTo(purchaseOrder.serverId)
+          .findAll();
+      if (oldItems.isNotEmpty) {
+        await _isar.isarPurchaseOrderItems
+            .deleteAll(oldItems.map((i) => i.id).toList());
+      }
       purchaseOrder.items.clear();
       await purchaseOrder.items.save();
 

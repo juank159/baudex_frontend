@@ -82,11 +82,14 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       }
       print('🔍 ${unsyncedPOs.length} POs con cambios locales pendientes encontradas');
 
-      // Cargar items para cada PO no sincronizada
+      // Cargar items para cada PO no sincronizada (query directa, NO IsarLinks)
       final unsyncedMap = <String, PurchaseOrder>{};
       for (final isarPO in unsyncedPOs) {
-        await isarPO.items.load();
-        unsyncedMap[isarPO.serverId] = isarPO.toEntity();
+        final directItems = await isar.isarPurchaseOrderItems
+            .filter()
+            .purchaseOrderServerIdEqualTo(isarPO.serverId)
+            .findAll();
+        unsyncedMap[isarPO.serverId] = isarPO.toEntityWithItems(directItems);
       }
 
       // Reemplazar en la lista
@@ -598,8 +601,12 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
             .serverIdEqualTo(params.id)
             .findFirst();
         if (isarPO != null) {
-          await isarPO.items.load();
-          for (final isarItem in isarPO.items) {
+          // Usar query directa (más confiable que IsarLinks)
+          final directItems = await isar.isarPurchaseOrderItems
+              .filter()
+              .purchaseOrderServerIdEqualTo(params.id)
+              .findAll();
+          for (final isarItem in directItems) {
             final receiveParam = params.items.where(
               (p) => p.itemId == isarItem.itemId || p.itemId == isarItem.productId,
             ).firstOrNull;
@@ -616,7 +623,9 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           isarPO.updatedAt = DateTime.now();
           isarPO.markAsUnsynced();
           await isar.writeTxn(() async {
-            await isar.isarPurchaseOrderItems.putAll(isarPO.items.toList());
+            if (directItems.isNotEmpty) {
+              await isar.isarPurchaseOrderItems.putAll(directItems);
+            }
             await isar.isarPurchaseOrders.put(isarPO);
           });
         }

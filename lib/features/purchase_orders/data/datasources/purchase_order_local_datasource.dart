@@ -57,7 +57,33 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
 
   @override
   Future<List<PurchaseOrderModel>> getCachedPurchaseOrders() async {
-    // Intentar SecureStorage primero
+    // ISAR es la fuente de verdad (tiene protección isSynced para cambios offline)
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarPOs = await isar.isarPurchaseOrders
+          .filter()
+          .deletedAtIsNull()
+          .sortByOrderDateDesc()
+          .findAll();
+      if (isarPOs.isNotEmpty) {
+        // Cargar items por query directa (NO usar IsarLinks que puede estar roto)
+        final results = <PurchaseOrderModel>[];
+        for (final isarPO in isarPOs) {
+          final directItems = await isar.isarPurchaseOrderItems
+              .filter()
+              .purchaseOrderServerIdEqualTo(isarPO.serverId)
+              .findAll();
+          results.add(PurchaseOrderModel.fromEntity(
+            isarPO.toEntityWithItems(directItems),
+          ));
+        }
+        return results;
+      }
+    } catch (e) {
+      print('⚠️ Error leyendo POs de ISAR: $e');
+    }
+
+    // Fallback a SecureStorage (legacy)
     try {
       final cachedData = await secureStorageService.read(
         ApiConstants.purchaseOrdersCacheKey,
@@ -72,24 +98,6 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
       }
     } catch (e) {
       print('⚠️ Error leyendo POs de SecureStorage: $e');
-    }
-
-    // Fallback a ISAR (datos sincronizados offline)
-    try {
-      final isar = IsarDatabase.instance.database;
-      final isarPOs = await isar.isarPurchaseOrders
-          .filter()
-          .deletedAtIsNull()
-          .sortByOrderDateDesc()
-          .findAll();
-      if (isarPOs.isNotEmpty) {
-        print('✅ ${isarPOs.length} órdenes de compra leídas desde ISAR');
-        return isarPOs
-            .map((isarPO) => PurchaseOrderModel.fromEntity(isarPO.toEntity()))
-            .toList();
-      }
-    } catch (e) {
-      print('⚠️ Error leyendo POs de ISAR: $e');
     }
 
     return [];
@@ -204,7 +212,7 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
 
   @override
   Future<PurchaseOrderModel?> getCachedPurchaseOrderById(String id) async {
-    // 1. Buscar directamente en ISAR con items cargados (IsarLinks requiere load() explícito)
+    // 1. ISAR: query directa de items por purchaseOrderServerId (NO usar IsarLinks)
     try {
       final isar = IsarDatabase.instance.database;
       final isarPO = await isar.isarPurchaseOrders
@@ -212,11 +220,14 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
           .serverIdEqualTo(id)
           .findFirst();
       if (isarPO != null) {
-        await isarPO.items.load(); // CRÍTICO: cargar items vinculados
-        if (isarPO.items.isNotEmpty) {
-          // Enriquecer nombres de productos desde IsarProduct si están vacíos
-          await _enrichItemProductNames(isar, isarPO.items.toList());
-          final entity = isarPO.toEntity();
+        // Cargar items por query directa (más confiable que IsarLinks)
+        final directItems = await isar.isarPurchaseOrderItems
+            .filter()
+            .purchaseOrderServerIdEqualTo(id)
+            .findAll();
+        if (directItems.isNotEmpty) {
+          await _enrichItemProductNames(isar, directItems);
+          final entity = isarPO.toEntityWithItems(directItems);
           print('✅ PO $id leída de ISAR con ${entity.items.length} items');
           return PurchaseOrderModel.fromEntity(entity);
         }
@@ -235,7 +246,9 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
         for (final jsonItem in jsonList) {
           final order = PurchaseOrderModel.fromJson(jsonItem);
           if (order.id == id) {
-            return order;
+            if (order.items != null && order.items!.isNotEmpty) {
+              return order;
+            }
           }
         }
       }
@@ -392,21 +405,40 @@ class PurchaseOrderLocalDataSourceImpl implements PurchaseOrderLocalDataSource {
         print('Error guardando en ISAR (continuando...): $e');
       }
 
-      // Guardar en SecureStorage (código existente)
-      final cachedOrders = await getCachedPurchaseOrders();
+      // Guardar en SecureStorage (legacy) — NO llamar cachePurchaseOrders() para evitar
+      // doble write a ISAR que causa UniqueIndex violation
+      try {
+        final cachedData = await secureStorageService.read(
+          ApiConstants.purchaseOrdersCacheKey,
+        );
+        List<PurchaseOrderModel> cachedOrders = [];
+        if (cachedData != null) {
+          final List<dynamic> jsonList = json.decode(cachedData);
+          cachedOrders = jsonList
+              .map((j) => PurchaseOrderModel.fromJson(j))
+              .toList();
+        }
 
-      // Buscar si ya existe la orden y actualizarla, si no agregarla
-      final existingIndex = cachedOrders.indexWhere(
-        (order) => order.id == purchaseOrder.id,
-      );
+        final existingIndex = cachedOrders.indexWhere(
+          (order) => order.id == purchaseOrder.id,
+        );
+        if (existingIndex != -1) {
+          cachedOrders[existingIndex] = purchaseOrder;
+        } else {
+          cachedOrders.add(purchaseOrder);
+        }
 
-      if (existingIndex != -1) {
-        cachedOrders[existingIndex] = purchaseOrder;
-      } else {
-        cachedOrders.add(purchaseOrder);
+        await secureStorageService.write(
+          ApiConstants.purchaseOrdersCacheKey,
+          json.encode(cachedOrders.map((o) => o.toJson()).toList()),
+        );
+        await secureStorageService.write(
+          '${ApiConstants.purchaseOrdersCacheKey}_timestamp',
+          DateTime.now().toIso8601String(),
+        );
+      } catch (e) {
+        print('⚠️ Error actualizando PO en SecureStorage: $e');
       }
-
-      await cachePurchaseOrders(cachedOrders);
     } catch (e) {
       throw CacheException('Error al guardar orden de compra en cache: $e');
     }

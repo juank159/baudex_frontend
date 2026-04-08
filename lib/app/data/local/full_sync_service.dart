@@ -155,7 +155,8 @@ class FullSyncService extends GetxService {
   FullSyncService(this._database);
 
   /// Realiza un Full Sync completo con sincronización paralela por tiers
-  Future<FullSyncResult> performFullSync() async {
+  /// [skipCleanup] = true para pulls periódicos (upsert by serverId es seguro sin limpiar)
+  Future<FullSyncResult> performFullSync({bool skipCleanup = false}) async {
     if (isSyncing.value) {
       print('⚠️ [FULL_SYNC] Ya hay un sync en progreso, ignorando...');
       return FullSyncResult(
@@ -197,46 +198,53 @@ class FullSyncService extends GetxService {
 
       // Limpiar datos del tenant anterior SELECTIVAMENTE
       // NUNCA borrar: syncOperations, idempotencyRecords, printerSettings no sincronizados
-      try {
-        print('🧹 [FULL_SYNC] Limpiando datos del tenant anterior (selectivo)...');
-        await _isar.writeTxn(() async {
-          // Limpiar colecciones de entidades descargables del servidor
-          await _isar.isarCategorys.clear();
-          await _isar.isarCustomers.clear();
-          await _isar.isarCustomerCredits.clear();
-          await _isar.isarProducts.clear();
-          await _isar.isarExpenses.clear();
-          await _isar.isarInvoices.clear();
-          await _isar.isarCreditNotes.clear();
-          await _isar.isarNotifications.clear();
-          await _isar.isarBankAccounts.clear();
-          await _isar.isarSuppliers.clear();
-          await _isar.isarPurchaseOrders.clear();
-          await _isar.isarPurchaseOrderItems.clear();
-          await _isar.isarInventoryMovements.clear();
-          await _isar.isarInventoryBatchs.clear();
-          await _isar.isarInventoryBatchMovements.clear();
-          await _isar.isarOrganizations.clear();
-          await _isar.isarUserPreferences.clear();
-          await _isar.isarSubscriptions.clear();
-          // Solo borrar impresoras ya sincronizadas (las del servidor se re-descargan)
-          final unsyncedPrinters = await _isar.printerSettingsModels
-              .filter()
-              .isSyncedEqualTo(false)
-              .findAll();
-          await _isar.printerSettingsModels.clear();
-          // Restaurar impresoras no sincronizadas
-          if (unsyncedPrinters.isNotEmpty) {
-            for (final p in unsyncedPrinters) {
-              await _isar.printerSettingsModels.put(p);
+      // skipCleanup=true para pulls periódicos: upsert by serverId es seguro sin limpiar
+      if (!skipCleanup) {
+        try {
+          print('🧹 [FULL_SYNC] Limpiando datos del tenant anterior (selectivo)...');
+          await _isar.writeTxn(() async {
+            // Limpiar colecciones de entidades descargables del servidor
+            await _isar.isarCategorys.clear();
+            await _isar.isarCustomers.clear();
+            await _isar.isarCustomerCredits.clear();
+            await _isar.isarProducts.clear();
+            await _isar.isarExpenses.clear();
+            await _isar.isarInvoices.clear();
+            await _isar.isarCreditNotes.clear();
+            await _isar.isarNotifications.clear();
+            await _isar.isarBankAccounts.clear();
+            await _isar.isarSuppliers.clear();
+            await _isar.isarPurchaseOrders.clear();
+            // NO limpiar isarPurchaseOrderItems aquí: el list API no devuelve items,
+            // así que _syncPurchaseOrders() no puede repoblarlos. Items huérfanos
+            // (de otro tenant) se limpian en _cleanupOrphanedRecords().
+            await _isar.isarInventoryMovements.clear();
+            await _isar.isarInventoryBatchs.clear();
+            await _isar.isarInventoryBatchMovements.clear();
+            await _isar.isarOrganizations.clear();
+            await _isar.isarUserPreferences.clear();
+            await _isar.isarSubscriptions.clear();
+            // Solo borrar impresoras ya sincronizadas (las del servidor se re-descargan)
+            final unsyncedPrinters = await _isar.printerSettingsModels
+                .filter()
+                .isSyncedEqualTo(false)
+                .findAll();
+            await _isar.printerSettingsModels.clear();
+            // Restaurar impresoras no sincronizadas
+            if (unsyncedPrinters.isNotEmpty) {
+              for (final p in unsyncedPrinters) {
+                await _isar.printerSettingsModels.put(p);
+              }
+              print('🔒 [FULL_SYNC] ${unsyncedPrinters.length} impresora(s) no sincronizada(s) preservada(s)');
             }
-            print('🔒 [FULL_SYNC] ${unsyncedPrinters.length} impresora(s) no sincronizada(s) preservada(s)');
-          }
-          // NUNCA tocar: syncOperations ni isarIdempotencyRecords
-        });
-        print('✅ [FULL_SYNC] Datos anteriores limpiados (sync queue preservada)');
-      } catch (e) {
-        print('⚠️ [FULL_SYNC] Error limpiando ISAR (continuando sync): $e');
+            // NUNCA tocar: syncOperations ni isarIdempotencyRecords
+          });
+          print('✅ [FULL_SYNC] Datos anteriores limpiados (sync queue preservada)');
+        } catch (e) {
+          print('⚠️ [FULL_SYNC] Error limpiando ISAR (continuando sync): $e');
+        }
+      } else {
+        print('⏭️ [FULL_SYNC] skipCleanup=true (pull periódico) — upsert directo sin borrar');
       }
 
       final syncFunctions = <String, Future<int> Function()>{
@@ -328,6 +336,32 @@ class FullSyncService extends GetxService {
         }
 
         await Future.wait(futures);
+
+        // Early abort: si TODAS las entidades del tier fallaron, el servidor está caído
+        // No tiene sentido continuar con los demás tiers (evita ~18 requests innecesarias)
+        final tierErrors = tier.where((e) => errors.containsKey(e)).length;
+        if (tierErrors == tier.length && tier.length > 1) {
+          print('🛑 [FULL_SYNC] Todas las entidades del Tier ${tierIdx + 1} fallaron — servidor no disponible, abortando sync');
+          // Marcar entidades restantes como no sincronizadas (sin intentar)
+          for (int remainingTier = tierIdx + 1; remainingTier < _syncTiers.length; remainingTier++) {
+            for (final entityName in _syncTiers[remainingTier]) {
+              final globalIdx = allEntities.indexOf(entityName);
+              errors[entityName] = 'Omitido (servidor no disponible)';
+              progress[globalIdx] = SyncEntityProgress(
+                entityName: entityName,
+                hasError: true,
+                errorMessage: 'Servidor no disponible',
+              );
+              completedCount++;
+            }
+          }
+          overallProgress.value = 1.0;
+          // Marcar servidor como no alcanzable para evitar más intentos
+          try {
+            Get.find<NetworkInfo>().markServerUnreachable();
+          } catch (_) {}
+          break;
+        }
       }
 
       overallProgress.value = 1.0;
@@ -1097,6 +1131,10 @@ class FullSyncService extends GetxService {
         getId: (e) => e.id,
       );
 
+      // PO Items huérfanos: items cuyo purchaseOrderServerId no corresponde
+      // a ningún PO existente (ej. cambio de tenant)
+      totalCleaned += await _cleanupOrphanedPOItems();
+
       if (totalCleaned > 0) {
         print('🧹 [FULL_SYNC] Total registros huérfanos limpiados: $totalCleaned');
       } else {
@@ -1141,6 +1179,39 @@ class FullSyncService extends GetxService {
       return toDelete.length;
     } catch (e) {
       print('  ⚠️ Error limpiando IsarInventoryBatch batch_offline_: $e');
+      return 0;
+    }
+  }
+
+  /// Limpia PO items huérfanos: items cuyo purchaseOrderServerId no corresponde
+  /// a ningún PO existente en ISAR. Esto ocurre tras cambio de tenant.
+  Future<int> _cleanupOrphanedPOItems() async {
+    try {
+      final allItems = await _isar.isarPurchaseOrderItems.where().findAll();
+      if (allItems.isEmpty) return 0;
+
+      // Obtener todos los serverIds de POs existentes
+      final allPOs = await _isar.isarPurchaseOrders.where().findAll();
+      final existingPOIds = allPOs.map((po) => po.serverId).toSet();
+
+      // Items cuyo PO padre ya no existe
+      final orphaned = allItems.where((item) =>
+        item.purchaseOrderServerId == null ||
+        item.purchaseOrderServerId!.isEmpty ||
+        !existingPOIds.contains(item.purchaseOrderServerId)
+      ).toList();
+
+      if (orphaned.isEmpty) return 0;
+
+      await _isar.writeTxn(() async {
+        await _isar.isarPurchaseOrderItems
+            .deleteAll(orphaned.map((i) => i.id).toList());
+      });
+
+      print('  🧹 IsarPurchaseOrderItem: ${orphaned.length} items huérfanos eliminados');
+      return orphaned.length;
+    } catch (e) {
+      print('  ⚠️ Error limpiando PO items huérfanos: $e');
       return 0;
     }
   }

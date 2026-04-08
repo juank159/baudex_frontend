@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/presentation/widgets/offline_badge.dart';
 import '../../domain/entities/bank_account.dart';
 import 'bank_account_form_dialog.dart';
 
@@ -140,6 +141,7 @@ class _BankAccountCardState extends State<BankAccountCard>
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
+                                      OfflineBadge(entityId: widget.account.id, offlinePrefixes: const ['bank_']),
                                       if (widget.account.isDefault)
                                         _buildDefaultBadge(),
                                     ],

@@ -646,6 +646,28 @@ class AuthController extends GetxController {
     }
   }
 
+  /// Cambiar contraseña sin mostrar snackbar ni cerrar diálogos.
+  /// Retorna true si fue exitoso, lanza excepción si falla.
+  Future<bool> changePasswordSilent() async {
+    if (!changePasswordFormKey.currentState!.validate()) return false;
+
+    final result = await _changePasswordUseCase(
+      ChangePasswordParams(
+        currentPassword: currentPasswordController.text,
+        newPassword: newPasswordController.text,
+        confirmPassword: confirmPasswordController.text,
+      ),
+    );
+
+    return result.fold(
+      (failure) => throw Exception(failure.message),
+      (_) {
+        _clearChangePasswordForm();
+        return true;
+      },
+    );
+  }
+
   // ==================== EMAIL VERIFICATION & PASSWORD RESET ====================
 
   /// Verificar email con código de 6 dígitos

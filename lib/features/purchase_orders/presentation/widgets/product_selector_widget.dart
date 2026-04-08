@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import '../../../products/domain/entities/product.dart';
 import '../controllers/purchase_order_form_controller.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/core/utils/formatters.dart';
 
 class ProductSelectorWidget extends StatefulWidget {
   final Product? selectedProduct;
@@ -14,6 +15,7 @@ class ProductSelectorWidget extends StatefulWidget {
   final PurchaseOrderFormController? controller;
   final String? hint;
   final bool activateOnTextFieldTap;
+  final bool autoActivate;
 
   const ProductSelectorWidget({
     super.key,
@@ -23,6 +25,7 @@ class ProductSelectorWidget extends StatefulWidget {
     this.controller,
     this.hint,
     this.activateOnTextFieldTap = false,
+    this.autoActivate = false,
   });
 
   @override
@@ -56,6 +59,15 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    if (widget.autoActivate) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _showSearchField = true;
+        });
+        _focusNode.requestFocus();
+      });
+    }
   }
 
   @override
@@ -406,72 +418,32 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
               ),
               const SizedBox(width: 12),
 
-              // Información del producto
+              // Nombre del producto
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        color:
-                            isSelected
-                                ? Theme.of(context).primaryColor
-                                : Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    if (product.sku.isNotEmpty)
-                      Text(
-                        'SKU: ${product.sku}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    if (product.category != null)
-                      Text(
-                        'Categoría: ${product.category!.name}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
+                child: Text(
+                  product.name,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: isSelected
+                        ? Theme.of(context).primaryColor
+                        : Colors.black87,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
 
-              // Precio y stock (si están disponibles)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (product.sellingPrice != null)
-                    Text(
-                      '\$${product.sellingPrice!.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green.shade600,
-                      ),
-                    ),
-                  if (product.stock > 0)
-                    Text(
-                      'Stock: ${product.stock.toInt()}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                ],
-              ),
+              // Precio
+              if (product.sellingPrice != null)
+                Text(
+                  AppFormatters.formatCurrency(product.sellingPrice!),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade600,
+                  ),
+                ),
 
               // Indicador de selección
               const SizedBox(width: 8),

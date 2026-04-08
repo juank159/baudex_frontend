@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/presentation/widgets/offline_badge.dart';
 import '../../domain/entities/expense.dart';
 
 class ModernExpenseCardWidget extends StatelessWidget {
@@ -80,15 +81,23 @@ class ModernExpenseCardWidget extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            expense.description,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: ElegantLightTheme.textPrimary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  expense.description,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: ElegantLightTheme.textPrimary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              OfflineBadge(entityId: expense.id, offlinePrefixes: const ['expense_offline_']),
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -305,6 +314,8 @@ class ModernExpenseCardWidget extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          OfflineBadge(entityId: expense.id, offlinePrefixes: const ['expense_offline_']),
                         ],
                       ),
                       const SizedBox(height: 8),

@@ -1,6 +1,7 @@
 // lib/features/categories/presentation/widgets/category_card_widget.dart
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive.dart';
+import '../../../../app/presentation/widgets/offline_badge.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
 import '../../domain/entities/category.dart';
 
@@ -55,15 +56,22 @@ class CategoryCardWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      category.name,
-                      style: TextStyle(
-                        fontSize: Responsive.getFontSize(context, mobile: 10), // ✅ REDUCIDO: de 12 a 10
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            category.name,
+                            style: TextStyle(
+                              fontSize: Responsive.getFontSize(context, mobile: 10),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        OfflineBadge(entityId: category.id, offlinePrefixes: const ['category_offline_']),
+                      ],
                     ),
                     if (category.description != null) ...[
                       const SizedBox(height: 1), // ✅ REDUCIDO A LA MITAD: de 2 a 1
@@ -110,15 +118,22 @@ class CategoryCardWidget extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  category.name,
-                  style: TextStyle(
-                    fontSize: Responsive.getFontSize(context, tablet: 13), // ✅ REDUCIDO: de 15 a 13
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        category.name,
+                        style: TextStyle(
+                          fontSize: Responsive.getFontSize(context, tablet: 13),
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    OfflineBadge(entityId: category.id, offlinePrefixes: const ['category_offline_']),
+                  ],
                 ),
                 if (category.description != null) ...[
                   const SizedBox(height: 2), // ✅ REDUCIDO A LA MITAD: de 4 a 2
@@ -178,7 +193,7 @@ class CategoryCardWidget extends StatelessWidget {
                         style: TextStyle(
                           fontSize: Responsive.getFontSize(
                             context,
-                            desktop: 14, // ✅ REDUCIDO: de 16 a 14
+                            desktop: 14,
                           ),
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
@@ -187,7 +202,8 @@ class CategoryCardWidget extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 4), // ✅ REDUCIDO A LA MITAD: de 8 a 4
+                    OfflineBadge(entityId: category.id, offlinePrefixes: const ['category_offline_']),
+                    const SizedBox(width: 4),
                     _buildStatusBadge(context),
                   ],
                 ),

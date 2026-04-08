@@ -12,6 +12,7 @@ import '../widgets/notification_card_widget.dart';
 import '../widgets/notification_filter_widget.dart';
 import '../widgets/notification_skeleton_widget.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
+import '../../../../app/shared/widgets/app_drawer.dart';
 
 class NotificationsListScreen extends GetView<NotificationsController> {
   const NotificationsListScreen({super.key});
@@ -20,6 +21,7 @@ class NotificationsListScreen extends GetView<NotificationsController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ElegantLightTheme.scaffoldBackground,
+      drawer: const AppDrawer(currentRoute: '/notifications'),
       appBar: _buildModernAppBar(context),
       body: ResponsiveHelper.isMobile(context)
           ? _buildMobileLayout(context)
