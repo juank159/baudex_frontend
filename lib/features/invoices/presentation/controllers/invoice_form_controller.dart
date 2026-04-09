@@ -1189,67 +1189,74 @@ class InvoiceFormController extends GetxController {
     }
   }
 
+  /// Normaliza texto para búsqueda: minúsculas y sin tildes
+  String _normalizeSearch(String text) {
+    const withAccents =    'áéíóúàèìòùäëïöüâêîôûãõñ';
+    const withoutAccents = 'aeiouaeiouaeiouaeiouaon';
+    var result = text.toLowerCase();
+    for (int i = 0; i < withAccents.length; i++) {
+      result = result.replaceAll(withAccents[i], withoutAccents[i]);
+    }
+    return result;
+  }
+
   Future<List<Product>> searchProducts(String query) async {
     print('🔍 Iniciando búsqueda de productos: "$query"');
 
     if (query.trim().isEmpty) return [];
 
-    // ✅ VERIFICAR ESTADO DE CARGA
-    if (_isLoadingProducts.value) {
-      print('⚠️ Productos aún cargando, usando búsqueda local limitada');
-      return _searchInLocalProducts(query).take(5).toList();
-    }
-
     try {
-      List<Product> results = [];
+      // ═══════════════════════════════════════════════════
+      // PASO 1: OFFLINE-FIRST — buscar en datos locales
+      // ═══════════════════════════════════════════════════
+      List<Product> localResults = _searchInLocalProducts(query);
 
-      final barcodeMatch = await _searchByBarcode(query);
-      if (barcodeMatch != null) {
-        results.add(barcodeMatch);
-        print('✅ Encontrado por código de barras: ${barcodeMatch.name}');
+      if (localResults.isNotEmpty) {
+        print('✅ Búsqueda local: ${localResults.length} productos encontrados');
       }
 
-      final skuMatch = await _searchBySku(query);
-      if (skuMatch != null && !results.any((p) => p.id == skuMatch.id)) {
-        results.add(skuMatch);
-        print('✅ Encontrado por SKU: ${skuMatch.name}');
-      }
-
-      if (results.isEmpty) {
-        if (_searchProductsUseCase != null && !_isLoadingProducts.value) {
-          // ✅ TIMEOUT PARA EVITAR BLOQUEOS
+      // ═══════════════════════════════════════════════════
+      // PASO 2: Si hay API disponible, enriquecer con servidor
+      // ═══════════════════════════════════════════════════
+      if (_searchProductsUseCase != null && !_isLoadingProducts.value) {
+        try {
           final searchResult = await _searchProductsUseCase!(
                 SearchProductsParams(searchTerm: query, limit: 20),
               )
               .timeout(
                 const Duration(seconds: 5),
                 onTimeout: () {
-                  print('⚠️ Búsqueda por API timeout, usando local');
+                  print('⚠️ Búsqueda API timeout, usando resultados locales');
                   return Left(ServerFailure('Timeout en búsqueda'));
                 },
               );
 
           searchResult.fold(
             (failure) {
-              print('❌ Error en búsqueda de productos: ${failure.message}');
-              results.addAll(_searchInLocalProducts(query));
+              print('⚠️ API falló, usando resultados locales: ${failure.message}');
             },
-            (products) {
-              results.addAll(products);
-              print(
-                '✅ Búsqueda por API completada: ${products.length} productos',
-              );
+            (apiProducts) {
+              // Agregar productos de API que no estén ya en local
+              final localIds = localResults.map((p) => p.id).toSet();
+              for (final p in apiProducts) {
+                if (!localIds.contains(p.id)) {
+                  localResults.add(p);
+                }
+              }
+              print('✅ API complementó: ${apiProducts.length} productos');
             },
           );
-        } else {
-          print('⚠️ SearchProductsUseCase no disponible o cargando');
-          results.addAll(_searchInLocalProducts(query));
+        } catch (e) {
+          print('⚠️ Error API, usando resultados locales: $e');
         }
       }
 
+      // ═══════════════════════════════════════════════════
+      // PASO 3: Filtrar activos y con stock
+      // ═══════════════════════════════════════════════════
       final uniqueResults = <String, Product>{};
       final validateStock = shouldValidateStock;
-      for (final product in results) {
+      for (final product in localResults) {
         if (product.status == ProductStatus.active) {
           if (!validateStock || product.stock > 0) {
             uniqueResults[product.id] = product;
@@ -1258,55 +1265,38 @@ class InvoiceFormController extends GetxController {
       }
 
       final finalResults = uniqueResults.values.take(10).toList();
-      print(
-        '✅ Búsqueda completada: ${finalResults.length} productos encontrados',
-      );
+      print('✅ Búsqueda completada: ${finalResults.length} productos encontrados');
 
       return finalResults;
     } catch (e) {
-      print('💥 Error inesperado en búsqueda de productos: $e');
+      print('💥 Error inesperado en búsqueda: $e');
       return _searchInLocalProducts(query).take(5).toList();
     }
   }
 
-  Future<Product?> _searchByBarcode(String barcode) async {
-    try {
-      final products = _availableProducts;
-      return products.firstWhereOrNull(
-        (product) =>
-            product.barcode?.toLowerCase() == barcode.toLowerCase() &&
-            product.status == ProductStatus.active,
-      );
-    } catch (e) {
-      print('❌ Error en búsqueda por código de barras: $e');
-      return null;
-    }
-  }
-
-  Future<Product?> _searchBySku(String sku) async {
-    try {
-      final products = _availableProducts;
-      return products.firstWhereOrNull(
-        (product) =>
-            product.sku.toLowerCase() == sku.toLowerCase() &&
-            product.status == ProductStatus.active,
-      );
-    } catch (e) {
-      print('❌ Error en búsqueda por SKU: $e');
-      return null;
-    }
-  }
-
+  /// Búsqueda local: nombre, SKU, descripción, código de barras
+  /// Normaliza tildes y mayúsculas para match flexible
   List<Product> _searchInLocalProducts(String query) {
-    final searchTerm = query.toLowerCase();
+    final searchTerm = _normalizeSearch(query);
 
     return _availableProducts.where((product) {
-      return product.status == ProductStatus.active &&
-          (product.name.toLowerCase().contains(searchTerm) ||
-              product.sku.toLowerCase().contains(searchTerm) ||
-              (product.description?.toLowerCase().contains(searchTerm) ??
-                  false) ||
-              (product.barcode?.toLowerCase().contains(searchTerm) ?? false));
+      if (product.status != ProductStatus.active) return false;
+
+      final name = _normalizeSearch(product.name);
+      final sku = _normalizeSearch(product.sku);
+      final desc = product.description != null
+          ? _normalizeSearch(product.description!)
+          : '';
+      final barcode = product.barcode != null
+          ? _normalizeSearch(product.barcode!)
+          : '';
+
+      return name.contains(searchTerm) ||
+          sku.contains(searchTerm) ||
+          desc.contains(searchTerm) ||
+          barcode.contains(searchTerm) ||
+          barcode == searchTerm ||
+          sku == searchTerm;
     }).toList();
   }
 
