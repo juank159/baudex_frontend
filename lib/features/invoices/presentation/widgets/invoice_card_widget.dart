@@ -124,7 +124,7 @@ class InvoiceCardWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 1),
                           Text(
-                            _formatDate(invoice.date),
+                            AppFormatters.formatDate(invoice.date),
                             style: TextStyle(
                               color: Colors.grey.shade600,
                               fontSize: 9,
@@ -413,7 +413,7 @@ class InvoiceCardWidget extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _formatDate(invoice.date),
+                        AppFormatters.formatDate(invoice.date),
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 12,
@@ -458,7 +458,7 @@ class InvoiceCardWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _formatDate(invoice.dueDate),
+                          AppFormatters.formatDate(invoice.dueDate),
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
@@ -812,7 +812,7 @@ class InvoiceCardWidget extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        _formatDate(invoice.date),
+                        AppFormatters.formatDate(invoice.date),
                         style: TextStyle(
                           color: Colors.grey.shade700,
                           fontSize: 10,
@@ -861,7 +861,7 @@ class InvoiceCardWidget extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          _formatDate(invoice.dueDate),
+                          AppFormatters.formatDate(invoice.dueDate),
                           style: TextStyle(
                             color:
                                 invoice.isOverdue
@@ -1283,9 +1283,6 @@ class InvoiceCardWidget extends StatelessWidget {
     }
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
 
   bool _isDueSoon() {
     final daysUntilDue = invoice.dueDate.difference(Get.find<TenantDateTimeService>().now()).inDays;

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:isar/isar.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -12,6 +13,8 @@ import '../../../bank_accounts/presentation/bindings/bank_accounts_binding.dart'
 import '../../../customer_credits/presentation/controllers/customer_credit_controller.dart';
 import '../../../customer_credits/presentation/bindings/customer_credit_binding.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
+import '../../../settings/data/models/isar/isar_organization.dart';
+import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/core/utils/number_input_formatter.dart';
 
 // Formateador para tasas de cambio que permite decimales (ej: 4.000 o 0,12)
@@ -518,8 +521,9 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     }
   }
 
-  /// Cargar configuración multi-moneda de la organización
+  /// Cargar configuración multi-moneda de la organización (offline-first)
   void _loadMultiCurrencyConfig() {
+    // 1. Intentar desde OrganizationController (si ya tiene datos)
     try {
       if (Get.isRegistered<OrganizationController>()) {
         final orgCtrl = Get.find<OrganizationController>();
@@ -528,10 +532,32 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
           _baseCurrency = org.currency;
           _isMultiCurrencyEnabled = org.multiCurrencyEnabled;
           _acceptedCurrencies = org.acceptedCurrencies;
+          if (_isMultiCurrencyEnabled) return; // Ya tiene datos, no buscar en ISAR
         }
       }
     } catch (e) {
-      print('⚠️ Error cargando config multi-moneda: $e');
+      print('⚠️ Error leyendo OrganizationController: $e');
+    }
+
+    // 2. Fallback: leer de ISAR directo (offline-first)
+    _loadMultiCurrencyFromIsar();
+  }
+
+  /// Fallback offline: lee config multi-moneda directamente de ISAR
+  Future<void> _loadMultiCurrencyFromIsar() async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarOrg = await isar.isarOrganizations.where().findFirst();
+      if (isarOrg != null && mounted) {
+        final org = isarOrg.toEntity();
+        setState(() {
+          _baseCurrency = org.currency;
+          _isMultiCurrencyEnabled = org.multiCurrencyEnabled;
+          _acceptedCurrencies = org.acceptedCurrencies;
+        });
+      }
+    } catch (e) {
+      print('⚠️ Error leyendo config multi-moneda de ISAR: $e');
     }
   }
 

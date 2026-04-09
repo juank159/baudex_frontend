@@ -1,7 +1,9 @@
 // lib/features/dashboard/data/datasources/dashboard_local_datasource_isar.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:isar/isar.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
 import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/core/utils/app_logger.dart';
@@ -11,6 +13,7 @@ import '../../../products/data/models/isar/isar_product.dart';
 import '../../../customers/data/models/isar/isar_customer.dart';
 import '../../../notifications/data/models/isar/isar_notification.dart';
 import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
+import '../../../settings/data/models/isar/isar_organization.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../../domain/entities/recent_activity_advanced.dart';
 import '../../domain/entities/smart_notification.dart';
@@ -84,7 +87,17 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       }
 
       // ⚡ SINGLE-PASS: Calcular todas las métricas de invoices en una sola iteración
-      final now = DateTime.now();
+      // Usar TenantDateTimeService para "hoy" correcto en timezone del tenant
+      DateTime now;
+      try {
+        if (Get.isRegistered<TenantDateTimeService>()) {
+          now = Get.find<TenantDateTimeService>().now();
+        } else {
+          now = DateTime.now();
+        }
+      } catch (_) {
+        now = DateTime.now();
+      }
       final todayStart = DateTime(now.year, now.month, now.day);
       final monthStart = DateTime(now.year, now.month, 1);
 
@@ -130,6 +143,54 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         totalAmount: pm.totalAmount,
         percentage: totalRevenue > 0 ? (pm.totalAmount / totalRevenue) * 100 : 0,
       )).toList();
+
+      // ⚡ Multi-currency: leer config de org y calcular desglose por moneda
+      bool isMultiCurrencyEnabled = false;
+      String baseCurrency = 'COP';
+      List<CurrencyBreakdownStats>? currencyBreakdown;
+      try {
+        final org = await _isar.isarOrganizations.where().findFirst();
+        if (org != null) {
+          final entity = org.toEntity();
+          isMultiCurrencyEnabled = entity.multiCurrencyEnabled;
+          baseCurrency = entity.currency;
+        }
+      } catch (_) {}
+
+      if (isMultiCurrencyEnabled) {
+        final currencyMap = <String, _CurrencyAccumulator>{};
+        for (final inv in invoices) {
+          final isPaid = inv.status == IsarInvoiceStatus.paid;
+          final isPartial = inv.status == IsarInvoiceStatus.partiallyPaid;
+          if (!isPaid && !isPartial) continue;
+
+          final payments = IsarInvoice.decodePayments(inv.paymentsJson);
+          for (final p in payments) {
+            if (p.isForeignCurrency) {
+              final curr = p.paymentCurrency!;
+              currencyMap.putIfAbsent(curr, () => _CurrencyAccumulator());
+              currencyMap[curr]!.count++;
+              currencyMap[curr]!.totalBase += p.amount;
+              currencyMap[curr]!.totalForeign += (p.paymentCurrencyAmount ?? 0);
+              currencyMap[curr]!.totalRate += (p.exchangeRate ?? 0);
+            }
+          }
+        }
+
+        if (currencyMap.isNotEmpty) {
+          currencyBreakdown = currencyMap.entries.map((e) {
+            final acc = e.value;
+            return CurrencyBreakdownStats(
+              currency: e.key,
+              count: acc.count,
+              totalBaseAmount: acc.totalBase,
+              totalForeignAmount: acc.totalForeign,
+              avgRate: acc.count > 0 ? acc.totalRate / acc.count : 0,
+              percentage: totalRevenue > 0 ? (acc.totalBase / totalRevenue) * 100 : 0,
+            );
+          }).toList();
+        }
+      }
 
       // ⚡ SINGLE-PASS: Calcular todas las métricas de expenses en una sola iteración
       double totalExpensesAmount = 0.0;
@@ -254,6 +315,9 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
           credits: 0.0,
           total: invoicesIncome,
         ),
+        currencyBreakdown: currencyBreakdown,
+        multiCurrencyEnabled: isMultiCurrencyEnabled,
+        baseCurrency: baseCurrency,
       );
     } catch (e) {
       AppLogger.e('Error calculating dashboard stats from Isar: $e', tag: 'DASHBOARD');
@@ -907,6 +971,14 @@ class _PMAccumulator {
   int count = 0;
   double totalAmount = 0.0;
   _PMAccumulator(this.method);
+}
+
+/// Helper para acumular stats de pagos por moneda extranjera
+class _CurrencyAccumulator {
+  int count = 0;
+  double totalBase = 0.0;
+  double totalForeign = 0.0;
+  double totalRate = 0.0;
 }
 
 /// Resultado del cálculo de COGS

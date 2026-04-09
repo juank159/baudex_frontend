@@ -176,29 +176,42 @@ class DashboardController extends GetxController
     _isLoadingData = true;
 
     try {
-      print('📊 Dashboard: Iniciando carga de datos...');
-
       final startDate = _selectedDateRange.value?.start;
       final endDate = _selectedDateRange.value?.end;
 
-      // ⚡ FAST-PATH: Si ya sabemos que el servidor está caído, ir directo a offline
-      final networkInfo = Get.find<NetworkInfo>();
-      if (!networkInfo.isServerReachable) {
-        print('📴 Dashboard: Servidor ya marcado como inalcanzable, ISAR directo');
-        await _loadAllOffline(startDate, endDate);
-        update();
-        _showSubscriptionDialogIfNeeded();
-        return;
-      }
+      // ═══ PASO 1: ISAR instantáneo (offline-first) ═══
+      print('📊 Dashboard: Cargando desde ISAR (offline-first)...');
+      await _loadAllOffline(startDate, endDate);
+      update();
 
-      // CHECK: Verificar conectividad UNA SOLA VEZ
-      final isOnline = await networkInfo.isConnected;
+      // ═══ PASO 2: Refresh en background si hay red ═══
+      _refreshFromServer(startDate, endDate);
 
-      if (!isOnline) {
-        print('📴 Dashboard: Modo offline, cargando desde ISAR...');
-        await _loadAllOffline(startDate, endDate);
-      } else {
-        // 🌐 ONLINE PATH: Todo en paralelo con timeouts cortos
+      _showSubscriptionDialogIfNeeded();
+    } catch (e) {
+      print('❌ Error crítico en _loadInitialData: $e');
+      _isLoadingStats.value = false;
+      _isLoadingActivity.value = false;
+      _isLoadingNotifications.value = false;
+      _isLoadingExpenseChart.value = false;
+      _isLoadingProfitability.value = false;
+      update();
+      _showSubscriptionDialogIfNeeded();
+    } finally {
+      _isLoadingData = false;
+    }
+  }
+
+  /// Refresca datos del servidor en background (no bloquea UI)
+  void _refreshFromServer(DateTime? startDate, DateTime? endDate) {
+    () async {
+      try {
+        final networkInfo = Get.find<NetworkInfo>();
+        if (!networkInfo.isServerReachable) return;
+        final isOnline = await networkInfo.isConnected;
+        if (!isOnline) return;
+
+        print('🌐 Dashboard: Refrescando desde servidor en background...');
         await Future.wait([
           loadDashboardStats(startDate: startDate, endDate: endDate).timeout(
             const Duration(seconds: 8),
@@ -222,30 +235,19 @@ class DashboardController extends GetxController
           ).catchError((e) {}),
         ]);
 
-        // Armonizar revenue entre summary y profitability
         _harmonizeFinancialData();
 
-        // Gastos por categoría DESPUÉS de stats
         await _loadExpensesByCategory().timeout(
           const Duration(seconds: 6),
           onTimeout: () => print('⏰ Timeout gastos por categoría'),
         ).catchError((e) => print('⚠️ Error gastos: $e'));
-      }
 
-      update();
-      _showSubscriptionDialogIfNeeded();
-    } catch (e) {
-      print('❌ Error crítico en _loadInitialData: $e');
-      _isLoadingStats.value = false;
-      _isLoadingActivity.value = false;
-      _isLoadingNotifications.value = false;
-      _isLoadingExpenseChart.value = false;
-      _isLoadingProfitability.value = false;
-      update();
-      _showSubscriptionDialogIfNeeded();
-    } finally {
-      _isLoadingData = false;
-    }
+        update();
+        print('✅ Dashboard: Datos actualizados desde servidor');
+      } catch (e) {
+        print('⚠️ Dashboard: Error en refresh background: $e');
+      }
+    }();
   }
 
   /// ⚡ Carga rápida offline: todo desde ISAR sin verificaciones de red adicionales
@@ -356,6 +358,9 @@ class DashboardController extends GetxController
             profitability: stats.profitability,
             paymentMethodsBreakdown: stats.paymentMethodsBreakdown,
             incomeTypeBreakdown: stats.incomeTypeBreakdown,
+            currencyBreakdown: stats.currencyBreakdown,
+            multiCurrencyEnabled: stats.multiCurrencyEnabled,
+            baseCurrency: stats.baseCurrency,
           );
         } else {
           _dashboardStats.value = stats;
@@ -423,6 +428,9 @@ class DashboardController extends GetxController
       profitability: profitability,
       paymentMethodsBreakdown: stats.paymentMethodsBreakdown,
       incomeTypeBreakdown: stats.incomeTypeBreakdown,
+      currencyBreakdown: stats.currencyBreakdown,
+      multiCurrencyEnabled: stats.multiCurrencyEnabled,
+      baseCurrency: stats.baseCurrency,
     );
     print('🔄 Datos financieros armonizados: Revenue=${profitability.totalRevenue}, '
         'COGS=${profitability.totalCOGS}, GrossProfit=${profitability.grossProfit}, '
@@ -838,31 +846,16 @@ class DashboardController extends GetxController
     _loadDataForDateRange(dateRange?.start, dateRange?.end, period);
   }
 
-  /// Helper reutilizable para cargar datos con detección rápida de offline
+  /// Helper reutilizable para cargar datos con filtro de fecha (offline-first)
   void _loadDataForDateRange(DateTime? startDate, DateTime? endDate, String label) {
     () async {
       try {
-        final networkInfo = Get.find<NetworkInfo>();
-
-        // ⚡ Fast-path sync: si el servidor ya está marcado como caído, ISAR directo
-        final bool isOnline;
-        if (!networkInfo.isServerReachable) {
-          isOnline = false;
-        } else {
-          isOnline = await networkInfo.isConnected;
-        }
-
-        if (!isOnline) {
-          await _loadAllOffline(startDate, endDate);
-        } else {
-          await Future.wait([
-            loadDashboardStats(startDate: startDate, endDate: endDate),
-            loadProfitabilityStats(startDate: startDate, endDate: endDate),
-          ]);
-          _harmonizeFinancialData();
-          await _loadExpensesByCategory();
-        }
+        // ═══ PASO 1: ISAR instantáneo ═══
+        await _loadAllOffline(startDate, endDate);
         update();
+
+        // ═══ PASO 2: Refresh background ═══
+        _refreshFromServer(startDate, endDate);
       } catch (error) {
         print('⚠️ Error cargando datos para $label: $error');
       }
@@ -1084,6 +1077,9 @@ class DashboardController extends GetxController
         profitability: currentStats.profitability,
         paymentMethodsBreakdown: currentStats.paymentMethodsBreakdown,
         incomeTypeBreakdown: currentStats.incomeTypeBreakdown,
+        currencyBreakdown: currentStats.currencyBreakdown,
+        multiCurrencyEnabled: currentStats.multiCurrencyEnabled,
+        baseCurrency: currentStats.baseCurrency,
       );
 
       update();

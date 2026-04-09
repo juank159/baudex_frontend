@@ -19,6 +19,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/core/services/tenant_datetime_service.dart';
+import '../../../dashboard/presentation/controllers/dashboard_controller.dart';
 
 // Domain entities
 import '../../domain/entities/invoice.dart';
@@ -136,8 +137,8 @@ class InvoiceFormController extends GetxController {
   // Datos del formulario
   final _selectedCustomer = Rxn<Customer>();
   final _invoiceItems = <InvoiceItemFormData>[].obs;
-  final _invoiceDate = DateTime.now().obs;
-  final _dueDate = DateTime.now().add(const Duration(days: 30)).obs;
+  final _invoiceDate = DateTime.now().obs; // Se reemplaza en _initializeForm() con TenantDateTimeService
+  final _dueDate = DateTime.now().obs; // Se reemplaza en _initializeForm() con TenantDateTimeService
   final _paymentMethod = PaymentMethod.cash.obs;
   final _taxPercentage = 0.0.obs; // Se establece desde el primer producto agregado
   final _discountPercentage = 0.0.obs;
@@ -2008,7 +2009,7 @@ class InvoiceFormController extends GetxController {
       }
     }
 
-    buffer.writeln('Fecha: ${Get.find<TenantDateTimeService>().now().toString().split('.')[0]}');
+    buffer.writeln('Fecha: ${AppFormatters.formatDateTime(Get.find<TenantDateTimeService>().now())}');
     buffer.writeln('Cliente: ${selectedCustomer?.displayName ?? 'N/A'}');
 
     if (notesController.text.isNotEmpty &&
@@ -2076,7 +2077,7 @@ class InvoiceFormController extends GetxController {
     }
 
     buffer.writeln('------------------------');
-    buffer.writeln('Fecha: ${Get.find<TenantDateTimeService>().now().toString().split('.')[0]}');
+    buffer.writeln('Fecha: ${AppFormatters.formatDateTime(Get.find<TenantDateTimeService>().now())}');
     buffer.writeln('Cliente: ${selectedCustomer?.displayName ?? 'N/A'}');
 
     if (notesController.text.isNotEmpty &&
@@ -2298,6 +2299,13 @@ class InvoiceFormController extends GetxController {
         } else {
           print('ℹ️ Inventario no procesado (servicio no disponible)');
         }
+
+        // 📊 Notificar al dashboard para que actualice sus datos
+        try {
+          if (Get.isRegistered<DashboardController>()) {
+            Get.find<DashboardController>().refreshAll();
+          }
+        } catch (_) {}
 
         print('✅ Preparando para nueva venta...');
         _prepareForNewSale();

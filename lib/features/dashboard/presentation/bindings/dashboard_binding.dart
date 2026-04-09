@@ -13,7 +13,6 @@ import '../../data/datasources/dashboard_remote_datasource.dart';
 import '../../data/datasources/dashboard_local_datasource.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/network/dio_client.dart';
-import '../../../../app/core/storage/secure_storage_service.dart';
 
 class DashboardBinding extends Bindings {
   @override
@@ -24,14 +23,8 @@ class DashboardBinding extends Bindings {
       fenix: true,
     );
 
-    Get.lazyPut<DashboardLocalDataSource>(
-      () => DashboardLocalDataSourceImpl(
-        secureStorage: Get.find<SecureStorageService>(),
-      ),
-      fenix: true,
-    );
-
     // Repository - mantener en memoria
+    // NOTA: DashboardLocalDataSource (ISAR) ya registrado globalmente en app_binding.dart
     Get.lazyPut<DashboardRepository>(
       () => DashboardRepositoryImpl(
         remoteDataSource: Get.find<DashboardRemoteDataSource>(),

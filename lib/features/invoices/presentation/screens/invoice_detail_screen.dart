@@ -577,6 +577,21 @@ class InvoiceDetailScreen extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    // Mostrar pagos en moneda extranjera si existen
+                    ...invoice.payments
+                        .where((p) => p.isForeignCurrency)
+                        .map((p) => Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                '${AppFormatters.formatForeignCurrency(p.paymentCurrencyAmount, p.paymentCurrency!)} (${AppFormatters.formatExchangeInfo(p.paymentCurrency!, p.exchangeRate!, 'COP')})',
+                                style: TextStyle(
+                                  color: ElegantLightTheme.primaryGradient.colors.first.withValues(alpha: 0.8),
+                                  fontSize: totalSize - 2,
+                                  fontWeight: FontWeight.w500,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            )),
                   ],
                 ),
               ),
