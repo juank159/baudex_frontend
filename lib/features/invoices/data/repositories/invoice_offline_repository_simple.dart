@@ -1256,6 +1256,9 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
         'createdById': payment.createdById,
         'organizationId': payment.organizationId,
         'bankAccountId': payment.bankAccountId,
+        'paymentCurrency': payment.paymentCurrency,
+        'paymentCurrencyAmount': payment.paymentCurrencyAmount,
+        'exchangeRate': payment.exchangeRate,
         'createdAt': payment.createdAt.toIso8601String(),
         'updatedAt': payment.updatedAt.toIso8601String(),
       }).toList();
