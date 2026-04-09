@@ -131,6 +131,13 @@ class AppDrawerController extends GetxController {
             subtitle: 'Catálogo de productos',
           ),
           DrawerMenuItem(
+            id: 'initial_inventory',
+            title: 'Inventario Inicial',
+            icon: Icons.playlist_add,
+            route: AppRoutes.productsInitialInventory,
+            subtitle: 'Carga masiva de productos',
+          ),
+          DrawerMenuItem(
             id: 'categories',
             title: 'Categorías',
             icon: Icons.category,

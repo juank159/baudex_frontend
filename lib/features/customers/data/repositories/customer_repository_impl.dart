@@ -839,7 +839,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
       try {
         final syncService = Get.find<SyncService>();
         await syncService.addOperationForCurrentUser(
-          entityType: 'customer',
+          entityType: 'Customer',
           entityId: tempId,
           operationType: SyncOperationType.create,
           data: {
@@ -901,6 +901,34 @@ class CustomerRepositoryImpl implements CustomerRepository {
     String? notes,
     Map<String, dynamic>? metadata,
   }) async {
+    // Si el ID es temporal (cliente creado offline), ir directo a offline
+    // No enviar temp ID al servidor → causaría 400 (UUID inválido)
+    if (id.startsWith('customer_offline_')) {
+      print('📴 [CUSTOMER_REPO] ID temporal detectado: $id - Actualizando offline...');
+      return _updateCustomerOffline(
+        id: id,
+        firstName: firstName,
+        lastName: lastName,
+        companyName: companyName,
+        email: email,
+        phone: phone,
+        mobile: mobile,
+        documentType: documentType,
+        documentNumber: documentNumber,
+        address: address,
+        city: city,
+        state: state,
+        zipCode: zipCode,
+        country: country,
+        status: status,
+        creditLimit: creditLimit,
+        paymentTerms: paymentTerms,
+        birthDate: birthDate,
+        notes: notes,
+        metadata: metadata,
+      );
+    }
+
     if (await networkInfo.isConnected) {
       try {
         final request = UpdateCustomerRequestModel.fromParams(
@@ -940,9 +968,10 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        // Errores de validación (400, 422) NO se deben crear offline - el usuario debe corregir
-        if (e.statusCode == 400 || e.statusCode == 422) {
-          print('❌ Error de validación al actualizar cliente: ${e.message}');
+        // Errores de validación (400, 422) y conflictos (409) NO se deben crear offline
+        // El usuario debe corregir los datos
+        if (e.statusCode == 400 || e.statusCode == 422 || e.statusCode == 409) {
+          print('❌ Error de validación/conflicto al actualizar cliente (${e.statusCode}): ${e.message}');
           return Left(ServerFailure(e.message));
         }
         print('⚠️ [CUSTOMER_REPO] ServerException en update: ${e.message} - Fallback offline...');
@@ -1162,6 +1191,11 @@ class CustomerRepositoryImpl implements CustomerRepository {
     required String id,
     required CustomerStatus status,
   }) async {
+    // Para IDs temporales, ir directo a offline
+    if (id.startsWith('customer_offline_')) {
+      return _updateCustomerOffline(id: id, status: status);
+    }
+
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.updateCustomerStatus(
@@ -1177,16 +1211,18 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _updateCustomerOffline(id: id, status: status);
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        networkInfo.markServerUnreachable();
+        return _updateCustomerOffline(id: id, status: status);
       } catch (e) {
-        return Left(
-          UnknownFailure('Error inesperado al actualizar estado: $e'),
-        );
+        return _updateCustomerOffline(id: id, status: status);
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      return _updateCustomerOffline(id: id, status: status);
     }
   }
 
@@ -1309,6 +1345,13 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
   @override
   Future<Either<Failure, Unit>> deleteCustomer(String id) async {
+    // Si el ID es temporal (cliente creado offline y nunca sincronizado),
+    // cancelar la operación CREATE pendiente y eliminar de ISAR directamente
+    if (id.startsWith('customer_offline_')) {
+      print('📴 [CUSTOMER_REPO] ID temporal: $id - Cancelando CREATE pendiente y eliminando de ISAR...');
+      return _deleteOfflineCreatedCustomer(id);
+    }
+
     if (await networkInfo.isConnected) {
       try {
         await remoteDataSource.deleteCustomer(id);
@@ -1353,6 +1396,48 @@ class CustomerRepositoryImpl implements CustomerRepository {
       // Sin conexión, marcar para eliminación offline y sincronizar después
       print('📴 [CUSTOMER_REPO] OFFLINE - Eliminando cliente offline...');
       return _deleteCustomerOffline(id);
+    }
+  }
+
+  /// Elimina un cliente creado offline que nunca fue sincronizado al servidor.
+  /// Cancela la operación CREATE pendiente en SyncQueue y elimina de ISAR.
+  Future<Either<Failure, Unit>> _deleteOfflineCreatedCustomer(String id) async {
+    print('🗑️ CustomerRepository: Eliminando cliente offline no sincronizado: $id');
+    try {
+      // 1. Cancelar operaciones pendientes en SyncQueue para este ID
+      try {
+        await IsarDatabase.instance.deleteSyncOperationsByEntityId(id);
+        print('✅ Operaciones pendientes canceladas para: $id');
+      } catch (e) {
+        print('⚠️ Error cancelando operaciones pendientes: $e');
+      }
+
+      // 2. Eliminar de ISAR (hard delete, ya que nunca existió en el servidor)
+      final isarCustomer = await isar.isarCustomers
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      if (isarCustomer != null) {
+        await isar.writeTxn(() async {
+          await isar.isarCustomers.delete(isarCustomer.id);
+        });
+        print('✅ Customer eliminado de ISAR (hard delete): $id');
+      }
+
+      // 3. Remover del cache SecureStorage
+      try {
+        await localDataSource.removeCachedCustomer(id);
+        await _invalidateListCache();
+      } catch (e) {
+        print('⚠️ Error limpiando cache (no crítico): $e');
+      }
+
+      print('✅ CustomerRepository: Cliente offline eliminado completamente');
+      return const Right(unit);
+    } catch (e) {
+      print('❌ CustomerRepository: Error eliminando cliente offline: $e');
+      return Left(CacheFailure('Error al eliminar cliente offline: $e'));
     }
   }
 
@@ -1421,16 +1506,58 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _restoreCustomerOffline(id);
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        networkInfo.markServerUnreachable();
+        return _restoreCustomerOffline(id);
       } catch (e) {
-        return Left(
-          UnknownFailure('Error inesperado al restaurar cliente: $e'),
-        );
+        return _restoreCustomerOffline(id);
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      return _restoreCustomerOffline(id);
+    }
+  }
+
+  /// Restaurar un cliente eliminado en modo offline
+  Future<Either<Failure, Customer>> _restoreCustomerOffline(String id) async {
+    try {
+      final isarCustomer = await isar.isarCustomers
+          .filter()
+          .serverIdEqualTo(id)
+          .findFirst();
+
+      if (isarCustomer == null) {
+        return Left(CacheFailure('Cliente no encontrado en ISAR: $id'));
+      }
+
+      isarCustomer.deletedAt = null;
+      isarCustomer.markAsUnsynced();
+
+      await isar.writeTxn(() async {
+        await isar.isarCustomers.put(isarCustomer);
+      });
+
+      // Cancelar DELETE pendiente y encolar UPDATE
+      try {
+        await IsarDatabase.instance.deleteSyncOperationsByEntityId(id);
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'Customer',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {'status': 'active'},
+          priority: 1,
+        );
+      } catch (e) {
+        print('⚠️ Error actualizando sync queue: $e');
+      }
+
+      return Right(isarCustomer.toEntity());
+    } catch (e) {
+      return Left(CacheFailure('Error restaurando cliente offline: $e'));
     }
   }
 
@@ -1449,14 +1576,42 @@ class CustomerRepositoryImpl implements CustomerRepository {
         );
         return Right(isAvailable);
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _isEmailAvailableOffline(email, excludeId: excludeId);
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        networkInfo.markServerUnreachable();
+        return _isEmailAvailableOffline(email, excludeId: excludeId);
       } catch (e) {
-        return Left(UnknownFailure('Error inesperado al verificar email: $e'));
+        return _isEmailAvailableOffline(email, excludeId: excludeId);
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      return _isEmailAvailableOffline(email, excludeId: excludeId);
+    }
+  }
+
+  /// Verificar disponibilidad de email offline usando ISAR
+  Future<Either<Failure, bool>> _isEmailAvailableOffline(
+    String email, {
+    String? excludeId,
+  }) async {
+    try {
+      var query = isar.isarCustomers
+          .filter()
+          .emailEqualTo(email, caseSensitive: false)
+          .and()
+          .deletedAtIsNull();
+
+      if (excludeId != null) {
+        query = query.and().not().serverIdEqualTo(excludeId);
+      }
+
+      final count = await query.count();
+      return Right(count == 0);
+    } catch (e) {
+      // En caso de error, asumir disponible (el servidor validará al sincronizar)
+      return const Right(true);
     }
   }
 
@@ -1475,16 +1630,50 @@ class CustomerRepositoryImpl implements CustomerRepository {
         );
         return Right(isAvailable);
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _isDocumentAvailableOffline(documentType, documentNumber, excludeId: excludeId);
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        networkInfo.markServerUnreachable();
+        return _isDocumentAvailableOffline(documentType, documentNumber, excludeId: excludeId);
       } catch (e) {
-        return Left(
-          UnknownFailure('Error inesperado al verificar documento: $e'),
-        );
+        return _isDocumentAvailableOffline(documentType, documentNumber, excludeId: excludeId);
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      return _isDocumentAvailableOffline(documentType, documentNumber, excludeId: excludeId);
+    }
+  }
+
+  /// Verificar disponibilidad de documento offline usando ISAR
+  Future<Either<Failure, bool>> _isDocumentAvailableOffline(
+    DocumentType documentType,
+    String documentNumber, {
+    String? excludeId,
+  }) async {
+    try {
+      final isarDocType = IsarDocumentType.values.firstWhere(
+        (e) => e.name == documentType.name,
+        orElse: () => IsarDocumentType.other,
+      );
+
+      var query = isar.isarCustomers
+          .filter()
+          .documentTypeEqualTo(isarDocType)
+          .and()
+          .documentNumberEqualTo(documentNumber)
+          .and()
+          .deletedAtIsNull();
+
+      if (excludeId != null) {
+        query = query.and().not().serverIdEqualTo(excludeId);
+      }
+
+      final count = await query.count();
+      return Right(count == 0);
+    } catch (e) {
+      // En caso de error, asumir disponible (el servidor validará al sincronizar)
+      return const Right(true);
     }
   }
 
@@ -1563,16 +1752,50 @@ class CustomerRepositoryImpl implements CustomerRepository {
         );
         return Right(result);
       } on ServerException catch (e) {
-        return Left(_mapServerExceptionToFailure(e));
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _getFinancialSummaryOffline(customerId);
       } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+        networkInfo.markServerUnreachable();
+        return _getFinancialSummaryOffline(customerId);
       } catch (e) {
-        return Left(
-          UnknownFailure('Error inesperado al obtener resumen financiero: $e'),
-        );
+        return _getFinancialSummaryOffline(customerId);
       }
     } else {
-      return const Left(ConnectionFailure.noInternet);
+      return _getFinancialSummaryOffline(customerId);
+    }
+  }
+
+  /// Obtener resumen financiero desde ISAR
+  Future<Either<Failure, Map<String, dynamic>>> _getFinancialSummaryOffline(
+    String customerId,
+  ) async {
+    try {
+      final isarCustomer = await isar.isarCustomers
+          .filter()
+          .serverIdEqualTo(customerId)
+          .findFirst();
+
+      if (isarCustomer == null) {
+        return Left(CacheFailure('Cliente no encontrado: $customerId'));
+      }
+
+      final availableCredit = isarCustomer.creditLimit - isarCustomer.currentBalance;
+
+      return Right({
+        'customerId': customerId,
+        'currentBalance': isarCustomer.currentBalance,
+        'creditLimit': isarCustomer.creditLimit,
+        'availableCredit': availableCredit,
+        'totalPurchases': isarCustomer.totalPurchases,
+        'totalOrders': isarCustomer.totalOrders,
+        'lastPurchaseAt': isarCustomer.lastPurchaseAt?.toIso8601String(),
+        'paymentTerms': isarCustomer.paymentTerms,
+        'status': isarCustomer.status.name,
+      });
+    } catch (e) {
+      return Left(CacheFailure('Error obteniendo resumen financiero offline: $e'));
     }
   }
 

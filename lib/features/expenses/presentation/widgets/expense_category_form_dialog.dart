@@ -5,66 +5,7 @@ import 'package:get/get.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../controllers/expense_categories_controller.dart';
 import '../../domain/entities/expense_category.dart';
-
-// Formatter personalizado para montos con formato colombiano
-class CurrencyInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-
-    // Remover todos los caracteres no numéricos excepto coma (para decimales)
-    String digitsOnly = newValue.text.replaceAll(RegExp(r'[^\d,]'), '');
-    
-    // Si hay más de una coma, mantener solo la primera
-    List<String> parts = digitsOnly.split(',');
-    if (parts.length > 2) {
-      digitsOnly = '${parts[0]},${parts.sublist(1).join('')}';
-      parts = digitsOnly.split(',');
-    }
-
-    // Limitar a 2 decimales después de la coma
-    if (parts.length == 2 && parts[1].length > 2) {
-      parts[1] = parts[1].substring(0, 2);
-      digitsOnly = '${parts[0]},${parts[1]}';
-    }
-
-    if (digitsOnly.isEmpty || digitsOnly == ',') {
-      return const TextEditingValue();
-    }
-
-    // Separar parte entera y decimal
-    String integerPart = parts[0];
-    String? decimalPart = parts.length > 1 ? parts[1] : null;
-
-    // Formatear la parte entera con puntos como separadores de miles
-    if (integerPart.isNotEmpty) {
-      // Convertir a número y formatear
-      int? intValue = int.tryParse(integerPart);
-      if (intValue == null) {
-        return oldValue;
-      }
-      
-      // Formatear con puntos como separadores de miles
-      integerPart = AppFormatters.formatNumber(intValue);
-    }
-
-    // Construir el resultado final
-    String formatted = integerPart;
-    if (decimalPart != null) {
-      formatted += ',$decimalPart';
-    }
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
+import '../../../../app/core/utils/number_input_formatter.dart';
 
 class ExpenseCategoryFormDialog extends StatefulWidget {
   final ExpenseCategory? category;
@@ -249,7 +190,7 @@ class _ExpenseCategoryFormDialogState extends State<ExpenseCategoryFormDialog> {
                         ),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         inputFormatters: [
-                          CurrencyInputFormatter(),
+                          QuantityInputFormatter(),
                         ],
                         validator: (value) {
                           if (value?.trim().isNotEmpty == true) {

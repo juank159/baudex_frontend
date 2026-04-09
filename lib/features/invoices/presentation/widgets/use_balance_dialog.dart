@@ -6,32 +6,7 @@ import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/invoice.dart';
-
-/// Formateador de input para moneda
-class _CurrencyInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-
-    String cleaned = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-    if (cleaned.isEmpty) {
-      return const TextEditingValue(text: '');
-    }
-
-    int value = int.parse(cleaned);
-    String formatted = AppFormatters.formatNumber(value);
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
+import '../../../../app/core/utils/number_input_formatter.dart';
 
 /// Dialog para usar saldo a favor del cliente en una factura
 /// Este dialog se muestra cuando el cliente tiene saldo a favor
@@ -539,7 +514,7 @@ class _UseBalanceDialogState extends State<UseBalanceDialog> {
               ),
             ),
             keyboardType: TextInputType.number,
-            inputFormatters: [_CurrencyInputFormatter()],
+            inputFormatters: [PriceInputFormatter()],
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Ingrese un monto';

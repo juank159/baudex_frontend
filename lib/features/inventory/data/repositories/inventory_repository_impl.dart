@@ -124,7 +124,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
         return Right(movement.toEntity());
       } on ServerException catch (e) {
-        AppLogger.w(' ServerException al crear movimiento: ${e.message} - Creando offline...');
+        // Errores de negocio (400, 409, 422) NO deben crear offline
+        final code = e.statusCode ?? 0;
+        if (code == 409 || code == 400 || code == 422) {
+          AppLogger.w(' Error de negocio (HTTP $code) al crear movimiento: ${e.message}');
+          return Left(ServerFailure(e.message));
+        }
+        AppLogger.w(' ServerException (HTTP $code) al crear movimiento: ${e.message} - Creando offline...');
         return _createMovementOffline(params);
       } on ConnectionException catch (e) {
         AppLogger.w(' ConnectionException al crear movimiento: ${e.message} - Creando offline...');

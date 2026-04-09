@@ -18,6 +18,14 @@ import 'package:baudex_desktop/features/customers/presentation/screens/customer_
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_stats_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/modern_customers_list_screen.dart';
 import 'package:baudex_desktop/features/inventory/domain/repositories/inventory_repository.dart';
+import 'package:baudex_desktop/features/inventory/domain/usecases/create_inventory_movement_usecase.dart';
+import 'package:baudex_desktop/features/inventory/data/repositories/inventory_repository_impl.dart';
+import 'package:baudex_desktop/features/inventory/data/datasources/inventory_remote_datasource.dart';
+import 'package:baudex_desktop/features/inventory/data/datasources/inventory_local_datasource.dart';
+import 'package:baudex_desktop/features/inventory/data/datasources/inventory_local_datasource_isar.dart';
+import 'package:baudex_desktop/app/core/network/dio_client.dart';
+import 'package:baudex_desktop/app/core/network/network_info.dart';
+import 'package:baudex_desktop/app/data/local/isar_database.dart';
 import 'package:baudex_desktop/features/invoices/presentation/bindings/invoice_binding.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_detail_screen.dart';
 import 'package:baudex_desktop/features/invoices/presentation/screens/invoice_form_screen_wrapper.dart';
@@ -43,6 +51,9 @@ import 'package:baudex_desktop/features/products/presentation/screens/product_fo
 import 'package:baudex_desktop/features/products/presentation/screens/product_stats_screen.dart';
 import 'package:baudex_desktop/features/products/presentation/screens/products_list_screen.dart';
 import 'package:baudex_desktop/features/products/presentation/screens/product_detail_screen.dart';
+import 'package:baudex_desktop/features/products/presentation/screens/initial_inventory_screen.dart';
+import 'package:baudex_desktop/features/products/presentation/controllers/initial_inventory_controller.dart';
+import 'package:baudex_desktop/features/products/domain/usecases/create_product_usecase.dart';
 import 'package:baudex_desktop/features/expenses/presentation/bindings/expense_binding.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_form_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_detail_controller.dart';
@@ -427,6 +438,72 @@ class AppPages {
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],
     ),
+    // ==================== INVENTARIO INICIAL ====================
+    GetPage(
+      name: AppRoutes.productsInitialInventory,
+      page: () => const InitialInventoryScreen(),
+      binding: BindingsBuilder(() {
+        print('🔧 [INVENTARIO INICIAL] Inicializando bindings...');
+
+        if (!Get.isRegistered<GetCategoriesUseCase>()) {
+          print('📂 [INVENTARIO INICIAL] Registrando CategoryBinding...');
+          CategoryBinding().dependencies();
+          print('✅ [INVENTARIO INICIAL] CategoryBinding registrado');
+        }
+
+        if (!Get.isRegistered<CreateProductUseCase>()) {
+          print('📦 [INVENTARIO INICIAL] Registrando ProductBinding...');
+          ProductBinding().dependencies();
+          print('✅ [INVENTARIO INICIAL] ProductBinding registrado');
+        }
+
+        // Registrar dependencias de inventario para crear movimientos (stock inicial)
+        if (!Get.isRegistered<CreateInventoryMovementUseCase>()) {
+          print('📦 [INVENTARIO INICIAL] Registrando dependencias de inventario...');
+          if (!Get.isRegistered<InventoryRemoteDataSource>()) {
+            Get.lazyPut<InventoryRemoteDataSource>(
+              () => InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
+              fenix: true,
+            );
+          }
+          if (!Get.isRegistered<InventoryLocalDataSource>()) {
+            Get.lazyPut<InventoryLocalDataSource>(
+              () => InventoryLocalDataSourceIsar(Get.find<IsarDatabase>()),
+              fenix: true,
+            );
+          }
+          if (!Get.isRegistered<InventoryRepository>()) {
+            Get.lazyPut<InventoryRepository>(
+              () => InventoryRepositoryImpl(
+                remoteDataSource: Get.find(),
+                localDataSource: Get.find(),
+                networkInfo: Get.find<NetworkInfo>(),
+              ),
+              fenix: true,
+            );
+          }
+          Get.lazyPut<CreateInventoryMovementUseCase>(
+            () => CreateInventoryMovementUseCase(Get.find()),
+            fenix: true,
+          );
+          print('✅ [INVENTARIO INICIAL] CreateInventoryMovementUseCase registrado');
+        }
+
+        if (!Get.isRegistered<InitialInventoryController>()) {
+          Get.lazyPut<InitialInventoryController>(
+            () => InitialInventoryController(
+              createProductUseCase: Get.find(),
+              getCategoriesUseCase: Get.find(),
+              createMovementUseCase: Get.find(),
+            ),
+          );
+          print('✅ [INVENTARIO INICIAL] InitialInventoryController registrado');
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+    ),
+
     GetPage(
       name: '/products/category/:categoryId',
       page: () => const ProductsListScreen(),

@@ -472,7 +472,7 @@ class PaymentHistoryWidget extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                DateFormat('dd/MM/yy HH:mm').format(payment.paymentDate),
+                DateFormat('dd/MM/yy hh:mm a').format(payment.paymentDate),
                 style: TextStyle(
                   color: ElegantLightTheme.textSecondary,
                   fontSize: 11,
@@ -531,7 +531,7 @@ class PaymentHistoryWidget extends StatelessWidget {
                 ),
               ),
               Text(
-                DateFormat('dd/MM/yyyy HH:mm').format(payment.paymentDate),
+                DateFormat('dd/MM/yyyy hh:mm a').format(payment.paymentDate),
                 style: TextStyle(
                   color: ElegantLightTheme.textSecondary,
                   fontSize: isTablet ? 11 : 12,

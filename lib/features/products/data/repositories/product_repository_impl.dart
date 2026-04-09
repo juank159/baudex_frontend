@@ -647,7 +647,15 @@ class ProductRepositoryImpl implements ProductRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        AppLogger.w(' ServerException al crear producto: ${e.message} - Creando offline...');
+        // Errores de negocio (400, 409, 422) NO deben crear offline - el servidor rechazó la operación
+        final code = e.statusCode ?? 0;
+        if (code == 409 || code == 400 || code == 422) {
+          AppLogger.w(' ServerException de negocio (HTTP $code) al crear producto: ${e.message}');
+          return Left(ServerFailure(e.message));
+        }
+
+        // Errores de servidor (500, 502, 503) o sin código → crear offline
+        AppLogger.w(' ServerException (HTTP $code) al crear producto: ${e.message} - Creando offline...');
         return _createProductOffline(
           name: name,
           description: description,

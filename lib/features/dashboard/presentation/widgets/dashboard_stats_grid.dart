@@ -33,6 +33,9 @@ class DashboardStatsGrid extends GetView<DashboardController> {
     });
   }
 
+  bool get _hasReceivables =>
+      (controller.dashboardStats?.sales.accountsReceivable ?? 0) > 0;
+
   Widget _buildMobileGrid() {
     return Column(
       children: [
@@ -51,34 +54,64 @@ class DashboardStatsGrid extends GetView<DashboardController> {
             Expanded(child: _buildExpensesCard()),
           ],
         ),
+        if (_hasReceivables) ...[
+          const SizedBox(height: AppDimensions.spacingSmall),
+          _buildReceivablesCard(),
+        ],
       ],
     );
   }
 
   Widget _buildTabletGrid() {
-    return Row(
+    return Column(
       children: [
-        Expanded(child: _buildRevenueCard()),
-        const SizedBox(width: AppDimensions.spacingSmall),
-        Expanded(child: _buildInvoicesCard()),
-        const SizedBox(width: AppDimensions.spacingSmall),
-        Expanded(child: _buildProductsCard()),
-        const SizedBox(width: AppDimensions.spacingSmall),
-        Expanded(child: _buildExpensesCard()),
+        Row(
+          children: [
+            Expanded(child: _buildRevenueCard()),
+            const SizedBox(width: AppDimensions.spacingSmall),
+            Expanded(child: _buildInvoicesCard()),
+            const SizedBox(width: AppDimensions.spacingSmall),
+            Expanded(child: _buildProductsCard()),
+            const SizedBox(width: AppDimensions.spacingSmall),
+            Expanded(child: _buildExpensesCard()),
+          ],
+        ),
+        if (_hasReceivables) ...[
+          const SizedBox(height: AppDimensions.spacingSmall),
+          Row(
+            children: [
+              Expanded(child: _buildReceivablesCard()),
+              const Spacer(flex: 3),
+            ],
+          ),
+        ],
       ],
     );
   }
 
   Widget _buildDesktopGrid() {
-    return Row(
+    return Column(
       children: [
-        Expanded(child: _buildRevenueCard()),
-        const SizedBox(width: AppDimensions.spacingMedium),
-        Expanded(child: _buildInvoicesCard()),
-        const SizedBox(width: AppDimensions.spacingMedium),
-        Expanded(child: _buildProductsCard()),
-        const SizedBox(width: AppDimensions.spacingMedium),
-        Expanded(child: _buildExpensesCard()),
+        Row(
+          children: [
+            Expanded(child: _buildRevenueCard()),
+            const SizedBox(width: AppDimensions.spacingMedium),
+            Expanded(child: _buildInvoicesCard()),
+            const SizedBox(width: AppDimensions.spacingMedium),
+            Expanded(child: _buildProductsCard()),
+            const SizedBox(width: AppDimensions.spacingMedium),
+            Expanded(child: _buildExpensesCard()),
+          ],
+        ),
+        if (_hasReceivables) ...[
+          const SizedBox(height: AppDimensions.spacingMedium),
+          Row(
+            children: [
+              Expanded(child: _buildReceivablesCard()),
+              const Spacer(flex: 3),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -124,6 +157,19 @@ class DashboardStatsGrid extends GetView<DashboardController> {
       color:
           controller.lowStockProducts > 0 ? AppColors.error : AppColors.primary,
       onTap: controller.navigateToProducts,
+    );
+  }
+
+  Widget _buildReceivablesCard() {
+    final receivable = controller.dashboardStats?.sales.accountsReceivable ?? 0;
+    final count = controller.dashboardStats?.sales.receivableCount ?? 0;
+    return _StatCard(
+      title: 'Cuentas por Cobrar',
+      value: AppFormatters.formatCurrency(receivable),
+      subtitle: '$count factura${count == 1 ? '' : 's'} pendiente${count == 1 ? '' : 's'}',
+      icon: Icons.account_balance_wallet_outlined,
+      color: const Color(0xFFF59E0B),
+      onTap: controller.navigateToInvoices,
     );
   }
 

@@ -11,6 +11,8 @@ import '../widgets/period_selector.dart';
 import '../widgets/expense_pie_chart.dart';
 import '../widgets/bank_accounts_summary.dart';
 import '../widgets/income_breakdown_widget.dart';
+import '../widgets/currency_breakdown_widget.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
@@ -355,6 +357,23 @@ class _DashboardScreenState extends State<DashboardScreen>
           return const SizedBox.shrink();
         }),
 
+        // Cuentas por Cobrar (condicional)
+        Obx(() {
+          final stats = controller.dashboardStats;
+          final receivable = stats?.sales.accountsReceivable ?? 0;
+          if (receivable <= 0) return const SizedBox.shrink();
+          final count = stats?.sales.receivableCount ?? 0;
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                _buildReceivablesCard(receivable, count),
+                delay: 270,
+              ),
+              const SizedBox(height: AppDimensions.spacingMedium),
+            ],
+          );
+        }),
+
         // Expense Pie Chart con animación (sin altura fija para móvil)
         _buildAnimatedCard(
           const ExpensePieChart(),
@@ -423,6 +442,23 @@ class _DashboardScreenState extends State<DashboardScreen>
             );
           }
           return const SizedBox.shrink();
+        }),
+
+        // Cuentas por Cobrar (condicional)
+        Obx(() {
+          final stats = controller.dashboardStats;
+          final receivable = stats?.sales.accountsReceivable ?? 0;
+          if (receivable <= 0) return const SizedBox.shrink();
+          final count = stats?.sales.receivableCount ?? 0;
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                _buildReceivablesCard(receivable, count),
+                delay: 270,
+              ),
+              const SizedBox(height: AppDimensions.spacingLarge),
+            ],
+          );
         }),
 
         // Expense Pie Chart - Tercera fila con animación
@@ -519,14 +555,65 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         const SizedBox(height: AppDimensions.spacingLarge),
 
-        // Segunda fila: Expense Pie Chart con animación
-        _buildAnimatedCard(
-          const SizedBox(
-            height: 350,
-            child: ExpensePieChart(),
-          ),
-          delay: 300,
-        ),
+        // Cuentas por Cobrar (condicional)
+        Obx(() {
+          final stats = controller.dashboardStats;
+          final receivable = stats?.sales.accountsReceivable ?? 0;
+          if (receivable <= 0) return const SizedBox.shrink();
+          final count = stats?.sales.receivableCount ?? 0;
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                _buildReceivablesCard(receivable, count),
+                delay: 270,
+              ),
+              const SizedBox(height: AppDimensions.spacingLarge),
+            ],
+          );
+        }),
+
+        // Segunda fila: Expense Pie Chart + Currency Breakdown (condicional)
+        Obx(() {
+          final stats = controller.dashboardStats;
+          final showCurrency = stats != null &&
+              stats.multiCurrencyEnabled &&
+              stats.currencyBreakdown != null &&
+              stats.currencyBreakdown!.isNotEmpty;
+
+          if (showCurrency) {
+            return SizedBox(
+              height: 400,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _buildAnimatedCard(
+                      const ExpensePieChart(),
+                      delay: 300,
+                    ),
+                  ),
+                  const SizedBox(width: AppDimensions.spacingLarge),
+                  Expanded(
+                    flex: 2,
+                    child: _buildAnimatedCard(
+                      CurrencyBreakdownWidget(stats: stats),
+                      delay: 350,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return _buildAnimatedCard(
+            const SizedBox(
+              height: 350,
+              child: ExpensePieChart(),
+            ),
+            delay: 300,
+          );
+        }),
         const SizedBox(height: AppDimensions.spacingLarge),
 
         // Tercera fila: Análisis de Rentabilidad con animación
@@ -625,6 +712,85 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildReceivablesCard(double receivable, int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFFF59E0B).withValues(alpha: 0.12),
+            const Color(0xFFF59E0B).withValues(alpha: 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.account_balance_wallet_outlined,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Cuentas por Cobrar',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$count factura${count == 1 ? '' : 's'} pendiente${count == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            AppFormatters.formatCurrency(receivable),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFFF59E0B),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

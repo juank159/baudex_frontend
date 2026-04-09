@@ -1511,7 +1511,7 @@ class ProductFormController extends GetxController {
   void _navigateBackToProductList() {
     // Refrescar lista antes de navegar para que el listado muestre el producto nuevo
     if (Get.isRegistered<ProductsController>()) {
-      Get.find<ProductsController>().refreshProducts();
+      Get.find<ProductsController>().clearSearchAndRefresh();
     }
 
     try {

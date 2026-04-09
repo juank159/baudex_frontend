@@ -12,37 +12,7 @@ import '../../../bank_accounts/presentation/bindings/bank_accounts_binding.dart'
 import '../../../customer_credits/presentation/controllers/customer_credit_controller.dart';
 import '../../../customer_credits/presentation/bindings/customer_credit_binding.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
-
-// Formateador de input personalizado para números con formato de miles
-class CurrencyInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-
-    // Limpiar el texto (solo números)
-    String cleaned = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-
-    if (cleaned.isEmpty) {
-      return const TextEditingValue(text: '');
-    }
-
-    // Convertir a número
-    int value = int.parse(cleaned);
-
-    // Formatear con separadores de miles
-    String formatted = AppFormatters.formatNumber(value);
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
+import '../../../../app/core/utils/number_input_formatter.dart';
 
 // Formateador para tasas de cambio que permite decimales (ej: 4.000 o 0,12)
 class RateInputFormatter extends TextInputFormatter {
@@ -1846,7 +1816,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
             keyboardType: TextInputType.number,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
-              CurrencyInputFormatter(),
+              PriceInputFormatter(),
             ],
             style: TextStyle(
               fontSize: config.subtitleSize + 2,
@@ -2338,7 +2308,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                           border: InputBorder.none,
                           hintText: '0',
                         ),
-                        inputFormatters: [CurrencyInputFormatter()],
+                        inputFormatters: [PriceInputFormatter()],
                         onChanged: (value) => _updatePaymentAmount(index, value),
                       ),
                     ),

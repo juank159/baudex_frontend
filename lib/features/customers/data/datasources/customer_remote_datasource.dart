@@ -267,7 +267,13 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
-      throw _handleDioException(e);
+      final handled = _handleDioException(e);
+      if (handled is ServerException) {
+        throw handled;
+      }
+      throw handled;
+    } on ServerException {
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al actualizar cliente: $e');
     }
@@ -292,7 +298,11 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
-      throw _handleDioException(e);
+      final handled = _handleDioException(e);
+      if (handled is ServerException) throw handled;
+      throw handled;
+    } on ServerException {
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al actualizar estado: $e');
     }
@@ -307,7 +317,11 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
-      throw _handleDioException(e);
+      final handled = _handleDioException(e);
+      if (handled is ServerException) throw handled;
+      throw handled;
+    } on ServerException {
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al eliminar cliente: $e');
     }
@@ -329,7 +343,11 @@ class CustomerRemoteDataSourceImpl implements CustomerRemoteDataSource {
         throw _handleErrorResponse(response);
       }
     } on DioException catch (e) {
-      throw _handleDioException(e);
+      final handled = _handleDioException(e);
+      if (handled is ServerException) throw handled;
+      throw handled;
+    } on ServerException {
+      rethrow;
     } catch (e) {
       throw ServerException('Error inesperado al restaurar cliente: $e');
     }

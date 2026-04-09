@@ -10,8 +10,6 @@ abstract class OrganizationRemoteDataSource {
     Map<String, dynamic> updates,
   );
   Future<OrganizationModel> getOrganizationById(String id);
-
-  /// ✅ NUEVO: Actualizar margen de ganancia para productos temporales
   Future<bool> updateProfitMargin(double marginPercentage);
 }
 
@@ -24,14 +22,9 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
   Future<OrganizationModel> getCurrentOrganization() async {
     try {
       final response = await dioClient.get('/organizations/current');
-
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
-      final errData = e.response?.data;
-      throw ServerException(
-        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener organización actual',
-        statusCode: e.response?.statusCode ?? 500,
-      );
+      throw _handleDioException(e, 'obtener organización actual');
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener organización actual: $e',
@@ -46,17 +39,12 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
   ) async {
     try {
       final response = await dioClient.patch(
-        '/organizations/current', // Usar el endpoint 'current' que no requiere admin
+        '/organizations/current',
         data: updates,
       );
-
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
-      final errData = e.response?.data;
-      throw ServerException(
-        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al actualizar organización',
-        statusCode: e.response?.statusCode ?? 500,
-      );
+      throw _handleDioException(e, 'actualizar organización');
     } catch (e) {
       throw ServerException(
         'Error inesperado al actualizar organización: $e',
@@ -69,14 +57,9 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
   Future<OrganizationModel> getOrganizationById(String id) async {
     try {
       final response = await dioClient.get('/organizations/$id');
-
       return OrganizationModel.fromJson(response.data['data']);
     } on DioException catch (e) {
-      final errData = e.response?.data;
-      throw ServerException(
-        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al obtener organización',
-        statusCode: e.response?.statusCode ?? 500,
-      );
+      throw _handleDioException(e, 'obtener organización');
     } catch (e) {
       throw ServerException(
         'Error inesperado al obtener organización: $e',
@@ -88,34 +71,59 @@ class OrganizationRemoteDataSourceImpl implements OrganizationRemoteDataSource {
   @override
   Future<bool> updateProfitMargin(double marginPercentage) async {
     try {
-      print(
-        '🌐 Enviando PUT a /organizations/current/profit-margin con margen: $marginPercentage%',
-      );
-
       final response = await dioClient.put(
         '/organizations/current/profit-margin',
         data: {'marginPercentage': marginPercentage},
       );
-
-      // El backend devuelve: { success: boolean, marginPercentage: number, message: string }
-      final success = response.data['success'] as bool? ?? false;
-
-      print('✅ Respuesta del servidor: ${response.data}');
-
-      return success;
+      return response.data['success'] as bool? ?? false;
     } on DioException catch (e) {
-      print('❌ Error DioException: ${e.response?.data}');
-      final errData = e.response?.data;
-      throw ServerException(
-        (errData is Map ? errData['message']?.toString() : errData?.toString()) ?? 'Error al actualizar margen de ganancia',
-        statusCode: e.response?.statusCode ?? 500,
-      );
+      throw _handleDioException(e, 'actualizar margen de ganancia');
     } catch (e) {
-      print('❌ Error inesperado: $e');
       throw ServerException(
         'Error inesperado al actualizar margen de ganancia: $e',
         statusCode: 500,
       );
+    }
+  }
+
+  /// Distinguir entre errores de conexión y errores de servidor
+  Exception _handleDioException(DioException e, String operation) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return ConnectionException.timeout;
+
+      case DioExceptionType.badResponse:
+        if (e.response != null) {
+          final errData = e.response?.data;
+          final message = (errData is Map
+                  ? errData['message']?.toString()
+                  : errData?.toString()) ??
+              'Error al $operation';
+          return ServerException(message,
+              statusCode: e.response?.statusCode ?? 500);
+        }
+        return ServerException('Respuesta inválida del servidor',
+            statusCode: 500);
+
+      case DioExceptionType.cancel:
+        return const ServerException('Solicitud cancelada', statusCode: 499);
+
+      case DioExceptionType.connectionError:
+        return ConnectionException.noInternet;
+
+      case DioExceptionType.unknown:
+        if (e.message?.contains('SocketException') == true ||
+            e.error.toString().contains('SocketException')) {
+          return ConnectionException.socketException;
+        }
+        return ServerException('Error de conexión: ${e.message}',
+            statusCode: 500);
+
+      default:
+        return ServerException('Error desconocido: ${e.message}',
+            statusCode: 500);
     }
   }
 }

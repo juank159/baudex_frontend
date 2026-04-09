@@ -74,6 +74,7 @@ abstract class AppRoutes {
   static const String productsDetail = '/products/detail';
   static const String productsLowStock = '/products/low-stock';
   static const String productsStats = '/products/stats';
+  static const String productsInitialInventory = '/products/initial-inventory';
 
   // Products with parameters
   static String productEdit(String id) => '/products/edit/$id';

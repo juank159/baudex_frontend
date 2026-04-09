@@ -56,8 +56,11 @@ class OrganizationModel extends Organization {
         json['settings']['defaultProfitMarginPercentage'] != null
         ? (json['settings']['defaultProfitMarginPercentage'] as num).toDouble()
         : null,
-      multiCurrencyEnabled: json['multiCurrencyEnabled'] ??
-        (json['settings'] is Map ? json['settings']['multiCurrencyEnabled'] : null) ?? false,
+      // settings.multiCurrencyEnabled es la fuente de verdad (es lo que enviamos con PATCH).
+      // El campo top-level json['multiCurrencyEnabled'] es computado por el backend y puede estar desactualizado.
+      multiCurrencyEnabled: (json['settings'] is Map ? json['settings']['multiCurrencyEnabled'] as bool? : null)
+        ?? json['multiCurrencyEnabled'] as bool?
+        ?? false,
       subscriptionStartDate: json['subscriptionStartDate'] != null 
         ? DateTime.parse(json['subscriptionStartDate'])
         : null,

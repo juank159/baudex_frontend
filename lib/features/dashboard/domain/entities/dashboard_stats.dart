@@ -7,9 +7,12 @@ class DashboardStats extends Equatable {
   final ProductStats products;
   final CustomerStats customers;
   final ExpenseStats expenses;
-  final ProfitabilityStats profitability; // 🆕 Métricas FIFO de rentabilidad
-  final List<PaymentMethodStats> paymentMethodsBreakdown; // 🆕 NUEVO: Desglose por método de pago
-  final IncomeTypeBreakdown incomeTypeBreakdown; // 🆕 NUEVO: Desglose por tipo de ingreso
+  final ProfitabilityStats profitability;
+  final List<PaymentMethodStats> paymentMethodsBreakdown;
+  final IncomeTypeBreakdown incomeTypeBreakdown;
+  final List<CurrencyBreakdownStats>? currencyBreakdown;
+  final bool multiCurrencyEnabled;
+  final String baseCurrency;
 
   const DashboardStats({
     required this.sales,
@@ -20,6 +23,9 @@ class DashboardStats extends Equatable {
     required this.profitability,
     required this.paymentMethodsBreakdown,
     required this.incomeTypeBreakdown,
+    this.currencyBreakdown,
+    this.multiCurrencyEnabled = false,
+    this.baseCurrency = 'COP',
   });
 
   @override
@@ -32,6 +38,9 @@ class DashboardStats extends Equatable {
     profitability,
     paymentMethodsBreakdown,
     incomeTypeBreakdown,
+    currencyBreakdown,
+    multiCurrencyEnabled,
+    baseCurrency,
   ];
 }
 
@@ -44,6 +53,8 @@ class SalesStats extends Equatable {
   final double yearSales;
   final double todayGrowth;
   final double monthlyGrowth;
+  final double accountsReceivable;
+  final int receivableCount;
 
   const SalesStats({
     required this.totalAmount,
@@ -54,6 +65,8 @@ class SalesStats extends Equatable {
     required this.yearSales,
     required this.todayGrowth,
     required this.monthlyGrowth,
+    this.accountsReceivable = 0,
+    this.receivableCount = 0,
   });
 
   @override
@@ -66,6 +79,8 @@ class SalesStats extends Equatable {
     yearSales,
     todayGrowth,
     monthlyGrowth,
+    accountsReceivable,
+    receivableCount,
   ];
 }
 
@@ -351,4 +366,35 @@ class IncomeTypeBreakdown extends Equatable {
 
   @override
   List<Object?> get props => [invoices, credits, total];
+}
+
+// Desglose por moneda (solo cuando multiCurrencyEnabled)
+class CurrencyBreakdownStats extends Equatable {
+  final String currency;
+  final int count;
+  final double totalBaseAmount;
+  final double totalForeignAmount;
+  final double avgRate;
+  final double percentage;
+
+  const CurrencyBreakdownStats({
+    required this.currency,
+    required this.count,
+    required this.totalBaseAmount,
+    required this.totalForeignAmount,
+    required this.avgRate,
+    required this.percentage,
+  });
+
+  bool get isForeignCurrency => avgRate != 1.0;
+
+  @override
+  List<Object?> get props => [
+    currency,
+    count,
+    totalBaseAmount,
+    totalForeignAmount,
+    avgRate,
+    percentage,
+  ];
 }

@@ -274,7 +274,13 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
 
         return Right(account.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException al crear cuenta bancaria: ${e.message} - Creando offline...');
+        // Errores de negocio (400, 409, 422) NO deben crear offline
+        final code = e.statusCode ?? 0;
+        if (code == 409 || code == 400 || code == 422) {
+          print('❌ Error de negocio (HTTP $code) al crear cuenta bancaria: ${e.message}');
+          return Left(ServerFailure(e.message));
+        }
+        print('⚠️ ServerException (HTTP $code) al crear cuenta bancaria: ${e.message} - Creando offline...');
         return _createBankAccountOffline(
           name: name,
           type: type,

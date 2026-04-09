@@ -196,6 +196,16 @@ class ProductsController extends GetxController
     }
   }
 
+  /// Limpiar búsqueda y refrescar datos al volver de editar/crear producto
+  void clearSearchAndRefresh() {
+    _searchDebounceTimer?.cancel();
+    _searchTerm.value = '';
+    _searchResults.clear();
+    searchController.clear();
+    _searchDebounceTimer?.cancel();
+    refreshProducts();
+  }
+
   /// Asegurar que los datos estén cargados (llamar solo cuando esté autenticado)
   Future<void> ensureDataLoaded() async {
     // Cache-first: mostrar datos inmediatos

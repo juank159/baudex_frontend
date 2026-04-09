@@ -27,8 +27,8 @@ class AppFormatters {
   // Formateador de fechas
   static final dateFormat = DateFormat('dd/MM/yyyy', 'es_CO');
 
-  // Formateador de fecha y hora
-  static final dateTimeFormat = DateFormat('dd/MM/yyyy HH:mm', 'es_CO');
+  // Formateador de fecha y hora (12h con AM/PM)
+  static final dateTimeFormat = DateFormat('dd/MM/yyyy hh:mm a', 'es_CO');
 
   /// Formatea un número (double o int) como un string con separadores de miles.
   ///

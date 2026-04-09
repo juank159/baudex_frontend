@@ -19,9 +19,37 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
     this.offlineRepository,
   });
 
-  // Lazy initialization del repositorio offline
   OrganizationOfflineRepository get _offlineRepo =>
       offlineRepository ?? OrganizationOfflineRepository();
+
+  /// Cache-first: lee ISAR directo sin tocar la red (instantáneo)
+  Future<Either<Failure, Organization>> getCachedOrganization() async {
+    return _getFromCache();
+  }
+
+  /// Fetch del servidor y actualizar cache ISAR. No lee cache como fallback.
+  Future<Either<Failure, Organization>> refreshFromServer() async {
+    if (!await networkInfo.isConnected) {
+      return Left(ConnectionFailure.noInternet);
+    }
+    try {
+      final result = await remoteDataSource.getCurrentOrganization();
+      try {
+        await _offlineRepo.cacheOrganization(result);
+      } catch (_) {}
+      return Right(result);
+    } on ConnectionException catch (e) {
+      networkInfo.markServerUnreachable();
+      return Left(ConnectionFailure(e.message));
+    } on ServerException catch (e) {
+      if (e.message.contains('timeout') || e.message.contains('conexión')) {
+        networkInfo.markServerUnreachable();
+      }
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure('Error inesperado: $e'));
+    }
+  }
 
   @override
   Future<Either<Failure, Organization>> getCurrentOrganization() async {
@@ -29,75 +57,68 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
       try {
         final result = await remoteDataSource.getCurrentOrganization();
 
-        // ✅ NUEVO: Cachear organización para uso offline
         try {
           await _offlineRepo.cacheOrganization(result);
-          print('💾 Organización cacheada para uso offline');
         } catch (e) {
           print('⚠️ Error cacheando organización: $e');
         }
 
         return Right(result);
+      } on ConnectionException catch (e) {
+        networkInfo.markServerUnreachable();
+        return _getFromCache();
       } on ServerException catch (e) {
-        // ✅ Si falla el servidor, intentar cache
-        print('⚠️ Error del servidor, intentando cache: ${e.message}');
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
+        return _getFromCache();
+      } catch (e) {
         return _getFromCache();
       }
     } else {
-      // ✅ NUEVO: Cuando está offline, usar datos cacheados
-      print('⚠️ Sin conexión - Buscando organización en cache offline...');
       return _getFromCache();
     }
   }
 
-  /// Obtener organización desde cache offline
   Future<Either<Failure, Organization>> _getFromCache() async {
     try {
       final cachedResult = await _offlineRepo.getCurrentOrganization();
       return cachedResult.fold(
-        (failure) {
-          print('❌ No hay organización en cache: ${failure.message}');
-          return Left(CacheFailure('No hay datos de organización disponibles offline'));
-        },
-        (organization) {
-          print('✅ Organización obtenida de cache offline');
-          return Right(organization);
-        },
+        (failure) =>
+            Left(CacheFailure('No hay datos de organización disponibles offline')),
+        (organization) => Right(organization),
       );
     } catch (e) {
-      print('❌ Error obteniendo organización de cache: $e');
       return Left(CacheFailure('Error obteniendo organización de cache: $e'));
     }
   }
 
-
-
   @override
-  Future<Either<Failure, Organization>> updateCurrentOrganization(Map<String, dynamic> updates) async {
+  Future<Either<Failure, Organization>> updateCurrentOrganization(
+      Map<String, dynamic> updates) async {
     if (await networkInfo.isConnected) {
       try {
-        final result = await remoteDataSource.updateCurrentOrganization(updates);
+        final result =
+            await remoteDataSource.updateCurrentOrganization(updates);
 
-        // Cachear en ISAR para mantener offline actualizado
         try {
           await _offlineRepo.cacheOrganization(result);
-        } catch (e) {
-          print('⚠️ Error cacheando organización actualizada: $e');
-        }
+        } catch (_) {}
 
         return Right(result);
+      } on ConnectionException catch (e) {
+        networkInfo.markServerUnreachable();
+        return _offlineRepo.updateCurrentOrganization(updates);
       } on ServerException catch (e) {
-        // Si falla el servidor pero tenemos offline, guardar localmente
-        print('⚠️ Error del servidor actualizando org, guardando offline: ${e.message}');
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
         return _offlineRepo.updateCurrentOrganization(updates);
       }
     } else {
-      // Offline: guardar localmente y encolar sync
-      print('📴 Sin conexión - Guardando organización offline...');
       return _offlineRepo.updateCurrentOrganization(updates);
     }
   }
-
 
   @override
   Future<Either<Failure, Organization>> getOrganizationById(String id) async {
@@ -105,7 +126,10 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
       try {
         final result = await remoteDataSource.getOrganizationById(id);
         return Right(result);
-      } on ServerException catch (e) {
+      } on ConnectionException {
+        networkInfo.markServerUnreachable();
+        return _offlineRepo.getOrganizationById(id);
+      } on ServerException {
         return _offlineRepo.getOrganizationById(id);
       }
     } else {
@@ -114,17 +138,23 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
   }
 
   @override
-  Future<Either<Failure, bool>> updateProfitMargin(double marginPercentage) async {
+  Future<Either<Failure, bool>> updateProfitMargin(
+      double marginPercentage) async {
     if (await networkInfo.isConnected) {
       try {
-        final result = await remoteDataSource.updateProfitMargin(marginPercentage);
+        final result =
+            await remoteDataSource.updateProfitMargin(marginPercentage);
         return Right(result);
+      } on ConnectionException catch (e) {
+        networkInfo.markServerUnreachable();
+        return _offlineRepo.updateProfitMargin(marginPercentage);
       } on ServerException catch (e) {
-        print('⚠️ Error del servidor actualizando margen, guardando offline: ${e.message}');
+        if (e.message.contains('timeout') || e.message.contains('conexión')) {
+          networkInfo.markServerUnreachable();
+        }
         return _offlineRepo.updateProfitMargin(marginPercentage);
       }
     } else {
-      print('📴 Sin conexión - Guardando margen de ganancia offline...');
       return _offlineRepo.updateProfitMargin(marginPercentage);
     }
   }

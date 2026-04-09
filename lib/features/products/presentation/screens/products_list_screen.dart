@@ -548,9 +548,11 @@ class _SidebarHeader extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [
-            Theme.of(context).primaryColor.withValues(alpha: 0.1),
-            Theme.of(context).primaryColor.withValues(alpha: 0.05),
+            ElegantLightTheme.primaryBlue.withValues(alpha: 0.08),
+            ElegantLightTheme.primaryBlueDark.withValues(alpha: 0.04),
           ],
         ),
       ),
@@ -559,8 +561,15 @@ class _SidebarHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
-              borderRadius: BorderRadius.circular(8),
+              gradient: ElegantLightTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: const Icon(Icons.inventory_2, color: Colors.white, size: 20),
           ),
@@ -569,17 +578,24 @@ class _SidebarHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                'Productos',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
+              ShaderMask(
+                shaderCallback: (bounds) =>
+                    ElegantLightTheme.primaryGradient.createShader(bounds),
+                child: const Text(
+                  'Productos',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               Text(
                 'Gestión y búsqueda',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: ElegantLightTheme.textSecondary,
+                ),
               ),
             ],
           ),
@@ -1019,7 +1035,7 @@ class _DesktopToolbar extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: ElegantLightTheme.textPrimary,
                     ),
                   ),
                   if (controller.totalPages > 1)
@@ -1034,9 +1050,9 @@ class _DesktopToolbar extends StatelessWidget {
                   if (searchMode && controller.searchTerm.isNotEmpty)
                     Text(
                       'Búsqueda: "${controller.searchTerm}"',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
-                        color: Theme.of(context).primaryColor,
+                        color: ElegantLightTheme.primaryBlue,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1135,19 +1151,42 @@ class _DesktopToolbar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: () => Get.toNamed('/products/create'),
-                icon: const Icon(Icons.add_circle_outline, size: 20),
-                label: const Text('Nuevo Producto'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => Get.toNamed('/products/create'),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: ElegantLightTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add_circle_outline, size: 20, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text(
+                          'Nuevo Producto',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

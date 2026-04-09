@@ -21,6 +21,9 @@ class DashboardStatsModel extends DashboardStats {
     required ProfitabilityStatsModel profitability,
     required List<PaymentMethodStats> paymentMethodsBreakdown,
     required IncomeTypeBreakdown incomeTypeBreakdown,
+    List<CurrencyBreakdownStats>? currencyBreakdown,
+    bool multiCurrencyEnabled = false,
+    String baseCurrency = 'COP',
   }) : super(
          sales: sales,
          invoices: invoices,
@@ -30,20 +33,25 @@ class DashboardStatsModel extends DashboardStats {
          profitability: profitability,
          paymentMethodsBreakdown: paymentMethodsBreakdown,
          incomeTypeBreakdown: incomeTypeBreakdown,
+         currencyBreakdown: currencyBreakdown,
+         multiCurrencyEnabled: multiCurrencyEnabled,
+         baseCurrency: baseCurrency,
        );
 
   factory DashboardStatsModel.fromJson(Map<String, dynamic> json) {
     // Mapear desde la estructura plana del backend a la estructura anidada del frontend
     return DashboardStatsModel(
       sales: SalesStatsModel(
-        totalAmount: _toDouble(json['totalRevenue']), // ✅ CORREGIDO: usar totalRevenue
+        totalAmount: _toDouble(json['totalRevenue']),
         totalSales: json['totalInvoices'] ?? 0,
-        todaySales: _toDouble(json['totalRevenue']), // Usar revenue real
-        yesterdaySales: 0.0, // TODO: agregar al backend
-        monthlySales: _toDouble(json['totalRevenue']), // Usar revenue real
-        yearSales: _toDouble(json['totalRevenue']), // Usar revenue real
-        todayGrowth: _toDouble(json['revenueGrowth']), // Usar growth real
-        monthlyGrowth: 0.0, // TODO: agregar al backend
+        todaySales: _toDouble(json['totalRevenue']),
+        yesterdaySales: 0.0,
+        monthlySales: _toDouble(json['totalRevenue']),
+        yearSales: _toDouble(json['totalRevenue']),
+        todayGrowth: _toDouble(json['revenueGrowth']),
+        monthlyGrowth: 0.0,
+        accountsReceivable: _toDouble(json['accountsReceivable']),
+        receivableCount: json['receivableCount'] ?? 0,
       ),
       invoices: InvoiceStatsModel(
         totalInvoices: json['totalInvoices'] ?? 0,
@@ -97,11 +105,13 @@ class DashboardStatsModel extends DashboardStats {
       incomeTypeBreakdown: _parseIncomeTypeBreakdown(
         json['incomeTypeBreakdown'],
       ),
+      currencyBreakdown: _parseCurrencyBreakdown(json['currencyBreakdown']),
+      multiCurrencyEnabled: json['multiCurrencyEnabled'] ?? false,
+      baseCurrency: json['baseCurrency'] ?? 'COP',
     );
   }
 
   Map<String, dynamic> toJson() {
-    // Convertir a la estructura esperada por el backend
     return {
       'totalRevenue': sales.totalAmount,
       'totalExpenses': expenses.totalAmount,
@@ -122,6 +132,18 @@ class DashboardStatsModel extends DashboardStats {
       'lowStockProducts': products.lowStockProducts,
       'outOfStockProducts': products.outOfStockProducts,
       'profitability': (profitability as ProfitabilityStatsModel).toJson(),
+      'accountsReceivable': sales.accountsReceivable,
+      'receivableCount': sales.receivableCount,
+      'currencyBreakdown': currencyBreakdown?.map((c) => {
+        'currency': c.currency,
+        'count': c.count,
+        'totalBaseAmount': c.totalBaseAmount,
+        'totalForeignAmount': c.totalForeignAmount,
+        'avgRate': c.avgRate,
+        'percentage': c.percentage,
+      }).toList(),
+      'multiCurrencyEnabled': multiCurrencyEnabled,
+      'baseCurrency': baseCurrency,
     };
   }
 
@@ -210,6 +232,31 @@ class DashboardStatsModel extends DashboardStats {
     return <PaymentMethodStats>[];
   }
 
+  static List<CurrencyBreakdownStats>? _parseCurrencyBreakdown(dynamic data) {
+    if (data == null) return null;
+    if (data is! List) return null;
+    return data.map((item) {
+      if (item is Map<String, dynamic>) {
+        return CurrencyBreakdownStats(
+          currency: item['currency'] ?? '',
+          count: item['count'] ?? 0,
+          totalBaseAmount: _toDouble(item['totalBaseAmount']),
+          totalForeignAmount: _toDouble(item['totalForeignAmount']),
+          avgRate: _toDouble(item['avgRate']),
+          percentage: _toDouble(item['percentage']),
+        );
+      }
+      return const CurrencyBreakdownStats(
+        currency: '',
+        count: 0,
+        totalBaseAmount: 0,
+        totalForeignAmount: 0,
+        avgRate: 1,
+        percentage: 0,
+      );
+    }).toList();
+  }
+
   static IncomeTypeBreakdown _parseIncomeTypeBreakdown(
     dynamic incomeTypeData,
   ) {
@@ -247,6 +294,8 @@ class SalesStatsModel extends SalesStats {
     required super.yearSales,
     required super.todayGrowth,
     required super.monthlyGrowth,
+    super.accountsReceivable = 0,
+    super.receivableCount = 0,
   });
 
   factory SalesStatsModel.fromJson(Map<String, dynamic> json) {
@@ -259,6 +308,8 @@ class SalesStatsModel extends SalesStats {
       yearSales: _toDouble(json['yearSales']),
       todayGrowth: _toDouble(json['todayGrowth']),
       monthlyGrowth: _toDouble(json['monthlyGrowth']),
+      accountsReceivable: _toDouble(json['accountsReceivable']),
+      receivableCount: json['receivableCount'] ?? 0,
     );
   }
 
@@ -272,6 +323,8 @@ class SalesStatsModel extends SalesStats {
       'yearSales': yearSales,
       'todayGrowth': todayGrowth,
       'monthlyGrowth': monthlyGrowth,
+      'accountsReceivable': accountsReceivable,
+      'receivableCount': receivableCount,
     };
   }
 }

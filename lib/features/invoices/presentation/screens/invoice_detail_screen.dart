@@ -937,25 +937,76 @@ class InvoiceDetailScreen extends StatelessWidget {
                 ),
               ],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                Text(
-                  'Total:',
-                  style: TextStyle(
-                    fontSize: titleSize,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total:',
+                      style: TextStyle(
+                        fontSize: titleSize,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      AppFormatters.formatCurrency(invoice.total),
+                      style: TextStyle(
+                        fontSize: titleSize + 2,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  AppFormatters.formatCurrency(invoice.total),
-                  style: TextStyle(
-                    fontSize: titleSize + 2,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
+                // Mostrar pagos en moneda extranjera si existen
+                ...invoice.payments
+                    .where((p) => p.isForeignCurrency)
+                    .map((p) => Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Pagado en ${p.paymentCurrency}:',
+                                style: TextStyle(
+                                  fontSize: textSize,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    AppFormatters.formatForeignCurrency(
+                                      p.paymentCurrencyAmount,
+                                      p.paymentCurrency!,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: textSize + 1,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    AppFormatters.formatExchangeInfo(
+                                      p.paymentCurrency!,
+                                      p.exchangeRate!,
+                                      'COP',
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: textSize - 2,
+                                      color: Colors.white.withValues(alpha: 0.7),
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        )),
               ],
             ),
           ),
@@ -6063,6 +6114,6 @@ class InvoiceDetailScreen extends StatelessWidget {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+    return AppFormatters.formatDateTime(date);
   }
 }

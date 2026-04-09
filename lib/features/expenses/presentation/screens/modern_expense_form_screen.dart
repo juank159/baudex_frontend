@@ -12,54 +12,7 @@ import '../controllers/enhanced_expenses_controller.dart';
 import '../widgets/modern_category_selector_widget.dart';
 import '../widgets/modern_expense_selector_widget.dart';
 import '../widgets/compact_expense_field.dart';
-
-class CurrencyInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) return newValue;
-
-    String digitsOnly = newValue.text.replaceAll(RegExp(r'[^\d,]'), '');
-    List<String> parts = digitsOnly.split(',');
-
-    if (parts.length > 2) {
-      digitsOnly = '${parts[0]},${parts.sublist(1).join('')}';
-      parts = digitsOnly.split(',');
-    }
-
-    if (parts.length == 2 && parts[1].length > 2) {
-      parts[1] = parts[1].substring(0, 2);
-      digitsOnly = '${parts[0]},${parts[1]}';
-    }
-
-    if (digitsOnly.isEmpty || digitsOnly == ',') {
-      return const TextEditingValue();
-    }
-
-    String integerPart = parts[0];
-    String? decimalPart = parts.length > 1 ? parts[1] : null;
-
-    if (integerPart.isNotEmpty) {
-      int? intValue = int.tryParse(integerPart);
-      if (intValue == null) return oldValue;
-
-      final formatter = NumberFormat('#,###', 'es_CO');
-      integerPart = formatter.format(intValue);
-    }
-
-    String formatted = integerPart;
-    if (decimalPart != null) {
-      formatted += ',$decimalPart';
-    }
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
+import '../../../../app/core/utils/number_input_formatter.dart';
 
 class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
   const ModernExpenseFormScreen({super.key});
@@ -436,7 +389,7 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
                       hint: '0.00',
                       prefixIcon: Icons.attach_money,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [CurrencyInputFormatter()],
+                      inputFormatters: [QuantityInputFormatter()],
                       validator: controller.validateAmount,
                     ),
                     const SizedBox(height: 10),
@@ -452,7 +405,7 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
                         hint: '0.00',
                         prefixIcon: Icons.attach_money,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        inputFormatters: [CurrencyInputFormatter()],
+                        inputFormatters: [QuantityInputFormatter()],
                         validator: controller.validateAmount,
                       ),
                     ),

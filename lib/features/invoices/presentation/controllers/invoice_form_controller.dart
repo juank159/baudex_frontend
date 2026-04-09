@@ -812,7 +812,7 @@ class InvoiceFormController extends GetxController {
               state: 'Norte de Santander',
               country: 'Colombia',
               status: CustomerStatus.active,
-              paymentTerms: 0,
+              paymentTerms: 1,
               creditLimit: 0.0,
               notes: 'Cliente creado automáticamente para ventas de mostrador',
               metadata: {
@@ -864,7 +864,7 @@ class InvoiceFormController extends GetxController {
       status: CustomerStatus.active,
       creditLimit: 0,
       currentBalance: 0,
-      paymentTerms: 0,
+      paymentTerms: 1,
       totalPurchases: 0,
       totalOrders: 0,
       createdAt: DateTime.now(),

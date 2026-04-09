@@ -659,21 +659,41 @@ class SyncService extends GetxService {
 
         if (validOps.isEmpty) continue;
 
-        // ⚡ Procesar operaciones del tier en paralelo (máx 5 concurrentes)
-        const maxConcurrency = 5;
-        for (int i = 0; i < validOps.length; i += maxConcurrency) {
-          final batch = validOps.skip(i).take(maxConcurrency).toList();
-          final results = await Future.wait(
-            batch.map((op) => _processSingleOperation(op)),
-          );
+        // ⚡ Agrupar por entityId para garantizar orden secuencial dentro de la misma entidad
+        // (ej: PO UPDATE approve → send → receive deben ir en orden FIFO)
+        // Diferentes entityIds se ejecutan en paralelo
+        final groupedByEntity = <String, List<SyncOperation>>{};
+        for (final op in validOps) {
+          groupedByEntity.putIfAbsent(op.entityId, () => []).add(op);
+        }
+        // Ordenar cada grupo por id (FIFO - id autoincrementable de ISAR)
+        for (final group in groupedByEntity.values) {
+          group.sort((a, b) => a.id.compareTo(b.id));
+        }
 
-          for (final result in results) {
-            if (result == _SyncOpResult.success) {
-              successCount++;
-            } else if (result == _SyncOpResult.skipped) {
-              skippedCount++;
-            } else {
-              failureCount++;
+        // Crear cadenas secuenciales por entidad, ejecutar en paralelo entre entidades
+        final entityIds = groupedByEntity.keys.toList();
+        const maxConcurrency = 5;
+        for (int i = 0; i < entityIds.length; i += maxConcurrency) {
+          final batchIds = entityIds.skip(i).take(maxConcurrency).toList();
+          final chainFutures = batchIds.map((entityId) async {
+            final chainResults = <_SyncOpResult>[];
+            for (final op in groupedByEntity[entityId]!) {
+              chainResults.add(await _processSingleOperation(op));
+            }
+            return chainResults;
+          }).toList();
+
+          final allChainResults = await Future.wait(chainFutures);
+          for (final chainResults in allChainResults) {
+            for (final result in chainResults) {
+              if (result == _SyncOpResult.success) {
+                successCount++;
+              } else if (result == _SyncOpResult.skipped) {
+                skippedCount++;
+              } else {
+                failureCount++;
+              }
             }
           }
         }
@@ -1046,27 +1066,43 @@ class SyncService extends GetxService {
         );
       }
 
+      // Detectar errores de secuencia transitoria de inventario
+      // (movementNumber/batchNumber duplicado por race condition - el backend generará nuevo número en retry)
+      final isInventorySequenceError =
+          (operation.entityType == 'InventoryMovement' ||
+              operation.entityType == 'inventory_movement') &&
+          (errorMsg.contains('duplicate key') ||
+              errorMsg.contains('unique constraint') ||
+              errorMsg.contains('violates unique'));
+
       // Errores de validación del backend (400) y conflictos no se deben reintentar
-      if (errorMsg.contains('solicitud incorrecta') ||
-          errorMsg.contains('bad request') ||
-          errorMsg.contains('must be a valid') ||
-          errorMsg.contains('debe ser un') ||
-          errorMsg.contains('ya existe') ||
-          errorMsg.contains('already exists') ||
-          errorMsg.contains('duplicate key') ||
-          errorMsg.contains('unique constraint') ||
-          errorMsg.contains('violates unique') ||
-          errorMsg.contains('violates not-null') ||
-          errorMsg.contains('violates foreign key') ||
-          errorMsg.contains('violates check constraint') ||
-          errorMsg.contains('invalid input syntax') ||
-          errorMsg.contains('cannot be modified')) {
+      // EXCEPTO errores de secuencia de inventario que son transitorios
+      if (!isInventorySequenceError &&
+          (errorMsg.contains('solicitud incorrecta') ||
+              errorMsg.contains('bad request') ||
+              errorMsg.contains('must be a valid') ||
+              errorMsg.contains('debe ser un') ||
+              errorMsg.contains('ya existe') ||
+              errorMsg.contains('already exists') ||
+              errorMsg.contains('duplicate key') ||
+              errorMsg.contains('unique constraint') ||
+              errorMsg.contains('violates unique') ||
+              errorMsg.contains('violates not-null') ||
+              errorMsg.contains('violates foreign key') ||
+              errorMsg.contains('violates check constraint') ||
+              errorMsg.contains('invalid input syntax') ||
+              errorMsg.contains('cannot be modified'))) {
         AppLogger.w(
           '${operation.entityType}:${operation.entityId} error permanente - no reintentar: $e',
           tag: 'SYNC',
         );
         // Marcar como completada con error para que no se reintente más
         await _isarDatabase.markSyncOperationCompleted(operation.id);
+      } else if (isInventorySequenceError) {
+        AppLogger.w(
+          '${operation.entityType}:${operation.entityId} error de secuencia transitorio - se reintentará: $e',
+          tag: 'SYNC',
+        );
       }
       return _SyncOpResult.failure;
     }
@@ -2304,6 +2340,27 @@ class SyncService extends GetxService {
                     AppLogger.w('Error actualizando productId en op ${op.id}: $e', tag: 'SYNC');
                   }
                 }
+
+                // Actualizar productId en InventoryMovement pendientes
+                final isMovement = op.entityType == 'InventoryMovement' || op.entityType == 'inventory_movement';
+                if (isMovement && op.operationType == SyncOperationType.create) {
+                  try {
+                    final opPayload = jsonDecode(op.payload);
+                    if (opPayload['productId'] == tempProductId) {
+                      opPayload['productId'] = realProductId;
+                      await _isarDatabase.updateSyncOperationPayload(
+                        op.id,
+                        jsonEncode(opPayload),
+                      );
+                      AppLogger.i(
+                        'ProductId actualizado en InventoryMovement pendiente ${op.entityId}: $tempProductId → $realProductId',
+                        tag: 'SYNC',
+                      );
+                    }
+                  } catch (e) {
+                    AppLogger.w('Error actualizando productId en InventoryMovement op ${op.id}: $e', tag: 'SYNC');
+                  }
+                }
               }
 
               // 4. Actualizar productId en IsarPurchaseOrderItem que referencian el temp ID
@@ -2930,6 +2987,7 @@ class SyncService extends GetxService {
             state: data['state'],
             zipCode: data['zipCode'],
             country: data['country'],
+            status: data['status'],
             creditLimit: data['creditLimit']?.toDouble(),
             paymentTerms: data['paymentTerms'],
             notes: data['notes'],
@@ -2942,6 +3000,22 @@ class SyncService extends GetxService {
             updateRequest,
           );
           AppLogger.i('Cliente actualizado en servidor', tag: 'SYNC');
+
+          // ✅ Marcar como synced en ISAR (patrón Supplier)
+          try {
+            final isar = IsarDatabase.instance.database;
+            final isarCustomer = await isar.isarCustomers
+                .filter()
+                .serverIdEqualTo(operation.entityId)
+                .findFirst();
+            if (isarCustomer != null) {
+              isarCustomer.markAsSynced();
+              await isar.writeTxn(() => isar.isarCustomers.put(isarCustomer));
+              AppLogger.d('Cliente marcado como synced en ISAR', tag: 'SYNC');
+            }
+          } catch (e) {
+            AppLogger.w('Error marcando cliente como synced en ISAR: $e', tag: 'SYNC');
+          }
           break;
 
         case SyncOperationType.delete:
@@ -2957,13 +3031,31 @@ class SyncService extends GetxService {
           throw Exception('Operación no soportada: ${operation.operationType}');
       }
     } catch (e) {
-      // Detectar errores 409 (Conflict) - Item ya existe en servidor
-      if (e is ServerException && e.statusCode == 409) {
-        AppLogger.w(
-          'Cliente ya existe en servidor - marcando como completado',
+      AppLogger.e(
+        'Error en sync Customer ${operation.operationType}: $e (tipo: ${e.runtimeType})',
+        tag: 'SYNC',
+      );
+      if (e is ServerException) {
+        AppLogger.e(
+          'ServerException statusCode=${e.statusCode}, message=${e.message}',
           tag: 'SYNC',
         );
-        return;
+        // 409 Conflict - cliente ya existe en servidor
+        if (e.statusCode == 409) {
+          AppLogger.w(
+            'Cliente ya existe en servidor - marcando como completado',
+            tag: 'SYNC',
+          );
+          return;
+        }
+        // 400/422 - errores de validación que no se resolverán con retries
+        if (e.statusCode == 400 || e.statusCode == 422) {
+          AppLogger.e(
+            'Error de validación en sync Customer (${e.statusCode}): ${e.message} - marcando como completado para no bloquear cola',
+            tag: 'SYNC',
+          );
+          return;
+        }
       }
       rethrow;
     }

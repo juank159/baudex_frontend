@@ -9,6 +9,7 @@ import '../../domain/entities/invoice.dart';
 import '../../data/models/add_payment_request_model.dart';
 import '../../../bank_accounts/domain/entities/bank_account.dart';
 import '../../../bank_accounts/presentation/controllers/bank_accounts_controller.dart';
+import '../../../../app/core/utils/number_input_formatter.dart';
 
 /// Modelo para un ítem de pago en el diálogo
 class PaymentEntry {
@@ -473,7 +474,7 @@ class _MultiPaymentDialogState extends State<MultiPaymentDialog> {
             keyboardType: TextInputType.number,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
-              _CurrencyInputFormatter(),
+              PriceInputFormatter(),
             ],
             decoration: InputDecoration(
               labelText: 'Monto',
@@ -845,29 +846,3 @@ class _MultiPaymentDialogState extends State<MultiPaymentDialog> {
   }
 }
 
-// Formateador de input para moneda
-class _CurrencyInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-
-    String cleaned = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-
-    if (cleaned.isEmpty) {
-      return const TextEditingValue(text: '');
-    }
-
-    int value = int.parse(cleaned);
-    String formatted = AppFormatters.formatNumber(value);
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}

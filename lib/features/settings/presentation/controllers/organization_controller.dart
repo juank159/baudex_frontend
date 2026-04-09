@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../domain/entities/organization.dart';
 import '../../domain/repositories/organization_repository.dart';
+import '../../data/repositories/organization_repository_impl.dart';
 import '../../../../app/core/errors/failures.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/services/password_validation_service.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 
-class OrganizationController extends GetxController {
+class OrganizationController extends GetxController
+    with SyncAutoRefreshMixin {
   // ==================== DEPENDENCIES ====================
 
   final OrganizationRepository _organizationRepository;
@@ -20,29 +23,83 @@ class OrganizationController extends GetxController {
   final _isLoading = false.obs;
   final _currentOrganization = Rxn<Organization>();
   final _error = Rxn<String>();
+  final _tempProfitMargin = 20.0.obs;
+  bool _isRefreshingInBackground = false;
 
   // ==================== GETTERS ====================
 
   bool get isLoading => _isLoading.value;
   Organization? get currentOrganization => _currentOrganization.value;
   String? get error => _error.value;
+  double get profitMarginPercentage =>
+      currentOrganization?.profitMargin ?? 20.0;
+  double get tempProfitMargin => _tempProfitMargin.value;
 
   // ==================== LIFECYCLE ====================
 
   @override
   void onInit() {
     super.onInit();
-    // Solo cargar organización si el usuario está autenticado
-    if (Get.isRegistered<AuthController>() &&
-        Get.find<AuthController>().isAuthenticated) {
+    setupSyncListener();
+
+    if (_isAuthenticated) {
       loadCurrentOrganization();
     }
   }
 
+  @override
+  void onReady() {
+    super.onReady();
+    _tempProfitMargin.value = profitMarginPercentage;
+  }
+
+  /// SyncAutoRefreshMixin: refrescar cuando FullSync descarga datos nuevos a ISAR
+  @override
+  Future<void> onSyncCompleted() async {
+    if (!_isAuthenticated) return;
+    // FullSync ya guardó en ISAR → solo leer cache (instantáneo)
+    await _loadFromCacheOnly();
+  }
+
+  bool get _isAuthenticated =>
+      Get.isRegistered<AuthController>() &&
+      Get.find<AuthController>().isAuthenticated;
+
+  OrganizationRepositoryImpl? get _repoImpl =>
+      _organizationRepository is OrganizationRepositoryImpl
+          ? _organizationRepository as OrganizationRepositoryImpl
+          : null;
+
   // ==================== PUBLIC METHODS ====================
 
-  /// Cargar la organización actual del usuario
+  /// Cache-first: ISAR instantáneo → server en background
   Future<void> loadCurrentOrganization() async {
+    if (_isLoading.value) return;
+
+    _clearError();
+
+    // Paso 1: ISAR instantáneo (si hay cache)
+    final impl = _repoImpl;
+    if (impl != null && _currentOrganization.value == null) {
+      final cacheResult = await impl.getCachedOrganization();
+      cacheResult.fold(
+        (_) {}, // Cache vacío, continuar al server
+        (organization) {
+          _currentOrganization.value = organization;
+          _tempProfitMargin.value = organization.profitMargin ?? 20.0;
+          _syncTimezone(organization);
+        },
+      );
+    }
+
+    // Paso 2: Server en background (sin bloquear UI)
+    _refreshFromServerInBackground();
+  }
+
+  /// Forzar recarga desde el servidor (botón refresh manual)
+  Future<void> forceRefreshFromServer() async {
+    if (_isLoading.value) return;
+
     try {
       _setLoading(true);
       _clearError();
@@ -53,16 +110,13 @@ class OrganizationController extends GetxController {
         (failure) => _handleFailure(failure),
         (organization) {
           _currentOrganization.value = organization;
+          _tempProfitMargin.value = organization.profitMargin ?? 20.0;
           _syncTimezone(organization);
         },
       );
     } catch (e) {
-      // Solo mostrar error si el usuario está autenticado
-      if (Get.isRegistered<AuthController>() &&
-          Get.find<AuthController>().isAuthenticated) {
-        _handleError('Error inesperado al cargar organización: $e');
-      } else {
-        print('⚠️ OrganizationController: Error pre-login ignorado: $e');
+      if (_isAuthenticated) {
+        _handleError('Error al cargar organización: $e');
       }
     } finally {
       _setLoading(false);
@@ -72,7 +126,6 @@ class OrganizationController extends GetxController {
   /// Actualizar organización actual del usuario
   Future<bool> updateCurrentOrganization(Map<String, dynamic> updates) async {
     try {
-      print('🔄 Starting organization update...');
       _setLoading(true);
       _clearError();
 
@@ -82,25 +135,17 @@ class OrganizationController extends GetxController {
 
       return result.fold(
         (failure) {
-          print('❌ Update failed: $failure');
           _handleFailure(failure);
           return false;
         },
         (organization) {
-          print('✅ Update successful!');
           _currentOrganization.value = organization;
           _syncTimezone(organization);
-
-          // Actualizar la organización actual
-          // Movemos el snackbar al diálogo para evitar conflictos de timing
-
-          print('📤 Returning true from controller');
           return true;
         },
       );
     } catch (e) {
-      print('❌ Exception in controller: $e');
-      _handleError('Error inesperado al actualizar organización: $e');
+      _handleError('Error al actualizar organización: $e');
       return false;
     } finally {
       _setLoading(false);
@@ -120,120 +165,94 @@ class OrganizationController extends GetxController {
         return null;
       }, (organization) => organization);
     } catch (e) {
-      _handleError('Error inesperado al obtener organización: $e');
+      _handleError('Error al obtener organización: $e');
       return null;
     } finally {
       _setLoading(false);
     }
   }
 
-  /// Refrescar datos
   @override
   Future<void> refresh() async {
-    await loadCurrentOrganization();
-    // Actualizar el valor temporal del slider con el valor cargado
+    await forceRefreshFromServer();
     _tempProfitMargin.value = profitMarginPercentage;
-    print('🔄 Datos refrescados - Margen actual: $profitMarginPercentage%');
   }
 
-  /// Limpiar error
   void clearError() {
     _clearError();
   }
 
   // ==================== FORM VALIDATION ====================
 
-  /// Validar nombre de organización
   String? validateOrganizationName(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'El nombre de la organización es requerido';
     }
-
     if (value.trim().length < 2) {
       return 'El nombre debe tener al menos 2 caracteres';
     }
-
     if (value.trim().length > 100) {
       return 'El nombre no puede exceder 100 caracteres';
     }
-
     return null;
   }
 
-  /// Validar slug de organización
   String? validateOrganizationSlug(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'El slug es requerido';
     }
-
     final slugRegex = RegExp(r'^[a-z0-9-]+$');
     if (!slugRegex.hasMatch(value.trim())) {
       return 'El slug solo puede contener letras minúsculas, números y guiones';
     }
-
     if (value.trim().length < 2) {
       return 'El slug debe tener al menos 2 caracteres';
     }
-
     if (value.trim().length > 50) {
       return 'El slug no puede exceder 50 caracteres';
     }
-
     return null;
   }
 
-  /// Validar dominio (opcional)
   String? validateDomain(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return null; // El dominio es opcional
+      return null;
     }
-
     final domainRegex = RegExp(
       r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$',
     );
-
     if (!domainRegex.hasMatch(value.trim())) {
       return 'Ingrese un dominio válido (ej: miempresa.com)';
     }
-
     return null;
   }
 
   // ==================== MULTI-CURRENCY METHODS ====================
 
-  /// Verificar si multi-moneda está habilitado
   bool get isMultiCurrencyEnabled =>
       currentOrganization?.multiCurrencyEnabled ?? false;
 
-  /// Obtener monedas aceptadas
   List<Map<String, dynamic>> get acceptedCurrencies =>
       currentOrganization?.acceptedCurrencies ?? [];
 
-  /// Obtener moneda base de la organización
   String get baseCurrency => currentOrganization?.currency ?? 'COP';
 
-  /// Activar/desactivar multi-moneda
   Future<bool> toggleMultiCurrency(bool enabled) async {
     final org = currentOrganization;
     if (org == null) return false;
 
     final settings = _buildSettings(org);
-    settings['multiCurrencyEnabled'] = enabled; // Sobreescribir con el nuevo valor
+    settings['multiCurrencyEnabled'] = enabled;
 
     return await updateCurrentOrganization({'settings': settings});
   }
 
-  /// Construye el mapa de settings completo preservando multiCurrencyEnabled.
-  /// Necesario porque ISAR toEntity() hace remove('multiCurrencyEnabled')
-  /// del mapa settings, así que org.settings puede no tenerlo.
   Map<String, dynamic> _buildSettings(Organization org) {
     final settings = Map<String, dynamic>.from(org.settings ?? {});
-    // Siempre inyectar desde el campo de la entidad (fuente de verdad)
     settings['multiCurrencyEnabled'] = org.multiCurrencyEnabled;
     return settings;
   }
 
-  /// Agregar una moneda aceptada
   Future<bool> addAcceptedCurrency(Map<String, dynamic> currency) async {
     final org = currentOrganization;
     if (org == null) return false;
@@ -242,7 +261,6 @@ class OrganizationController extends GetxController {
     final currencies =
         List<Map<String, dynamic>>.from(settings['acceptedCurrencies'] ?? []);
 
-    // Verificar que no exista ya
     if (currencies.any((c) => c['code'] == currency['code'])) {
       Get.snackbar(
         'Moneda duplicada',
@@ -262,7 +280,6 @@ class OrganizationController extends GetxController {
     return await updateCurrentOrganization({'settings': settings});
   }
 
-  /// Eliminar una moneda aceptada
   Future<bool> removeAcceptedCurrency(String code) async {
     final org = currentOrganization;
     if (org == null) return false;
@@ -277,7 +294,6 @@ class OrganizationController extends GetxController {
     return await updateCurrentOrganization({'settings': settings});
   }
 
-  /// Actualizar tasa de cambio por defecto de una moneda
   Future<bool> updateCurrencyRate(String code, double newRate) async {
     final org = currentOrganization;
     if (org == null) return false;
@@ -298,50 +314,15 @@ class OrganizationController extends GetxController {
 
   // ==================== PROFIT MARGIN METHODS ====================
 
-  /// ✅ NUEVO: Obtener margen de ganancia actual (por defecto 20%)
-  double get profitMarginPercentage =>
-      currentOrganization?.profitMargin ?? 20.0;
-
-  /// ✅ NUEVO: Variable temporal para el slider
-  final _tempProfitMargin = 20.0.obs;
-  double get tempProfitMargin => _tempProfitMargin.value;
-
-  @override
-  void onReady() {
-    super.onReady();
-    // ✅ Solo recargar si no hay organización cargada (evita doble carga)
-    // Si onInit() ya cargó la organización o falló con error de conexión, no reintentar
-    if (_currentOrganization.value == null && !_isLoading.value) {
-      loadCurrentOrganization().then((_) {
-        _tempProfitMargin.value = profitMarginPercentage;
-        print(
-          '🏢 Margen de ganancia cargado desde backend: $profitMarginPercentage%',
-        );
-      });
-    } else {
-      // Ya está cargada o cargando, solo inicializar el valor temporal
-      _tempProfitMargin.value = profitMarginPercentage;
-    }
-  }
-
-  /// ✅ NUEVO: Actualizar margen temporal (para el slider) - SIN snackbar
   void updateTempProfitMargin(double value) {
     _tempProfitMargin.value = value;
-    // No llamar update() aquí porque estamos usando Obs
-    // Los Obx() se actualizarán automáticamente
   }
 
-  /// ✅ NUEVO: Guardar margen de ganancia en el backend - LLAMADA REAL AL SERVIDOR CON VALIDACIÓN
   Future<bool> saveProfitMargin() async {
     try {
       _setLoading(true);
       _clearError();
 
-      print(
-        '🔐 Solicitando validación de contraseña para cambiar margen de ganancia...',
-      );
-
-      // ✅ VALIDACIÓN DE CONTRASEÑA OBLIGATORIA
       final passwordValid =
           await PasswordValidationService.showPasswordValidationDialog(
             title: 'Confirmar Cambio de Margen',
@@ -350,35 +331,26 @@ class OrganizationController extends GetxController {
           );
 
       if (!passwordValid) {
-        print('🚫 Validación de contraseña cancelada o fallida');
         _setLoading(false);
         return false;
       }
 
-      print(
-        '✅ Contraseña validada. Procediendo a guardar margen: ${_tempProfitMargin.value}%',
-      );
-
-      // ✅ LLAMADA REAL AL BACKEND usando el repositorio
       final result = await _organizationRepository.updateProfitMargin(
         _tempProfitMargin.value,
       );
 
       return result.fold(
         (failure) {
-          print('❌ Error al actualizar margen: $failure');
           _handleFailure(failure);
           return false;
         },
         (success) {
-          print('✅ Margen actualizado exitosamente en el backend');
-
-          // Recargar la organización desde el backend para tener los datos actualizados
-          loadCurrentOrganization();
+          // Refrescar datos actualizados del servidor
+          _refreshFromServerInBackground();
 
           Get.snackbar(
             'Margen Actualizado',
-            'Nuevo margen: ${_tempProfitMargin.value.toStringAsFixed(0)}% guardado en el servidor',
+            'Nuevo margen: ${_tempProfitMargin.value.toStringAsFixed(0)}% guardado',
             snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
@@ -390,7 +362,6 @@ class OrganizationController extends GetxController {
         },
       );
     } catch (e) {
-      print('❌ Excepción al actualizar margen: $e');
       _handleError('Error al actualizar margen de ganancia: $e');
       return false;
     } finally {
@@ -399,6 +370,66 @@ class OrganizationController extends GetxController {
   }
 
   // ==================== PRIVATE METHODS ====================
+
+  /// Leer solo de ISAR (para onSyncCompleted)
+  Future<void> _loadFromCacheOnly() async {
+    final impl = _repoImpl;
+    if (impl == null) return;
+
+    final cacheResult = await impl.getCachedOrganization();
+    cacheResult.fold(
+      (_) {},
+      (organization) {
+        _currentOrganization.value = organization;
+        _tempProfitMargin.value = organization.profitMargin ?? 20.0;
+        _syncTimezone(organization);
+      },
+    );
+  }
+
+  /// Refrescar desde servidor sin bloquear UI (sin isLoading)
+  void _refreshFromServerInBackground() {
+    if (_isRefreshingInBackground) return;
+    _isRefreshingInBackground = true;
+
+    final impl = _repoImpl;
+    if (impl == null) {
+      // Fallback: usar getCurrentOrganization normal
+      _organizationRepository.getCurrentOrganization().then((result) {
+        result.fold(
+          (failure) {
+            if (_currentOrganization.value == null) {
+              _handleFailure(failure);
+            }
+          },
+          (organization) {
+            _currentOrganization.value = organization;
+            _tempProfitMargin.value = organization.profitMargin ?? 20.0;
+            _syncTimezone(organization);
+          },
+        );
+      }).whenComplete(() => _isRefreshingInBackground = false);
+      return;
+    }
+
+    impl.refreshFromServer().then((result) {
+      result.fold(
+        (failure) {
+          // Si no teníamos datos y el server falló, marcar error
+          if (_currentOrganization.value == null) {
+            _handleFailure(failure);
+          }
+          // Si ya teníamos cache, silenciar el error
+        },
+        (organization) {
+          _currentOrganization.value = organization;
+          _tempProfitMargin.value = organization.profitMargin ?? 20.0;
+          _syncTimezone(organization);
+          _clearError();
+        },
+      );
+    }).whenComplete(() => _isRefreshingInBackground = false);
+  }
 
   void _syncTimezone(Organization organization) {
     try {
@@ -433,24 +464,22 @@ class OrganizationController extends GetxController {
   }
 
   void _handleFailure(Failure failure) {
-    // NO mostrar snackbars de error de conexión cuando backend está offline
     if (failure is ConnectionFailure) {
-      print('⚠️ OrganizationController: Sin conexión - trabajando offline');
       _error.value = null;
       return;
     }
 
-    // NO mostrar snackbars si el usuario no está autenticado
-    // (errores de tenant/org son esperados antes del login)
-    if (!Get.isRegistered<AuthController>() ||
-        !Get.find<AuthController>().isAuthenticated) {
-      print('⚠️ OrganizationController: Usuario no autenticado - ignorando error');
+    if (!_isAuthenticated) {
       _error.value = null;
+      return;
+    }
+
+    if (failure is CacheFailure) {
+      _error.value = 'No hay datos disponibles. Conecte a internet para cargar.';
       return;
     }
 
     String message;
-
     switch (failure.runtimeType) {
       case ServerFailure:
         message = 'Error del servidor. Intente nuevamente.';
@@ -466,14 +495,5 @@ class OrganizationController extends GetxController {
     }
 
     _handleError(message);
-  }
-
-  // ==================== DEBUGGING ====================
-
-  void printDebugInfo() {
-    print('🐛 OrganizationController Debug Info:');
-    print('   isLoading: $isLoading');
-    print('   currentOrganization: ${currentOrganization?.name ?? 'null'}');
-    print('   error: ${error ?? 'none'}');
   }
 }

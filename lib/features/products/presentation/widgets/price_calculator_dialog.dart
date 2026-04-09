@@ -6,39 +6,7 @@ import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
-
-// Formatter para precios con separadores de miles
-class CurrencyInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-
-    String digitsOnly = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-
-    if (digitsOnly.isEmpty) {
-      return const TextEditingValue(text: '');
-    }
-
-    // Evitar ceros a la izquierda innecesarios
-    digitsOnly = digitsOnly.replaceAll(RegExp(r'^0+'), '');
-    if (digitsOnly.isEmpty) {
-      digitsOnly = '0';
-    }
-
-    final number = int.parse(digitsOnly);
-    final formatted = AppFormatters.formatNumber(number);
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
+import '../../../../app/core/utils/number_input_formatter.dart';
 
 class PriceCalculatorDialog extends StatefulWidget {
   final String initialCost;
@@ -272,7 +240,7 @@ class _PriceCalculatorDialogState extends State<PriceCalculatorDialog>
             label: 'Ingrese el costo del producto',
             keyboardType: TextInputType.number,
             prefixIcon: Icons.payments_outlined,
-            inputFormatters: [CurrencyInputFormatter()],
+            inputFormatters: [PriceInputFormatter()],
           ),
         ],
       ),

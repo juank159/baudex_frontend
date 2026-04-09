@@ -62,7 +62,14 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
       duration: const Duration(milliseconds: 1500),
     )..repeat();
 
-    Future.microtask(() => _loadDeviceSessions());
+    Future.microtask(() {
+      _loadDeviceSessions();
+      // Si la organización no está cargada, forzar recarga
+      final orgController = Get.find<OrganizationController>();
+      if (orgController.currentOrganization == null) {
+        orgController.loadCurrentOrganization();
+      }
+    });
   }
 
   @override
@@ -116,7 +123,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
     return [
       IconButton(
         icon: const Icon(Icons.refresh),
-        onPressed: () => Get.find<OrganizationController>().loadCurrentOrganization(),
+        onPressed: () => Get.find<OrganizationController>().forceRefreshFromServer(),
         tooltip: 'Actualizar',
       ),
       const SizedBox(width: 16),
@@ -1159,6 +1166,18 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
               Obx(() {
                 final organization = controller.currentOrganization;
                 if (organization == null) {
+                  // Si está cargando, mostrar skeleton en vez de "Sin Organización"
+                  if (controller.isLoading) {
+                    return _buildSkeletonCard(
+                      headerIcon: Icons.apartment,
+                      headerWidth: 200,
+                      children: [
+                        _buildShimmerBox(height: 120, radius: 16),
+                        const SizedBox(height: 16),
+                        _buildShimmerBox(height: 80, radius: 12),
+                      ],
+                    );
+                  }
                   return _buildNoOrganizationWidget();
                 }
                 return _buildOrganizationDetails(organization);
@@ -1227,7 +1246,7 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           child: FuturisticButton(
             text: 'Recargar',
             icon: Icons.refresh,
-            onPressed: controller.loadCurrentOrganization,
+            onPressed: controller.forceRefreshFromServer,
             gradient: ElegantLightTheme.primaryGradient,
           ),
         ),

@@ -425,7 +425,13 @@ class CategoryRepositoryImpl implements CategoryRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        print('⚠️ ServerException al crear categoría: ${e.message} - Creando offline...');
+        // Errores de negocio (400, 409, 422) NO deben crear offline
+        final code = e.statusCode ?? 0;
+        if (code == 409 || code == 400 || code == 422) {
+          print('❌ Error de negocio (HTTP $code) al crear categoría: ${e.message}');
+          return Left(ServerFailure(e.message));
+        }
+        print('⚠️ ServerException (HTTP $code) al crear categoría: ${e.message} - Creando offline...');
         return _createCategoryOffline(
           name: name,
           description: description,

@@ -18,44 +18,7 @@ import '../widgets/modern_selector_widget.dart';
 
 // Importa la pantalla del escáner de código de barras
 import 'package:baudex_desktop/app/shared/screens/barcode_scanner_screen.dart';
-
-// Formatter para precios con separadores de miles
-class CurrencyInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    // Si el nuevo valor está vacío, devolver tal como está
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-
-    // Remover todos los caracteres que no sean dígitos
-    String digitsOnly = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-
-    // Si no hay dígitos, devolver vacío
-    if (digitsOnly.isEmpty) {
-      return const TextEditingValue(text: '');
-    }
-
-    // Evitar ceros a la izquierda innecesarios
-    digitsOnly = digitsOnly.replaceAll(RegExp(r'^0+'), '');
-    if (digitsOnly.isEmpty) {
-      digitsOnly = '0';
-    }
-
-    // Convertir a número y formatear
-    final number = int.parse(digitsOnly);
-    final formatted = AppFormatters.formatNumber(number);
-
-    // El cursor siempre va al final
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
+import '../../../../app/core/utils/number_input_formatter.dart';
 
 class ProductFormScreen extends GetView<ProductFormController> {
   const ProductFormScreen({super.key});
@@ -807,7 +770,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
             hint: '0',
             prefixIcon: Icons.inventory,
             keyboardType: TextInputType.number,
-            inputFormatters: [CurrencyInputFormatter()],
+            inputFormatters: [PriceInputFormatter()],
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Stock requerido';
@@ -826,7 +789,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
             hint: '0',
             prefixIcon: Icons.warning,
             keyboardType: TextInputType.number,
-            inputFormatters: [CurrencyInputFormatter()],
+            inputFormatters: [PriceInputFormatter()],
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Stock mínimo requerido';
@@ -849,7 +812,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   hint: '0',
                   prefixIcon: Icons.inventory,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
+                  inputFormatters: [PriceInputFormatter()],
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Stock requerido';
@@ -870,7 +833,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   hint: '0',
                   prefixIcon: Icons.warning,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
+                  inputFormatters: [PriceInputFormatter()],
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Stock mínimo requerido';
@@ -1095,7 +1058,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
           hint: '0',
           prefixIcon: Icons.attach_money,
           keyboardType: TextInputType.number,
-          inputFormatters: [CurrencyInputFormatter()],
+          inputFormatters: [PriceInputFormatter()],
         ),
         SizedBox(height: compactSpacing),
 
@@ -1111,7 +1074,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   hint: '0',
                   prefixIcon: Icons.sell,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
+                  inputFormatters: [PriceInputFormatter()],
                 ),
               ),
               const SizedBox(width: 8),
@@ -1122,7 +1085,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   hint: '0',
                   prefixIcon: Icons.sell,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
+                  inputFormatters: [PriceInputFormatter()],
                 ),
               ),
             ],
@@ -1137,7 +1100,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   hint: '0',
                   prefixIcon: Icons.sell,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
+                  inputFormatters: [PriceInputFormatter()],
                 ),
               ),
               const SizedBox(width: 8),
@@ -1148,7 +1111,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   hint: '0',
                   prefixIcon: Icons.local_offer,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
+                  inputFormatters: [PriceInputFormatter()],
                 ),
               ),
             ],
@@ -1164,7 +1127,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   hint: '0',
                   prefixIcon: Icons.sell,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
+                  inputFormatters: [PriceInputFormatter()],
                 ),
               ),
               SizedBox(width: context.horizontalSpacing),
@@ -1175,7 +1138,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   hint: '0',
                   prefixIcon: Icons.sell,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
+                  inputFormatters: [PriceInputFormatter()],
                 ),
               ),
             ],
@@ -1190,7 +1153,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   hint: '0',
                   prefixIcon: Icons.sell,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
+                  inputFormatters: [PriceInputFormatter()],
                 ),
               ),
               SizedBox(width: context.horizontalSpacing),
@@ -1201,7 +1164,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   hint: '0',
                   prefixIcon: Icons.local_offer,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
+                  inputFormatters: [PriceInputFormatter()],
                 ),
               ),
             ],

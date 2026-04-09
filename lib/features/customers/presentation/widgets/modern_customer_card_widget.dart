@@ -22,9 +22,9 @@ class ModernCustomerCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveHelper.isMobile(context)
-        ? _buildMobileCard(context)
-        : _buildDesktopCard(context);
+    return ResponsiveHelper.isDesktop(context)
+        ? _buildDesktopCard(context)
+        : _buildMobileCard(context);
   }
 
   Widget _buildMobileCard(BuildContext context) {
@@ -283,20 +283,26 @@ class ModernCustomerCardWidget extends StatelessWidget {
                       // Contacto
                       Row(
                         children: [
-                          _buildContactChip(
-                            icon: Icons.email_outlined,
-                            value: customer.email,
+                          Flexible(
+                            child: _buildContactChip(
+                              icon: Icons.email_outlined,
+                              value: customer.email,
+                            ),
                           ),
                           const SizedBox(width: 16),
-                          _buildContactChip(
-                            icon: Icons.badge_outlined,
-                            value: customer.formattedDocument,
+                          Flexible(
+                            child: _buildContactChip(
+                              icon: Icons.badge_outlined,
+                              value: customer.formattedDocument,
+                            ),
                           ),
                           if (customer.phone != null) ...[
                             const SizedBox(width: 16),
-                            _buildContactChip(
-                              icon: Icons.phone_outlined,
-                              value: customer.phone!,
+                            Flexible(
+                              child: _buildContactChip(
+                                icon: Icons.phone_outlined,
+                                value: customer.phone!,
+                              ),
                             ),
                           ],
                         ],
@@ -539,11 +545,15 @@ class ModernCustomerCardWidget extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: ElegantLightTheme.textTertiary),
         const SizedBox(width: 6),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 13,
-            color: ElegantLightTheme.textSecondary,
+        Flexible(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              color: ElegantLightTheme.textSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
