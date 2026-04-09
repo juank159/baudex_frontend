@@ -60,6 +60,8 @@ class SyncConfig {
     'bank_account': 2,
     'PrinterSettings': 2,
     'printer_settings': 2,
+    'ExpenseCategory': 2,
+    'expense_category': 2,
 
     // Prioridad 3: Entidades con dependencias simples
     'Product': 3,
@@ -159,6 +161,8 @@ class SyncConfig {
     'customer_credit',
     'ClientBalance',
     'client_balance',
+    'ExpenseCategory',
+    'expense_category',
     'Notification',
     'notification',
     'Organization',

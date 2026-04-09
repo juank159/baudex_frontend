@@ -126,24 +126,24 @@ class ApiInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // Verificar si se debe saltar el interceptor de auth para esta request
     final skipAuthInterceptor = err.requestOptions.extra['skip_auth_interceptor'] == true;
-    
+
     // Manejo específico para token expirado (401)
     if (err.response?.statusCode == 401 && !skipAuthInterceptor) {
       final refreshToken = await _storageService.getRefreshToken();
 
       if (refreshToken != null) {
         // Intentar refrescar token
-        final newToken = await _refreshToken(refreshToken);
+        final refreshResult = await _refreshToken(refreshToken);
 
-        if (newToken != null) {
+        if (refreshResult.token != null) {
           // Guardar nuevo token y actualizar cache
-          await _storageService.saveToken(newToken);
-          _cachedToken = newToken;
+          await _storageService.saveToken(refreshResult.token!);
+          _cachedToken = refreshResult.token;
 
           // Reintentar la solicitud original
           final options = err.requestOptions;
           options.headers[ApiConstants.authorization] =
-              '${ApiConstants.bearerPrefix}$newToken';
+              '${ApiConstants.bearerPrefix}${refreshResult.token}';
 
           try {
             final response = await Dio().fetch(options);
@@ -151,23 +151,32 @@ class ApiInterceptor extends Interceptor {
           } catch (e) {
             // Si falla el reintento, continuar con el error original
           }
+        } else if (refreshResult.wasAuthError) {
+          // Solo limpiar datos si el servidor EXPLÍCITAMENTE rechazó el refresh token (401/403)
+          // NO limpiar si fue un error de red (servidor inalcanzable)
+          print('🔑 Refresh token rechazado por servidor - limpiando auth data');
+          await _storageService.deleteToken();
+          await _storageService.deleteRefreshToken();
+          await _storageService.deleteUserData();
+          _cachedToken = null;
         }
+        // Si fue error de red, NO borrar datos - el token podría seguir siendo válido
       }
-
-      // Si no se pudo refrescar el token, limpiar datos
-      await _storageService.deleteToken();
-      await _storageService.deleteRefreshToken();
-      await _storageService.deleteUserData();
+      // Si no hay refresh token pero sí había un access token, no borrar nada
+      // El DioClient decidirá si hacer logout
     }
 
     super.onError(err, handler);
   }
 
+  // Resultado del intento de refresh
   // Método para refrescar token
-  Future<String?> _refreshToken(String refreshToken) async {
+  Future<_RefreshResult> _refreshToken(String refreshToken) async {
     try {
       final dio = Dio();
       dio.options.baseUrl = ApiConstants.baseUrl;
+      dio.options.connectTimeout = const Duration(seconds: 10);
+      dio.options.receiveTimeout = const Duration(seconds: 10);
 
       final response = await dio.post(
         ApiConstants.refreshToken,
@@ -181,12 +190,38 @@ class ApiInterceptor extends Interceptor {
 
       if (response.statusCode == 200) {
         final data = response.data;
-        return data['token'] as String?;
+        final token = data['token'] as String?;
+        if (token != null) {
+          return _RefreshResult(token: token);
+        }
       }
+      // Respuesta sin token = auth error
+      return _RefreshResult(wasAuthError: true);
+    } on DioException catch (e) {
+      // 401/403 del endpoint de refresh = refresh token inválido/expirado
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        print('🔑 Refresh token expirado (${e.response?.statusCode})');
+        return _RefreshResult(wasAuthError: true);
+      }
+      // Cualquier otro error (timeout, red, 500) = no sabemos si el token es válido
+      print('⚠️ Error de red al refrescar token (NO se borra auth): $e');
+      return _RefreshResult(wasNetworkError: true);
     } catch (e) {
-      print('Error refreshing token: $e');
+      print('⚠️ Error inesperado al refrescar token: $e');
+      return _RefreshResult(wasNetworkError: true);
     }
-
-    return null;
   }
+}
+
+/// Resultado del intento de refresh token
+class _RefreshResult {
+  final String? token;
+  final bool wasAuthError;
+  final bool wasNetworkError;
+
+  _RefreshResult({
+    this.token,
+    this.wasAuthError = false,
+    this.wasNetworkError = false,
+  });
 }

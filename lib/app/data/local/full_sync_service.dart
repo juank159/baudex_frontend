@@ -504,7 +504,32 @@ class FullSyncService extends GetxService {
       page++;
     }
 
-    // Cachear todas las categorías de una vez
+    // Preservar categorías offline con sync pendiente
+    try {
+      final isarDb = IsarDatabase.instance;
+      final pendingOps = await isarDb.getPendingSyncOperations();
+      final pendingCategoryIds = pendingOps
+          .where((op) => op.entityType == 'ExpenseCategory' || op.entityType == 'expense_category')
+          .map((op) => op.entityId)
+          .toSet();
+
+      if (pendingCategoryIds.isNotEmpty) {
+        final cachedCategories = await localDS.getCachedExpenseCategories();
+        final offlineCategories = cachedCategories
+            .where((c) => c.id.startsWith('expense_category_offline_') &&
+                          pendingCategoryIds.contains(c.id))
+            .toList();
+
+        if (offlineCategories.isNotEmpty) {
+          allCategories.addAll(offlineCategories);
+          print('🧹 [FULL_SYNC] Preservadas ${offlineCategories.length} categorías de gastos offline con sync pendiente');
+        }
+      }
+    } catch (e) {
+      print('⚠️ [FULL_SYNC] Error preservando categorías offline: $e');
+    }
+
+    // Cachear todas las categorías (servidor + offline pendientes)
     if (allCategories.isNotEmpty) {
       await localDS.cacheExpenseCategories(
         allCategories.cast(),

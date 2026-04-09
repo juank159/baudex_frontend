@@ -24,6 +24,7 @@ import '../models/expense_model.dart';
 import '../models/create_expense_request_model.dart';
 import '../models/update_expense_request_model.dart';
 import '../models/create_expense_category_request_model.dart';
+import '../models/expense_category_model.dart';
 
 class ExpenseRepositoryImpl implements ExpenseRepository {
   final ExpenseRemoteDataSource remoteDataSource;
@@ -1194,12 +1195,41 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpenseCategory(categoryModel);
         return Right(categoryModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w(' [EXPENSE_REPO] ServerException en createExpenseCategory, fallback offline');
+        return _createExpenseCategoryOffline(
+          name: name,
+          description: description,
+          color: color,
+          monthlyBudget: monthlyBudget,
+          sortOrder: sortOrder,
+        );
+      } on ConnectionException catch (e) {
+        AppLogger.w(' [EXPENSE_REPO] ConnectionException en createExpenseCategory, fallback offline');
+        return _createExpenseCategoryOffline(
+          name: name,
+          description: description,
+          color: color,
+          monthlyBudget: monthlyBudget,
+          sortOrder: sortOrder,
+        );
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w(' [EXPENSE_REPO] Error en createExpenseCategory: $e - Fallback offline');
+        return _createExpenseCategoryOffline(
+          name: name,
+          description: description,
+          color: color,
+          monthlyBudget: monthlyBudget,
+          sortOrder: sortOrder,
+        );
       }
     } else {
-      return const Left(ConnectionFailure('Se requiere conexión para crear categorías de gastos'));
+      return _createExpenseCategoryOffline(
+        name: name,
+        description: description,
+        color: color,
+        monthlyBudget: monthlyBudget,
+        sortOrder: sortOrder,
+      );
     }
   }
 
@@ -1227,12 +1257,23 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.cacheExpenseCategory(categoryModel);
         return Right(categoryModel.toEntity());
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w(' [EXPENSE_REPO] ServerException en updateExpenseCategory, fallback offline');
+        return _updateExpenseCategoryOffline(
+          id: id, name: name, description: description, color: color,
+          monthlyBudget: monthlyBudget, sortOrder: sortOrder, status: status,
+        );
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w(' [EXPENSE_REPO] Error en updateExpenseCategory: $e - Fallback offline');
+        return _updateExpenseCategoryOffline(
+          id: id, name: name, description: description, color: color,
+          monthlyBudget: monthlyBudget, sortOrder: sortOrder, status: status,
+        );
       }
     } else {
-      return const Left(ConnectionFailure('Se requiere conexión para actualizar categorías de gastos'));
+      return _updateExpenseCategoryOffline(
+        id: id, name: name, description: description, color: color,
+        monthlyBudget: monthlyBudget, sortOrder: sortOrder, status: status,
+      );
     }
   }
 
@@ -1244,12 +1285,14 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         await localDataSource.removeCachedExpenseCategory(id);
         return const Right(null);
       } on ServerException catch (e) {
-        return Left(ServerFailure(e.message));
+        AppLogger.w(' [EXPENSE_REPO] ServerException en deleteExpenseCategory, fallback offline');
+        return _deleteExpenseCategoryOffline(id);
       } catch (e) {
-        return Left(ServerFailure('Error inesperado: $e'));
+        AppLogger.w(' [EXPENSE_REPO] Error en deleteExpenseCategory: $e - Fallback offline');
+        return _deleteExpenseCategoryOffline(id);
       }
     } else {
-      return const Left(ConnectionFailure('Se requiere conexión para eliminar categorías de gastos'));
+      return _deleteExpenseCategoryOffline(id);
     }
   }
 
@@ -1516,6 +1559,177 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     } catch (e) {
       AppLogger.e(' ExpenseRepository: Error creando gasto offline: $e');
       return Left(CacheFailure('Error al crear gasto offline: $e'));
+    }
+  }
+
+  // ==================== EXPENSE CATEGORY OFFLINE METHODS ====================
+
+  /// Crea una categoría de gasto en modo offline
+  Future<Either<Failure, ExpenseCategory>> _createExpenseCategoryOffline({
+    required String name,
+    String? description,
+    String? color,
+    double? monthlyBudget,
+    int? sortOrder,
+  }) async {
+    AppLogger.d(' [EXPENSE_REPO] Creando categoría de gasto offline: $name');
+    try {
+      final now = DateTime.now();
+      final tempId = 'expense_category_offline_${now.millisecondsSinceEpoch}_${name.hashCode}';
+
+      // Crear modelo para cache
+      final categoryModel = ExpenseCategoryModel(
+        id: tempId,
+        name: name,
+        description: description,
+        color: color,
+        status: ExpenseCategoryStatus.active,
+        monthlyBudget: monthlyBudget ?? 0.0,
+        isRequired: false,
+        sortOrder: sortOrder ?? 0,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      // Guardar en SecureStorage
+      await localDataSource.cacheExpenseCategory(categoryModel);
+      AppLogger.i(' [EXPENSE_REPO] Categoría guardada en cache: $tempId');
+
+      // Agregar a cola de sincronización
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'ExpenseCategory',
+          entityId: tempId,
+          operationType: SyncOperationType.create,
+          data: {
+            'name': name,
+            'description': description,
+            'color': color,
+            'monthlyBudget': monthlyBudget ?? 0.0,
+            'sortOrder': sortOrder ?? 0,
+          },
+          priority: 2,
+        );
+        AppLogger.d(' [EXPENSE_REPO] CREATE de categoría agregado a cola de sync');
+      } catch (e) {
+        AppLogger.w(' [EXPENSE_REPO] Error agregando categoría a cola de sync: $e');
+      }
+
+      return Right(categoryModel.toEntity());
+    } catch (e) {
+      AppLogger.e(' [EXPENSE_REPO] Error creando categoría offline: $e');
+      return Left(CacheFailure('Error al crear categoría offline: $e'));
+    }
+  }
+
+  /// Actualiza una categoría de gasto en modo offline
+  Future<Either<Failure, ExpenseCategory>> _updateExpenseCategoryOffline({
+    required String id,
+    String? name,
+    String? description,
+    String? color,
+    double? monthlyBudget,
+    int? sortOrder,
+    ExpenseCategoryStatus? status,
+  }) async {
+    AppLogger.d(' [EXPENSE_REPO] Actualizando categoría offline: $id');
+    try {
+      // Leer categoría actual del cache
+      final existing = await localDataSource.getCachedExpenseCategoryById(id);
+      if (existing == null) {
+        return Left(CacheFailure('Categoría no encontrada en cache: $id'));
+      }
+
+      // Crear modelo actualizado
+      final updatedModel = ExpenseCategoryModel(
+        id: id,
+        name: name ?? existing.name,
+        description: description ?? existing.description,
+        color: color ?? existing.color,
+        status: status ?? existing.status,
+        monthlyBudget: monthlyBudget ?? existing.monthlyBudget,
+        isRequired: existing.isRequired,
+        sortOrder: sortOrder ?? existing.sortOrder,
+        createdAt: existing.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      // Actualizar en cache
+      await localDataSource.cacheExpenseCategory(updatedModel);
+
+      // Agregar a cola de sincronización
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'ExpenseCategory',
+          entityId: id,
+          operationType: SyncOperationType.update,
+          data: {
+            'name': name ?? existing.name,
+            'description': description ?? existing.description,
+            'color': color ?? existing.color,
+            'monthlyBudget': monthlyBudget ?? existing.monthlyBudget,
+            'sortOrder': sortOrder ?? existing.sortOrder,
+          },
+          priority: 2,
+        );
+        AppLogger.d(' [EXPENSE_REPO] UPDATE de categoría agregado a cola de sync');
+      } catch (e) {
+        AppLogger.w(' [EXPENSE_REPO] Error agregando UPDATE de categoría a cola: $e');
+      }
+
+      return Right(updatedModel.toEntity());
+    } catch (e) {
+      AppLogger.e(' [EXPENSE_REPO] Error actualizando categoría offline: $e');
+      return Left(CacheFailure('Error al actualizar categoría offline: $e'));
+    }
+  }
+
+  /// Elimina una categoría de gasto en modo offline
+  Future<Either<Failure, void>> _deleteExpenseCategoryOffline(String id) async {
+    AppLogger.d(' [EXPENSE_REPO] Eliminando categoría offline: $id');
+    try {
+      // Eliminar del cache
+      await localDataSource.removeCachedExpenseCategory(id);
+
+      // Si es una categoría offline que aún no se sincronizó, no necesita sync de delete
+      if (id.startsWith('expense_category_offline_')) {
+        // Eliminar operaciones pendientes de esta categoría
+        try {
+          final isarDb = IsarDatabase.instance;
+          final pendingOps = await isarDb.getPendingSyncOperations();
+          for (final op in pendingOps) {
+            if (op.entityId == id) {
+              await isarDb.deleteSyncOperation(op.id);
+            }
+          }
+          AppLogger.d(' [EXPENSE_REPO] Operaciones pendientes de categoría offline eliminadas');
+        } catch (e) {
+          AppLogger.w(' [EXPENSE_REPO] Error limpiando ops pendientes: $e');
+        }
+        return const Right(null);
+      }
+
+      // Si es una categoría real del servidor, agregar DELETE a cola
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'ExpenseCategory',
+          entityId: id,
+          operationType: SyncOperationType.delete,
+          data: {'id': id},
+          priority: 2,
+        );
+        AppLogger.d(' [EXPENSE_REPO] DELETE de categoría agregado a cola de sync');
+      } catch (e) {
+        AppLogger.w(' [EXPENSE_REPO] Error agregando DELETE de categoría a cola: $e');
+      }
+
+      return const Right(null);
+    } catch (e) {
+      AppLogger.e(' [EXPENSE_REPO] Error eliminando categoría offline: $e');
+      return Left(CacheFailure('Error al eliminar categoría offline: $e'));
     }
   }
 

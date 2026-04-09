@@ -425,10 +425,12 @@ class DioClient {
           case 400:
             return ServerException('Solicitud incorrecta: $message', statusCode: 400);
           case 401:
-            // Token expirado o inválido - PERO verificar si se debe saltar auth
+            // Token expirado o inválido
+            // NOTA: ApiInterceptor ya maneja refresh + limpieza de auth.
+            // Solo notificar al AuthController para redirigir si auth data ya fue limpiada.
             final skipAuthInterceptor = error.requestOptions.extra['skip_auth_interceptor'] == true;
             if (!skipAuthInterceptor) {
-              _handleUnauthorized();
+              _handleUnauthorizedRedirect();
             }
             return ServerException(message, statusCode: 401);
           case 404:
@@ -462,38 +464,35 @@ class DioClient {
     }
   }
 
-  // Manejo de token expirado (solo para requests autenticadas)
-  void _handleUnauthorized() {
+  // Manejo de token expirado - solo redirige, NO borra datos
+  // ApiInterceptor ya maneja el refresh y borrado cuando el refresh token es inválido
+  void _handleUnauthorizedRedirect() {
     // Verificar si el usuario está en una pantalla de auth (login/register/etc.)
     // En ese caso, un 401 significa "credenciales incorrectas", NO "sesión expirada"
     final currentRoute = getx.Get.currentRoute;
     if (currentRoute == '/login' || currentRoute == '/register' ||
         currentRoute == '/forgot-password' || currentRoute == '/verify-email') {
-      print('🔑 401 en pantalla de auth ($currentRoute) - ignorando _handleUnauthorized');
       return;
     }
 
-    print('🔑 Token expirado - limpiando datos de autenticación');
-    _storageService.deleteToken();
-    _storageService.deleteUserData();
-
-    print('⚠️ Sesión expirada - AuthController manejará el redirect');
-
-    // Notificar al AuthController para que maneje el logout
-    try {
-      if (getx.Get.isRegistered<AuthController>()) {
-        final authController = getx.Get.find<AuthController>();
-        authController.logout();
+    // Verificar si el token ya fue limpiado por el interceptor
+    // Si aún existe, significa que el interceptor no lo consideró inválido (error de red)
+    _storageService.hasToken().then((hasToken) {
+      if (!hasToken) {
+        // Token ya fue limpiado por ApiInterceptor → redirigir a login
+        print('🔑 Token limpiado por interceptor - redirigiendo a login');
+        try {
+          if (getx.Get.isRegistered<AuthController>()) {
+            final authController = getx.Get.find<AuthController>();
+            authController.logout();
+          }
+        } catch (e) {
+          print('⚠️ No se pudo notificar al AuthController: $e');
+        }
       }
-    } catch (e) {
-      print('⚠️ No se pudo notificar al AuthController: $e');
-      getx.Get.snackbar(
-        'Sesión Expirada',
-        'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
-        snackPosition: getx.SnackPosition.TOP,
-        duration: const Duration(seconds: 5),
-      );
-    }
+      // Si hasToken=true, el interceptor no borró el token (error de red)
+      // → NO redirigir, la sesión sigue válida
+    });
   }
 
   /// Extrae mensaje de error de forma segura de response.data

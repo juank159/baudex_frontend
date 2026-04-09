@@ -57,6 +57,7 @@ import '../../../features/expenses/data/datasources/expense_remote_datasource.da
 import '../../../features/expenses/data/datasources/expense_local_datasource.dart';
 import '../../../features/expenses/data/models/create_expense_request_model.dart';
 import '../../../features/expenses/data/models/update_expense_request_model.dart';
+import '../../../features/expenses/data/models/create_expense_category_request_model.dart';
 import '../../../features/expenses/data/models/isar/isar_expense.dart';
 import '../../../features/expenses/domain/entities/expense.dart';
 import '../../../features/expenses/data/repositories/expense_offline_repository.dart'; // ⭐ FASE 1 - Problema 3
@@ -985,6 +986,10 @@ class SyncService extends GetxService {
         case 'Expense':
         case 'expense':
           await _syncExpenseOperation(operation);
+          break;
+        case 'ExpenseCategory':
+        case 'expense_category':
+          await _syncExpenseCategoryOperation(operation);
           break;
         case 'BankAccount':
         case 'bank_account':
@@ -3570,6 +3575,156 @@ class SyncService extends GetxService {
       updateRequest,
     );
     AppLogger.i('Gasto actualizado en servidor', tag: 'SYNC');
+  }
+
+  /// Sincronizar operación de ExpenseCategory
+  Future<void> _syncExpenseCategoryOperation(SyncOperation operation) async {
+    try {
+      final ExpenseRemoteDataSource remoteDataSource =
+          Get.find<ExpenseRemoteDataSource>();
+      final ExpenseLocalDataSource localDataSource =
+          Get.find<ExpenseLocalDataSource>();
+      final data = jsonDecode(operation.payload);
+
+      switch (operation.operationType) {
+        case SyncOperationType.create:
+          AppLogger.d(
+            'Creando categoría de gasto en servidor: ${data['name']}',
+            tag: 'SYNC',
+          );
+
+          final request = CreateExpenseCategoryRequestModel.fromParams(
+            name: data['name'],
+            description: data['description'],
+            color: data['color'],
+            monthlyBudget: data['monthlyBudget'] != null
+                ? (data['monthlyBudget'] as num).toDouble()
+                : null,
+            sortOrder: data['sortOrder'] != null
+                ? (data['sortOrder'] as num).toInt()
+                : null,
+          );
+
+          final createdCategory = await remoteDataSource.createExpenseCategory(request);
+          AppLogger.i(
+            'Categoría de gasto creada en servidor: ${createdCategory.id}',
+            tag: 'SYNC',
+          );
+
+          // Actualizar cache local con ID real
+          if (operation.entityId.startsWith('expense_category_offline_')) {
+            try {
+              // Eliminar la categoría temporal del cache
+              await localDataSource.removeCachedExpenseCategory(operation.entityId);
+              // Guardar con ID real
+              await localDataSource.cacheExpenseCategory(createdCategory);
+
+              // Actualizar referencias en operaciones pendientes de Expense que usen este categoryId temporal
+              final pendingOps = await _isarDatabase.getPendingSyncOperations();
+              for (final op in pendingOps) {
+                if (op.entityType == 'Expense' || op.entityType == 'expense') {
+                  final opData = jsonDecode(op.payload);
+                  if (opData['categoryId'] == operation.entityId) {
+                    opData['categoryId'] = createdCategory.id;
+                    await _isarDatabase.updateSyncOperationPayload(
+                      op.id,
+                      jsonEncode(opData),
+                    );
+                    AppLogger.d(
+                      'Referencia de categoryId actualizada en Expense pendiente: ${op.entityId}',
+                      tag: 'SYNC',
+                    );
+                  }
+                }
+              }
+
+              // Actualizar categoryId en IsarExpenses que usen el ID temporal
+              try {
+                final isar = IsarDatabase.instance.database;
+                final expensesWithTempCat = await isar.isarExpenses
+                    .filter()
+                    .categoryIdEqualTo(operation.entityId)
+                    .findAll();
+
+                if (expensesWithTempCat.isNotEmpty) {
+                  await isar.writeTxn(() async {
+                    for (final expense in expensesWithTempCat) {
+                      expense.categoryId = createdCategory.id;
+                      await isar.isarExpenses.put(expense);
+                    }
+                  });
+                  AppLogger.d(
+                    'Actualizados ${expensesWithTempCat.length} gastos con nuevo categoryId',
+                    tag: 'SYNC',
+                  );
+                }
+              } catch (e) {
+                AppLogger.w('Error actualizando categoryId en ISAR expenses: $e', tag: 'SYNC');
+              }
+
+              // Eliminar operaciones UPDATE obsoletas
+              for (final op in pendingOps) {
+                if (op.entityId == operation.entityId &&
+                    op.operationType == SyncOperationType.update) {
+                  await _isarDatabase.deleteSyncOperation(op.id);
+                }
+              }
+
+              AppLogger.i(
+                'Cache actualizado: ${operation.entityId} → ${createdCategory.id}',
+                tag: 'SYNC',
+              );
+            } catch (e) {
+              AppLogger.w('Error actualizando cache de categoría: $e', tag: 'SYNC');
+            }
+          }
+          break;
+
+        case SyncOperationType.update:
+          AppLogger.d(
+            'Actualizando categoría de gasto: ${operation.entityId}',
+            tag: 'SYNC',
+          );
+
+          final request = CreateExpenseCategoryRequestModel.fromParams(
+            name: data['name'] ?? '',
+            description: data['description'],
+            color: data['color'],
+            monthlyBudget: data['monthlyBudget'] != null
+                ? (data['monthlyBudget'] as num).toDouble()
+                : null,
+            sortOrder: data['sortOrder'] != null
+                ? (data['sortOrder'] as num).toInt()
+                : null,
+          );
+
+          final updatedCategory = await remoteDataSource.updateExpenseCategory(
+            operation.entityId,
+            request,
+          );
+          await localDataSource.cacheExpenseCategory(updatedCategory);
+          AppLogger.i('Categoría de gasto actualizada en servidor', tag: 'SYNC');
+          break;
+
+        case SyncOperationType.delete:
+          AppLogger.d(
+            'Eliminando categoría de gasto: ${operation.entityId}',
+            tag: 'SYNC',
+          );
+          await remoteDataSource.deleteExpenseCategory(operation.entityId);
+          AppLogger.i('Categoría de gasto eliminada en servidor', tag: 'SYNC');
+          break;
+      }
+    } catch (e) {
+      if (e is ServerException && e.statusCode == 409) {
+        AppLogger.w(
+          'Categoría de gasto ya existe en servidor - marcando como completado',
+          tag: 'SYNC',
+        );
+        return;
+      }
+      rethrow;
+    }
   }
 
   /// Sincronizar operación de BankAccount
