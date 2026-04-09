@@ -448,20 +448,16 @@ class InvoiceFormController extends GetxController {
     }
   }
 
-  // ✅ OPTIMIZACIÓN: NO cargar todos los datos inicialmente
+  // ✅ OPTIMIZACIÓN: Cargar productos en background para búsqueda offline
   void _loadInitialDataStaggered() async {
     try {
-      print('⚡ Inicialización optimizada - No cargando todos los datos');
+      print('⚡ Inicialización optimizada - cargando productos en background');
       print('💡 Los clientes se cargarán cuando se busquen');
-      print('💡 Los productos se cargarán cuando se busquen');
 
-      // Solo asegurar que las listas estén limpias
       _availableCustomers.clear();
-      _availableProducts.clear();
 
-      // Los datos se cargarán bajo demanda:
-      // - Clientes: cuando el usuario use CustomerSelectorWidget
-      // - Productos: cuando el usuario use ProductSearchWidget
+      // Cargar productos en background para búsqueda offline
+      _loadProducts();
     } catch (e) {
       print('❌ Error en inicialización optimizada: $e');
     }
