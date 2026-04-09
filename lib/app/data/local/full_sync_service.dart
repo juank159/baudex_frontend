@@ -58,6 +58,9 @@ import '../../../features/notifications/data/models/isar/isar_notification.dart'
 import '../../../features/purchase_orders/data/models/isar/isar_purchase_order_item.dart';
 import '../../../features/inventory/data/models/isar/isar_inventory_batch_movement.dart';
 import '../../../features/settings/data/models/isar/isar_user_preferences.dart';
+import '../../../features/settings/data/datasources/user_preferences_remote_datasource.dart';
+import '../../../features/settings/data/datasources/user_preferences_local_datasource.dart';
+import '../../../features/settings/presentation/controllers/user_preferences_controller.dart';
 import '../../../features/subscriptions/data/models/isar/isar_subscription.dart';
 import '../../../features/inventory/data/models/inventory_batch_model.dart';
 import '../../../features/inventory/domain/repositories/inventory_repository.dart';
@@ -142,7 +145,7 @@ class FullSyncService extends GetxService {
   // Tier 3: Entidades transaccionales
   // Tier 4: Entidades derivadas + notificaciones
   static const List<List<String>> _syncTiers = [
-    ['Organización', 'Suscripción', 'Categorías', 'Categorías de Gastos'],
+    ['Organización', 'Suscripción', 'Categorías', 'Categorías de Gastos', 'Preferencias de Usuario'],
     ['Productos', 'Clientes', 'Proveedores', 'Cuentas Bancarias', 'Almacenes', 'Impresoras'],
     ['Facturas', 'Gastos', 'Órdenes de Compra'],
     ['Notas de Crédito', 'Créditos de Clientes', 'Lotes de Inventario', 'Movimientos de Inventario', 'Notificaciones'],
@@ -250,6 +253,7 @@ class FullSyncService extends GetxService {
       final syncFunctions = <String, Future<int> Function()>{
         'Organización': _syncOrganization,
         'Suscripción': _syncSubscription,
+        'Preferencias de Usuario': _syncUserPreferences,
         'Categorías': _syncCategories,
         'Categorías de Gastos': _syncExpenseCategories,
         'Productos': _syncProducts,
@@ -450,6 +454,29 @@ class FullSyncService extends GetxService {
     });
 
     return 1;
+  }
+
+  /// Sincronizar preferencias del usuario del server a ISAR (single record)
+  Future<int> _syncUserPreferences() async {
+    try {
+      final remoteDS = Get.find<UserPreferencesRemoteDataSource>();
+      final localDS = Get.find<UserPreferencesLocalDataSource>();
+
+      final prefsModel = await remoteDS.getUserPreferences();
+      await localDS.cacheUserPreferences(prefsModel);
+
+      // Actualizar controller en memoria si está registrado
+      try {
+        if (Get.isRegistered<UserPreferencesController>()) {
+          Get.find<UserPreferencesController>().loadUserPreferences();
+        }
+      } catch (_) {}
+
+      return 1;
+    } catch (e) {
+      print('⚠️ [FULL_SYNC] Error sincronizando preferencias de usuario: $e');
+      return 0;
+    }
   }
 
   /// Sincronizar categorías del server a ISAR

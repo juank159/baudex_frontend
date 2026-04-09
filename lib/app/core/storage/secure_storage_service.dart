@@ -27,9 +27,15 @@ class SecureStorageService {
   static Future<bool> _shouldUseSharedPreferences() async {
     if (_useSharedPreferences) return true;
 
-    // En macOS y Windows, hacer una prueba rápida del secure storage
-    if (defaultTargetPlatform == TargetPlatform.macOS ||
-        defaultTargetPlatform == TargetPlatform.windows) {
+    // Windows desktop: forzar SharedPreferences porque FlutterSecureStorage
+    // no garantiza persistencia cross-session en Windows desktop
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      _useSharedPreferences = true;
+      return true;
+    }
+
+    // En macOS, hacer una prueba rápida del secure storage
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
       try {
         await _storage.write(key: 'test_key', value: 'test_value');
         final testVal = await _storage.read(key: 'test_key');
@@ -40,7 +46,7 @@ class SecureStorageService {
         return false; // Secure storage funciona
       } catch (e) {
         if (kDebugMode) {
-          print('⚠️ Secure storage no disponible en ${defaultTargetPlatform.name}, usando SharedPreferences como fallback: $e');
+          print('⚠️ Secure storage no disponible en macOS, usando SharedPreferences como fallback: $e');
         }
         _useSharedPreferences = true;
         return true;
