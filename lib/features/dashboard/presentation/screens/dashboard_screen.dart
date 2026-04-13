@@ -357,6 +357,25 @@ class _DashboardScreenState extends State<DashboardScreen>
           return const SizedBox.shrink();
         }),
 
+        // Currency Breakdown Widget (condicional)
+        Obx(() {
+          final stats = controller.dashboardStats;
+          final showCurrency = stats != null &&
+              stats.multiCurrencyEnabled &&
+              stats.currencyBreakdown != null &&
+              stats.currencyBreakdown!.isNotEmpty;
+          if (!showCurrency) return const SizedBox.shrink();
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                CurrencyBreakdownWidget(stats: stats),
+                delay: 260,
+              ),
+              const SizedBox(height: AppDimensions.spacingMedium),
+            ],
+          );
+        }),
+
         // Cuentas por Cobrar (condicional)
         Obx(() {
           final stats = controller.dashboardStats;
@@ -442,6 +461,25 @@ class _DashboardScreenState extends State<DashboardScreen>
             );
           }
           return const SizedBox.shrink();
+        }),
+
+        // Currency Breakdown Widget (condicional)
+        Obx(() {
+          final stats = controller.dashboardStats;
+          final showCurrency = stats != null &&
+              stats.multiCurrencyEnabled &&
+              stats.currencyBreakdown != null &&
+              stats.currencyBreakdown!.isNotEmpty;
+          if (!showCurrency) return const SizedBox.shrink();
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                CurrencyBreakdownWidget(stats: stats),
+                delay: 260,
+              ),
+              const SizedBox(height: AppDimensions.spacingLarge),
+            ],
+          );
         }),
 
         // Cuentas por Cobrar (condicional)
