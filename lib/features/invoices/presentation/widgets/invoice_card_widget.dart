@@ -8,6 +8,7 @@ import '../../../../app/shared/widgets/custom_card.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../widgets/invoice_status_widget.dart';
 import '../../domain/entities/invoice.dart';
+import '../../domain/entities/invoice_payment.dart';
 
 class InvoiceCardWidget extends StatelessWidget {
   final Invoice invoice;
@@ -215,6 +216,12 @@ class InvoiceCardWidget extends StatelessWidget {
                     ),
                   ],
                 ),
+
+                // Indicador de pagos en moneda extranjera
+                if (_hasForeignCurrencyPayments()) ...[
+                  const SizedBox(height: 3),
+                  _buildForeignCurrencyIndicator(),
+                ],
 
                 // Información de vencimiento con diseño mejorado
                 if (invoice.isOverdue || _isDueSoon()) ...[
@@ -526,6 +533,31 @@ class InvoiceCardWidget extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+
+                      // Moneda extranjera (tablet)
+                      if (_hasForeignCurrencyPayments()) ...[
+                        const SizedBox(height: 3),
+                        ..._foreignCurrencyPayments().map((p) => Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Icon(Icons.currency_exchange, size: 11, color: Colors.teal.shade600),
+                            const SizedBox(width: 2),
+                            Flexible(
+                              child: Text(
+                                AppFormatters.formatForeignCurrency(p.paymentCurrencyAmount, p.paymentCurrency!),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.teal.shade700,
+                                  fontWeight: FontWeight.w600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        )),
+                      ],
 
                       if (invoice.isPartiallyPaid) ...[
                         const SizedBox(height: 4),
@@ -923,6 +955,22 @@ class InvoiceCardWidget extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        // Moneda extranjera (desktop)
+                        if (_hasForeignCurrencyPayments()) ...[
+                          const SizedBox(height: 1),
+                          ..._foreignCurrencyPayments().map((p) => Text(
+                            AppFormatters.formatForeignCurrency(p.paymentCurrencyAmount, p.paymentCurrency!),
+                            style: TextStyle(
+                              fontSize: 8,
+                              color: Colors.teal.shade700,
+                              fontWeight: FontWeight.w600,
+                              fontStyle: FontStyle.italic,
+                            ),
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )),
+                        ],
                         if (invoice.isPartiallyPaid) ...[
                           const SizedBox(height: 1),
                           Row(
@@ -1338,6 +1386,72 @@ class InvoiceCardWidget extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 fontSize: 10,
                 color: color,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== MULTI-MONEDA ====================
+
+  /// Verifica si la factura tiene pagos en moneda extranjera
+  bool _hasForeignCurrencyPayments() {
+    return invoice.payments.any((p) => p.isForeignCurrency);
+  }
+
+  /// Obtiene los pagos en moneda extranjera (máximo 2 para no desbordar el card)
+  List<InvoicePayment> _foreignCurrencyPayments() {
+    return invoice.payments
+        .where((p) => p.isForeignCurrency)
+        .take(2)
+        .toList();
+  }
+
+  /// Indicador compacto de moneda extranjera para mobile card
+  Widget _buildForeignCurrencyIndicator() {
+    final foreignPayments = _foreignCurrencyPayments();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.teal.shade50,
+            Colors.teal.shade50.withValues(alpha: 0.5),
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.teal.shade200,
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.currency_exchange,
+            size: 10,
+            color: Colors.teal.shade600,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              foreignPayments
+                  .map((p) => AppFormatters.formatForeignCurrency(
+                        p.paymentCurrencyAmount,
+                        p.paymentCurrency!,
+                      ))
+                  .join(' + '),
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.teal.shade700,
+                fontWeight: FontWeight.w600,
+                fontStyle: FontStyle.italic,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
