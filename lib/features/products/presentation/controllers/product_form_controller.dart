@@ -26,6 +26,10 @@ import '../widgets/unit_selector_widget.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 // ✅ IMPORT PARA FACTURACIÓN ELECTRÓNICA
 import '../../domain/entities/tax_enums.dart';
+// IMPORT PARA ACCESO A LOTES (último precio de compra)
+import 'package:isar/isar.dart';
+import '../../../../app/data/local/isar_database.dart';
+import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
 
 class ProductFormController extends GetxController {
   // Dependencies
@@ -108,6 +112,16 @@ class ProductFormController extends GetxController {
   late final TextEditingController price3Controller;
   late final TextEditingController specialPriceController;
   late final TextEditingController costPriceController;
+
+  // Text Controllers - Márgenes de ganancia (% por tipo de precio)
+  late final TextEditingController margin1Controller;
+  late final TextEditingController margin2Controller;
+  late final TextEditingController margin3Controller;
+  late final TextEditingController specialMarginController;
+  bool _isUpdatingMargins = false;
+
+  /// Costo de referencia para cálculos de margen (viene de calculadora o último lote)
+  double _referenceCost = 0;
 
   // Text Controllers - Facturación electrónica
   late final TextEditingController taxRateController;
@@ -242,6 +256,15 @@ class ProductFormController extends GetxController {
     price3Controller = TextEditingController();
     specialPriceController = TextEditingController();
     costPriceController = TextEditingController();
+
+    // Controladores de márgenes
+    margin1Controller = TextEditingController();
+    margin2Controller = TextEditingController();
+    margin3Controller = TextEditingController();
+    specialMarginController = TextEditingController();
+
+    // Configurar listeners bidireccionales margen ↔ precio
+    _setupMarginListeners();
 
     // Controladores de facturación electrónica
     taxRateController = TextEditingController(text: '0');
@@ -650,16 +673,90 @@ class ProductFormController extends GetxController {
     print('🎲 ProductFormController: SKU generado - ${skuController.text}');
   }
 
+  /// Configurar listeners bidireccionales margen ↔ precio
+  void _setupMarginListeners() {
+    final pairs = [
+      [margin1Controller, price1Controller],
+      [margin2Controller, price2Controller],
+      [margin3Controller, price3Controller],
+      [specialMarginController, specialPriceController],
+    ];
+
+    for (final pair in pairs) {
+      final marginCtrl = pair[0];
+      final priceCtrl = pair[1];
+
+      // Cuando cambia el margen → actualizar precio (usa _referenceCost)
+      marginCtrl.addListener(() {
+        if (_isUpdatingMargins) return;
+        _isUpdatingMargins = true;
+        try {
+          final margin = double.tryParse(marginCtrl.text) ?? 0;
+          if (_referenceCost > 0 && marginCtrl.text.isNotEmpty) {
+            final price = _referenceCost * (1 + (margin / 100));
+            priceCtrl.text = AppFormatters.formatNumber(_roundPrice(price));
+          }
+        } finally {
+          _isUpdatingMargins = false;
+        }
+      });
+
+      // Cuando cambia el precio → actualizar margen (usa _referenceCost)
+      priceCtrl.addListener(() {
+        if (_isUpdatingMargins) return;
+        _isUpdatingMargins = true;
+        try {
+          final price = AppFormatters.parseNumber(priceCtrl.text) ?? 0;
+          if (_referenceCost > 0 && price > 0) {
+            final margin = ((price - _referenceCost) / _referenceCost) * 100;
+            marginCtrl.text = margin.toStringAsFixed(1);
+          } else if (priceCtrl.text.isEmpty) {
+            marginCtrl.text = '';
+          }
+        } finally {
+          _isUpdatingMargins = false;
+        }
+      });
+    }
+  }
+
+  /// Recalcular margen desde precio y costo
+  void _recalcMargin(double cost, TextEditingController priceCtrl, TextEditingController marginCtrl) {
+    final price = AppFormatters.parseNumber(priceCtrl.text) ?? 0;
+    if (price > 0 && cost > 0) {
+      final margin = ((price - cost) / cost) * 100;
+      marginCtrl.text = margin.toStringAsFixed(1);
+    }
+  }
+
+  /// Actualizar márgenes desde precios actuales usando _referenceCost
+  void _updateMarginsFromPrices() {
+    if (_referenceCost <= 0) return;
+    _isUpdatingMargins = true;
+    try {
+      _recalcMargin(_referenceCost, price1Controller, margin1Controller);
+      _recalcMargin(_referenceCost, price2Controller, margin2Controller);
+      _recalcMargin(_referenceCost, price3Controller, margin3Controller);
+      _recalcMargin(_referenceCost, specialPriceController, specialMarginController);
+    } finally {
+      _isUpdatingMargins = false;
+    }
+  }
+
   /// Calcular margen de ganancia
   double calculateMargin(double costPrice, double sellPrice) {
     if (costPrice <= 0) return 0;
     return ((sellPrice - costPrice) / costPrice) * 100;
   }
 
-  /// Redondear precio al múltiplo de 100 más cercano
-  int _roundToNearest100(double price) {
+  /// Redondear precio hacia arriba al múltiplo de 50 más cercano
+  /// 420 → 450, 460 → 500, 450 → 450, 400 → 400, 405 → 450
+  int _roundPrice(double price) {
     if (price <= 0) return 0;
-    return ((price / 100).round() * 100);
+    final intPrice = price.round();
+    final remainder = intPrice % 50;
+    if (remainder == 0) return intPrice;
+    return intPrice + (50 - remainder);
   }
 
   /// Validar código de barras
@@ -685,57 +782,91 @@ class ProductFormController extends GetxController {
     // El widget CategorySelectorWidget manejará la lógica del selector
   }
 
+  /// Obtener el último precio de compra (unitCost) del producto desde ISAR
+  Future<double?> _getLastPurchaseCost() async {
+    if (!isEditMode) return null;
+    try {
+      final isar = IsarDatabase.instance.database;
+      final batch = await isar.isarInventoryBatchs
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .productIdEqualTo(productId)
+          .sortByCreatedAtDesc()
+          .findFirst();
+      if (batch != null && batch.unitCost > 0) {
+        return batch.unitCost;
+      }
+    } catch (e) {
+      print('Error al obtener último precio de compra: $e');
+    }
+    return null;
+  }
+
   /// Mostrar calculadora de precios
-  void showPriceCalculator() {
-    // Usar el widget mejorado PriceCalculatorDialog
+  void showPriceCalculator() async {
+    // En modo edición, pre-cargar el último precio de compra como costo inicial
+    String initialCost = costPriceController.text;
+    if (isEditMode && initialCost.isEmpty) {
+      final lastCost = await _getLastPurchaseCost();
+      if (lastCost != null) {
+        initialCost = AppFormatters.formatNumber(lastCost.round());
+      }
+    }
+
     Get.dialog(
       PriceCalculatorDialog(
-        initialCost: costPriceController.text,
+        initialCost: initialCost,
         onCalculate: (calculatedPrices) {
-          print('🧮 ProductFormController: Recibiendo precios calculados...');
-          print('🧮 ProductFormController: Datos recibidos: $calculatedPrices');
-
-          // Aplicar los precios calculados a los controladores con redondeo a múltiplos de 100
-          price1Controller.text = AppFormatters.formatNumber(
-            _roundToNearest100(calculatedPrices['price1'] ?? 0),
-          );
-          price2Controller.text = AppFormatters.formatNumber(
-            _roundToNearest100(calculatedPrices['price2'] ?? 0),
-          );
-          price3Controller.text = AppFormatters.formatNumber(
-            _roundToNearest100(calculatedPrices['price3'] ?? 0),
-          );
-          specialPriceController.text = AppFormatters.formatNumber(
-            _roundToNearest100(calculatedPrices['special'] ?? 0),
-          );
-
-          // Aplicar también el precio de costo (sin redondeo porque es el valor base)
-          if (calculatedPrices['cost'] != null) {
+          // Guardar costo de referencia para cálculos de margen
+          if (calculatedPrices['cost'] != null && calculatedPrices['cost']! > 0) {
+            _referenceCost = calculatedPrices['cost']!;
             costPriceController.text = AppFormatters.formatNumber(
               calculatedPrices['cost']!.round(),
             );
-            print(
-              '🧮 ProductFormController: Precio de costo aplicado: ${costPriceController.text}',
-            );
           }
 
-          print('🧮 ProductFormController: Precios aplicados a controladores');
+          // Bloquear listeners para aplicar todo junto sin interferencias
+          _isUpdatingMargins = true;
+
+          // Aplicar precios Y márgenes originales del usuario
+          if (calculatedPrices.containsKey('price1')) {
+            price1Controller.text = AppFormatters.formatNumber(
+              _roundPrice(calculatedPrices['price1']!),
+            );
+            margin1Controller.text = calculatedPrices['margin_price1']?.toStringAsFixed(1) ?? '';
+          }
+          if (calculatedPrices.containsKey('price2')) {
+            price2Controller.text = AppFormatters.formatNumber(
+              _roundPrice(calculatedPrices['price2']!),
+            );
+            margin2Controller.text = calculatedPrices['margin_price2']?.toStringAsFixed(1) ?? '';
+          }
+          if (calculatedPrices.containsKey('price3')) {
+            price3Controller.text = AppFormatters.formatNumber(
+              _roundPrice(calculatedPrices['price3']!),
+            );
+            margin3Controller.text = calculatedPrices['margin_price3']?.toStringAsFixed(1) ?? '';
+          }
+          if (calculatedPrices.containsKey('special')) {
+            specialPriceController.text = AppFormatters.formatNumber(
+              _roundPrice(calculatedPrices['special']!),
+            );
+            specialMarginController.text = calculatedPrices['margin_special']?.toStringAsFixed(1) ?? '';
+          }
+
+          _isUpdatingMargins = false;
 
           // Actualizar la UI
           update();
 
-          print('🧮 ProductFormController: UI actualizada');
-
-          // Mostrar mensaje de éxito
           Get.snackbar(
-            'Éxito',
-            'Precios calculados y aplicados correctamente',
+            'Precios aplicados',
+            'Los precios y márgenes han sido aplicados',
             snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
           );
-
-          print('🧮 ProductFormController: Callback completado');
         },
       ),
     );
@@ -757,13 +888,14 @@ class ProductFormController extends GetxController {
               Text('SKU: ${skuController.text}'),
               Text('Tipo: ${_productType.value.name}'),
               Text('Estado: ${_productStatus.value.name}'),
-              Text('Stock: ${stockController.text}'),
+              if (isEditMode)
+                Text('Stock: ${stockController.text}'),
               Text(
                 'Categoría: ${_selectedCategoryName.value ?? "No seleccionada"}',
-              ), // ✅ NUEVO
+              ),
               if (price1Controller.text.isNotEmpty)
                 Text('Precio 1: \${price1Controller.text}'),
-              if (costPriceController.text.isNotEmpty)
+              if (isEditMode && costPriceController.text.isNotEmpty)
                 Text('Costo: \${costPriceController.text}'),
             ],
           ),
@@ -1148,6 +1280,15 @@ class ProductFormController extends GetxController {
       }
     }
 
+    // Establecer costo de referencia desde el precio de costo cargado
+    final costPrice = AppFormatters.parseNumber(costPriceController.text) ?? 0;
+    if (costPrice > 0) {
+      _referenceCost = costPrice;
+    }
+
+    // Calcular márgenes iniciales desde los precios cargados
+    _updateMarginsFromPrices();
+
     // ✅ NUEVO: Poblar campos de facturación electrónica
     _selectedTaxCategory.value = product.taxCategory;
     taxRateController.text = product.taxRate.toString();
@@ -1411,6 +1552,10 @@ class ProductFormController extends GetxController {
     price3Controller.clear();
     specialPriceController.clear();
     costPriceController.clear();
+    margin1Controller.clear();
+    margin2Controller.clear();
+    margin3Controller.clear();
+    specialMarginController.clear();
 
     // Limpiar controladores de facturación electrónica
     taxRateController.text = '19';
@@ -1455,6 +1600,11 @@ class ProductFormController extends GetxController {
         price3Controller,
         specialPriceController,
         costPriceController,
+        // Controladores de márgenes
+        margin1Controller,
+        margin2Controller,
+        margin3Controller,
+        specialMarginController,
         // Controladores de facturación electrónica
         taxRateController,
         taxDescriptionController,

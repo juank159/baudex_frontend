@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
-import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/core/utils/number_input_formatter.dart';
 import '../controllers/initial_inventory_controller.dart';
+import 'package:baudex_desktop/app/shared/screens/barcode_scanner_screen.dart';
 
 class InitialInventoryScreen extends GetView<InitialInventoryController> {
   const InitialInventoryScreen({super.key});
@@ -200,8 +200,6 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
             _actionChip(Icons.add, 'Fila', isSubmitting ? null : () { controller.addRow(); _scrollToBottom(); }),
             const SizedBox(width: 6),
             _actionChip(Icons.playlist_add, '+10', isSubmitting ? null : () { controller.addMultipleRows(10); _scrollToBottom(); }),
-            const SizedBox(width: 6),
-            _actionChip(Icons.qr_code, 'SKUs', isSubmitting ? null : controller.generateAllSkus),
             if (!isMobile) ...[
               const Spacer(),
               Obx(() => Text(
@@ -240,48 +238,97 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
   }
 
   Widget _buildCategoryDropdown(bool isSubmitting) {
-    final hasCategory = controller.globalCategoryId.value != null;
-    return Container(
-      height: 32,
-      constraints: const BoxConstraints(maxWidth: 280),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: hasCategory ? ElegantLightTheme.primaryBlue.withOpacity(0.06) : Colors.white,
-        border: Border.all(
-          color: hasCategory
-              ? ElegantLightTheme.primaryBlue.withOpacity(0.4)
-              : ElegantLightTheme.textTertiary.withOpacity(0.3),
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          isExpanded: true,
-          isDense: true,
-          value: controller.globalCategoryId.value,
-          icon: Icon(Icons.keyboard_arrow_down, size: 18, color: hasCategory ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary),
-          hint: Row(
+    final validValue = controller.availableCategories.any((c) => c.id == controller.globalCategoryId.value)
+        ? controller.globalCategoryId.value
+        : null;
+    final hasCategory = validValue != null;
+    final selectedName = hasCategory
+        ? controller.availableCategories.firstWhere((c) => c.id == validValue).name
+        : null;
+
+    return PopupMenuButton<String>(
+      enabled: !isSubmitting,
+      onSelected: (v) {
+        final cat = controller.availableCategories.firstWhere((c) => c.id == v);
+        controller.setGlobalCategory(cat.id, cat.name);
+      },
+      constraints: const BoxConstraints(minWidth: 200, maxWidth: 320),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      elevation: 6,
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, 4),
+      itemBuilder: (_) => controller.availableCategories.map((c) {
+        final isSelected = c.id == validValue;
+        return PopupMenuItem<String>(
+          value: c.id,
+          height: 40,
+          child: Row(
             children: [
-              Icon(Icons.category_outlined, size: 14, color: ElegantLightTheme.textSecondary),
-              const SizedBox(width: 6),
-              Text('Seleccionar categoría', style: TextStyle(fontSize: 12, color: ElegantLightTheme.textSecondary)),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? ElegantLightTheme.primaryBlue.withOpacity(0.12)
+                      : ElegantLightTheme.scaffoldBackground,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  isSelected ? Icons.check_circle : Icons.category_outlined,
+                  size: 15,
+                  color: isSelected ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  c.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
-          style: TextStyle(fontSize: 12, color: ElegantLightTheme.textPrimary),
-          items: controller.availableCategories
-              .map((c) => DropdownMenuItem(
-                    value: c.id,
-                    child: Text(c.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
-                  ))
-              .toList(),
-          onChanged: isSubmitting
-              ? null
-              : (v) {
-                  if (v != null) {
-                    final cat = controller.availableCategories.firstWhere((c) => c.id == v);
-                    controller.setGlobalCategory(cat.id, cat.name);
-                  }
-                },
+        );
+      }).toList(),
+      child: Container(
+        height: 32,
+        constraints: const BoxConstraints(maxWidth: 280),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: hasCategory ? ElegantLightTheme.primaryBlue.withOpacity(0.06) : Colors.white,
+          border: Border.all(
+            color: hasCategory
+                ? ElegantLightTheme.primaryBlue.withOpacity(0.4)
+                : ElegantLightTheme.textTertiary.withOpacity(0.3),
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              hasCategory ? Icons.check_circle : Icons.category_outlined,
+              size: 14,
+              color: hasCategory ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                selectedName ?? 'Seleccionar categoría',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: hasCategory ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary,
+                  fontWeight: hasCategory ? FontWeight.w500 : FontWeight.w400,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Icon(Icons.keyboard_arrow_down, size: 18, color: hasCategory ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary),
+          ],
         ),
       ),
     );
@@ -473,15 +520,17 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
     final stock = row.stockController.text.trim();
     final cost = row.costPriceController.text.trim();
     final price = row.sellingPriceController.text.trim();
+    final barcode = row.barcodeController.text.trim();
     if (stock.isNotEmpty) parts.add('Stock: $stock');
     if (cost.isNotEmpty) parts.add('C: $cost');
     if (price.isNotEmpty) parts.add('P: $price');
-    if (row.skuController.text.trim().isNotEmpty) parts.add(row.skuController.text.trim());
+    if (barcode.isNotEmpty) parts.add(barcode);
     return parts.isEmpty ? 'Toca para editar' : parts.join(' • ');
   }
 
   Widget _buildExpandedContent(
       BuildContext context, int index, InitialInventoryRow row, bool isSubmitting, bool useGlobal) {
+    final isMobile = ResponsiveHelper.isMobile(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
       child: Column(
@@ -492,14 +541,8 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
           // Row 1: Name
           _inlineField(row.nameController, 'Nombre del producto', isSubmitting),
           const SizedBox(height: 8),
-          // Row 2: SKU + auto-gen toggle
-          Row(
-            children: [
-              Expanded(child: _inlineField(row.skuController, 'SKU', isSubmitting)),
-              const SizedBox(width: 6),
-              _skuToggle(index, row, isSubmitting),
-            ],
-          ),
+          // Row 2: Barcode (con escáner en mobile)
+          _buildBarcodeField(row, isSubmitting, isMobile),
           const SizedBox(height: 8),
           // Row 3: Cost + Price
           Row(
@@ -604,61 +647,157 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
     );
   }
 
-  Widget _skuToggle(int index, InitialInventoryRow row, bool isSubmitting) {
-    return Tooltip(
-      message: row.autoSku ? 'Auto-SKU activo' : 'Generar SKU',
-      child: InkWell(
-        onTap: isSubmitting
-            ? null
-            : () {
-                if (row.autoSku) {
-                  controller.toggleAutoSku(index, false);
-                } else {
-                  controller.generateSkuForRow(index);
-                }
-              },
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: row.autoSku ? ElegantLightTheme.primaryBlue : Colors.grey[200],
-            borderRadius: BorderRadius.circular(6),
+  Widget _buildBarcodeField(InitialInventoryRow row, bool isSubmitting, bool isMobile) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: row.barcodeController,
+            enabled: !isSubmitting,
+            style: const TextStyle(fontSize: 13),
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'Código de barras',
+              labelStyle: TextStyle(fontSize: 11, color: ElegantLightTheme.textSecondary),
+              prefixIcon: const Icon(Icons.barcode_reader, size: 18),
+              prefixIconConstraints: const BoxConstraints(minWidth: 36),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: ElegantLightTheme.primaryBlue, width: 1.5),
+              ),
+            ),
           ),
-          child: Icon(Icons.auto_fix_high, size: 16, color: row.autoSku ? Colors.white : Colors.grey[600]),
         ),
-      ),
+        if (isMobile) ...[
+          const SizedBox(width: 6),
+          Tooltip(
+            message: 'Escanear código',
+            child: InkWell(
+              onTap: isSubmitting
+                  ? null
+                  : () async {
+                      final scannedCode = await Get.to<String>(
+                        () => const BarcodeScannerScreen(),
+                      );
+                      if (scannedCode != null && scannedCode.isNotEmpty) {
+                        row.barcodeController.text = scannedCode;
+                      }
+                    },
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.qr_code_scanner, size: 18, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
   Widget _inlineCategorySelector(int index, InitialInventoryRow row, bool isSubmitting) {
-    return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        border: Border.all(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          isExpanded: true,
-          isDense: true,
-          value: row.categoryId,
-          hint: Text('Categoría', style: TextStyle(fontSize: 12, color: ElegantLightTheme.textSecondary)),
-          items: controller.availableCategories
-              .map((c) => DropdownMenuItem(
-                    value: c.id,
-                    child: Text(c.name, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                  ))
-              .toList(),
-          onChanged: isSubmitting
-              ? null
-              : (v) {
-                  if (v != null) {
-                    final cat = controller.availableCategories.firstWhere((c) => c.id == v);
-                    controller.setRowCategory(index, cat.id, cat.name);
-                  }
-                },
+    final validValue = controller.availableCategories.any((c) => c.id == row.categoryId)
+        ? row.categoryId
+        : null;
+    final hasCategory = validValue != null;
+    final selectedName = hasCategory
+        ? controller.availableCategories.firstWhere((c) => c.id == validValue).name
+        : null;
+
+    return PopupMenuButton<String>(
+      enabled: !isSubmitting,
+      onSelected: (v) {
+        final cat = controller.availableCategories.firstWhere((c) => c.id == v);
+        controller.setRowCategory(index, cat.id, cat.name);
+      },
+      constraints: const BoxConstraints(minWidth: 200, maxWidth: 320),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      elevation: 6,
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, 4),
+      itemBuilder: (_) => controller.availableCategories.map((c) {
+        final isSelected = c.id == validValue;
+        return PopupMenuItem<String>(
+          value: c.id,
+          height: 40,
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? ElegantLightTheme.primaryBlue.withOpacity(0.12)
+                      : ElegantLightTheme.scaffoldBackground,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  isSelected ? Icons.check_circle : Icons.category_outlined,
+                  size: 15,
+                  color: isSelected ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  c.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: hasCategory ? ElegantLightTheme.primaryBlue.withOpacity(0.06) : Colors.white,
+          border: Border.all(
+            color: hasCategory
+                ? ElegantLightTheme.primaryBlue.withOpacity(0.4)
+                : ElegantLightTheme.textTertiary.withOpacity(0.3),
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              hasCategory ? Icons.check_circle : Icons.category_outlined,
+              size: 15,
+              color: hasCategory ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                selectedName ?? 'Categoría',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: hasCategory ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary,
+                  fontWeight: hasCategory ? FontWeight.w500 : FontWeight.w400,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Icon(Icons.keyboard_arrow_down, size: 16, color: hasCategory ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary),
+          ],
         ),
       ),
     );
@@ -695,7 +834,7 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
       columns: [
         _col('#', 36),
         _col('Nombre', 190),
-        _col('SKU', 130),
+        _col('Cód. Barras', 140),
         _col('Costo', 100),
         _col('Precio', 100),
         _col('Stock', 80),
@@ -737,7 +876,7 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
           ),
         )),
         DataCell(_dtField(row.nameController, 190, isSubmitting)),
-        DataCell(_dtSkuCell(index, row, isSubmitting)),
+        DataCell(_dtField(row.barcodeController, 140, isSubmitting)),
         DataCell(_dtNumField(row.costPriceController, 100, isSubmitting)),
         DataCell(_dtNumField(row.sellingPriceController, 100, isSubmitting)),
         DataCell(_dtNumField(row.stockController, 80, isSubmitting)),
@@ -790,75 +929,83 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
     );
   }
 
-  Widget _dtSkuCell(int index, InitialInventoryRow row, bool isSubmitting) {
-    return SizedBox(
-      width: 130,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: row.skuController,
-              enabled: !isSubmitting,
-              style: const TextStyle(fontSize: 12),
-              decoration: _dtDecoration(),
-            ),
-          ),
-          const SizedBox(width: 3),
-          InkWell(
-            onTap: isSubmitting
-                ? null
-                : () {
-                    if (row.autoSku) {
-                      controller.toggleAutoSku(index, false);
-                    } else {
-                      controller.generateSkuForRow(index);
-                    }
-                  },
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: row.autoSku ? ElegantLightTheme.primaryBlue : Colors.grey[200],
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Icon(Icons.auto_fix_high, size: 14, color: row.autoSku ? Colors.white : Colors.grey[600]),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _dtCatCell(int index, InitialInventoryRow row, bool isSubmitting) {
+    final validValue = controller.availableCategories.any((c) => c.id == row.categoryId)
+        ? row.categoryId
+        : null;
+    final hasCategory = validValue != null;
+    final selectedName = hasCategory
+        ? controller.availableCategories.firstWhere((c) => c.id == validValue).name
+        : null;
+
     return SizedBox(
       width: 140,
-      child: Container(
-        height: 28,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          border: Border.all(color: ElegantLightTheme.textTertiary.withOpacity(0.25)),
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            isExpanded: true,
-            isDense: true,
-            value: row.categoryId,
-            hint: Text('Categoría', style: TextStyle(fontSize: 11, color: ElegantLightTheme.textSecondary)),
-            items: controller.availableCategories
-                .map((c) => DropdownMenuItem(
-                      value: c.id,
-                      child: Text(c.name, style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
-                    ))
-                .toList(),
-            onChanged: isSubmitting
-                ? null
-                : (v) {
-                    if (v != null) {
-                      final cat = controller.availableCategories.firstWhere((c) => c.id == v);
-                      controller.setRowCategory(index, cat.id, cat.name);
-                    }
-                  },
+      child: PopupMenuButton<String>(
+        enabled: !isSubmitting,
+        onSelected: (v) {
+          final cat = controller.availableCategories.firstWhere((c) => c.id == v);
+          controller.setRowCategory(index, cat.id, cat.name);
+        },
+        constraints: const BoxConstraints(minWidth: 180, maxWidth: 280),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        elevation: 6,
+        position: PopupMenuPosition.under,
+        offset: const Offset(0, 4),
+        itemBuilder: (_) => controller.availableCategories.map((c) {
+          final isSelected = c.id == validValue;
+          return PopupMenuItem<String>(
+            value: c.id,
+            height: 36,
+            child: Row(
+              children: [
+                Icon(
+                  isSelected ? Icons.check_circle : Icons.category_outlined,
+                  size: 14,
+                  color: isSelected ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    c.name,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+        child: Container(
+          height: 28,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: hasCategory ? ElegantLightTheme.primaryBlue.withOpacity(0.06) : null,
+            border: Border.all(
+              color: hasCategory
+                  ? ElegantLightTheme.primaryBlue.withOpacity(0.3)
+                  : ElegantLightTheme.textTertiary.withOpacity(0.25),
+            ),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  selectedName ?? 'Categoría',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: hasCategory ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textSecondary,
+                    fontWeight: hasCategory ? FontWeight.w500 : FontWeight.w400,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(Icons.keyboard_arrow_down, size: 14, color: hasCategory ? ElegantLightTheme.primaryBlue : ElegantLightTheme.textTertiary),
+            ],
           ),
         ),
       ),

@@ -26,10 +26,10 @@ class _PriceCalculatorDialogState extends State<PriceCalculatorDialog>
     with SingleTickerProviderStateMixin {
   late final TextEditingController _costController;
   final Map<String, TextEditingController> _percentageControllers = {
-    'price1': TextEditingController(text: '30'),
-    'price2': TextEditingController(text: '20'),
-    'price3': TextEditingController(text: '15'),
-    'special': TextEditingController(text: '10'),
+    'price1': TextEditingController(),
+    'price2': TextEditingController(),
+    'price3': TextEditingController(),
+    'special': TextEditingController(),
   };
 
   late AnimationController _animationController;
@@ -79,12 +79,26 @@ class _PriceCalculatorDialogState extends State<PriceCalculatorDialog>
       return;
     }
 
+    // Verificar que al menos un margen esté definido
+    final hasAnyMargin = _percentageControllers.values.any(
+      (c) => c.text.trim().isNotEmpty,
+    );
+    if (!hasAnyMargin) {
+      Get.snackbar('Aviso', 'Ingresa al menos un margen de ganancia');
+      return;
+    }
+
     final calculatedPrices = <String, double>{};
     calculatedPrices['cost'] = cost;
 
+    // Solo calcular precios donde el usuario ingresó un margen
+    // También devolver los porcentajes originales con prefijo 'margin_'
     _percentageControllers.forEach((key, controller) {
-      final percentage = double.tryParse(controller.text) ?? 0;
-      calculatedPrices[key] = cost * (1 + (percentage / 100));
+      if (controller.text.trim().isNotEmpty) {
+        final percentage = double.tryParse(controller.text) ?? 0;
+        calculatedPrices[key] = cost * (1 + (percentage / 100));
+        calculatedPrices['margin_$key'] = percentage;
+      }
     });
 
     Navigator.of(context).pop();
@@ -378,6 +392,12 @@ class _PriceCalculatorDialogState extends State<PriceCalculatorDialog>
                         ),
                         decoration: InputDecoration(
                           isDense: true,
+                          hintText: 'Ej: 30',
+                          hintStyle: TextStyle(
+                            color: ElegantLightTheme.textTertiary.withOpacity(0.5),
+                            fontWeight: FontWeight.w400,
+                            fontSize: 14,
+                          ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 8,
                             vertical: 6,

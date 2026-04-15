@@ -15,12 +15,13 @@ import '../../../inventory/domain/usecases/create_inventory_movement_usecase.dar
 import '../../../inventory/domain/entities/inventory_movement.dart';
 import '../../../inventory/domain/repositories/inventory_repository.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../inventory/data/datasources/inventory_local_datasource_isar.dart';
 
 const String _draftStorageKey = 'initial_inventory_draft';
 
 class InitialInventoryRow {
   final TextEditingController nameController;
-  final TextEditingController skuController;
+  final TextEditingController barcodeController;
   final TextEditingController costPriceController;
   final TextEditingController sellingPriceController;
   final TextEditingController stockController;
@@ -28,7 +29,6 @@ class InitialInventoryRow {
 
   String? categoryId;
   String? categoryName;
-  bool autoSku;
   String? errorMessage;
   bool isProcessed;
   bool isSuccess;
@@ -36,20 +36,19 @@ class InitialInventoryRow {
 
   InitialInventoryRow({
     TextEditingController? nameController,
-    TextEditingController? skuController,
+    TextEditingController? barcodeController,
     TextEditingController? costPriceController,
     TextEditingController? sellingPriceController,
     TextEditingController? stockController,
     TextEditingController? minStockController,
     this.categoryId,
     this.categoryName,
-    this.autoSku = true,
     this.errorMessage,
     this.isProcessed = false,
     this.isSuccess = false,
     this.isExpanded = false,
   })  : nameController = nameController ?? TextEditingController(),
-        skuController = skuController ?? TextEditingController(),
+        barcodeController = barcodeController ?? TextEditingController(),
         costPriceController = costPriceController ?? TextEditingController(),
         sellingPriceController = sellingPriceController ?? TextEditingController(),
         stockController = stockController ?? TextEditingController(),
@@ -57,7 +56,7 @@ class InitialInventoryRow {
 
   void dispose() {
     nameController.dispose();
-    skuController.dispose();
+    barcodeController.dispose();
     costPriceController.dispose();
     sellingPriceController.dispose();
     stockController.dispose();
@@ -66,34 +65,31 @@ class InitialInventoryRow {
 
   bool get isEmpty =>
       nameController.text.trim().isEmpty &&
-      skuController.text.trim().isEmpty &&
       stockController.text.trim().isEmpty &&
       costPriceController.text.trim().isEmpty &&
       sellingPriceController.text.trim().isEmpty;
 
   Map<String, dynamic> toJson() => {
         'name': nameController.text,
-        'sku': skuController.text,
+        'barcode': barcodeController.text,
         'costPrice': costPriceController.text,
         'sellingPrice': sellingPriceController.text,
         'stock': stockController.text,
         'minStock': minStockController.text,
         'categoryId': categoryId,
         'categoryName': categoryName,
-        'autoSku': autoSku,
       };
 
   factory InitialInventoryRow.fromJson(Map<String, dynamic> json) {
     return InitialInventoryRow(
       nameController: TextEditingController(text: json['name'] ?? ''),
-      skuController: TextEditingController(text: json['sku'] ?? ''),
+      barcodeController: TextEditingController(text: json['barcode'] ?? ''),
       costPriceController: TextEditingController(text: json['costPrice'] ?? ''),
       sellingPriceController: TextEditingController(text: json['sellingPrice'] ?? ''),
       stockController: TextEditingController(text: json['stock'] ?? ''),
       minStockController: TextEditingController(text: json['minStock'] ?? ''),
       categoryId: json['categoryId'],
       categoryName: json['categoryName'],
-      autoSku: json['autoSku'] ?? true,
     );
   }
 }
@@ -182,6 +178,12 @@ class InitialInventoryController extends GetxController {
     }
   }
 
+  /// Valida que un categoryId exista en las categorías disponibles
+  bool _isCategoryValid(String? categoryId) {
+    if (categoryId == null) return false;
+    return availableCategories.any((c) => c.id == categoryId);
+  }
+
   Future<bool> loadDraft() async {
     try {
       final data = await _storage.read(_draftStorageKey);
@@ -200,12 +202,23 @@ class InitialInventoryController extends GetxController {
       // Restore rows
       for (var rowJson in rowList) {
         final row = InitialInventoryRow.fromJson(rowJson as Map<String, dynamic>);
+        // Validar que el categoryId del borrador aún existe
+        if (!_isCategoryValid(row.categoryId)) {
+          row.categoryId = null;
+          row.categoryName = null;
+        }
         rows.add(row);
       }
 
-      // Restore global category
-      globalCategoryId.value = json['globalCategoryId'];
-      globalCategoryName.value = json['globalCategoryName'];
+      // Restore global category (validar que aún existe)
+      final savedGlobalCatId = json['globalCategoryId'] as String?;
+      if (_isCategoryValid(savedGlobalCatId)) {
+        globalCategoryId.value = savedGlobalCatId;
+        globalCategoryName.value = json['globalCategoryName'];
+      } else {
+        globalCategoryId.value = null;
+        globalCategoryName.value = null;
+      }
       useGlobalCategory.value = json['useGlobalCategory'] ?? true;
 
       hasDraft.value = true;
@@ -260,13 +273,13 @@ class InitialInventoryController extends GetxController {
     final src = rows[index];
     final newRow = InitialInventoryRow(
       nameController: TextEditingController(text: src.nameController.text),
+      barcodeController: TextEditingController(text: src.barcodeController.text),
       costPriceController: TextEditingController(text: src.costPriceController.text),
       sellingPriceController: TextEditingController(text: src.sellingPriceController.text),
       stockController: TextEditingController(text: src.stockController.text),
       minStockController: TextEditingController(text: src.minStockController.text),
       categoryId: src.categoryId,
       categoryName: src.categoryName,
-      autoSku: src.autoSku,
       isExpanded: true,
     );
     rows.insert(index + 1, newRow);
@@ -301,14 +314,12 @@ class InitialInventoryController extends GetxController {
   }
 
   // ============================================================================
-  // SKU GENERATION
+  // SKU GENERATION (interno, auto-generado al crear)
   // ============================================================================
 
-  void generateSkuForRow(int index, {bool force = false}) {
-    if (index < 0 || index >= rows.length) return;
+  String _generateSkuForRow(int index) {
+    if (index < 0 || index >= rows.length) return 'PRD000';
     final row = rows[index];
-    if (!row.autoSku && !force) return;
-
     final name = row.nameController.text.trim().toUpperCase();
     String prefix = 'PRD';
     if (name.isNotEmpty) {
@@ -316,28 +327,9 @@ class InitialInventoryController extends GetxController {
           ? name.substring(0, 3)
           : name.padRight(3, 'X');
     }
-
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    // Incluir índice para evitar SKUs duplicados cuando se generan en el mismo milisegundo
     final suffix = index.toString().padLeft(2, '0');
-    final sku = '$prefix${timestamp.substring(7)}$suffix';
-    row.skuController.text = sku;
-    rows[index] = row;
-  }
-
-  void generateAllSkus() {
-    for (int i = 0; i < rows.length; i++) {
-      if (rows[i].autoSku && rows[i].nameController.text.trim().isNotEmpty) {
-        generateSkuForRow(i);
-      }
-    }
-  }
-
-  void toggleAutoSku(int index, bool enabled) {
-    if (index < 0 || index >= rows.length) return;
-    rows[index].autoSku = enabled;
-    rows[index] = rows[index];
-    if (enabled) generateSkuForRow(index);
+    return '$prefix${timestamp.substring(7)}$suffix';
   }
 
   // ============================================================================
@@ -369,6 +361,12 @@ class InitialInventoryController extends GetxController {
         },
         (paginatedCategories) {
           availableCategories.value = paginatedCategories.data;
+          // Auto-seleccionar si solo hay una categoría disponible
+          if (paginatedCategories.data.length == 1) {
+            final cat = paginatedCategories.data.first;
+            setGlobalCategory(cat.id, cat.name);
+            useGlobalCategory.value = true;
+          }
         },
       );
     } catch (e) {
@@ -437,7 +435,7 @@ class InitialInventoryController extends GetxController {
 
   List<String> validateAll() {
     final errors = <String>[];
-    final skus = <String>{};
+    int validCount = 0;
 
     for (int i = 0; i < rows.length; i++) {
       if (rows[i].isEmpty) continue;
@@ -445,21 +443,16 @@ class InitialInventoryController extends GetxController {
       final error = validateRow(i);
       if (error != null) {
         errors.add('Fila ${i + 1}: $error');
-        continue;
-      }
-
-      final sku = rows[i].skuController.text.trim();
-      if (skus.contains(sku)) {
-        errors.add('Fila ${i + 1}: SKU duplicado "$sku"');
       } else {
-        skus.add(sku);
+        validCount++;
       }
     }
 
-    if (skus.isEmpty) errors.add('Debe completar al menos un producto');
+    if (validCount == 0 && errors.isEmpty) errors.add('Debe completar al menos un producto');
 
     if (useGlobalCategory.value &&
-        (globalCategoryId.value == null || globalCategoryId.value!.isEmpty)) {
+        (globalCategoryId.value == null || globalCategoryId.value!.isEmpty) &&
+        availableCategories.length != 1) {
       errors.add('Seleccione una categoria global');
     }
 
@@ -505,17 +498,25 @@ class InitialInventoryController extends GetxController {
   }
 
   // ============================================================================
+  // WAREHOUSE HELPER
+  // ============================================================================
+
+  String? _getDefaultWarehouseId() {
+    final warehouses = InventoryLocalDataSourceIsar.getWarehousesMemoryCache();
+    if (warehouses == null || warehouses.isEmpty) return null;
+    // Buscar almacén principal, o usar el primero disponible
+    final main = warehouses.cast<dynamic>().firstWhere(
+      (w) => w.isMainWarehouse == true,
+      orElse: () => warehouses.first,
+    );
+    return main.id as String;
+  }
+
+  // ============================================================================
   // SUBMISSION
   // ============================================================================
 
   Future<void> submitAll() async {
-    // Auto-generar SKU para filas sin SKU (como en creación normal de producto)
-    for (int i = 0; i < rows.length; i++) {
-      if (!rows[i].isEmpty && rows[i].skuController.text.trim().isEmpty) {
-        generateSkuForRow(i, force: true);
-      }
-    }
-
     final errors = validateAll();
     if (errors.isNotEmpty) {
       showValidationErrors(errors);
@@ -579,7 +580,8 @@ class InitialInventoryController extends GetxController {
     final row = rows[index];
     try {
       final name = row.nameController.text.trim();
-      final sku = row.skuController.text.trim();
+      final sku = _generateSkuForRow(index);
+      final barcode = row.barcodeController.text.trim();
       final stock = AppFormatters.parseNumber(row.stockController.text.trim()) ?? 0.0;
       final minStock = row.minStockController.text.trim().isEmpty
           ? 0.0
@@ -596,6 +598,11 @@ class InitialInventoryController extends GetxController {
         categoryId = globalCategoryId.value;
       } else {
         categoryId = row.categoryId;
+      }
+
+      // Fallback: si no hay categoría y solo hay una disponible, usarla
+      if ((categoryId == null || categoryId.isEmpty) && availableCategories.length == 1) {
+        categoryId = availableCategories.first.id;
       }
 
       if (categoryId == null || categoryId.isEmpty) {
@@ -615,6 +622,7 @@ class InitialInventoryController extends GetxController {
       final params = CreateProductParams(
         name: name,
         sku: sku,
+        barcode: barcode.isEmpty ? null : barcode,
         categoryId: categoryId,
         stock: 0,
         minStock: minStock,
@@ -649,6 +657,8 @@ class InitialInventoryController extends GetxController {
             ? costPrice
             : (sellingPrice > 0 ? sellingPrice * 0.7 : 1000.0);
 
+        final warehouseId = _getDefaultWarehouseId();
+
         final movementResult = await _createMovementUseCase(
           CreateInventoryMovementParams(
             productId: createdProduct!.id,
@@ -656,6 +666,7 @@ class InitialInventoryController extends GetxController {
             reason: InventoryMovementReason.purchase,
             quantity: stock.round(),
             unitCost: unitCost,
+            warehouseId: warehouseId,
             notes: 'Stock inicial - Inventario inicial',
           ),
         );

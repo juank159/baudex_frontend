@@ -748,7 +748,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Gestión de Stock',
+          'Inventario',
           style: TextStyle(
             fontSize: Responsive.getFontSize(
               context,
@@ -761,94 +761,25 @@ class ProductFormScreen extends GetView<ProductFormController> {
         ),
         SizedBox(height: compactSpacing),
 
-        // Stock actual y mínimo - Responsive
-        if (context.isMobile) ...[
-          // En móvil: columna
-          CustomTextField(
-            controller: controller.stockController,
-            label: 'Stock Actual *',
-            hint: '0',
-            prefixIcon: Icons.inventory,
-            keyboardType: TextInputType.number,
-            inputFormatters: [PriceInputFormatter()],
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Stock requerido';
-              }
-              final stock = AppFormatters.parseNumber(value);
-              if (stock == null || stock < 0) {
-                return 'Stock inválido';
-              }
-              return null;
-            },
-          ),
-          SizedBox(height: compactSpacing),
-          CustomTextField(
-            controller: controller.minStockController,
-            label: 'Stock Mínimo *',
-            hint: '0',
-            prefixIcon: Icons.warning,
-            keyboardType: TextInputType.number,
-            inputFormatters: [PriceInputFormatter()],
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Stock mínimo requerido';
-              }
-              final minStock = AppFormatters.parseNumber(value);
-              if (minStock == null || minStock < 0) {
-                return 'Stock mínimo inválido';
-              }
-              return null;
-            },
-          ),
-        ] else ...[
-          // En tablet/desktop: fila
-          Row(
-            children: [
-              Expanded(
-                child: CustomTextField(
-                  controller: controller.stockController,
-                  label: 'Stock Actual *',
-                  hint: '0',
-                  prefixIcon: Icons.inventory,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [PriceInputFormatter()],
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Stock requerido';
-                    }
-                    final stock = AppFormatters.parseNumber(value);
-                    if (stock == null || stock < 0) {
-                      return 'Stock inválido';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              SizedBox(width: context.horizontalSpacing),
-              Expanded(
-                child: CustomTextField(
-                  controller: controller.minStockController,
-                  label: 'Stock Mínimo *',
-                  hint: '0',
-                  prefixIcon: Icons.warning,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [PriceInputFormatter()],
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Stock mínimo requerido';
-                    }
-                    final minStock = AppFormatters.parseNumber(value);
-                    if (minStock == null || minStock < 0) {
-                      return 'Stock mínimo inválido';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
+        // Solo Stock Mínimo (stock actual se gestiona via movimientos de inventario)
+        CustomTextField(
+          controller: controller.minStockController,
+          label: 'Stock Mínimo',
+          hint: '0',
+          prefixIcon: Icons.notifications_active,
+          keyboardType: TextInputType.number,
+          inputFormatters: [PriceInputFormatter()],
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Stock mínimo requerido';
+            }
+            final minStock = AppFormatters.parseNumber(value);
+            if (minStock == null || minStock < 0) {
+              return 'Stock mínimo inválido';
+            }
+            return null;
+          },
+        ),
         SizedBox(height: compactSpacing),
 
         // Unidad de medida - Selector moderno
@@ -985,7 +916,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
       children: [
         // Header responsive
         if (context.isMobile) ...[
-          // En móvil: columna
           Text(
             'Precios',
             style: TextStyle(
@@ -999,6 +929,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
             ),
           ),
           SizedBox(height: compactSpacing),
+          // Calculadora de precios - disponible en ambos modos
           ElegantButton(
             text: 'Calculadora de Precios',
             icon: Icons.calculate,
@@ -1007,14 +938,13 @@ class ProductFormScreen extends GetView<ProductFormController> {
               try {
                 controller.showPriceCalculator();
               } catch (e) {
-                print('❌ Error en calculadora: $e');
+                print('Error en calculadora: $e');
               }
             },
             width: double.infinity,
             height: 44,
           ),
         ] else ...[
-          // En tablet/desktop: fila
           Row(
             children: [
               Expanded(
@@ -1031,6 +961,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   ),
                 ),
               ),
+              // Calculadora de precios - disponible en ambos modos
               ElegantButton(
                 text:
                     Responsive.isTablet(context)
@@ -1042,7 +973,7 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   try {
                     controller.showPriceCalculator();
                   } catch (e) {
-                    print('❌ Error en calculadora: $e');
+                    print('Error en calculadora: $e');
                   }
                 },
               ),
@@ -1051,94 +982,61 @@ class ProductFormScreen extends GetView<ProductFormController> {
         ],
         SizedBox(height: compactSpacing),
 
-        // Precio de costo
-        CustomTextField(
-          controller: controller.costPriceController,
-          label: 'Precio de Costo',
-          hint: '0',
-          prefixIcon: Icons.attach_money,
-          keyboardType: TextInputType.number,
-          inputFormatters: [PriceInputFormatter()],
-        ),
-        SizedBox(height: compactSpacing),
-
-        // Precios de venta - Responsive
+        // Precios de venta con margen % inline - Responsive
         if (context.isMobile) ...[
-          // En móvil: dos por fila para ahorrar espacio
-          Row(
-            children: [
-              Expanded(
-                child: CustomTextField(
-                  controller: controller.price1Controller,
-                  label: 'Precio Público',
-                  hint: '0',
-                  prefixIcon: Icons.sell,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [PriceInputFormatter()],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: CustomTextField(
-                  controller: controller.price2Controller,
-                  label: 'Mayorista',
-                  hint: '0',
-                  prefixIcon: Icons.sell,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [PriceInputFormatter()],
-                ),
-              ),
-            ],
+          // Mobile: cada precio con su margen en una fila
+          _buildPriceWithMargin(
+            context: context,
+            priceController: controller.price1Controller,
+            marginController: controller.margin1Controller,
+            priceLabel: 'Precio Público',
+            icon: Icons.sell,
           ),
           SizedBox(height: compactSpacing),
-          Row(
-            children: [
-              Expanded(
-                child: CustomTextField(
-                  controller: controller.price3Controller,
-                  label: 'Distribuidor',
-                  hint: '0',
-                  prefixIcon: Icons.sell,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [PriceInputFormatter()],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: CustomTextField(
-                  controller: controller.specialPriceController,
-                  label: 'Especial',
-                  hint: '0',
-                  prefixIcon: Icons.local_offer,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [PriceInputFormatter()],
-                ),
-              ),
-            ],
+          _buildPriceWithMargin(
+            context: context,
+            priceController: controller.price2Controller,
+            marginController: controller.margin2Controller,
+            priceLabel: 'Mayorista',
+            icon: Icons.sell,
+          ),
+          SizedBox(height: compactSpacing),
+          _buildPriceWithMargin(
+            context: context,
+            priceController: controller.price3Controller,
+            marginController: controller.margin3Controller,
+            priceLabel: 'Distribuidor',
+            icon: Icons.sell,
+          ),
+          SizedBox(height: compactSpacing),
+          _buildPriceWithMargin(
+            context: context,
+            priceController: controller.specialPriceController,
+            marginController: controller.specialMarginController,
+            priceLabel: 'Especial',
+            icon: Icons.local_offer,
           ),
         ] else ...[
-          // En tablet/desktop: dos por fila
+          // Tablet/Desktop: dos pares por fila
           Row(
             children: [
               Expanded(
-                child: CustomTextField(
-                  controller: controller.price1Controller,
-                  label: 'Precio al Público',
-                  hint: '0',
-                  prefixIcon: Icons.sell,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [PriceInputFormatter()],
+                child: _buildPriceWithMargin(
+                  context: context,
+                  priceController: controller.price1Controller,
+                  marginController: controller.margin1Controller,
+                  priceLabel: 'Precio al Público',
+                  icon: Icons.sell,
                 ),
               ),
               SizedBox(width: context.horizontalSpacing),
               Expanded(
-                child: CustomTextField(
-                  controller: controller.price2Controller,
-                  label: 'Precio Mayorista',
-                  hint: '0',
-                  prefixIcon: Icons.sell,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [PriceInputFormatter()],
+                child: _buildPriceWithMargin(
+                  context: context,
+                  priceController: controller.price2Controller,
+                  marginController: controller.margin2Controller,
+                  priceLabel: 'Precio Mayorista',
+                  icon: Icons.sell,
                 ),
               ),
             ],
@@ -1147,107 +1045,65 @@ class ProductFormScreen extends GetView<ProductFormController> {
           Row(
             children: [
               Expanded(
-                child: CustomTextField(
-                  controller: controller.price3Controller,
-                  label: 'Precio Distribuidor',
-                  hint: '0',
-                  prefixIcon: Icons.sell,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [PriceInputFormatter()],
+                child: _buildPriceWithMargin(
+                  context: context,
+                  priceController: controller.price3Controller,
+                  marginController: controller.margin3Controller,
+                  priceLabel: 'Precio Distribuidor',
+                  icon: Icons.sell,
                 ),
               ),
               SizedBox(width: context.horizontalSpacing),
               Expanded(
-                child: CustomTextField(
-                  controller: controller.specialPriceController,
-                  label: 'Precio Especial',
-                  hint: '0',
-                  prefixIcon: Icons.local_offer,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [PriceInputFormatter()],
+                child: _buildPriceWithMargin(
+                  context: context,
+                  priceController: controller.specialPriceController,
+                  marginController: controller.specialMarginController,
+                  priceLabel: 'Precio Especial',
+                  icon: Icons.local_offer,
                 ),
               ),
             ],
           ),
         ],
-
-        // Información de márgenes
-        _buildMarginInfo(context),
       ],
     );
   }
 
-  Widget _buildMarginInfo(BuildContext context) {
-    final costText = controller.costPriceController.text;
-    final sellText = controller.price1Controller.text;
-
-    if (costText.isEmpty || sellText.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final costPrice = AppFormatters.parseNumber(costText) ?? 0;
-    final sellPrice = AppFormatters.parseNumber(sellText) ?? 0;
-    final margin = controller.calculateMargin(costPrice, sellPrice);
-
-    return Container(
-      margin: EdgeInsets.only(top: context.verticalSpacing),
-      padding: EdgeInsets.all(context.horizontalSpacing * 0.75),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            ElegantLightTheme.successGradient.colors.first.withValues(
-              alpha: 0.1,
-            ),
-            ElegantLightTheme.successGradient.colors.last.withValues(
-              alpha: 0.05,
-            ),
-          ],
+  /// Widget helper: campo de precio + campo de margen % inline
+  Widget _buildPriceWithMargin({
+    required BuildContext context,
+    required TextEditingController priceController,
+    required TextEditingController marginController,
+    required String priceLabel,
+    required IconData icon,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 7,
+          child: CustomTextField(
+            controller: priceController,
+            label: priceLabel,
+            hint: '0',
+            prefixIcon: icon,
+            keyboardType: TextInputType.number,
+            inputFormatters: [PriceInputFormatter()],
+          ),
         ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: ElegantLightTheme.successGradient.colors.first.withValues(
-            alpha: 0.3,
+        const SizedBox(width: 6),
+        Expanded(
+          flex: 3,
+          child: CustomTextField(
+            controller: marginController,
+            label: '%',
+            hint: '0',
+            prefixIcon: Icons.percent,
+            keyboardType: TextInputType.number,
           ),
-          width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: ElegantLightTheme.successGradient.colors.first.withValues(
-              alpha: 0.1,
-            ),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.successGradient,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Icon(Icons.trending_up, color: Colors.white, size: 18),
-          ),
-          SizedBox(width: context.horizontalSpacing * 0.5),
-          Expanded(
-            child: Text(
-              'Margen de ganancia: ${margin.toStringAsFixed(1)}%',
-              style: TextStyle(
-                color: ElegantLightTheme.successGradient.colors.last,
-                fontWeight: FontWeight.w600,
-                fontSize: Responsive.getFontSize(
-                  context,
-                  mobile: 14,
-                  tablet: 15,
-                  desktop: 16,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -1420,20 +1276,23 @@ class ProductFormScreen extends GetView<ProductFormController> {
           ),
           SizedBox(height: context.verticalSpacing * 0.75),
 
-          ElegantButton(
-            text: 'Calculadora de Precios',
-            icon: Icons.calculate,
-            gradient: ElegantLightTheme.warningGradient,
-            onPressed: () {
-              try {
-                controller.showPriceCalculator();
-              } catch (e) {
-                print('❌ Error en calculadora: $e');
-              }
-            },
-            width: double.infinity,
-          ),
-          SizedBox(height: context.verticalSpacing * 0.75),
+          // Calculadora de precios - solo en edición
+          if (controller.isEditMode) ...[
+            ElegantButton(
+              text: 'Calculadora de Precios',
+              icon: Icons.calculate,
+              gradient: ElegantLightTheme.warningGradient,
+              onPressed: () {
+                try {
+                  controller.showPriceCalculator();
+                } catch (e) {
+                  print('❌ Error en calculadora: $e');
+                }
+              },
+              width: double.infinity,
+            ),
+            SizedBox(height: context.verticalSpacing * 0.75),
+          ],
 
           ElegantButton(
             text: 'Previsualizar',
@@ -1495,7 +1354,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
                   style: TextStyle(fontSize: 12),
                 ),
                 const Text('• Categoría', style: TextStyle(fontSize: 12)),
-                const Text('• Stock inicial', style: TextStyle(fontSize: 12)),
               ],
             ),
           ),
