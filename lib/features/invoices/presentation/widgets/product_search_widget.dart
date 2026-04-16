@@ -10,6 +10,7 @@ import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/services/audio_notification_service.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/entities/product_price.dart';
+import '../../../products/domain/entities/tax_enums.dart';
 import '../controllers/invoice_form_controller.dart';
 
 class ProductSearchWidget extends StatefulWidget {
@@ -1132,6 +1133,9 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       stock: 999, // Stock "infinito" para productos temporales
       minStock: 0,
       unit: 'pcs',
+      isTaxable: false,
+      taxRate: 0,
+      taxCategory: TaxCategory.noGravado,
       barcode: null,
       weight: null,
       length: null,

@@ -24,6 +24,7 @@ import '../../../../app/core/storage/secure_storage_service.dart';
 // ✅ IMPORT PARA LIMPIAR CACHE DE CATEGORÍAS AL LOGOUT
 import '../../../products/presentation/controllers/product_form_controller.dart';
 import '../../../../app/data/local/full_sync_service.dart';
+import '../../../subscriptions/presentation/controllers/subscription_controller.dart';
 
 class AuthController extends GetxController {
   // Dependencies
@@ -399,6 +400,11 @@ class AuthController extends GetxController {
           // CRÍTICO: Establecer tenant del usuario después del login exitoso
           await _setTenantAfterLogin(authResult.user);
 
+          // Recargar suscripción ahora que tenemos JWT válido
+          if (Get.isRegistered<SubscriptionController>()) {
+            Get.find<SubscriptionController>().loadSubscription();
+          }
+
           // Guardar el correo para recordarlo en futuros logins
           await _saveEmailAfterSuccessfulLogin(
             loginEmailController.text.trim(),
@@ -767,6 +773,10 @@ class AuthController extends GetxController {
         _isAuthenticated.value = isAuth;
         if (isAuth) {
           getProfile(); // Cargar perfil si está autenticado
+          // Recargar suscripción con JWT válido
+          if (Get.isRegistered<SubscriptionController>()) {
+            Get.find<SubscriptionController>().loadSubscription();
+          }
         }
       });
     } catch (e) {
