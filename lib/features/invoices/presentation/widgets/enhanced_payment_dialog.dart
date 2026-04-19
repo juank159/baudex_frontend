@@ -164,7 +164,7 @@ class EnhancedPaymentDialog extends StatefulWidget {
 /// Clase para representar un pago individual en modo múltiples pagos
 class _PaymentEntry {
   double amount;
-  PaymentMethod method;
+  PaymentMethod? method;
   BankAccount? bankAccount;
   final TextEditingController amountController;
 
@@ -176,7 +176,7 @@ class _PaymentEntry {
 
   _PaymentEntry({
     this.amount = 0,
-    this.method = PaymentMethod.cash,
+    this.method,
     this.bankAccount,
     this.currency,
     this.exchangeRate,
@@ -335,6 +335,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
   bool get _canProcessMultiple {
     if (_multiplePayments.isEmpty) return false;
     if (_multiplePayments.any((p) => p.amount <= 0)) return false;
+    if (_multiplePayments.any((p) => p.method == null && p.bankAccount == null)) return false;
 
     // ✅ USAR _effectiveTotal (total - saldo aplicado)
     // Si el total pagado es menor que el total efectivo a pagar
@@ -363,18 +364,17 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     setState(() {
       _isMultiplePaymentMode = !_isMultiplePaymentMode;
       if (_isMultiplePaymentMode && _multiplePayments.isEmpty) {
-        // ✅ CORREGIDO: Usar _effectiveTotal (total - saldo aplicado) en lugar de widget.total
-        _addPaymentEntry(initialAmount: _effectiveTotal);
+        _addPaymentEntry(initialAmount: _effectiveTotal, method: PaymentMethod.cash);
       }
       _updateCanProcess();
     });
   }
 
   /// Agregar nueva entrada de pago
-  void _addPaymentEntry({double initialAmount = 0}) {
+  void _addPaymentEntry({double initialAmount = 0, PaymentMethod? method}) {
     final entry = _PaymentEntry(
       amount: initialAmount,
-      method: PaymentMethod.cash,
+      method: method,
     );
     if (initialAmount > 0) {
       entry.amountController.text = AppFormatters.formatNumber(initialAmount.round());
@@ -2356,112 +2356,141 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Container(
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: ElegantLightTheme.textTertiary.withOpacity(0.2),
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<dynamic>(
-                          isExpanded: true,
-                          value: payment.bankAccount ?? payment.method,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          style: TextStyle(
-                            fontSize: config.bodySize,
-                            color: ElegantLightTheme.textPrimary,
-                          ),
-                          items: [
-                            // Opción efectivo
-                            DropdownMenuItem<PaymentMethod>(
-                              value: PaymentMethod.cash,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade50,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Icon(Icons.money, size: 14, color: Colors.green.shade600),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text('Efectivo'),
-                                ],
-                              ),
-                            ),
-                            // Cuentas bancarias con últimos 4 dígitos
-                            ...bankAccounts.map((account) {
-                              // ✅ Construir texto con nombre y últimos 4 dígitos (igual que Cuenta Destino)
-                              final hasAccountNumber = account.accountNumber != null &&
-                                                       account.accountNumber!.length >= 4;
-                              final lastFourDigits = hasAccountNumber
-                                  ? ' ****${account.accountNumber!.substring(account.accountNumber!.length - 4)}'
-                                  : '';
-                              final displayText = '${account.name}$lastFourDigits';
+                    Builder(
+                      builder: (context) {
+                        // Filtrar métodos/cuentas ya usados por OTROS pagos
+                        final otherPayments = _multiplePayments
+                            .where((p) => !identical(p, payment))
+                            .toList();
+                        final cashUsed = otherPayments.any(
+                          (p) => p.method == PaymentMethod.cash && p.bankAccount == null,
+                        );
+                        final usedAccountIds = otherPayments
+                            .where((p) => p.bankAccount != null)
+                            .map((p) => p.bankAccount!.id)
+                            .toSet();
+                        final availableAccounts = bankAccounts
+                            .where((a) => !usedAccountIds.contains(a.id))
+                            .toList();
 
-                              return DropdownMenuItem<BankAccount>(
-                                value: account,
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: _getBankAccountColor(account.type).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Icon(
-                                        _getBankAccountIcon(account.type),
-                                        size: 14,
-                                        color: _getBankAccountColor(account.type),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        displayText,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontWeight: account.isDefault ? FontWeight.w600 : FontWeight.normal,
+                        return Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: payment.method == null && payment.bankAccount == null
+                                  ? const Color(0xFFEF4444).withOpacity(0.4)
+                                  : ElegantLightTheme.textTertiary.withOpacity(0.2),
+                            ),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<dynamic>(
+                              isExpanded: true,
+                              value: payment.bankAccount ?? payment.method,
+                              hint: Text(
+                                'Seleccionar método',
+                                style: TextStyle(
+                                  fontSize: config.bodySize,
+                                  color: ElegantLightTheme.textTertiary,
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              style: TextStyle(
+                                fontSize: config.bodySize,
+                                color: ElegantLightTheme.textPrimary,
+                              ),
+                              items: [
+                                // Opción efectivo (solo si no está usado por otro pago)
+                                if (!cashUsed)
+                                  DropdownMenuItem<PaymentMethod>(
+                                    value: PaymentMethod.cash,
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.shade50,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Icon(Icons.money, size: 14, color: Colors.green.shade600),
                                         ),
-                                      ),
+                                        const SizedBox(width: 8),
+                                        const Text('Efectivo'),
+                                      ],
                                     ),
-                                    if (account.isDefault) ...[
-                                      const SizedBox(width: 4),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF10B981),
-                                          borderRadius: BorderRadius.circular(3),
-                                        ),
-                                        child: const Text(
-                                          '✓',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
+                                  ),
+                                // Cuentas bancarias disponibles (excluye ya usadas)
+                                ...availableAccounts.map((account) {
+                                  final hasAccountNumber = account.accountNumber != null &&
+                                                           account.accountNumber!.length >= 4;
+                                  final lastFourDigits = hasAccountNumber
+                                      ? ' ****${account.accountNumber!.substring(account.accountNumber!.length - 4)}'
+                                      : '';
+                                  final displayText = '${account.name}$lastFourDigits';
+
+                                  return DropdownMenuItem<BankAccount>(
+                                    value: account,
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: _getBankAccountColor(account.type).withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Icon(
+                                            _getBankAccountIcon(account.type),
+                                            size: 14,
+                                            color: _getBankAccountColor(account.type),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              );
-                            }),
-                          ],
-                          onChanged: (value) {
-                            if (value is BankAccount) {
-                              _updatePaymentBankAccount(index, value);
-                            } else if (value is PaymentMethod) {
-                              _updatePaymentMethod(index, value);
-                              _updatePaymentBankAccount(index, null);
-                            }
-                          },
-                        ),
-                      ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            displayText,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontWeight: account.isDefault ? FontWeight.w600 : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ),
+                                        if (account.isDefault) ...[
+                                          const SizedBox(width: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF10B981),
+                                              borderRadius: BorderRadius.circular(3),
+                                            ),
+                                            child: const Text(
+                                              '✓',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
+                              onChanged: (value) {
+                                if (value is BankAccount) {
+                                  _updatePaymentBankAccount(index, value);
+                                } else if (value is PaymentMethod) {
+                                  _updatePaymentMethod(index, value);
+                                  _updatePaymentBankAccount(index, null);
+                                }
+                                _updateCanProcess();
+                              },
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -3729,7 +3758,7 @@ class _EnhancedPaymentDialogState extends State<EnhancedPaymentDialog>
     final payments = _multiplePayments.map((p) {
       final method = p.bankAccount != null
           ? _getPaymentMethodFromBankAccount(p.bankAccount)
-          : p.method;
+          : (p.method ?? PaymentMethod.cash);
 
       // Datos de moneda extranjera por pago
       final foreignAmount = p.currency != null
