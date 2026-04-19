@@ -354,18 +354,32 @@ class PaymentMethodStats extends Equatable {
 
 // 🆕 NUEVO: Desglose por tipo de ingreso
 class IncomeTypeBreakdown extends Equatable {
+  // Total de facturas (incluye ventas nuevas + abonos en facturas viejas).
+  // Se conserva para compatibilidad retro.
   final double invoices;
+  // Ventas facturadas dentro del período.
+  final double newInvoices;
+  // Abonos recibidos en el período sobre facturas de fechas anteriores.
+  final double paymentsOnOldInvoices;
   final double credits;
   final double total;
 
   const IncomeTypeBreakdown({
     required this.invoices,
+    required this.newInvoices,
+    required this.paymentsOnOldInvoices,
     required this.credits,
     required this.total,
   });
 
   @override
-  List<Object?> get props => [invoices, credits, total];
+  List<Object?> get props => [
+    invoices,
+    newInvoices,
+    paymentsOnOldInvoices,
+    credits,
+    total,
+  ];
 }
 
 // Desglose por moneda (solo cuando multiCurrencyEnabled)

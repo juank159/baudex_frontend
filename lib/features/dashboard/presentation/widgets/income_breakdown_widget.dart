@@ -117,12 +117,9 @@ class IncomeBreakdownWidget extends StatelessWidget {
 
   Widget _buildIncomeTypeSection() {
     final breakdown = stats.incomeTypeBreakdown;
-    final invoicesPercent = breakdown.total > 0
-        ? (breakdown.invoices / breakdown.total * 100).toDouble()
-        : 0.0;
-    final creditsPercent = breakdown.total > 0
-        ? (breakdown.credits / breakdown.total * 100).toDouble()
-        : 0.0;
+    final total = breakdown.total;
+    double pct(double value) => total > 0 ? (value / total * 100) : 0.0;
+    final hasOldPayments = breakdown.paymentsOnOldInvoices > 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,22 +135,34 @@ class IncomeBreakdownWidget extends StatelessWidget {
         ),
         const SizedBox(height: 10),
 
-        // Facturas
+        // Ventas nuevas del período
         _buildIncomeTypeItem(
           icon: Icons.receipt_long_rounded,
-          label: 'Facturas Pagadas',
-          amount: breakdown.invoices,
-          percentage: invoicesPercent,
+          label: 'Ventas Facturadas',
+          amount: breakdown.newInvoices,
+          percentage: pct(breakdown.newInvoices),
           color: const Color(0xFF10B981),
         ),
         const SizedBox(height: 6),
+
+        // Abonos a facturas antiguas (solo si hay)
+        if (hasOldPayments) ...[
+          _buildIncomeTypeItem(
+            icon: Icons.history_rounded,
+            label: 'Abonos a Facturas Anteriores',
+            amount: breakdown.paymentsOnOldInvoices,
+            percentage: pct(breakdown.paymentsOnOldInvoices),
+            color: const Color(0xFFF59E0B),
+          ),
+          const SizedBox(height: 6),
+        ],
 
         // Créditos
         _buildIncomeTypeItem(
           icon: Icons.credit_card_rounded,
           label: 'Créditos Aplicados',
           amount: breakdown.credits,
-          percentage: creditsPercent,
+          percentage: pct(breakdown.credits),
           color: const Color(0xFF3B82F6),
         ),
         const SizedBox(height: 8),

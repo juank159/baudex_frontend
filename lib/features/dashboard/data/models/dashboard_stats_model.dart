@@ -263,14 +263,26 @@ class DashboardStatsModel extends DashboardStats {
     if (incomeTypeData == null) {
       return const IncomeTypeBreakdown(
         invoices: 0.0,
+        newInvoices: 0.0,
+        paymentsOnOldInvoices: 0.0,
         credits: 0.0,
         total: 0.0,
       );
     }
 
     if (incomeTypeData is Map<String, dynamic>) {
+      final invoices = _toDouble(incomeTypeData['invoices']);
+      // Fallback: si el backend no envía newInvoices (versión anterior), derivarlo.
+      final newInvoices = incomeTypeData['newInvoices'] != null
+          ? _toDouble(incomeTypeData['newInvoices'])
+          : invoices;
+      final paymentsOnOldInvoices = _toDouble(
+        incomeTypeData['paymentsOnOldInvoices'],
+      );
       return IncomeTypeBreakdown(
-        invoices: _toDouble(incomeTypeData['invoices']),
+        invoices: invoices,
+        newInvoices: newInvoices,
+        paymentsOnOldInvoices: paymentsOnOldInvoices,
         credits: _toDouble(incomeTypeData['credits']),
         total: _toDouble(incomeTypeData['total']),
       );
@@ -278,6 +290,8 @@ class DashboardStatsModel extends DashboardStats {
 
     return const IncomeTypeBreakdown(
       invoices: 0.0,
+      newInvoices: 0.0,
+      paymentsOnOldInvoices: 0.0,
       credits: 0.0,
       total: 0.0,
     );

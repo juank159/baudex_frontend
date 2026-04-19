@@ -403,6 +403,8 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         paymentMethodsBreakdown: paymentMethodsList,
         incomeTypeBreakdown: IncomeTypeBreakdown(
           invoices: invoicesIncome,
+          newInvoices: invoicesIncome - paymentIncomeFromOldInvoices,
+          paymentsOnOldInvoices: paymentIncomeFromOldInvoices,
           credits: 0.0,
           total: invoicesIncome,
         ),
