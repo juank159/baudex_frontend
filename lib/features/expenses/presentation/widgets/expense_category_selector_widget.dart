@@ -1,5 +1,5 @@
 // lib/features/expenses/presentation/widgets/expense_category_selector_widget.dart
-import 'package:dartz/dartz.dart';
+import 'package:dartz/dartz.dart' hide State;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/errors/failures.dart';
