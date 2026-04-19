@@ -73,6 +73,10 @@ class BankAccountSummary {
   double get grandTotal => totalReceived + creditPaymentTotal;
   int get totalPayments => paymentCount + creditPaymentCount;
 
+  /// Totales filtrados por período (respetan el filtro de fecha del dashboard)
+  double get grandTotalPeriod => totalReceivedPeriod + creditPaymentTotal;
+  int get totalPaymentsPeriod => paymentCountPeriod + creditPaymentCount;
+
   /// Obtiene el número de cuenta enmascarado (****1234)
   String get maskedAccountNumber {
     if (accountNumber == null || accountNumber!.isEmpty) return '';
@@ -101,6 +105,7 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
   List<BankAccountSummary> _accounts = [];
   bool _isLoading = true;
   String? _error;
+  int _loadVersion = 0; // Previene race condition al cambiar filtros rápido
 
   @override
   void initState() {
@@ -118,71 +123,70 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
   }
 
   Future<void> _loadData() async {
+    final thisVersion = ++_loadVersion;
+
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
-    try {
-      // Check de conectividad
-      final networkInfo = Get.find<NetworkInfo>();
-      if (!await networkInfo.isConnected) {
-        await _loadDataOffline();
-        return;
-      }
+    // OFFLINE-FIRST: Cargar datos desde ISAR inmediatamente
+    await _loadDataOffline(thisVersion);
+    if (thisVersion != _loadVersion) return;
 
-      // Construir query parameters con filtros de fecha
-      final queryParams = <String, String>{};
-      if (widget.startDate != null) {
-        queryParams['startDate'] = widget.startDate!.toIso8601String().split('T')[0];
-      }
-      if (widget.endDate != null) {
-        queryParams['endDate'] = widget.endDate!.toIso8601String().split('T')[0];
-      }
+    // Luego refrescar desde servidor en background
+    _refreshFromServer(thisVersion);
+  }
 
-      final uri = Uri(
-        path: '/bank-accounts/summary',
-        queryParameters: queryParams.isEmpty ? null : queryParams,
-      );
-
-      final response = await _dioClient.get(uri.toString());
-
-      // El backend envía {success: true, data: [...]}
-      dynamic accountsData;
-
-      if (response.data is Map && response.data['data'] != null) {
-        // Formato: {success: true, data: [...]}
-        accountsData = response.data['data'];
-      } else if (response.data is List) {
-        // Formato directo: [...]
-        accountsData = response.data;
-      }
-
-      if (accountsData is List) {
-        _accounts = accountsData
-            .map((item) => BankAccountSummary.fromJson(item as Map<String, dynamic>))
-            .toList();
-        debugPrint('✅ Bank accounts loaded: ${_accounts.length} cuentas');
-      }
-    } catch (e) {
-      debugPrint('⚠️ Error loading bank accounts online: $e - Fallback a ISAR...');
-      // Fallback offline en caso de error
+  /// Refresca datos desde el servidor en background (no bloquea UI)
+  void _refreshFromServer(int version) {
+    () async {
       try {
-        await _loadDataOffline();
-        return;
-      } catch (_) {}
-      _error = 'Error al cargar cuentas: ${e.toString()}';
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        final networkInfo = Get.find<NetworkInfo>();
+        if (!await networkInfo.isConnected) return;
+        if (version != _loadVersion) return;
+
+        final queryParams = <String, String>{};
+        if (widget.startDate != null) {
+          queryParams['startDate'] = widget.startDate!.toIso8601String().split('T')[0];
+        }
+        if (widget.endDate != null) {
+          queryParams['endDate'] = widget.endDate!.toIso8601String().split('T')[0];
+        }
+
+        final uri = Uri(
+          path: '/bank-accounts/summary',
+          queryParameters: queryParams.isEmpty ? null : queryParams,
+        );
+
+        final response = await _dioClient.get(uri.toString());
+
+        if (version != _loadVersion) return;
+
+        dynamic accountsData;
+        if (response.data is Map && response.data['data'] != null) {
+          accountsData = response.data['data'];
+        } else if (response.data is List) {
+          accountsData = response.data;
+        }
+
+        if (accountsData is List && mounted) {
+          final list = accountsData as List;
+          setState(() {
+            _accounts = list
+                .map<BankAccountSummary>((item) => BankAccountSummary.fromJson(item as Map<String, dynamic>))
+                .toList();
+          });
+          debugPrint('🌐 Bank accounts actualizado desde servidor: ${_accounts.length} cuentas');
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error refreshing bank accounts from server: $e');
       }
-    }
+    }();
   }
 
   /// Carga cuentas bancarias desde ISAR y calcula totales desde pagos de facturas
-  Future<void> _loadDataOffline() async {
+  Future<void> _loadDataOffline(int version) async {
     try {
       final isar = IsarDatabase.instance.database;
 
@@ -193,20 +197,42 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
           .isActiveEqualTo(true)
           .findAll();
 
+      if (version != _loadVersion) return; // Descartado: filtro cambió
+
       if (isarAccounts.isEmpty) {
         _accounts = [];
         debugPrint('📴 Bank accounts offline: sin cuentas en ISAR');
-        if (mounted) setState(() => _isLoading = false);
+        if (version == _loadVersion && mounted) setState(() => _isLoading = false);
         return;
       }
 
-      // 2. Cargar todas las facturas para extraer pagos
-      final allInvoices = await isar.isarInvoices
-          .filter()
-          .deletedAtIsNull()
-          .findAll();
+      // Capturar fechas del widget al momento de la carga (consistencia)
+      final startDate = widget.startDate;
+      final endDate = widget.endDate;
 
-      // 3. Extraer todos los pagos de todas las facturas
+      // 2. Cargar facturas filtradas por invoice.date (consistente con backend)
+      // IMPORTANTE: Filtrar por fecha de factura, NO por paymentDate,
+      // para que los totales coincidan con el dashboard (totalRevenue)
+      final allInvoices = await (() async {
+        if (startDate != null && endDate != null) {
+          final startDay = DateTime(startDate.year, startDate.month, startDate.day);
+          final endDay = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+          return isar.isarInvoices
+              .filter()
+              .deletedAtIsNull()
+              .dateBetween(startDay, endDay)
+              .findAll();
+        } else {
+          return isar.isarInvoices
+              .filter()
+              .deletedAtIsNull()
+              .findAll();
+        }
+      })();
+
+      if (version != _loadVersion) return; // Descartado: filtro cambió
+
+      // 3. Extraer todos los pagos de las facturas (ya filtradas por fecha)
       final allPayments = <Map<String, dynamic>>[];
       for (var invoice in allInvoices) {
         if (invoice.paymentsJson != null && invoice.paymentsJson!.isNotEmpty && invoice.paymentsJson != '[]') {
@@ -215,8 +241,6 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
             if (decoded is List) {
               for (var payment in decoded) {
                 if (payment is Map<String, dynamic>) {
-                  // Agregar referencia a si la factura es de tipo credito
-                  payment['_invoicePaymentMethod'] = invoice.paymentMethod.name;
                   allPayments.add(payment);
                 }
               }
@@ -235,19 +259,12 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
         }
       }
 
-      // 5. Construir BankAccountSummary para cada cuenta
-      _accounts = isarAccounts.map((account) {
-        final accountPayments = paymentsByAccount[account.serverId] ?? [];
+      if (version != _loadVersion) return; // Descartado: filtro cambió
 
-        // Filtrar por rango de fecha si aplica
-        final filteredPayments = accountPayments.where((p) {
-          if (widget.startDate == null && widget.endDate == null) return true;
-          final paymentDate = DateTime.tryParse(p['paymentDate']?.toString() ?? '');
-          if (paymentDate == null) return true;
-          if (widget.startDate != null && paymentDate.isBefore(widget.startDate!)) return false;
-          if (widget.endDate != null && paymentDate.isAfter(widget.endDate!)) return false;
-          return true;
-        }).toList();
+      // 5. Construir BankAccountSummary para cada cuenta
+      final accounts = isarAccounts.map((account) {
+        // Pagos ya están filtrados por fecha de factura (paso 2)
+        final filteredPayments = paymentsByAccount[account.serverId] ?? [];
 
         // Separar pagos normales de creditos
         final normalPayments = filteredPayments.where((p) =>
@@ -282,19 +299,23 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
         );
       }).toList();
 
+      if (version != _loadVersion) return; // Descartado: filtro cambió
+
       // Ordenar: default primero, luego por nombre
-      _accounts.sort((a, b) {
+      accounts.sort((a, b) {
         if (a.isDefault && !b.isDefault) return -1;
         if (!a.isDefault && b.isDefault) return 1;
         return a.name.compareTo(b.name);
       });
 
+      _accounts = accounts;
       debugPrint('📴 Bank accounts offline: ${_accounts.length} cuentas desde ISAR');
     } catch (e) {
+      if (version != _loadVersion) return;
       debugPrint('❌ Error loading bank accounts offline: $e');
       _error = 'Error al cargar cuentas offline';
     } finally {
-      if (mounted) {
+      if (version == _loadVersion && mounted) {
         setState(() => _isLoading = false);
       }
     }
@@ -362,7 +383,7 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
   }
 
   Widget _buildHeader() {
-    final totalBalance = _accounts.fold<double>(0, (sum, acc) => sum + acc.currentBalance);
+    final totalBalance = _accounts.fold<double>(0, (sum, acc) => sum + acc.totalReceivedPeriod);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -410,7 +431,7 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Saldo total: ${AppFormatters.formatCurrency(totalBalance.toInt())}',
+                  'Recibido: ${AppFormatters.formatCurrency(totalBalance.toInt())}',
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: ElegantLightTheme.primaryBlue,
                     fontWeight: FontWeight.w600,
@@ -531,19 +552,19 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
                   ],
                 ),
               ),
-              // Saldo actual
+              // Recibido en el período
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'Saldo',
+                    'Recibido',
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.textSecondary,
                       fontSize: 9,  // Reducido de 10
                     ),
                   ),
                   Text(
-                    AppFormatters.formatCurrency(account.currentBalance.toInt()),
+                    AppFormatters.formatCurrency(account.totalReceivedPeriod.toInt()),
                     style: AppTextStyles.titleMedium.copyWith(
                       fontWeight: FontWeight.w800,
                       color: color,
@@ -566,8 +587,8 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
               children: [
                 _buildStatItem(
                   'Facturas',
-                  AppFormatters.formatCurrency(account.totalReceived.toInt()),
-                  '${account.paymentCount} pagos',
+                  AppFormatters.formatCurrency(account.totalReceivedPeriod.toInt()),
+                  '${account.paymentCountPeriod} pagos',
                   Colors.green,
                 ),
                 Container(
@@ -590,8 +611,8 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
                 ),
                 _buildStatItem(
                   'Total',
-                  AppFormatters.formatCurrency(account.grandTotal.toInt()),
-                  '${account.totalPayments} pagos',
+                  AppFormatters.formatCurrency(account.grandTotalPeriod.toInt()),
+                  '${account.totalPaymentsPeriod} pagos',
                   Colors.purple,
                 ),
               ],

@@ -415,17 +415,24 @@ class IncomeBreakdownWidget extends StatelessWidget {
         return const Color(0xFFFFDD00);
       case 'daviplata':
         return const Color(0xFFED1C24);
+      case 'bank_transfer':
       case 'transfer':
       case 'transferencia':
         return Colors.blue;
+      case 'credit_card':
       case 'card':
       case 'tarjeta':
         return Colors.purple;
+      case 'debit_card':
+        return Colors.indigo;
       case 'credit':
       case 'credito':
         return Colors.orange;
       case 'client_balance':
         return Colors.teal;
+      case 'check':
+      case 'cheque':
+        return Colors.brown;
       default:
         return Colors.grey;
     }
@@ -440,9 +447,12 @@ class IncomeBreakdownWidget extends StatelessWidget {
       case 'bancolombia':
       case 'daviplata':
         return Icons.account_balance;
+      case 'bank_transfer':
       case 'transfer':
       case 'transferencia':
         return Icons.swap_horiz;
+      case 'credit_card':
+      case 'debit_card':
       case 'card':
       case 'tarjeta':
         return Icons.credit_card;
@@ -451,6 +461,9 @@ class IncomeBreakdownWidget extends StatelessWidget {
         return Icons.account_balance_wallet;
       case 'client_balance':
         return Icons.account_balance_wallet;
+      case 'check':
+      case 'cheque':
+        return Icons.receipt;
       default:
         return Icons.payment;
     }
@@ -459,14 +472,26 @@ class IncomeBreakdownWidget extends StatelessWidget {
   String _getDisplayName(String method) {
     final names = {
       'cash': 'Efectivo',
+      'credit': 'Crédito',
+      'credit_card': 'Tarjeta de Crédito',
+      'debit_card': 'Tarjeta de Débito',
+      'bank_transfer': 'Transferencia',
+      'check': 'Cheque',
+      'client_balance': 'Saldo a Favor',
+      'other': 'Otro',
+      // Nombres comunes de cuentas bancarias
       'nequi': 'Nequi',
       'bancolombia': 'Bancolombia',
       'daviplata': 'Daviplata',
+      // Legacy
       'transfer': 'Transferencia',
       'card': 'Tarjeta',
-      'credit': 'Crédito',
-      'client_balance': 'Saldo a Favor',
+      // Nombres legacy offline (pre-fix)
+      'efectivo': 'Efectivo',
+      'credito': 'Crédito',
+      'transferencia': 'Transferencia',
+      'cheque': 'Cheque',
     };
-    return names[method.toLowerCase()] ?? method.toUpperCase();
+    return names[method.toLowerCase()] ?? method;
   }
 }

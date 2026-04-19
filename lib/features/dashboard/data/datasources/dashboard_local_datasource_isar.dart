@@ -13,6 +13,7 @@ import '../../../products/data/models/isar/isar_product.dart';
 import '../../../customers/data/models/isar/isar_customer.dart';
 import '../../../notifications/data/models/isar/isar_notification.dart';
 import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
+import '../../../bank_accounts/data/models/isar/isar_bank_account.dart';
 import '../../../settings/data/models/isar/isar_organization.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../../domain/entities/recent_activity_advanced.dart';
@@ -50,12 +51,21 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         _isar.isarProducts.filter().deletedAtIsNull().findAll(),
         // 3: Customers (sin filtro de fecha)
         _isar.isarCustomers.filter().deletedAtIsNull().findAll(),
+        // 4: Bank accounts (para resolver nombres en paymentMethodsBreakdown)
+        _isar.isarBankAccounts.filter().deletedAtIsNull().findAll(),
       ]);
 
       final invoices = results[0] as List<IsarInvoice>;
       final expenses = results[1] as List<IsarExpense>;
       final products = results[2] as List<IsarProduct>;
       final customers = results[3] as List<IsarCustomer>;
+      final bankAccounts = results[4] as List<IsarBankAccount>;
+
+      // Mapa bankAccountId → nombre para resolver pagos por cuenta bancaria (ej: Nequi)
+      final bankAccountNames = <String, String>{};
+      for (final ba in bankAccounts) {
+        bankAccountNames[ba.serverId] = ba.name;
+      }
 
       // 🔍 DIAGNÓSTICO: Cuántas facturas retornó el filtro de fecha
       final offlineDuplicates = invoices.where((i) => i.serverId.startsWith('invoice_offline_')).toList();
@@ -109,7 +119,7 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       int pendingInvoices = 0;
       int paidInvoices = 0;
       int totalPaidCount = 0;
-      final paymentMethodsMap = <IsarPaymentMethod, _PMAccumulator>{};
+      final paymentMethodsMap = <String, _PMAccumulator>{};
 
       for (final inv in invoices) {
         final isPaid = inv.status == IsarInvoiceStatus.paid;
@@ -122,11 +132,32 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
           if (inv.date.isAfter(todayStart)) todaySales += inv.paidAmount;
           if (inv.date.isAfter(monthStart)) monthlySales += inv.paidAmount;
 
-          // Payment methods
-          final method = inv.paymentMethod;
-          paymentMethodsMap.putIfAbsent(method, () => _PMAccumulator(_paymentMethodToString(method)));
-          paymentMethodsMap[method]!.count++;
-          paymentMethodsMap[method]!.totalAmount += inv.paidAmount;
+          // Payment methods: desglosar desde pagos individuales (no inv.paymentMethod)
+          // Esto permite ver "Nequi", "Bancolombia", etc. por nombre de cuenta bancaria
+          // Usa mismo formato que el servidor: PaymentMethod.value ("cash") o nombre de cuenta ("Nequi")
+          final payments = IsarInvoice.decodePayments(inv.paymentsJson);
+          if (payments.isNotEmpty) {
+            for (final p in payments) {
+              String methodKey;
+              if (p.bankAccountId != null && p.bankAccountId!.isNotEmpty &&
+                  bankAccountNames.containsKey(p.bankAccountId)) {
+                // Pago asociado a cuenta bancaria → usar nombre (ej: "Nequi")
+                methodKey = bankAccountNames[p.bankAccountId]!;
+              } else {
+                // Pago sin cuenta bancaria → usar value del enum (ej: "cash", "credit_card")
+                methodKey = p.paymentMethod.value;
+              }
+              paymentMethodsMap.putIfAbsent(methodKey, () => _PMAccumulator(methodKey));
+              paymentMethodsMap[methodKey]!.count++;
+              paymentMethodsMap[methodKey]!.totalAmount += p.amount;
+            }
+          } else {
+            // Fallback: sin payments decodificados, usar método a nivel de factura
+            final methodKey = _paymentMethodToString(inv.paymentMethod);
+            paymentMethodsMap.putIfAbsent(methodKey, () => _PMAccumulator(methodKey));
+            paymentMethodsMap[methodKey]!.count++;
+            paymentMethodsMap[methodKey]!.totalAmount += inv.paidAmount;
+          }
         }
         if (isPaid) {
           paidInvoices++;

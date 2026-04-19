@@ -79,6 +79,7 @@ class DashboardController extends GetxController
   final _selectedDateRange = Rxn<DateTimeRange>();
   final _selectedActivityTypes = <ActivityType>[].obs;
   final _selectedPeriod = 'hoy'.obs;
+  int _dataVersion = 0; // Previene race condition al cambiar filtros rápido
 
   // Getters
   bool get isLoadingStats => _isLoadingStats.value;
@@ -211,14 +212,15 @@ class DashboardController extends GetxController
   }
 
   /// Refresca datos del servidor en background (no bloquea UI)
-  void _refreshFromServer(DateTime? startDate, DateTime? endDate) {
+  void _refreshFromServer(DateTime? startDate, DateTime? endDate, [int? version]) {
+    final v = version ?? _dataVersion;
     () async {
       if (!_isAlive) return;
       try {
         final networkInfo = Get.find<NetworkInfo>();
         if (!networkInfo.isServerReachable) return;
         final isOnline = await networkInfo.isConnected;
-        if (!isOnline || !_isAlive) return;
+        if (!isOnline || !_isAlive || v != _dataVersion) return;
 
         print('🌐 Dashboard: Refrescando desde servidor en background...');
         await Future.wait([
@@ -244,7 +246,7 @@ class DashboardController extends GetxController
           ).catchError((e) {}),
         ]);
 
-        if (!_isAlive) return;
+        if (!_isAlive || v != _dataVersion) return;
         _harmonizeFinancialData();
 
         await _loadExpensesByCategory().timeout(
@@ -252,7 +254,7 @@ class DashboardController extends GetxController
           onTimeout: () => print('⏰ Timeout gastos por categoría'),
         ).catchError((e) => print('⚠️ Error gastos: $e'));
 
-        if (!_isAlive) return;
+        if (!_isAlive || v != _dataVersion) return;
         update();
         print('✅ Dashboard: Datos actualizados desde servidor');
       } catch (e) {
@@ -882,14 +884,16 @@ class DashboardController extends GetxController
 
   /// Helper reutilizable para cargar datos con filtro de fecha (offline-first)
   void _loadDataForDateRange(DateTime? startDate, DateTime? endDate, String label) {
+    final version = ++_dataVersion;
     () async {
       try {
         // ═══ PASO 1: ISAR instantáneo ═══
         await _loadAllOffline(startDate, endDate);
+        if (version != _dataVersion || !_isAlive) return;
         update();
 
         // ═══ PASO 2: Refresh background ═══
-        _refreshFromServer(startDate, endDate);
+        _refreshFromServer(startDate, endDate, version);
       } catch (error) {
         print('⚠️ Error cargando datos para $label: $error');
       }
