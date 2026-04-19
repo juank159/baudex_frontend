@@ -2212,7 +2212,7 @@ class InvoiceFormController extends GetxController {
         'multiplePayments': multiplePayments.map((p) {
           return <String, dynamic>{
             'amount': p.amount,
-            'method': p.method.name,
+            'method': p.method.value,
             'bankAccountId': p.bankAccountId,
             'bankAccountName': p.bankAccountName,
             if (p.paymentCurrency != null) 'paymentCurrency': p.paymentCurrency,
