@@ -47,6 +47,35 @@ class ModernCategorySelectorWidget extends StatelessWidget {
                   ),
                 ),
               const Spacer(),
+              Obx(() {
+                if (controller.selectedCategory.value != null) {
+                  return TextButton.icon(
+                    onPressed: () => _showEditCategoryDialog(
+                      context,
+                      controller.selectedCategory.value!,
+                    ),
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      size: 14,
+                      color: ElegantLightTheme.accentOrange,
+                    ),
+                    label: Text(
+                      'Editar',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: ElegantLightTheme.accentOrange,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              }),
               TextButton.icon(
                 onPressed: () => _showCreateCategoryDialog(context),
                 icon: Icon(
@@ -542,6 +571,25 @@ class ModernCategorySelectorWidget extends StatelessWidget {
                   ),
                 ),
 
+                // Edit button
+                IconButton(
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    size: 16,
+                    color: ElegantLightTheme.textTertiary,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showEditCategoryDialog(context, category);
+                  },
+                  style: IconButton.styleFrom(
+                    padding: const EdgeInsets.all(6),
+                    minimumSize: const Size(32, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  tooltip: 'Editar categoría',
+                ),
+
                 // Checkmark
                 if (isSelected)
                   Container(
@@ -572,6 +620,24 @@ class ModernCategorySelectorWidget extends StatelessWidget {
         onCategorySaved: (category) {
           controller.categories.add(category);
           controller.selectedCategory.value = category;
+        },
+      ),
+    );
+  }
+
+  void _showEditCategoryDialog(BuildContext context, ExpenseCategory categoryToEdit) {
+    showDialog(
+      context: context,
+      builder: (context) => ModernCategoryFormDialog(
+        category: categoryToEdit,
+        onCategorySaved: (updated) {
+          final idx = controller.categories.indexWhere((c) => c.id == categoryToEdit.id);
+          if (idx >= 0) {
+            controller.categories[idx] = updated;
+          }
+          if (controller.selectedCategory.value?.id == categoryToEdit.id) {
+            controller.selectedCategory.value = updated;
+          }
         },
       ),
     );
