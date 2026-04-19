@@ -15,6 +15,9 @@ class AddPaymentRequestModel {
   final double? paymentCurrencyAmount;
   final double? exchangeRate;
 
+  // Idempotencia: evita pagos duplicados al reintentar sync.
+  final String? idempotencyKey;
+
   const AddPaymentRequestModel({
     required this.amount,
     required this.paymentMethod,
@@ -25,6 +28,7 @@ class AddPaymentRequestModel {
     this.paymentCurrency,
     this.paymentCurrencyAmount,
     this.exchangeRate,
+    this.idempotencyKey,
   });
 
   Map<String, dynamic> toJson() {
@@ -41,6 +45,7 @@ class AddPaymentRequestModel {
     if (paymentCurrency != null) json['paymentCurrency'] = paymentCurrency;
     if (paymentCurrencyAmount != null) json['paymentCurrencyAmount'] = paymentCurrencyAmount;
     if (exchangeRate != null) json['exchangeRate'] = exchangeRate;
+    if (idempotencyKey != null) json['idempotencyKey'] = idempotencyKey;
 
     return json;
   }
@@ -55,6 +60,7 @@ class AddPaymentRequestModel {
     String? paymentCurrency,
     double? paymentCurrencyAmount,
     double? exchangeRate,
+    String? idempotencyKey,
   }) {
     return AddPaymentRequestModel(
       amount: amount,
@@ -66,6 +72,7 @@ class AddPaymentRequestModel {
       paymentCurrency: paymentCurrency,
       paymentCurrencyAmount: paymentCurrencyAmount,
       exchangeRate: exchangeRate,
+      idempotencyKey: idempotencyKey,
     );
   }
 
@@ -112,6 +119,9 @@ class PaymentItemModel {
   final double? paymentCurrencyAmount;
   final double? exchangeRate;
 
+  // Idempotencia por ítem
+  final String? idempotencyKey;
+
   const PaymentItemModel({
     required this.amount,
     required this.paymentMethod,
@@ -121,6 +131,7 @@ class PaymentItemModel {
     this.paymentCurrency,
     this.paymentCurrencyAmount,
     this.exchangeRate,
+    this.idempotencyKey,
   });
 
   Map<String, dynamic> toJson() {
@@ -135,6 +146,7 @@ class PaymentItemModel {
     if (paymentCurrency != null) json['paymentCurrency'] = paymentCurrency;
     if (paymentCurrencyAmount != null) json['paymentCurrencyAmount'] = paymentCurrencyAmount;
     if (exchangeRate != null) json['exchangeRate'] = exchangeRate;
+    if (idempotencyKey != null) json['idempotencyKey'] = idempotencyKey;
 
     return json;
   }
@@ -148,6 +160,7 @@ class PaymentItemModel {
     String? paymentCurrency,
     double? paymentCurrencyAmount,
     double? exchangeRate,
+    String? idempotencyKey,
   }) {
     return PaymentItemModel(
       amount: amount,
@@ -158,6 +171,7 @@ class PaymentItemModel {
       paymentCurrency: paymentCurrency,
       paymentCurrencyAmount: paymentCurrencyAmount,
       exchangeRate: exchangeRate,
+      idempotencyKey: idempotencyKey,
     );
   }
 

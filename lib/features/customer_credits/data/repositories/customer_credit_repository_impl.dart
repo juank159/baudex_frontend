@@ -788,16 +788,18 @@ class CustomerCreditRepositoryImpl implements CustomerCreditRepository {
       // Update cache
       await localDataSource.cacheCredit(updatedCredit);
 
-      // Add to sync queue
+      // Add to sync queue. Generamos un idempotencyKey único para que un reintento no duplique el pago.
+      final idempotencyKey = 'payment_${DateTime.now().millisecondsSinceEpoch}_${creditId.hashCode}';
       await _addToSyncQueue(
         entityType: 'CustomerCredit',
         entityId: creditId,
         operationType: SyncOperationType.update,
         data: {
           'action': 'addPayment',
+          'idempotencyKey': idempotencyKey,
           'amount': dto.amount,
           'paymentMethod': dto.paymentMethod,
-          'paymentDate': dto.paymentDate,
+          'paymentDate': dto.paymentDate ?? DateTime.now().toIso8601String(),
           'reference': dto.reference,
           'notes': dto.notes,
           'bankAccountId': dto.bankAccountId,

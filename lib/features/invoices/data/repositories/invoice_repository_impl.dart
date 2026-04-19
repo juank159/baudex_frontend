@@ -960,16 +960,19 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     }
 
     try {
+      // idempotencyKey protege contra double-clicks/double-submits en el path online.
+      final onlineIdempotencyKey = 'payment_online_${DateTime.now().millisecondsSinceEpoch}_${invoiceId.hashCode}';
       final request = AddPaymentRequestModel(
         amount: amount,
         paymentMethod: paymentMethod.value,
         bankAccountId: bankAccountId,
-        paymentDate: paymentDate?.toIso8601String(),
+        paymentDate: (paymentDate ?? DateTime.now()).toIso8601String(),
         reference: reference,
         notes: notes,
         paymentCurrency: paymentCurrency,
         paymentCurrencyAmount: paymentCurrencyAmount,
         exchangeRate: exchangeRate,
+        idempotencyKey: onlineIdempotencyKey,
       );
 
       final updatedInvoice = await remoteDataSource.addPayment(

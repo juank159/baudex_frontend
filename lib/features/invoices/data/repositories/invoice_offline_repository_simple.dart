@@ -923,6 +923,8 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       AppLogger.i('InvoiceOfflineRepository: Pago offline registrado: \$$amount → paidAmount=\$$newPaidAmount, balanceDue=\$$newBalanceDue, status=$newEntityStatus');
 
       // 7. Encolar en sync queue
+      // El paymentTempId se reusa como idempotencyKey: garantiza que si la operación se reintenta,
+      // el backend no duplicará el pago (UNIQUE(organization_id, idempotency_key)).
       try {
         final syncService = Get.find<SyncService>();
         await syncService.addOperation(
@@ -931,6 +933,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
           operationType: SyncOperationType.update,
           data: {
             'action': 'addPayment',
+            'idempotencyKey': paymentTempId,
             'amount': amount,
             'paymentMethod': paymentMethod.value,
             'bankAccountId': bankAccountId,
@@ -943,7 +946,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
           },
           organizationId: organizationId,
         );
-        AppLogger.d('InvoiceOfflineRepository: Operación addPayment encolada para sync');
+        AppLogger.d('InvoiceOfflineRepository: Operación addPayment encolada para sync (idempotencyKey=$paymentTempId)');
       } catch (e) {
         AppLogger.w('InvoiceOfflineRepository: Error encolando addPayment: $e');
       }

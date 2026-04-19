@@ -553,16 +553,19 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
   }) async {
     if (await networkInfo.isConnected) {
       try {
+        // idempotencyKey previene duplicados si el request se reintenta tras un timeout de red.
+        final onlineIdempotencyKey = 'payment_online_${DateTime.now().millisecondsSinceEpoch}_${invoiceId.hashCode}';
         final paymentRequest = AddPaymentRequestModel(
           amount: amount,
           paymentMethod: paymentMethod.value,
           bankAccountId: bankAccountId,
-          paymentDate: paymentDate?.toIso8601String(),
+          paymentDate: (paymentDate ?? DateTime.now()).toIso8601String(),
           reference: reference,
           notes: notes,
           paymentCurrency: paymentCurrency,
           paymentCurrencyAmount: paymentCurrencyAmount,
           exchangeRate: exchangeRate,
+          idempotencyKey: onlineIdempotencyKey,
         );
 
         final remoteInvoice = await remoteDataSource.addPayment(

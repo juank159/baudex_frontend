@@ -4371,6 +4371,7 @@ class SyncService extends GetxService {
               exchangeRate: data['exchangeRate'] != null
                   ? (data['exchangeRate'] as num).toDouble()
                   : null,
+              idempotencyKey: data['idempotencyKey'] as String?,
             );
 
             final updatedInvoice = await remoteDataSource.addPayment(

@@ -240,10 +240,12 @@ class CustomerCreditOfflineRepository implements CustomerCreditRepository {
       isarCredit.isSynced = false;
       isarCredit.incrementVersion();
 
-      // Guardar el pago en metadatos
+      // Guardar el pago en metadatos. El paymentTempId también servirá como idempotencyKey
+      // para evitar duplicados en reintentos de sync.
+      final paymentTempId = 'payment_${DateTime.now().millisecondsSinceEpoch}';
       final payments = _parsePayments(isarCredit.metadataJson);
       payments.add({
-        'id': 'payment_${DateTime.now().millisecondsSinceEpoch}',
+        'id': paymentTempId,
         'amount': dto.amount,
         'paymentMethod': dto.paymentMethod,
         'paymentDate': dto.paymentDate ?? DateTime.now().toIso8601String(), // paymentDate is String?
@@ -267,10 +269,13 @@ class CustomerCreditOfflineRepository implements CustomerCreditRepository {
             operationType: SyncOperationType.update,
             data: {
               'action': 'addPayment',
+              'idempotencyKey': paymentTempId,
               'amount': dto.amount,
               'paymentMethod': dto.paymentMethod,
-              'paymentDate': dto.paymentDate, // Already a String
+              'paymentDate': dto.paymentDate ?? DateTime.now().toIso8601String(),
               'bankAccountId': dto.bankAccountId,
+              'reference': dto.reference,
+              'notes': dto.notes,
             },
           );
         } catch (e) {
