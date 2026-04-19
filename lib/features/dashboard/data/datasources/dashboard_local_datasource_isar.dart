@@ -67,6 +67,53 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         bankAccountNames[ba.serverId] = ba.name;
       }
 
+      // ⚡ INGRESOS POR PAGOS: Buscar facturas fuera del rango de fecha que recibieron
+      // pagos DENTRO del rango. Esto permite que abonos hechos hoy en facturas viejas
+      // se reflejen en el dashboard de hoy.
+      double paymentIncomeFromOldInvoices = 0.0;
+      final paymentIncomeByMethod = <String, _PMAccumulator>{};
+      if (startDate != null && endDate != null) {
+        final invoiceServerIds = invoices.map((i) => i.serverId).toSet();
+        // Facturas paid/partiallyPaid actualizadas en el rango pero creadas fuera
+        final oldInvoicesWithRecentPayments = await _isar.isarInvoices.filter()
+            .deletedAtIsNull()
+            .group((q) => q
+                .statusEqualTo(IsarInvoiceStatus.paid)
+                .or()
+                .statusEqualTo(IsarInvoiceStatus.partiallyPaid))
+            .updatedAtBetween(startDate, endDate)
+            .findAll();
+
+        for (final inv in oldInvoicesWithRecentPayments) {
+          // Excluir facturas ya incluidas por su fecha de creación
+          if (invoiceServerIds.contains(inv.serverId)) continue;
+
+          final payments = IsarInvoice.decodePayments(inv.paymentsJson);
+          for (final p in payments) {
+            // Solo contar pagos cuya fecha cae dentro del rango
+            if (p.paymentDate.isAfter(startDate.subtract(const Duration(seconds: 1))) &&
+                p.paymentDate.isBefore(endDate.add(const Duration(seconds: 1)))) {
+              paymentIncomeFromOldInvoices += p.amount;
+
+              // Acumular método de pago
+              String methodKey;
+              if (p.bankAccountId != null && p.bankAccountId!.isNotEmpty &&
+                  bankAccountNames.containsKey(p.bankAccountId)) {
+                methodKey = bankAccountNames[p.bankAccountId]!;
+              } else {
+                methodKey = p.paymentMethod.value;
+              }
+              paymentIncomeByMethod.putIfAbsent(methodKey, () => _PMAccumulator(methodKey));
+              paymentIncomeByMethod[methodKey]!.count++;
+              paymentIncomeByMethod[methodKey]!.totalAmount += p.amount;
+            }
+          }
+        }
+        if (paymentIncomeFromOldInvoices > 0) {
+          print('📊 ISAR: Ingresos por pagos en facturas antiguas: \$$paymentIncomeFromOldInvoices');
+        }
+      }
+
       // 🔍 DIAGNÓSTICO: Cuántas facturas retornó el filtro de fecha
       final offlineDuplicates = invoices.where((i) => i.serverId.startsWith('invoice_offline_')).toList();
       print('📊 ISAR Dashboard: ${invoices.length} facturas entre $startDate y $endDate'
@@ -165,6 +212,19 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         }
         if (isPending) pendingInvoices++;
         if (inv.date.isAfter(todayStart)) todayInvoicesCount++;
+      }
+
+      // ⚡ Sumar ingresos por pagos en facturas antiguas al revenue total
+      if (paymentIncomeFromOldInvoices > 0) {
+        totalRevenue += paymentIncomeFromOldInvoices;
+        todaySales += paymentIncomeFromOldInvoices;
+        invoicesIncome += paymentIncomeFromOldInvoices;
+        // Merge payment methods
+        for (final entry in paymentIncomeByMethod.entries) {
+          paymentMethodsMap.putIfAbsent(entry.key, () => _PMAccumulator(entry.key));
+          paymentMethodsMap[entry.key]!.count += entry.value.count;
+          paymentMethodsMap[entry.key]!.totalAmount += entry.value.totalAmount;
+        }
       }
 
       // Payment methods con porcentajes

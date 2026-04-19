@@ -984,6 +984,14 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         print('⚠️ Error al actualizar factura con pago en cache: $e');
       }
 
+      // Cross-update crédito asociado en ISAR (el backend ya lo hizo en DB)
+      try {
+        await offlineRepository?.crossUpdateCreditFromInvoicePayment(
+          invoiceId: invoiceId,
+          paymentAmount: amount,
+        );
+      } catch (_) {}
+
       return Right(updatedInvoice);
     } catch (e) {
       // ✅ Fallback offline en caso de error de conexión/timeout

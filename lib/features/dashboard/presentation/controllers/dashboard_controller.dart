@@ -422,8 +422,8 @@ class DashboardController extends GetxController
   }
 
   /// Armoniza los datos financieros entre summary y profitability.
-  /// Usa profitability.totalRevenue como fuente de verdad para que
-  /// Revenue, COGS, Gross Profit y Net Profit cuadren consistentemente.
+  /// Mantiene sales.totalAmount del summary (incluye pagos en facturas antiguas)
+  /// y usa profitability solo para COGS/margenes.
   void _harmonizeFinancialData() {
     if (!_isAlive) return;
     final stats = _dashboardStats.value;
@@ -432,16 +432,7 @@ class DashboardController extends GetxController
     if (profitability.totalRevenue <= 0) return;
 
     _dashboardStats.value = DashboardStats(
-      sales: SalesStats(
-        totalAmount: profitability.totalRevenue,
-        totalSales: stats.sales.totalSales,
-        todaySales: stats.sales.todaySales,
-        yesterdaySales: stats.sales.yesterdaySales,
-        monthlySales: stats.sales.monthlySales,
-        yearSales: stats.sales.yearSales,
-        todayGrowth: stats.sales.todayGrowth,
-        monthlyGrowth: stats.sales.monthlyGrowth,
-      ),
+      sales: stats.sales,
       invoices: stats.invoices,
       products: stats.products,
       customers: stats.customers,
@@ -453,7 +444,7 @@ class DashboardController extends GetxController
       multiCurrencyEnabled: stats.multiCurrencyEnabled,
       baseCurrency: stats.baseCurrency,
     );
-    print('🔄 Datos financieros armonizados: Revenue=${profitability.totalRevenue}, '
+    print('🔄 Datos armonizados: Revenue=${stats.sales.totalAmount}, '
         'COGS=${profitability.totalCOGS}, GrossProfit=${profitability.grossProfit}, '
         'NetProfit=${profitability.netProfit}');
   }

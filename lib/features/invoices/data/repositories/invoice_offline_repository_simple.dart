@@ -949,7 +949,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
       }
 
       // 8. Cross-update: actualizar CustomerCredit asociado en ISAR
-      await _crossUpdateCreditFromInvoicePayment(
+      await crossUpdateCreditFromInvoicePayment(
         invoiceId: invoiceId,
         paymentAmount: amount,
       );
@@ -1521,7 +1521,7 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
 
   /// Cuando se hace un pago en una factura, actualiza el CustomerCredit asociado en ISAR.
   /// NO encola a sync queue - el backend maneja la cross-update al procesar el pago.
-  Future<void> _crossUpdateCreditFromInvoicePayment({
+  Future<void> crossUpdateCreditFromInvoicePayment({
     required String invoiceId,
     required double paymentAmount,
   }) async {

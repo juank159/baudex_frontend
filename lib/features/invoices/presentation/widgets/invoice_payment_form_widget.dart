@@ -9,8 +9,11 @@ import '../controllers/invoice_detail_controller.dart';
 import '../../domain/entities/invoice.dart';
 import '../../../bank_accounts/domain/entities/bank_account.dart';
 
+/// Tipo de pago seleccionado en el formulario
+enum _PaymentType { cash, bankAccount }
+
 /// Widget de formulario de pago para el detalle de factura
-/// Usa las cuentas bancarias registradas del tenant (sin nada hardcodeado)
+/// Permite pagar en efectivo (sin cuenta bancaria) o seleccionar una cuenta registrada
 class InvoicePaymentFormWidget extends StatefulWidget {
   final InvoiceDetailController controller;
   final VoidCallback onCancel;
@@ -28,7 +31,16 @@ class InvoicePaymentFormWidget extends StatefulWidget {
 }
 
 class _InvoicePaymentFormWidgetState extends State<InvoicePaymentFormWidget> {
+  _PaymentType _paymentType = _PaymentType.cash;
   BankAccount? _selectedAccount;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default: efectivo sin cuenta bancaria
+    widget.controller.setPaymentMethod(PaymentMethod.cash);
+    widget.controller.setBankAccountId(null);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +58,7 @@ class _InvoicePaymentFormWidgetState extends State<InvoicePaymentFormWidget> {
         children: [
           _buildHeader(context, isMobile: isMobile, cardPadding: cardPadding),
           SizedBox(height: spacing),
-          _buildPaymentMethodSelector(context, isMobile: isMobile, isTablet: isTablet, cardPadding: cardPadding),
+          _buildPaymentTypeSelector(context, isMobile: isMobile, isTablet: isTablet, cardPadding: cardPadding),
           SizedBox(height: spacing),
           _buildAmountField(context, isMobile: isMobile, isTablet: isTablet, cardPadding: cardPadding),
           SizedBox(height: spacing),
@@ -132,7 +144,7 @@ class _InvoicePaymentFormWidgetState extends State<InvoicePaymentFormWidget> {
     );
   }
 
-  Widget _buildPaymentMethodSelector(BuildContext context, {
+  Widget _buildPaymentTypeSelector(BuildContext context, {
     required bool isMobile,
     required bool isTablet,
     required double cardPadding,
@@ -160,7 +172,7 @@ class _InvoicePaymentFormWidgetState extends State<InvoicePaymentFormWidget> {
               ),
               const SizedBox(width: 8),
               Text(
-                'Cuenta de Pago',
+                'Método de Pago',
                 style: TextStyle(
                   fontSize: labelSize,
                   fontWeight: FontWeight.w600,
@@ -171,58 +183,103 @@ class _InvoicePaymentFormWidgetState extends State<InvoicePaymentFormWidget> {
           ),
           SizedBox(height: isMobile ? 10 : 12),
 
-          // Widget reutilizable de selección de cuentas bancarias (dropdown)
-          BankAccountSelector(
-            selectedAccount: _selectedAccount,
-            onAccountSelected: (account) {
-              setState(() {
-                _selectedAccount = account;
-              });
+          // Toggle: Efectivo / Cuenta Bancaria
+          _buildPaymentTypeToggle(context, isMobile: isMobile),
 
-              if (account != null) {
-                // Establecer el método de pago basado en el tipo de cuenta
-                final paymentMethod = _getPaymentMethodFromAccount(account);
-                widget.controller.setPaymentMethod(paymentMethod);
-                widget.controller.setBankAccountId(account.id);
-              } else {
-                widget.controller.setBankAccountId(null);
-              }
-            },
-            hintText: 'Seleccionar cuenta de pago',
-            isRequired: true,
-          ),
+          // Mostrar selector de cuenta bancaria solo si es el tipo seleccionado
+          if (_paymentType == _PaymentType.bankAccount) ...[
+            SizedBox(height: isMobile ? 10 : 12),
+            BankAccountSelector(
+              selectedAccount: _selectedAccount,
+              onAccountSelected: (account) {
+                setState(() {
+                  _selectedAccount = account;
+                });
 
-          // Información de la cuenta seleccionada
-          if (_selectedAccount != null) ...[
+                if (account != null) {
+                  final paymentMethod = _getPaymentMethodFromAccount(account);
+                  widget.controller.setPaymentMethod(paymentMethod);
+                  widget.controller.setBankAccountId(account.id);
+                } else {
+                  widget.controller.setBankAccountId(null);
+                }
+              },
+              hintText: 'Seleccionar cuenta de pago',
+              isRequired: true,
+            ),
+
+            // Información de la cuenta seleccionada
+            if (_selectedAccount != null) ...[
+              SizedBox(height: isMobile ? 8 : 10),
+              Container(
+                padding: EdgeInsets.all(isMobile ? 8 : 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF10B981).withValues(alpha: 0.1),
+                      const Color(0xFF10B981).withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      color: const Color(0xFF10B981),
+                      size: isMobile ? 16 : 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'El pago se registrará en "${_selectedAccount!.name}"',
+                        style: TextStyle(
+                          fontSize: isMobile ? 11 : 12,
+                          color: const Color(0xFF10B981),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+
+          // Confirmación visual cuando se selecciona efectivo
+          if (_paymentType == _PaymentType.cash) ...[
             SizedBox(height: isMobile ? 8 : 10),
             Container(
               padding: EdgeInsets.all(isMobile ? 8 : 10),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF10B981).withValues(alpha: 0.1),
-                    const Color(0xFF10B981).withValues(alpha: 0.05),
+                    Colors.green.withValues(alpha: 0.1),
+                    Colors.green.withValues(alpha: 0.05),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  color: Colors.green.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    Icons.check_circle,
-                    color: const Color(0xFF10B981),
+                    Icons.payments,
+                    color: Colors.green.shade700,
                     size: isMobile ? 16 : 18,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'El pago se registrará en "${_selectedAccount!.name}"',
+                      'Pago en efectivo - sin cuenta bancaria asociada',
                       style: TextStyle(
                         fontSize: isMobile ? 11 : 12,
-                        color: const Color(0xFF10B981),
+                        color: Colors.green.shade700,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -232,6 +289,113 @@ class _InvoicePaymentFormWidgetState extends State<InvoicePaymentFormWidget> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// Toggle segmentado para seleccionar tipo de pago
+  Widget _buildPaymentTypeToggle(BuildContext context, {required bool isMobile}) {
+    final fontSize = isMobile ? 12.0 : 13.0;
+    final iconSize = isMobile ? 16.0 : 18.0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.textTertiary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        children: [
+          // Opción: Efectivo
+          Expanded(
+            child: _buildToggleOption(
+              label: 'Efectivo',
+              icon: Icons.money,
+              isSelected: _paymentType == _PaymentType.cash,
+              onTap: () {
+                setState(() {
+                  _paymentType = _PaymentType.cash;
+                  _selectedAccount = null;
+                });
+                widget.controller.setPaymentMethod(PaymentMethod.cash);
+                widget.controller.setBankAccountId(null);
+              },
+              fontSize: fontSize,
+              iconSize: iconSize,
+              selectedColor: Colors.green,
+            ),
+          ),
+          const SizedBox(width: 3),
+          // Opción: Cuenta Bancaria
+          Expanded(
+            child: _buildToggleOption(
+              label: 'Cuenta Bancaria',
+              icon: Icons.account_balance,
+              isSelected: _paymentType == _PaymentType.bankAccount,
+              onTap: () {
+                setState(() {
+                  _paymentType = _PaymentType.bankAccount;
+                });
+              },
+              fontSize: fontSize,
+              iconSize: iconSize,
+              selectedColor: ElegantLightTheme.primaryBlue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleOption({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required double fontSize,
+    required double iconSize,
+    required Color selectedColor,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: selectedColor.withValues(alpha: 0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: iconSize,
+              color: isSelected ? selectedColor : ElegantLightTheme.textTertiary,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? selectedColor : ElegantLightTheme.textTertiary,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -478,6 +642,12 @@ class _InvoicePaymentFormWidgetState extends State<InvoicePaymentFormWidget> {
     );
   }
 
+  /// Determina si el botón Confirmar debe estar habilitado
+  bool get _canSubmit {
+    if (_paymentType == _PaymentType.cash) return true;
+    return _selectedAccount != null;
+  }
+
   Widget _buildActions(BuildContext context, {
     required bool isMobile,
     required bool isTablet,
@@ -524,12 +694,12 @@ class _InvoicePaymentFormWidgetState extends State<InvoicePaymentFormWidget> {
           ),
         ),
         const SizedBox(width: 12),
-        // Botón Confirmar - mismo tamaño que Cancelar
+        // Botón Confirmar
         Expanded(
           child: SizedBox(
             height: buttonHeight,
             child: ElevatedButton(
-              onPressed: _selectedAccount != null ? widget.onSubmit : null,
+              onPressed: _canSubmit ? widget.onSubmit : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: successColor,
                 disabledBackgroundColor: Colors.grey.shade300,

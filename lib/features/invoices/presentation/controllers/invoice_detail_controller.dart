@@ -23,6 +23,7 @@ import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/shared/utils/subscription_error_handler.dart';
 import '../../../../app/shared/services/subscription_validation_service.dart';
 import '../../../customer_credits/presentation/controllers/customer_credit_controller.dart';
+import '../../../dashboard/presentation/controllers/dashboard_controller.dart';
 import 'package:share_plus/share_plus.dart';
 
 class InvoiceDetailController extends GetxController {
@@ -1267,6 +1268,13 @@ class InvoiceDetailController extends GetxController {
           try {
             if (Get.isRegistered<CustomerCreditController>()) {
               Get.find<CustomerCreditController>().loadCredits();
+            }
+          } catch (_) {}
+
+          // ✅ Refrescar dashboard para reflejar nuevo ingreso
+          try {
+            if (Get.isRegistered<DashboardController>()) {
+              Get.find<DashboardController>().refreshAll();
             }
           } catch (_) {}
         },
