@@ -35,6 +35,7 @@ void main() async {
   // === HANDLER 2: Errores asíncronos no manejados (microtasks, futures) ===
   PlatformDispatcher.instance.onError = (error, stack) {
     final message = error.toString();
+    final stackStr = stack.toString();
     if (message.contains('FocusScopeNode') && message.contains('disposed')) {
       return true;
     }
@@ -43,6 +44,11 @@ void main() async {
       return true;
     }
     if (message.contains('disposed') || message.contains('unmounted')) {
+      return true;
+    }
+    // Suprimir error de GetX Obx dispose en navegación desktop (removeSubscription null check)
+    if (message.contains('Null check') &&
+        stackStr.contains('removeSubscription')) {
       return true;
     }
     return false;
