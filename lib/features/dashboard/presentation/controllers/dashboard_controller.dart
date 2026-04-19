@@ -65,6 +65,10 @@ class DashboardController extends GetxController
   // Guard para evitar cargas concurrentes
   bool _isLoadingData = false;
 
+  // Guard para evitar updates post-dispose
+  bool _isDisposed = false;
+  bool get _isAlive => !_isDisposed && !isClosed;
+
   // Error states
   final _statsError = Rxn<String>();
   final _activityError = Rxn<String>();
@@ -149,6 +153,7 @@ class DashboardController extends GetxController
 
   @override
   Future<void> onSyncCompleted() async {
+    if (!_isAlive) return;
     _isLoadingData = false;
     refreshAll();
   }
@@ -168,6 +173,7 @@ class DashboardController extends GetxController
   }
 
   Future<void> _loadInitialData() async {
+    if (!_isAlive) return;
     // Guard: evitar cargas concurrentes
     if (_isLoadingData) {
       print('📊 Dashboard: Carga ya en progreso, ignorando duplicado');
@@ -182,6 +188,7 @@ class DashboardController extends GetxController
       // ═══ PASO 1: ISAR instantáneo (offline-first) ═══
       print('📊 Dashboard: Cargando desde ISAR (offline-first)...');
       await _loadAllOffline(startDate, endDate);
+      if (!_isAlive) return;
       update();
 
       // ═══ PASO 2: Refresh en background si hay red ═══
@@ -190,6 +197,7 @@ class DashboardController extends GetxController
       _showSubscriptionDialogIfNeeded();
     } catch (e) {
       print('❌ Error crítico en _loadInitialData: $e');
+      if (!_isAlive) return;
       _isLoadingStats.value = false;
       _isLoadingActivity.value = false;
       _isLoadingNotifications.value = false;
@@ -205,11 +213,12 @@ class DashboardController extends GetxController
   /// Refresca datos del servidor en background (no bloquea UI)
   void _refreshFromServer(DateTime? startDate, DateTime? endDate) {
     () async {
+      if (!_isAlive) return;
       try {
         final networkInfo = Get.find<NetworkInfo>();
         if (!networkInfo.isServerReachable) return;
         final isOnline = await networkInfo.isConnected;
-        if (!isOnline) return;
+        if (!isOnline || !_isAlive) return;
 
         print('🌐 Dashboard: Refrescando desde servidor en background...');
         await Future.wait([
@@ -235,6 +244,7 @@ class DashboardController extends GetxController
           ).catchError((e) {}),
         ]);
 
+        if (!_isAlive) return;
         _harmonizeFinancialData();
 
         await _loadExpensesByCategory().timeout(
@@ -242,6 +252,7 @@ class DashboardController extends GetxController
           onTimeout: () => print('⏰ Timeout gastos por categoría'),
         ).catchError((e) => print('⚠️ Error gastos: $e'));
 
+        if (!_isAlive) return;
         update();
         print('✅ Dashboard: Datos actualizados desde servidor');
       } catch (e) {
@@ -252,6 +263,7 @@ class DashboardController extends GetxController
 
   /// ⚡ Carga rápida offline: todo desde ISAR sin verificaciones de red adicionales
   Future<void> _loadAllOffline(DateTime? startDate, DateTime? endDate) async {
+    if (!_isAlive) return;
     final localDataSource = Get.find<DashboardLocalDataSource>();
 
     // ═══════════════════════════════════════════════════════════════
@@ -274,6 +286,8 @@ class DashboardController extends GetxController
         // 2: Notificaciones
         localDataSource.getOfflineSmartNotifications(limit: 10),
       ]);
+
+      if (!_isAlive) return;
 
       // Procesar stats
       final stats = results[0] as DashboardStatsModel?;
@@ -380,6 +394,8 @@ class DashboardController extends GetxController
             'CacheExacto=$hasExactCache');
       }
 
+      if (!_isAlive) return;
+
       // Procesar actividades
       final activities = results[1] as List<RecentActivityAdvanced>;
       _recentActivitiesAdvanced.assignAll(activities);
@@ -393,11 +409,13 @@ class DashboardController extends GetxController
     } catch (e) {
       print('⚠️ Error cargando datos offline: $e');
     } finally {
-      _isLoadingStats.value = false;
-      _isLoadingProfitability.value = false;
-      _isLoadingActivity.value = false;
-      _isLoadingNotifications.value = false;
-      _isLoadingExpenseChart.value = false;
+      if (_isAlive) {
+        _isLoadingStats.value = false;
+        _isLoadingProfitability.value = false;
+        _isLoadingActivity.value = false;
+        _isLoadingNotifications.value = false;
+        _isLoadingExpenseChart.value = false;
+      }
     }
   }
 
@@ -405,6 +423,7 @@ class DashboardController extends GetxController
   /// Usa profitability.totalRevenue como fuente de verdad para que
   /// Revenue, COGS, Gross Profit y Net Profit cuadren consistentemente.
   void _harmonizeFinancialData() {
+    if (!_isAlive) return;
     final stats = _dashboardStats.value;
     final profitability = _profitabilityStats.value;
     if (stats == null || profitability == null) return;
@@ -441,6 +460,7 @@ class DashboardController extends GetxController
     DateTime? startDate,
     DateTime? endDate,
   }) async {
+    if (!_isAlive) return;
     _isLoadingStats.value = true;
     _statsError.value = null;
 
@@ -449,6 +469,7 @@ class DashboardController extends GetxController
       GetDashboardStatsParams(startDate: startDate, endDate: endDate),
     );
 
+    if (!_isAlive) return;
     result.fold(
       (failure) {
         print('❌ Error cargando dashboard stats: $failure');
@@ -467,7 +488,7 @@ class DashboardController extends GetxController
       },
     );
 
-    _isLoadingStats.value = false;
+    if (_isAlive) _isLoadingStats.value = false;
   }
 
   Future<void> loadProfitabilityStats({
@@ -476,6 +497,7 @@ class DashboardController extends GetxController
     String? warehouseId,
     String? categoryId,
   }) async {
+    if (!_isAlive) return;
     print('🎯 INICIANDO loadProfitabilityStats...');
     _isLoadingProfitability.value = true;
     _profitabilityError.value = null;
@@ -489,20 +511,20 @@ class DashboardController extends GetxController
       ),
     );
 
+    if (!_isAlive) return;
     if (result.isRight()) {
       final stats = result.getOrElse(() => throw Exception());
       print('✅ ÉXITO loadProfitabilityStats: Revenue=${stats.totalRevenue}, COGS=${stats.totalCOGS}');
       print('   📊 Gross Profit: ${stats.grossProfit}, Margin: ${stats.grossMarginPercentage}%');
       print('   📈 Top Products: ${stats.topProfitableProducts.length}');
       _profitabilityStats.value = stats;
-      // ✅ Cachear datos reales para uso offline (COGS, márgenes, productos)
       _cacheProfitabilityStats(stats, startDate, endDate);
       update();
     } else {
       final failure = result.fold((f) => f, (_) => throw Exception());
       print('❌ ERROR loadProfitabilityStats: $failure');
-      // Intentar usar datos cacheados reales como fallback
       final cached = await _getCachedProfitabilityStats(startDate, endDate);
+      if (!_isAlive) return;
       if (cached != null) {
         _profitabilityStats.value = cached;
         print('💾 Profitability fallback: usando cache real (COGS=${cached.totalCOGS})');
@@ -511,32 +533,33 @@ class DashboardController extends GetxController
       }
     }
 
-    _isLoadingProfitability.value = false;
+    if (_isAlive) _isLoadingProfitability.value = false;
   }
 
   Future<void> loadRecentActivity({
     int limit = 10,
     List<ActivityType>? types,
   }) async {
+    if (!_isAlive) return;
     _isLoadingActivity.value = true;
     _activityError.value = null;
 
     try {
-      // Usar el nuevo endpoint de actividades avanzadas con paginación
       await loadAdvancedRecentActivities(page: 1, limit: limit);
     } catch (e) {
-      // Fallback al método original si falla
+      if (!_isAlive) return;
       final result = await _getRecentActivityUseCase(
         GetRecentActivityParams(limit: limit, types: types),
       );
 
+      if (!_isAlive) return;
       result.fold(
         (failure) => _activityError.value = _mapFailureToMessage(failure),
         (activities) => _recentActivities.assignAll(activities),
       );
     }
 
-    _isLoadingActivity.value = false;
+    if (_isAlive) _isLoadingActivity.value = false;
   }
 
   // Método para cargar actividades avanzadas con paginación
@@ -547,12 +570,13 @@ class DashboardController extends GetxController
     String? priority,
     String? timeFilter,
   }) async {
+    if (!_isAlive) return;
     try {
-      // ⚡ Check sync rápido: si el servidor está marcado como caído, ISAR directo
       final networkInfo = Get.find<NetworkInfo>();
       if (!networkInfo.isServerReachable) {
         final localDataSource = Get.find<DashboardLocalDataSource>();
         final offlineActivities = await localDataSource.getOfflineRecentActivities(limit: limit);
+        if (!_isAlive) return;
         _recentActivitiesAdvanced.assignAll(offlineActivities);
         return;
       }
@@ -587,6 +611,7 @@ class DashboardController extends GetxController
             ? thirdLevel['activities'] as List?
             : null;
 
+        if (!_isAlive) return;
         if (activitiesJson != null) {
           final activities = activitiesJson
               .map((json) => RecentActivityAdvanced.fromJson(json))
@@ -607,41 +632,43 @@ class DashboardController extends GetxController
         throw Exception('Failed to load activities: ${response.statusCode}');
       }
     } catch (e) {
-      // Fallback en error: intentar ISAR
+      if (!_isAlive) return;
       try {
         final localDataSource = Get.find<DashboardLocalDataSource>();
         final offlineActivities = await localDataSource.getOfflineRecentActivities(limit: limit);
+        if (!_isAlive) return;
         if (offlineActivities.isNotEmpty) {
           _recentActivitiesAdvanced.assignAll(offlineActivities);
           print('📴 Actividades fallback desde ISAR: ${offlineActivities.length}');
           return;
         }
       } catch (_) {}
-      _activityError.value = 'Error al cargar actividades: $e';
+      if (_isAlive) _activityError.value = 'Error al cargar actividades: $e';
       print('Error loading advanced activities: $e');
     }
   }
 
   Future<void> loadNotifications({int limit = 10, bool? unreadOnly}) async {
+    if (!_isAlive) return;
     _isLoadingNotifications.value = true;
     _notificationsError.value = null;
 
     try {
-      // Usar el nuevo endpoint de notificaciones avanzadas con paginación
       await loadAdvancedNotifications(page: 1, limit: limit, includeRead: !(unreadOnly ?? false));
     } catch (e) {
-      // Fallback al método original si falla
+      if (!_isAlive) return;
       final result = await _getNotificationsUseCase(
         GetDashboardNotificationsParams(limit: limit, unreadOnly: unreadOnly),
       );
 
+      if (!_isAlive) return;
       result.fold(
         (failure) => _notificationsError.value = _mapFailureToMessage(failure),
         (notifications) => _notifications.assignAll(notifications),
       );
     }
 
-    _isLoadingNotifications.value = false;
+    if (_isAlive) _isLoadingNotifications.value = false;
   }
 
   // Método para cargar notificaciones avanzadas con paginación
@@ -652,12 +679,13 @@ class DashboardController extends GetxController
     List<String>? types,
     bool includeRead = false,
   }) async {
+    if (!_isAlive) return;
     try {
-      // ⚡ Check sync rápido: si el servidor está marcado como caído, ISAR directo
       final networkInfo = Get.find<NetworkInfo>();
       if (!networkInfo.isServerReachable) {
         final localDataSource = Get.find<DashboardLocalDataSource>();
         final offlineNotifications = await localDataSource.getOfflineSmartNotifications(limit: limit);
+        if (!_isAlive) return;
         _smartNotifications.assignAll(offlineNotifications);
         _unreadNotificationsCount.value = offlineNotifications.where((n) => n.isUnread).length;
         return;
@@ -693,6 +721,7 @@ class DashboardController extends GetxController
             ? thirdLevel['notifications'] as List?
             : null;
 
+        if (!_isAlive) return;
         if (notificationsJson != null) {
           final notifications = notificationsJson
               .map((json) => SmartNotification.fromJson(json))
@@ -718,10 +747,11 @@ class DashboardController extends GetxController
         throw Exception('Failed to load notifications: ${response.statusCode}');
       }
     } catch (e) {
-      // Fallback en error: intentar ISAR
+      if (!_isAlive) return;
       try {
         final localDataSource = Get.find<DashboardLocalDataSource>();
         final offlineNotifications = await localDataSource.getOfflineSmartNotifications(limit: limit);
+        if (!_isAlive) return;
         if (offlineNotifications.isNotEmpty) {
           _smartNotifications.assignAll(offlineNotifications);
           _unreadNotificationsCount.value = offlineNotifications.where((n) => n.isUnread).length;
@@ -729,21 +759,24 @@ class DashboardController extends GetxController
           return;
         }
       } catch (_) {}
-      _notificationsError.value = 'Error al cargar notificaciones: $e';
+      if (_isAlive) _notificationsError.value = 'Error al cargar notificaciones: $e';
       print('Error loading advanced notifications: $e');
     }
   }
 
   Future<void> loadUnreadNotificationsCount() async {
+    if (!_isAlive) return;
     final result = await _getUnreadNotificationsCountUseCase(NoParams());
 
+    if (!_isAlive) return;
     result.fold(
-      (failure) => {}, // Silently fail for count
+      (failure) => {},
       (count) => _unreadNotificationsCount.value = count,
     );
   }
 
   Future<void> markNotificationAsRead(String notificationId) async {
+    if (!_isAlive) return;
     final result = await _markNotificationAsReadUseCase(
       MarkDashboardNotificationAsReadParams(notificationId: notificationId),
     );
@@ -759,6 +792,7 @@ class DashboardController extends GetxController
         );
       },
       (updatedNotification) {
+        if (!_isAlive) return;
         // Update local notification list
         final index = _notifications.indexWhere((n) => n.id == notificationId);
         if (index != -1) {
@@ -863,11 +897,12 @@ class DashboardController extends GetxController
   }
 
   Future<void> refreshAll() async {
+    if (!_isAlive) return;
     try {
       await _loadInitialData();
     } catch (e) {
       print('Error in refreshAll: $e');
-      // Asegurar que los estados de loading se reseteen incluso si hay error
+      if (!_isAlive) return;
       _isLoadingStats.value = false;
       _isLoadingActivity.value = false;
       _isLoadingNotifications.value = false;
@@ -876,6 +911,7 @@ class DashboardController extends GetxController
   }
 
   Future<void> refreshStats() async {
+    if (!_isAlive) return;
     await loadDashboardStats(
       startDate: _selectedDateRange.value?.start,
       endDate: _selectedDateRange.value?.end,
@@ -883,12 +919,14 @@ class DashboardController extends GetxController
   }
 
   Future<void> refreshActivity() async {
+    if (!_isAlive) return;
     await loadRecentActivity(
       types: _selectedActivityTypes.isEmpty ? null : _selectedActivityTypes,
     );
   }
 
   Future<void> refreshNotifications() async {
+    if (!_isAlive) return;
     await Future.wait([loadNotifications(), loadUnreadNotificationsCount()]);
   }
 
@@ -907,9 +945,9 @@ class DashboardController extends GetxController
 
   // Método para cargar gastos por categoría obteniendo gastos individuales con paginación
   Future<void> _loadExpensesByCategory() async {
+    if (!_isAlive) return;
     _isLoadingExpenseChart.value = true;
     try {
-      // ⚡ Check sync rápido
       final networkInfo = Get.find<NetworkInfo>();
       if (!networkInfo.isServerReachable) {
         await _loadExpensesByCategoryOffline();
@@ -1006,23 +1044,24 @@ class DashboardController extends GetxController
         return;
       }
 
+      if (!_isAlive) return;
       _updateExpensesByCategoryInStats(expensesByCategory);
 
       print('✅ Gastos por categoría cargados: ${expensesByCategory.length} categorías');
 
     } catch (e) {
       print('⚠️ Error cargando gastos por categoría: $e - Intentando offline...');
-      // Fallback en error: intentar ISAR
       try {
-        await _loadExpensesByCategoryOffline();
+        if (_isAlive) await _loadExpensesByCategoryOffline();
       } catch (_) {}
     } finally {
-      _isLoadingExpenseChart.value = false;
+      if (_isAlive) _isLoadingExpenseChart.value = false;
     }
   }
 
   // Helper: cargar gastos por categoría desde ISAR
   Future<void> _loadExpensesByCategoryOffline() async {
+    if (!_isAlive) return;
     final localDataSource = Get.find<DashboardLocalDataSource>();
     final dateRange = _selectedDateRange.value;
 
@@ -1055,6 +1094,7 @@ class DashboardController extends GetxController
 
   // Helper: actualizar dashboardStats con expensesByCategory
   void _updateExpensesByCategoryInStats(Map<String, double> expensesByCategory) {
+    if (!_isAlive) return;
     if (_dashboardStats.value != null) {
       final currentStats = _dashboardStats.value!;
       final updatedExpenseStats = ExpenseStats(
@@ -1316,6 +1356,7 @@ class DashboardController extends GetxController
 
   @override
   void onClose() {
+    _isDisposed = true;
     _isLoadingStats.close();
     _isLoadingActivity.close();
     _isLoadingNotifications.close();
@@ -1324,6 +1365,8 @@ class DashboardController extends GetxController
     _dashboardStats.close();
     _profitabilityStats.close();
     _recentActivities.close();
+    _recentActivitiesAdvanced.close();
+    _smartNotifications.close();
     _notifications.close();
     _unreadNotificationsCount.close();
     _statsError.close();
