@@ -1556,11 +1556,11 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
 
     final success = await controller.saveExpense();
     if (success) {
-      // Refrescar lista de gastos antes de navegar (controller es permanente)
-      if (Get.isRegistered<EnhancedExpensesController>()) {
-        Get.find<EnhancedExpensesController>().refreshExpenses();
-      }
+      // Navegar primero para UX rápida, luego refrescar en background
       Get.back();
+      if (Get.isRegistered<EnhancedExpensesController>()) {
+        await Get.find<EnhancedExpensesController>().refreshExpenses();
+      }
     }
   }
 
@@ -1593,11 +1593,11 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
 
     final success = await controller.saveExpenseAsDraft();
     if (success) {
-      // Refrescar lista de gastos antes de navegar (controller es permanente)
-      if (Get.isRegistered<EnhancedExpensesController>()) {
-        Get.find<EnhancedExpensesController>().refreshExpenses();
-      }
+      // Navegar primero para UX rápida, luego refrescar en background
       Get.back();
+      if (Get.isRegistered<EnhancedExpensesController>()) {
+        await Get.find<EnhancedExpensesController>().refreshExpenses();
+      }
     }
   }
 
