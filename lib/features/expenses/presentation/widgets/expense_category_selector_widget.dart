@@ -1,6 +1,8 @@
 // lib/features/expenses/presentation/widgets/expense_category_selector_widget.dart
+import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/errors/failures.dart';
 import '../controllers/expense_form_controller.dart';
 import '../../domain/entities/expense_category.dart';
 
@@ -26,8 +28,21 @@ class ExpenseCategorySelectorWidget extends StatelessWidget {
               ),
             ),
             const Spacer(),
+            Obx(() {
+              if (controller.selectedCategory.value != null) {
+                return TextButton.icon(
+                  onPressed: () => _showCategoryFormDialog(
+                    context,
+                    categoryToEdit: controller.selectedCategory.value!,
+                  ),
+                  icon: const Icon(Icons.edit_outlined, size: 14),
+                  label: const Text('Editar', style: TextStyle(fontSize: 12)),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
             TextButton.icon(
-              onPressed: () => _showCreateCategoryDialog(context),
+              onPressed: () => _showCategoryFormDialog(context),
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Nueva', style: TextStyle(fontSize: 12)),
             ),
@@ -165,6 +180,7 @@ class ExpenseCategorySelectorWidget extends StatelessWidget {
               ),
             ),
           ],
+
         ],
       ),
     );
@@ -194,7 +210,7 @@ class ExpenseCategorySelectorWidget extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           TextButton(
-            onPressed: () => _showCreateCategoryDialog(context),
+            onPressed: () => _showCategoryFormDialog(context),
             child: const Text('Crear Primera Categoría'),
           ),
         ],
@@ -202,13 +218,26 @@ class ExpenseCategorySelectorWidget extends StatelessWidget {
     );
   }
 
-  void _showCreateCategoryDialog(BuildContext context) {
+  void _showCategoryFormDialog(BuildContext context, {ExpenseCategory? categoryToEdit}) {
     showDialog(
       context: context,
-      builder: (context) => _CreateCategoryDialog(
-        onCategoryCreated: (category) {
-          controller.categories.add(category);
-          controller.selectedCategory.value = category;
+      builder: (context) => _CategoryFormDialog(
+        categoryToEdit: categoryToEdit,
+        onCategorySaved: (category) {
+          if (categoryToEdit != null) {
+            // Reemplazar en la lista
+            final idx = controller.categories.indexWhere((c) => c.id == categoryToEdit.id);
+            if (idx >= 0) {
+              controller.categories[idx] = category;
+            }
+            // Actualizar selección si era la editada
+            if (controller.selectedCategory.value?.id == categoryToEdit.id) {
+              controller.selectedCategory.value = category;
+            }
+          } else {
+            controller.categories.add(category);
+            controller.selectedCategory.value = category;
+          }
         },
       ),
     );
@@ -243,18 +272,21 @@ class ExpenseCategorySelectorWidget extends StatelessWidget {
   }
 }
 
-class _CreateCategoryDialog extends StatefulWidget {
-  final Function(ExpenseCategory) onCategoryCreated;
+class _CategoryFormDialog extends StatefulWidget {
+  final ExpenseCategory? categoryToEdit;
+  final Function(ExpenseCategory) onCategorySaved;
 
-  const _CreateCategoryDialog({
-    required this.onCategoryCreated,
+  const _CategoryFormDialog({
+    this.categoryToEdit,
+    required this.onCategorySaved,
   });
 
   @override
-  State<_CreateCategoryDialog> createState() => _CreateCategoryDialogState();
+  State<_CategoryFormDialog> createState() => _CategoryFormDialogState();
 }
 
-class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
+class _CategoryFormDialogState extends State<_CategoryFormDialog> {
+  bool get isEditMode => widget.categoryToEdit != null;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -279,6 +311,32 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    if (isEditMode) {
+      final cat = widget.categoryToEdit!;
+      _nameController.text = cat.name;
+      _descriptionController.text = cat.description ?? '';
+      if (cat.monthlyBudget > 0) {
+        _budgetController.text = cat.monthlyBudget.toStringAsFixed(0);
+      }
+      if (cat.color != null && cat.color!.isNotEmpty) {
+        try {
+          final colorString = cat.color!.replaceAll('#', '');
+          final colorValue = int.parse('FF$colorString', radix: 16);
+          final parsed = Color(colorValue);
+          // Buscar el color más cercano en la lista
+          final match = _availableColors.cast<Color?>().firstWhere(
+            (c) => c!.value == parsed.value,
+            orElse: () => null,
+          );
+          if (match != null) _selectedColor = match;
+        } catch (_) {}
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
@@ -289,7 +347,7 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Nueva Categoría'),
+      title: Text(isEditMode ? 'Editar Categoría' : 'Nueva Categoría'),
       content: SizedBox(
         width: 400,
         child: Form(
@@ -409,37 +467,50 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
-          onPressed: _isLoading ? null : _createCategory,
+          onPressed: _isLoading ? null : _saveCategory,
           child: _isLoading
               ? const SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Crear'),
+              : Text(isEditMode ? 'Guardar' : 'Crear'),
         ),
       ],
     );
   }
 
-  Future<void> _createCategory() async {
+  Future<void> _saveCategory() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // Obtener el controlador desde el contexto
       final controller = Get.find<ExpenseFormController>();
-      
-      // Usar el UseCase real para crear la categoría
-      final result = await controller.createExpenseCategory(
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
-        color: '#${_selectedColor.value.toRadixString(16).substring(2)}',
-        monthlyBudget: double.tryParse(_budgetController.text) ?? 0.0,
-      );
+      final colorHex = '#${_selectedColor.value.toRadixString(16).substring(2)}';
+      final description = _descriptionController.text.trim().isEmpty
+          ? null
+          : _descriptionController.text.trim();
+      final budget = double.tryParse(_budgetController.text) ?? 0.0;
+
+      final Either<Failure, ExpenseCategory> result;
+
+      if (isEditMode) {
+        result = await controller.updateExpenseCategory(
+          categoryId: widget.categoryToEdit!.id,
+          name: _nameController.text.trim(),
+          description: description,
+          color: colorHex,
+          monthlyBudget: budget,
+        );
+      } else {
+        result = await controller.createExpenseCategory(
+          name: _nameController.text.trim(),
+          description: description,
+          color: colorHex,
+          monthlyBudget: budget,
+        );
+      }
 
       result.fold(
         (failure) {
@@ -453,23 +524,24 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
           );
         },
         (category) {
-          widget.onCategoryCreated(category);
+          widget.onCategorySaved(category);
           Navigator.of(context).pop();
 
           Get.snackbar(
-            'Éxito',
-            'Categoría creada exitosamente',
+            isEditMode ? 'Categoría actualizada' : 'Categoría creada',
+            isEditMode ? 'Cambios guardados' : 'Categoría creada exitosamente',
             snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
             icon: const Icon(Icons.check_circle, color: Colors.green),
+            duration: const Duration(seconds: 2),
           );
         },
       );
     } catch (e) {
       Get.snackbar(
         'Error',
-        'No se pudo crear la categoría: $e',
+        'No se pudo guardar la categoría: $e',
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,

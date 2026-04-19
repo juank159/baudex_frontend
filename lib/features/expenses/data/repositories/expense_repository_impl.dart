@@ -12,6 +12,7 @@ import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../models/isar/isar_expense.dart';
 
 import '../../domain/entities/expense.dart';
@@ -1420,9 +1421,9 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       // Obtener el usuario actual (si está disponible)
       String createdById = 'offline_user';
       try {
-        final authController = Get.find<dynamic>();
+        final authController = Get.find<AuthController>();
         if (authController.currentUser != null) {
-          createdById = authController.currentUser.id;
+          createdById = authController.currentUser!.id;
         }
       } catch (e) {
         AppLogger.w(' ExpenseRepository: No se pudo obtener usuario actual: $e');
