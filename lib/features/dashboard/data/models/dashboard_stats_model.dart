@@ -24,6 +24,7 @@ class DashboardStatsModel extends DashboardStats {
     List<CurrencyBreakdownStats>? currencyBreakdown,
     bool multiCurrencyEnabled = false,
     String baseCurrency = 'COP',
+    ReceivablesStats? receivables,
   }) : super(
          sales: sales,
          invoices: invoices,
@@ -36,6 +37,7 @@ class DashboardStatsModel extends DashboardStats {
          currencyBreakdown: currencyBreakdown,
          multiCurrencyEnabled: multiCurrencyEnabled,
          baseCurrency: baseCurrency,
+         receivables: receivables,
        );
 
   factory DashboardStatsModel.fromJson(Map<String, dynamic> json) {
@@ -108,6 +110,36 @@ class DashboardStatsModel extends DashboardStats {
       currencyBreakdown: _parseCurrencyBreakdown(json['currencyBreakdown']),
       multiCurrencyEnabled: json['multiCurrencyEnabled'] ?? false,
       baseCurrency: json['baseCurrency'] ?? 'COP',
+      receivables: _parseReceivables(json['receivables']),
+    );
+  }
+
+  static ReceivablesStats? _parseReceivables(dynamic data) {
+    if (data is! Map<String, dynamic>) return null;
+    ReceivablesBucket bucket(String key) {
+      final b = data['byUrgency']?[key];
+      if (b is! Map) return ReceivablesBucket.empty;
+      return ReceivablesBucket(
+        count: (b['count'] as num?)?.toInt() ?? 0,
+        total: _toDouble(b['total']),
+        maxDaysOverdue: (b['maxDaysOverdue'] as num?)?.toInt() ?? 0,
+      );
+    }
+
+    final debtors = (data['topDebtors'] as List?) ?? const [];
+    return ReceivablesStats(
+      total: _toDouble(data['total']),
+      count: (data['count'] as num?)?.toInt() ?? 0,
+      current: bucket('current'),
+      dueSoon: bucket('dueSoon'),
+      overdue: bucket('overdue'),
+      topDebtors: debtors.whereType<Map>().map((d) => TopDebtor(
+            customerId: d['customerId']?.toString() ?? '',
+            customerName: d['customerName']?.toString() ?? 'Sin nombre',
+            invoiceCount: (d['invoiceCount'] as num?)?.toInt() ?? 0,
+            totalBalance: _toDouble(d['totalBalance']),
+            maxDaysOverdue: (d['maxDaysOverdue'] as num?)?.toInt() ?? 0,
+          )).toList(),
     );
   }
 

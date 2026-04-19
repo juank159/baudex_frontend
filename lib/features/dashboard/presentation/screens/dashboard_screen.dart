@@ -11,6 +11,7 @@ import '../widgets/period_selector.dart';
 import '../widgets/expense_pie_chart.dart';
 import '../widgets/bank_accounts_summary.dart';
 import '../widgets/income_breakdown_widget.dart';
+import '../widgets/accounts_receivable_widget.dart';
 import '../widgets/currency_breakdown_widget.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
@@ -343,18 +344,25 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         // Income Breakdown Widget con animación
         Obx(() {
-          if (controller.dashboardStats != null) {
-            return Column(
-              children: [
-                _buildAnimatedCard(
-                  IncomeBreakdownWidget(stats: controller.dashboardStats!),
-                  delay: 250,
-                ),
+          final stats = controller.dashboardStats;
+          if (stats == null) return const SizedBox.shrink();
+          final rec = stats.receivables;
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                IncomeBreakdownWidget(stats: stats),
+                delay: 250,
+              ),
+              if (rec != null && rec.hasAny) ...[
                 const SizedBox(height: AppDimensions.spacingMedium),
+                _buildAnimatedCard(
+                  AccountsReceivableWidget(receivables: rec),
+                  delay: 300,
+                ),
               ],
-            );
-          }
-          return const SizedBox.shrink();
+              const SizedBox(height: AppDimensions.spacingMedium),
+            ],
+          );
         }),
 
         // Currency Breakdown Widget (condicional)
@@ -449,18 +457,25 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         // Income Breakdown Widget - Segunda fila con animación
         Obx(() {
-          if (controller.dashboardStats != null) {
-            return Column(
-              children: [
+          final stats = controller.dashboardStats;
+          if (stats == null) return const SizedBox.shrink();
+          final rec = stats.receivables;
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                IncomeBreakdownWidget(stats: stats),
+                delay: 250,
+              ),
+              if (rec != null && rec.hasAny) ...[
+                const SizedBox(height: AppDimensions.spacingMedium),
                 _buildAnimatedCard(
-                  IncomeBreakdownWidget(stats: controller.dashboardStats!),
-                  delay: 250,
+                  AccountsReceivableWidget(receivables: rec),
+                  delay: 300,
                 ),
-                const SizedBox(height: AppDimensions.spacingLarge),
               ],
-            );
-          }
-          return const SizedBox.shrink();
+              const SizedBox(height: AppDimensions.spacingLarge),
+            ],
+          );
         }),
 
         // Currency Breakdown Widget (condicional)
@@ -575,17 +590,28 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               const SizedBox(width: AppDimensions.spacingLarge),
 
-              // Columna 2: Desglose de Ingresos
+              // Columna 2: Desglose de Ingresos + Cuentas por Cobrar
               Expanded(
                 flex: 2,
                 child: Obx(() {
-                  if (controller.dashboardStats != null) {
-                    return _buildAnimatedCard(
-                      IncomeBreakdownWidget(stats: controller.dashboardStats!),
-                      delay: 250,
-                    );
-                  }
-                  return const SizedBox.shrink();
+                  final stats = controller.dashboardStats;
+                  if (stats == null) return const SizedBox.shrink();
+                  final rec = stats.receivables;
+                  return Column(
+                    children: [
+                      _buildAnimatedCard(
+                        IncomeBreakdownWidget(stats: stats),
+                        delay: 250,
+                      ),
+                      if (rec != null && rec.hasAny) ...[
+                        const SizedBox(height: AppDimensions.spacingMedium),
+                        _buildAnimatedCard(
+                          AccountsReceivableWidget(receivables: rec),
+                          delay: 300,
+                        ),
+                      ],
+                    ],
+                  );
                 }),
               ),
             ],

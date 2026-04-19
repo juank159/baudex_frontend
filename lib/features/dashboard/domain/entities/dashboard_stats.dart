@@ -13,6 +13,7 @@ class DashboardStats extends Equatable {
   final List<CurrencyBreakdownStats>? currencyBreakdown;
   final bool multiCurrencyEnabled;
   final String baseCurrency;
+  final ReceivablesStats? receivables;
 
   const DashboardStats({
     required this.sales,
@@ -26,6 +27,7 @@ class DashboardStats extends Equatable {
     this.currencyBreakdown,
     this.multiCurrencyEnabled = false,
     this.baseCurrency = 'COP',
+    this.receivables,
   });
 
   @override
@@ -41,6 +43,7 @@ class DashboardStats extends Equatable {
     currencyBreakdown,
     multiCurrencyEnabled,
     baseCurrency,
+    receivables,
   ];
 }
 
@@ -380,6 +383,75 @@ class IncomeTypeBreakdown extends Equatable {
     credits,
     total,
   ];
+}
+
+// Cuentas por cobrar con semáforo de urgencia
+class ReceivablesBucket extends Equatable {
+  final int count;
+  final double total;
+  final int maxDaysOverdue;
+
+  const ReceivablesBucket({
+    required this.count,
+    required this.total,
+    this.maxDaysOverdue = 0,
+  });
+
+  static const empty = ReceivablesBucket(count: 0, total: 0);
+
+  @override
+  List<Object?> get props => [count, total, maxDaysOverdue];
+}
+
+class TopDebtor extends Equatable {
+  final String customerId;
+  final String customerName;
+  final int invoiceCount;
+  final double totalBalance;
+  final int maxDaysOverdue;
+
+  const TopDebtor({
+    required this.customerId,
+    required this.customerName,
+    required this.invoiceCount,
+    required this.totalBalance,
+    this.maxDaysOverdue = 0,
+  });
+
+  @override
+  List<Object?> get props => [
+    customerId,
+    customerName,
+    invoiceCount,
+    totalBalance,
+    maxDaysOverdue,
+  ];
+}
+
+class ReceivablesStats extends Equatable {
+  final double total;
+  final int count;
+  // Semáforo: verde (vigente), amarillo (por vencer), rojo (vencida)
+  final ReceivablesBucket current;
+  final ReceivablesBucket dueSoon;
+  final ReceivablesBucket overdue;
+  final List<TopDebtor> topDebtors;
+
+  const ReceivablesStats({
+    required this.total,
+    required this.count,
+    required this.current,
+    required this.dueSoon,
+    required this.overdue,
+    required this.topDebtors,
+  });
+
+  bool get hasAny => count > 0;
+  bool get hasOverdue => overdue.count > 0;
+  bool get hasDueSoon => dueSoon.count > 0;
+
+  @override
+  List<Object?> get props => [total, count, current, dueSoon, overdue, topDebtors];
 }
 
 // Desglose por moneda (solo cuando multiCurrencyEnabled)
