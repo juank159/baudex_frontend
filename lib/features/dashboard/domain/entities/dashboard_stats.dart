@@ -32,6 +32,10 @@ class DashboardStats extends Equatable {
   /// Puntos de tendencia reales por día (no fabricados).
   final List<TrendPoint> trend;
 
+  /// Resumen de caja: ventas + préstamos + anticipos, desagregados.
+  /// Mostrado en el widget "Resumen de caja" del dashboard.
+  final CashFlowStats cashFlow;
+
   const DashboardStats({
     required this.sales,
     required this.invoices,
@@ -50,6 +54,7 @@ class DashboardStats extends Equatable {
     this.grossMarginPercentage = 0,
     this.netMarginPercentage = 0,
     this.trend = const [],
+    this.cashFlow = const CashFlowStats.empty(),
   });
 
   @override
@@ -71,6 +76,7 @@ class DashboardStats extends Equatable {
     grossMarginPercentage,
     netMarginPercentage,
     trend,
+    cashFlow,
   ];
 
   /// Clona la instancia sobreescribiendo solo los campos dados.
@@ -94,6 +100,7 @@ class DashboardStats extends Equatable {
     double? grossMarginPercentage,
     double? netMarginPercentage,
     List<TrendPoint>? trend,
+    CashFlowStats? cashFlow,
   }) {
     return DashboardStats(
       sales: sales ?? this.sales,
@@ -113,8 +120,75 @@ class DashboardStats extends Equatable {
       grossMarginPercentage: grossMarginPercentage ?? this.grossMarginPercentage,
       netMarginPercentage: netMarginPercentage ?? this.netMarginPercentage,
       trend: trend ?? this.trend,
+      cashFlow: cashFlow ?? this.cashFlow,
     );
   }
+}
+
+/// Flujo de caja del período desagregado por origen.
+/// Separa ventas de recuperación de préstamos y de anticipos, para reportar
+/// con criterio contable correcto (ventas ≠ cartera ≠ pasivos).
+class CashFlowStats extends Equatable {
+  /// Cobros por venta (facturas). Coincide con `totalCollected`.
+  final double salesCollected;
+  final int salesCollectedCount;
+
+  /// Abonos a préstamos directos (créditos sin factura). Recuperación de cartera.
+  final double loanPayments;
+  final int loanPaymentsCount;
+
+  /// Depósitos a saldo a favor del cliente. Pasivo hasta que se aplique.
+  final double customerDeposits;
+  final int customerDepositsCount;
+
+  /// Caja total del período: ventas + préstamos + anticipos.
+  final double totalCashIn;
+
+  const CashFlowStats({
+    required this.salesCollected,
+    required this.salesCollectedCount,
+    required this.loanPayments,
+    required this.loanPaymentsCount,
+    required this.customerDeposits,
+    required this.customerDepositsCount,
+    required this.totalCashIn,
+  });
+
+  const CashFlowStats.empty()
+      : salesCollected = 0,
+        salesCollectedCount = 0,
+        loanPayments = 0,
+        loanPaymentsCount = 0,
+        customerDeposits = 0,
+        customerDepositsCount = 0,
+        totalCashIn = 0;
+
+  factory CashFlowStats.fromJson(Map<String, dynamic> json) {
+    double d(dynamic v) => (v as num?)?.toDouble() ?? 0.0;
+    int i(dynamic v) => (v as num?)?.toInt() ?? 0;
+    return CashFlowStats(
+      salesCollected: d(json['salesCollected']),
+      salesCollectedCount: i(json['salesCollectedCount']),
+      loanPayments: d(json['loanPayments']),
+      loanPaymentsCount: i(json['loanPaymentsCount']),
+      customerDeposits: d(json['customerDeposits']),
+      customerDepositsCount: i(json['customerDepositsCount']),
+      totalCashIn: d(json['totalCashIn']),
+    );
+  }
+
+  bool get hasAny => salesCollected > 0 || loanPayments > 0 || customerDeposits > 0;
+
+  @override
+  List<Object?> get props => [
+        salesCollected,
+        salesCollectedCount,
+        loanPayments,
+        loanPaymentsCount,
+        customerDeposits,
+        customerDepositsCount,
+        totalCashIn,
+      ];
 }
 
 /// Punto de tendencia diario. Mapea 1:1 con el TrendPoint del backend.

@@ -400,7 +400,7 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
   }
 
   Widget _buildHeader() {
-    final totalBalance = _accounts.fold<double>(0, (sum, acc) => sum + acc.totalReceivedPeriod);
+    final totalBalance = _accounts.fold<double>(0, (sum, acc) => sum + acc.grandTotalPeriod);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -448,7 +448,7 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Recibido: ${AppFormatters.formatCurrency(totalBalance.toInt())}',
+                  'Total recibido: ${AppFormatters.formatCurrency(totalBalance.toInt())}',
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: ElegantLightTheme.primaryBlue,
                     fontWeight: FontWeight.w600,
@@ -569,23 +569,23 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
                   ],
                 ),
               ),
-              // Recibido en el período
+              // Total recibido en el período (facturas + saldos a favor)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'Recibido',
+                    'Total recibido',
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.textSecondary,
-                      fontSize: 9,  // Reducido de 10
+                      fontSize: 9,
                     ),
                   ),
                   Text(
-                    AppFormatters.formatCurrency(account.totalReceivedPeriod.toInt()),
+                    AppFormatters.formatCurrency(account.grandTotalPeriod.toInt()),
                     style: AppTextStyles.titleMedium.copyWith(
                       fontWeight: FontWeight.w800,
                       color: color,
-                      fontSize: 16,  // Reducido de 18
+                      fontSize: 16,
                     ),
                   ),
                 ],
@@ -603,33 +603,33 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
             child: Row(
               children: [
                 _buildStatItem(
-                  'Facturas',
+                  'Pago de facturas',
                   AppFormatters.formatCurrency(account.totalReceivedPeriod.toInt()),
                   '${account.paymentCountPeriod} pagos',
                   Colors.green,
                 ),
                 Container(
                   width: 1,
-                  height: 32,  // Reducido de 40
+                  height: 32,
                   color: Colors.grey.shade300,
-                  margin: const EdgeInsets.symmetric(horizontal: 10),  // Reducido de 12
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
                 ),
                 _buildStatItem(
-                  'Créditos',
-                  AppFormatters.formatCurrency(account.creditPaymentTotal.toInt()),
-                  '${account.creditPaymentCount} pagos',
+                  'Abonos a créditos',
+                  AppFormatters.formatCurrency(account.creditPaymentTotalPeriod.toInt()),
+                  '${account.creditPaymentCountPeriod} abonos',
                   Colors.blue,
                 ),
                 Container(
                   width: 1,
-                  height: 32,  // Reducido de 40
+                  height: 32,
                   color: Colors.grey.shade300,
-                  margin: const EdgeInsets.symmetric(horizontal: 10),  // Reducido de 12
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
                 ),
                 _buildStatItem(
                   'Total',
                   AppFormatters.formatCurrency(account.grandTotalPeriod.toInt()),
-                  '${account.totalPaymentsPeriod} pagos',
+                  '${account.totalPaymentsPeriod} movimientos',
                   Colors.purple,
                 ),
               ],

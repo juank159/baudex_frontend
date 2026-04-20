@@ -30,6 +30,7 @@ class DashboardStatsModel extends DashboardStats {
     double grossMarginPercentage = 0,
     double netMarginPercentage = 0,
     List<TrendPoint> trend = const [],
+    CashFlowStats cashFlow = const CashFlowStats.empty(),
   }) : super(
          sales: sales,
          invoices: invoices,
@@ -48,6 +49,7 @@ class DashboardStatsModel extends DashboardStats {
          grossMarginPercentage: grossMarginPercentage,
          netMarginPercentage: netMarginPercentage,
          trend: trend,
+         cashFlow: cashFlow,
        );
 
   factory DashboardStatsModel.fromJson(Map<String, dynamic> json) {
@@ -135,6 +137,9 @@ class DashboardStatsModel extends DashboardStats {
       grossMarginPercentage: _toDouble(json['grossMarginPercentage']),
       netMarginPercentage: _toDouble(json['netMarginPercentage']),
       trend: _parseTrend(json['trend']),
+      cashFlow: json['cashFlow'] is Map<String, dynamic>
+          ? CashFlowStats.fromJson(json['cashFlow'] as Map<String, dynamic>)
+          : const CashFlowStats.empty(),
     );
   }
 

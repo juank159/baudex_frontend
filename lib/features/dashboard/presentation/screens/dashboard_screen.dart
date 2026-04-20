@@ -12,6 +12,7 @@ import '../widgets/expense_pie_chart.dart';
 import '../widgets/bank_accounts_summary.dart';
 import '../widgets/income_breakdown_widget.dart';
 import '../widgets/accounts_receivable_widget.dart';
+import '../widgets/cash_flow_summary_widget.dart';
 import '../widgets/currency_breakdown_widget.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
@@ -415,6 +416,23 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         const SizedBox(height: AppDimensions.spacingMedium),
 
+        // Resumen de caja (ventas + préstamos + anticipos)
+        Obx(() {
+          final stats = controller.dashboardStats;
+          if (stats == null || !stats.cashFlow.hasAny) {
+            return const SizedBox.shrink();
+          }
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                CashFlowSummaryWidget(cashFlow: stats.cashFlow),
+                delay: 450,
+              ),
+              const SizedBox(height: AppDimensions.spacingMedium),
+            ],
+          );
+        }),
+
         // Bank Accounts Summary con animación
         _buildAnimatedCard(
           Obx(() => BankAccountsSummaryWidget(
@@ -530,6 +548,23 @@ class _DashboardScreenState extends State<DashboardScreen>
           delay: 400,
         ),
         const SizedBox(height: AppDimensions.spacingLarge),
+
+        // Resumen de caja (ventas + préstamos + anticipos)
+        Obx(() {
+          final stats = controller.dashboardStats;
+          if (stats == null || !stats.cashFlow.hasAny) {
+            return const SizedBox.shrink();
+          }
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                CashFlowSummaryWidget(cashFlow: stats.cashFlow),
+                delay: 450,
+              ),
+              const SizedBox(height: AppDimensions.spacingLarge),
+            ],
+          );
+        }),
 
         // Bank Accounts Summary - Cuarta fila con animación
         _buildAnimatedCard(
@@ -700,6 +735,23 @@ class _DashboardScreenState extends State<DashboardScreen>
           delay: 400,
         ),
         const SizedBox(height: AppDimensions.spacingLarge),
+
+        // Resumen de caja (ventas + préstamos + anticipos)
+        Obx(() {
+          final stats = controller.dashboardStats;
+          if (stats == null || !stats.cashFlow.hasAny) {
+            return const SizedBox.shrink();
+          }
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                CashFlowSummaryWidget(cashFlow: stats.cashFlow),
+                delay: 450,
+              ),
+              const SizedBox(height: AppDimensions.spacingLarge),
+            ],
+          );
+        }),
 
         // Cuarta fila: Bank Accounts Summary con animación
         _buildAnimatedCard(

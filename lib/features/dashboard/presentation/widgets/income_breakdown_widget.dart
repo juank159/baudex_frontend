@@ -91,7 +91,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Desglose de Ingresos',
+                'Desglose de ingresos',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -101,7 +101,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Análisis detallado de ingresos',
+                'De dónde viene tu dinero',
                 style: TextStyle(
                   color: ElegantLightTheme.textSecondary,
                   fontSize: 12,
@@ -126,7 +126,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Por Tipo de Ingreso',
+          'Origen del ingreso',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w700,
@@ -139,7 +139,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
         // Ventas nuevas del período
         _buildIncomeTypeItem(
           icon: Icons.receipt_long_rounded,
-          label: 'Ventas Facturadas',
+          label: 'Ventas del período',
           amount: breakdown.newInvoices,
           percentage: pct(breakdown.newInvoices),
           color: const Color(0xFF10B981),
@@ -150,7 +150,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
         if (hasOldPayments) ...[
           _buildIncomeTypeItem(
             icon: Icons.history_rounded,
-            label: 'Abonos a Facturas Anteriores',
+            label: 'Abonos a facturas anteriores',
             amount: breakdown.paymentsOnOldInvoices,
             percentage: pct(breakdown.paymentsOnOldInvoices),
             color: const Color(0xFFF59E0B),
@@ -163,12 +163,12 @@ class IncomeBreakdownWidget extends StatelessWidget {
         if (hasCredits) ...[
           _buildIncomeTypeItem(
             icon: Icons.savings_rounded,
-            label: 'Saldo a Favor Usado',
+            label: 'Saldo a favor usado',
             amount: breakdown.credits,
             percentage: pct(breakdown.credits),
             color: const Color(0xFF3B82F6),
             tooltip:
-                'Cuando un cliente paga una factura con dinero que te había dejado antes (anticipos o devoluciones). No es efectivo nuevo recibido.',
+                'Cuando un cliente paga una factura con dinero que te había dejado antes (anticipos o devoluciones). No es efectivo nuevo que recibes.',
           ),
           const SizedBox(height: 6),
         ],
@@ -194,7 +194,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
                   const Icon(Icons.receipt_long_rounded, color: ElegantLightTheme.primaryBlue, size: 16),
                   const SizedBox(width: 6),
                   const Text(
-                    'Total Facturado',
+                    'Total facturado',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -220,7 +220,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
                     const Icon(Icons.payments_rounded, color: Color(0xFF10B981), size: 16),
                     const SizedBox(width: 6),
                     const Text(
-                      'Dinero Cobrado',
+                      'Dinero cobrado',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -369,7 +369,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Por Método de Pago',
+          'Forma de pago',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w700,
