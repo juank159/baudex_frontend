@@ -144,6 +144,12 @@ class CashFlowStats extends Equatable {
   /// Caja total del período: ventas + préstamos + anticipos.
   final double totalCashIn;
 
+  /// Desglose de abonos a préstamos por cuenta bancaria o método de pago.
+  final List<CashFlowMethodRow> loanPaymentsBreakdown;
+
+  /// Desglose de anticipos por método de pago.
+  final List<CashFlowMethodRow> customerDepositsBreakdown;
+
   const CashFlowStats({
     required this.salesCollected,
     required this.salesCollectedCount,
@@ -152,6 +158,8 @@ class CashFlowStats extends Equatable {
     required this.customerDeposits,
     required this.customerDepositsCount,
     required this.totalCashIn,
+    this.loanPaymentsBreakdown = const [],
+    this.customerDepositsBreakdown = const [],
   });
 
   const CashFlowStats.empty()
@@ -161,11 +169,20 @@ class CashFlowStats extends Equatable {
         loanPaymentsCount = 0,
         customerDeposits = 0,
         customerDepositsCount = 0,
-        totalCashIn = 0;
+        totalCashIn = 0,
+        loanPaymentsBreakdown = const [],
+        customerDepositsBreakdown = const [];
 
   factory CashFlowStats.fromJson(Map<String, dynamic> json) {
     double d(dynamic v) => (v as num?)?.toDouble() ?? 0.0;
     int i(dynamic v) => (v as num?)?.toInt() ?? 0;
+    List<CashFlowMethodRow> rows(dynamic v) {
+      if (v is! List) return const [];
+      return v
+          .whereType<Map>()
+          .map((m) => CashFlowMethodRow.fromJson(m.cast<String, dynamic>()))
+          .toList();
+    }
     return CashFlowStats(
       salesCollected: d(json['salesCollected']),
       salesCollectedCount: i(json['salesCollectedCount']),
@@ -174,6 +191,8 @@ class CashFlowStats extends Equatable {
       customerDeposits: d(json['customerDeposits']),
       customerDepositsCount: i(json['customerDepositsCount']),
       totalCashIn: d(json['totalCashIn']),
+      loanPaymentsBreakdown: rows(json['loanPaymentsBreakdown']),
+      customerDepositsBreakdown: rows(json['customerDepositsBreakdown']),
     );
   }
 
@@ -188,7 +207,33 @@ class CashFlowStats extends Equatable {
         customerDeposits,
         customerDepositsCount,
         totalCashIn,
+        loanPaymentsBreakdown,
+        customerDepositsBreakdown,
       ];
+}
+
+/// Fila de desglose por cuenta bancaria o método de pago.
+class CashFlowMethodRow extends Equatable {
+  final String method;
+  final int count;
+  final double total;
+
+  const CashFlowMethodRow({
+    required this.method,
+    required this.count,
+    required this.total,
+  });
+
+  factory CashFlowMethodRow.fromJson(Map<String, dynamic> json) {
+    return CashFlowMethodRow(
+      method: json['method']?.toString() ?? 'Sin especificar',
+      count: (json['count'] as num?)?.toInt() ?? 0,
+      total: (json['total'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  @override
+  List<Object?> get props => [method, count, total];
 }
 
 /// Punto de tendencia diario. Mapea 1:1 con el TrendPoint del backend.

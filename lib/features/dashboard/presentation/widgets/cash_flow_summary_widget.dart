@@ -67,6 +67,7 @@ class CashFlowSummaryWidget extends StatelessWidget {
                       color: _loanColor,
                       tooltip:
                           'Cuando un cliente te paga dinero que le habías prestado (crédito directo sin factura). No es venta nueva, es recuperación de cartera.',
+                      breakdown: cashFlow.loanPaymentsBreakdown,
                     ),
                     const SizedBox(height: 8),
                     _buildRow(
@@ -78,6 +79,7 @@ class CashFlowSummaryWidget extends StatelessWidget {
                       color: _depositColor,
                       tooltip:
                           'Dinero que un cliente te deja como saldo a favor antes de facturar. Es un pasivo (lo debes) hasta que se aplique a una factura futura.',
+                      breakdown: cashFlow.customerDepositsBreakdown,
                     ),
                   ],
                 ),
@@ -171,7 +173,9 @@ class CashFlowSummaryWidget extends StatelessWidget {
     required double percentage,
     required Color color,
     required String tooltip,
+    List<CashFlowMethodRow> breakdown = const [],
   }) {
+    final hasBreakdown = breakdown.isNotEmpty && amount > 0;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -179,7 +183,37 @@ class CashFlowSummaryWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildMainRow(
+            icon: icon,
+            label: label,
+            subtitle: subtitle,
+            amount: amount,
+            percentage: percentage,
+            color: color,
+            tooltip: tooltip,
+          ),
+          if (hasBreakdown) ...[
+            const SizedBox(height: 8),
+            _buildBreakdownList(breakdown, color),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainRow({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required double amount,
+    required double percentage,
+    required Color color,
+    required String tooltip,
+  }) {
+    return Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
@@ -268,8 +302,93 @@ class CashFlowSummaryWidget extends StatelessWidget {
             ],
           ),
         ],
+    );
+  }
+
+  Widget _buildBreakdownList(List<CashFlowMethodRow> rows, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Dónde se recibió',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: color.withValues(alpha: 0.85),
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ...rows.map((r) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.8),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _friendlyMethodName(r.method),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: ElegantLightTheme.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '${r.count} ${r.count == 1 ? "mov" : "movs"}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      AppFormatters.formatCurrency(r.total.toInt()),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
       ),
     );
+  }
+
+  /// Convierte valores crudos de paymentMethod (ej. 'cash') en labels amigables.
+  /// Los nombres de cuentas bancarias pasan tal cual.
+  String _friendlyMethodName(String raw) {
+    const map = <String, String>{
+      'cash': 'Efectivo',
+      'credit': 'Saldo a favor',
+      'credit_card': 'Tarjeta de crédito',
+      'debit_card': 'Tarjeta de débito',
+      'bank_transfer': 'Transferencia',
+      'check': 'Cheque',
+      'client_balance': 'Saldo a favor',
+      'other': 'Otro',
+      'Sin especificar': 'Sin cuenta asignada',
+    };
+    return map[raw.toLowerCase()] ?? map[raw] ?? raw;
   }
 
   String _countLabel(int count, String singular, String plural) {
