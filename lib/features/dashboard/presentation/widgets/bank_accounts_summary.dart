@@ -23,12 +23,19 @@ class BankAccountSummary {
   final String type;
   final String? icon;
   final double currentBalance;
+  // Histórico (toda la vida de la cuenta, sin filtro de fecha)
   final double totalReceived;
-  final double totalReceivedPeriod;
   final int paymentCount;
-  final int paymentCountPeriod;
-  final int creditPaymentCount;
   final double creditPaymentTotal;
+  final int creditPaymentCount;
+
+  // Filtrados por período (cash basis: pagos cuya paymentDate ∈ rango).
+  // Backend < 2026-04-20 no enviaba los Period de créditos → fallback a 0.
+  final double totalReceivedPeriod;
+  final int paymentCountPeriod;
+  final double creditPaymentTotalPeriod;
+  final int creditPaymentCountPeriod;
+
   final bool isDefault;
   final bool isActive;
 
@@ -41,11 +48,13 @@ class BankAccountSummary {
     this.icon,
     required this.currentBalance,
     required this.totalReceived,
-    required this.totalReceivedPeriod,
     required this.paymentCount,
-    required this.paymentCountPeriod,
-    required this.creditPaymentCount,
     required this.creditPaymentTotal,
+    required this.creditPaymentCount,
+    required this.totalReceivedPeriod,
+    required this.paymentCountPeriod,
+    required this.creditPaymentTotalPeriod,
+    required this.creditPaymentCountPeriod,
     required this.isDefault,
     required this.isActive,
   });
@@ -60,11 +69,13 @@ class BankAccountSummary {
       icon: json['icon']?.toString(),
       currentBalance: (json['currentBalance'] as num?)?.toDouble() ?? 0.0,
       totalReceived: (json['totalReceived'] as num?)?.toDouble() ?? 0.0,
-      totalReceivedPeriod: (json['totalReceivedPeriod'] as num?)?.toDouble() ?? 0.0,
       paymentCount: (json['paymentCount'] as num?)?.toInt() ?? 0,
-      paymentCountPeriod: (json['paymentCountPeriod'] as num?)?.toInt() ?? 0,
-      creditPaymentCount: (json['creditPaymentCount'] as num?)?.toInt() ?? 0,
       creditPaymentTotal: (json['creditPaymentTotal'] as num?)?.toDouble() ?? 0.0,
+      creditPaymentCount: (json['creditPaymentCount'] as num?)?.toInt() ?? 0,
+      totalReceivedPeriod: (json['totalReceivedPeriod'] as num?)?.toDouble() ?? 0.0,
+      paymentCountPeriod: (json['paymentCountPeriod'] as num?)?.toInt() ?? 0,
+      creditPaymentTotalPeriod: (json['creditPaymentTotalPeriod'] as num?)?.toDouble() ?? 0.0,
+      creditPaymentCountPeriod: (json['creditPaymentCountPeriod'] as num?)?.toInt() ?? 0,
       isDefault: json['isDefault'] as bool? ?? false,
       isActive: json['isActive'] as bool? ?? true,
     );
@@ -73,9 +84,11 @@ class BankAccountSummary {
   double get grandTotal => totalReceived + creditPaymentTotal;
   int get totalPayments => paymentCount + creditPaymentCount;
 
-  /// Totales filtrados por período (respetan el filtro de fecha del dashboard)
-  double get grandTotalPeriod => totalReceivedPeriod + creditPaymentTotal;
-  int get totalPaymentsPeriod => paymentCountPeriod + creditPaymentCount;
+  /// Totales filtrados por período (respetan el filtro de fecha del dashboard).
+  /// Ahora los créditos también se filtran por paymentDate (antes se sumaba el
+  /// histórico, causando el bug de "créditos = 500K" sin actividad del día).
+  double get grandTotalPeriod => totalReceivedPeriod + creditPaymentTotalPeriod;
+  int get totalPaymentsPeriod => paymentCountPeriod + creditPaymentCountPeriod;
 
   /// Obtiene el número de cuenta enmascarado (****1234)
   String get maskedAccountNumber {
@@ -287,13 +300,17 @@ class _BankAccountsSummaryWidgetState extends State<BankAccountsSummaryWidget> {
           accountNumber: account.accountNumber,
           type: _mapIsarBankAccountType(account.type),
           icon: account.icon,
-          currentBalance: totalReceived + creditPaymentTotal, // Aproximado desde pagos
+          currentBalance: totalReceived + creditPaymentTotal,
           totalReceived: totalReceived,
-          totalReceivedPeriod: totalReceivedPeriod,
           paymentCount: normalPayments.length,
-          paymentCountPeriod: normalPayments.length,
-          creditPaymentCount: creditPayments.length,
           creditPaymentTotal: creditPaymentTotal,
+          creditPaymentCount: creditPayments.length,
+          // En offline los "normalPayments"/"creditPayments" ya fueron filtrados
+          // por fecha previamente, por lo tanto Period == total para offline.
+          totalReceivedPeriod: totalReceivedPeriod,
+          paymentCountPeriod: normalPayments.length,
+          creditPaymentTotalPeriod: creditPaymentTotal,
+          creditPaymentCountPeriod: creditPayments.length,
           isDefault: account.isDefault,
           isActive: account.isActive,
         );
