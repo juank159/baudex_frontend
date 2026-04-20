@@ -124,8 +124,6 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
 
       // El backend envuelve la respuesta con SmartResponseInterceptor:
       // {success: true, data: {...}, timestamp: "..."}
-      print('📊 [DASHBOARD] Full response: ${response.data}');
-      print('📊 [DASHBOARD] Data portion: ${response.data['data']}');
       return DashboardStatsModel.fromJson(response.data['data']);
     } on DioException catch (e) {
       final errData = e.response?.data;
@@ -705,8 +703,6 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       // Extraer datos de la respuesta del endpoint real
       // Backend envuelve la respuesta con {success: true, data: {...}, timestamp: "..."}
       final responseData = response.data['data'];
-      print('🔍 PROFITABILITY DEBUG: Full response = ${response.data}');
-      print('🔍 PROFITABILITY DEBUG: Data portion = $responseData');
       return ProfitabilityStatsModel.fromJson(responseData);
     } on DioException catch (e) {
       final errData = e.response?.data;

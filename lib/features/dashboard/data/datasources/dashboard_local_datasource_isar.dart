@@ -110,36 +110,20 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
           }
         }
         if (paymentIncomeFromOldInvoices > 0) {
-          print('📊 ISAR: Ingresos por pagos en facturas antiguas: \$$paymentIncomeFromOldInvoices');
+          AppLogger.d('ISAR: Abonos en facturas antiguas: \$$paymentIncomeFromOldInvoices', tag: 'DASHBOARD');
         }
       }
 
-      // 🔍 DIAGNÓSTICO: Cuántas facturas retornó el filtro de fecha
+      // Filtrar duplicados offline que ya tienen versión real del servidor.
       final offlineDuplicates = invoices.where((i) => i.serverId.startsWith('invoice_offline_')).toList();
-      print('📊 ISAR Dashboard: ${invoices.length} facturas entre $startDate y $endDate'
-          '${offlineDuplicates.isNotEmpty ? ' (⚠️ ${offlineDuplicates.length} DUPLICADOS OFFLINE)' : ''}');
-      if (invoices.isNotEmpty) {
-        final dates = invoices.map((i) => i.date).toList()..sort();
-        print('📊 ISAR fechas: primera=${dates.first}, última=${dates.last}');
-        final paidInvoices = invoices.where((i) =>
-          i.status == IsarInvoiceStatus.paid || i.status == IsarInvoiceStatus.partiallyPaid).toList();
-        final totalPaid = paidInvoices.fold<double>(0.0, (sum, i) => sum + i.paidAmount);
-        print('📊 ISAR pagadas: ${paidInvoices.length} facturas, totalPaidAmount=$totalPaid');
-      }
-
-      // ⚡ FILTRAR duplicados offline para cálculos correctos
-      // (registros con serverId 'invoice_offline_' que tienen un duplicado real del servidor)
       if (offlineDuplicates.isNotEmpty) {
-        // Obtener números de factura de los duplicados offline
         final offlineNumbers = offlineDuplicates.map((i) => i.number).toSet();
-        // Verificar cuáles ya tienen versión real (mismo número pero serverId sin prefijo offline)
         final realVersionExists = invoices.where((i) =>
           !i.serverId.startsWith('invoice_offline_') && offlineNumbers.contains(i.number)).toList();
         if (realVersionExists.isNotEmpty) {
-          print('⚠️ ISAR: Filtrando ${offlineDuplicates.length} facturas offline duplicadas');
+          AppLogger.w('ISAR: filtrando ${offlineDuplicates.length} facturas offline duplicadas', tag: 'DASHBOARD');
           invoices.removeWhere((i) => i.serverId.startsWith('invoice_offline_') &&
             realVersionExists.any((r) => r.number == i.number));
-          print('📊 ISAR después de filtrar: ${invoices.length} facturas');
         }
       }
 
@@ -962,10 +946,10 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       }
 
       if (batchCostAccum.isNotEmpty) {
-        print('📊 COGS: Usando costos de ${batchCostAccum.length} productos desde inventory_batches');
+        AppLogger.d('COGS: costos de ${batchCostAccum.length} productos desde batches', tag: 'DASHBOARD');
       }
     } catch (e) {
-      print('⚠️ COGS: Error leyendo inventory batches, usando solo product prices: $e');
+      AppLogger.w('COGS: error leyendo inventory batches, usando product prices: $e', tag: 'DASHBOARD');
     }
 
     // 2. Para cada factura pagada, calcular COGS por item
@@ -1067,7 +1051,10 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       }
     }
 
-    print('📊 COGS offline: total=$totalCOGS, products con costo=${costPriceMap.length}/${products.length}');
+    AppLogger.d(
+      'COGS offline: total=$totalCOGS, products con costo=${costPriceMap.length}/${products.length}',
+      tag: 'DASHBOARD',
+    );
 
     return _COGSResult(
       totalCOGS: totalCOGS,

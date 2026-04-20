@@ -74,62 +74,6 @@ class RecentActivityCard extends GetView<DashboardController> {
     );
   }
 
-  Widget _buildHeader() {
-    return Row(
-      children: [
-        // Icono principal con efecto 3D
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.primary.withOpacity(0.2),
-                AppColors.primary.withOpacity(0.1),
-                AppColors.primary.withOpacity(0.05),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(Icons.timeline, color: AppColors.primary, size: 24),
-        ),
-        const SizedBox(width: 16),
-        // Título con efectos de texto
-        Expanded(
-          child: ShaderMask(
-            shaderCallback:
-                (bounds) => LinearGradient(
-                  colors: [
-                    AppColors.textPrimary,
-                    AppColors.textPrimary.withOpacity(0.8),
-                  ],
-                ).createShader(bounds),
-            child: Text(
-              'Actividad Reciente',
-              style: AppTextStyles.titleMedium.copyWith(
-                fontWeight: FontWeight.w700,
-                fontSize: 20,
-                letterSpacing: -0.5,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-        // Botón de refresh con animación
-        _RefreshButton(onRefresh: controller.refreshActivity),
-      ],
-    );
-  }
-
   Widget _buildFuturisticHeader() {
     return Row(
       children: [

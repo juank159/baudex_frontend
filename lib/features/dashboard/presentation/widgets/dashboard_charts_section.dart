@@ -408,58 +408,6 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
     );
   }
 
-  Widget _buildMetricCard(
-    String title,
-    String value,
-    Color color,
-    IconData icon,
-  ) {
-    return Builder(
-      builder:
-          (context) => Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: color.withOpacity(0.2)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      icon,
-                      color: color,
-                      size: ResponsiveText.getSmallIconSize(context),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      title,
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                        fontSize: ResponsiveText.getBodyMediumSize(context),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  value,
-                  style: AppTextStyles.titleMedium.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
-                    fontSize: ResponsiveText.getValueTextSize(context),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-    );
-  }
-
   Widget _buildCompactMetricCard(
     String title,
     String value,
