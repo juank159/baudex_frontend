@@ -597,17 +597,26 @@ class _DashboardScreenState extends State<DashboardScreen>
                   final stats = controller.dashboardStats;
                   if (stats == null) return const SizedBox.shrink();
                   final rec = stats.receivables;
+                  final showReceivables = rec != null && rec.hasAny;
                   return Column(
                     children: [
-                      _buildAnimatedCard(
-                        IncomeBreakdownWidget(stats: stats),
-                        delay: 250,
+                      // Ocupa toda la altura si no hay receivables, o ~55% si sí.
+                      // Ambos widgets tienen scroll interno, así que quepan sin overflow.
+                      Expanded(
+                        flex: showReceivables ? 11 : 20,
+                        child: _buildAnimatedCard(
+                          IncomeBreakdownWidget(stats: stats),
+                          delay: 250,
+                        ),
                       ),
-                      if (rec != null && rec.hasAny) ...[
+                      if (showReceivables) ...[
                         const SizedBox(height: AppDimensions.spacingMedium),
-                        _buildAnimatedCard(
-                          AccountsReceivableWidget(receivables: rec),
-                          delay: 300,
+                        Expanded(
+                          flex: 9,
+                          child: _buildAnimatedCard(
+                            AccountsReceivableWidget(receivables: rec),
+                            delay: 300,
+                          ),
                         ),
                       ],
                     ],

@@ -35,7 +35,6 @@ class AccountsReceivableWidget extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.85),
             borderRadius: BorderRadius.circular(20),
@@ -51,23 +50,29 @@ class AccountsReceivableWidget extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _header(dominantColor),
-                const SizedBox(height: 14),
-                _totalRow(dominantColor),
-                const SizedBox(height: 14),
-                _urgencyBar(),
-                const SizedBox(height: 12),
-                _urgencyChips(),
-                if (receivables.topDebtors.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  _divider(),
+            // SingleChildScrollView permite que el widget viva en contenedores
+            // con altura constrained (ej. layout desktop 580px) sin overflow.
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _header(dominantColor),
+                  const SizedBox(height: 14),
+                  _totalRow(dominantColor),
+                  const SizedBox(height: 14),
+                  _urgencyBar(),
                   const SizedBox(height: 12),
-                  _topDebtors(),
+                  _urgencyChips(),
+                  if (receivables.topDebtors.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _divider(),
+                    const SizedBox(height: 12),
+                    _topDebtors(),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
