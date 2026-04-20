@@ -571,12 +571,17 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildDesktopLayout() {
+    // La primera fila se adapta al viewport: 60% del alto visible pero con
+    // límites sensatos para pantallas muy pequeñas o muy grandes. Evita los
+    // píxeles mágicos y que una pantalla grande desperdicie espacio.
+    final viewportH = MediaQuery.of(context).size.height;
+    final topRowHeight = viewportH.clamp(720.0, 1400.0) * 0.60;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Primera fila: Análisis Financiero y Desglose de Ingresos en 2 columnas
         SizedBox(
-          height: 580,
+          height: topRowHeight,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

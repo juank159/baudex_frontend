@@ -117,16 +117,23 @@ class DashboardStatsGrid extends GetView<DashboardController> {
   }
 
   Widget _buildRevenueCard() {
+    final collected = controller.totalCollected;
+    final billed = controller.totalBilled;
+    // El subtítulo muestra el facturado solo si difiere (hay ventas a crédito sin cobrar).
+    final hasPending = billed > collected + 1; // tolerancia de 1 peso
+    final subtitle = hasPending
+        ? 'de ${AppFormatters.formatCurrency(billed)} facturado'
+        : '${controller.dashboardStats?.sales.totalSales ?? 0} ventas';
+
     return _StatCard(
-      title: 'Ingresos',
-      value: AppFormatters.formatCurrency(controller.totalRevenue),
-      subtitle:
-          controller.dashboardStats?.sales.totalSales != null
-              ? '${controller.dashboardStats!.sales.totalSales} ventas'
-              : null,
+      title: 'Ingresos Cobrados',
+      value: AppFormatters.formatCurrency(collected),
+      subtitle: subtitle,
       icon: Icons.trending_up,
       color: AppColors.success,
       onTap: controller.navigateToSales,
+      tooltip:
+          'Dinero que realmente entró a caja en el período. "Facturado" incluye ventas a crédito que aún no se cobran.',
     );
   }
 
@@ -161,14 +168,36 @@ class DashboardStatsGrid extends GetView<DashboardController> {
   }
 
   Widget _buildReceivablesCard() {
-    final receivable = controller.dashboardStats?.sales.accountsReceivable ?? 0;
-    final count = controller.dashboardStats?.sales.receivableCount ?? 0;
+    // Preferimos el breakdown nuevo; fallback al legacy si el backend viejo.
+    final rec = controller.dashboardStats?.receivables;
+    final total = rec?.total ??
+        controller.dashboardStats?.sales.accountsReceivable ??
+        0;
+    final count = rec?.count ??
+        controller.dashboardStats?.sales.receivableCount ??
+        0;
+
+    // Color semáforo: rojo si hay vencidas, amarillo si por vencer, ámbar neutro si al día.
+    Color color = const Color(0xFFF59E0B);
+    String statusSuffix = '';
+    if (rec != null) {
+      if (rec.hasOverdue) {
+        color = const Color(0xFFEF4444);
+        statusSuffix = ' · ${rec.overdue.count} vencida${rec.overdue.count == 1 ? '' : 's'}';
+      } else if (rec.hasDueSoon) {
+        color = const Color(0xFFF59E0B);
+        statusSuffix = ' · ${rec.dueSoon.count} por vencer';
+      } else if (rec.hasAny) {
+        color = const Color(0xFF10B981);
+      }
+    }
+
     return _StatCard(
       title: 'Cuentas por Cobrar',
-      value: AppFormatters.formatCurrency(receivable),
-      subtitle: '$count factura${count == 1 ? '' : 's'} pendiente${count == 1 ? '' : 's'}',
+      value: AppFormatters.formatCurrency(total),
+      subtitle: '$count factura${count == 1 ? '' : 's'} pendiente${count == 1 ? '' : 's'}$statusSuffix',
       icon: Icons.account_balance_wallet_outlined,
-      color: const Color(0xFFF59E0B),
+      color: color,
       onTap: controller.navigateToInvoices,
     );
   }
@@ -309,6 +338,9 @@ class _StatCard extends StatefulWidget {
   final IconData icon;
   final Color color;
   final VoidCallback? onTap;
+  /// Texto que aparece al tocar el ícono ⓘ junto al título.
+  /// Si es null, no se renderiza el ícono de ayuda.
+  final String? tooltip;
 
   const _StatCard({
     required this.title,
@@ -317,6 +349,7 @@ class _StatCard extends StatefulWidget {
     required this.icon,
     required this.color,
     this.onTap,
+    this.tooltip,
   });
 
   @override
@@ -473,24 +506,50 @@ class _StatCardState extends State<_StatCard>
                               const SizedBox(width: 12),
                               // Título con animación de brillos
                               Expanded(
-                                child: ShaderMask(
-                                  shaderCallback:
-                                      (bounds) => LinearGradient(
-                                        colors: [
-                                          AppColors.textSecondary,
-                                          AppColors.textSecondary.withOpacity(
-                                            0.8,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: ShaderMask(
+                                        shaderCallback:
+                                            (bounds) => LinearGradient(
+                                              colors: [
+                                                AppColors.textSecondary,
+                                                AppColors.textSecondary.withOpacity(0.8),
+                                              ],
+                                            ).createShader(bounds),
+                                        child: Text(
+                                          widget.title,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: AppTextStyles.bodyMedium.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                            letterSpacing: 0.5,
                                           ),
-                                        ],
-                                      ).createShader(bounds),
-                                  child: Text(
-                                    widget.title,
-                                    style: AppTextStyles.bodyMedium.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                      letterSpacing: 0.5,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    if (widget.tooltip != null) ...[
+                                      const SizedBox(width: 4),
+                                      Tooltip(
+                                        message: widget.tooltip!,
+                                        preferBelow: false,
+                                        triggerMode: TooltipTriggerMode.tap,
+                                        showDuration: const Duration(seconds: 6),
+                                        textStyle: const TextStyle(color: Colors.white, fontSize: 11),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black87,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(
+                                          Icons.info_outline_rounded,
+                                          size: 13,
+                                          color: widget.color.withOpacity(0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ],

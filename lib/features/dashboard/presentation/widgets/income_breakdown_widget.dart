@@ -516,7 +516,8 @@ class IncomeBreakdownWidget extends StatelessWidget {
   }
 
   String _getDisplayName(String method) {
-    final names = {
+    // Nombres canónicos. Los string ya siempre llegan como enum.value del backend.
+    const names = <String, String>{
       'cash': 'Efectivo',
       'credit': 'Crédito',
       'credit_card': 'Tarjeta de Crédito',
@@ -525,19 +526,9 @@ class IncomeBreakdownWidget extends StatelessWidget {
       'check': 'Cheque',
       'client_balance': 'Saldo a Favor',
       'other': 'Otro',
-      // Nombres comunes de cuentas bancarias
-      'nequi': 'Nequi',
-      'bancolombia': 'Bancolombia',
-      'daviplata': 'Daviplata',
-      // Legacy
-      'transfer': 'Transferencia',
-      'card': 'Tarjeta',
-      // Nombres legacy offline (pre-fix)
-      'efectivo': 'Efectivo',
-      'credito': 'Crédito',
-      'transferencia': 'Transferencia',
-      'cheque': 'Cheque',
     };
+    // Si no matchea un enum, puede ser el nombre de una cuenta bancaria
+    // (Nequi, Daviplata, etc.) — devolvemos tal cual.
     return names[method.toLowerCase()] ?? method;
   }
 }

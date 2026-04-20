@@ -108,6 +108,21 @@ class DashboardController extends GetxController
   String get selectedPeriod => _selectedPeriod.value;
 
   // Quick stats getters
+  /// Dinero realmente cobrado en el período (cash basis). Es la métrica
+  /// principal para el usuario. Si el backend aún no envía totalCollected,
+  /// cae a totalRevenue (comportamiento previo).
+  double get totalCollected {
+    final tc = dashboardStats?.totalCollected ?? 0.0;
+    return tc > 0 ? tc : totalRevenue;
+  }
+
+  /// Total facturado (accrual basis, incluye crédito). Métrica secundaria.
+  double get totalBilled {
+    final tb = dashboardStats?.totalBilled ?? 0.0;
+    return tb > 0 ? tb : totalRevenue;
+  }
+
+  /// @deprecated Usar totalCollected o totalBilled según el caso.
   double get totalRevenue => dashboardStats?.sales.totalAmount ?? 0.0;
   int get totalInvoices => dashboardStats?.invoices.totalInvoices ?? 0;
   int get pendingInvoices => dashboardStats?.invoices.pendingInvoices ?? 0;
@@ -115,12 +130,22 @@ class DashboardController extends GetxController
   int get lowStockProducts =>
       dashboardStats?.products.lowStockProducts ?? 0;
   double get totalExpenses => dashboardStats?.expenses.totalAmount ?? 0.0;
-  
+
   // ✅ Calcular ganancia bruta correcta (Revenue - COGS)
   double get realGrossProfit => profitabilityStats?.grossProfit ?? 0.0;
-  
+
   // ✅ COGS real del backend (o 0 si no está disponible)
   double get totalCOGS => profitabilityStats?.totalCOGS ?? 0.0;
+
+  /// Margen bruto real (con COGS). Usa el campo del backend si está disponible,
+  /// si no lo calcula localmente.
+  double get grossMarginPercentage {
+    final server = dashboardStats?.grossMarginPercentage ?? 0.0;
+    if (server != 0) return server;
+    return totalCollected > 0
+        ? ((totalCollected - totalCOGS) / totalCollected) * 100
+        : 0.0;
+  }
 
   @override
   void onInit() {
