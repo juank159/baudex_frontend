@@ -468,8 +468,17 @@ class DashboardController extends GetxController
       currencyBreakdown: stats.currencyBreakdown,
       multiCurrencyEnabled: stats.multiCurrencyEnabled,
       baseCurrency: stats.baseCurrency,
+      // IMPORTANTE: preservar los nuevos campos del backend. Si no, el getter
+      // totalCollected hace fallback a totalRevenue y el usuario ve el valor
+      // inflado con ventas a crédito no cobradas.
+      receivables: stats.receivables,
+      totalCollected: stats.totalCollected,
+      totalBilled: stats.totalBilled,
+      grossMarginPercentage: stats.grossMarginPercentage,
+      netMarginPercentage: stats.netMarginPercentage,
+      trend: stats.trend,
     );
-    print('🔄 Datos armonizados: Revenue=${stats.sales.totalAmount}, '
+    print('🔄 Datos armonizados: Collected=${stats.totalCollected}, Billed=${stats.totalBilled}, '
         'COGS=${profitability.totalCOGS}, GrossProfit=${profitability.grossProfit}, '
         'NetProfit=${profitability.netProfit}');
   }

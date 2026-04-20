@@ -185,27 +185,60 @@ class IncomeBreakdownWidget extends StatelessWidget {
               width: 1.5,
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.paid, color: ElegantLightTheme.primaryBlue, size: 18),
-              const SizedBox(width: 6),
-              const Text(
-                'Total Ingresos',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: ElegantLightTheme.textPrimary,
-                ),
+              // Total facturado (accrual)
+              Row(
+                children: [
+                  const Icon(Icons.receipt_long_rounded, color: ElegantLightTheme.primaryBlue, size: 16),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Total Facturado',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: ElegantLightTheme.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    AppFormatters.formatCurrency(breakdown.total),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: ElegantLightTheme.textPrimary,
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                AppFormatters.formatCurrency(breakdown.total),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: ElegantLightTheme.primaryBlue,
+              // Total cobrado (cash) — solo si difiere
+              if (stats.totalCollected > 0 && (breakdown.total - stats.totalCollected).abs() > 1) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.payments_rounded, color: Color(0xFF10B981), size: 16),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Dinero Cobrado',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      AppFormatters.formatCurrency(stats.totalCollected),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+              ],
             ],
           ),
         ),
