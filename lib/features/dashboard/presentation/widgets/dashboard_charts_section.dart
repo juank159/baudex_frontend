@@ -93,7 +93,7 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
 
       // El chart comparativo ahora usa el cobrado real (cash basis) en vez del
       // total facturado, para no inflar la barra con ventas a crédito no cobradas.
-      final totalSales = controller.totalCollected;
+      final totalSales = dashboardController.totalCollected;
       final totalExpenses = stats?.expenses.totalAmount ?? 0;
       final maxValue = math.max(totalSales, totalExpenses);
 

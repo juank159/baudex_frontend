@@ -655,9 +655,13 @@ class DashboardFixtures {
     double invoices = 1400000.0,
     double credits = 100000.0,
     double total = 1500000.0,
+    double newInvoices = 1400000.0,
+    double paymentsOnOldInvoices = 0.0,
   }) {
     return IncomeTypeBreakdown(
       invoices: invoices,
+      newInvoices: newInvoices,
+      paymentsOnOldInvoices: paymentsOnOldInvoices,
       credits: credits,
       total: total,
     );
