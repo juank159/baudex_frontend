@@ -120,6 +120,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
     final total = breakdown.total;
     double pct(double value) => total > 0 ? (value / total * 100) : 0.0;
     final hasOldPayments = breakdown.paymentsOnOldInvoices > 0;
+    final hasCredits = breakdown.credits > 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,15 +158,21 @@ class IncomeBreakdownWidget extends StatelessWidget {
           const SizedBox(height: 6),
         ],
 
-        // Créditos
-        _buildIncomeTypeItem(
-          icon: Icons.credit_card_rounded,
-          label: 'Créditos Aplicados',
-          amount: breakdown.credits,
-          percentage: pct(breakdown.credits),
-          color: const Color(0xFF3B82F6),
-        ),
-        const SizedBox(height: 8),
+        // Saldo a favor usado (solo si hay). Antes se llamaba "Créditos Aplicados"
+        // pero ese término se confundía con ventas a crédito, tarjeta o notas de crédito.
+        if (hasCredits) ...[
+          _buildIncomeTypeItem(
+            icon: Icons.savings_rounded,
+            label: 'Saldo a Favor Usado',
+            amount: breakdown.credits,
+            percentage: pct(breakdown.credits),
+            color: const Color(0xFF3B82F6),
+            tooltip:
+                'Cuando un cliente paga una factura con dinero que te había dejado antes (anticipos o devoluciones). No es efectivo nuevo recibido.',
+          ),
+          const SizedBox(height: 6),
+        ],
+        const SizedBox(height: 2),
 
         // Total
         Container(
@@ -212,6 +219,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
     required double amount,
     required double percentage,
     required Color color,
+    String? tooltip,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -238,13 +246,42 @@ class IncomeBreakdownWidget extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: ElegantLightTheme.textPrimary,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: ElegantLightTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (tooltip != null) ...[
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: tooltip,
+                        preferBelow: false,
+                        triggerMode: TooltipTriggerMode.tap,
+                        showDuration: const Duration(seconds: 6),
+                        textStyle: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.info_outline_rounded,
+                          size: 13,
+                          color: color.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Row(
