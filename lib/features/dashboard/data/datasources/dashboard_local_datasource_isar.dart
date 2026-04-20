@@ -504,15 +504,14 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
 
     for (final inv in pending) {
       final bal = inv.balanceDue;
+      // IsarInvoice.dueDate es late (no-null). Con saldo pendiente siempre hay una
+      // fecha de vencimiento — nunca necesitamos el fallback a 'current'.
       final dueDate = inv.dueDate;
-      int daysOverdue = 0;
-      String urgency;
-      if (dueDate == null) {
-        urgency = 'current';
-      } else {
-        final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
-        final diff = today.difference(dueDay).inDays;
-        daysOverdue = diff > 0 ? diff : 0;
+      final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
+      final diff = today.difference(dueDay).inDays;
+      final daysOverdue = diff > 0 ? diff : 0;
+      final String urgency;
+      {
         if (dueDay.isBefore(today)) {
           urgency = 'overdue';
         } else if (!dueDay.isAfter(today.add(const Duration(days: 7)))) {
