@@ -25,6 +25,11 @@ class DashboardStatsModel extends DashboardStats {
     bool multiCurrencyEnabled = false,
     String baseCurrency = 'COP',
     ReceivablesStats? receivables,
+    double totalCollected = 0,
+    double totalBilled = 0,
+    double grossMarginPercentage = 0,
+    double netMarginPercentage = 0,
+    List<TrendPoint> trend = const [],
   }) : super(
          sales: sales,
          invoices: invoices,
@@ -38,9 +43,23 @@ class DashboardStatsModel extends DashboardStats {
          multiCurrencyEnabled: multiCurrencyEnabled,
          baseCurrency: baseCurrency,
          receivables: receivables,
+         totalCollected: totalCollected,
+         totalBilled: totalBilled,
+         grossMarginPercentage: grossMarginPercentage,
+         netMarginPercentage: netMarginPercentage,
+         trend: trend,
        );
 
   factory DashboardStatsModel.fromJson(Map<String, dynamic> json) {
+    // Backend nuevo envía totalCollected y trend; backend viejo solo totalRevenue.
+    // Fallback: si no viene totalCollected, asumimos que totalRevenue es cash basis.
+    final totalCollected = json['totalCollected'] != null
+        ? _toDouble(json['totalCollected'])
+        : _toDouble(json['totalRevenue']);
+    final totalBilled = json['totalBilled'] != null
+        ? _toDouble(json['totalBilled'])
+        : _toDouble(json['totalRevenue']);
+
     // Mapear desde la estructura plana del backend a la estructura anidada del frontend
     return DashboardStatsModel(
       sales: SalesStatsModel(
@@ -111,7 +130,26 @@ class DashboardStatsModel extends DashboardStats {
       multiCurrencyEnabled: json['multiCurrencyEnabled'] ?? false,
       baseCurrency: json['baseCurrency'] ?? 'COP',
       receivables: _parseReceivables(json['receivables']),
+      totalCollected: totalCollected,
+      totalBilled: totalBilled,
+      grossMarginPercentage: _toDouble(json['grossMarginPercentage']),
+      netMarginPercentage: _toDouble(json['netMarginPercentage']),
+      trend: _parseTrend(json['trend']),
     );
+  }
+
+  static List<TrendPoint> _parseTrend(dynamic data) {
+    if (data is! List) return const [];
+    return data.whereType<Map>().map((m) {
+      final dateStr = m['date']?.toString() ?? '';
+      final date = DateTime.tryParse(dateStr) ?? DateTime.now();
+      return TrendPoint(
+        date: date,
+        revenue: _toDouble(m['revenue']),
+        billed: _toDouble(m['billed']),
+        expenses: _toDouble(m['expenses']),
+      );
+    }).toList();
   }
 
   static ReceivablesStats? _parseReceivables(dynamic data) {

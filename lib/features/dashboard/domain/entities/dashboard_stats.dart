@@ -15,6 +15,23 @@ class DashboardStats extends Equatable {
   final String baseCurrency;
   final ReceivablesStats? receivables;
 
+  /// Dinero realmente cobrado en el período (cash basis).
+  /// Es la métrica principal a mostrar al usuario.
+  final double totalCollected;
+
+  /// Total facturado en el período (accrual basis, incluye crédito no cobrado).
+  /// Se muestra como métrica secundaria.
+  final double totalBilled;
+
+  /// Margen bruto real con COGS descontado (sobre totalCollected).
+  final double grossMarginPercentage;
+
+  /// Margen neto con COGS + gastos (sobre totalCollected).
+  final double netMarginPercentage;
+
+  /// Puntos de tendencia reales por día (no fabricados).
+  final List<TrendPoint> trend;
+
   const DashboardStats({
     required this.sales,
     required this.invoices,
@@ -28,6 +45,11 @@ class DashboardStats extends Equatable {
     this.multiCurrencyEnabled = false,
     this.baseCurrency = 'COP',
     this.receivables,
+    this.totalCollected = 0,
+    this.totalBilled = 0,
+    this.grossMarginPercentage = 0,
+    this.netMarginPercentage = 0,
+    this.trend = const [],
   });
 
   @override
@@ -44,7 +66,30 @@ class DashboardStats extends Equatable {
     multiCurrencyEnabled,
     baseCurrency,
     receivables,
+    totalCollected,
+    totalBilled,
+    grossMarginPercentage,
+    netMarginPercentage,
+    trend,
   ];
+}
+
+/// Punto de tendencia diario. Mapea 1:1 con el TrendPoint del backend.
+class TrendPoint extends Equatable {
+  final DateTime date;
+  final double revenue;  // cobrado ese día
+  final double billed;   // facturado ese día (incluye crédito)
+  final double expenses;
+
+  const TrendPoint({
+    required this.date,
+    required this.revenue,
+    required this.billed,
+    required this.expenses,
+  });
+
+  @override
+  List<Object?> get props => [date, revenue, billed, expenses];
 }
 
 class SalesStats extends Equatable {

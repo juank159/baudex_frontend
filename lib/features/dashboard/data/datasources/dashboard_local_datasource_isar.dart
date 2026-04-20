@@ -159,6 +159,7 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       final monthStart = DateTime(now.year, now.month, 1);
 
       double totalRevenue = 0.0;
+      double totalBilled = 0.0; // accrual basis: suma de invoice.total en el rango
       double todaySales = 0.0;
       double monthlySales = 0.0;
       double invoicesIncome = 0.0;
@@ -172,6 +173,11 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         final isPaid = inv.status == IsarInvoiceStatus.paid;
         final isPartial = inv.status == IsarInvoiceStatus.partiallyPaid;
         final isPending = inv.status == IsarInvoiceStatus.pending;
+
+        // Todas las facturas no canceladas cuentan a lo facturado.
+        if (inv.status != IsarInvoiceStatus.cancelled) {
+          totalBilled += inv.total;
+        }
 
         if (isPaid || isPartial) {
           totalRevenue += inv.paidAmount;
@@ -327,6 +333,17 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
 
       final averageOrderValue = totalPaidCount > 0 ? totalRevenue / totalPaidCount : 0.0;
 
+      // ⚡ TREND por día dentro del rango (mismo formato que el backend)
+      final trendPoints = _buildTrend(
+        startDate: startDate,
+        endDate: endDate,
+        invoices: invoices,
+        expenses: expenses,
+      );
+
+      // ⚡ RECEIVABLES con semáforo (global, no filtrado por fecha)
+      final receivables = await _buildReceivables(now);
+
       // ⚡ CALCULAR COGS REAL desde precios de costo de productos
       final cogsResult = _calculateCOGSFromProducts(invoices, products);
       final totalCOGS = cogsResult.totalCOGS;
@@ -411,11 +428,168 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         currencyBreakdown: currencyBreakdown,
         multiCurrencyEnabled: isMultiCurrencyEnabled,
         baseCurrency: baseCurrency,
+        receivables: receivables,
+        totalCollected: totalRevenue,
+        totalBilled: totalBilled,
+        grossMarginPercentage: grossMarginPercentage.toDouble(),
+        netMarginPercentage: netMarginPercentage.toDouble(),
+        trend: trendPoints,
       );
     } catch (e) {
       AppLogger.e('Error calculating dashboard stats from Isar: $e', tag: 'DASHBOARD');
       return null;
     }
+  }
+
+  // ─────── Helpers de paridad con backend ───────
+
+  /// Construye puntos de tendencia por día dentro del rango.
+  List<TrendPoint> _buildTrend({
+    DateTime? startDate,
+    DateTime? endDate,
+    required List<IsarInvoice> invoices,
+    required List<IsarExpense> expenses,
+  }) {
+    if (startDate == null || endDate == null) return const [];
+    final start = DateTime(startDate.year, startDate.month, startDate.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day);
+
+    // Mapas por YYYY-MM-DD para O(1) lookup.
+    final revenueByDay = <String, double>{};
+    final billedByDay = <String, double>{};
+    final expensesByDay = <String, double>{};
+
+    for (final inv in invoices) {
+      final key = _isoDay(inv.date);
+      if (inv.status != IsarInvoiceStatus.cancelled) {
+        billedByDay[key] = (billedByDay[key] ?? 0) + inv.total;
+      }
+      if (inv.status == IsarInvoiceStatus.paid ||
+          inv.status == IsarInvoiceStatus.partiallyPaid) {
+        final payments = IsarInvoice.decodePayments(inv.paymentsJson);
+        for (final p in payments) {
+          final pKey = _isoDay(p.paymentDate);
+          revenueByDay[pKey] = (revenueByDay[pKey] ?? 0) + p.amount;
+        }
+      }
+    }
+
+    for (final exp in expenses) {
+      if (exp.status == IsarExpenseStatus.approved ||
+          exp.status == IsarExpenseStatus.paid) {
+        final key = _isoDay(exp.date);
+        expensesByDay[key] = (expensesByDay[key] ?? 0) + exp.amount;
+      }
+    }
+
+    final points = <TrendPoint>[];
+    var cursor = start;
+    while (!cursor.isAfter(end)) {
+      final key = _isoDay(cursor);
+      points.add(TrendPoint(
+        date: cursor,
+        revenue: revenueByDay[key] ?? 0,
+        billed: billedByDay[key] ?? 0,
+        expenses: expensesByDay[key] ?? 0,
+      ));
+      cursor = cursor.add(const Duration(days: 1));
+    }
+    return points;
+  }
+
+  String _isoDay(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Calcula receivables globales con semáforo desde ISAR.
+  Future<ReceivablesStats> _buildReceivables(DateTime now) async {
+    final pending = await _isar.isarInvoices.filter()
+        .deletedAtIsNull()
+        .group((q) => q
+            .statusEqualTo(IsarInvoiceStatus.pending)
+            .or()
+            .statusEqualTo(IsarInvoiceStatus.partiallyPaid))
+        .balanceDueGreaterThan(0)
+        .findAll();
+
+    final today = DateTime(now.year, now.month, now.day);
+    int curCount = 0, dueCount = 0, overCount = 0;
+    double curTotal = 0, dueTotal = 0, overTotal = 0;
+    int maxDaysOverdue = 0;
+
+    final byCustomer = <String, _DebtorAcc>{};
+
+    for (final inv in pending) {
+      final bal = inv.balanceDue;
+      final dueDate = inv.dueDate;
+      int daysOverdue = 0;
+      String urgency;
+      if (dueDate == null) {
+        urgency = 'current';
+      } else {
+        final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
+        final diff = today.difference(dueDay).inDays;
+        daysOverdue = diff > 0 ? diff : 0;
+        if (dueDay.isBefore(today)) {
+          urgency = 'overdue';
+        } else if (!dueDay.isAfter(today.add(const Duration(days: 7)))) {
+          urgency = 'dueSoon';
+        } else {
+          urgency = 'current';
+        }
+      }
+
+      switch (urgency) {
+        case 'overdue':
+          overCount++;
+          overTotal += bal;
+          if (daysOverdue > maxDaysOverdue) maxDaysOverdue = daysOverdue;
+          break;
+        case 'dueSoon':
+          dueCount++;
+          dueTotal += bal;
+          break;
+        default:
+          curCount++;
+          curTotal += bal;
+      }
+
+      final customerId = inv.customerId;
+      byCustomer.putIfAbsent(customerId, () => _DebtorAcc());
+      final acc = byCustomer[customerId]!;
+      acc.count++;
+      acc.total += bal;
+      if (daysOverdue > acc.maxDaysOverdue) acc.maxDaysOverdue = daysOverdue;
+    }
+
+    // Top 3 deudores
+    final sortedDebtors = byCustomer.entries.toList()
+      ..sort((a, b) => b.value.total.compareTo(a.value.total));
+    final topDebtors = <TopDebtor>[];
+    for (final entry in sortedDebtors.take(3)) {
+      final customer = await _isar.isarCustomers
+          .filter()
+          .serverIdEqualTo(entry.key)
+          .findFirst();
+      final name = customer != null
+          ? [customer.firstName, customer.lastName].where((s) => s.isNotEmpty).join(' ')
+          : 'Sin nombre';
+      topDebtors.add(TopDebtor(
+        customerId: entry.key,
+        customerName: name.isEmpty ? 'Sin nombre' : name,
+        invoiceCount: entry.value.count,
+        totalBalance: entry.value.total,
+        maxDaysOverdue: entry.value.maxDaysOverdue,
+      ));
+    }
+
+    return ReceivablesStats(
+      total: curTotal + dueTotal + overTotal,
+      count: curCount + dueCount + overCount,
+      current: ReceivablesBucket(count: curCount, total: curTotal),
+      dueSoon: ReceivablesBucket(count: dueCount, total: dueTotal),
+      overdue: ReceivablesBucket(count: overCount, total: overTotal, maxDaysOverdue: maxDaysOverdue),
+      topDebtors: topDebtors,
+    );
   }
 
   /// ⚡ Query invoices con filtro de fecha nativo ISAR (usa índice @Index en date)
@@ -1072,6 +1246,13 @@ class _CurrencyAccumulator {
   double totalBase = 0.0;
   double totalForeign = 0.0;
   double totalRate = 0.0;
+}
+
+/// Helper para acumular deudores del semáforo de receivables
+class _DebtorAcc {
+  int count = 0;
+  double total = 0.0;
+  int maxDaysOverdue = 0;
 }
 
 /// Resultado del cálculo de COGS
