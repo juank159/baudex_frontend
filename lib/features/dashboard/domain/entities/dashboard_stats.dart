@@ -72,6 +72,49 @@ class DashboardStats extends Equatable {
     netMarginPercentage,
     trend,
   ];
+
+  /// Clona la instancia sobreescribiendo solo los campos dados.
+  /// IMPORTANTE: usar esto en vez de `DashboardStats(...)` para mutaciones
+  /// parciales; así no olvidamos los campos nuevos al agregarlos.
+  DashboardStats copyWith({
+    SalesStats? sales,
+    InvoiceStats? invoices,
+    ProductStats? products,
+    CustomerStats? customers,
+    ExpenseStats? expenses,
+    ProfitabilityStats? profitability,
+    List<PaymentMethodStats>? paymentMethodsBreakdown,
+    IncomeTypeBreakdown? incomeTypeBreakdown,
+    List<CurrencyBreakdownStats>? currencyBreakdown,
+    bool? multiCurrencyEnabled,
+    String? baseCurrency,
+    ReceivablesStats? receivables,
+    double? totalCollected,
+    double? totalBilled,
+    double? grossMarginPercentage,
+    double? netMarginPercentage,
+    List<TrendPoint>? trend,
+  }) {
+    return DashboardStats(
+      sales: sales ?? this.sales,
+      invoices: invoices ?? this.invoices,
+      products: products ?? this.products,
+      customers: customers ?? this.customers,
+      expenses: expenses ?? this.expenses,
+      profitability: profitability ?? this.profitability,
+      paymentMethodsBreakdown: paymentMethodsBreakdown ?? this.paymentMethodsBreakdown,
+      incomeTypeBreakdown: incomeTypeBreakdown ?? this.incomeTypeBreakdown,
+      currencyBreakdown: currencyBreakdown ?? this.currencyBreakdown,
+      multiCurrencyEnabled: multiCurrencyEnabled ?? this.multiCurrencyEnabled,
+      baseCurrency: baseCurrency ?? this.baseCurrency,
+      receivables: receivables ?? this.receivables,
+      totalCollected: totalCollected ?? this.totalCollected,
+      totalBilled: totalBilled ?? this.totalBilled,
+      grossMarginPercentage: grossMarginPercentage ?? this.grossMarginPercentage,
+      netMarginPercentage: netMarginPercentage ?? this.netMarginPercentage,
+      trend: trend ?? this.trend,
+    );
+  }
 }
 
 /// Punto de tendencia diario. Mapea 1:1 con el TrendPoint del backend.

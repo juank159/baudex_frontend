@@ -381,11 +381,7 @@ class DashboardController extends GetxController
             namedExpenses[name] = (namedExpenses[name] ?? 0.0) + entry.value;
           }
 
-          _dashboardStats.value = DashboardStats(
-            sales: stats.sales,
-            invoices: stats.invoices,
-            products: stats.products,
-            customers: stats.customers,
+          _dashboardStats.value = stats.copyWith(
             expenses: ExpenseStats(
               totalAmount: stats.expenses.totalAmount,
               totalExpenses: stats.expenses.totalExpenses,
@@ -396,12 +392,6 @@ class DashboardController extends GetxController
               monthlyGrowth: stats.expenses.monthlyGrowth,
               expensesByCategory: namedExpenses,
             ),
-            profitability: stats.profitability,
-            paymentMethodsBreakdown: stats.paymentMethodsBreakdown,
-            incomeTypeBreakdown: stats.incomeTypeBreakdown,
-            currencyBreakdown: stats.currencyBreakdown,
-            multiCurrencyEnabled: stats.multiCurrencyEnabled,
-            baseCurrency: stats.baseCurrency,
           );
         } else {
           _dashboardStats.value = stats;
@@ -456,28 +446,7 @@ class DashboardController extends GetxController
     if (stats == null || profitability == null) return;
     if (profitability.totalRevenue <= 0) return;
 
-    _dashboardStats.value = DashboardStats(
-      sales: stats.sales,
-      invoices: stats.invoices,
-      products: stats.products,
-      customers: stats.customers,
-      expenses: stats.expenses,
-      profitability: profitability,
-      paymentMethodsBreakdown: stats.paymentMethodsBreakdown,
-      incomeTypeBreakdown: stats.incomeTypeBreakdown,
-      currencyBreakdown: stats.currencyBreakdown,
-      multiCurrencyEnabled: stats.multiCurrencyEnabled,
-      baseCurrency: stats.baseCurrency,
-      // IMPORTANTE: preservar los nuevos campos del backend. Si no, el getter
-      // totalCollected hace fallback a totalRevenue y el usuario ve el valor
-      // inflado con ventas a crédito no cobradas.
-      receivables: stats.receivables,
-      totalCollected: stats.totalCollected,
-      totalBilled: stats.totalBilled,
-      grossMarginPercentage: stats.grossMarginPercentage,
-      netMarginPercentage: stats.netMarginPercentage,
-      trend: stats.trend,
-    );
+    _dashboardStats.value = stats.copyWith(profitability: profitability);
     print('🔄 Datos armonizados: Collected=${stats.totalCollected}, Billed=${stats.totalBilled}, '
         'COGS=${profitability.totalCOGS}, GrossProfit=${profitability.grossProfit}, '
         'NetProfit=${profitability.netProfit}');
@@ -1137,19 +1106,7 @@ class DashboardController extends GetxController
         expensesByCategory: expensesByCategory,
       );
 
-      _dashboardStats.value = DashboardStats(
-        sales: currentStats.sales,
-        invoices: currentStats.invoices,
-        products: currentStats.products,
-        customers: currentStats.customers,
-        expenses: updatedExpenseStats,
-        profitability: currentStats.profitability,
-        paymentMethodsBreakdown: currentStats.paymentMethodsBreakdown,
-        incomeTypeBreakdown: currentStats.incomeTypeBreakdown,
-        currencyBreakdown: currentStats.currencyBreakdown,
-        multiCurrencyEnabled: currentStats.multiCurrencyEnabled,
-        baseCurrency: currentStats.baseCurrency,
-      );
+      _dashboardStats.value = currentStats.copyWith(expenses: updatedExpenseStats);
 
       update();
     }
