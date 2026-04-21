@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/core/network/network_info.dart';
+import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/shared/widgets/subscription_error_dialog.dart';
 import '../../domain/entities/subscription.dart';
 import '../../domain/entities/subscription_enums.dart';
@@ -308,6 +309,21 @@ class SubscriptionController extends GetxController {
     // Más de 7 días - no hay diálogo pendiente
     _pendingSubscriptionDialog.value = null;
     print('✅ Suscripción OK - No hay diálogo pendiente');
+
+    // Si había bloqueo por suscripción expirada, reanudar el sync.
+    // Esto ocurre cuando el usuario renueva y la nueva suscripción es válida.
+    _maybeUnblockSync();
+  }
+
+  /// Reanuda la sincronización si estaba bloqueada por suscripción expirada.
+  /// Se llama cuando `_checkSubscriptionStatus` confirma que la suscripción
+  /// está vigente (no expirada, >7 días restantes).
+  void _maybeUnblockSync() {
+    try {
+      SyncService.resetSubscriptionBlock();
+    } catch (_) {
+      // SyncService no cargado (tests, etc.). No es crítico.
+    }
   }
 
   /// ✅ MÉTODO PÚBLICO: Llamar desde DashboardController.onReady()

@@ -16,6 +16,7 @@ import '../../core/errors/exceptions.dart';
 import '../../core/services/idempotency_service.dart';
 import '../../core/services/conflict_resolution_service.dart';
 import '../../core/utils/app_logger.dart';
+import '../../shared/widgets/subscription_error_dialog.dart';
 
 // Products
 import '../../../features/products/data/datasources/product_remote_datasource.dart';
@@ -168,6 +169,28 @@ class SyncService extends GetxService {
   // Mapeo temp→real IDs para resolver referencias entre sesiones
   static final Map<String, String> _tempToRealIdMap = {};
   static const String _tempIdMapPrefix = 'temp_id_map_';
+
+  // Cuando el backend responde 403 por suscripción expirada, pausamos el sync
+  // completo por un rato. Evita reintentar 10 veces cada operación offline
+  // (productos, facturas, etc.) y spam al backend. Se re-arma automáticamente
+  // al vencer el timeout. `resetSubscriptionBlock()` debe llamarse cuando el
+  // usuario renueva su plan.
+  static DateTime? _subscriptionBlockedUntil;
+  static bool _subscriptionDialogShown = false;
+  static const Duration _subscriptionBlockDuration = Duration(minutes: 30);
+
+  /// Llamar cuando el usuario renueva su suscripción para reanudar sync
+  /// inmediatamente (en vez de esperar los 30 min del bloqueo).
+  static void resetSubscriptionBlock() {
+    _subscriptionBlockedUntil = null;
+    _subscriptionDialogShown = false;
+  }
+
+  /// True si el sync está bloqueado por error de suscripción en curso.
+  static bool get isBlockedBySubscription {
+    final until = _subscriptionBlockedUntil;
+    return until != null && DateTime.now().isBefore(until);
+  }
 
   /// Registrar mapeo de temp ID → real ID (persistido en SharedPreferences)
   static Future<void> registerTempIdMapping(String tempId, String realId) async {
@@ -592,6 +615,17 @@ class SyncService extends GetxService {
         return;
       }
     } catch (_) {}
+
+    // 🔒 Si la suscripción está expirada, no machacamos el backend. Cuando el
+    // usuario renueve, llamar SyncService.resetSubscriptionBlock() para
+    // reanudar inmediatamente (o esperar que venza el timeout de 30 min).
+    if (isBlockedBySubscription) {
+      AppLogger.w(
+        'Sync pausado: suscripción expirada. Bloqueado hasta ${_subscriptionBlockedUntil!.toIso8601String()}',
+        tag: 'SYNC',
+      );
+      return;
+    }
 
     // 🔒 Usar tryAcquire para verificación no bloqueante
     if (!_lock.syncAll.tryAcquire(holderInfo: 'syncAll')) {
@@ -1071,6 +1105,37 @@ class SyncService extends GetxService {
         );
       }
 
+      // 🔒 SUSCRIPCIÓN EXPIRADA (403) — no tiene sentido reintentar.
+      // Pausamos todo el sync hasta que el usuario renueve. Detectamos por
+      // code 403 o por textos que el backend retorna ("Su suscripción ha
+      // expirado", "subscription expired", "subscription required").
+      final isSubscriptionError =
+          errorMsg.contains('suscripción ha expirado') ||
+          errorMsg.contains('suscripcion ha expirado') ||
+          errorMsg.contains('subscription has expired') ||
+          errorMsg.contains('subscription expired') ||
+          errorMsg.contains('actualice su plan') ||
+          errorMsg.contains('statuscode: 403') ||
+          errorMsg.contains('status code: 403');
+
+      if (isSubscriptionError) {
+        _subscriptionBlockedUntil = DateTime.now().add(_subscriptionBlockDuration);
+        AppLogger.w(
+          'Sync bloqueado por suscripción expirada. Pausando hasta ${_subscriptionBlockedUntil!.toIso8601String()}',
+          tag: 'SYNC',
+        );
+        // Mostrar el diálogo una sola vez por sesión para no hostigar.
+        if (!_subscriptionDialogShown) {
+          _subscriptionDialogShown = true;
+          _showSubscriptionExpiredDialog();
+        }
+        // No retry: marcamos la operación como completada. Los datos locales
+        // permanecen en ISAR; cuando el usuario renueve puede recrear o se
+        // expondrá un botón "Resincronizar" en settings (futuro).
+        await _isarDatabase.markSyncOperationCompleted(operation.id);
+        return _SyncOpResult.failure;
+      }
+
       // Detectar errores de secuencia transitoria de inventario
       // (movementNumber/batchNumber duplicado por race condition - el backend generará nuevo número en retry)
       final isInventorySequenceError =
@@ -1111,6 +1176,29 @@ class SyncService extends GetxService {
       }
       return _SyncOpResult.failure;
     }
+  }
+
+  /// Muestra el diálogo de suscripción expirada de forma segura (post-frame).
+  /// Llamado cuando el sync detecta un 403 por primera vez en la sesión.
+  void _showSubscriptionExpiredDialog() {
+    try {
+      // Diferimos con microtask para no chocar con el build actual.
+      Future.microtask(() {
+        try {
+          SubscriptionErrorDialog.showSubscriptionExpired(
+            customMessage:
+                'Algunas operaciones creadas sin internet (productos, '
+                'facturas, etc.) no pudieron sincronizarse porque tu '
+                'suscripción expiró. Renueva tu plan para continuar.',
+            onUpgradePressed: () {
+              Get.toNamed('/settings/subscription');
+            },
+          );
+        } catch (e) {
+          AppLogger.w('No se pudo mostrar diálogo de suscripción: $e', tag: 'SYNC');
+        }
+      });
+    } catch (_) {}
   }
 
   /// ✅ ORDENAR OPERACIONES POR DEPENDENCIAS
