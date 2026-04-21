@@ -17,6 +17,7 @@ import '../../../inventory/domain/repositories/inventory_repository.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/subscription_error_dialog.dart';
 import '../../../inventory/data/datasources/inventory_local_datasource_isar.dart';
+import '../../../subscriptions/presentation/controllers/subscription_controller.dart';
 
 const String _draftStorageKey = 'initial_inventory_draft';
 
@@ -524,6 +525,17 @@ class InitialInventoryController extends GetxController {
       return;
     }
 
+    // 🔒 PREFLIGHT DE SUSCRIPCIÓN — funciona ONLINE y OFFLINE porque consulta
+    // la suscripción cacheada (fecha de vencimiento). Si está expirada, NO
+    // llamamos al use case: guardamos los datos como borrador y mostramos
+    // el dialog de renovación. Evita perder el trabajo del usuario y no
+    // llena la cola de sync con 50 operaciones que van a fallar.
+    if (_isSubscriptionExpiredCached()) {
+      await saveDraft();
+      _showSubscriptionExpiredDialog();
+      return;
+    }
+
     try {
       isSubmitting.value = true;
       successCount.value = 0;
@@ -582,6 +594,23 @@ class InitialInventoryController extends GetxController {
     } finally {
       isSubmitting.value = false;
       currentProcessingIndex.value = -1;
+    }
+  }
+
+  /// Consulta la suscripción cacheada (sin hacer request al servidor) y
+  /// determina si está expirada. Funciona offline porque solo lee el
+  /// `endDate` + flag `isExpired` del último estado conocido.
+  /// Si no hay SubscriptionController registrado, retorna false (no bloqueamos
+  /// operaciones por un servicio no inicializado).
+  bool _isSubscriptionExpiredCached() {
+    try {
+      if (!Get.isRegistered<SubscriptionController>()) return false;
+      final sub = Get.find<SubscriptionController>().subscription;
+      if (sub == null) return false;
+      final daysRemaining = sub.endDate.difference(DateTime.now()).inDays;
+      return sub.isExpired || daysRemaining <= 0;
+    } catch (_) {
+      return false;
     }
   }
 
