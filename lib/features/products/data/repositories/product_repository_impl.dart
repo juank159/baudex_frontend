@@ -647,11 +647,15 @@ class ProductRepositoryImpl implements ProductRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
-        // Errores de negocio (400, 409, 422) NO deben crear offline - el servidor rechazó la operación
+        // Errores de negocio (400, 403, 409, 422) NO deben crear offline - el servidor rechazó la operación
+        // 403 = suscripción expirada o permiso denegado. Si creáramos offline, el
+        // usuario vería "Producto creado" y días después la sync fallaría: datos
+        // locales sin respaldo en servidor. Mejor fallar arriba con mensaje claro
+        // y que el form conserve sus datos como borrador.
         final code = e.statusCode ?? 0;
-        if (code == 409 || code == 400 || code == 422) {
+        if (code == 403 || code == 409 || code == 400 || code == 422) {
           AppLogger.w(' ServerException de negocio (HTTP $code) al crear producto: ${e.message}');
-          return Left(ServerFailure(e.message));
+          return Left(ServerFailure(e.message, code: code));
         }
 
         // Errores de servidor (500, 502, 503) o sin código → crear offline

@@ -15,6 +15,7 @@ import '../../../inventory/domain/usecases/create_inventory_movement_usecase.dar
 import '../../../inventory/domain/entities/inventory_movement.dart';
 import '../../../inventory/domain/repositories/inventory_repository.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/shared/widgets/subscription_error_dialog.dart';
 import '../../../inventory/data/datasources/inventory_local_datasource_isar.dart';
 
 const String _draftStorageKey = 'initial_inventory_draft';
@@ -556,12 +557,20 @@ class InitialInventoryController extends GetxController {
         _removeSuccessfulRows();
         await clearDraft();
       } else {
-        // Parcial: remover exitosos automáticamente y guardar fallidos como borrador
+        // Parcial: remover exitosos automáticamente y guardar fallidos como borrador.
+        // IMPORTANTE: esto es crítico cuando la suscripción está expirada y TODAS
+        // las filas fallan — el usuario no debe perder su trabajo.
         _removeSuccessfulRows();
         await saveDraft();
       }
 
-      showSummaryDialog();
+      // Si todas las filas fallaron por suscripción expirada, mostrar el
+      // diálogo específico de renovación (no el genérico "Resultado").
+      if (_allFailedBySubscription()) {
+        _showSubscriptionExpiredDialog();
+      } else {
+        showSummaryDialog();
+      }
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -574,6 +583,42 @@ class InitialInventoryController extends GetxController {
       isSubmitting.value = false;
       currentProcessingIndex.value = -1;
     }
+  }
+
+  /// Detecta si TODAS las filas fallidas tienen un error de suscripción
+  /// expirada. Solo entonces mostramos el diálogo específico de renovación
+  /// en vez del genérico "Resultado".
+  bool _allFailedBySubscription() {
+    if (failedCount.value == 0) return false;
+    if (successCount.value > 0) return false; // Parcial → dialog normal
+    final failedRows = rows.where((r) => r.isProcessed && !r.isSuccess && r.errorMessage != null);
+    if (failedRows.isEmpty) return false;
+    return failedRows.every((r) => _isSubscriptionError(r.errorMessage!));
+  }
+
+  bool _isSubscriptionError(String msg) {
+    final lower = msg.toLowerCase();
+    return lower.contains('suscripción ha expirado') ||
+        lower.contains('suscripcion ha expirado') ||
+        lower.contains('actualice su plan') ||
+        lower.contains('subscription expired') ||
+        lower.contains('subscription has expired');
+  }
+
+  void _showSubscriptionExpiredDialog() {
+    final pending = rows.where((r) => !r.isEmpty).length;
+    SubscriptionErrorDialog.showSubscriptionExpired(
+      customMessage: pending > 0
+          ? 'No pudimos crear los productos porque tu suscripción está '
+              'vencida. Tus $pending producto${pending == 1 ? '' : 's'} '
+              'quedó guardado como borrador — no perdiste nada. '
+              'Renueva tu plan y reintenta.'
+          : 'Tu suscripción está vencida. Renueva tu plan para continuar '
+              'creando productos.',
+      onUpgradePressed: () {
+        Get.toNamed('/settings/subscription');
+      },
+    );
   }
 
   Future<bool> _submitRow(int index) async {
