@@ -53,7 +53,13 @@ class CreateExpenseRequestModel {
     return CreateExpenseRequestModel(
       description: description,
       amount: amount,
-      date: date.toIso8601String(),
+      // IMPORTANTE: enviar YYYY-MM-DD usando los componentes de la fecha
+      // tal como los ve el usuario (la fecha ya viene en TZ del tenant vía
+      // TenantDateTimeService). Si usáramos toIso8601String(), un TZDateTime
+      // se serializa en UTC y un gasto creado a las 19:44 de Bogotá quedaría
+      // con `date = 2026-04-22` en el servidor (día siguiente en UTC), y no
+      // aparecería al filtrar por "HOY" en la lista.
+      date: _ymd(date),
       categoryId: categoryId,
       type: type.name,
       paymentMethod: paymentMethod.name,
@@ -66,6 +72,16 @@ class CreateExpenseRequestModel {
       metadata: metadata,
       status: status?.name,
     );
+  }
+
+  /// Formatea una fecha como 'YYYY-MM-DD' usando sus componentes locales.
+  /// Para un TZDateTime ya en la TZ del tenant, esto preserva el día
+  /// correcto. Para un DateTime local cualquiera, también funciona.
+  static String _ymd(DateTime d) {
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
   }
 
   Map<String, dynamic> toJson() {

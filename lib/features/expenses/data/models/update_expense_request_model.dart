@@ -50,7 +50,10 @@ class UpdateExpenseRequestModel {
     return UpdateExpenseRequestModel(
       description: description,
       amount: amount,
-      date: date?.toIso8601String(),
+      // Ver nota en CreateExpenseRequestModel: enviar YYYY-MM-DD (no ISO)
+      // para evitar que el gasto se guarde con fecha del día siguiente cuando
+      // el usuario está al final del día en su TZ y se convierte a UTC.
+      date: date == null ? null : _ymd(date),
       categoryId: categoryId,
       type: type?.name,
       paymentMethod: paymentMethod?.name,
@@ -82,5 +85,12 @@ class UpdateExpenseRequestModel {
     if (metadata?.isNotEmpty == true) data['metadata'] = metadata;
 
     return data;
+  }
+
+  static String _ymd(DateTime d) {
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
   }
 }
