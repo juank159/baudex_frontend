@@ -400,13 +400,9 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
 
           const SizedBox(height: AppDimensions.paddingMedium),
 
-          // Moneda
-          CustomTextField(
-            controller: controller.currencyController,
-            label: 'Moneda',
-            hint: 'COP',
-            prefixIcon: Icons.monetization_on,
-          ),
+          // Moneda — si la org tiene multi-moneda habilitado, muestra selector
+          // con las monedas aceptadas y campos de tasa/monto foráneo.
+          _buildCurrencySection(),
 
           const SizedBox(height: AppDimensions.paddingMedium),
 
@@ -422,6 +418,101 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
         ],
       ),
     );
+  }
+
+  /// Sección de moneda. Si la org no tiene multi-moneda activa, muestra
+  /// solo "Moneda: COP" (readonly). Si sí: dropdown + tasa + monto foráneo
+  /// con cálculo automático. Todo en un Obx para reactividad.
+  Widget _buildCurrencySection() {
+    return Obx(() {
+      if (!controller.multiCurrencyEnabled) {
+        return CustomTextField(
+          controller: controller.currencyController,
+          label: 'Moneda',
+          hint: 'COP',
+          prefixIcon: Icons.monetization_on,
+        );
+      }
+
+      final accepted = controller.acceptedCurrencies;
+      final base = controller.baseCurrencyCode;
+      final selected = controller.selectedPurchaseCurrency.value ?? base;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<String>(
+            value: selected,
+            decoration: const InputDecoration(
+              labelText: 'Moneda',
+              prefixIcon: Icon(Icons.monetization_on),
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              DropdownMenuItem(
+                value: base,
+                child: Text('$base  (moneda base)'),
+              ),
+              ...accepted
+                  .where((c) => (c['code'] as String?) != base)
+                  .map((c) => DropdownMenuItem<String>(
+                        value: c['code'] as String?,
+                        child: Text(c['code'] as String? ?? ''),
+                      )),
+            ],
+            onChanged: (code) => controller.onCurrencyChanged(code),
+          ),
+          if (controller.selectedPurchaseCurrency.value != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: controller.exchangeRateController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText:
+                          '1 ${controller.selectedPurchaseCurrency.value} = ? $base',
+                      helperText: 'Tasa de cambio',
+                      prefixIcon: const Icon(Icons.swap_horiz),
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: controller.onExchangeRateChanged,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: controller.foreignAmountController,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText:
+                          'Total en ${controller.selectedPurchaseCurrency.value}',
+                      helperText: 'Calculado automáticamente',
+                      prefixIcon: const Icon(Icons.payments_outlined),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'El total en $base (moneda base) se mantiene como referencia '
+              'contable. Puedes modificar la tasa si la del sistema no '
+              'refleja la de esta compra.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ],
+      );
+    });
   }
 
   Widget _buildItemsStep() {

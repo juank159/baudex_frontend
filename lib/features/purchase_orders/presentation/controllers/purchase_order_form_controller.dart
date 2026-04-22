@@ -14,6 +14,7 @@ import '../../../suppliers/domain/usecases/search_suppliers_usecase.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 import 'purchase_orders_controller.dart';
+import '../../../settings/presentation/controllers/organization_controller.dart';
 
 class PurchaseOrderFormController extends GetxController
     with GetSingleTickerProviderStateMixin {
@@ -72,6 +73,16 @@ class PurchaseOrderFormController extends GetxController
   final RxDouble taxAmount = 0.0.obs;
   final RxDouble discountAmount = 0.0.obs;
   final RxDouble totalAmount = 0.0.obs;
+
+  // Multi-moneda (opcional). Si selectedPurchaseCurrency == null o coincide
+  // con la moneda base de la organización, el PO se guarda sin los 3 campos
+  // multi-moneda. Si el usuario elige otra moneda, se activa el cálculo
+  // automático: totalAmount (base) = foreignAmount * exchangeRate.
+  final Rxn<String> selectedPurchaseCurrency = Rxn<String>();
+  final Rxn<double> exchangeRate = Rxn<double>();
+  final Rxn<double> foreignAmount = Rxn<double>();
+  final exchangeRateController = TextEditingController();
+  final foreignAmountController = TextEditingController();
 
   // Active item tracking
   final RxInt activeItemIndex = (-1).obs;
@@ -207,6 +218,8 @@ class PurchaseOrderFormController extends GetxController
       _safeDispose(contactPhoneController, 'contactPhoneController');
       _safeDispose(contactEmailController, 'contactEmailController');
       _safeDispose(itemSearchController, 'itemSearchController');
+      _safeDispose(exchangeRateController, 'exchangeRateController');
+      _safeDispose(foreignAmountController, 'foreignAmountController');
       print('✅ Todos los controladores disposed correctamente');
     } catch (e) {
       print('❌ Error disposing controladores: $e');
@@ -602,6 +615,117 @@ class PurchaseOrderFormController extends GetxController
     taxAmount.value = calculatedTaxAmount;
     totalAmount.value =
         calculatedSubtotal - calculatedDiscountAmount + calculatedTaxAmount;
+
+    // Si hay moneda extranjera seleccionada, mantener el monto foráneo
+    // sincronizado con el total base recién calculado.
+    if (selectedPurchaseCurrency.value != null) {
+      _recomputeForeignFromBase();
+    }
+  }
+
+  // ==================== MULTI-MONEDA ====================
+
+  /// Retorna el símbolo/código base de la organización. Por defecto 'COP'.
+  String get baseCurrencyCode {
+    try {
+      final orgSettings = _getOrgSettings();
+      return (orgSettings?['currency'] as String?) ?? 'COP';
+    } catch (_) {
+      return 'COP';
+    }
+  }
+
+  /// Si la org tiene multiCurrencyEnabled, retorna las monedas aceptadas.
+  /// Cada Map tiene al menos 'code' y 'defaultRate'.
+  List<Map<String, dynamic>> get acceptedCurrencies {
+    try {
+      final orgSettings = _getOrgSettings();
+      final list = orgSettings?['acceptedCurrencies'];
+      if (list is List) {
+        return list
+            .whereType<Map>()
+            .map((m) => m.cast<String, dynamic>())
+            .toList();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
+  bool get multiCurrencyEnabled {
+    try {
+      final orgSettings = _getOrgSettings();
+      return orgSettings?['multiCurrencyEnabled'] as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Map<String, dynamic>? _getOrgSettings() {
+    try {
+      if (!Get.isRegistered<OrganizationController>()) return null;
+      final controller = Get.find<OrganizationController>();
+      final org = controller.currentOrganization;
+      if (org == null) return null;
+      return {
+        'currency': org.currency,
+        'acceptedCurrencies': org.acceptedCurrencies,
+        'multiCurrencyEnabled': org.multiCurrencyEnabled,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Cambia la moneda seleccionada. Si es la base, limpia los campos
+  /// multi-moneda. Si es otra, pre-carga la tasa desde acceptedCurrencies.
+  void onCurrencyChanged(String? code) {
+    if (code == null || code == baseCurrencyCode) {
+      selectedPurchaseCurrency.value = null;
+      exchangeRate.value = null;
+      foreignAmount.value = null;
+      exchangeRateController.clear();
+      foreignAmountController.clear();
+      return;
+    }
+    selectedPurchaseCurrency.value = code;
+    final info = acceptedCurrencies.firstWhere(
+      (c) => c['code'] == code,
+      orElse: () => <String, dynamic>{},
+    );
+    final defaultRate = (info['defaultRate'] as num?)?.toDouble() ?? 1.0;
+    exchangeRate.value = defaultRate;
+    exchangeRateController.text = defaultRate.toStringAsFixed(2);
+    _recomputeForeignFromBase();
+  }
+
+  /// El usuario editó la tasa manualmente — re-calcular monto extranjero.
+  void onExchangeRateChanged(String text) {
+    final parsed = double.tryParse(text.replaceAll(',', '.'));
+    if (parsed == null || parsed <= 0) return;
+    exchangeRate.value = parsed;
+    _recomputeForeignFromBase();
+  }
+
+  /// El usuario editó el monto extranjero — re-calcular total base.
+  /// Nota: por ahora la "fuente de verdad" es el total en base (subtotal+tax),
+  /// por lo que normalmente no es necesario que el usuario edite el foráneo.
+  void onForeignAmountChanged(String text) {
+    final parsed = double.tryParse(text.replaceAll(',', '.'));
+    if (parsed == null || parsed <= 0) return;
+    foreignAmount.value = parsed;
+  }
+
+  /// Recalcula `foreignAmount = totalAmount / exchangeRate`.
+  void _recomputeForeignFromBase() {
+    final rate = exchangeRate.value;
+    if (rate == null || rate <= 0 || totalAmount.value <= 0) {
+      foreignAmount.value = null;
+      foreignAmountController.clear();
+      return;
+    }
+    final f = totalAmount.value / rate;
+    foreignAmount.value = f;
+    foreignAmountController.text = f.toStringAsFixed(2);
   }
 
   // ==================== FORM SUBMISSION ====================
@@ -686,6 +810,14 @@ class PurchaseOrderFormController extends GetxController
           contactEmailController.text.trim().isNotEmpty
               ? contactEmailController.text.trim()
               : null,
+      // Multi-moneda (solo si el usuario seleccionó moneda extranjera).
+      purchaseCurrency: selectedPurchaseCurrency.value,
+      purchaseCurrencyAmount: selectedPurchaseCurrency.value != null
+          ? foreignAmount.value
+          : null,
+      exchangeRate: selectedPurchaseCurrency.value != null
+          ? exchangeRate.value
+          : null,
     );
 
     final result = await createPurchaseOrderUseCase(params);
