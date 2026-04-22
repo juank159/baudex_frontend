@@ -862,6 +862,11 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         attachments: params.attachments,
         createdAt: now,
         updatedAt: now,
+        // Preservar multi-moneda en el cache local para que la UI y el sync
+        // posterior no pierdan el contexto de la compra.
+        purchaseCurrency: params.purchaseCurrency,
+        purchaseCurrencyAmount: params.purchaseCurrencyAmount,
+        exchangeRate: params.exchangeRate,
       );
 
       // Cache locally
@@ -913,6 +918,14 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
               'taxPercentage': entry.value.taxPercentage,
               if (entry.value.notes != null) 'notes': entry.value.notes,
             }).toList(),
+            // Multi-moneda: si el usuario compró en otra moneda, la info va
+            // al sync para que el backend la persista al crearse el PO real.
+            if (params.purchaseCurrency != null)
+              'purchaseCurrency': params.purchaseCurrency,
+            if (params.purchaseCurrencyAmount != null)
+              'purchaseCurrencyAmount': params.purchaseCurrencyAmount,
+            if (params.exchangeRate != null)
+              'exchangeRate': params.exchangeRate,
           },
           priority: 1,
         );

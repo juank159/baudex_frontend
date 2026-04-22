@@ -4907,6 +4907,12 @@ class SyncService extends GetxService {
                 finalData['attachments'] != null
                     ? List<String>.from(finalData['attachments'])
                     : [],
+            // Multi-moneda: propagar al backend si la compra offline se
+            // registró con moneda foránea.
+            purchaseCurrency: finalData['purchaseCurrency'] as String?,
+            purchaseCurrencyAmount:
+                (finalData['purchaseCurrencyAmount'] as num?)?.toDouble(),
+            exchangeRate: (finalData['exchangeRate'] as num?)?.toDouble(),
           );
 
           final createdPO = await remoteDataSource.createPurchaseOrder(createParams);
