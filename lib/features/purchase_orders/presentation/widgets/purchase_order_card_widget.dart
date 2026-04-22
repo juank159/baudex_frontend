@@ -254,14 +254,43 @@ class PurchaseOrderCardWidget extends StatelessWidget {
               ),
             ),
 
-            // Total
-            Text(
-              AppFormatters.formatCurrency(purchaseOrder.totalAmount),
-              style: TextStyle(
-                fontSize: totalFontSize,
-                fontWeight: FontWeight.bold,
-                color: _getStatusColor(),
-              ),
+            // Total: si es multi-moneda muestra monto foráneo arriba +
+            // equivalente en base abajo (igual patrón que dashboard/pagos).
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (purchaseOrder.isForeignCurrency &&
+                    purchaseOrder.purchaseCurrencyAmount != null) ...[
+                  Text(
+                    AppFormatters.formatForeignCurrency(
+                      purchaseOrder.purchaseCurrencyAmount!,
+                      purchaseOrder.purchaseCurrency!,
+                    ),
+                    style: TextStyle(
+                      fontSize: totalFontSize,
+                      fontWeight: FontWeight.bold,
+                      color: _getStatusColor(),
+                    ),
+                  ),
+                  Text(
+                    AppFormatters.formatCurrency(purchaseOrder.totalAmount),
+                    style: TextStyle(
+                      fontSize: totalFontSize * 0.72,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ] else
+                  Text(
+                    AppFormatters.formatCurrency(purchaseOrder.totalAmount),
+                    style: TextStyle(
+                      fontSize: totalFontSize,
+                      fontWeight: FontWeight.bold,
+                      color: _getStatusColor(),
+                    ),
+                  ),
+              ],
             ),
           ],
         ),

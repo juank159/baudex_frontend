@@ -1235,6 +1235,57 @@ class PurchaseOrderDetailController extends GetxController {
         'value': formatCurrency(order.totalAmount),
         'icon': Icons.monetization_on,
       },
+      // Si la PO fue creada con moneda extranjera, mostrar también su
+      // monto en la moneda original + tasa aplicada.
+      if (order.isForeignCurrency && order.purchaseCurrencyAmount != null) ...[
+        {
+          'label': 'Total en ${order.purchaseCurrency}',
+          'value': _formatForeignCurrency(
+            order.purchaseCurrencyAmount!,
+            order.purchaseCurrency!,
+          ),
+          'icon': Icons.currency_exchange_rounded,
+          'color': const Color(0xFFE11D48),
+        },
+        {
+          'label': 'Tasa aplicada',
+          'value':
+              '1 ${order.purchaseCurrency} = ${(order.exchangeRate ?? 0).toStringAsFixed(2)} ${order.currency ?? 'COP'}',
+          'icon': Icons.swap_vert_rounded,
+          'color': Colors.grey.shade700,
+        },
+      ],
     ];
+  }
+
+  /// Formatea un monto en moneda extranjera con sus 2 decimales habituales.
+  /// Reutilizable sin depender de AppFormatters.formatForeignCurrency
+  /// (fallback seguro si no existe el helper en alguna versión).
+  String _formatForeignCurrency(double amount, String code) {
+    final symbol = _symbolForCurrency(code);
+    final formatted = amount
+        .toStringAsFixed(2)
+        .replaceAllMapped(
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]}.',
+        );
+    return '$symbol $formatted';
+  }
+
+  String _symbolForCurrency(String code) {
+    switch (code.toUpperCase()) {
+      case 'USD':
+        return 'US\$';
+      case 'EUR':
+        return '€';
+      case 'VES':
+        return 'Bs.';
+      case 'BRL':
+        return 'R\$';
+      case 'MXN':
+        return 'MX\$';
+      default:
+        return code;
+    }
   }
 }
