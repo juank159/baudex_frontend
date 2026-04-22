@@ -4647,6 +4647,13 @@ class SyncService extends GetxService {
                   'contactPhone': order.contactPhone,
                   'contactEmail': order.contactEmail,
                   'attachments': order.attachments,
+                  // Multi-moneda: incluir los 3 campos si la PO offline fue
+                  // creada en moneda extranjera. Sin esto, el sync reconstruía
+                  // el payload desde ISAR y los campos se perdían en camino
+                  // al backend (se guardaban como NULL pese a seleccionar USD).
+                  'purchaseCurrency': order.purchaseCurrency,
+                  'purchaseCurrencyAmount': order.purchaseCurrencyAmount,
+                  'exchangeRate': order.exchangeRate,
                   'items':
                       order.items
                           .map(
