@@ -21,33 +21,42 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() => AppScaffold(
-      includeDrawer: false, // Quitar drawer
-      appBar: AppBarBuilder.buildGradient(
-        title: controller.titleText,
-        automaticallyImplyLeading: true, // Solo arrow back
-        gradientColors: [
-          ElegantLightTheme.primaryGradient.colors.first,
-          ElegantLightTheme.primaryGradient.colors.last,
-          ElegantLightTheme.primaryBlue,
-        ],
-        actions: [
-          const SyncStatusIcon(),
-          if (!controller.isLoading.value)
-            TextButton(
-              onPressed: controller.clearForm,
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final canExit = await controller.confirmExit();
+        if (canExit) Get.back();
+      },
+      child: Obx(() => AppScaffold(
+        includeDrawer: false,
+        appBar: AppBarBuilder.buildGradient(
+          title: controller.titleText,
+          automaticallyImplyLeading: true,
+          gradientColors: [
+            ElegantLightTheme.primaryGradient.colors.first,
+            ElegantLightTheme.primaryGradient.colors.last,
+            ElegantLightTheme.primaryBlue,
+          ],
+          actions: [
+            const SyncStatusIcon(),
+            if (!controller.isLoading.value)
+              TextButton.icon(
+                onPressed: controller.confirmClearForm,
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.cleaning_services_rounded, size: 16),
+                label: const Text('Limpiar'),
               ),
-              child: const Text('Limpiar'),
-            ),
-          const SizedBox(width: AppDimensions.paddingSmall),
-        ],
-      ),
-      body: controller.isLoading.value
-          ? const Center(child: LoadingWidget())
-          : _buildFormContent(),
-    ));
+            const SizedBox(width: AppDimensions.paddingSmall),
+          ],
+        ),
+        body: controller.isLoading.value
+            ? const Center(child: LoadingWidget())
+            : _buildFormContent(),
+      )),
+    );
   }
 
   Widget _buildFormContent() {
@@ -874,8 +883,10 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
   Widget _buildOptimizedItemsHeader() {
     return Obx(() {
       final completed = controller.items.where((i) => i.isValid).length;
-      final showSearch = completed >= 3;
+      // Buscador SIEMPRE visible en este paso — permite al usuario chequear
+      // rápidamente si un producto ya fue agregado antes de guardar.
       final hasActiveItem = controller.activeItemIndex.value >= 0;
+      final hasDuplicates = controller.duplicateItemIndices.isNotEmpty;
       final isSearching = controller.itemSearchQuery.value.isNotEmpty;
       final showAddButton = !hasActiveItem && !isSearching;
 
@@ -924,9 +935,11 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
                 ],
               ],
             ),
-            if (showSearch) ...[
+            const SizedBox(height: 8),
+            _buildItemSearchBar(),
+            if (hasDuplicates) ...[
               const SizedBox(height: 8),
-              _buildItemSearchBar(),
+              _buildDuplicatesBanner(),
             ],
           ],
         ),
@@ -934,24 +947,71 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
     });
   }
 
+  Widget _buildDuplicatesBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEE2E2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFEF4444), width: 1),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded,
+              size: 18, color: Color(0xFFB91C1C)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Productos repetidos',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFB91C1C),
+                  ),
+                ),
+                Text(
+                  'No podrás guardar hasta eliminarlos: ${controller.duplicatesSummary}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF7F1D1D),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItemSearchBar() {
     return Obx(() {
       final isSearching = controller.itemSearchQuery.value.isNotEmpty;
       final filteredCount = controller.filteredItemIndices.length;
-      final totalValid = controller.items.where((i) => i.isValid).length;
+      final totalWithProduct =
+          controller.items.where((i) => i.productId.isNotEmpty).length;
 
       return Container(
-        height: 38,
+        height: 46,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSearching ? AppColors.primary : AppColors.primary.withOpacity(0.2),
-            width: isSearching ? 1.5 : 1,
+            color: isSearching ? AppColors.primary : AppColors.primary.withOpacity(0.35),
+            width: isSearching ? 2 : 1.5,
           ),
-          boxShadow: isSearching
-              ? [BoxShadow(color: AppColors.primary.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2))]
-              : null,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(isSearching ? 0.15 : 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -964,7 +1024,9 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
                 onChanged: (value) => controller.itemSearchQuery.value = value,
                 style: const TextStyle(fontSize: 13),
                 decoration: InputDecoration(
-                  hintText: 'Buscar en $totalValid productos...',
+                  hintText: totalWithProduct > 0
+                      ? 'Buscar en $totalWithProduct productos (nombre, SKU o código)…'
+                      : 'Buscar productos agregados (nombre, SKU o código)…',
                   hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: InputBorder.none,
@@ -1051,6 +1113,8 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
         );
       }
 
+      final dupes = controller.duplicateItemIndices;
+
       return ListView.builder(
         controller: controller.itemsScrollController,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1059,8 +1123,9 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
           final originalIndex = filteredIndices[listIndex];
           final item = controller.items[originalIndex];
           final isActive = controller.activeItemIndex.value == originalIndex;
+          final isDuplicate = dupes.contains(originalIndex);
 
-          return ProductItemFormWidget(
+          final itemWidget = ProductItemFormWidget(
             key: ValueKey('item_${item.productId}_$originalIndex'),
             item: item,
             index: originalIndex,
@@ -1083,6 +1148,87 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
                 controller.updateItemProduct(originalIndex, '', '', 0.0);
               }
             },
+          );
+
+          if (!isDuplicate) return itemWidget;
+
+          // Item duplicado: borde rojo prominente + badge + acción rápida
+          return Stack(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFFEF4444),
+                    width: 2.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFEF4444).withOpacity(0.25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: itemWidget,
+              ),
+              Positioned(
+                top: 0,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFEF4444).withOpacity(0.4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_rounded,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'REPETIDO',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () => controller.removeItem(originalIndex),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 10,
+                            color: Color(0xFFEF4444),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           );
         },
       );

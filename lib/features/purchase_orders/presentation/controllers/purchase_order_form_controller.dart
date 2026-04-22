@@ -222,8 +222,27 @@ class PurchaseOrderFormController extends GetxController
     expectedDeliveryDateController.addListener(_validateForm);
 
     // Escuchar cambios en items y en el item activo
-    ever(items, (_) => _validateForm());
+    ever(items, (_) {
+      _validateForm();
+      _watchForNewDuplicates();
+    });
     ever(activeItemIndex, (_) => _validateForm());
+  }
+
+  // Cantidad de duplicados previos — usado para detectar el MOMENTO exacto
+  // en que aparecen duplicados nuevos (no en cada tick).
+  int _lastDuplicateCount = 0;
+
+  void _watchForNewDuplicates() {
+    final currentCount = duplicateItemIndices.length;
+    if (currentCount > _lastDuplicateCount && currentCount > 0) {
+      _elegantSnack(
+        'Producto repetido detectado',
+        'Hay $currentCount producto(s) repetido(s). No podrás guardar hasta eliminarlos.',
+        type: 'error',
+      );
+    }
+    _lastDuplicateCount = currentCount;
   }
 
   void _disposeControllers() {
@@ -383,18 +402,20 @@ class PurchaseOrderFormController extends GetxController
     final hasSupplier = selectedSupplierId.value.isNotEmpty;
     final hasValidDate = orderDate.value.isBefore(expectedDeliveryDate.value);
     final hasItems = items.isNotEmpty && items.any((item) => item.isValid);
+    final noDupes = duplicateItemIndices.isEmpty;
 
-    isFormValid.value = hasSupplier && hasValidDate && hasItems;
+    isFormValid.value = hasSupplier && hasValidDate && hasItems && noDupes;
 
     // Validar step actual
     switch (currentStep.value) {
       case 0: // Información básica
         isStepValid.value = hasSupplier && hasValidDate;
         break;
-      case 1: // Items - todos deben ser válidos y ninguno en edición activa
+      case 1: // Items - todos válidos, sin duplicados y sin item en edición
         isStepValid.value =
             items.isNotEmpty &&
             items.every((item) => item.isValid) &&
+            noDupes &&
             activeItemIndex.value < 0;
         break;
       case 2: // Información adicional
@@ -403,6 +424,57 @@ class PurchaseOrderFormController extends GetxController
       default:
         isStepValid.value = true;
     }
+  }
+
+  // ==================== DETECCIÓN DE DUPLICADOS ====================
+
+  /// Índices de items que están repetidos en la lista (segunda aparición en
+  /// adelante). Compara por productId, nombre, SKU y barcode — si alguno
+  /// coincide con un item previo, se marca como duplicado.
+  Set<int> get duplicateItemIndices {
+    final dupes = <int>{};
+    for (var i = 1; i < items.length; i++) {
+      final a = items[i];
+      if (a.productId.isEmpty) continue;
+      for (var j = 0; j < i; j++) {
+        final b = items[j];
+        if (b.productId.isEmpty) continue;
+        if (_itemsMatch(a, b)) {
+          dupes.add(i);
+          break;
+        }
+      }
+    }
+    return dupes;
+  }
+
+  bool _itemsMatch(PurchaseOrderItemForm a, PurchaseOrderItemForm b) {
+    if (a.productId == b.productId) return true;
+    final an = a.productName.trim().toLowerCase();
+    final bn = b.productName.trim().toLowerCase();
+    if (an.isNotEmpty && an == bn) return true;
+    final asku = a.productSku.trim().toLowerCase();
+    final bsku = b.productSku.trim().toLowerCase();
+    if (asku.isNotEmpty && asku == bsku) return true;
+    final abc = a.productBarcode.trim().toLowerCase();
+    final bbc = b.productBarcode.trim().toLowerCase();
+    if (abc.isNotEmpty && abc == bbc) return true;
+    return false;
+  }
+
+  /// Descripción legible de los duplicados encontrados, para mostrar en banner.
+  String get duplicatesSummary {
+    final dupes = duplicateItemIndices;
+    if (dupes.isEmpty) return '';
+    final names = dupes
+        .map((i) => items[i].productName)
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .take(3)
+        .toList();
+    if (names.isEmpty) return '${dupes.length} producto(s) repetido(s)';
+    final extra = dupes.length > names.length ? '…' : '';
+    return '${names.join(', ')}$extra';
   }
 
   bool validateCurrentStep() {
@@ -450,6 +522,12 @@ class PurchaseOrderFormController extends GetxController
       isValid = false;
     } else {
       itemsError.value = false;
+    }
+
+    // Bloquear si hay duplicados — no se avanza ni se guarda con repetidos
+    if (duplicateItemIndices.isNotEmpty) {
+      itemsError.value = true;
+      isValid = false;
     }
 
     return isValid;
@@ -501,7 +579,8 @@ class PurchaseOrderFormController extends GetxController
     itemSearchController.clear();
   }
 
-  /// Retorna los índices originales de items que coinciden con la búsqueda
+  /// Retorna los índices originales de items que coinciden con la búsqueda.
+  /// Busca en nombre, SKU y código de barras (case-insensitive).
   List<int> get filteredItemIndices {
     final query = itemSearchQuery.value.toLowerCase().trim();
     if (query.isEmpty) {
@@ -509,13 +588,18 @@ class PurchaseOrderFormController extends GetxController
     }
     final indices = <int>[];
     for (var i = 0; i < items.length; i++) {
-      // Siempre mostrar el item activo (en edición)
+      // Siempre mostrar el item activo (en edición) para no desorientar
       if (i == activeItemIndex.value) {
         indices.add(i);
         continue;
       }
-      final name = items[i].productName.toLowerCase();
-      if (name.contains(query)) {
+      final it = items[i];
+      final name = it.productName.toLowerCase();
+      final sku = it.productSku.toLowerCase();
+      final barcode = it.productBarcode.toLowerCase();
+      if (name.contains(query) ||
+          (sku.isNotEmpty && sku.contains(query)) ||
+          (barcode.isNotEmpty && barcode.contains(query))) {
         indices.add(i);
       }
     }
@@ -740,6 +824,22 @@ class PurchaseOrderFormController extends GetxController
   // ==================== FORM SUBMISSION ====================
 
   Future<void> savePurchaseOrder() async {
+    // Corte duro: productos duplicados no se guardan (ni como borrador)
+    if (duplicateItemIndices.isNotEmpty) {
+      final list = duplicatesSummary;
+      _elegantSnack(
+        'Hay productos repetidos',
+        list.isEmpty
+            ? 'Elimina los items duplicados antes de guardar.'
+            : 'Duplicados: $list. Elimínalos antes de guardar.',
+        type: 'error',
+      );
+      // Forzar al usuario al paso de items para que los vea
+      currentStep.value = 1;
+      itemsError.value = true;
+      return;
+    }
+
     if (!isFormValid.value || !formKey.currentState!.validate()) {
       _elegantSnack(
         'Revisa el formulario',
@@ -1025,6 +1125,197 @@ class PurchaseOrderFormController extends GetxController
     }
   }
 
+  // ==================== PROTECCIÓN CONTRA PÉRDIDA DE DATOS ====================
+
+  /// True si el formulario tiene datos capturados que se perderían al salir
+  /// o al limpiar. Se evalúa sobre campos relevantes para el usuario — se
+  /// ignoran valores por defecto (fechas, prioridad media, moneda COP).
+  bool get hasUnsavedChanges {
+    if (selectedSupplierId.value.isNotEmpty) return true;
+    // Cualquier item con producto seleccionado cuenta como dato no guardado
+    if (items.any((i) => i.productId.isNotEmpty)) return true;
+    final textFields = <TextEditingController>[
+      notesController,
+      internalNotesController,
+      deliveryAddressController,
+      contactPersonController,
+      contactPhoneController,
+      contactEmailController,
+    ];
+    for (final c in textFields) {
+      if (c.text.trim().isNotEmpty) return true;
+    }
+    return false;
+  }
+
+  /// Muestra confirmación antes de limpiar el formulario. Si no hay datos,
+  /// limpia directamente (sin molestar al usuario).
+  Future<void> confirmClearForm() async {
+    if (!hasUnsavedChanges) {
+      clearForm();
+      return;
+    }
+    final confirmed = await Get.dialog<bool>(
+      AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFB45309),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                '¿Limpiar formulario?',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Se borrarán todos los datos que has capturado (proveedor, productos, notas). Esta acción no se puede deshacer.',
+          style: TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Get.back(result: true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            icon: const Icon(Icons.cleaning_services_rounded, size: 16),
+            label: const Text('Limpiar'),
+          ),
+        ],
+      ),
+      barrierDismissible: true,
+    );
+    if (confirmed == true) {
+      clearForm();
+      _elegantSnack(
+        'Formulario limpio',
+        'Todos los datos fueron eliminados',
+        type: 'info',
+      );
+    }
+  }
+
+  /// Se dispara cuando el usuario intenta salir del form (back button).
+  /// Retorna true si es seguro salir (no había datos o el usuario descartó).
+  /// Si hay datos capturados, muestra opciones: Guardar / Descartar / Cancelar.
+  Future<bool> confirmExit() async {
+    if (!hasUnsavedChanges) return true;
+
+    final canSave = isFormValid.value;
+    final isEdit = isEditMode.value;
+
+    final result = await Get.dialog<String>(
+      AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDBEAFE),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.save_alt_rounded,
+                color: Color(0xFF1D4ED8),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                isEdit ? '¿Descartar cambios?' : '¿Guardar antes de salir?',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          canSave
+              ? 'Tienes datos sin guardar. ¿Qué quieres hacer?'
+              : 'Tienes datos capturados pero el formulario está incompleto, así que aún no se puede guardar. Puedes descartar los cambios o regresar a completarlos.',
+          style: const TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: 'cancel'),
+            child: const Text('Cancelar'),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton.icon(
+                onPressed: () => Get.back(result: 'discard'),
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  size: 16,
+                  color: Color(0xFFEF4444),
+                ),
+                label: const Text(
+                  'Descartar',
+                  style: TextStyle(color: Color(0xFFEF4444)),
+                ),
+              ),
+              if (canSave) ...[
+                const SizedBox(width: 6),
+                ElevatedButton.icon(
+                  onPressed: () => Get.back(result: 'save'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3B82F6),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.save_rounded, size: 16),
+                  label: Text(isEdit ? 'Guardar' : 'Guardar borrador'),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+
+    if (result == 'save') {
+      await savePurchaseOrder();
+      // savePurchaseOrder() navega por sí mismo al listado si tuvo éxito.
+      // Devolvemos false para que PopScope no haga un pop adicional.
+      return false;
+    }
+    return result == 'discard';
+  }
+
   void clearForm() {
     formKey.currentState?.reset();
 
@@ -1201,42 +1492,76 @@ class PurchaseOrderFormController extends GetxController
   }
 
   void selectProductForItem(int index, Product product) {
-    if (index >= 0 && index < items.length) {
-      // Verificar si el producto ya existe en items completados
-      final existingIndex = items.indexWhere(
-        (item) => item.productId == product.id && item.isValid,
-      );
+    if (index < 0 || index >= items.length) return;
 
-      if (existingIndex >= 0 && existingIndex != index) {
-        // Remover el item vacío actual
-        items.removeAt(index);
-        // Activar el item existente para edición
-        final adjustedIndex = existingIndex > index ? existingIndex - 1 : existingIndex;
-        activeItemIndex.value = adjustedIndex;
-        calculateTotals();
-        _validateForm();
-        _elegantSnack(
-          'Producto ya agregado',
-          '${product.name} ya está en la lista. Puedes editarlo directamente.',
-          type: 'info',
-        );
-        // Scroll al item existente
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToItem(adjustedIndex);
-        });
-        return;
+    // Normalizamos los 4 criterios de dedup (id, nombre, sku, barcode) para
+    // comparar ignorando espacios y mayúsculas. Un match en cualquiera implica
+    // que el producto ya está en la lista.
+    final normName = product.name.trim().toLowerCase();
+    final normSku = product.sku.trim().toLowerCase();
+    final normBarcode = (product.barcode ?? '').trim().toLowerCase();
+
+    int existingIndex = -1;
+    String matchReason = '';
+    for (var i = 0; i < items.length; i++) {
+      if (i == index) continue;
+      final it = items[i];
+      if (it.productId.isEmpty) continue;
+
+      if (it.productId == product.id) {
+        existingIndex = i;
+        matchReason = 'el mismo producto';
+        break;
       }
+      if (normName.isNotEmpty &&
+          it.productName.trim().toLowerCase() == normName) {
+        existingIndex = i;
+        matchReason = 'el mismo nombre';
+        break;
+      }
+      if (normSku.isNotEmpty &&
+          it.productSku.trim().toLowerCase() == normSku) {
+        existingIndex = i;
+        matchReason = 'el mismo código (SKU)';
+        break;
+      }
+      if (normBarcode.isNotEmpty &&
+          it.productBarcode.trim().toLowerCase() == normBarcode) {
+        existingIndex = i;
+        matchReason = 'el mismo código de barras';
+        break;
+      }
+    }
 
-      final currentItem = items[index];
-      final updatedItem = currentItem.copyWith(
-        productId: product.id,
-        productName: product.name,
-        unitPrice: 0.0,
-      );
-      items[index] = updatedItem;
+    if (existingIndex >= 0) {
+      // Remover el slot vacío/activo y saltar al item duplicado para editarlo
+      items.removeAt(index);
+      final adjustedIndex =
+          existingIndex > index ? existingIndex - 1 : existingIndex;
+      activeItemIndex.value = adjustedIndex;
       calculateTotals();
       _validateForm();
+      _elegantSnack(
+        'Producto duplicado',
+        '${product.name} ya está en la lista ($matchReason). Te llevamos al item existente para que lo edites.',
+        type: 'warning',
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToItem(adjustedIndex);
+      });
+      return;
     }
+
+    final currentItem = items[index];
+    items[index] = currentItem.copyWith(
+      productId: product.id,
+      productName: product.name,
+      productSku: product.sku,
+      productBarcode: product.barcode ?? '',
+      unitPrice: 0.0,
+    );
+    calculateTotals();
+    _validateForm();
   }
 }
 
@@ -1245,6 +1570,8 @@ class PurchaseOrderItemForm {
   final String? id; // ID para items existentes
   final String productId;
   final String productName;
+  final String productSku; // Código interno — usado para dedup y búsqueda
+  final String productBarcode; // Código de barras — usado para dedup y búsqueda
   final int quantity;
   final double unitPrice;
   final double discountPercentage;
@@ -1255,6 +1582,8 @@ class PurchaseOrderItemForm {
     this.id,
     this.productId = '',
     this.productName = '',
+    this.productSku = '',
+    this.productBarcode = '',
     this.quantity = 1,
     this.unitPrice = 0.0,
     this.discountPercentage = 0.0,
@@ -1268,6 +1597,8 @@ class PurchaseOrderItemForm {
     String? id,
     String? productId,
     String? productName,
+    String? productSku,
+    String? productBarcode,
     int? quantity,
     double? unitPrice,
     double? discountPercentage,
@@ -1278,6 +1609,8 @@ class PurchaseOrderItemForm {
       id: id ?? this.id,
       productId: productId ?? this.productId,
       productName: productName ?? this.productName,
+      productSku: productSku ?? this.productSku,
+      productBarcode: productBarcode ?? this.productBarcode,
       quantity: quantity ?? this.quantity,
       unitPrice: unitPrice ?? this.unitPrice,
       discountPercentage: discountPercentage ?? this.discountPercentage,
@@ -1291,6 +1624,8 @@ class PurchaseOrderItemForm {
       id: item.id, // Incluir ID para items existentes
       productId: item.productId,
       productName: item.productName,
+      productSku: item.productCode ?? '',
+      productBarcode: '', // entity no persiste barcode
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       discountPercentage: item.discountPercentage,
