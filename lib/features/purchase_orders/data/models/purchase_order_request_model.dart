@@ -146,6 +146,12 @@ class UpdatePurchaseOrderRequestModel {
   final Map<String, dynamic>? metadata;
   final List<UpdatePurchaseOrderItemRequestModel>? items;
 
+  // Multi-moneda (opcional). Si los 3 vienen, el backend actualiza la
+  // trazabilidad en moneda extranjera de la PO.
+  final String? purchaseCurrency;
+  final double? purchaseCurrencyAmount;
+  final double? exchangeRate;
+
   const UpdatePurchaseOrderRequestModel({
     this.supplierId,
     this.warehouseId,
@@ -157,6 +163,9 @@ class UpdatePurchaseOrderRequestModel {
     this.notes,
     this.metadata,
     this.items,
+    this.purchaseCurrency,
+    this.purchaseCurrencyAmount,
+    this.exchangeRate,
   });
 
   factory UpdatePurchaseOrderRequestModel.fromJson(Map<String, dynamic> json) =>
@@ -176,6 +185,11 @@ class UpdatePurchaseOrderRequestModel {
     if (notes != null) json['notes'] = notes;
     if (metadata != null) json['metadata'] = metadata;
     if (items != null) json['items'] = items!.map((item) => item.toJson()).toList();
+    if (purchaseCurrency != null) json['purchaseCurrency'] = purchaseCurrency;
+    if (purchaseCurrencyAmount != null) {
+      json['purchaseCurrencyAmount'] = purchaseCurrencyAmount;
+    }
+    if (exchangeRate != null) json['exchangeRate'] = exchangeRate;
 
     return json;
   }
@@ -205,6 +219,9 @@ class UpdatePurchaseOrderRequestModel {
           .toList(),
       // Only include metadata if it has actual values
       metadata: metadataMap.isNotEmpty ? metadataMap : null,
+      purchaseCurrency: params.purchaseCurrency,
+      purchaseCurrencyAmount: params.purchaseCurrencyAmount,
+      exchangeRate: params.exchangeRate,
     );
   }
 

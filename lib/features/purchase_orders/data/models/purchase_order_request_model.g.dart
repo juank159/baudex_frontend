@@ -88,6 +88,10 @@ UpdatePurchaseOrderRequestModel _$UpdatePurchaseOrderRequestModelFromJson(
           ?.map((e) => UpdatePurchaseOrderItemRequestModel.fromJson(
               e as Map<String, dynamic>))
           .toList(),
+      purchaseCurrency: json['purchaseCurrency'] as String?,
+      purchaseCurrencyAmount:
+          (json['purchaseCurrencyAmount'] as num?)?.toDouble(),
+      exchangeRate: (json['exchangeRate'] as num?)?.toDouble(),
     );
 
 Map<String, dynamic> _$UpdatePurchaseOrderRequestModelToJson(
@@ -103,6 +107,9 @@ Map<String, dynamic> _$UpdatePurchaseOrderRequestModelToJson(
       'notes': instance.notes,
       'metadata': instance.metadata,
       'items': instance.items,
+      'purchaseCurrency': instance.purchaseCurrency,
+      'purchaseCurrencyAmount': instance.purchaseCurrencyAmount,
+      'exchangeRate': instance.exchangeRate,
     };
 
 UpdatePurchaseOrderItemRequestModel

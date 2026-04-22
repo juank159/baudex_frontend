@@ -1108,6 +1108,14 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
               'taxPercentage': item.taxPercentage,
               if (item.notes != null) 'notes': item.notes,
             }).toList(),
+            // Multi-moneda: incluir los 3 campos si vienen en el UPDATE para
+            // que el sync propague al servidor y no se pierda la trazabilidad
+            // en moneda extranjera (p. ej. al actualizar la tasa del día).
+            if (params.purchaseCurrency != null)
+              'purchaseCurrency': params.purchaseCurrency,
+            if (params.purchaseCurrencyAmount != null)
+              'purchaseCurrencyAmount': params.purchaseCurrencyAmount,
+            if (params.exchangeRate != null) 'exchangeRate': params.exchangeRate,
           },
           priority: 1,
         );

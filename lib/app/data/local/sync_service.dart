@@ -5416,6 +5416,11 @@ class SyncService extends GetxService {
                   data['attachments'] != null
                       ? List<String>.from(data['attachments'])
                       : null,
+              // Multi-moneda (propagación al UPDATE online).
+              purchaseCurrency: data['purchaseCurrency'] as String?,
+              purchaseCurrencyAmount:
+                  (data['purchaseCurrencyAmount'] as num?)?.toDouble(),
+              exchangeRate: (data['exchangeRate'] as num?)?.toDouble(),
             );
 
             // Diagnóstico: imprimir payload antes de enviar
