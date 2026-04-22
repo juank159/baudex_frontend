@@ -14,6 +14,7 @@ import '../widgets/income_breakdown_widget.dart';
 import '../widgets/accounts_receivable_widget.dart';
 import '../widgets/cash_flow_summary_widget.dart';
 import '../widgets/currency_breakdown_widget.dart';
+import '../widgets/purchase_currency_breakdown_widget.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -381,6 +382,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                 delay: 260,
               ),
               const SizedBox(height: AppDimensions.spacingMedium),
+              if (stats.purchaseCurrencyBreakdown != null &&
+                  stats.purchaseCurrencyBreakdown!.isNotEmpty) ...[
+                _buildAnimatedCard(
+                  PurchaseCurrencyBreakdownWidget(stats: stats),
+                  delay: 280,
+                ),
+                const SizedBox(height: AppDimensions.spacingMedium),
+              ],
             ],
           );
         }),

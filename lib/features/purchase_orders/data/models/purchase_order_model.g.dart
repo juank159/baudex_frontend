@@ -49,6 +49,10 @@ PurchaseOrderModel _$PurchaseOrderModelFromJson(Map<String, dynamic> json) =>
       approvedAt: json['approvedAt'] as String?,
       createdAt: json['createdAt'] as String?,
       updatedAt: json['updatedAt'] as String?,
+      purchaseCurrency: json['purchaseCurrency'] as String?,
+      purchaseCurrencyAmount:
+          (json['purchaseCurrencyAmount'] as num?)?.toDouble(),
+      exchangeRate: (json['exchangeRate'] as num?)?.toDouble(),
     );
 
 Map<String, dynamic> _$PurchaseOrderModelToJson(PurchaseOrderModel instance) =>
@@ -89,6 +93,9 @@ Map<String, dynamic> _$PurchaseOrderModelToJson(PurchaseOrderModel instance) =>
       'approvedAt': instance.approvedAt,
       'createdAt': instance.createdAt,
       'updatedAt': instance.updatedAt,
+      'purchaseCurrency': instance.purchaseCurrency,
+      'purchaseCurrencyAmount': instance.purchaseCurrencyAmount,
+      'exchangeRate': instance.exchangeRate,
     };
 
 PurchaseOrderItemModel _$PurchaseOrderItemModelFromJson(

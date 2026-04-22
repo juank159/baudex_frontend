@@ -17,6 +17,11 @@ class CreatePurchaseOrderRequestModel {
   final Map<String, dynamic>? metadata;
   final List<CreatePurchaseOrderItemRequestModel> items;
 
+  // Multi-moneda (opcional). Si se envía purchaseCurrency, los 3 deben venir.
+  final String? purchaseCurrency;
+  final double? purchaseCurrencyAmount;
+  final double? exchangeRate;
+
   const CreatePurchaseOrderRequestModel({
     required this.supplierId,
     this.warehouseId,
@@ -27,6 +32,9 @@ class CreatePurchaseOrderRequestModel {
     this.notes,
     this.metadata,
     required this.items,
+    this.purchaseCurrency,
+    this.purchaseCurrencyAmount,
+    this.exchangeRate,
   });
 
   factory CreatePurchaseOrderRequestModel.fromJson(Map<String, dynamic> json) =>
@@ -47,6 +55,11 @@ class CreatePurchaseOrderRequestModel {
     if (shippingCost != null) json['shippingCost'] = shippingCost;
     if (notes != null) json['notes'] = notes;
     if (metadata != null) json['metadata'] = metadata;
+    if (purchaseCurrency != null) json['purchaseCurrency'] = purchaseCurrency;
+    if (purchaseCurrencyAmount != null) {
+      json['purchaseCurrencyAmount'] = purchaseCurrencyAmount;
+    }
+    if (exchangeRate != null) json['exchangeRate'] = exchangeRate;
 
     return json;
   }
@@ -70,6 +83,9 @@ class CreatePurchaseOrderRequestModel {
         'contactEmail': params.contactEmail,
         'attachments': params.attachments,
       },
+      purchaseCurrency: params.purchaseCurrency,
+      purchaseCurrencyAmount: params.purchaseCurrencyAmount,
+      exchangeRate: params.exchangeRate,
     );
   }
 }

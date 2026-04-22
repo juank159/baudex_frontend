@@ -98,6 +98,11 @@ class PurchaseOrderModel {
   final String? createdAt;
   final String? updatedAt;
 
+  // Multi-moneda (nullable = compra en moneda base).
+  final String? purchaseCurrency;
+  final double? purchaseCurrencyAmount;
+  final double? exchangeRate;
+
   const PurchaseOrderModel({
     required this.id,
     this.orderNumber,
@@ -135,6 +140,9 @@ class PurchaseOrderModel {
     this.approvedAt,
     this.createdAt,
     this.updatedAt,
+    this.purchaseCurrency,
+    this.purchaseCurrencyAmount,
+    this.exchangeRate,
   });
 
   factory PurchaseOrderModel.fromJson(Map<String, dynamic> json) {
@@ -243,6 +251,9 @@ class PurchaseOrderModel {
         approvedAt: approvedAt != null && approvedAt!.isNotEmpty ? DateTime.parse(approvedAt!) : null,
         createdAt: createdAt != null && createdAt!.isNotEmpty ? DateTime.parse(createdAt!) : null,
         updatedAt: updatedAt != null && updatedAt!.isNotEmpty ? DateTime.parse(updatedAt!) : null,
+        purchaseCurrency: purchaseCurrency,
+        purchaseCurrencyAmount: purchaseCurrencyAmount,
+        exchangeRate: exchangeRate,
       );
     } catch (e) {
       print('❌ Error en PurchaseOrderModel.toEntity(): $e');
@@ -290,6 +301,9 @@ class PurchaseOrderModel {
       approvedAt: entity.approvedAt?.toIso8601String(),
       createdAt: entity.createdAt?.toIso8601String(),
       updatedAt: entity.updatedAt?.toIso8601String(),
+      purchaseCurrency: entity.purchaseCurrency,
+      purchaseCurrencyAmount: entity.purchaseCurrencyAmount,
+      exchangeRate: entity.exchangeRate,
     );
   }
 

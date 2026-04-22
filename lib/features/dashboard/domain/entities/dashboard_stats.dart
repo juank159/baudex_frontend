@@ -11,6 +11,9 @@ class DashboardStats extends Equatable {
   final List<PaymentMethodStats> paymentMethodsBreakdown;
   final IncomeTypeBreakdown incomeTypeBreakdown;
   final List<CurrencyBreakdownStats>? currencyBreakdown;
+  // Compras del período agrupadas por moneda (multi-moneda). Reutiliza
+  // `CurrencyBreakdownStats` porque la estructura es idéntica a pagos.
+  final List<CurrencyBreakdownStats>? purchaseCurrencyBreakdown;
   final bool multiCurrencyEnabled;
   final String baseCurrency;
   final ReceivablesStats? receivables;
@@ -46,6 +49,7 @@ class DashboardStats extends Equatable {
     required this.paymentMethodsBreakdown,
     required this.incomeTypeBreakdown,
     this.currencyBreakdown,
+    this.purchaseCurrencyBreakdown,
     this.multiCurrencyEnabled = false,
     this.baseCurrency = 'COP',
     this.receivables,
@@ -68,6 +72,7 @@ class DashboardStats extends Equatable {
     paymentMethodsBreakdown,
     incomeTypeBreakdown,
     currencyBreakdown,
+    purchaseCurrencyBreakdown,
     multiCurrencyEnabled,
     baseCurrency,
     receivables,
@@ -92,6 +97,7 @@ class DashboardStats extends Equatable {
     List<PaymentMethodStats>? paymentMethodsBreakdown,
     IncomeTypeBreakdown? incomeTypeBreakdown,
     List<CurrencyBreakdownStats>? currencyBreakdown,
+    List<CurrencyBreakdownStats>? purchaseCurrencyBreakdown,
     bool? multiCurrencyEnabled,
     String? baseCurrency,
     ReceivablesStats? receivables,
@@ -112,6 +118,8 @@ class DashboardStats extends Equatable {
       paymentMethodsBreakdown: paymentMethodsBreakdown ?? this.paymentMethodsBreakdown,
       incomeTypeBreakdown: incomeTypeBreakdown ?? this.incomeTypeBreakdown,
       currencyBreakdown: currencyBreakdown ?? this.currencyBreakdown,
+      purchaseCurrencyBreakdown:
+          purchaseCurrencyBreakdown ?? this.purchaseCurrencyBreakdown,
       multiCurrencyEnabled: multiCurrencyEnabled ?? this.multiCurrencyEnabled,
       baseCurrency: baseCurrency ?? this.baseCurrency,
       receivables: receivables ?? this.receivables,

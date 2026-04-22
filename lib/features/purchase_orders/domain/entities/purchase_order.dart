@@ -82,6 +82,13 @@ class PurchaseOrder extends Equatable {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  // Multi-moneda (mismo patrón que InvoicePayment). Cuando la compra se
+  // hizo en otra moneda que la base de la organización, estos 3 campos
+  // guardan el contexto. `totalAmount` SIEMPRE está en moneda base.
+  final String? purchaseCurrency;
+  final double? purchaseCurrencyAmount;
+  final double? exchangeRate;
+
   const PurchaseOrder({
     required this.id,
     this.orderNumber,
@@ -110,7 +117,12 @@ class PurchaseOrder extends Equatable {
     this.approvedAt,
     this.createdAt,
     this.updatedAt,
+    this.purchaseCurrency,
+    this.purchaseCurrencyAmount,
+    this.exchangeRate,
   });
+
+  bool get isForeignCurrency => purchaseCurrency != null;
 
   @override
   List<Object?> get props => [
@@ -141,6 +153,9 @@ class PurchaseOrder extends Equatable {
         approvedAt,
         createdAt,
         updatedAt,
+        purchaseCurrency,
+        purchaseCurrencyAmount,
+        exchangeRate,
       ];
 
   // Computed properties

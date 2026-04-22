@@ -145,6 +145,12 @@ class CreatePurchaseOrderParams {
   final String? contactEmail;
   final List<String> attachments;
 
+  // Multi-moneda (opcional): solo se llenan si la compra se hizo en una
+  // moneda distinta a la base de la organización. El form calcula total.
+  final String? purchaseCurrency;
+  final double? purchaseCurrencyAmount;
+  final double? exchangeRate;
+
   const CreatePurchaseOrderParams({
     required this.supplierId,
     this.supplierName,
@@ -160,6 +166,9 @@ class CreatePurchaseOrderParams {
     this.contactPhone,
     this.contactEmail,
     this.attachments = const [],
+    this.purchaseCurrency,
+    this.purchaseCurrencyAmount,
+    this.exchangeRate,
   });
 
   Map<String, dynamic> toMap() {
@@ -177,6 +186,10 @@ class CreatePurchaseOrderParams {
       if (contactPhone != null) 'contactPhone': contactPhone,
       if (contactEmail != null) 'contactEmail': contactEmail,
       'attachments': attachments,
+      if (purchaseCurrency != null) 'purchaseCurrency': purchaseCurrency,
+      if (purchaseCurrencyAmount != null)
+        'purchaseCurrencyAmount': purchaseCurrencyAmount,
+      if (exchangeRate != null) 'exchangeRate': exchangeRate,
     };
   }
 }
