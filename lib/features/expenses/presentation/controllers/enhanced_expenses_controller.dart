@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../domain/repositories/expense_repository.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_stats.dart';
@@ -781,7 +782,12 @@ class EnhancedExpensesController extends GetxController {
   }
 
   Map<String, DateTime?> _getDateRangeForPeriod(String period) {
-    final now = DateTime.now();
+    // Usar la hora del tenant para que "HOY/SEMANA/MES" reflejen la TZ
+    // de la organización, no la del dispositivo. Fallback a DateTime.now()
+    // si TenantDateTimeService no está registrado (tests).
+    final now = Get.isRegistered<TenantDateTimeService>()
+        ? Get.find<TenantDateTimeService>().now()
+        : DateTime.now();
 
     // ✅ PRIMERO: Si hay fechas personalizadas (_startDate o _endDate), usarlas
     if (_startDate.value != null || _endDate.value != null) {
