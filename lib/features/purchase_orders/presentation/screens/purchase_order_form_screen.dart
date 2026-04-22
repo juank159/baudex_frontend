@@ -230,34 +230,16 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
                     : const SizedBox.shrink()),
                 const SizedBox(height: AppDimensions.paddingMedium),
                 _fieldLabel('Prioridad'),
-                Obx(() => DropdownButtonFormField<PurchaseOrderPriority>(
-                      value: controller.priority.value,
-                      decoration: _elegantInputDecoration(
-                        prefixIcon: Icon(
-                          _getPriorityIcon(controller.priority.value),
-                          color: _getPriorityColor(controller.priority.value),
-                        ),
-                      ),
-                      items: PurchaseOrderPriority.values
-                          .map((priority) => DropdownMenuItem(
-                                value: priority,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _getPriorityIcon(priority),
-                                      size: 16,
-                                      color: _getPriorityColor(priority),
-                                    ),
-                                    const SizedBox(
-                                        width: AppDimensions.paddingSmall),
-                                    Text(_getPriorityText(priority)),
-                                  ],
-                                ),
+                Obx(() => Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: PurchaseOrderPriority.values
+                          .map((p) => _priorityChip(
+                                priority: p,
+                                isSelected: controller.priority.value == p,
+                                onTap: () => controller.priority.value = p,
                               ))
                           .toList(),
-                      onChanged: (value) {
-                        if (value != null) controller.priority.value = value;
-                      },
                     )),
               ],
             ),
@@ -463,6 +445,80 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
         borderSide: const BorderSide(
           color: Color(0xFF3B82F6),
           width: 1.5,
+        ),
+      ),
+    );
+  }
+
+  /// Chip de prioridad con icono + color del tema. Reemplaza el dropdown
+  /// plano por una selección más visual tipo segmented control.
+  Widget _priorityChip({
+    required PurchaseOrderPriority priority,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final color = _getPriorityColor(priority);
+    final icon = _getPriorityIcon(priority);
+    final label = _getPriorityText(priority);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? LinearGradient(
+                    colors: [color, color.withValues(alpha: 0.85)],
+                  )
+                : LinearGradient(
+                    colors: [Colors.white, Colors.grey.shade50],
+                  ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? color : Colors.grey.shade300,
+              width: isSelected ? 1.5 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.white : color,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                ),
+              ),
+              if (isSelected) ...[
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.check_rounded,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

@@ -144,135 +144,201 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
   Widget _buildSimpleSupplierDisplay(BuildContext context, Supplier? supplier) {
     final supplierName = supplier?.name ?? 'Seleccionar proveedor';
     final hasSupplier = supplier != null;
+    const primary = Color(0xFF3B82F6);
+    const success = Color(0xFF10B981);
 
-    return GestureDetector(
-      onTap:
-          widget.activateOnTextFieldTap
-              ? () {
-                setState(() {
-                  _showSearchField = true;
-                });
-                _focusNode.requestFocus();
-              }
-              : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: hasSupplier ? Colors.green.shade300 : Colors.grey.shade300,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: hasSupplier
+              ? [Colors.white, const Color(0xFFF0FDF4)]
+              : [Colors.white, const Color(0xFFF8FAFC)],
         ),
-        child: Row(
-          children: [
-            // Icono del proveedor
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color:
-                    hasSupplier
-                        ? Colors.green.shade100
-                        : Theme.of(context).primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Icon(
-                Icons.business,
-                color:
-                    hasSupplier
-                        ? Colors.green.shade600
-                        : Theme.of(context).primaryColor,
-                size: 16,
-              ),
-            ),
-
-            const SizedBox(width: 12),
-
-            // Nombre del proveedor
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    supplierName,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color:
-                          hasSupplier ? Colors.black87 : Colors.grey.shade600,
-                    ),
-                  ),
-                  if (hasSupplier) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '${supplier.documentType.name.toUpperCase() ?? 'DOC'}: ${supplier.documentNumber}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-
-            // Botón de búsqueda
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: _toggleSearch,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: hasSupplier
+              ? success.withValues(alpha: 0.35)
+              : Colors.grey.shade300,
+          width: hasSupplier ? 1.3 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: hasSupplier
+                ? success.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: hasSupplier ? 12 : 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: widget.activateOnTextFieldTap
+              ? () {
+                  setState(() => _showSearchField = true);
+                  _focusNode.requestFocus();
+                }
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: Row(
+              children: [
+                // Icono con gradiente
+                Container(
+                  padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
-                    borderRadius: BorderRadius.circular(8),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: hasSupplier
+                          ? const [Color(0xFF10B981), Color(0xFF059669)]
+                          : const [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (hasSupplier ? success : primary)
+                            .withValues(alpha: 0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Icon(
-                    _showSearchField ? Icons.close : Icons.search,
+                    hasSupplier
+                        ? Icons.check_circle_rounded
+                        : Icons.storefront_rounded,
                     color: Colors.white,
                     size: 18,
                   ),
                 ),
-              ),
-            ),
-
-            // Botón de limpiar
-            if (hasSupplier && widget.onClearSupplier != null) ...[
-              const SizedBox(width: 8),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: () {
-                    widget.onClearSupplier!();
-                    _closeSearch();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade500,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.refresh,
-                      color: Colors.white,
-                      size: 18,
-                    ),
+                const SizedBox(width: 12),
+                // Nombre + documento
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        supplierName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: hasSupplier
+                              ? const Color(0xFF0F172A)
+                              : Colors.grey.shade600,
+                          letterSpacing: 0.1,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (hasSupplier) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: success.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                supplier.documentType.name.toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF059669),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                supplier.documentNumber,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Toca para buscar proveedor',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                // Botón búsqueda con gradient
+                _iconBtn(
+                  icon: _showSearchField
+                      ? Icons.close_rounded
+                      : Icons.search_rounded,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                  ),
+                  onTap: _toggleSearch,
+                ),
+                if (hasSupplier && widget.onClearSupplier != null) ...[
+                  const SizedBox(width: 6),
+                  _iconBtn(
+                    icon: Icons.swap_horiz_rounded,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                    ),
+                    onTap: () {
+                      widget.onClearSupplier!();
+                      _closeSearch();
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _iconBtn({
+    required IconData icon,
+    required LinearGradient gradient,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(9),
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: gradient.colors.first.withValues(alpha: 0.35),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
-          ],
+          ),
+          child: Icon(icon, color: Colors.white, size: 16),
         ),
       ),
     );
