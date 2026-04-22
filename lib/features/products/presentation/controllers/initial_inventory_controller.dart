@@ -123,6 +123,168 @@ class InitialInventoryController extends GetxController {
   final hasDraft = false.obs;
   final draftRowCount = 0.obs;
 
+  // ============================================================================
+  // BÚSQUEDA Y DETECCIÓN DE DUPLICADOS (en tiempo real)
+  // ============================================================================
+
+  /// Texto del buscador — filtra filas por nombre o código de barras
+  final RxString searchQuery = ''.obs;
+  final TextEditingController searchController = TextEditingController();
+
+  /// Índices de filas duplicadas (segunda aparición en adelante). Se detecta
+  /// por nombre normalizado o por código de barras. Se recalcula en tiempo
+  /// real cada vez que el usuario escribe en esos campos.
+  final RxSet<int> duplicateIndices = <int>{}.obs;
+
+  /// Índices (en `rows`) que coinciden con `searchQuery`. Si el query está
+  /// vacío retorna todos. Búsqueda por nombre y código de barras.
+  List<int> get filteredRowIndices {
+    final q = searchQuery.value.trim().toLowerCase();
+    if (q.isEmpty) {
+      return List.generate(rows.length, (i) => i);
+    }
+    final indices = <int>[];
+    for (var i = 0; i < rows.length; i++) {
+      final r = rows[i];
+      final n = r.nameController.text.toLowerCase();
+      final b = r.barcodeController.text.toLowerCase();
+      if (n.contains(q) || b.contains(q)) indices.add(i);
+    }
+    return indices;
+  }
+
+  void clearSearch() {
+    searchController.clear();
+    searchQuery.value = '';
+  }
+
+  /// Engancha listeners a una fila para que los cambios disparen la
+  /// re-validación de duplicados Y de completitud automáticamente.
+  void _attachRowListeners(InitialInventoryRow row) {
+    row.nameController.addListener(_onRowFieldChanged);
+    row.barcodeController.addListener(_onRowFieldChanged);
+    row.costPriceController.addListener(_onRowFieldChanged);
+    row.sellingPriceController.addListener(_onRowFieldChanged);
+    row.stockController.addListener(_onRowFieldChanged);
+    row.minStockController.addListener(_onRowFieldChanged);
+  }
+
+  void _detachRowListeners(InitialInventoryRow row) {
+    row.nameController.removeListener(_onRowFieldChanged);
+    row.barcodeController.removeListener(_onRowFieldChanged);
+    row.costPriceController.removeListener(_onRowFieldChanged);
+    row.sellingPriceController.removeListener(_onRowFieldChanged);
+    row.stockController.removeListener(_onRowFieldChanged);
+    row.minStockController.removeListener(_onRowFieldChanged);
+  }
+
+  /// Un tick que obliga a re-computar validación por fila. Se incrementa
+  /// en CADA tecleo en cualquier campo de cualquier fila. Los getters
+  /// reactivos lo leen para que los `Obx` se re-construyan.
+  final RxInt _rowFieldsTick = 0.obs;
+
+  void _onRowFieldChanged() {
+    _rowFieldsTick.value++;
+    _recalculateDuplicates();
+  }
+
+  // ============================================================================
+  // VALIDACIÓN DE CAMPOS REQUERIDOS POR FILA
+  // ============================================================================
+
+  /// Devuelve los nombres de campos requeridos que están vacíos en una fila.
+  /// Campos requeridos: name, barcode, costPrice, sellingPrice, stock, minStock.
+  /// Si la fila está totalmente vacía, retorna lista vacía (no se valida).
+  Set<String> missingFieldsFor(int index) {
+    _rowFieldsTick.value; // suscripción para Obx
+    if (index < 0 || index >= rows.length) return const {};
+    final r = rows[index];
+    if (r.isEmpty) return const {}; // vacía: no se valida
+    final missing = <String>{};
+    if (r.nameController.text.trim().isEmpty) missing.add('name');
+    if (r.barcodeController.text.trim().isEmpty) missing.add('barcode');
+    if (r.costPriceController.text.trim().isEmpty) missing.add('costPrice');
+    if (r.sellingPriceController.text.trim().isEmpty) {
+      missing.add('sellingPrice');
+    }
+    if (r.stockController.text.trim().isEmpty) missing.add('stock');
+    if (r.minStockController.text.trim().isEmpty) missing.add('minStock');
+    return missing;
+  }
+
+  /// Índices de filas que tienen datos parciales pero les falta al menos
+  /// un campo requerido. Las filas vacías NO cuentan (puede haber slots
+  /// listos para llenar).
+  List<int> get incompleteRowIndices {
+    _rowFieldsTick.value; // suscripción para Obx
+    final incomplete = <int>[];
+    for (var i = 0; i < rows.length; i++) {
+      if (missingFieldsFor(i).isNotEmpty) incomplete.add(i);
+    }
+    return incomplete;
+  }
+
+  /// True si se puede agregar una nueva fila (todas las filas iniciadas
+  /// están completas). Una fila vacía NO bloquea, pero una parcial sí.
+  bool get canAddNewRow => incompleteRowIndices.isEmpty;
+
+  /// Resumen corto de filas incompletas para mostrar en banner.
+  String get incompleteSummary {
+    final incomplete = incompleteRowIndices;
+    if (incomplete.isEmpty) return '';
+    final names = incomplete
+        .map((i) => rows[i].nameController.text.trim())
+        .map((n) => n.isEmpty ? '(sin nombre)' : n)
+        .take(3)
+        .toList();
+    final extra = incomplete.length > names.length ? '…' : '';
+    return '${names.join(', ')}$extra';
+  }
+
+  /// Recorre todas las filas y marca como duplicadas (por índice) aquellas
+  /// cuyo nombre o código de barras coincida con una fila previa. Ignora
+  /// filas totalmente vacías. Se ejecuta en cada tecleo.
+  void _recalculateDuplicates() {
+    final dupes = <int>{};
+    for (var i = 1; i < rows.length; i++) {
+      final a = rows[i];
+      final an = a.nameController.text.trim().toLowerCase();
+      final ab = a.barcodeController.text.trim().toLowerCase();
+      if (an.isEmpty && ab.isEmpty) continue;
+      for (var j = 0; j < i; j++) {
+        final b = rows[j];
+        final bn = b.nameController.text.trim().toLowerCase();
+        final bb = b.barcodeController.text.trim().toLowerCase();
+        final matchName = an.isNotEmpty && an == bn;
+        final matchBarcode = ab.isNotEmpty && ab == bb;
+        if (matchName || matchBarcode) {
+          dupes.add(i);
+          break;
+        }
+      }
+    }
+    // RxSet no permite `.value = ...` — usamos clear + addAll
+    duplicateIndices
+      ..clear()
+      ..addAll(dupes);
+  }
+
+  /// Descripción corta de los duplicados para mostrar en banner.
+  String get duplicatesSummary {
+    if (duplicateIndices.isEmpty) return '';
+    final names = duplicateIndices
+        .map((i) => rows[i].nameController.text.trim())
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .take(3)
+        .toList();
+    if (names.isEmpty) {
+      return '${duplicateIndices.length} fila(s) con datos repetidos';
+    }
+    final extra = duplicateIndices.length > names.length ? '…' : '';
+    return '${names.join(', ')}$extra';
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -143,9 +305,11 @@ class InitialInventoryController extends GetxController {
   void onClose() {
     saveDraft();
     for (var row in rows) {
+      _detachRowListeners(row);
       row.dispose();
     }
     rows.clear();
+    searchController.dispose();
     super.onClose();
   }
 
@@ -209,8 +373,10 @@ class InitialInventoryController extends GetxController {
           row.categoryId = null;
           row.categoryName = null;
         }
+        _attachRowListeners(row);
         rows.add(row);
       }
+      _recalculateDuplicates();
 
       // Restore global category (validar que aún existe)
       final savedGlobalCatId = json['globalCategoryId'] as String?;
@@ -247,9 +413,51 @@ class InitialInventoryController extends GetxController {
   // ============================================================================
 
   void addRow() {
+    // Proteger: no dejar agregar nueva fila si hay filas con datos
+    // parciales. Evita listas con filas a medias.
+    if (!canAddNewRow) {
+      _showIncompleteRowsBlocked(action: 'agregar una nueva fila');
+      _expandFirstIncomplete();
+      return;
+    }
     _collapseAllRows();
     final newRow = InitialInventoryRow(isExpanded: true);
+    _attachRowListeners(newRow);
     rows.add(newRow);
+    _recalculateDuplicates();
+  }
+
+  /// Muestra snack rojo y expande la primera fila incompleta. Se usa cuando
+  /// el usuario intenta agregar/duplicar filas pero hay pendientes.
+  void _showIncompleteRowsBlocked({required String action}) {
+    final incomplete = incompleteRowIndices;
+    if (incomplete.isEmpty) return;
+    Get.snackbar(
+      'Completa los campos',
+      'Hay ${incomplete.length} fila(s) con campos vacíos. '
+          'Llena nombre, código de barras, costo, precio, stock y stock mín '
+          'antes de $action.',
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: ElegantLightTheme.errorRed,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 4),
+      margin: const EdgeInsets.all(12),
+      borderRadius: 12,
+      icon: const Icon(Icons.warning_rounded, color: Colors.white),
+    );
+  }
+
+  void _expandFirstIncomplete() {
+    final incomplete = incompleteRowIndices;
+    if (incomplete.isEmpty) return;
+    final firstIdx = incomplete.first;
+    for (var i = 0; i < rows.length; i++) {
+      final shouldExpand = i == firstIdx;
+      if (rows[i].isExpanded != shouldExpand) {
+        rows[i].isExpanded = shouldExpand;
+        rows[i] = rows[i]; // trigger Obx
+      }
+    }
   }
 
   void removeRow(int index) {
@@ -266,11 +474,18 @@ class InitialInventoryController extends GetxController {
       return;
     }
     final row = rows.removeAt(index);
+    _detachRowListeners(row);
     row.dispose();
+    _recalculateDuplicates();
   }
 
   void duplicateRow(int index) {
     if (index < 0 || index >= rows.length) return;
+    if (!canAddNewRow) {
+      _showIncompleteRowsBlocked(action: 'duplicar esta fila');
+      _expandFirstIncomplete();
+      return;
+    }
     _collapseAllRows();
     final src = rows[index];
     final newRow = InitialInventoryRow(
@@ -284,19 +499,29 @@ class InitialInventoryController extends GetxController {
       categoryName: src.categoryName,
       isExpanded: true,
     );
+    _attachRowListeners(newRow);
     rows.insert(index + 1, newRow);
+    _recalculateDuplicates();
   }
 
   void addMultipleRows(int count) {
+    if (!canAddNewRow) {
+      _showIncompleteRowsBlocked(action: 'agregar más filas');
+      _expandFirstIncomplete();
+      return;
+    }
     _collapseAllRows();
     for (int i = 0; i < count; i++) {
-      rows.add(InitialInventoryRow());
+      final r = InitialInventoryRow();
+      _attachRowListeners(r);
+      rows.add(r);
     }
     // Expandir la última fila agregada
     if (rows.isNotEmpty) {
       rows.last.isExpanded = true;
       rows[rows.length - 1] = rows.last;
     }
+    _recalculateDuplicates();
   }
 
   void _collapseAllRows() {
@@ -519,6 +744,33 @@ class InitialInventoryController extends GetxController {
   // ============================================================================
 
   Future<void> submitAll() async {
+    // Corte duro: filas incompletas no se envían
+    if (incompleteRowIndices.isNotEmpty) {
+      _showIncompleteRowsBlocked(action: 'crear los productos');
+      _expandFirstIncomplete();
+      return;
+    }
+
+    // Corte duro: productos duplicados no se envían (ni se guardan).
+    // Protege contra errores del usuario cuando la lista tiene muchas filas.
+    if (duplicateIndices.isNotEmpty) {
+      final list = duplicatesSummary;
+      Get.snackbar(
+        'Hay productos repetidos',
+        list.isEmpty
+            ? 'Elimina las filas duplicadas antes de crear los productos.'
+            : 'Duplicados: $list. Elimínalos antes de continuar.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: ElegantLightTheme.errorRed,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 4),
+        margin: const EdgeInsets.all(12),
+        borderRadius: 12,
+        icon: const Icon(Icons.error_rounded, color: Colors.white),
+      );
+      return;
+    }
+
     final errors = validateAll();
     if (errors.isNotEmpty) {
       showValidationErrors(errors);

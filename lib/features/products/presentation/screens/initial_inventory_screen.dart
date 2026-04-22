@@ -35,6 +35,7 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
       body: Column(
         children: [
           _buildHeader(context, isMobile),
+          _buildSearchAndDuplicatesBar(context, isMobile),
           Obx(() => controller.isSubmitting.value
               ? _buildProgress(context)
               : const SizedBox.shrink()),
@@ -195,20 +196,52 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
         ),
         const SizedBox(height: 8),
         // Buttons
-        Row(
-          children: [
-            _actionChip(Icons.add, 'Fila', isSubmitting ? null : () { controller.addRow(); _scrollToBottom(); }),
-            const SizedBox(width: 6),
-            _actionChip(Icons.playlist_add, '+10', isSubmitting ? null : () { controller.addMultipleRows(10); _scrollToBottom(); }),
-            if (!isMobile) ...[
-              const Spacer(),
-              Obx(() => Text(
-                    '${controller.rows.length} producto${controller.rows.length == 1 ? '' : 's'}',
-                    style: TextStyle(fontSize: 12, color: ElegantLightTheme.textSecondary),
-                  )),
+        Obx(() {
+          final canAdd = controller.canAddNewRow;
+          final disabledMsg = canAdd
+              ? ''
+              : 'Completa todos los campos antes de agregar nuevas filas';
+          return Row(
+            children: [
+              Tooltip(
+                message: disabledMsg,
+                child: _actionChip(
+                  Icons.add,
+                  'Fila',
+                  (isSubmitting || !canAdd)
+                      ? null
+                      : () {
+                          controller.addRow();
+                          _scrollToBottom();
+                        },
+                ),
+              ),
+              const SizedBox(width: 6),
+              Tooltip(
+                message: disabledMsg,
+                child: _actionChip(
+                  Icons.playlist_add,
+                  '+10',
+                  (isSubmitting || !canAdd)
+                      ? null
+                      : () {
+                          controller.addMultipleRows(10);
+                          _scrollToBottom();
+                        },
+                ),
+              ),
+              if (!isMobile) ...[
+                const Spacer(),
+                Text(
+                  '${controller.rows.length} producto${controller.rows.length == 1 ? '' : 's'}',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: ElegantLightTheme.textSecondary),
+                ),
+              ],
             ],
-          ],
-        ),
+          );
+        }),
       ],
     );
   }
@@ -335,6 +368,239 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
   }
 
   // ==========================================================================
+  // SEARCH BAR + BANNER DE DUPLICADOS (siempre visibles)
+  // ==========================================================================
+
+  Widget _buildSearchAndDuplicatesBar(BuildContext context, bool isMobile) {
+    final hPad = isMobile ? 10.0 : 16.0;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildSearchBar(isMobile),
+          Obx(() {
+            if (controller.duplicateIndices.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: _buildDuplicatesBanner(),
+            );
+          }),
+          Obx(() {
+            if (controller.incompleteRowIndices.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: _buildIncompleteBanner(),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIncompleteBanner() {
+    final count = controller.incompleteRowIndices.length;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withOpacity(0.15),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              size: 18, color: Color(0xFFB45309)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$count fila(s) con campos vacíos',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFB45309),
+                  ),
+                ),
+                Text(
+                  'Completa nombre, código de barras, costo, precio, stock y mín para continuar: ${controller.incompleteSummary}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF78350F),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(bool isMobile) {
+    return Obx(() {
+      final query = controller.searchQuery.value;
+      final isSearching = query.isNotEmpty;
+      final totalRows = controller.rows.length;
+      final matched = controller.filteredRowIndices.length;
+
+      return Container(
+        height: isMobile ? 42 : 46,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSearching
+                ? ElegantLightTheme.primaryBlue
+                : ElegantLightTheme.primaryBlue.withOpacity(0.35),
+            width: isSearching ? 2 : 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: ElegantLightTheme.primaryBlue
+                  .withOpacity(isSearching ? 0.18 : 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 10),
+            Icon(
+              Icons.search,
+              size: 20,
+              color: isSearching
+                  ? ElegantLightTheme.primaryBlue
+                  : ElegantLightTheme.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: controller.searchController,
+                onChanged: (v) => controller.searchQuery.value = v,
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: totalRows > 0
+                      ? 'Buscar en $totalRows fila${totalRows == 1 ? '' : 's'} (nombre o código de barras)…'
+                      : 'Buscar productos agregados (nombre o código)…',
+                  hintStyle: TextStyle(
+                    fontSize: 13,
+                    color: ElegantLightTheme.textTertiary,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  isDense: true,
+                ),
+              ),
+            ),
+            if (isSearching) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: matched > 0
+                      ? ElegantLightTheme.primaryBlue.withOpacity(0.12)
+                      : Colors.orange.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$matched',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: matched > 0
+                        ? ElegantLightTheme.primaryBlue
+                        : Colors.orange[700],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: controller.clearSearch,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.close,
+                    size: 18,
+                    color: ElegantLightTheme.textSecondary,
+                  ),
+                ),
+              ),
+            ] else
+              const SizedBox(width: 10),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildDuplicatesBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEE2E2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFEF4444), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFEF4444).withOpacity(0.15),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_rounded,
+              size: 18, color: Color(0xFFB91C1C)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${controller.duplicateIndices.length} producto(s) repetido(s)',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFB91C1C),
+                  ),
+                ),
+                Text(
+                  'No podrás crear hasta eliminarlos: ${controller.duplicatesSummary}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF7F1D1D),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================================
   // PROGRESS
   // ==========================================================================
 
@@ -396,37 +662,107 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
   // ==========================================================================
 
   Widget _buildExpandableList(BuildContext context) {
-    return ListView.builder(
-      controller: _listScrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      itemCount: controller.rows.length,
-      itemBuilder: (_, i) => _buildExpandableItem(context, i),
-    );
+    return Obx(() {
+      final filteredIndices = controller.filteredRowIndices;
+      final isSearching = controller.searchQuery.value.isNotEmpty;
+
+      if (isSearching && filteredIndices.isEmpty) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.search_off_rounded,
+                    size: 40, color: ElegantLightTheme.textTertiary),
+                const SizedBox(height: 10),
+                Text(
+                  'Sin resultados para "${controller.searchQuery.value}"',
+                  style: TextStyle(
+                      fontSize: 13, color: ElegantLightTheme.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: controller.clearSearch,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: ElegantLightTheme.primaryBlue.withOpacity(0.4),
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Limpiar búsqueda',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: ElegantLightTheme.primaryBlue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      return ListView.builder(
+        controller: _listScrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        itemCount: filteredIndices.length,
+        itemBuilder: (_, listIndex) =>
+            _buildExpandableItem(context, filteredIndices[listIndex]),
+      );
+    });
   }
 
   Widget _buildExpandableItem(BuildContext context, int index) {
     final row = controller.rows[index];
     final isSubmitting = controller.isSubmitting.value;
     final useGlobal = controller.useGlobalCategory.value;
+    final isDuplicate = controller.duplicateIndices.contains(index);
 
-    // Border color by status
+    // Border color by status (duplicate gana prioridad visual)
     Color borderColor = ElegantLightTheme.textTertiary.withOpacity(0.15);
     Color? bgColor;
-    if (row.isProcessed && row.isSuccess) {
+    double borderWidth = 1;
+    if (isDuplicate) {
+      borderColor = const Color(0xFFEF4444);
+      bgColor = const Color(0xFFFEF2F2);
+      borderWidth = 2.5;
+    } else if (row.isProcessed && row.isSuccess) {
       borderColor = Colors.green[400]!;
       bgColor = Colors.green[50];
+      borderWidth = 1.5;
     } else if (row.isProcessed && row.errorMessage != null) {
       borderColor = Colors.red[400]!;
       bgColor = Colors.red[50];
+      borderWidth = 1.5;
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        color: bgColor ?? Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: borderColor, width: row.isProcessed ? 1.5 : 1),
-      ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          margin: EdgeInsets.only(bottom: 6, top: isDuplicate ? 10 : 0),
+          decoration: BoxDecoration(
+            color: bgColor ?? Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor, width: borderWidth),
+            boxShadow: isDuplicate
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFEF4444).withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -512,6 +848,63 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
           if (row.isExpanded) _buildExpandedContent(context, index, row, isSubmitting, useGlobal),
         ],
       ),
+        ),
+        if (isDuplicate)
+          Positioned(
+            top: 0,
+            left: 12,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444),
+                borderRadius: BorderRadius.circular(5),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFEF4444).withOpacity(0.4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_rounded,
+                      size: 11, color: Colors.white),
+                  const SizedBox(width: 3),
+                  const Text(
+                    'REPETIDO',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: isSubmitting
+                        ? null
+                        : () => controller.removeRow(index),
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 9,
+                        color: Color(0xFFEF4444),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -531,6 +924,7 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
   Widget _buildExpandedContent(
       BuildContext context, int index, InitialInventoryRow row, bool isSubmitting, bool useGlobal) {
     final isMobile = ResponsiveHelper.isMobile(context);
+    final missing = controller.missingFieldsFor(index);
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
       child: Column(
@@ -539,26 +933,45 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
           Divider(height: 1, color: ElegantLightTheme.textTertiary.withOpacity(0.15)),
           const SizedBox(height: 8),
           // Row 1: Name
-          _inlineField(row.nameController, 'Nombre del producto', isSubmitting),
+          _inlineField(row.nameController, 'Nombre del producto *',
+              isSubmitting,
+              isMissing: missing.contains('name')),
           const SizedBox(height: 8),
           // Row 2: Barcode (con escáner en mobile)
-          _buildBarcodeField(row, isSubmitting, isMobile),
+          _buildBarcodeField(row, isSubmitting, isMobile,
+              isMissing: missing.contains('barcode')),
           const SizedBox(height: 8),
           // Row 3: Cost + Price
           Row(
             children: [
-              Expanded(child: _inlineNumberField(row.costPriceController, 'Costo', isSubmitting)),
+              Expanded(
+                child: _inlineNumberField(
+                    row.costPriceController, 'Costo *', isSubmitting,
+                    isMissing: missing.contains('costPrice')),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: _inlineNumberField(row.sellingPriceController, 'Precio venta', isSubmitting)),
+              Expanded(
+                child: _inlineNumberField(row.sellingPriceController,
+                    'Precio venta *', isSubmitting,
+                    isMissing: missing.contains('sellingPrice')),
+              ),
             ],
           ),
           const SizedBox(height: 8),
           // Row 4: Stock + MinStock
           Row(
             children: [
-              Expanded(child: _inlineNumberField(row.stockController, 'Stock inicial', isSubmitting)),
+              Expanded(
+                child: _inlineNumberField(
+                    row.stockController, 'Stock inicial *', isSubmitting,
+                    isMissing: missing.contains('stock')),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: _inlineNumberField(row.minStockController, 'Stock min', isSubmitting)),
+              Expanded(
+                child: _inlineNumberField(
+                    row.minStockController, 'Stock mín *', isSubmitting,
+                    isMissing: missing.contains('minStock')),
+              ),
             ],
           ),
           // Row 5: Category (if not global)
@@ -599,30 +1012,58 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
     );
   }
 
-  Widget _inlineField(TextEditingController ctrl, String label, bool disabled) {
+  Widget _inlineField(
+    TextEditingController ctrl,
+    String label,
+    bool disabled, {
+    bool isMissing = false,
+  }) {
+    final errorColor = const Color(0xFFEF4444);
+    final baseColor = isMissing
+        ? errorColor
+        : ElegantLightTheme.textTertiary.withOpacity(0.3);
+    final focusedColor =
+        isMissing ? errorColor : ElegantLightTheme.primaryBlue;
     return TextField(
       controller: ctrl,
       enabled: !disabled,
       style: const TextStyle(fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(fontSize: 11, color: ElegantLightTheme.textSecondary),
+        labelStyle: TextStyle(
+          fontSize: 11,
+          color: isMissing ? errorColor : ElegantLightTheme.textSecondary,
+          fontWeight: isMissing ? FontWeight.w700 : FontWeight.w400,
+        ),
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
+          borderSide: BorderSide(
+              color: baseColor, width: isMissing ? 1.5 : 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: ElegantLightTheme.primaryBlue, width: 1.5),
+          borderSide: BorderSide(color: focusedColor, width: 1.8),
         ),
       ),
     );
   }
 
-  Widget _inlineNumberField(TextEditingController ctrl, String label, bool disabled) {
+  Widget _inlineNumberField(
+    TextEditingController ctrl,
+    String label,
+    bool disabled, {
+    bool isMissing = false,
+  }) {
+    final errorColor = const Color(0xFFEF4444);
+    final baseColor = isMissing
+        ? errorColor
+        : ElegantLightTheme.textTertiary.withOpacity(0.3);
+    final focusedColor =
+        isMissing ? errorColor : ElegantLightTheme.primaryBlue;
     return TextField(
       controller: ctrl,
       enabled: !disabled,
@@ -631,23 +1072,40 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
       inputFormatters: [PriceInputFormatter()],
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(fontSize: 11, color: ElegantLightTheme.textSecondary),
+        labelStyle: TextStyle(
+          fontSize: 11,
+          color: isMissing ? errorColor : ElegantLightTheme.textSecondary,
+          fontWeight: isMissing ? FontWeight.w700 : FontWeight.w400,
+        ),
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
+          borderSide: BorderSide(
+              color: baseColor, width: isMissing ? 1.5 : 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: ElegantLightTheme.primaryBlue, width: 1.5),
+          borderSide: BorderSide(color: focusedColor, width: 1.8),
         ),
       ),
     );
   }
 
-  Widget _buildBarcodeField(InitialInventoryRow row, bool isSubmitting, bool isMobile) {
+  Widget _buildBarcodeField(
+    InitialInventoryRow row,
+    bool isSubmitting,
+    bool isMobile, {
+    bool isMissing = false,
+  }) {
+    final errorColor = const Color(0xFFEF4444);
+    final baseColor = isMissing
+        ? errorColor
+        : ElegantLightTheme.textTertiary.withOpacity(0.3);
+    final focusedColor =
+        isMissing ? errorColor : ElegantLightTheme.primaryBlue;
     return Row(
       children: [
         Expanded(
@@ -657,20 +1115,30 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
             style: const TextStyle(fontSize: 13),
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
-              labelText: 'Código de barras',
-              labelStyle: TextStyle(fontSize: 11, color: ElegantLightTheme.textSecondary),
-              prefixIcon: const Icon(Icons.barcode_reader, size: 18),
+              labelText: 'Código de barras *',
+              labelStyle: TextStyle(
+                fontSize: 11,
+                color: isMissing
+                    ? errorColor
+                    : ElegantLightTheme.textSecondary,
+                fontWeight:
+                    isMissing ? FontWeight.w700 : FontWeight.w400,
+              ),
+              prefixIcon: Icon(Icons.barcode_reader,
+                  size: 18,
+                  color: isMissing ? errorColor : null),
               prefixIconConstraints: const BoxConstraints(minWidth: 36),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
+                borderSide: BorderSide(
+                    color: baseColor, width: isMissing ? 1.5 : 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: ElegantLightTheme.primaryBlue, width: 1.5),
+                borderSide: BorderSide(color: focusedColor, width: 1.8),
               ),
             ),
           ),
@@ -824,6 +1292,7 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
   Widget _buildDataTable() {
     final isSubmitting = controller.isSubmitting.value;
     final useGlobal = controller.useGlobalCategory.value;
+    final filteredIndices = controller.filteredRowIndices;
 
     return DataTable(
       headingRowColor: WidgetStateProperty.all(ElegantLightTheme.scaffoldBackground.withOpacity(0.5)),
@@ -842,7 +1311,9 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
         if (!useGlobal) _col('Categoría', 140),
         _col('', 80),
       ],
-      rows: List.generate(controller.rows.length, (i) => _desktopRow(i, isSubmitting, useGlobal)),
+      rows: filteredIndices
+          .map((i) => _desktopRow(i, isSubmitting, useGlobal))
+          .toList(),
     );
   }
 
@@ -857,9 +1328,15 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
 
   DataRow _desktopRow(int index, bool isSubmitting, bool useGlobal) {
     final row = controller.rows[index];
+    final isDuplicate = controller.duplicateIndices.contains(index);
     Color? color;
-    if (row.isProcessed && row.isSuccess) color = Colors.green[50];
-    if (row.isProcessed && row.errorMessage != null) color = Colors.red[50];
+    if (isDuplicate) {
+      color = const Color(0xFFFEF2F2); // rojo claro — duplicado
+    } else if (row.isProcessed && row.isSuccess) {
+      color = Colors.green[50];
+    } else if (row.isProcessed && row.errorMessage != null) {
+      color = Colors.red[50];
+    }
 
     return DataRow(
       color: WidgetStateProperty.all(color),
@@ -870,36 +1347,63 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
           child: Container(
             width: 22,
             height: 22,
-            decoration: BoxDecoration(gradient: ElegantLightTheme.primaryGradient, borderRadius: BorderRadius.circular(5)),
+            decoration: BoxDecoration(
+              gradient: isDuplicate
+                  ? const LinearGradient(
+                      colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+                    )
+                  : ElegantLightTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(5),
+            ),
             alignment: Alignment.center,
-            child: Text('${index + 1}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+            child: isDuplicate
+                ? const Tooltip(
+                    message: 'Producto repetido — elimínalo para continuar',
+                    child: Icon(Icons.warning_rounded,
+                        size: 12, color: Colors.white),
+                  )
+                : Text('${index + 1}',
+                    style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white)),
           ),
         )),
-        DataCell(_dtField(row.nameController, 190, isSubmitting)),
-        DataCell(_dtField(row.barcodeController, 140, isSubmitting)),
-        DataCell(_dtNumField(row.costPriceController, 100, isSubmitting)),
-        DataCell(_dtNumField(row.sellingPriceController, 100, isSubmitting)),
-        DataCell(_dtNumField(row.stockController, 80, isSubmitting)),
-        DataCell(_dtNumField(row.minStockController, 70, isSubmitting)),
+        DataCell(_dtField(row.nameController, 190, isSubmitting,
+            isMissing: controller.missingFieldsFor(index).contains('name'))),
+        DataCell(_dtField(row.barcodeController, 140, isSubmitting,
+            isMissing: controller.missingFieldsFor(index).contains('barcode'))),
+        DataCell(_dtNumField(row.costPriceController, 100, isSubmitting,
+            isMissing: controller.missingFieldsFor(index).contains('costPrice'))),
+        DataCell(_dtNumField(row.sellingPriceController, 100, isSubmitting,
+            isMissing:
+                controller.missingFieldsFor(index).contains('sellingPrice'))),
+        DataCell(_dtNumField(row.stockController, 80, isSubmitting,
+            isMissing: controller.missingFieldsFor(index).contains('stock'))),
+        DataCell(_dtNumField(row.minStockController, 70, isSubmitting,
+            isMissing:
+                controller.missingFieldsFor(index).contains('minStock'))),
         if (!useGlobal) DataCell(_dtCatCell(index, row, isSubmitting)),
         DataCell(_dtActions(index, row, isSubmitting)),
       ],
     );
   }
 
-  Widget _dtField(TextEditingController ctrl, double w, bool disabled) {
+  Widget _dtField(TextEditingController ctrl, double w, bool disabled,
+      {bool isMissing = false}) {
     return SizedBox(
       width: w,
       child: TextField(
         controller: ctrl,
         enabled: !disabled,
         style: const TextStyle(fontSize: 12),
-        decoration: _dtDecoration(),
+        decoration: _dtDecoration(isMissing: isMissing),
       ),
     );
   }
 
-  Widget _dtNumField(TextEditingController ctrl, double w, bool disabled) {
+  Widget _dtNumField(TextEditingController ctrl, double w, bool disabled,
+      {bool isMissing = false}) {
     return SizedBox(
       width: w,
       child: TextField(
@@ -908,23 +1412,32 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
         style: const TextStyle(fontSize: 12),
         keyboardType: TextInputType.number,
         inputFormatters: [PriceInputFormatter()],
-        decoration: _dtDecoration(),
+        decoration: _dtDecoration(isMissing: isMissing),
       ),
     );
   }
 
-  InputDecoration _dtDecoration() {
+  InputDecoration _dtDecoration({bool isMissing = false}) {
+    const errorColor = Color(0xFFEF4444);
+    final baseColor = isMissing
+        ? errorColor
+        : ElegantLightTheme.textTertiary.withOpacity(0.25);
+    final focusedColor =
+        isMissing ? errorColor : ElegantLightTheme.primaryBlue;
     return InputDecoration(
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      filled: isMissing,
+      fillColor: isMissing ? const Color(0xFFFEF2F2) : null,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(5)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(5),
-        borderSide: BorderSide(color: ElegantLightTheme.textTertiary.withOpacity(0.25)),
+        borderSide:
+            BorderSide(color: baseColor, width: isMissing ? 1.5 : 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(5),
-        borderSide: const BorderSide(color: ElegantLightTheme.primaryBlue, width: 1.5),
+        borderSide: BorderSide(color: focusedColor, width: 1.8),
       ),
     );
   }
@@ -1109,16 +1622,36 @@ class InitialInventoryScreen extends GetView<InitialInventoryController> {
                 ),
               ),
             const Spacer(),
-            // Submit button
-            ElegantButton(
-              text: isSubmitting ? 'Procesando...' : (isMobile ? 'Crear' : 'Crear Productos'),
-              icon: isSubmitting ? null : Icons.check,
-              gradient: ElegantLightTheme.successGradient,
-              isLoading: isSubmitting,
-              onPressed: isSubmitting || count == 0 ? null : controller.submitAll,
-              height: isMobile ? 38 : 40,
-              padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-            ),
+            // Submit button (se bloquea si hay duplicados o filas incompletas)
+            Obx(() {
+              final hasDupes = controller.duplicateIndices.isNotEmpty;
+              final hasIncomplete = controller.incompleteRowIndices.isNotEmpty;
+              final blocked = hasDupes || hasIncomplete;
+              final tooltipMsg = hasDupes
+                  ? 'Hay productos repetidos. Elimínalos para continuar.'
+                  : hasIncomplete
+                      ? 'Hay filas con campos vacíos. Complétalos para continuar.'
+                      : '';
+              return Tooltip(
+                message: tooltipMsg,
+                child: ElegantButton(
+                  text: isSubmitting
+                      ? 'Procesando...'
+                      : (isMobile ? 'Crear' : 'Crear Productos'),
+                  icon: isSubmitting ? null : Icons.check,
+                  gradient: blocked
+                      ? ElegantLightTheme.errorGradient
+                      : ElegantLightTheme.successGradient,
+                  isLoading: isSubmitting,
+                  onPressed: isSubmitting || count == 0 || blocked
+                      ? null
+                      : controller.submitAll,
+                  height: isMobile ? 38 : 40,
+                  padding:
+                      EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+                ),
+              );
+            }),
           ],
         );
       }),
