@@ -367,14 +367,14 @@ class _DashboardScreenState extends State<DashboardScreen>
           );
         }),
 
-        // Currency Breakdown Widget (condicional)
+        // Pagos por moneda (condicional — solo si hay pagos multi-moneda)
         Obx(() {
           final stats = controller.dashboardStats;
-          final showCurrency = stats != null &&
+          final showPaymentsCurrency = stats != null &&
               stats.multiCurrencyEnabled &&
               stats.currencyBreakdown != null &&
               stats.currencyBreakdown!.isNotEmpty;
-          if (!showCurrency) return const SizedBox.shrink();
+          if (!showPaymentsCurrency) return const SizedBox.shrink();
           return Column(
             children: [
               _buildAnimatedCard(
@@ -382,14 +382,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                 delay: 260,
               ),
               const SizedBox(height: AppDimensions.spacingMedium),
-              if (stats.purchaseCurrencyBreakdown != null &&
-                  stats.purchaseCurrencyBreakdown!.isNotEmpty) ...[
-                _buildAnimatedCard(
-                  PurchaseCurrencyBreakdownWidget(stats: stats),
-                  delay: 280,
-                ),
-                const SizedBox(height: AppDimensions.spacingMedium),
-              ],
+            ],
+          );
+        }),
+
+        // Compras por moneda (condicional — independiente de pagos).
+        // Se muestra aunque la org no tenga pagos en otra moneda pero sí
+        // compras en USD/VES/etc. Antes estaba anidado bajo el Obx de
+        // pagos y se ocultaba cuando payments no tenía data multi-moneda.
+        Obx(() {
+          final stats = controller.dashboardStats;
+          final showPurchaseCurrency = stats != null &&
+              stats.multiCurrencyEnabled &&
+              stats.purchaseCurrencyBreakdown != null &&
+              stats.purchaseCurrencyBreakdown!.isNotEmpty;
+          if (!showPurchaseCurrency) return const SizedBox.shrink();
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                PurchaseCurrencyBreakdownWidget(stats: stats),
+                delay: 280,
+              ),
+              const SizedBox(height: AppDimensions.spacingMedium),
             ],
           );
         }),
