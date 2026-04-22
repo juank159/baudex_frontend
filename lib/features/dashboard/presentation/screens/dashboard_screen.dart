@@ -519,19 +519,38 @@ class _DashboardScreenState extends State<DashboardScreen>
           );
         }),
 
-        // Currency Breakdown Widget (condicional)
+        // Pagos por moneda (condicional — solo si hay pagos multi-moneda)
         Obx(() {
           final stats = controller.dashboardStats;
-          final showCurrency = stats != null &&
+          final showPaymentsCurrency = stats != null &&
               stats.multiCurrencyEnabled &&
               stats.currencyBreakdown != null &&
               stats.currencyBreakdown!.isNotEmpty;
-          if (!showCurrency) return const SizedBox.shrink();
+          if (!showPaymentsCurrency) return const SizedBox.shrink();
           return Column(
             children: [
               _buildAnimatedCard(
                 CurrencyBreakdownWidget(stats: stats),
                 delay: 260,
+              ),
+              const SizedBox(height: AppDimensions.spacingLarge),
+            ],
+          );
+        }),
+
+        // Compras por moneda (condicional — independiente de pagos).
+        Obx(() {
+          final stats = controller.dashboardStats;
+          final showPurchaseCurrency = stats != null &&
+              stats.multiCurrencyEnabled &&
+              stats.purchaseCurrencyBreakdown != null &&
+              stats.purchaseCurrencyBreakdown!.isNotEmpty;
+          if (!showPurchaseCurrency) return const SizedBox.shrink();
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                PurchaseCurrencyBreakdownWidget(stats: stats),
+                delay: 280,
               ),
               const SizedBox(height: AppDimensions.spacingLarge),
             ],
@@ -751,6 +770,25 @@ class _DashboardScreenState extends State<DashboardScreen>
           );
         }),
         const SizedBox(height: AppDimensions.spacingLarge),
+
+        // Compras por moneda (desktop, independiente de pagos).
+        Obx(() {
+          final stats = controller.dashboardStats;
+          final showPurchaseCurrency = stats != null &&
+              stats.multiCurrencyEnabled &&
+              stats.purchaseCurrencyBreakdown != null &&
+              stats.purchaseCurrencyBreakdown!.isNotEmpty;
+          if (!showPurchaseCurrency) return const SizedBox.shrink();
+          return Column(
+            children: [
+              _buildAnimatedCard(
+                PurchaseCurrencyBreakdownWidget(stats: stats),
+                delay: 360,
+              ),
+              const SizedBox(height: AppDimensions.spacingLarge),
+            ],
+          );
+        }),
 
         // Tercera fila: Análisis de Rentabilidad con animación
         _buildAnimatedCard(
