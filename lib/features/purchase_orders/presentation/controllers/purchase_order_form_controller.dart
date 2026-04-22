@@ -1,6 +1,7 @@
 // lib/features/purchase_orders/presentation/controllers/purchase_order_form_controller.dart
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
@@ -357,9 +358,9 @@ class PurchaseOrderFormController extends GetxController
       exchangeRate.value = order.exchangeRate;
       foreignAmount.value = order.purchaseCurrencyAmount;
       exchangeRateController.text =
-          (order.exchangeRate ?? 0).toStringAsFixed(2);
+          AppFormatters.formatRate(order.exchangeRate ?? 0);
       foreignAmountController.text =
-          (order.purchaseCurrencyAmount ?? 0).toStringAsFixed(2);
+          AppFormatters.formatRate(order.purchaseCurrencyAmount ?? 0);
     }
 
     notesController.text = order.notes ?? '';
@@ -673,9 +674,58 @@ class PurchaseOrderFormController extends GetxController
 
   void updateItemPrice(int index, double unitPrice) {
     if (index < items.length) {
-      items[index] = items[index].copyWith(unitPrice: unitPrice);
+      // Si el usuario edita manualmente el precio en base, rompemos el link
+      // con el precio extranjero (evita que se recalcule y sobrescriba el
+      // valor manual al cambiar la tasa).
+      items[index] = items[index].copyWith(
+        unitPrice: unitPrice,
+        clearForeignUnitPrice: true,
+      );
       calculateTotals();
     }
+  }
+
+  /// El usuario ingresó el precio unitario EN moneda extranjera para un item.
+  /// Internamente convertimos a base usando la tasa actual y guardamos ambos.
+  void updateItemForeignPrice(int index, double foreignPrice) {
+    if (index < 0 || index >= items.length) return;
+    final rate = exchangeRate.value;
+    if (rate == null || rate <= 0) {
+      // Sin tasa válida, tratamos el valor como base y limpiamos el foreign
+      items[index] = items[index].copyWith(
+        unitPrice: foreignPrice,
+        clearForeignUnitPrice: true,
+      );
+    } else {
+      // Convención del proyecto: 1 foreign = rate base
+      // baseAmount = foreignAmount * rate
+      final baseUnitPrice = foreignPrice * rate;
+      items[index] = items[index].copyWith(
+        unitPrice: baseUnitPrice,
+        foreignUnitPrice: foreignPrice,
+      );
+    }
+    calculateTotals();
+  }
+
+  /// Recalcula unitPrice (en base) de todos los items que tienen
+  /// foreignUnitPrice, usando la tasa actual. Se invoca al cambiar la tasa o
+  /// la moneda seleccionada para mantener consistencia.
+  void _reapplyForeignPricesToBase() {
+    final rate = exchangeRate.value;
+    if (rate == null || rate <= 0) return;
+    bool anyChanged = false;
+    for (var i = 0; i < items.length; i++) {
+      final it = items[i];
+      final f = it.foreignUnitPrice;
+      if (f == null) continue;
+      final newBase = f * rate;
+      if ((newBase - it.unitPrice).abs() > 0.000001) {
+        items[i] = it.copyWith(unitPrice: newBase);
+        anyChanged = true;
+      }
+    }
+    if (anyChanged) calculateTotals();
   }
 
   void updateItemDiscount(int index, double discountPercentage) {
@@ -787,23 +837,30 @@ class PurchaseOrderFormController extends GetxController
     );
     final defaultRate = (info['defaultRate'] as num?)?.toDouble() ?? 1.0;
     exchangeRate.value = defaultRate;
-    exchangeRateController.text = defaultRate.toStringAsFixed(2);
+    // Usa el mismo formateador que el dialog de pago de facturas (es_CO).
+    exchangeRateController.text = AppFormatters.formatRate(defaultRate);
     _recomputeForeignFromBase();
+    // Cualquier precio ya ingresado en moneda extranjera debe re-convertirse
+    // a base con la nueva tasa (para items agregados antes de cambiar moneda).
+    _reapplyForeignPricesToBase();
   }
 
   /// El usuario editó la tasa manualmente — re-calcular monto extranjero.
+  /// Usa `parseRate` (igual que facturas) para interpretar correctamente el
+  /// formato es_CO: "6" → 6, "6,00" → 6, "4.000" → 4000, "0,12" → 0.12.
   void onExchangeRateChanged(String text) {
-    final parsed = double.tryParse(text.replaceAll(',', '.'));
+    final parsed = AppFormatters.parseRate(text);
     if (parsed == null || parsed <= 0) return;
     exchangeRate.value = parsed;
     _recomputeForeignFromBase();
+    _reapplyForeignPricesToBase();
   }
 
   /// El usuario editó el monto extranjero — re-calcular total base.
   /// Nota: por ahora la "fuente de verdad" es el total en base (subtotal+tax),
   /// por lo que normalmente no es necesario que el usuario edite el foráneo.
   void onForeignAmountChanged(String text) {
-    final parsed = double.tryParse(text.replaceAll(',', '.'));
+    final parsed = AppFormatters.parseRate(text);
     if (parsed == null || parsed <= 0) return;
     foreignAmount.value = parsed;
   }
@@ -1573,10 +1630,14 @@ class PurchaseOrderItemForm {
   final String productSku; // Código interno — usado para dedup y búsqueda
   final String productBarcode; // Código de barras — usado para dedup y búsqueda
   final int quantity;
-  final double unitPrice;
+  final double unitPrice; // SIEMPRE en moneda base (COP). Fuente de verdad.
   final double discountPercentage;
   final double taxPercentage;
   final String notes;
+  // Precio unitario en la moneda extranjera seleccionada (runtime-only,
+  // no se persiste). Cuando !=null, el usuario lo ingresó en la moneda
+  // de compra y unitPrice = foreignUnitPrice * exchangeRate (en base).
+  final double? foreignUnitPrice;
 
   PurchaseOrderItemForm({
     this.id,
@@ -1589,6 +1650,7 @@ class PurchaseOrderItemForm {
     this.discountPercentage = 0.0,
     this.taxPercentage = 0.0,
     this.notes = '',
+    this.foreignUnitPrice,
   });
 
   bool get isValid => productId.isNotEmpty && quantity > 0 && unitPrice > 0;
@@ -1604,6 +1666,8 @@ class PurchaseOrderItemForm {
     double? discountPercentage,
     double? taxPercentage,
     String? notes,
+    double? foreignUnitPrice,
+    bool clearForeignUnitPrice = false,
   }) {
     return PurchaseOrderItemForm(
       id: id ?? this.id,
@@ -1616,6 +1680,9 @@ class PurchaseOrderItemForm {
       discountPercentage: discountPercentage ?? this.discountPercentage,
       taxPercentage: taxPercentage ?? this.taxPercentage,
       notes: notes ?? this.notes,
+      foreignUnitPrice: clearForeignUnitPrice
+          ? null
+          : (foreignUnitPrice ?? this.foreignUnitPrice),
     );
   }
 

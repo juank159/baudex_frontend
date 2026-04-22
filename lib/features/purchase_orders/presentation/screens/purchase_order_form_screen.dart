@@ -1,5 +1,6 @@
 // lib/features/purchase_orders/presentation/screens/purchase_order_form_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/app_scaffold.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
@@ -770,6 +771,12 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
                 controller: controller.exchangeRateController,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
+                // Mismo set de formatters que el payment dialog de facturas
+                // para que el parseo de tasas sea consistente en toda la app.
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+                  RateInputFormatter(),
+                ],
                 decoration: InputDecoration(
                   labelText: 'Tasa de cambio',
                   helperText: '1 $code = ? $base',
@@ -832,9 +839,10 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Los precios de los items los ingresas en $base. '
-                  'El total en $code se calcula con la tasa. Si la tasa '
-                  'del día difiere, edítala arriba.',
+                  'Ingresa los precios de los items directamente en $code. '
+                  'Se convierten a $base con la tasa automáticamente y se '
+                  'guardan en $base. Si editás la tasa, los precios '
+                  'ingresados en $code se recalculan en $base.',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey.shade700,
@@ -1077,6 +1085,11 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
       final hasActiveItem = controller.activeItemIndex.value >= 0;
       final isSearching = controller.itemSearchQuery.value.isNotEmpty;
       final filteredIndices = controller.filteredItemIndices;
+      // Suscribirse a los Rx de moneda/tasa para que el Obx reconstruya los
+      // items cuando el usuario cambie de moneda o edite la tasa — así cada
+      // ProductItemFormWidget recibe las props nuevas.
+      final foreignCurrency = controller.selectedPurchaseCurrency.value;
+      final currentRate = controller.exchangeRate.value;
 
       // Si busca y no hay resultados
       if (isSearching && filteredIndices.isEmpty) {
@@ -1130,6 +1143,13 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
             item: item,
             index: originalIndex,
             isActive: isActive,
+            // Multi-moneda: si la PO tiene moneda extranjera seleccionada,
+            // el campo "Precio" acepta el valor en esa moneda y convierte.
+            foreignCurrency: foreignCurrency,
+            baseCurrency: controller.baseCurrencyCode,
+            exchangeRate: currentRate,
+            onForeignPriceChanged: (value) =>
+                controller.updateItemForeignPrice(originalIndex, value),
             onQuantityChanged: (value) =>
                 controller.updateItemQuantity(originalIndex, value),
             onPriceChanged: (value) =>

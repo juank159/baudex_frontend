@@ -1,4 +1,5 @@
 // library: app.core.utils.formatters
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../services/tenant_datetime_service.dart';
@@ -291,5 +292,37 @@ class AppFormatters {
   static String getCurrencySymbol(String currencyCode) {
     final info = _currencyMap[currencyCode.toUpperCase()];
     return info?['symbol'] as String? ?? currencyCode;
+  }
+}
+
+/// Formatter de tasas de cambio que permite formato es_CO (punto miles, coma
+/// decimal) y re-formatea el input mientras el usuario escribe. Mantiene el
+/// comportamiento del dialog de pago de facturas para dar consistencia al
+/// sistema de multi-moneda.
+class RateInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) return newValue;
+
+    String cleaned = newValue.text.replaceAll(RegExp(r'[^\d.,]'), '');
+    if (cleaned.isEmpty) return const TextEditingValue(text: '');
+
+    final parsed = AppFormatters.parseRate(cleaned);
+    if (parsed == null) return oldValue;
+
+    String formatted = AppFormatters.formatRate(parsed);
+
+    // Si el usuario acaba de escribir una coma, mantenerla al final
+    if (cleaned.endsWith(',') && !formatted.contains(',')) {
+      formatted = '$formatted,';
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
   }
 }

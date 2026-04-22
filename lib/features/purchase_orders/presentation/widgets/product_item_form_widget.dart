@@ -7,31 +7,6 @@ import '../../../../app/core/utils/formatters.dart';
 import '../controllers/purchase_order_form_controller.dart';
 import 'product_selector_widget.dart';
 
-// Formatter que permite números con formateo de miles en tiempo real
-class _RealTimeCurrencyFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) return newValue;
-
-    String digitsOnly = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digitsOnly.isEmpty) return const TextEditingValue(text: '');
-
-    digitsOnly = digitsOnly.replaceAll(RegExp(r'^0+'), '');
-    if (digitsOnly.isEmpty) digitsOnly = '0';
-
-    final number = int.parse(digitsOnly);
-    final formatted = AppFormatters.formatNumber(number);
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
 enum _ItemState { searchOnly, fullForm, completed }
 
 class ProductItemFormWidget extends StatefulWidget {
@@ -46,6 +21,13 @@ class ProductItemFormWidget extends StatefulWidget {
   final VoidCallback? onEdit;
   final Function(dynamic) onProductSelected;
 
+  // Multi-moneda: cuando están seteados, el campo "Precio" acepta el valor
+  // EN la moneda extranjera y se convierte a base internamente.
+  final String? foreignCurrency; // código ej: "VES"
+  final String baseCurrency; // código base de la organización, ej: "COP"
+  final double? exchangeRate; // 1 foreign = rate base
+  final Function(double)? onForeignPriceChanged;
+
   const ProductItemFormWidget({
     super.key,
     required this.item,
@@ -58,7 +40,29 @@ class ProductItemFormWidget extends StatefulWidget {
     this.onComplete,
     this.onEdit,
     required this.onProductSelected,
+    this.foreignCurrency,
+    this.baseCurrency = 'COP',
+    this.exchangeRate,
+    this.onForeignPriceChanged,
   });
+
+  /// True cuando el widget debe mostrar el precio en moneda extranjera.
+  bool get isForeignMode =>
+      foreignCurrency != null &&
+      foreignCurrency != baseCurrency &&
+      (exchangeRate ?? 0) > 0;
+
+  /// Valor mostrado en el campo de precio según modo (base o foreign).
+  /// En modo foreign prefiere `foreignUnitPrice`; si no existe, deriva de
+  /// `unitPrice / rate` para que el usuario vea el equivalente de lo que ya
+  /// estaba guardado.
+  double displayPrice() {
+    if (!isForeignMode) return item.unitPrice;
+    final f = item.foreignUnitPrice;
+    if (f != null) return f;
+    final r = exchangeRate!;
+    return item.unitPrice / r;
+  }
 
   @override
   State<ProductItemFormWidget> createState() => _ProductItemFormWidgetState();
@@ -85,6 +89,20 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
     return widget.isActive ? _ItemState.fullForm : _ItemState.completed;
   }
 
+  /// Texto inicial del input de precio según modo (base o foreign).
+  /// Preserva decimales en ambos modos (hasta 2 decimales).
+  String _initialPriceText() {
+    final displayed = widget.displayPrice();
+    if (displayed <= 0) return '';
+    final rounded = (displayed * 100).round() / 100;
+    // Si es entero, formatear sin decimales (más limpio visualmente).
+    if (rounded == rounded.toInt()) {
+      return AppFormatters.formatNumber(rounded.toInt());
+    }
+    // Con decimales: usa formato es_CO (punto miles, coma decimal).
+    return AppFormatters.formatRate(rounded);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -92,9 +110,7 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
       text: widget.item.quantity > 0 ? widget.item.quantity.toString() : '1',
     );
     _priceController = TextEditingController(
-      text: widget.item.unitPrice > 0
-          ? AppFormatters.formatNumber(widget.item.unitPrice.toInt())
-          : '',
+      text: _initialPriceText(),
     );
     _discountController = TextEditingController(
       text: widget.item.discountPercentage > 0
@@ -132,16 +148,25 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
       _fieldsAnimController.forward();
     }
 
+    // Detectar cambios de contexto multi-moneda que exigen refrescar el
+    // texto del input de precio (cambio de moneda, cambio de tasa).
+    final currencyContextChanged =
+        oldWidget.foreignCurrency != widget.foreignCurrency ||
+            oldWidget.exchangeRate != widget.exchangeRate ||
+            oldWidget.baseCurrency != widget.baseCurrency;
+
     // Actualizar controllers si cambian externamente
-    if (oldWidget.item != widget.item && !_isUpdatingInternally) {
+    if ((oldWidget.item != widget.item || currencyContextChanged) &&
+        !_isUpdatingInternally) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (widget.item.quantity > 0) {
           _quantityController.text = widget.item.quantity.toString();
         }
-        if (widget.item.unitPrice > 0) {
-          _priceController.text =
-              AppFormatters.formatNumber(widget.item.unitPrice.toInt());
+        // Refrescar precio según modo actual (base o foreign).
+        final newPriceText = _initialPriceText();
+        if (_priceController.text != newPriceText) {
+          _priceController.text = newPriceText;
         }
         if (widget.item.discountPercentage > 0) {
           _discountController.text =
@@ -398,20 +423,42 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
           ),
         ),
         const SizedBox(width: 10),
-        // Precio unitario
+        // Precio unitario — label + conversor en modo moneda extranjera
         Expanded(
           flex: 3,
-          child: _buildField(
-            controller: _priceController,
-            label: 'Precio Unitario',
-            icon: Icons.attach_money,
-            keyboardType: TextInputType.number,
-            formatters: [_RealTimeCurrencyFormatter()],
-            onChanged: (value) {
-              final price = AppFormatters.parseNumber(value) ?? 0.0;
-              _isUpdatingInternally = true;
-              widget.onPriceChanged(price);
-            },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildField(
+                controller: _priceController,
+                label: widget.isForeignMode
+                    ? 'Precio en ${widget.foreignCurrency}'
+                    : 'Precio Unitario',
+                icon: Icons.attach_money,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                // RateInputFormatter acepta formato es_CO: "583,33" y "583.33"
+                // son válidos, "1.500,25" también. Miles y decimales se
+                // distinguen inteligentemente vía AppFormatters.parseRate.
+                formatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+                  RateInputFormatter(),
+                ],
+                onChanged: (value) {
+                  // parseRate soporta "583.33", "583,33", "1.500,25", etc.
+                  final price = AppFormatters.parseRate(value) ?? 0.0;
+                  _isUpdatingInternally = true;
+                  if (widget.isForeignMode &&
+                      widget.onForeignPriceChanged != null) {
+                    widget.onForeignPriceChanged!(price);
+                  } else {
+                    widget.onPriceChanged(price);
+                  }
+                },
+              ),
+              if (widget.isForeignMode) _buildForeignEquivalent(),
+            ],
           ),
         ),
         const SizedBox(width: 10),
@@ -435,6 +482,37 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
           ),
         ),
       ],
+    );
+  }
+
+  /// Línea pequeña debajo del campo de precio en modo foreign que muestra
+  /// el equivalente en moneda base actualizado en tiempo real.
+  Widget _buildForeignEquivalent() {
+    final rate = widget.exchangeRate ?? 0;
+    final foreignValue = AppFormatters.parseNumber(_priceController.text) ?? 0;
+    final baseEquivalent = foreignValue * rate;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, left: 4),
+      child: Row(
+        children: [
+          Icon(Icons.sync_alt_rounded,
+              size: 12, color: AppColors.textSecondary),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              baseEquivalent > 0
+                  ? '≈ ${AppFormatters.formatCurrency(baseEquivalent)}'
+                  : '1 ${widget.foreignCurrency} = ${AppFormatters.formatRate(rate)} ${widget.baseCurrency}',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
