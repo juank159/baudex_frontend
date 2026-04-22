@@ -15,6 +15,7 @@ import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 import 'purchase_orders_controller.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
+import '../../../settings/domain/entities/organization.dart';
 
 class PurchaseOrderFormController extends GetxController
     with GetSingleTickerProviderStateMixin {
@@ -84,6 +85,21 @@ class PurchaseOrderFormController extends GetxController
   final exchangeRateController = TextEditingController();
   final foreignAmountController = TextEditingController();
 
+  // Config reactiva de la organización (multi-moneda). Se hidrata en onInit
+  // desde OrganizationController y se mantiene sincronizada vía worker, así
+  // el dropdown aparece al abrir el form sin necesidad de forzar refresh.
+  final RxBool multiCurrencyEnabledRx = false.obs;
+  final RxString baseCurrencyCodeRx = 'COP'.obs;
+  final RxList<Map<String, dynamic>> acceptedCurrenciesRx =
+      <Map<String, dynamic>>[].obs;
+  Worker? _orgWorker;
+
+  // Getters legacy (no-reactivos) por compatibilidad con código existente.
+  bool get multiCurrencyEnabled => multiCurrencyEnabledRx.value;
+  String get baseCurrencyCode => baseCurrencyCodeRx.value;
+  List<Map<String, dynamic>> get acceptedCurrencies =>
+      acceptedCurrenciesRx.toList();
+
   // Active item tracking
   final RxInt activeItemIndex = (-1).obs;
 
@@ -119,6 +135,10 @@ class PurchaseOrderFormController extends GetxController
 
       _initializeForm();
       _setupFormValidation();
+      // Arrancar watcher de organization para que el dropdown multi-moneda
+      // aparezca al abrir el form sin depender de que el usuario entre a
+      // settings primero.
+      _startOrgWatcher();
       print('✅ PurchaseOrderFormController inicializado correctamente');
     } catch (e) {
       print('❌ Error en PurchaseOrderFormController onInit: $e');
@@ -151,6 +171,10 @@ class PurchaseOrderFormController extends GetxController
 
       // Dispose all text controllers
       _disposeControllers();
+
+      // Cerrar watcher del org para no fugar listeners.
+      _orgWorker?.dispose();
+      _orgWorker = null;
 
       print('✅ PurchaseOrderFormController: Dispose completado exitosamente');
     } catch (e) {
@@ -637,55 +661,44 @@ class PurchaseOrderFormController extends GetxController
 
   // ==================== MULTI-MONEDA ====================
 
-  /// Retorna el símbolo/código base de la organización. Por defecto 'COP'.
-  String get baseCurrencyCode {
+  /// Hidrata la config multi-moneda desde OrganizationController. Seguro de
+  /// llamar múltiples veces (idempotente). Si el org aún no ha cargado,
+  /// mantiene defaults y el worker la sincronizará cuando llegue.
+  void _hydrateOrgConfig() {
     try {
-      final orgSettings = _getOrgSettings();
-      return (orgSettings?['currency'] as String?) ?? 'COP';
-    } catch (_) {
-      return 'COP';
-    }
-  }
-
-  /// Si la org tiene multiCurrencyEnabled, retorna las monedas aceptadas.
-  /// Cada Map tiene al menos 'code' y 'defaultRate'.
-  List<Map<String, dynamic>> get acceptedCurrencies {
-    try {
-      final orgSettings = _getOrgSettings();
-      final list = orgSettings?['acceptedCurrencies'];
-      if (list is List) {
-        return list
-            .whereType<Map>()
-            .map((m) => m.cast<String, dynamic>())
-            .toList();
-      }
+      if (!Get.isRegistered<OrganizationController>()) return;
+      final org = Get.find<OrganizationController>().currentOrganization;
+      if (org == null) return;
+      baseCurrencyCodeRx.value = org.currency;
+      multiCurrencyEnabledRx.value = org.multiCurrencyEnabled;
+      acceptedCurrenciesRx.value = List<Map<String, dynamic>>.from(
+        org.acceptedCurrencies,
+      );
     } catch (_) {}
-    return const [];
   }
 
-  bool get multiCurrencyEnabled {
+  /// Escucha cambios del org (cuando termina de cargarse o el usuario
+  /// edita settings) y re-hidrata la config. Se arranca en onInit.
+  void _startOrgWatcher() {
     try {
-      final orgSettings = _getOrgSettings();
-      return orgSettings?['multiCurrencyEnabled'] as bool? ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
+      if (!Get.isRegistered<OrganizationController>()) return;
+      final ctrl = Get.find<OrganizationController>();
 
-  Map<String, dynamic>? _getOrgSettings() {
-    try {
-      if (!Get.isRegistered<OrganizationController>()) return null;
-      final controller = Get.find<OrganizationController>();
-      final org = controller.currentOrganization;
-      if (org == null) return null;
-      return {
-        'currency': org.currency,
-        'acceptedCurrencies': org.acceptedCurrencies,
-        'multiCurrencyEnabled': org.multiCurrencyEnabled,
-      };
-    } catch (_) {
-      return null;
-    }
+      // Sync inicial inmediato (si la org ya está en memoria).
+      _hydrateOrgConfig();
+
+      // Si aún no hay org cargada, disparamos la carga para asegurar que
+      // el dropdown aparezca al abrir el form por primera vez.
+      if (ctrl.currentOrganization == null) {
+        // ignore: discarded_futures
+        ctrl.loadCurrentOrganization().then((_) => _hydrateOrgConfig());
+      }
+
+      // Escuchar cambios futuros (p.ej. usuario edita settings y regresa).
+      _orgWorker = ever<Organization?>(ctrl.currentOrganizationRx, (_) {
+        _hydrateOrgConfig();
+      });
+    } catch (_) {}
   }
 
   /// Cambia la moneda seleccionada. Si es la base, limpia los campos

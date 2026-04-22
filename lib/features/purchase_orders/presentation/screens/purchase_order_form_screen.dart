@@ -420,9 +420,10 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
     );
   }
 
-  /// Sección de moneda. Si la org no tiene multi-moneda activa, muestra
-  /// solo "Moneda: COP" (readonly). Si sí: dropdown + tasa + monto foráneo
-  /// con cálculo automático. Todo en un Obx para reactividad.
+  /// Sección de moneda elegante. Si la org no tiene multi-moneda activa,
+  /// muestra el campo simple como antes. Si sí: tarjeta con gradiente,
+  /// selector tipo chips con el código+nombre+símbolo de cada moneda,
+  /// y panel de tasa/total con AnimatedSwitcher.
   Widget _buildCurrencySection() {
     return Obx(() {
       if (!controller.multiCurrencyEnabled) {
@@ -436,83 +437,272 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
 
       final accepted = controller.acceptedCurrencies;
       final base = controller.baseCurrencyCode;
-      final selected = controller.selectedPurchaseCurrency.value ?? base;
+      final selectedCode = controller.selectedPurchaseCurrency.value ?? base;
+      final isForeign = selectedCode != base;
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DropdownButtonFormField<String>(
-            value: selected,
-            decoration: const InputDecoration(
-              labelText: 'Moneda',
-              prefixIcon: Icon(Icons.monetization_on),
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              DropdownMenuItem(
-                value: base,
-                child: Text('$base  (moneda base)'),
-              ),
-              ...accepted
-                  .where((c) => (c['code'] as String?) != base)
-                  .map((c) => DropdownMenuItem<String>(
-                        value: c['code'] as String?,
-                        child: Text(c['code'] as String? ?? ''),
-                      )),
-            ],
-            onChanged: (code) => controller.onCurrencyChanged(code),
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isForeign
+                ? [
+                    const Color(0xFFE11D48).withValues(alpha: 0.06),
+                    const Color(0xFFE11D48).withValues(alpha: 0.02),
+                  ]
+                : [
+                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.05),
+                    ElegantLightTheme.primaryBlue.withValues(alpha: 0.02),
+                  ],
           ),
-          if (controller.selectedPurchaseCurrency.value != null) ...[
-            const SizedBox(height: 12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isForeign
+                ? const Color(0xFFE11D48).withValues(alpha: 0.25)
+                : ElegantLightTheme.primaryBlue.withValues(alpha: 0.15),
+            width: 1,
+          ),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header con icono + título
             Row(
               children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: controller.exchangeRateController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isForeign
+                          ? const [Color(0xFFE11D48), Color(0xFFBE123C)]
+                          : const [Color(0xFF3B82F6), Color(0xFF2563EB)],
                     ),
-                    decoration: InputDecoration(
-                      labelText:
-                          '1 ${controller.selectedPurchaseCurrency.value} = ? $base',
-                      helperText: 'Tasa de cambio',
-                      prefixIcon: const Icon(Icons.swap_horiz),
-                      border: const OutlineInputBorder(),
-                    ),
-                    onChanged: controller.onExchangeRateChanged,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.currency_exchange_rounded,
+                    color: Colors.white,
+                    size: 18,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: controller.foreignAmountController,
-                    readOnly: true,
-                    decoration: InputDecoration(
-                      labelText:
-                          'Total en ${controller.selectedPurchaseCurrency.value}',
-                      helperText: 'Calculado automáticamente',
-                      prefixIcon: const Icon(Icons.payments_outlined),
-                      border: const OutlineInputBorder(),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Moneda de la compra',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: ElegantLightTheme.textPrimary,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
+            // Chips seleccionables (moneda base + extranjeras)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _currencyChip(
+                  code: base,
+                  label: '$base · base',
+                  isSelected: !isForeign,
+                  onTap: () => controller.onCurrencyChanged(base),
+                ),
+                ...accepted
+                    .where((c) => (c['code'] as String?) != base)
+                    .map((c) {
+                      final code = c['code'] as String? ?? '';
+                      return _currencyChip(
+                        code: code,
+                        label: code,
+                        isSelected: selectedCode == code,
+                        onTap: () => controller.onCurrencyChanged(code),
+                      );
+                    }),
+              ],
+            ),
+            // Panel de tasa/total (solo si eligió extranjera)
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: isForeign
+                  ? Padding(
+                      key: const ValueKey('foreign-panel'),
+                      padding: const EdgeInsets.only(top: 14),
+                      child: _buildForeignPanel(selectedCode, base),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('empty-panel')),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _currencyChip({
+    required String code,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final color = isSelected
+        ? (code == controller.baseCurrencyCode
+            ? const Color(0xFF3B82F6)
+            : const Color(0xFFE11D48))
+        : Colors.grey.shade400;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? color.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isSelected
+                ? color
+                : Colors.grey.shade300,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Text(
-              'El total en $base (moneda base) se mantiene como referencia '
-              'contable. Puedes modificar la tasa si la del sistema no '
-              'refleja la de esta compra.',
+              _currencyFlag(code),
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
               style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-                fontStyle: FontStyle.italic,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? color : Colors.grey.shade700,
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.check_circle_rounded, size: 14, color: color),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForeignPanel(String code, String base) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: controller.exchangeRateController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Tasa de cambio',
+                  helperText: '1 $code = ? $base',
+                  prefixIcon: const Icon(Icons.swap_vert_rounded),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFE11D48),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+                onChanged: controller.onExchangeRateChanged,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: controller.foreignAmountController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: 'Total en $code',
+                  helperText: 'Calculado',
+                  prefixIcon: const Icon(Icons.payments_rounded),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
               ),
             ),
           ],
-        ],
-      );
-    });
+        ),
+        const SizedBox(height: 10),
+        // Info card con equivalencia + consejo
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF3B82F6).withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: Color(0xFF3B82F6),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Los precios de los items los ingresas en $base. '
+                  'El total en $code se calcula con la tasa. Si la tasa '
+                  'del día difiere, edítala arriba.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade700,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _currencyFlag(String code) {
+    switch (code.toUpperCase()) {
+      case 'COP':
+        return '\u{1F1E8}\u{1F1F4}';
+      case 'USD':
+        return '\u{1F1FA}\u{1F1F8}';
+      case 'EUR':
+        return '\u{1F1EA}\u{1F1FA}';
+      case 'VES':
+        return '\u{1F1FB}\u{1F1EA}';
+      case 'BRL':
+        return '\u{1F1E7}\u{1F1F7}';
+      case 'MXN':
+        return '\u{1F1F2}\u{1F1FD}';
+      default:
+        return '\u{1F4B1}';
+    }
   }
 
   Widget _buildItemsStep() {

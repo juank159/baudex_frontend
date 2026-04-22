@@ -30,6 +30,10 @@ class OrganizationController extends GetxController
 
   bool get isLoading => _isLoading.value;
   Organization? get currentOrganization => _currentOrganization.value;
+  /// Rx expuesto para que otros controllers usen `ever(...)` y reaccionen
+  /// cuando la organización se carga/edita (p. ej. PO form para refrescar
+  /// la lista de monedas aceptadas).
+  Rxn<Organization> get currentOrganizationRx => _currentOrganization;
   String? get error => _error.value;
   double get profitMarginPercentage =>
       currentOrganization?.profitMargin ?? 20.0;
