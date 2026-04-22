@@ -6,6 +6,7 @@ import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/entities/auth_result.dart';
+import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/login_usecase.dart' show LoginParams;
 import '../../domain/usecases/register_usecase.dart' show RegisterParams;
 import '../../domain/usecases/register_with_onboarding_usecase.dart'
@@ -672,6 +673,53 @@ class AuthController extends GetxController {
         return true;
       },
     );
+  }
+
+  /// Actualiza nombre, apellido y/o teléfono del usuario actual. Funciona
+  /// online y offline: el repositorio encola en SyncQueue si no hay red.
+  /// Retorna true si el cambio fue aplicado (incluso si quedó en cola).
+  Future<bool> updateProfile({
+    String? firstName,
+    String? lastName,
+    String? phone,
+  }) async {
+    _isLoading.value = true;
+    try {
+      final repo = Get.find<AuthRepository>();
+      final result = await repo.updateProfile(
+        firstName: firstName,
+        lastName: lastName,
+        phone: phone,
+      );
+      return result.fold(
+        (failure) {
+          Get.snackbar(
+            'Error',
+            failure.message,
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: Colors.red.shade100,
+            colorText: Colors.red.shade800,
+            icon: const Icon(Icons.error, color: Colors.red),
+          );
+          return false;
+        },
+        (updatedUser) {
+          _currentUser.value = updatedUser;
+          Get.snackbar(
+            'Perfil actualizado',
+            'Tus datos fueron actualizados correctamente',
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: Colors.green.shade100,
+            colorText: Colors.green.shade800,
+            icon: const Icon(Icons.check_circle, color: Colors.green),
+          );
+          if (Get.isDialogOpen == true) Get.back();
+          return true;
+        },
+      );
+    } finally {
+      _isLoading.value = false;
+    }
   }
 
   // ==================== EMAIL VERIFICATION & PASSWORD RESET ====================

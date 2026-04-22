@@ -171,8 +171,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        // El backend podría retornar directamente el user o wrapped
-        final userData = response.data['user'] ?? response.data;
+        // Respuestas posibles del backend:
+        //   { success: true, data: { ...user } }  ← formato actual
+        //   { user: { ...user } }                  ← formato legacy
+        //   { ...user }                            ← sin wrapper
+        final raw = response.data as Map<String, dynamic>;
+        final userData = (raw['data'] as Map<String, dynamic>?) ??
+            (raw['user'] as Map<String, dynamic>?) ??
+            raw;
         return UserModel.fromJson(userData);
       } else {
         throw _handleErrorResponse(response);

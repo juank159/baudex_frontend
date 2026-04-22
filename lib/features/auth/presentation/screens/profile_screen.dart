@@ -6,17 +6,28 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/config/themes/app_text_styles.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
+import '../../../../app/ui/layouts/main_layout.dart';
+import '../../../subscriptions/domain/entities/subscription_enums.dart';
+import '../../../subscriptions/presentation/controllers/subscription_controller.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/change_password_dialog.dart';
+import '../widgets/edit_profile_dialog.dart';
 
 class ProfileScreen extends GetView<AuthController> {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ElegantLightTheme.scaffoldBackground,
-      appBar: _buildAppBar(context),
+    // MainLayout provee el drawer de navegación global (igual que en
+    // Configuración de Organización) para consistencia de la app.
+    return MainLayout(
+      title: 'Mi Perfil',
+      showDrawer: true,
+      showBackButton: false,
+      actions: const [
+        SyncStatusIcon(),
+        SizedBox(width: 8),
+      ],
       body: Obx(() {
         if (controller.isProfileLoading) {
           return _buildLoadingState();
@@ -30,146 +41,6 @@ class ProfileScreen extends GetView<AuthController> {
             ? _buildMobileLayout(context)
             : _buildDesktopLayout(context);
       }),
-    );
-  }
-
-  // ==================== APP BAR ====================
-
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final isMobile = ResponsiveHelper.isMobile(context);
-
-    return AppBar(
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: ElegantLightTheme.primaryGradient,
-          boxShadow: [
-            BoxShadow(
-              color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-      ),
-      iconTheme: const IconThemeData(color: Colors.white),
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              Icons.person_rounded,
-              color: Colors.white,
-              size: isMobile ? 18 : 20,
-            ),
-          ),
-          SizedBox(width: isMobile ? 10 : 12),
-          Text(
-            'Mi Perfil',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: isMobile ? 16 : 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        const SyncStatusIcon(),
-        _buildAppBarButton(
-          icon: Icons.lock_outline_rounded,
-          tooltip: 'Cambiar Contraseña',
-          onPressed: () => _showChangePasswordDialog(context),
-        ),
-        PopupMenuButton<String>(
-          onSelected: (value) => _handleMenuAction(value, context),
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'change_password',
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.lock_outline, color: Colors.white, size: 16),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text('Cambiar Contraseña'),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'logout',
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: ElegantLightTheme.errorGradient,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.logout, color: Colors.white, size: 16),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Cerrar Sesión',
-                    style: TextStyle(color: ElegantLightTheme.errorRed),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
-
-  Widget _buildAppBarButton({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Tooltip(
-        message: tooltip,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: Colors.white, size: 20),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -335,14 +206,8 @@ class ProfileScreen extends GetView<AuthController> {
                       gradient: ElegantLightTheme.primaryGradient,
                       color: ElegantLightTheme.primaryBlue,
                     ),
-                  // Badge de estado
-                  _buildBadge(
-                    icon: Icons.circle,
-                    label: _getStatusText(user.status),
-                    gradient: _getStatusGradient(user.status),
-                    color: _getStatusColor(user.status),
-                    iconSize: 8,
-                  ),
+                  // Badge de estado basado en la SUSCRIPCIÓN (no el usuario)
+                  _buildSubscriptionStatusBadge(),
                 ],
               ),
             ],
@@ -503,13 +368,7 @@ class ProfileScreen extends GetView<AuthController> {
 
               const SizedBox(height: 12),
 
-              _buildInfoItem(
-                icon: Icons.verified_user_outlined,
-                label: 'Estado',
-                value: _getStatusText(user.status),
-                gradient: _getStatusGradient(user.status),
-                color: _getStatusColor(user.status),
-              ),
+              _buildSubscriptionStatusInfo(),
 
               if (user.lastLoginAt != null) ...[
                 const SizedBox(height: 12),
@@ -631,6 +490,51 @@ class ProfileScreen extends GetView<AuthController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Editar perfil (nombre, apellido, teléfono)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _showEditProfileDialog(context),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          ElegantLightTheme.primaryBlue.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.edit_rounded,
+                          color: ElegantLightTheme.primaryBlue,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Editar perfil',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: ElegantLightTheme.primaryBlue,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
               // Cambiar contraseña
               Material(
                 color: Colors.transparent,
@@ -866,21 +770,17 @@ class ProfileScreen extends GetView<AuthController> {
 
   // ==================== DIALOGS ====================
 
-  void _handleMenuAction(String action, BuildContext context) {
-    switch (action) {
-      case 'change_password':
-        _showChangePasswordDialog(context);
-        break;
-      case 'logout':
-        _showLogoutDialog(context);
-        break;
-    }
-  }
-
   void _showChangePasswordDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => const ChangePasswordDialog(),
+    );
+  }
+
+  void _showEditProfileDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const EditProfileDialog(),
     );
   }
 
@@ -1062,6 +962,84 @@ class ProfileScreen extends GetView<AuthController> {
       default:
         return 'Usuario';
     }
+  }
+
+  // ==================== SUSCRIPCIÓN (estado real) ====================
+
+  /// Lee el estado de la suscripción desde SubscriptionController. Se usa
+  /// tanto para el badge del header como para el ítem de Información.
+  /// Fallback a "Sin suscripción" si el controller no está registrado o no
+  /// tiene datos cargados aún.
+  ({String label, Color color, LinearGradient gradient}) _subscriptionStatus() {
+    try {
+      if (Get.isRegistered<SubscriptionController>()) {
+        final sub = Get.find<SubscriptionController>().subscription;
+        if (sub != null) {
+          final name = sub.status.displayName;
+          switch (sub.status) {
+            case SubscriptionStatus.active:
+              return (
+                label: name,
+                color: ElegantLightTheme.successGreen,
+                gradient: ElegantLightTheme.successGradient,
+              );
+            case SubscriptionStatus.pending:
+              return (
+                label: name,
+                color: ElegantLightTheme.warningOrange,
+                gradient: ElegantLightTheme.warningGradient,
+              );
+            case SubscriptionStatus.expired:
+            case SubscriptionStatus.cancelled:
+            case SubscriptionStatus.suspended:
+              return (
+                label: name,
+                color: ElegantLightTheme.errorRed,
+                gradient: ElegantLightTheme.errorGradient,
+              );
+          }
+        }
+      }
+    } catch (_) {}
+    return (
+      label: 'Sin suscripción',
+      color: ElegantLightTheme.textSecondary,
+      gradient: ElegantLightTheme.primaryGradient,
+    );
+  }
+
+  Widget _buildSubscriptionStatusBadge() {
+    return Obx(() {
+      // Lee `.subscription` (getter que accede a Rxn<Subscription>.value)
+      // para suscribir el Obx y reconstruir cuando cambie.
+      if (Get.isRegistered<SubscriptionController>()) {
+        Get.find<SubscriptionController>().subscription;
+      }
+      final info = _subscriptionStatus();
+      return _buildBadge(
+        icon: Icons.circle,
+        label: info.label,
+        gradient: info.gradient,
+        color: info.color,
+        iconSize: 8,
+      );
+    });
+  }
+
+  Widget _buildSubscriptionStatusInfo() {
+    return Obx(() {
+      if (Get.isRegistered<SubscriptionController>()) {
+        Get.find<SubscriptionController>().subscription;
+      }
+      final info = _subscriptionStatus();
+      return _buildInfoItem(
+        icon: Icons.verified_user_outlined,
+        label: 'Estado de la suscripción',
+        value: info.label,
+        gradient: info.gradient,
+        color: info.color,
+      );
+    });
   }
 
   Color _getStatusColor(dynamic status) {
