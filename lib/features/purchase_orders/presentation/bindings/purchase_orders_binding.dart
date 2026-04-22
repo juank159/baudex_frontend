@@ -70,7 +70,6 @@ class PurchaseOrdersBinding extends Bindings {
     Get.lazyPut(() => ReceivePurchaseOrderUseCase(Get.find<PurchaseOrderRepository>()));
     Get.lazyPut(() => ReceivePurchaseOrderAndUpdateInventoryUseCase(
       purchaseOrderRepository: Get.find<PurchaseOrderRepository>(),
-      createInventoryMovementUseCase: Get.find(), // From inventory module
     ));
     Get.lazyPut(() => CancelPurchaseOrderUseCase(Get.find<PurchaseOrderRepository>()));
 
@@ -203,7 +202,6 @@ class PurchaseOrderDetailBinding extends Bindings {
     if (!Get.isRegistered<ReceivePurchaseOrderAndUpdateInventoryUseCase>()) {
       Get.lazyPut(() => ReceivePurchaseOrderAndUpdateInventoryUseCase(
         purchaseOrderRepository: Get.find<PurchaseOrderRepository>(),
-        createInventoryMovementUseCase: Get.find(), // From inventory module
       ));
     }
     

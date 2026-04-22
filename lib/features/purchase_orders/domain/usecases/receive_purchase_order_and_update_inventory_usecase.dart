@@ -4,64 +4,45 @@ import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../entities/purchase_order.dart';
 import '../repositories/purchase_order_repository.dart';
-import '../../../inventory/domain/usecases/create_inventory_movement_usecase.dart';
-import '../../../inventory/domain/entities/inventory_movement.dart';
-import '../../../inventory/domain/repositories/inventory_repository.dart';
 
-class ReceivePurchaseOrderAndUpdateInventoryUseCase implements UseCase<PurchaseOrder, ReceivePurchaseOrderParams> {
+/// Recibe una orden de compra.
+///
+/// IMPORTANTE — por qué este use case NO crea movimientos de inventario
+/// desde el cliente:
+///
+/// El endpoint backend `POST /purchase-orders/:id/receive` (ver
+/// backend/src/inventory/services/purchase-orders.service.ts:513) ya ejecuta
+/// `inventoryService.registerPurchase()` por cada item recibido, que en UNA
+/// sola transacción crea:
+///   - InventoryBatch (lote FIFO)
+///   - InventoryMovement (MovementType.PURCHASE)
+///   - Actualiza Product.stock
+///
+/// Antes este use case tenía un segundo paso que volvía a llamar
+/// `POST /inventory/movements`, lo cual internamente también invoca
+/// `registerPurchase()` → se creaba un segundo batch + segundo movement y el
+/// stock se sumaba dos veces (10 unidades recibidas → +20 en stock).
+///
+/// El nombre del use case se mantiene por compatibilidad con los bindings y
+/// el detail controller, pero ahora es un wrapper delgado: el backend hace
+/// todo el trabajo de inventario durante la recepción.
+///
+/// NOTA OFFLINE: cuando la recepción se hace sin conexión, el repositorio
+/// `_receiveOffline` solo marca `status=received` + `receivedQuantity`
+/// localmente y encola la operación de sync. El stock local no refleja la
+/// entrada hasta que se sincroniza y se hace pull del servidor. Esto es un
+/// trade-off aceptado para evitar el doble conteo al sincronizar.
+class ReceivePurchaseOrderAndUpdateInventoryUseCase
+    implements UseCase<PurchaseOrder, ReceivePurchaseOrderParams> {
   final PurchaseOrderRepository purchaseOrderRepository;
-  final CreateInventoryMovementUseCase createInventoryMovementUseCase;
 
   const ReceivePurchaseOrderAndUpdateInventoryUseCase({
     required this.purchaseOrderRepository,
-    required this.createInventoryMovementUseCase,
   });
 
   @override
-  Future<Either<Failure, PurchaseOrder>> call(ReceivePurchaseOrderParams params) async {
-    // 1. Recibir la orden de compra
-    final receivePurchaseOrderResult = await purchaseOrderRepository.receivePurchaseOrder(params);
-    
-    return receivePurchaseOrderResult.fold(
-      (failure) => Left(failure),
-      (receivedOrder) async {
-        
-        // 2. Crear movimientos de inventario para cada item recibido
-        try {
-          for (final item in receivedOrder.items) {
-            if (item.receivedQuantity != null && item.receivedQuantity! > 0) {
-              
-              final inventoryMovementParams = CreateInventoryMovementParams(
-                productId: item.productId,
-                type: InventoryMovementType.inbound,
-                reason: InventoryMovementReason.purchase,
-                quantity: item.receivedQuantity!,
-                unitCost: item.unitPrice, // Precio de compra
-                warehouseId: params.warehouseId, // Add warehouse ID from params
-                notes: 'Recepción de orden de compra: ${receivedOrder.orderNumber ?? receivedOrder.id}',
-                referenceType: 'purchase_order',
-                referenceId: receivedOrder.id,
-                movementDate: DateTime.now(),
-              );
-
-              final movementResult = await createInventoryMovementUseCase(inventoryMovementParams);
-              
-              // Si algún movimiento de inventario falla, log pero continúa
-              movementResult.fold(
-                (failure) => print('⚠️ Error creando movimiento de inventario para producto ${item.productId}: ${failure.message}'),
-                (movement) => print('✅ Movimiento de inventario creado para producto ${item.productId}: cantidad ${item.receivedQuantity}'),
-              );
-            }
-          }
-          
-          return Right(receivedOrder);
-          
-        } catch (e) {
-          print('❌ Error actualizando inventario después de recibir orden: $e');
-          // Aunque el inventario falle, la orden fue recibida exitosamente
-          return Right(receivedOrder);
-        }
-      },
-    );
+  Future<Either<Failure, PurchaseOrder>> call(
+      ReceivePurchaseOrderParams params) {
+    return purchaseOrderRepository.receivePurchaseOrder(params);
   }
 }
