@@ -38,6 +38,16 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     required this.networkInfo,
   });
 
+  /// Formatea un DateTime como 'YYYY-MM-DD' preservando los componentes
+  /// locales del objeto (si es TZDateTime, ya viene en la TZ del tenant).
+  /// Evita el bug de que toIso8601String() convierta a UTC y corra el día.
+  static String _ymd(DateTime d) {
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
+  }
+
   @override
   Future<Either<Failure, PaginatedResponse<Expense>>> getExpenses({
     int page = 1,
@@ -1535,7 +1545,10 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           data: {
             'description': description,
             'amount': amount,
-            'date': date.toIso8601String(),
+            // YYYY-MM-DD en TZ del tenant (el TZDateTime ya viene en esa TZ).
+            // Si enviáramos ISO8601, al hacer DateTime.parse() de vuelta en el
+            // sync, perdemos la TZ original y el día puede correrse al siguiente.
+            'date': _ymd(date),
             'categoryId': categoryId,
             'type': type.name,
             'paymentMethod': paymentMethod.name,

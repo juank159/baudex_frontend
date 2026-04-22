@@ -24,6 +24,16 @@ class ExpenseOfflineRepository implements ExpenseRepository {
 
   Isar get _isar => _database.database;
 
+  /// YYYY-MM-DD usando componentes locales del DateTime. Si es TZDateTime del
+  /// tenant, preserva el día correcto. toIso8601String() convierte a UTC y
+  /// puede correr el día al siguiente.
+  static String _ymd(DateTime d) {
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
+  }
+
   // ==================== EXPENSE READ OPERATIONS ====================
 
   @override
@@ -191,7 +201,8 @@ class ExpenseOfflineRepository implements ExpenseRepository {
           data: {
             'description': description,
             'amount': amount,
-            'date': date.toIso8601String(),
+            // YYYY-MM-DD en TZ del tenant (ver nota en _ymd abajo).
+            'date': _ymd(date),
             'categoryId': categoryId,
             'type': type.name,
             'paymentMethod': paymentMethod.name,

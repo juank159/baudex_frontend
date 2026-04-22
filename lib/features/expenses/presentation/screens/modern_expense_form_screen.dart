@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/app_scaffold.dart';
@@ -1434,11 +1435,15 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
 
   // Métodos auxiliares
   Future<void> _selectDate(BuildContext context) async {
+    // Usar la hora del tenant (no la del sistema) para que el date picker
+    // abra en el día correcto si el dispositivo está en otra TZ que la
+    // organización (poco común, pero válido para tenants multipaís).
+    final tenantNow = Get.find<TenantDateTimeService>().now();
     final date = await showDatePicker(
       context: context,
-      initialDate: controller.selectedDate.value ?? DateTime.now(),
+      initialDate: controller.selectedDate.value ?? tenantNow,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: tenantNow,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
