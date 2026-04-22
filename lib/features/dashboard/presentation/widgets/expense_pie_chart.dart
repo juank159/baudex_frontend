@@ -40,6 +40,11 @@ class _ExpensePieChartState extends State<ExpensePieChart> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
+    // Padding responsivo
+    final horizontalPadding = screenWidth < 400 ? 14.0 : 24.0;
+    final topPadding = screenWidth < 400 ? 14.0 : 18.0;
+    final bottomPadding = screenWidth < 400 ? 12.0 : 16.0;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
@@ -49,11 +54,17 @@ class _ExpensePieChartState extends State<ExpensePieChart> {
             borderColor: ElegantLightTheme.primaryBlue.withOpacity(0.3),
             gradient: ElegantLightTheme.glassGradient,
           ),
-          padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            topPadding,
+            horizontalPadding,
+            bottomPadding,
+          ),
           child: Obx(() {
             if (controller.isLoadingExpenseChart) {
-              return const Center(
-                child: CircularProgressIndicator(),
+              return const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
               );
             }
 
@@ -79,15 +90,13 @@ class _ExpensePieChartState extends State<ExpensePieChart> {
                 children: [
                   _buildHeader(),
                   const SizedBox(height: 14),
-                  Flexible(
-                    child: _buildMobileLayout(expensesByCategory),
-                  ),
+                  _buildMobileLayout(expensesByCategory),
                 ],
               );
             }
 
-            // En desktop: header + pie chart en la izquierda, leyenda en la derecha
-            return _buildDesktopLayout(expensesByCategory);
+            // En desktop/tablet: layout en fila con altura acotada
+            return _buildDesktopLayout(expensesByCategory, screenWidth);
           }),
         ),
       ),
@@ -155,61 +164,73 @@ class _ExpensePieChartState extends State<ExpensePieChart> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.pie_chart_outline,
-            size: 64,
-            color: Colors.grey.shade300,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Sin datos de gastos',
-            style: TextStyle(
-              color: Colors.grey.shade500,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+    return SizedBox(
+      height: 180,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.pie_chart_outline,
+              size: 56,
+              color: Colors.grey.shade300,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'No hay gastos registrados en este período',
-            style: TextStyle(
-              color: Colors.grey.shade400,
-              fontSize: 12,
+            const SizedBox(height: 12),
+            Text(
+              'Sin datos de gastos',
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              'No hay gastos registrados en este período',
+              style: TextStyle(
+                color: Colors.grey.shade400,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildMobileLayout(Map<String, double> expensesByCategory) {
-    // Envolver todo en SingleChildScrollView para evitar overflow
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: 140, // Más compacto para móvil
-            child: _buildPieChart(expensesByCategory, isMobile: true),
-          ),
-          const SizedBox(height: 10),
-          _buildLegend(expensesByCategory, compact: true),
-        ],
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 140, // Más compacto para móvil
+          child: _buildPieChart(expensesByCategory, isMobile: true),
+        ),
+        const SizedBox(height: 10),
+        _buildLegend(expensesByCategory, compact: true),
+      ],
     );
   }
 
-  Widget _buildDesktopLayout(Map<String, double> expensesByCategory) {
+  Widget _buildDesktopLayout(
+    Map<String, double> expensesByCategory,
+    double screenWidth,
+  ) {
     final total = expensesByCategory.values.fold(0.0, (a, b) => a + b);
 
+    // Tamaños responsivos según ancho de pantalla
+    final bool isCompactDesktop = screenWidth < 1000;
+    final double pieHeight = isCompactDesktop ? 180.0 : 220.0;
+    final double piePaddingLeft = isCompactDesktop ? 16.0 : 48.0;
+    final double horizontalGap = isCompactDesktop ? 12.0 : 24.0;
+    final double categoryListMaxHeight = isCompactDesktop ? 220.0 : 280.0;
+
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start, // Alinea todo arriba
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Columna izquierda: Header + Pie chart
+        // Columna izquierda: Header + Pie chart (altura fija)
         Expanded(
           flex: 3,
           child: Column(
@@ -217,30 +238,34 @@ class _ExpensePieChartState extends State<ExpensePieChart> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(),
-              const SizedBox(height: 4), // Más cerca del header (subir)
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 48, top: 0), // Mover a la derecha y arriba
+              const SizedBox(height: 4),
+              Padding(
+                padding: EdgeInsets.only(left: piePaddingLeft),
+                child: SizedBox(
+                  height: pieHeight,
                   child: _buildPieChart(expensesByCategory, isMobile: false),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 24),
-        // Columna derecha: Total Gastos (fijo) + Categorías (scroll)
+        SizedBox(width: horizontalGap),
+        // Columna derecha: Total Gastos (fijo) + Categorías (scroll acotado)
         Expanded(
           flex: 2,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Total Gastos - FIJO (fuera del scroll)
-              _buildTotalGastosCard(total, compact: false),
+              _buildTotalGastosCard(total, compact: isCompactDesktop),
               const SizedBox(height: 12),
-              // Lista de categorías - CON SCROLL
-              Flexible(
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: categoryListMaxHeight),
                 child: SingleChildScrollView(
-                  child: _buildCategoryList(expensesByCategory, compact: false),
+                  child: _buildCategoryList(
+                    expensesByCategory,
+                    compact: isCompactDesktop,
+                  ),
                 ),
               ),
             ],
