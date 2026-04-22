@@ -206,216 +206,314 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Proveedor
-          Text(
-            'Proveedor *',
-            style: Get.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppDimensions.paddingSmall),
-          Obx(() => SupplierSelectorWidget(
-            selectedSupplier: controller.selectedSupplier.value,
-            controller: controller,
-            onSupplierSelected: controller.selectSupplier,
-            onClearSupplier: controller.clearSupplier,
-            activateOnTextFieldTap: true, // Activar con tap en textfield
-          )),
-          if (controller.supplierError.value)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'Debe seleccionar un proveedor',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-
-          const SizedBox(height: AppDimensions.paddingMedium),
-
-          // Prioridad
-          Text(
-            'Prioridad',
-            style: Get.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppDimensions.paddingSmall),
-          Obx(() => DropdownButtonFormField<PurchaseOrderPriority>(
-            value: controller.priority.value,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-              ),
-              prefixIcon: Icon(
-                _getPriorityIcon(controller.priority.value),
-                color: _getPriorityColor(controller.priority.value),
-              ),
-            ),
-            items: PurchaseOrderPriority.values.map((priority) =>
-              DropdownMenuItem(
-                value: priority,
-                child: Row(
-                  children: [
-                    Icon(
-                      _getPriorityIcon(priority),
-                      size: 16,
-                      color: _getPriorityColor(priority),
-                    ),
-                    const SizedBox(width: AppDimensions.paddingSmall),
-                    Text(_getPriorityText(priority)),
-                  ],
-                ),
-              ),
-            ).toList(),
-            onChanged: (value) {
-              if (value != null) {
-                controller.priority.value = value;
-              }
-            },
-          )),
-
-          const SizedBox(height: AppDimensions.paddingMedium),
-
-          // Fechas
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Fecha de Orden *',
-                      style: Get.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.paddingSmall),
-                    Obx(() => InkWell(
-                      onTap: controller.selectOrderDate,
-                      child: Container(
-                        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(
-                            color: controller.orderDateError.value 
-                                ? Colors.red 
-                                : Colors.grey.shade300,
-                          ),
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              color: Colors.grey.shade600,
-                              size: 20,
-                            ),
-                            const SizedBox(width: AppDimensions.paddingSmall),
-                            Text(
-                              controller.orderDateController.text,
-                              style: Get.textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ),
+          // ── Sección: Proveedor + Prioridad ───────────────────────────
+          _elegantSection(
+            icon: Icons.storefront_rounded,
+            title: 'Proveedor y prioridad',
+            accent: const Color(0xFF3B82F6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _fieldLabel('Proveedor *'),
+                Obx(() => SupplierSelectorWidget(
+                      selectedSupplier: controller.selectedSupplier.value,
+                      controller: controller,
+                      onSupplierSelected: controller.selectSupplier,
+                      onClearSupplier: controller.clearSupplier,
+                      activateOnTextFieldTap: true,
                     )),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppDimensions.paddingMedium),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Fecha de Entrega *',
-                      style: Get.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.paddingSmall),
-                    Obx(() => InkWell(
-                      onTap: controller.selectExpectedDeliveryDate,
-                      child: Container(
-                        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(
-                            color: controller.expectedDeliveryDateError.value 
-                                ? Colors.red 
-                                : Colors.grey.shade300,
-                          ),
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.schedule,
-                              color: Colors.grey.shade600,
-                              size: 20,
-                            ),
-                            const SizedBox(width: AppDimensions.paddingSmall),
-                            Text(
-                              controller.expectedDeliveryDateController.text,
-                              style: Get.textTheme.bodyMedium,
-                            ),
-                          ],
+                Obx(() => controller.supplierError.value
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: _errorHint('Debe seleccionar un proveedor'),
+                      )
+                    : const SizedBox.shrink()),
+                const SizedBox(height: AppDimensions.paddingMedium),
+                _fieldLabel('Prioridad'),
+                Obx(() => DropdownButtonFormField<PurchaseOrderPriority>(
+                      value: controller.priority.value,
+                      decoration: _elegantInputDecoration(
+                        prefixIcon: Icon(
+                          _getPriorityIcon(controller.priority.value),
+                          color: _getPriorityColor(controller.priority.value),
                         ),
                       ),
+                      items: PurchaseOrderPriority.values
+                          .map((priority) => DropdownMenuItem(
+                                value: priority,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _getPriorityIcon(priority),
+                                      size: 16,
+                                      color: _getPriorityColor(priority),
+                                    ),
+                                    const SizedBox(
+                                        width: AppDimensions.paddingSmall),
+                                    Text(_getPriorityText(priority)),
+                                  ],
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) controller.priority.value = value;
+                      },
                     )),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          if (controller.orderDateError.value || controller.expectedDeliveryDateError.value)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'La fecha de entrega debe ser posterior a la fecha de orden',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 12,
-                ),
-              ),
+              ],
             ),
+          ),
 
           const SizedBox(height: AppDimensions.paddingMedium),
 
-          // Moneda — si la org tiene multi-moneda habilitado, muestra selector
-          // con las monedas aceptadas y campos de tasa/monto foráneo.
+          // ── Sección: Fechas ──────────────────────────────────────────
+          _elegantSection(
+            icon: Icons.event_rounded,
+            title: 'Fechas',
+            accent: const Color(0xFFF59E0B),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _fieldLabel('Fecha de orden *'),
+                          Obx(() => _elegantDateField(
+                                text: controller.orderDateController.text,
+                                icon: Icons.calendar_today_rounded,
+                                hasError: controller.orderDateError.value,
+                                onTap: controller.selectOrderDate,
+                              )),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppDimensions.paddingMedium),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _fieldLabel('Fecha de entrega *'),
+                          Obx(() => _elegantDateField(
+                                text: controller
+                                    .expectedDeliveryDateController.text,
+                                icon: Icons.local_shipping_rounded,
+                                hasError: controller
+                                    .expectedDeliveryDateError.value,
+                                onTap:
+                                    controller.selectExpectedDeliveryDate,
+                              )),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Obx(() => (controller.orderDateError.value ||
+                        controller.expectedDeliveryDateError.value)
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: _errorHint(
+                          'La fecha de entrega debe ser posterior a la de orden',
+                        ),
+                      )
+                    : const SizedBox.shrink()),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: AppDimensions.paddingMedium),
+
+          // ── Sección: Moneda (multi-moneda elegante ya implementado) ─
           _buildCurrencySection(),
 
           const SizedBox(height: AppDimensions.paddingMedium),
 
-          // Notas
-          CustomTextField(
-            controller: controller.notesController,
-            label: 'Notas',
-            hint: 'Notas adicionales sobre la orden...',
-            maxLines: 3,
-            prefixIcon: Icons.note,
+          // ── Sección: Notas ──────────────────────────────────────────
+          _elegantSection(
+            icon: Icons.edit_note_rounded,
+            title: 'Notas',
+            accent: const Color(0xFF64748B),
+            child: CustomTextField(
+              controller: controller.notesController,
+              label: 'Notas adicionales',
+              hint: 'Instrucciones especiales, referencia, etc.',
+              maxLines: 3,
+              prefixIcon: Icons.note_alt_rounded,
+            ),
           ),
           const SizedBox(height: AppDimensions.paddingLarge),
         ],
+      ),
+    );
+  }
+
+  /// Tarjeta de sección con header (icono gradient + título) + contenido.
+  /// Usa ElegantLightTheme.cardGradient y sombra elevada para mantener
+  /// consistencia con el resto de la app.
+  Widget _elegantSection({
+    required IconData icon,
+    required String title,
+    required Color accent,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+        border: Border.all(color: accent.withValues(alpha: 0.12), width: 1),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [accent, accent.withValues(alpha: 0.75)],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: ElegantLightTheme.textPrimary,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+
+  /// Etiqueta de campo consistente con el resto de la app.
+  Widget _fieldLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimensions.paddingSmall),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: ElegantLightTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  /// Mensaje de error elegante con icono.
+  Widget _errorHint(String text) {
+    return Row(
+      children: [
+        const Icon(Icons.error_outline_rounded,
+            size: 14, color: Color(0xFFEF4444)),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Color(0xFFEF4444),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Decoración de input consistente con el tema elegante.
+  InputDecoration _elegantInputDecoration({Widget? prefixIcon}) {
+    return InputDecoration(
+      filled: true,
+      fillColor: Colors.white,
+      prefixIcon: prefixIcon,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+        borderSide: const BorderSide(
+          color: Color(0xFF3B82F6),
+          width: 1.5,
+        ),
+      ),
+    );
+  }
+
+  /// Campo de fecha elegante con icono y estados visuales.
+  Widget _elegantDateField({
+    required String text,
+    required IconData icon,
+    required bool hasError,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(
+            color: hasError
+                ? const Color(0xFFEF4444)
+                : Colors.grey.shade300,
+            width: hasError ? 1.5 : 1,
+          ),
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+        ),
+        child: Row(
+          children: [
+            Icon(icon,
+                color: hasError
+                    ? const Color(0xFFEF4444)
+                    : const Color(0xFF3B82F6),
+                size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text.isEmpty ? 'Seleccionar…' : text,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: text.isEmpty
+                      ? Colors.grey.shade500
+                      : ElegantLightTheme.textPrimary,
+                ),
+              ),
+            ),
+            Icon(Icons.arrow_drop_down_rounded,
+                color: Colors.grey.shade500, size: 22),
+          ],
+        ),
       ),
     );
   }
@@ -983,103 +1081,114 @@ class PurchaseOrderFormScreen extends GetView<PurchaseOrderFormController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Información Adicional',
-            style: Get.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+          // Sección: toggle de entrega
+          _elegantSection(
+            icon: Icons.local_shipping_rounded,
+            title: 'Información de entrega',
+            accent: const Color(0xFF10B981),
+            child: Obx(() => SwitchListTile(
+                  title: const Text(
+                    'Agregar datos de entrega',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: ElegantLightTheme.textPrimary,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Dirección, contacto, teléfono y email',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  value: controller.showDeliveryInfo.value,
+                  onChanged: (value) => controller.toggleDeliveryInfo(),
+                  activeColor: const Color(0xFF10B981),
+                  contentPadding: EdgeInsets.zero,
+                )),
+          ),
+
+          // Campos de entrega (condicional, con animación)
+          Obx(() => AnimatedSwitcher(
+                duration: const Duration(milliseconds: 240),
+                child: controller.showDeliveryInfo.value
+                    ? Padding(
+                        key: const ValueKey('delivery-fields'),
+                        padding: const EdgeInsets.only(
+                            top: AppDimensions.paddingMedium),
+                        child: _buildDeliveryInfoSection(),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('empty')),
+              )),
+
+          const SizedBox(height: AppDimensions.paddingMedium),
+
+          // Sección: notas internas
+          _elegantSection(
+            icon: Icons.lock_person_rounded,
+            title: 'Notas internas',
+            accent: const Color(0xFF8B5CF6),
+            child: CustomTextField(
+              controller: controller.internalNotesController,
+              label: 'Visibles solo para tu equipo',
+              hint: 'Observaciones internas, recordatorios, etc.',
+              maxLines: 3,
+              prefixIcon: Icons.edit_note_rounded,
             ),
           ),
-          const SizedBox(height: AppDimensions.paddingMedium),
-
-          // Toggle para información de entrega
-          Obx(() => SwitchListTile(
-            title: const Text('Información de Entrega'),
-            subtitle: const Text('Agregar detalles específicos de entrega'),
-            value: controller.showDeliveryInfo.value,
-            onChanged: (value) => controller.toggleDeliveryInfo(),
-            activeColor: AppColors.primary,
-            contentPadding: EdgeInsets.zero,
-          )),
-
-          // Información de entrega (condicional)
-          Obx(() => controller.showDeliveryInfo.value
-              ? _buildDeliveryInfoSection()
-              : const SizedBox.shrink()),
-
-          const SizedBox(height: AppDimensions.paddingMedium),
-
-          // Notas internas
-          CustomTextField(
-            controller: controller.internalNotesController,
-            label: 'Notas Internas',
-            hint: 'Notas internas para el equipo...',
-            maxLines: 3,
-            prefixIcon: Icons.lock,
-          ),
+          const SizedBox(height: AppDimensions.paddingLarge),
         ],
       ),
     );
   }
 
   Widget _buildDeliveryInfoSection() {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: AppDimensions.paddingMedium),
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Información de Entrega',
-              style: Get.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+    return _elegantSection(
+      icon: Icons.pin_drop_rounded,
+      title: 'Datos de entrega',
+      accent: const Color(0xFF0EA5E9),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CustomTextField(
+            controller: controller.deliveryAddressController,
+            label: 'Dirección de entrega',
+            hint: 'Dirección completa para la entrega',
+            prefixIcon: Icons.location_on_rounded,
+          ),
+          const SizedBox(height: AppDimensions.paddingMedium),
+          CustomTextField(
+            controller: controller.contactPersonController,
+            label: 'Persona de contacto',
+            hint: 'Nombre de quien recibe',
+            prefixIcon: Icons.person_rounded,
+          ),
+          const SizedBox(height: AppDimensions.paddingMedium),
+          Row(
+            children: [
+              Expanded(
+                child: CustomTextField(
+                  controller: controller.contactPhoneController,
+                  label: 'Teléfono',
+                  hint: 'Número de contacto',
+                  prefixIcon: Icons.phone_rounded,
+                  keyboardType: TextInputType.phone,
+                ),
               ),
-            ),
-            const SizedBox(height: AppDimensions.paddingMedium),
-            
-            CustomTextField(
-              controller: controller.deliveryAddressController,
-              label: 'Dirección de Entrega',
-              hint: 'Dirección completa para la entrega',
-              prefixIcon: Icons.location_on,
-            ),
-            
-            const SizedBox(height: AppDimensions.paddingMedium),
-            
-            CustomTextField(
-              controller: controller.contactPersonController,
-              label: 'Persona de Contacto',
-              hint: 'Nombre de la persona que recibe',
-              prefixIcon: Icons.person,
-            ),
-            
-            const SizedBox(height: AppDimensions.paddingMedium),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: CustomTextField(
-                    controller: controller.contactPhoneController,
-                    label: 'Teléfono',
-                    hint: 'Número de contacto',
-                    prefixIcon: Icons.phone,
-                    keyboardType: TextInputType.phone,
-                  ),
+              const SizedBox(width: AppDimensions.paddingMedium),
+              Expanded(
+                child: CustomTextField(
+                  controller: controller.contactEmailController,
+                  label: 'Email',
+                  hint: 'Email de contacto',
+                  prefixIcon: Icons.email_rounded,
+                  keyboardType: TextInputType.emailAddress,
                 ),
-                const SizedBox(width: AppDimensions.paddingMedium),
-                Expanded(
-                  child: CustomTextField(
-                    controller: controller.contactEmailController,
-                    label: 'Email',
-                    hint: 'Email de contacto',
-                    prefixIcon: Icons.email,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

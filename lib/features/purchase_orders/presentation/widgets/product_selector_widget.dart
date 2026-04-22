@@ -631,14 +631,18 @@ class ProductSelectorWidgetState extends State<ProductSelectorWidget> {
     print('📦 Producto seleccionado: ${product.name}');
 
     Get.snackbar(
-      'Producto Seleccionado',
+      'Producto agregado',
       product.name,
       snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-      icon: const Icon(Icons.check_circle, color: Colors.blue),
-      duration: const Duration(seconds: 2),
-      margin: const EdgeInsets.all(8),
+      backgroundColor: const Color(0xFFDBEAFE),
+      colorText: const Color(0xFF1D4ED8),
+      icon: const Icon(Icons.inventory_2_rounded, color: Color(0xFF1D4ED8), size: 22),
+      duration: const Duration(milliseconds: 2200),
+      margin: const EdgeInsets.all(12),
+      borderRadius: 14,
+      boxShadows: const [
+        BoxShadow(color: Color(0x22000000), blurRadius: 20, offset: Offset(0, 4)),
+      ],
     );
   }
 }

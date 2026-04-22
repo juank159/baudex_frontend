@@ -16,6 +16,7 @@ import '../../../products/domain/usecases/search_products_usecase.dart';
 import 'purchase_orders_controller.dart';
 import '../../../settings/presentation/controllers/organization_controller.dart';
 import '../../../settings/domain/entities/organization.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 
 class PurchaseOrderFormController extends GetxController
     with GetSingleTickerProviderStateMixin {
@@ -276,13 +277,7 @@ class PurchaseOrderFormController extends GetxController
       result.fold(
         (failure) {
           error.value = failure.message;
-          Get.snackbar(
-            'Error',
-            failure.message,
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-          );
+          _elegantSnack('Error', failure.message, type: 'error');
         },
         (loadedPurchaseOrder) {
           purchaseOrder.value = loadedPurchaseOrder;
@@ -291,13 +286,7 @@ class PurchaseOrderFormController extends GetxController
       );
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
-        'Error',
-        'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      _elegantSnack('Error', 'Error inesperado: $e', type: 'error');
     } finally {
       isLoading.value = false;
     }
@@ -559,15 +548,10 @@ class PurchaseOrderFormController extends GetxController
         activeItemIndex.value--;
       }
       calculateTotals();
-      Get.snackbar(
+      _elegantSnack(
         'Producto eliminado',
-        '"$removedName" eliminado. Quedan ${items.length} productos.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade900,
-        duration: const Duration(seconds: 2),
-        margin: const EdgeInsets.all(12),
-        icon: Icon(Icons.delete_outline, color: Colors.orange.shade700),
+        '"$removedName" removido. Quedan ${items.length} productos.',
+        type: 'warning',
       );
     }
   }
@@ -757,12 +741,10 @@ class PurchaseOrderFormController extends GetxController
 
   Future<void> savePurchaseOrder() async {
     if (!isFormValid.value || !formKey.currentState!.validate()) {
-      Get.snackbar(
-        'Error',
-        'Por favor complete los campos requeridos',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
+      _elegantSnack(
+        'Revisa el formulario',
+        'Por favor completa los campos requeridos',
+        type: 'warning',
       );
       return;
     }
@@ -778,13 +760,7 @@ class PurchaseOrderFormController extends GetxController
       }
     } catch (e) {
       error.value = 'Error inesperado: $e';
-      Get.snackbar(
-        'Error',
-        'Error inesperado: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      _elegantSnack('Error', 'Error inesperado: $e', type: 'error');
     } finally {
       isSaving.value = false;
     }
@@ -851,20 +827,18 @@ class PurchaseOrderFormController extends GetxController
       (failure) {
         print('❌ Error del use case: ${failure.message}');
         error.value = failure.message;
-        Get.snackbar(
-          'Error',
-          failure.message,
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-        );
+        _elegantSnack('No se pudo crear la orden', failure.message,
+            type: 'error');
       },
       (createdPurchaseOrder) {
         print(
           '✅ Orden de compra creada exitosamente: ${createdPurchaseOrder.id}',
         );
-
-        // Navegar y actualizar la lista de órdenes de compra
+        _elegantSnack(
+          'Orden creada',
+          'La orden de compra se creó correctamente',
+          type: 'success',
+        );
         _navigateToListAndRefresh(createdPurchaseOrder);
       },
     );
@@ -927,13 +901,8 @@ class PurchaseOrderFormController extends GetxController
     result.fold(
       (failure) {
         error.value = failure.message;
-        Get.snackbar(
-          'Error',
-          failure.message,
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-        );
+        _elegantSnack('No se pudo actualizar la orden', failure.message,
+            type: 'error');
       },
       (updatedPurchaseOrder) {
         _navigateToListAndRefresh(updatedPurchaseOrder);
@@ -978,35 +947,18 @@ class PurchaseOrderFormController extends GetxController
 
     Future.delayed(const Duration(milliseconds: 300), () {
       if (isOffline) {
-        Get.snackbar(
-          'Guardado Offline',
+        _elegantSnack(
+          'Guardado offline',
           'Se sincronizará automáticamente cuando vuelva la conexión',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-          icon: Icon(Icons.cloud_off, color: Colors.orange.shade800, size: 24),
-          duration: const Duration(seconds: 3),
-          margin: const EdgeInsets.all(12),
-          borderRadius: 12,
-          isDismissible: true,
+          type: 'warning',
         );
       } else {
         final actionText = isUpdate ? 'actualizada' : 'creada';
-        final icon = isUpdate ? Icons.edit_note : Icons.add_task;
-        final title = isUpdate ? 'Orden Actualizada' : 'Orden Creada';
-        Get.snackbar(
+        final title = isUpdate ? 'Orden actualizada' : 'Orden creada';
+        _elegantSnack(
           title,
           'Orden ${order.orderNumber ?? '#${order.id.substring(0, 8)}'} $actionText exitosamente',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.green.shade50,
-          colorText: Colors.green.shade800,
-          borderColor: Colors.green.shade300,
-          borderWidth: 1.5,
-          icon: Icon(icon, color: Colors.green.shade600, size: 24),
-          duration: const Duration(seconds: 3),
-          margin: const EdgeInsets.all(12),
-          borderRadius: 12,
-          isDismissible: true,
+          type: 'success',
         );
       }
     });
@@ -1111,6 +1063,57 @@ class PurchaseOrderFormController extends GetxController
     itemsError.value = false;
   }
 
+  // ==================== SNACKBARS ELEGANTES ====================
+  // Unifica todos los Get.snackbar del feature con el sistema visual
+  // ElegantLightTheme (gradientes + sombra elevada + iconos consistentes).
+  // `type` controla el color: 'error' | 'success' | 'info' | 'warning'.
+
+  void _elegantSnack(String title, String message, {String type = 'info'}) {
+    final palette = _snackPalette(type);
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: palette.bg,
+      colorText: palette.fg,
+      icon: Icon(palette.icon, color: palette.fg, size: 22),
+      borderRadius: 14,
+      margin: const EdgeInsets.all(12),
+      duration: const Duration(milliseconds: 2800),
+      boxShadows: ElegantLightTheme.elevatedShadow,
+      animationDuration: const Duration(milliseconds: 250),
+    );
+  }
+
+  _SnackPalette _snackPalette(String type) {
+    switch (type) {
+      case 'success':
+        return _SnackPalette(
+          bg: const Color(0xFFDCFCE7),
+          fg: const Color(0xFF047857),
+          icon: Icons.check_circle_rounded,
+        );
+      case 'error':
+        return _SnackPalette(
+          bg: const Color(0xFFFEE2E2),
+          fg: const Color(0xFFB91C1C),
+          icon: Icons.error_rounded,
+        );
+      case 'warning':
+        return _SnackPalette(
+          bg: const Color(0xFFFEF3C7),
+          fg: const Color(0xFFB45309),
+          icon: Icons.warning_rounded,
+        );
+      default:
+        return _SnackPalette(
+          bg: const Color(0xFFDBEAFE),
+          fg: const Color(0xFF1D4ED8),
+          icon: Icons.info_rounded,
+        );
+    }
+  }
+
   String getStepTitle(int step) {
     switch (step) {
       case 0:
@@ -1212,11 +1215,10 @@ class PurchaseOrderFormController extends GetxController
         activeItemIndex.value = adjustedIndex;
         calculateTotals();
         _validateForm();
-        Get.snackbar(
-          'Producto ya existe',
+        _elegantSnack(
+          'Producto ya agregado',
           '${product.name} ya está en la lista. Puedes editarlo directamente.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 2),
+          type: 'info',
         );
         // Scroll al item existente
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1322,4 +1324,12 @@ class PurchaseOrderItemForm {
       notes: notes.isNotEmpty ? notes : null,
     );
   }
+}
+
+/// Paleta interna para snackbars elegantes (fondo, texto e icono).
+class _SnackPalette {
+  final Color bg;
+  final Color fg;
+  final IconData icon;
+  const _SnackPalette({required this.bg, required this.fg, required this.icon});
 }

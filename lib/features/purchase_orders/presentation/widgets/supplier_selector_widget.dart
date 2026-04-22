@@ -640,14 +640,18 @@ class SupplierSelectorWidgetState extends State<SupplierSelectorWidget> {
     print('🏢 Proveedor seleccionado: ${supplier.name}');
 
     Get.snackbar(
-      'Proveedor Seleccionado',
+      'Proveedor seleccionado',
       supplier.name,
       snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.green.shade100,
-      colorText: Colors.green.shade800,
-      icon: const Icon(Icons.check_circle, color: Colors.green),
-      duration: const Duration(seconds: 2),
-      margin: const EdgeInsets.all(8),
+      backgroundColor: const Color(0xFFDCFCE7),
+      colorText: const Color(0xFF047857),
+      icon: const Icon(Icons.check_circle_rounded, color: Color(0xFF047857), size: 22),
+      duration: const Duration(milliseconds: 2200),
+      margin: const EdgeInsets.all(12),
+      borderRadius: 14,
+      boxShadows: const [
+        BoxShadow(color: Color(0x22000000), blurRadius: 20, offset: Offset(0, 4)),
+      ],
     );
   }
 }
