@@ -41,6 +41,12 @@ class IsarPurchaseOrder {
   late double discountAmount;
   late double totalAmount;
 
+  // Multi-moneda (nullable: una PO sin estos campos está en moneda base).
+  // Mismo patrón que IsarInvoice/IsarPayment.
+  String? purchaseCurrency;
+  double? purchaseCurrencyAmount;
+  double? exchangeRate;
+
   // Items como relación (IsarLinks)
   final items = IsarLinks<IsarPurchaseOrderItem>();
 
@@ -108,6 +114,9 @@ class IsarPurchaseOrder {
     this.version = 0,
     this.lastModifiedAt,
     this.lastModifiedBy,
+    this.purchaseCurrency,
+    this.purchaseCurrencyAmount,
+    this.exchangeRate,
   });
 
   // Mappers
@@ -142,6 +151,9 @@ class IsarPurchaseOrder {
       deletedAt: null,
       isSynced: true,
       lastSyncAt: DateTime.now(),
+      purchaseCurrency: entity.purchaseCurrency,
+      purchaseCurrencyAmount: entity.purchaseCurrencyAmount,
+      exchangeRate: entity.exchangeRate,
     );
 
     // NOTE: Items must be added via IsarLinks after saving the PurchaseOrder
@@ -180,6 +192,9 @@ class IsarPurchaseOrder {
       deletedAt: null,
       isSynced: true,
       lastSyncAt: DateTime.now(),
+      purchaseCurrency: model.purchaseCurrency,
+      purchaseCurrencyAmount: model.purchaseCurrencyAmount,
+      exchangeRate: model.exchangeRate,
     );
   }
 
@@ -212,6 +227,9 @@ class IsarPurchaseOrder {
     updatedAt = DateTime.now();
     isSynced = true;
     lastSyncAt = DateTime.now();
+    purchaseCurrency = model.purchaseCurrency;
+    purchaseCurrencyAmount = model.purchaseCurrencyAmount;
+    exchangeRate = model.exchangeRate;
   }
 
   PurchaseOrder toEntity() {
@@ -243,6 +261,9 @@ class IsarPurchaseOrder {
       approvedAt: approvedAt,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      purchaseCurrency: purchaseCurrency,
+      purchaseCurrencyAmount: purchaseCurrencyAmount,
+      exchangeRate: exchangeRate,
     );
   }
 
@@ -277,6 +298,9 @@ class IsarPurchaseOrder {
       approvedAt: approvedAt,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      purchaseCurrency: purchaseCurrency,
+      purchaseCurrencyAmount: purchaseCurrencyAmount,
+      exchangeRate: exchangeRate,
     );
   }
 

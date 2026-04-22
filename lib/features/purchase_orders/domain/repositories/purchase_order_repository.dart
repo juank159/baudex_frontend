@@ -245,6 +245,11 @@ class UpdatePurchaseOrderParams {
   final String? contactPhone;
   final String? contactEmail;
   final List<String>? attachments;
+  // Multi-moneda (opcional). Enviar los 3 para activar/actualizar la
+  // trazabilidad en moneda extranjera de la PO.
+  final String? purchaseCurrency;
+  final double? purchaseCurrencyAmount;
+  final double? exchangeRate;
 
   const UpdatePurchaseOrderParams({
     required this.id,
@@ -263,6 +268,9 @@ class UpdatePurchaseOrderParams {
     this.contactPhone,
     this.contactEmail,
     this.attachments,
+    this.purchaseCurrency,
+    this.purchaseCurrencyAmount,
+    this.exchangeRate,
   });
 
   Map<String, dynamic> toMap() {
@@ -283,6 +291,10 @@ class UpdatePurchaseOrderParams {
       if (contactPhone != null) 'contactPhone': contactPhone,
       if (contactEmail != null) 'contactEmail': contactEmail,
       if (attachments != null) 'attachments': attachments,
+      if (purchaseCurrency != null) 'purchaseCurrency': purchaseCurrency,
+      if (purchaseCurrencyAmount != null)
+        'purchaseCurrencyAmount': purchaseCurrencyAmount,
+      if (exchangeRate != null) 'exchangeRate': exchangeRate,
     };
   }
 }

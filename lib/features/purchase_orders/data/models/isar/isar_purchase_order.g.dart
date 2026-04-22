@@ -82,135 +82,150 @@ const IsarPurchaseOrderSchema = CollectionSchema(
       name: r'discountAmount',
       type: IsarType.double,
     ),
-    r'expectedDeliveryDate': PropertySchema(
+    r'exchangeRate': PropertySchema(
       id: 13,
+      name: r'exchangeRate',
+      type: IsarType.double,
+    ),
+    r'expectedDeliveryDate': PropertySchema(
+      id: 14,
       name: r'expectedDeliveryDate',
       type: IsarType.dateTime,
     ),
     r'internalNotes': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'internalNotes',
       type: IsarType.string,
     ),
     r'isApproved': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'isApproved',
       type: IsarType.bool,
     ),
     r'isCancelled': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'isCancelled',
       type: IsarType.bool,
     ),
     r'isDeleted': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'isDeleted',
       type: IsarType.bool,
     ),
     r'isDraft': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'isDraft',
       type: IsarType.bool,
     ),
     r'isPending': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'isPending',
       type: IsarType.bool,
     ),
     r'isReceived': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'isReceived',
       type: IsarType.bool,
     ),
     r'isSynced': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'lastModifiedAt': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'lastModifiedAt',
       type: IsarType.dateTime,
     ),
     r'lastModifiedBy': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'lastModifiedBy',
       type: IsarType.string,
     ),
     r'lastSyncAt': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'needsSync': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'needsSync',
       type: IsarType.bool,
     ),
     r'notes': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'notes',
       type: IsarType.string,
     ),
     r'orderDate': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'orderDate',
       type: IsarType.dateTime,
     ),
     r'orderNumber': PropertySchema(
-      id: 28,
+      id: 29,
       name: r'orderNumber',
       type: IsarType.string,
     ),
     r'priority': PropertySchema(
-      id: 29,
+      id: 30,
       name: r'priority',
       type: IsarType.string,
       enumMap: _IsarPurchaseOrderpriorityEnumValueMap,
     ),
+    r'purchaseCurrency': PropertySchema(
+      id: 31,
+      name: r'purchaseCurrency',
+      type: IsarType.string,
+    ),
+    r'purchaseCurrencyAmount': PropertySchema(
+      id: 32,
+      name: r'purchaseCurrencyAmount',
+      type: IsarType.double,
+    ),
     r'serverId': PropertySchema(
-      id: 30,
+      id: 33,
       name: r'serverId',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 31,
+      id: 34,
       name: r'status',
       type: IsarType.string,
       enumMap: _IsarPurchaseOrderstatusEnumValueMap,
     ),
     r'subtotal': PropertySchema(
-      id: 32,
+      id: 35,
       name: r'subtotal',
       type: IsarType.double,
     ),
     r'supplierId': PropertySchema(
-      id: 33,
+      id: 36,
       name: r'supplierId',
       type: IsarType.string,
     ),
     r'supplierName': PropertySchema(
-      id: 34,
+      id: 37,
       name: r'supplierName',
       type: IsarType.string,
     ),
     r'taxAmount': PropertySchema(
-      id: 35,
+      id: 38,
       name: r'taxAmount',
       type: IsarType.double,
     ),
     r'totalAmount': PropertySchema(
-      id: 36,
+      id: 39,
       name: r'totalAmount',
       type: IsarType.double,
     ),
     r'updatedAt': PropertySchema(
-      id: 37,
+      id: 40,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'version': PropertySchema(
-      id: 38,
+      id: 41,
       name: r'version',
       type: IsarType.long,
     )
@@ -368,6 +383,12 @@ int _isarPurchaseOrderEstimateSize(
     }
   }
   bytesCount += 3 + object.priority.name.length * 3;
+  {
+    final value = object.purchaseCurrency;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.serverId.length * 3;
   bytesCount += 3 + object.status.name.length * 3;
   {
@@ -404,32 +425,35 @@ void _isarPurchaseOrderSerialize(
   writer.writeDateTime(offsets[10], object.deliveredDate);
   writer.writeString(offsets[11], object.deliveryAddress);
   writer.writeDouble(offsets[12], object.discountAmount);
-  writer.writeDateTime(offsets[13], object.expectedDeliveryDate);
-  writer.writeString(offsets[14], object.internalNotes);
-  writer.writeBool(offsets[15], object.isApproved);
-  writer.writeBool(offsets[16], object.isCancelled);
-  writer.writeBool(offsets[17], object.isDeleted);
-  writer.writeBool(offsets[18], object.isDraft);
-  writer.writeBool(offsets[19], object.isPending);
-  writer.writeBool(offsets[20], object.isReceived);
-  writer.writeBool(offsets[21], object.isSynced);
-  writer.writeDateTime(offsets[22], object.lastModifiedAt);
-  writer.writeString(offsets[23], object.lastModifiedBy);
-  writer.writeDateTime(offsets[24], object.lastSyncAt);
-  writer.writeBool(offsets[25], object.needsSync);
-  writer.writeString(offsets[26], object.notes);
-  writer.writeDateTime(offsets[27], object.orderDate);
-  writer.writeString(offsets[28], object.orderNumber);
-  writer.writeString(offsets[29], object.priority.name);
-  writer.writeString(offsets[30], object.serverId);
-  writer.writeString(offsets[31], object.status.name);
-  writer.writeDouble(offsets[32], object.subtotal);
-  writer.writeString(offsets[33], object.supplierId);
-  writer.writeString(offsets[34], object.supplierName);
-  writer.writeDouble(offsets[35], object.taxAmount);
-  writer.writeDouble(offsets[36], object.totalAmount);
-  writer.writeDateTime(offsets[37], object.updatedAt);
-  writer.writeLong(offsets[38], object.version);
+  writer.writeDouble(offsets[13], object.exchangeRate);
+  writer.writeDateTime(offsets[14], object.expectedDeliveryDate);
+  writer.writeString(offsets[15], object.internalNotes);
+  writer.writeBool(offsets[16], object.isApproved);
+  writer.writeBool(offsets[17], object.isCancelled);
+  writer.writeBool(offsets[18], object.isDeleted);
+  writer.writeBool(offsets[19], object.isDraft);
+  writer.writeBool(offsets[20], object.isPending);
+  writer.writeBool(offsets[21], object.isReceived);
+  writer.writeBool(offsets[22], object.isSynced);
+  writer.writeDateTime(offsets[23], object.lastModifiedAt);
+  writer.writeString(offsets[24], object.lastModifiedBy);
+  writer.writeDateTime(offsets[25], object.lastSyncAt);
+  writer.writeBool(offsets[26], object.needsSync);
+  writer.writeString(offsets[27], object.notes);
+  writer.writeDateTime(offsets[28], object.orderDate);
+  writer.writeString(offsets[29], object.orderNumber);
+  writer.writeString(offsets[30], object.priority.name);
+  writer.writeString(offsets[31], object.purchaseCurrency);
+  writer.writeDouble(offsets[32], object.purchaseCurrencyAmount);
+  writer.writeString(offsets[33], object.serverId);
+  writer.writeString(offsets[34], object.status.name);
+  writer.writeDouble(offsets[35], object.subtotal);
+  writer.writeString(offsets[36], object.supplierId);
+  writer.writeString(offsets[37], object.supplierName);
+  writer.writeDouble(offsets[38], object.taxAmount);
+  writer.writeDouble(offsets[39], object.totalAmount);
+  writer.writeDateTime(offsets[40], object.updatedAt);
+  writer.writeLong(offsets[41], object.version);
 }
 
 IsarPurchaseOrder _isarPurchaseOrderDeserialize(
@@ -452,30 +476,33 @@ IsarPurchaseOrder _isarPurchaseOrderDeserialize(
   object.deliveredDate = reader.readDateTimeOrNull(offsets[10]);
   object.deliveryAddress = reader.readStringOrNull(offsets[11]);
   object.discountAmount = reader.readDouble(offsets[12]);
-  object.expectedDeliveryDate = reader.readDateTimeOrNull(offsets[13]);
+  object.exchangeRate = reader.readDoubleOrNull(offsets[13]);
+  object.expectedDeliveryDate = reader.readDateTimeOrNull(offsets[14]);
   object.id = id;
-  object.internalNotes = reader.readStringOrNull(offsets[14]);
-  object.isSynced = reader.readBool(offsets[21]);
-  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[22]);
-  object.lastModifiedBy = reader.readStringOrNull(offsets[23]);
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[24]);
-  object.notes = reader.readStringOrNull(offsets[26]);
-  object.orderDate = reader.readDateTimeOrNull(offsets[27]);
-  object.orderNumber = reader.readStringOrNull(offsets[28]);
+  object.internalNotes = reader.readStringOrNull(offsets[15]);
+  object.isSynced = reader.readBool(offsets[22]);
+  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[23]);
+  object.lastModifiedBy = reader.readStringOrNull(offsets[24]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[25]);
+  object.notes = reader.readStringOrNull(offsets[27]);
+  object.orderDate = reader.readDateTimeOrNull(offsets[28]);
+  object.orderNumber = reader.readStringOrNull(offsets[29]);
   object.priority = _IsarPurchaseOrderpriorityValueEnumMap[
-          reader.readStringOrNull(offsets[29])] ??
+          reader.readStringOrNull(offsets[30])] ??
       IsarPurchaseOrderPriority.low;
-  object.serverId = reader.readString(offsets[30]);
+  object.purchaseCurrency = reader.readStringOrNull(offsets[31]);
+  object.purchaseCurrencyAmount = reader.readDoubleOrNull(offsets[32]);
+  object.serverId = reader.readString(offsets[33]);
   object.status = _IsarPurchaseOrderstatusValueEnumMap[
-          reader.readStringOrNull(offsets[31])] ??
+          reader.readStringOrNull(offsets[34])] ??
       IsarPurchaseOrderStatus.draft;
-  object.subtotal = reader.readDouble(offsets[32]);
-  object.supplierId = reader.readStringOrNull(offsets[33]);
-  object.supplierName = reader.readStringOrNull(offsets[34]);
-  object.taxAmount = reader.readDouble(offsets[35]);
-  object.totalAmount = reader.readDouble(offsets[36]);
-  object.updatedAt = reader.readDateTime(offsets[37]);
-  object.version = reader.readLong(offsets[38]);
+  object.subtotal = reader.readDouble(offsets[35]);
+  object.supplierId = reader.readStringOrNull(offsets[36]);
+  object.supplierName = reader.readStringOrNull(offsets[37]);
+  object.taxAmount = reader.readDouble(offsets[38]);
+  object.totalAmount = reader.readDouble(offsets[39]);
+  object.updatedAt = reader.readDateTime(offsets[40]);
+  object.version = reader.readLong(offsets[41]);
   return object;
 }
 
@@ -513,11 +540,11 @@ P _isarPurchaseOrderDeserializeProp<P>(
     case 12:
       return (reader.readDouble(offset)) as P;
     case 13:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 14:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 15:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 16:
       return (reader.readBool(offset)) as P;
     case 17:
@@ -531,42 +558,48 @@ P _isarPurchaseOrderDeserializeProp<P>(
     case 21:
       return (reader.readBool(offset)) as P;
     case 22:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 23:
-      return (reader.readStringOrNull(offset)) as P;
-    case 24:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 25:
       return (reader.readBool(offset)) as P;
-    case 26:
-      return (reader.readStringOrNull(offset)) as P;
-    case 27:
+    case 23:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 28:
+    case 24:
       return (reader.readStringOrNull(offset)) as P;
+    case 25:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 26:
+      return (reader.readBool(offset)) as P;
+    case 27:
+      return (reader.readStringOrNull(offset)) as P;
+    case 28:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 29:
+      return (reader.readStringOrNull(offset)) as P;
+    case 30:
       return (_IsarPurchaseOrderpriorityValueEnumMap[
               reader.readStringOrNull(offset)] ??
           IsarPurchaseOrderPriority.low) as P;
-    case 30:
-      return (reader.readString(offset)) as P;
     case 31:
+      return (reader.readStringOrNull(offset)) as P;
+    case 32:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 33:
+      return (reader.readString(offset)) as P;
+    case 34:
       return (_IsarPurchaseOrderstatusValueEnumMap[
               reader.readStringOrNull(offset)] ??
           IsarPurchaseOrderStatus.draft) as P;
-    case 32:
-      return (reader.readDouble(offset)) as P;
-    case 33:
-      return (reader.readStringOrNull(offset)) as P;
-    case 34:
-      return (reader.readStringOrNull(offset)) as P;
     case 35:
       return (reader.readDouble(offset)) as P;
     case 36:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 37:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 38:
+      return (reader.readDouble(offset)) as P;
+    case 39:
+      return (reader.readDouble(offset)) as P;
+    case 40:
+      return (reader.readDateTime(offset)) as P;
+    case 41:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -2640,6 +2673,90 @@ extension IsarPurchaseOrderQueryFilter
   }
 
   QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      exchangeRateIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'exchangeRate',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      exchangeRateIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'exchangeRate',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      exchangeRateEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'exchangeRate',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      exchangeRateGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'exchangeRate',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      exchangeRateLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'exchangeRate',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      exchangeRateBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'exchangeRate',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
       expectedDeliveryDateIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -3824,6 +3941,244 @@ extension IsarPurchaseOrderQueryFilter
   }
 
   QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'purchaseCurrency',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'purchaseCurrency',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'purchaseCurrency',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'purchaseCurrency',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'purchaseCurrency',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'purchaseCurrency',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'purchaseCurrency',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'purchaseCurrency',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'purchaseCurrency',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'purchaseCurrency',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'purchaseCurrency',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'purchaseCurrency',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyAmountIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'purchaseCurrencyAmount',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyAmountIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'purchaseCurrencyAmount',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyAmountEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'purchaseCurrencyAmount',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyAmountGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'purchaseCurrencyAmount',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyAmountLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'purchaseCurrencyAmount',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
+      purchaseCurrencyAmountBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'purchaseCurrencyAmount',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterFilterCondition>
       serverIdEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -4966,6 +5321,20 @@ extension IsarPurchaseOrderQuerySortBy
   }
 
   QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByExchangeRate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'exchangeRate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByExchangeRateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'exchangeRate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
       sortByExpectedDeliveryDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'expectedDeliveryDate', Sort.asc);
@@ -5200,6 +5569,34 @@ extension IsarPurchaseOrderQuerySortBy
       sortByPriorityDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'priority', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByPurchaseCurrency() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'purchaseCurrency', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByPurchaseCurrencyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'purchaseCurrency', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByPurchaseCurrencyAmount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'purchaseCurrencyAmount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      sortByPurchaseCurrencyAmountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'purchaseCurrencyAmount', Sort.desc);
     });
   }
 
@@ -5515,6 +5912,20 @@ extension IsarPurchaseOrderQuerySortThenBy
   }
 
   QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByExchangeRate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'exchangeRate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByExchangeRateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'exchangeRate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
       thenByExpectedDeliveryDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'expectedDeliveryDate', Sort.asc);
@@ -5766,6 +6177,34 @@ extension IsarPurchaseOrderQuerySortThenBy
   }
 
   QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByPurchaseCurrency() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'purchaseCurrency', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByPurchaseCurrencyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'purchaseCurrency', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByPurchaseCurrencyAmount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'purchaseCurrencyAmount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
+      thenByPurchaseCurrencyAmountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'purchaseCurrencyAmount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QAfterSortBy>
       thenByServerId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'serverId', Sort.asc);
@@ -5989,6 +6428,13 @@ extension IsarPurchaseOrderQueryWhereDistinct
   }
 
   QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QDistinct>
+      distinctByExchangeRate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'exchangeRate');
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QDistinct>
       distinctByExpectedDeliveryDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'expectedDeliveryDate');
@@ -6106,6 +6552,21 @@ extension IsarPurchaseOrderQueryWhereDistinct
       distinctByPriority({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'priority', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QDistinct>
+      distinctByPurchaseCurrency({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'purchaseCurrency',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, IsarPurchaseOrder, QDistinct>
+      distinctByPurchaseCurrencyAmount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'purchaseCurrencyAmount');
     });
   }
 
@@ -6272,6 +6733,13 @@ extension IsarPurchaseOrderQueryProperty
     });
   }
 
+  QueryBuilder<IsarPurchaseOrder, double?, QQueryOperations>
+      exchangeRateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'exchangeRate');
+    });
+  }
+
   QueryBuilder<IsarPurchaseOrder, DateTime?, QQueryOperations>
       expectedDeliveryDateProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -6380,6 +6848,20 @@ extension IsarPurchaseOrderQueryProperty
       priorityProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'priority');
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, String?, QQueryOperations>
+      purchaseCurrencyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'purchaseCurrency');
+    });
+  }
+
+  QueryBuilder<IsarPurchaseOrder, double?, QQueryOperations>
+      purchaseCurrencyAmountProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'purchaseCurrencyAmount');
     });
   }
 

@@ -318,6 +318,18 @@ class PurchaseOrderFormController extends GetxController
     );
 
     currencyController.text = order.currency ?? 'COP';
+
+    // Cargar multi-moneda si la PO fue creada con moneda foránea.
+    if (order.purchaseCurrency != null) {
+      selectedPurchaseCurrency.value = order.purchaseCurrency;
+      exchangeRate.value = order.exchangeRate;
+      foreignAmount.value = order.purchaseCurrencyAmount;
+      exchangeRateController.text =
+          (order.exchangeRate ?? 0).toStringAsFixed(2);
+      foreignAmountController.text =
+          (order.purchaseCurrencyAmount ?? 0).toStringAsFixed(2);
+    }
+
     notesController.text = order.notes ?? '';
     internalNotesController.text = order.internalNotes ?? '';
 
@@ -887,6 +899,14 @@ class PurchaseOrderFormController extends GetxController
           contactEmailController.text.trim().isNotEmpty
               ? contactEmailController.text.trim()
               : null,
+      // Multi-moneda: mismo patrón que en create.
+      purchaseCurrency: selectedPurchaseCurrency.value,
+      purchaseCurrencyAmount: selectedPurchaseCurrency.value != null
+          ? foreignAmount.value
+          : null,
+      exchangeRate: selectedPurchaseCurrency.value != null
+          ? exchangeRate.value
+          : null,
     );
 
     final result = await updatePurchaseOrderUseCase(params);
