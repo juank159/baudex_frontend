@@ -94,15 +94,20 @@ class PurchaseOrdersBinding extends Bindings {
       return; // Ya están registradas
     }
 
-    // DataSources
+    // DataSources — fenix: true para que GetX recree la instancia si fue
+    // descartada al salir del scope. Sin fenix, isRegistered sigue siendo
+    // true pero la instancia se perdió y falla el Get.find() en los lazy
+    // de abajo (ej. al entrar a inventario inicial después de PO).
     if (!Get.isRegistered<InventoryRemoteDataSource>()) {
       Get.lazyPut<InventoryRemoteDataSource>(
         () => InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
+        fenix: true,
       );
     }
     if (!Get.isRegistered<InventoryLocalDataSource>()) {
       Get.lazyPut<InventoryLocalDataSource>(
         () => InventoryLocalDataSourceIsar(Get.find<IsarDatabase>()),
+        fenix: true,
       );
     }
 
@@ -114,15 +119,19 @@ class PurchaseOrdersBinding extends Bindings {
           localDataSource: Get.find(),
           networkInfo: Get.find(),
         ),
+        fenix: true,
       );
     }
 
     // Solo 2 use cases necesarios para PO
     if (!Get.isRegistered<CreateInventoryMovementUseCase>()) {
-      Get.lazyPut(() => CreateInventoryMovementUseCase(Get.find()));
+      Get.lazyPut(
+        () => CreateInventoryMovementUseCase(Get.find()),
+        fenix: true,
+      );
     }
     if (!Get.isRegistered<GetWarehousesUseCase>()) {
-      Get.lazyPut(() => GetWarehousesUseCase(Get.find()));
+      Get.lazyPut(() => GetWarehousesUseCase(Get.find()), fenix: true);
     }
   }
 }
@@ -221,11 +230,13 @@ class PurchaseOrderDetailBinding extends Bindings {
     if (!Get.isRegistered<InventoryRemoteDataSource>()) {
       Get.lazyPut<InventoryRemoteDataSource>(
         () => InventoryRemoteDataSourceImpl(dio: Get.find<DioClient>().dio),
+        fenix: true,
       );
     }
     if (!Get.isRegistered<InventoryLocalDataSource>()) {
       Get.lazyPut<InventoryLocalDataSource>(
         () => InventoryLocalDataSourceIsar(Get.find<IsarDatabase>()),
+        fenix: true,
       );
     }
     if (!Get.isRegistered<InventoryRepository>()) {
@@ -235,13 +246,17 @@ class PurchaseOrderDetailBinding extends Bindings {
           localDataSource: Get.find(),
           networkInfo: Get.find(),
         ),
+        fenix: true,
       );
     }
     if (!Get.isRegistered<CreateInventoryMovementUseCase>()) {
-      Get.lazyPut(() => CreateInventoryMovementUseCase(Get.find()));
+      Get.lazyPut(
+        () => CreateInventoryMovementUseCase(Get.find()),
+        fenix: true,
+      );
     }
     if (!Get.isRegistered<GetWarehousesUseCase>()) {
-      Get.lazyPut(() => GetWarehousesUseCase(Get.find()));
+      Get.lazyPut(() => GetWarehousesUseCase(Get.find()), fenix: true);
     }
   }
 }
