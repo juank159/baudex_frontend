@@ -295,6 +295,106 @@ class AppFormatters {
   }
 }
 
+/// Parser y formatter DEDICADOS A PRECIOS en formato es_CO.
+///
+/// Convención clara (sin ambigüedad):
+///   - El punto es SIEMPRE separador de miles: `10.000` → diez mil,
+///     `1.000.000` → un millón.
+///   - La coma es SIEMPRE decimal: `10.000,50` → 10000.50.
+///
+/// A diferencia de `parseRate` (donde "6" y "6.000" son casos distintos
+/// según cantidad de dígitos), aquí nunca hay heurística — el punto nunca
+/// es decimal. Esto evita el bug donde "1.0000" se interpretaba como 1.0.
+class PriceFormat {
+  /// Convierte un string con formato es_CO a double. Retorna null si no
+  /// se puede parsear.
+  static double? parse(String? value) {
+    if (value == null || value.isEmpty) return null;
+    String cleaned = value.replaceAll(RegExp(r'[\$\s]'), '');
+    if (cleaned.isEmpty) return null;
+    // Punto = miles (se elimina); coma = decimal (se reemplaza por punto)
+    cleaned = cleaned.replaceAll('.', '');
+    cleaned = cleaned.replaceAll(',', '.');
+    return double.tryParse(cleaned);
+  }
+
+  /// Formatea un double como precio es_CO (punto miles, coma decimal si hay).
+  static String format(num value, {int decimals = 2}) {
+    final intPart = value.truncate();
+    final intFormatted = NumberFormat('#,##0', 'es_CO').format(intPart);
+    final diff = (value - intPart).abs();
+    if (diff < 0.0000001) return intFormatted;
+    // Hay decimales — recortar a `decimals` dígitos sin trailing zeros
+    final decimalStr = diff
+        .toStringAsFixed(decimals)
+        .substring(2)
+        .replaceAll(RegExp(r'0+$'), '');
+    if (decimalStr.isEmpty) return intFormatted;
+    return '$intFormatted,$decimalStr';
+  }
+}
+
+/// Formatter de INPUT para campos de PRECIO en es_CO con soporte decimal.
+/// Re-formatea mientras el usuario escribe, agregando separadores de miles
+/// automáticamente y respetando la coma decimal si la tipea.
+///
+/// Nota: se llama `DecimalPriceInputFormatter` (no `PriceInputFormatter`)
+/// para no chocar con el formatter de precios enteros existente en
+/// `number_input_formatter.dart`.
+class DecimalPriceInputFormatter extends TextInputFormatter {
+  final int maxDecimals;
+  DecimalPriceInputFormatter({this.maxDecimals = 2});
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) return newValue;
+
+    String cleaned = newValue.text.replaceAll(RegExp(r'[^\d.,]'), '');
+    if (cleaned.isEmpty) return const TextEditingValue(text: '');
+
+    // Separar parte entera de parte decimal. Si hay múltiples comas,
+    // solo la primera cuenta como decimal.
+    final commaIdx = cleaned.indexOf(',');
+    String intRaw;
+    String? decimalRaw;
+    if (commaIdx >= 0) {
+      intRaw = cleaned.substring(0, commaIdx).replaceAll('.', '');
+      decimalRaw = cleaned
+          .substring(commaIdx + 1)
+          .replaceAll('.', '')
+          .replaceAll(',', '');
+      if (decimalRaw.length > maxDecimals) {
+        decimalRaw = decimalRaw.substring(0, maxDecimals);
+      }
+    } else {
+      intRaw = cleaned.replaceAll('.', '');
+      decimalRaw = null;
+    }
+
+    // Parte entera: sin ceros a la izquierda
+    intRaw = intRaw.replaceAll(RegExp(r'^0+(?=\d)'), '');
+    if (intRaw.isEmpty) intRaw = '0';
+
+    final intValue = int.tryParse(intRaw) ?? 0;
+    final intFormatted = NumberFormat('#,##0', 'es_CO').format(intValue);
+
+    String formatted;
+    if (commaIdx >= 0) {
+      formatted = '$intFormatted,${decimalRaw ?? ''}';
+    } else {
+      formatted = intFormatted;
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
 /// Formatter de tasas de cambio que permite formato es_CO (punto miles, coma
 /// decimal) y re-formatea el input mientras el usuario escribe. Mantiene el
 /// comportamiento del dialog de pago de facturas para dar consistencia al

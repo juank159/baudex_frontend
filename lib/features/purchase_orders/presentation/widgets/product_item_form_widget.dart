@@ -90,17 +90,12 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
   }
 
   /// Texto inicial del input de precio según modo (base o foreign).
-  /// Preserva decimales en ambos modos (hasta 2 decimales).
+  /// Usa el formato es_CO consistente con PriceInputFormatter:
+  /// punto = miles, coma = decimal. Ej: 10000 → "10.000", 583.33 → "583,33".
   String _initialPriceText() {
     final displayed = widget.displayPrice();
     if (displayed <= 0) return '';
-    final rounded = (displayed * 100).round() / 100;
-    // Si es entero, formatear sin decimales (más limpio visualmente).
-    if (rounded == rounded.toInt()) {
-      return AppFormatters.formatNumber(rounded.toInt());
-    }
-    // Con decimales: usa formato es_CO (punto miles, coma decimal).
-    return AppFormatters.formatRate(rounded);
+    return PriceFormat.format(displayed);
   }
 
   @override
@@ -438,16 +433,17 @@ class _ProductItemFormWidgetState extends State<ProductItemFormWidget>
                 icon: Icons.attach_money,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                // RateInputFormatter acepta formato es_CO: "583,33" y "583.33"
-                // son válidos, "1.500,25" también. Miles y decimales se
-                // distinguen inteligentemente vía AppFormatters.parseRate.
+                // DecimalPriceInputFormatter: convención es_CO estricta.
+                //   - Punto = SIEMPRE miles (10.000, 1.000.000)
+                //   - Coma = SIEMPRE decimal (10.000,50)
+                // Evita el bug del RateInputFormatter donde "1.0000" se
+                // interpretaba como 1.0 perdiendo los ceros.
                 formatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
-                  RateInputFormatter(),
+                  DecimalPriceInputFormatter(),
                 ],
                 onChanged: (value) {
-                  // parseRate soporta "583.33", "583,33", "1.500,25", etc.
-                  final price = AppFormatters.parseRate(value) ?? 0.0;
+                  final price = PriceFormat.parse(value) ?? 0.0;
                   _isUpdatingInternally = true;
                   if (widget.isForeignMode &&
                       widget.onForeignPriceChanged != null) {
