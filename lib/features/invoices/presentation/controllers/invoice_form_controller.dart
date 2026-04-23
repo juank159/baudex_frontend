@@ -34,6 +34,7 @@ import '../../../customers/domain/usecases/search_customers_usecase.dart';
 import '../../../customers/domain/usecases/create_customer_usecase.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/entities/tax_enums.dart';
+import '../../../products/domain/repositories/product_repository.dart';
 import '../../../products/domain/usecases/get_products_usecase.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 
@@ -1304,47 +1305,58 @@ class InvoiceFormController extends GetxController {
   Future<void> _loadProducts() async {
     if (_getProductsUseCase == null) {
       print('⚠️ GetProductsUseCase no disponible - no se cargarán productos');
-      _availableProducts.clear();
+      // No limpiar — preservar lo que pueda haber de un load anterior.
       _isLoadingProducts.value = false;
       return;
     }
 
-    try {
-      _isLoadingProducts.value = true;
-      print('📦 Cargando productos desde la base de datos...');
+    _isLoadingProducts.value = true;
 
-      // ✅ USAR YIELD PARA NO BLOQUEAR EL HILO PRINCIPAL
+    // ═══════════════════════════════════════════════════════════════════
+    // PASO 1 — CACHE-FIRST: poblar _availableProducts desde ISAR YA.
+    // Si la app está offline, si el servidor está caído, o si el usuario
+    // tiene red lenta, al menos tiene los productos cacheados en memoria
+    // para que search/selectores funcionen de inmediato.
+    // ═══════════════════════════════════════════════════════════════════
+    await _loadProductsFromCacheFirst();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PASO 2 — Background refresh desde el servidor.
+    // Si triunfa: actualiza con datos frescos.
+    // Si falla (timeout, sin red, servidor caído): NO se limpia el cache.
+    // ═══════════════════════════════════════════════════════════════════
+    try {
+      print('📦 Refrescando productos desde servidor (background)...');
       await Future.delayed(const Duration(milliseconds: 50));
 
       final result = await _getProductsUseCase!(
             const GetProductsParams(
               page: 1,
-              limit: 50, // ✅ REDUCIR LÍMITE INICIAL
+              limit: 50,
               status: ProductStatus.active,
               includePrices: true,
             ),
           )
           .timeout(
-            const Duration(seconds: 8), // ✅ TIMEOUT MÁS CORTO
+            const Duration(seconds: 8),
             onTimeout: () {
-              print('⚠️ Timeout cargando productos');
+              print('⚠️ Timeout refrescando productos — usando cache');
               return Left(ServerFailure('Timeout al cargar productos'));
             },
           );
 
-      // ✅ YIELD ENTRE OPERACIONES
       await Future.delayed(const Duration(milliseconds: 10));
 
       result.fold(
         (failure) {
-          print('❌ Error al cargar productos: ${failure.message}');
-          _availableProducts.clear();
+          // Cache-first ya pobló los productos; log y seguimos con lo que hay.
+          print('❌ Remoto falló: ${failure.message} — conservando cache '
+              '(${_availableProducts.length} productos en memoria)');
         },
         (paginatedResult) {
           _availableProducts.value = paginatedResult.data;
-          print('✅ Productos cargados: ${paginatedResult.data.length}');
+          print('✅ Productos refrescados: ${paginatedResult.data.length}');
 
-          // ✅ CARGAR MÁS PRODUCTOS EN BACKGROUND MUY DESPACIO
           if (paginatedResult.data.length == 50 &&
               paginatedResult.meta.hasNextPage) {
             _loadMoreProductsSlowly(2);
@@ -1352,10 +1364,45 @@ class InvoiceFormController extends GetxController {
         },
       );
     } catch (e) {
-      print('💥 Error al cargar productos: $e');
-      _availableProducts.clear();
+      print('💥 Error refrescando productos: $e — conservando cache '
+          '(${_availableProducts.length} productos)');
+      // NO hacemos clear — el cache cargado en el paso 1 queda disponible.
     } finally {
       _isLoadingProducts.value = false;
+    }
+  }
+
+  /// Carga productos DIRECTO desde ISAR sin pasar por el UseCase (que tiene
+  /// timeout a nivel de controller). Esto garantiza que el form arranque
+  /// con los productos cacheados aunque la red esté caída o lenta.
+  Future<void> _loadProductsFromCacheFirst() async {
+    try {
+      if (!Get.isRegistered<ProductRepository>()) {
+        print('⚠️ ProductRepository no registrado — salto cache-first');
+        return;
+      }
+      final repo = Get.find<ProductRepository>();
+      // El repo expone getCachedProducts() que lee directo de ISAR/cache
+      // sin tocar red — offline-first real, sin timeouts ni excepciones de red.
+      final cacheResult = await repo.getCachedProducts();
+      cacheResult.fold(
+        (failure) {
+          print('⚠️ Cache vacío o falló: ${failure.message}');
+        },
+        (products) {
+          if (products.isNotEmpty) {
+            // Solo productos activos (UX consistente con el search)
+            final activos = products
+                .where((p) => p.status == ProductStatus.active)
+                .toList();
+            _availableProducts.value = activos;
+            print('✅ Cache-first: ${activos.length} productos disponibles '
+                'offline inmediatamente');
+          }
+        },
+      );
+    } catch (e) {
+      print('⚠️ Error cache-first: $e — continuará con remoto');
     }
   }
 
