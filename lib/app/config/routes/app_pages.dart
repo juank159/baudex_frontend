@@ -54,6 +54,9 @@ import 'package:baudex_desktop/features/products/presentation/screens/product_de
 import 'package:baudex_desktop/features/products/presentation/screens/initial_inventory_screen.dart';
 import 'package:baudex_desktop/features/products/presentation/controllers/initial_inventory_controller.dart';
 import 'package:baudex_desktop/features/products/domain/usecases/create_product_usecase.dart';
+import 'package:baudex_desktop/features/products/presentation/screens/product_presentations_screen.dart';
+import 'package:baudex_desktop/features/products/presentation/bindings/product_presentation_binding.dart';
+import 'package:baudex_desktop/features/products/presentation/controllers/product_presentations_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/bindings/expense_binding.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_form_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_detail_controller.dart';
@@ -394,6 +397,19 @@ class AppPages {
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== PRODUCT PRESENTATIONS ====================
+    GetPage(
+      name: '/products/:productId/presentations',
+      page: () => const ProductPresentationsScreen(),
+      binding: BindingsBuilder(() {
+        if (!Get.isRegistered<ProductPresentationsController>()) {
+          ProductPresentationBinding().dependencies();
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
     ),
 
     GetPage(

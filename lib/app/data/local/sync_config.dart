@@ -66,6 +66,8 @@ class SyncConfig {
     // Prioridad 3: Entidades con dependencias simples
     'Product': 3,
     'product': 3,
+    'ProductPresentation': 3,
+    'product_presentation': 3,
     'Customer': 3,
     'customer': 3,
     'Supplier': 3,
@@ -138,6 +140,8 @@ class SyncConfig {
   static const Set<String> supportedEntityTypes = {
     'Product',
     'product',
+    'ProductPresentation',
+    'product_presentation',
     'Category',
     'category',
     'Customer',

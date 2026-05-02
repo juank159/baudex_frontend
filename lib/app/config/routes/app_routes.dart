@@ -76,11 +76,16 @@ abstract class AppRoutes {
   static const String productsStats = '/products/stats';
   static const String productsInitialInventory = '/products/initial-inventory';
 
+  // ==================== PRODUCT PRESENTATIONS ROUTES ====================
+  static const String productPresentations = '/products/presentations';
+
   // Products with parameters
   static String productEdit(String id) => '/products/edit/$id';
   static String productDetail(String id) => '/products/detail/$id';
   static String productsByCategory(String categoryId) =>
       '/products/category/$categoryId';
+  static String productPresentationsList(String productId) =>
+      '/products/$productId/presentations';
 
   // ==================== CUSTOMERS ROUTES ====================
   static const String customers = '/customers';

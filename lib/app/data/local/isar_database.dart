@@ -10,6 +10,7 @@ import '../../../features/categories/data/models/isar/isar_category.dart';
 import '../../../features/customers/data/models/isar/isar_customer.dart';
 import '../../../features/customer_credits/data/models/isar/isar_customer_credit.dart';
 import '../../../features/products/data/models/isar/isar_product.dart';
+import '../../../features/products/data/models/isar/isar_product_presentation.dart';
 import '../../../features/expenses/data/models/isar/isar_expense.dart';
 import '../../../features/invoices/data/models/isar/isar_invoice.dart';
 import '../../../features/credit_notes/data/models/isar/isar_credit_note.dart';
@@ -82,6 +83,7 @@ class IsarDatabase implements IIsarDatabase {
           IsarCustomerSchema,
           IsarCustomerCreditSchema,
           IsarProductSchema,
+          IsarProductPresentationSchema,
           IsarExpenseSchema,
           IsarInvoiceSchema,
           IsarCreditNoteSchema,
