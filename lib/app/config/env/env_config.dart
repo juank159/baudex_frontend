@@ -33,13 +33,16 @@ class EnvConfig {
     }
   }
 
-  /// Determinar qué archivo .env usar según el entorno
+  /// Determinar qué archivo .env usar según el entorno.
+  /// El flavor se puede forzar con `--dart-define=FLAVOR=staging`
+  /// (también acepta `production` o `development`). Si no se pasa,
+  /// cae al modo Flutter (debug → development, release → production).
   static String _getEnvFileName() {
-    if (kDebugMode) {
-      return '.env.development';
-    } else {
-      return '.env.production';
-    }
+    const flavor = String.fromEnvironment('FLAVOR');
+    if (flavor == 'staging') return '.env.staging';
+    if (flavor == 'production') return '.env.production';
+    if (flavor == 'development') return '.env.development';
+    return kDebugMode ? '.env.development' : '.env.production';
   }
 
   /// Establecer valores por defecto si no se puede cargar .env
