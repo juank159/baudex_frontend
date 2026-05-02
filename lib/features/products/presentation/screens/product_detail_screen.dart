@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/config/routes/app_routes.dart';
 import '../controllers/product_detail_controller.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
@@ -233,6 +234,8 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
             _buildTaxInfoCard(context),
             const SizedBox(height: 12),
             _buildPricesCard(context),
+            const SizedBox(height: 12),
+            _buildManagePresentationsButton(context),
             const SizedBox(height: 80), // Space for FAB
           ],
         ),
@@ -2106,6 +2109,75 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
     } catch (e) {
       return false;
     }
+  }
+
+  // ==================== PRESENTATIONS BUTTON ====================
+
+  Widget _buildManagePresentationsButton(BuildContext context) {
+    return Obx(() {
+      if (!controller.hasProduct) return const SizedBox.shrink();
+      final product = controller.product!;
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => Get.toNamed(
+            AppRoutes.productPresentationsList(product.id),
+            arguments: {'productName': product.name},
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.inventory_2_outlined,
+                    size: 20,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Gestionar presentaciones',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: ElegantLightTheme.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        'Unidad, caja, docena y más',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: ElegantLightTheme.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
   }
 }
 
