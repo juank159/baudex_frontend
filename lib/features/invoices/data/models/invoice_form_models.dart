@@ -117,6 +117,18 @@ class InvoiceItemFormData {
 
   /// Crear desde entidad del dominio
   factory InvoiceItemFormData.fromEntity(dynamic item) {
+    // Acceso defensivo a campos de presentación (Fase 3): pueden faltar
+    // en items legacy o en estructuras intermedias.
+    String? itemPresentationId;
+    double? itemPresentationFactor;
+    try {
+      itemPresentationId = item.presentationId as String?;
+    } catch (_) {}
+    try {
+      final f = item.presentationFactor;
+      if (f is num) itemPresentationFactor = f.toDouble();
+    } catch (_) {}
+
     return InvoiceItemFormData(
       id: item.id ?? '',
       description: item.description ?? '',
@@ -128,6 +140,8 @@ class InvoiceItemFormData {
       notes: item.notes,
       productId: item.productId,
       taxPercentage: item.taxPercentage?.toDouble() ?? 0.0,
+      presentationId: itemPresentationId,
+      presentationFactor: itemPresentationFactor,
     );
   }
 
