@@ -479,7 +479,19 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
         final itemSubtotal = (itemQuantity * itemUnitPrice) - itemDiscountAmount;
         calculatedSubtotal += itemSubtotal;
 
-        // Crear IsarInvoiceItem para cada item
+        // Crear IsarInvoiceItem para cada item.
+        // Acceso defensivo a campos de presentación (Fase 3): pueden faltar
+        // en callers legacy que aún no los conocen.
+        String? itemPresentationId;
+        double? itemPresentationFactor;
+        try {
+          itemPresentationId = itemData.presentationId?.toString();
+        } catch (_) {}
+        try {
+          final f = itemData.presentationFactor;
+          if (f is num) itemPresentationFactor = f.toDouble();
+        } catch (_) {}
+
         final isarItem = IsarInvoiceItem.create(
           serverId: 'item_offline_${now.millisecondsSinceEpoch}_${itemData.hashCode}',
           description: itemData.description?.toString() ?? '',
@@ -492,6 +504,8 @@ class InvoiceOfflineRepositorySimple implements InvoiceRepository {
           notes: itemData.notes?.toString(),
           invoiceId: tempId,
           productId: itemData.productId?.toString(),
+          presentationId: itemPresentationId,
+          presentationFactor: itemPresentationFactor,
           createdAt: now,
           updatedAt: now,
           isSynced: false,

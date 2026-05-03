@@ -18,6 +18,10 @@ class InvoiceItem extends Equatable {
   final String? productId;
   final Product? product;
 
+  // Presentación de venta (Fase 3, opcional)
+  final String? presentationId;
+  final double? presentationFactor;
+
   // Timestamps
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -35,6 +39,8 @@ class InvoiceItem extends Equatable {
     required this.invoiceId,
     this.productId,
     this.product,
+    this.presentationId,
+    this.presentationFactor,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -53,6 +59,8 @@ class InvoiceItem extends Equatable {
     invoiceId,
     productId,
     product,
+    presentationId,
+    presentationFactor,
     createdAt,
     updatedAt,
   ];

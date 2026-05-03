@@ -236,6 +236,8 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
             _buildPricesCard(context),
             const SizedBox(height: 12),
             _buildManagePresentationsButton(context),
+            const SizedBox(height: 10),
+            _buildRegisterWasteButton(context),
             const SizedBox(height: 80), // Space for FAB
           ],
         ),
@@ -2171,6 +2173,78 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                   Icons.arrow_forward_ios,
                   size: 16,
                   color: ElegantLightTheme.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+  // ==================== WASTE BUTTON ====================
+
+  Widget _buildRegisterWasteButton(BuildContext context) {
+    return Obx(() {
+      if (!controller.hasProduct) return const SizedBox.shrink();
+      final product = controller.product!;
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: Colors.red.shade200, width: 1),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => Get.toNamed(
+            AppRoutes.productWaste(product.id),
+            arguments: {
+              'productName': product.name,
+              'currentStock': product.stock,
+            },
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade700,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.delete_sweep_outlined,
+                    size: 20,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Registrar merma',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                      const Text(
+                        'Pérdida, vencimiento, rotura y similares',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: ElegantLightTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Colors.red.shade300,
                 ),
               ],
             ),

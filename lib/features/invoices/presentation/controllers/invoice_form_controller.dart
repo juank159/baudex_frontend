@@ -33,8 +33,11 @@ import '../../../customers/domain/usecases/get_customers_usecase.dart';
 import '../../../customers/domain/usecases/search_customers_usecase.dart';
 import '../../../customers/domain/usecases/create_customer_usecase.dart';
 import '../../../products/domain/entities/product.dart';
+import '../../../products/domain/entities/product_presentation.dart';
 import '../../../products/domain/entities/tax_enums.dart';
 import '../../../products/domain/repositories/product_repository.dart';
+import '../../../products/domain/usecases/get_product_presentations_usecase.dart';
+import '../widgets/presentation_picker_dialog.dart';
 import '../../../products/domain/usecases/get_products_usecase.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 
@@ -1022,11 +1025,79 @@ class InvoiceFormController extends GetxController {
   //   _recalculateTotals();
   // }
 
-  void addOrUpdateProductToInvoice(Product product, {double quantity = 1}) {
+  /// Punto de entrada desde el POS: decide si mostrar selector de
+  /// presentación (cartón / kilo / cajetilla / unidad) o agregar el producto
+  /// directo. Solo abre el dialog cuando el producto tiene >1 presentación
+  /// activa — productos con presentación única (factor=1, herencia del
+  /// backfill) se comportan exactamente como antes.
+  Future<void> handleProductSelection(
+    Product product, {
+    double quantity = 1,
+  }) async {
+    // Producto temporal: nunca tiene presentaciones, ruta legacy directa.
+    final isTemporary =
+        product.id.startsWith('temp_') ||
+        product.id.startsWith('unregistered_') ||
+        (product.metadata?['isTemporary'] == true);
+
+    if (isTemporary) {
+      addOrUpdateProductToInvoice(product, quantity: quantity);
+      return;
+    }
+
+    List<ProductPresentation> active = [];
+    try {
+      final useCase = Get.find<GetProductPresentationsUseCase>();
+      final result = await useCase(
+        GetProductPresentationsParams(productId: product.id),
+      );
+      result.fold(
+        (failure) {
+          // Si falla (offline sin cache, etc.), seguimos con flujo legacy.
+          print('⚠️ No se pudieron cargar presentaciones: $failure');
+        },
+        (list) {
+          active = list.where((p) => p.isActive).toList();
+        },
+      );
+    } catch (e) {
+      print('⚠️ GetProductPresentationsUseCase no registrado o falló: $e');
+    }
+
+    if (active.length <= 1) {
+      // 0 o 1 presentación → comportamiento legacy (no enviamos presentationId).
+      addOrUpdateProductToInvoice(product, quantity: quantity);
+      return;
+    }
+
+    // >1 presentaciones activas → preguntar al usuario.
+    final selected = await Get.dialog<ProductPresentation>(
+      PresentationPickerDialog(product: product, presentations: active),
+      barrierDismissible: true,
+    );
+    if (selected == null) return; // canceló
+
+    addOrUpdateProductToInvoice(
+      product,
+      quantity: quantity,
+      presentation: selected,
+    );
+  }
+
+  void addOrUpdateProductToInvoice(
+    Product product, {
+    double quantity = 1,
+    ProductPresentation? presentation,
+  }) {
     final instanceId = hashCode;
     print(
       '🛒 Procesando producto: ${product.name} (cantidad: $quantity) (Instance: $instanceId)',
     );
+    if (presentation != null) {
+      print(
+        '   📐 Presentación: ${presentation.name} (factor=${presentation.factor}, precio=${presentation.price})',
+      );
+    }
     print('📊 Estado actual antes de agregar:');
     print('   - Items en factura: ${_invoiceItems.length}');
     print('   - Productos disponibles: ${_availableProducts.length}');
@@ -1051,15 +1122,20 @@ class InvoiceFormController extends GetxController {
 
     _ensureProductIsAvailable(product);
 
-    // Buscar precio: price1, luego cualquier precio activo, luego sellingPrice
-    final defaultPrice = product.getPriceByType(PriceType.price1);
-    double unitPrice = defaultPrice?.finalAmount ?? 0;
-    if (unitPrice <= 0) {
-      // Buscar cualquier precio activo que no sea cost
-      final anyPrice = product.prices?.firstWhereOrNull(
-        (p) => p.type != PriceType.cost && p.finalAmount > 0,
-      );
-      unitPrice = anyPrice?.finalAmount ?? product.sellingPrice ?? 0;
+    // Si viene una presentación, su precio toma precedencia.
+    // Si no, fallback al esquema actual: price1 → cualquier activo → sellingPrice.
+    double unitPrice;
+    if (presentation != null && presentation.price > 0) {
+      unitPrice = presentation.price;
+    } else {
+      final defaultPrice = product.getPriceByType(PriceType.price1);
+      unitPrice = defaultPrice?.finalAmount ?? 0;
+      if (unitPrice <= 0) {
+        final anyPrice = product.prices?.firstWhereOrNull(
+          (p) => p.type != PriceType.cost && p.finalAmount > 0,
+        );
+        unitPrice = anyPrice?.finalAmount ?? product.sellingPrice ?? 0;
+      }
     }
 
     if (unitPrice <= 0) {
@@ -1067,8 +1143,12 @@ class InvoiceFormController extends GetxController {
       return;
     }
 
+    // Si hay presentación, el match para "item existente" debe considerar
+    // también la presentación: 2 cartones + 5 unidades sueltas son items distintos.
     final existingIndex = _invoiceItems.indexWhere(
-      (item) => item.productId == product.id,
+      (item) =>
+          item.productId == product.id &&
+          item.presentationId == presentation?.id,
     );
 
     if (existingIndex != -1) {
@@ -1135,9 +1215,12 @@ class InvoiceFormController extends GetxController {
         description: product.name,
         quantity: quantity,
         unitPrice: unitPrice,
-        unit: product.unit ?? 'pcs',
+        unit: presentation?.name ?? product.unit ?? 'pcs',
         productId: product.id,
         taxPercentage: itemTaxPercentage, // ✅ INCLUIR IVA INDIVIDUAL
+        presentationId: presentation?.id,
+        presentationName: presentation?.name,
+        presentationFactor: presentation?.factor,
       );
 
       // ✅ MODIFICACIÓN: Agregar al inicio de la lista

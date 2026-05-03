@@ -57,6 +57,9 @@ import 'package:baudex_desktop/features/products/domain/usecases/create_product_
 import 'package:baudex_desktop/features/products/presentation/screens/product_presentations_screen.dart';
 import 'package:baudex_desktop/features/products/presentation/bindings/product_presentation_binding.dart';
 import 'package:baudex_desktop/features/products/presentation/controllers/product_presentations_controller.dart';
+import 'package:baudex_desktop/features/products/presentation/screens/product_waste_screen.dart';
+import 'package:baudex_desktop/features/products/presentation/bindings/product_waste_binding.dart';
+import 'package:baudex_desktop/features/products/presentation/controllers/product_waste_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/bindings/expense_binding.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_form_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_detail_controller.dart';
@@ -406,6 +409,19 @@ class AppPages {
       binding: BindingsBuilder(() {
         if (!Get.isRegistered<ProductPresentationsController>()) {
           ProductPresentationBinding().dependencies();
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+    ),
+
+    // ==================== PRODUCT WASTE ====================
+    GetPage(
+      name: '/products/:productId/waste',
+      page: () => const ProductWasteScreen(),
+      binding: BindingsBuilder(() {
+        if (!Get.isRegistered<ProductWasteController>()) {
+          ProductWasteBinding().dependencies();
         }
       }),
       transition: Transition.rightToLeft,

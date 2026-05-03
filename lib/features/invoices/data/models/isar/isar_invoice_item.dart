@@ -29,6 +29,10 @@ class IsarInvoiceItem {
   // @Index()
   String? productId; // Opcional - puede ser producto no registrado
 
+  // Presentación de venta (Fase 3) — opcional
+  String? presentationId;
+  double? presentationFactor;
+
   // Campos de auditoría
   late DateTime createdAt;
   late DateTime updatedAt;
@@ -52,6 +56,8 @@ class IsarInvoiceItem {
     this.notes,
     required this.invoiceId,
     this.productId,
+    this.presentationId,
+    this.presentationFactor,
     required this.createdAt,
     required this.updatedAt,
     required this.isSynced,
@@ -72,6 +78,8 @@ class IsarInvoiceItem {
       notes: entity.notes,
       invoiceId: entity.invoiceId,
       productId: entity.productId,
+      presentationId: entity.presentationId,
+      presentationFactor: entity.presentationFactor,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
       isSynced: true,
@@ -92,6 +100,8 @@ class IsarInvoiceItem {
       notes: notes,
       invoiceId: invoiceId,
       productId: productId,
+      presentationId: presentationId,
+      presentationFactor: presentationFactor,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );

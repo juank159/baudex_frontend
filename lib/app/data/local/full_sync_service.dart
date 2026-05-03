@@ -64,6 +64,8 @@ import '../../../features/settings/presentation/controllers/user_preferences_con
 import '../../../features/subscriptions/data/models/isar/isar_subscription.dart';
 import '../../../features/inventory/data/models/inventory_batch_model.dart';
 import '../../../features/inventory/domain/repositories/inventory_repository.dart';
+import '../../../features/products/data/datasources/product_presentation_remote_datasource.dart';
+import '../../../features/products/data/models/isar/isar_product_presentation.dart';
 
 /// Resultado de un Full Sync
 class FullSyncResult {
@@ -147,7 +149,7 @@ class FullSyncService extends GetxService {
   static const List<List<String>> _syncTiers = [
     ['Organización', 'Suscripción', 'Categorías', 'Categorías de Gastos', 'Preferencias de Usuario'],
     ['Productos', 'Clientes', 'Proveedores', 'Cuentas Bancarias', 'Almacenes', 'Impresoras'],
-    ['Facturas', 'Gastos', 'Órdenes de Compra'],
+    ['Presentaciones', 'Facturas', 'Gastos', 'Órdenes de Compra'],
     ['Notas de Crédito', 'Créditos de Clientes', 'Lotes de Inventario', 'Movimientos de Inventario', 'Notificaciones'],
   ];
 
@@ -257,6 +259,7 @@ class FullSyncService extends GetxService {
         'Categorías': _syncCategories,
         'Categorías de Gastos': _syncExpenseCategories,
         'Productos': _syncProducts,
+        'Presentaciones': _syncProductPresentations,
         'Clientes': _syncCustomers,
         'Proveedores': _syncSuppliers,
         'Almacenes': _syncWarehouses,
@@ -590,6 +593,76 @@ class FullSyncService extends GetxService {
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
       page++;
+    }
+
+    return totalSynced;
+  }
+
+  /// Sincronizar presentaciones de productos del server a ISAR.
+  ///
+  /// No hay endpoint global, así que iteramos por cada producto ya guardado en
+  /// ISAR. Para no saturar el servidor procesamos en chunks de 20 en paralelo.
+  /// Respetamos isSynced=false: las presentaciones con cambios pendientes de PUSH
+  /// NO se sobreescriben con datos del servidor.
+  Future<int> _syncProductPresentations() async {
+    final remoteDS = _getOrCreateDS<ProductPresentationRemoteDataSource>(
+      () => ProductPresentationRemoteDataSourceImpl(
+        dioClient: Get.find<DioClient>(),
+      ),
+    );
+
+    // Obtener todos los productos ya sincronizados (con serverId real = UUID)
+    final allProducts = await _isar.isarProducts.where().findAll();
+    final syncedProducts = allProducts
+        .where((p) => !p.serverId.startsWith('product_offline_'))
+        .toList();
+
+    if (syncedProducts.isEmpty) return 0;
+
+    // IDs de presentaciones con cambios pendientes de PUSH (no sobreescribir)
+    final unsyncedPresentations = await _isar.isarProductPresentations
+        .filter()
+        .isSyncedEqualTo(false)
+        .findAll();
+    final unsyncedServerIds =
+        unsyncedPresentations.map((p) => p.serverId).toSet();
+
+    int totalSynced = 0;
+    const int chunkSize = 20;
+
+    for (int i = 0; i < syncedProducts.length && !_abortRequested; i += chunkSize) {
+      final chunk = syncedProducts.sublist(
+        i,
+        (i + chunkSize).clamp(0, syncedProducts.length),
+      );
+
+      final results = await Future.wait(
+        chunk.map((product) async {
+          try {
+            final models = await remoteDS.getPresentations(product.serverId);
+            if (models.isEmpty) return 0;
+
+            await _isar.writeTxn(() async {
+              for (final model in models) {
+                // Skip local-pending-push records
+                if (unsyncedServerIds.contains(model.id)) continue;
+
+                final isarPresentation = IsarProductPresentation.fromModel(model);
+                await _isar.isarProductPresentations
+                    .putByServerId(isarPresentation);
+              }
+            });
+            return models.length;
+          } catch (e) {
+            print(
+              '[FULL_SYNC] Error sincronizando presentaciones del producto ${product.serverId}: $e',
+            );
+            return 0;
+          }
+        }),
+      );
+
+      totalSynced += results.fold<int>(0, (sum, n) => sum + n);
     }
 
     return totalSynced;
@@ -1169,6 +1242,15 @@ class FullSyncService extends GetxService {
       totalCleaned += await _cleanupEntity<IsarProduct>(
         collection: _isar.isarProducts,
         prefix: 'product_offline_',
+        pendingIds: pendingEntityIds,
+        getServerId: (e) => e.serverId,
+        getId: (e) => e.id,
+      );
+
+      // Product Presentations: prefix 'presentation_offline_'
+      totalCleaned += await _cleanupEntity<IsarProductPresentation>(
+        collection: _isar.isarProductPresentations,
+        prefix: 'presentation_offline_',
         pendingIds: pendingEntityIds,
         getServerId: (e) => e.serverId,
         getId: (e) => e.id,

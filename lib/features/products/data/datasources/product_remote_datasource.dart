@@ -1,5 +1,7 @@
 // lib/features/products/data/datasources/product_remote_datasource.dart
 import 'package:baudex_desktop/features/products/data/models/product_stats_model.dart';
+import 'package:baudex_desktop/features/products/data/models/product_waste_response_model.dart';
+import 'package:baudex_desktop/features/products/data/models/register_product_waste_request_model.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../app/core/network/dio_client.dart';
@@ -42,6 +44,10 @@ abstract class ProductRemoteDataSource {
   Future<bool> existsByName(String name, {String? excludeId});
   Future<bool> existsBySku(String sku, {String? excludeId});
   Future<bool> existsByBarcode(String barcode, {String? excludeId});
+  Future<ProductWasteResponseModel> registerWaste(
+    String productId,
+    RegisterProductWasteRequestModel request,
+  );
 }
 
 /// Implementación del datasource remoto usando Dio
@@ -770,6 +776,38 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
         rethrow;
       }
       throw ServerException('Error al verificar código de barras: $e');
+    }
+  }
+
+  // ==================== WASTE REGISTRATION ====================
+
+  @override
+  Future<ProductWasteResponseModel> registerWaste(
+    String productId,
+    RegisterProductWasteRequestModel request,
+  ) async {
+    try {
+      AppLogger.d('ProductRemoteDataSource: Registrando merma para producto $productId');
+      final response = await dioClient.post(
+        '/products/$productId/waste',
+        data: request.toJson(),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = response.data;
+        if (responseData != null && responseData is Map<String, dynamic>) {
+          final data = responseData['data'] ?? responseData;
+          return ProductWasteResponseModel.fromJson(data as Map<String, dynamic>);
+        }
+        throw const ServerException('Respuesta inválida del servidor');
+      } else {
+        throw _handleErrorResponse(response);
+      }
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw ServerException('Error inesperado al registrar merma: $e');
     }
   }
 

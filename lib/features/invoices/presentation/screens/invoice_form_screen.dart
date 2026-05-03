@@ -598,7 +598,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             controller: controller,
             autoFocus: true,
             onProductSelected: (product, quantity) {
-              controller.addOrUpdateProductToInvoice(
+              controller.handleProductSelection(
                 product,
                 quantity: quantity,
               );
@@ -659,7 +659,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   controller: controller,
                   autoFocus: true,
                   onProductSelected: (product, quantity) {
-                    controller.addOrUpdateProductToInvoice(
+                    controller.handleProductSelection(
                       product,
                       quantity: quantity,
                     );
