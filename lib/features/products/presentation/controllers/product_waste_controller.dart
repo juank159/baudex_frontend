@@ -1,12 +1,24 @@
 // lib/features/products/presentation/controllers/product_waste_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:isar/isar.dart';
 
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/core/utils/app_logger.dart';
+import '../../../../app/data/local/isar_database.dart';
+import '../../../../app/data/local/sync_queue.dart';
+import '../../../../app/data/local/sync_service.dart';
 import '../../data/datasources/product_remote_datasource.dart';
+import '../../data/models/isar/isar_product.dart';
 import '../../data/models/register_product_waste_request_model.dart';
 
+/// Controller del flujo de **Registrar Merma** — offline-first.
+///
+/// - Si hay red: llama al endpoint del backend (que descuenta del FIFO real).
+/// - Si NO hay red: encola en `SyncQueue` con entityType `ProductWaste` y
+///   descuenta el stock local del producto en ISAR para que el cambio se
+///   vea inmediato. Cuando vuelva la conexión, `_syncProductWasteOperation`
+///   en el sync_service reproduce la operación contra el backend.
 class ProductWasteController extends GetxController {
   final ProductRemoteDataSource remoteDataSource;
   final NetworkInfo networkInfo;
@@ -53,72 +65,152 @@ class ProductWasteController extends GetxController {
     final quantityText = quantityCtrl.text.trim();
     final reason = reasonCtrl.text.trim();
 
-    // Validate quantity
     final quantity = double.tryParse(quantityText);
     if (quantity == null || quantity <= 0) {
-      Get.snackbar(
-        'Cantidad inválida',
-        'Ingresa una cantidad mayor a cero.',
-        backgroundColor: Colors.red.shade100,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      _showError('Cantidad inválida', 'Ingresa una cantidad mayor a cero.');
       return;
     }
 
-    // Validate reason
     if (reason.length < 3) {
-      Get.snackbar(
+      _showError(
         'Razón requerida',
         'La razón debe tener al menos 3 caracteres.',
-        backgroundColor: Colors.red.shade100,
-        snackPosition: SnackPosition.BOTTOM,
       );
       return;
     }
 
-    // Online-only check
-    final connected = await networkInfo.isConnected;
-    if (!connected) {
-      Get.snackbar(
-        'Sin conexión',
-        'El registro de merma requiere internet para validar el FIFO en el servidor.',
-        backgroundColor: Colors.orange.shade100,
-        snackPosition: SnackPosition.BOTTOM,
+    if (quantity > currentStock.value) {
+      _showError(
+        'Stock insuficiente',
+        'Solo hay ${currentStock.value.toStringAsFixed(2)} disponibles. No puedes mermar más de lo que tienes.',
       );
       return;
     }
 
     isLoading.value = true;
     try {
-      final request = RegisterProductWasteRequestModel(
-        quantity: quantity,
-        reason: reason,
-      );
+      final connected = await networkInfo.isConnected;
 
-      await remoteDataSource.registerWaste(productId.value, request);
-
-      AppLogger.i('Merma registrada exitosamente para producto ${productId.value}');
-
-      Get.snackbar(
-        'Merma registrada',
-        'Se descontaron $quantity unidades del stock correctamente.',
-        backgroundColor: Colors.green.shade100,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 3),
-      );
+      if (connected) {
+        await _registerWasteOnline(quantity, reason);
+      } else {
+        await _registerWasteOffline(quantity, reason);
+      }
 
       Get.back();
     } catch (e) {
-      AppLogger.e('Error al registrar merma: $e', tag: 'ProductWasteController');
-      Get.snackbar(
+      AppLogger.e(
+        'Error al registrar merma: $e',
+        tag: 'ProductWasteController',
+      );
+      _showError(
         'Error al registrar merma',
         e.toString().replaceAll('Exception: ', ''),
-        backgroundColor: Colors.red.shade100,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
       );
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> _registerWasteOnline(double quantity, String reason) async {
+    final request = RegisterProductWasteRequestModel(
+      quantity: quantity,
+      reason: reason,
+    );
+    await remoteDataSource.registerWaste(productId.value, request);
+
+    // Reflejar el descuento localmente para que el detalle del producto se
+    // vea actualizado sin esperar al próximo PULL.
+    await _decrementLocalStock(quantity);
+
+    AppLogger.i(
+      'Merma registrada online: producto=${productId.value} qty=$quantity',
+      tag: 'ProductWasteController',
+    );
+    Get.snackbar(
+      'Merma registrada',
+      'Se descontaron $quantity del stock.',
+      backgroundColor: Colors.green.shade100,
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 3),
+    );
+  }
+
+  Future<void> _registerWasteOffline(double quantity, String reason) async {
+    // 1. Encolar en SyncQueue para reproducirla al volver la conexión.
+    final tempId =
+        'waste_offline_${DateTime.now().millisecondsSinceEpoch}_${quantity.hashCode}';
+
+    final syncService = Get.find<SyncService>();
+    await syncService.addOperationForCurrentUser(
+      entityType: 'ProductWaste',
+      entityId: tempId,
+      operationType: SyncOperationType.create,
+      data: {
+        'productId': productId.value,
+        'quantity': quantity,
+        'reason': reason,
+      },
+      priority: 1,
+    );
+
+    // 2. Descuento local de stock para feedback inmediato al usuario.
+    await _decrementLocalStock(quantity);
+
+    AppLogger.i(
+      'Merma encolada offline: producto=${productId.value} qty=$quantity tempId=$tempId',
+      tag: 'ProductWasteController',
+    );
+    Get.snackbar(
+      'Merma guardada offline',
+      'Se descontaron $quantity del stock localmente. Se enviará al servidor cuando recuperes conexión.',
+      backgroundColor: Colors.orange.shade100,
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 4),
+    );
+  }
+
+  /// Baja `quantity` del stock local del IsarProduct correspondiente.
+  /// No falla si el producto no está cacheado — el próximo PULL lo
+  /// reconciliará. Tampoco actualiza batches FIFO: backend lo hace al
+  /// procesar la operación encolada y el siguiente PULL trae los batches.
+  Future<void> _decrementLocalStock(double quantity) async {
+    try {
+      final Isar isar = IsarDatabase.instance.database;
+      await isar.writeTxn(() async {
+        final isarProduct = await isar.isarProducts
+            .filter()
+            .serverIdEqualTo(productId.value)
+            .findFirst();
+        if (isarProduct == null) {
+          AppLogger.w(
+            'Producto ${productId.value} no en cache local — skip update de stock',
+            tag: 'ProductWasteController',
+          );
+          return;
+        }
+        final newStock = (isarProduct.stock - quantity).clamp(0, double.infinity);
+        isarProduct.stock = newStock.toDouble();
+        isarProduct.isSynced = false;
+        isarProduct.updatedAt = DateTime.now();
+        await isar.isarProducts.put(isarProduct);
+      });
+      currentStock.value = (currentStock.value - quantity).clamp(0, double.infinity).toDouble();
+    } catch (e) {
+      AppLogger.w(
+        'No se pudo actualizar stock local tras merma: $e',
+        tag: 'ProductWasteController',
+      );
+    }
+  }
+
+  void _showError(String title, String message) {
+    Get.snackbar(
+      title,
+      message,
+      backgroundColor: Colors.red.shade100,
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 3),
+    );
   }
 }

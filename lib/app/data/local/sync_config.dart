@@ -91,6 +91,8 @@ class SyncConfig {
     'inventory_movement_fifo': 5,
     'CustomerCredit': 5,
     'customer_credit': 5,
+    'ProductWaste': 5,
+    'product_waste': 5,
 
     // Prioridad 6: Entidades auxiliares
     'Notification': 6,
@@ -142,6 +144,8 @@ class SyncConfig {
     'product',
     'ProductPresentation',
     'product_presentation',
+    'ProductWaste',
+    'product_waste',
     'Category',
     'category',
     'Customer',

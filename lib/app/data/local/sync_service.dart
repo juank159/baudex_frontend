@@ -35,6 +35,7 @@ import '../../../features/products/data/datasources/product_presentation_remote_
 import '../../../features/products/data/models/create_product_presentation_request_model.dart';
 import '../../../features/products/data/models/update_product_presentation_request_model.dart';
 import '../../../features/products/data/models/isar/isar_product_presentation.dart';
+import '../../../features/products/data/models/register_product_waste_request_model.dart';
 
 // Categories
 import '../../../features/categories/data/datasources/category_remote_datasource.dart';
@@ -1014,6 +1015,10 @@ class SyncService extends GetxService {
         case 'ProductPresentation':
         case 'product_presentation':
           await _syncProductPresentationOperation(operation);
+          break;
+        case 'ProductWaste':
+        case 'product_waste':
+          await _syncProductWasteOperation(operation);
           break;
         case 'Category':
         case 'category':
@@ -2997,6 +3002,69 @@ class SyncService extends GetxService {
         rethrow;
       }
     }
+  }
+
+  /// Sincronizar operación de **Merma de producto** (ProductWaste).
+  ///
+  /// Reproduce contra el backend (POST /products/:id/waste) una merma que el
+  /// usuario registró offline. El stock local ya fue descontado en el momento
+  /// del registro, pero el FIFO real (lotes) lo descuenta el backend ahora y
+  /// se reconcilia en el próximo PULL.
+  ///
+  /// Solo soporta `create` — actualizar/eliminar mermas no es semánticamente
+  /// válido (una vez ocurrida, queda registrada como movimiento histórico).
+  Future<void> _syncProductWasteOperation(SyncOperation operation) async {
+    if (operation.operationType != SyncOperationType.create) {
+      AppLogger.w(
+        'ProductWaste solo soporta CREATE — operación ${operation.operationType} ignorada',
+        tag: 'SYNC',
+      );
+      return;
+    }
+
+    final data = jsonDecode(operation.payload) as Map<String, dynamic>;
+    final productId = data['productId']?.toString() ?? '';
+    final rawQty = data['quantity'];
+    final reason = data['reason']?.toString() ?? '';
+    final warehouseId = data['warehouseId']?.toString();
+
+    if (productId.isEmpty) {
+      throw Exception('ProductWaste sin productId — operación inválida');
+    }
+    final quantity = rawQty is num ? rawQty.toDouble() : 0.0;
+    if (quantity <= 0) {
+      throw Exception('ProductWaste con quantity inválida: $quantity');
+    }
+
+    // Si el productId aún es temporal (producto creado offline y no
+    // sincronizado), abortamos para que se reintente cuando el producto
+    // ya tenga su id real en ISAR.
+    if (productId.startsWith('product_offline_') ||
+        productId.startsWith('temp_')) {
+      throw Exception(
+        'ProductWaste apunta a producto temp ($productId) — productId temporal no resuelto, reintentar',
+      );
+    }
+
+    AppLogger.d(
+      'Reproduciendo merma offline: productId=$productId qty=$quantity',
+      tag: 'SYNC',
+    );
+
+    final remote = Get.find<ProductRemoteDataSource>();
+    await remote.registerWaste(
+      productId,
+      RegisterProductWasteRequestModel(
+        quantity: quantity,
+        reason: reason,
+        warehouseId: warehouseId,
+      ),
+    );
+
+    AppLogger.i(
+      'Merma sincronizada con servidor: producto=$productId qty=$quantity',
+      tag: 'SYNC',
+    );
   }
 
   /// Sincronizar operación de Category

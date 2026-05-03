@@ -1,5 +1,6 @@
 // lib/features/products/data/repositories/product_presentation_repository_impl.dart
 import 'dart:math';
+import 'package:collection/collection.dart';
 import 'package:dartz/dartz.dart';
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
@@ -118,8 +119,17 @@ class ProductPresentationRepositoryImpl
   ) async {
     final isConnected = await networkInfo.isConnected;
     if (!isConnected) {
+      // Offline-first: leer del cache local. Si no está, recién entonces
+      // reportamos error. Soporta también IDs temp `presentation_offline_*`.
+      try {
+        final list = await localDataSource.getPresentationsByProductId(productId);
+        final cached = list.firstWhereOrNull((p) => p.id == id);
+        if (cached != null) {
+          return Right(cached.toEntity());
+        }
+      } catch (_) {}
       return Left(
-        const ConnectionFailure('Sin conexión a internet'),
+        const CacheFailure('Presentación no disponible en caché local'),
       );
     }
     try {
