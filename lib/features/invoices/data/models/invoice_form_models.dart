@@ -12,6 +12,12 @@ class InvoiceItemFormData {
   final String? notes;
   final String? productId;
   final double taxPercentage; // ✅ IVA individual del item basado en el producto
+  // Presentación de venta (Fase 3): si el producto se vendió en una
+  // presentación específica (cartón, kilo, cajetilla...), guardamos su id y
+  // factor para que backend descuente quantity × factor del stock.
+  final String? presentationId;
+  final String? presentationName;
+  final double? presentationFactor;
 
   const InvoiceItemFormData({
     required this.id,
@@ -24,6 +30,9 @@ class InvoiceItemFormData {
     this.notes,
     this.productId,
     this.taxPercentage = 0, // ✅ Por defecto 0 (NO_GRAVADO)
+    this.presentationId,
+    this.presentationName,
+    this.presentationFactor,
   });
 
   /// Calcular subtotal CON IVA (precio de venta al público)
@@ -85,6 +94,9 @@ class InvoiceItemFormData {
     String? notes,
     String? productId,
     double? taxPercentage,
+    String? presentationId,
+    String? presentationName,
+    double? presentationFactor,
   }) {
     return InvoiceItemFormData(
       id: id ?? this.id,
@@ -97,6 +109,9 @@ class InvoiceItemFormData {
       notes: notes ?? this.notes,
       productId: productId ?? this.productId,
       taxPercentage: taxPercentage ?? this.taxPercentage,
+      presentationId: presentationId ?? this.presentationId,
+      presentationName: presentationName ?? this.presentationName,
+      presentationFactor: presentationFactor ?? this.presentationFactor,
     );
   }
 

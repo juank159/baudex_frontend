@@ -30,6 +30,12 @@ import '../../../features/products/domain/entities/tax_enums.dart';
 import '../../../features/products/domain/repositories/product_repository.dart'
     show CreateProductPriceParams;
 
+// Product Presentations
+import '../../../features/products/data/datasources/product_presentation_remote_datasource.dart';
+import '../../../features/products/data/models/create_product_presentation_request_model.dart';
+import '../../../features/products/data/models/update_product_presentation_request_model.dart';
+import '../../../features/products/data/models/isar/isar_product_presentation.dart';
+
 // Categories
 import '../../../features/categories/data/datasources/category_remote_datasource.dart';
 import '../../../features/categories/data/datasources/category_local_datasource.dart';
@@ -1005,6 +1011,10 @@ class SyncService extends GetxService {
         case 'product':
           await _syncProductOperation(operation);
           break;
+        case 'ProductPresentation':
+        case 'product_presentation':
+          await _syncProductPresentationOperation(operation);
+          break;
         case 'Category':
         case 'category':
           await _syncCategoryOperation(operation);
@@ -1938,6 +1948,8 @@ class SyncService extends GetxService {
                     'discountPercentage': item.discountPercentage,
                     'discountAmount': item.discountAmount,
                     'notes': item.notes,
+                    if (item.presentationId != null)
+                      'presentationId': item.presentationId,
                   }).toList();
 
                   // Actualizar el payload con los items reparados
@@ -2632,6 +2644,356 @@ class SyncService extends GetxService {
         rethrow;
       } else {
         // Error inesperado que necesita debugging
+        rethrow;
+      }
+    }
+  }
+
+  /// Sincronizar operación de ProductPresentation
+  Future<void> _syncProductPresentationOperation(
+    SyncOperation operation,
+  ) async {
+    try {
+      final ProductPresentationRemoteDataSource remoteDS;
+      if (Get.isRegistered<ProductPresentationRemoteDataSource>()) {
+        remoteDS = Get.find<ProductPresentationRemoteDataSource>();
+      } else {
+        remoteDS = ProductPresentationRemoteDataSourceImpl(
+          dioClient: Get.find<DioClient>(),
+        );
+      }
+
+      final data = jsonDecode(operation.payload);
+
+      switch (operation.operationType) {
+        case SyncOperationType.create:
+          AppLogger.d(
+            'Creando presentación en servidor: ${data['name']}',
+            tag: 'SYNC',
+          );
+
+          // Leer datos frescos de ISAR si es presentación offline
+          Map<String, dynamic> finalData = data;
+
+          if (operation.entityId.startsWith('presentation_offline_')) {
+            AppLogger.d(
+              'Presentación offline detectada – leyendo datos actuales de ISAR',
+              tag: 'SYNC',
+            );
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarPresentation = await isar.isarProductPresentations
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+
+              if (isarPresentation != null) {
+                finalData = {
+                  'productId': isarPresentation.productId,
+                  'name': isarPresentation.name,
+                  'factor': isarPresentation.factor,
+                  'price': isarPresentation.price,
+                  'currency': isarPresentation.currency,
+                  'barcode': isarPresentation.barcode,
+                  'sku': isarPresentation.sku,
+                  'isDefault': isarPresentation.isDefault,
+                  'isActive': isarPresentation.isActive,
+                  'sortOrder': isarPresentation.sortOrder,
+                };
+                AppLogger.d(
+                  'Datos actuales obtenidos de ISAR para presentación: ${isarPresentation.name}',
+                  tag: 'SYNC',
+                );
+              }
+            } catch (e) {
+              AppLogger.w(
+                'Error leyendo presentación de ISAR: $e – usando datos del payload',
+                tag: 'SYNC',
+              );
+            }
+          }
+
+          // Resolver productId temporal si el producto aún no se sincronizó
+          String productId = finalData['productId'] as String? ?? '';
+          if (productId.startsWith('product_offline_')) {
+            AppLogger.d(
+              'ProductId temporal detectado: $productId – buscando ID real en ISAR...',
+              tag: 'SYNC',
+            );
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarProduct = await isar.isarProducts
+                  .filter()
+                  .serverIdEqualTo(productId)
+                  .findFirst();
+
+              if (isarProduct != null &&
+                  !isarProduct.serverId.startsWith('product_offline_')) {
+                productId = isarProduct.serverId;
+                AppLogger.d(
+                  'ProductId resuelto: $productId',
+                  tag: 'SYNC',
+                );
+              } else {
+                // Product not yet synced – abort and let the queue retry
+                AppLogger.w(
+                  'ProductId temporal no resuelto ($productId) – abortando para reintentar después',
+                  tag: 'SYNC',
+                );
+                throw Exception(
+                  'productId temporal no resuelto: $productId',
+                );
+              }
+            } catch (e) {
+              if (e.toString().contains('productId temporal no resuelto')) {
+                rethrow;
+              }
+              AppLogger.w(
+                'Error resolviendo productId temporal: $e',
+                tag: 'SYNC',
+              );
+              throw Exception(
+                'Error resolviendo productId temporal: $e',
+              );
+            }
+          }
+
+          final request = CreateProductPresentationRequestModel(
+            name: finalData['name'] as String,
+            factor: (finalData['factor'] as num).toDouble(),
+            price: (finalData['price'] as num).toDouble(),
+            currency: finalData['currency'] as String?,
+            barcode: finalData['barcode'] as String?,
+            sku: finalData['sku'] as String?,
+            isDefault: finalData['isDefault'] as bool?,
+            isActive: finalData['isActive'] as bool?,
+            sortOrder: finalData['sortOrder'] as int?,
+          );
+
+          final created = await remoteDS.createPresentation(productId, request);
+          AppLogger.i(
+            'Presentación creada en servidor con ID: ${created.id}',
+            tag: 'SYNC',
+          );
+
+          // Actualizar ISAR con el ID real del servidor
+          if (operation.entityId.startsWith('presentation_offline_')) {
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarPresentation = await isar.isarProductPresentations
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+
+              if (isarPresentation != null) {
+                isarPresentation.serverId = created.id;
+                isarPresentation.markAsSynced();
+                await isar.writeTxn(() async {
+                  await isar.isarProductPresentations.put(isarPresentation);
+                });
+                AppLogger.i(
+                  'ISAR presentación actualizada: ${operation.entityId} → ${created.id}',
+                  tag: 'SYNC',
+                );
+              }
+
+              // Eliminar operaciones UPDATE obsoletas para el temp ID
+              final pendingOps =
+                  await _isarDatabase.getPendingSyncOperations();
+              for (final op in pendingOps) {
+                if (op.entityId == operation.entityId &&
+                    op.operationType == SyncOperationType.update) {
+                  await _isarDatabase.deleteSyncOperation(op.id);
+                  AppLogger.d(
+                    'Operación UPDATE obsoleta eliminada para ${operation.entityId}',
+                    tag: 'SYNC',
+                  );
+                }
+              }
+
+              // Reference resolution: actualizar payloads pendientes que
+              // referencian el temp ID de la presentación
+              final oldId = operation.entityId;
+              final newId = created.id;
+              for (final op in pendingOps) {
+                final isPresentation =
+                    op.entityType == 'ProductPresentation' ||
+                    op.entityType == 'product_presentation';
+                if (isPresentation && op.entityId == oldId) {
+                  try {
+                    final payload = jsonDecode(op.payload);
+                    await _isarDatabase.updateSyncOperationPayload(
+                      op.id,
+                      jsonEncode(payload),
+                    );
+                  } catch (_) {}
+                }
+              }
+
+              AppLogger.i(
+                'Presentación offline sincronizada: $oldId → $newId',
+                tag: 'SYNC',
+              );
+            } catch (e) {
+              AppLogger.w(
+                'Error en post-sync de presentación: $e',
+                tag: 'SYNC',
+              );
+            }
+          }
+          break;
+
+        case SyncOperationType.update:
+          AppLogger.d(
+            'Actualizando presentación en servidor: ${operation.entityId}',
+            tag: 'SYNC',
+          );
+
+          // Skip update if entityId is still a temp (CREATE not yet synced)
+          if (operation.entityId.startsWith('presentation_offline_')) {
+            AppLogger.w(
+              'UPDATE para presentación temporal ${operation.entityId} – ignorando (CREATE pendiente)',
+              tag: 'SYNC',
+            );
+            return;
+          }
+
+          // Resolve productId from payload
+          String updateProductId = data['productId'] as String? ?? '';
+          if (updateProductId.startsWith('product_offline_')) {
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarProduct = await isar.isarProducts
+                  .filter()
+                  .serverIdEqualTo(updateProductId)
+                  .findFirst();
+              if (isarProduct != null &&
+                  !isarProduct.serverId.startsWith('product_offline_')) {
+                updateProductId = isarProduct.serverId;
+              }
+            } catch (_) {}
+          }
+
+          // If productId not yet available, get it from ISAR presentation record
+          if (updateProductId.isEmpty ||
+              updateProductId.startsWith('product_offline_')) {
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarPresentation = await isar.isarProductPresentations
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+              if (isarPresentation != null &&
+                  !isarPresentation.productId.startsWith('product_offline_')) {
+                updateProductId = isarPresentation.productId;
+              }
+            } catch (_) {}
+          }
+
+          final updateRequest = UpdateProductPresentationRequestModel(
+            name: data['name'] as String?,
+            factor: data['factor'] != null
+                ? (data['factor'] as num).toDouble()
+                : null,
+            price: data['price'] != null
+                ? (data['price'] as num).toDouble()
+                : null,
+            currency: data['currency'] as String?,
+            barcode: data['barcode'] as String?,
+            sku: data['sku'] as String?,
+            isDefault: data['isDefault'] as bool?,
+            isActive: data['isActive'] as bool?,
+            sortOrder: data['sortOrder'] as int?,
+          );
+
+          await remoteDS.updatePresentation(
+            updateProductId,
+            operation.entityId,
+            updateRequest,
+          );
+          AppLogger.i(
+            'Presentación actualizada en servidor exitosamente',
+            tag: 'SYNC',
+          );
+          break;
+
+        case SyncOperationType.delete:
+          AppLogger.d(
+            'Eliminando presentación en servidor: ${operation.entityId}',
+            tag: 'SYNC',
+          );
+
+          // Temp IDs should never reach DELETE in queue (cleaned up at source)
+          if (operation.entityId.startsWith('presentation_offline_')) {
+            AppLogger.w(
+              'DELETE para presentación temporal ${operation.entityId} – ignorando',
+              tag: 'SYNC',
+            );
+            return;
+          }
+
+          // Determine productId
+          String deleteProductId = data['productId'] as String? ?? '';
+          if (deleteProductId.isEmpty ||
+              deleteProductId.startsWith('product_offline_')) {
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarPresentation = await isar.isarProductPresentations
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+              if (isarPresentation != null) {
+                deleteProductId = isarPresentation.productId;
+              }
+            } catch (_) {}
+          }
+
+          await remoteDS.deletePresentation(deleteProductId, operation.entityId);
+          AppLogger.i(
+            'Presentación eliminada en servidor exitosamente',
+            tag: 'SYNC',
+          );
+
+          // Remove from ISAR (soft-delete on server; we delete local copy)
+          try {
+            final isar = IsarDatabase.instance.database;
+            final isarPresentation = await isar.isarProductPresentations
+                .filter()
+                .serverIdEqualTo(operation.entityId)
+                .findFirst();
+            if (isarPresentation != null) {
+              await isar.writeTxn(() async {
+                await isar.isarProductPresentations
+                    .delete(isarPresentation.id);
+              });
+              AppLogger.d(
+                'Presentación eliminada de ISAR: ${operation.entityId}',
+                tag: 'SYNC',
+              );
+            }
+          } catch (e) {
+            AppLogger.w(
+              'Error limpiando presentación de ISAR: $e',
+              tag: 'SYNC',
+            );
+          }
+          break;
+
+        default:
+          throw Exception('Operación no soportada: ${operation.operationType}');
+      }
+    } catch (e) {
+      if (e is ServerException && e.statusCode == 409) {
+        return;
+      }
+
+      if (e.toString().contains('Connection refused') ||
+          e.toString().contains('Connection error') ||
+          e.toString().contains('Error de conexión') ||
+          e.toString().contains('SocketException') ||
+          e.toString().contains('productId temporal no resuelto')) {
+        rethrow;
+      } else {
         rethrow;
       }
     }
@@ -4043,6 +4405,9 @@ class SyncService extends GetxService {
                               'discountPercentage': item.discountPercentage,
                               'discountAmount': item.discountAmount,
                               'notes': item.notes,
+                              // Presentación de venta (Fase 3) — se omite si null
+                              if (item.presentationId != null)
+                                'presentationId': item.presentationId,
                             },
                           )
                           .toList()

@@ -86,6 +86,8 @@ abstract class AppRoutes {
       '/products/category/$categoryId';
   static String productPresentationsList(String productId) =>
       '/products/$productId/presentations';
+  static String productWaste(String productId) =>
+      '/products/$productId/waste';
 
   // ==================== CUSTOMERS ROUTES ====================
   static const String customers = '/customers';
