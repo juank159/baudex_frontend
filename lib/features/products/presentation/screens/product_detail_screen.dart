@@ -289,6 +289,10 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
 
                 // Precios (ancho completo)
                 _buildCompactPricesCard(context),
+                const SizedBox(height: 12),
+                _buildManagePresentationsButton(context),
+                const SizedBox(height: 12),
+                _buildRegisterWasteButton(context),
               ],
             ),
           ),
@@ -332,6 +336,10 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                   _buildTaxInfoCard(context),
                   const SizedBox(height: 16),
                   _buildPricesCard(context),
+                  const SizedBox(height: 16),
+                  _buildManagePresentationsButton(context),
+                  const SizedBox(height: 16),
+                  _buildRegisterWasteButton(context),
                 ],
               ),
             ),
