@@ -37,6 +37,7 @@ import '../../../products/domain/entities/product_presentation.dart';
 import '../../../products/domain/entities/tax_enums.dart';
 import '../../../products/domain/repositories/product_repository.dart';
 import '../../../products/domain/usecases/get_product_presentations_usecase.dart';
+import '../../../products/presentation/bindings/product_presentation_binding.dart';
 import '../widgets/presentation_picker_dialog.dart';
 import '../../../products/domain/usecases/get_products_usecase.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
@@ -1047,6 +1048,12 @@ class InvoiceFormController extends GetxController {
 
     List<ProductPresentation> active = [];
     try {
+      // Defensa: si por algún motivo el usecase no fue registrado en el
+      // InitialBinding (build viejo, hot-reload sucio), lo registramos
+      // ahora antes de seguir. Idempotente.
+      if (!Get.isRegistered<GetProductPresentationsUseCase>()) {
+        ProductPresentationBinding.registerCore();
+      }
       final useCase = Get.find<GetProductPresentationsUseCase>();
       final result = await useCase(
         GetProductPresentationsParams(productId: product.id),

@@ -17,6 +17,7 @@ import 'core/services/tenant_datetime_service.dart';
 import 'services/password_validation_service.dart';
 import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
+import '../features/products/presentation/bindings/product_presentation_binding.dart';
 import '../features/settings/presentation/bindings/settings_binding.dart';
 import '../features/settings/data/datasources/user_preferences_remote_datasource.dart';
 import '../features/settings/data/datasources/user_preferences_local_datasource.dart';
@@ -128,6 +129,12 @@ class InitialBinding implements Bindings {
 
     // ==================== USER PREFERENCES ====================
     _registerUserPreferences();
+
+    // ==================== PRODUCT PRESENTATIONS (Fase 3) ====================
+    // Registrar core (datasources + repo + use cases) globalmente para que
+    // el dialog selector del POS funcione sin haber visitado antes la
+    // pantalla de "Gestionar presentaciones". Idempotente, lazy.
+    ProductPresentationBinding.registerCore();
 
     print('✅ SimpleAppBinding: Dependencias básicas registradas exitosamente');
   }

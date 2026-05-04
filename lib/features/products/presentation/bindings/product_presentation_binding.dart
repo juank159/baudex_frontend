@@ -16,7 +16,29 @@ import '../controllers/product_presentations_controller.dart';
 class ProductPresentationBinding implements Bindings {
   @override
   void dependencies() {
-    // ==================== DATA SOURCES ====================
+    // Núcleo (data + use cases) — también se registra desde InitialBinding
+    // para que esté disponible globalmente (ej: el dialog selector en el POS
+    // necesita GetProductPresentationsUseCase sin haber entrado antes a esta
+    // pantalla). Idempotente vía isRegistered.
+    registerCore();
+
+    // Controller específico de esta pantalla
+    Get.lazyPut(
+      () => ProductPresentationsController(
+        getPresentationsUseCase: Get.find<GetProductPresentationsUseCase>(),
+        createPresentationUseCase: Get.find<CreateProductPresentationUseCase>(),
+        updatePresentationUseCase: Get.find<UpdateProductPresentationUseCase>(),
+        deletePresentationUseCase: Get.find<DeleteProductPresentationUseCase>(),
+      ),
+      fenix: true,
+    );
+  }
+
+  /// Registra datasources, repository y use cases del módulo
+  /// ProductPresentation. Llamable desde InitialBinding para garantizar
+  /// disponibilidad global; idempotente: comprueba isRegistered antes de
+  /// cada lazyPut, así llamarlo varias veces es seguro.
+  static void registerCore() {
     if (!Get.isRegistered<ProductPresentationRemoteDataSource>()) {
       Get.lazyPut<ProductPresentationRemoteDataSource>(
         () => ProductPresentationRemoteDataSourceImpl(
@@ -35,7 +57,6 @@ class ProductPresentationBinding implements Bindings {
       );
     }
 
-    // ==================== REPOSITORY ====================
     if (!Get.isRegistered<ProductPresentationRepository>()) {
       Get.lazyPut<ProductPresentationRepository>(
         () => ProductPresentationRepositoryImpl(
@@ -47,45 +68,40 @@ class ProductPresentationBinding implements Bindings {
       );
     }
 
-    // ==================== USE CASES ====================
-    Get.lazyPut(
-      () => GetProductPresentationsUseCase(
-        Get.find<ProductPresentationRepository>(),
-      ),
-      fenix: true,
-    );
-    Get.lazyPut(
-      () => CreateProductPresentationUseCase(
-        Get.find<ProductPresentationRepository>(),
-      ),
-      fenix: true,
-    );
-    Get.lazyPut(
-      () => UpdateProductPresentationUseCase(
-        Get.find<ProductPresentationRepository>(),
-      ),
-      fenix: true,
-    );
-    Get.lazyPut(
-      () => DeleteProductPresentationUseCase(
-        Get.find<ProductPresentationRepository>(),
-      ),
-      fenix: true,
-    );
+    if (!Get.isRegistered<GetProductPresentationsUseCase>()) {
+      Get.lazyPut(
+        () => GetProductPresentationsUseCase(
+          Get.find<ProductPresentationRepository>(),
+        ),
+        fenix: true,
+      );
+    }
 
-    // ==================== CONTROLLER ====================
-    Get.lazyPut(
-      () => ProductPresentationsController(
-        getPresentationsUseCase:
-            Get.find<GetProductPresentationsUseCase>(),
-        createPresentationUseCase:
-            Get.find<CreateProductPresentationUseCase>(),
-        updatePresentationUseCase:
-            Get.find<UpdateProductPresentationUseCase>(),
-        deletePresentationUseCase:
-            Get.find<DeleteProductPresentationUseCase>(),
-      ),
-      fenix: true,
-    );
+    if (!Get.isRegistered<CreateProductPresentationUseCase>()) {
+      Get.lazyPut(
+        () => CreateProductPresentationUseCase(
+          Get.find<ProductPresentationRepository>(),
+        ),
+        fenix: true,
+      );
+    }
+
+    if (!Get.isRegistered<UpdateProductPresentationUseCase>()) {
+      Get.lazyPut(
+        () => UpdateProductPresentationUseCase(
+          Get.find<ProductPresentationRepository>(),
+        ),
+        fenix: true,
+      );
+    }
+
+    if (!Get.isRegistered<DeleteProductPresentationUseCase>()) {
+      Get.lazyPut(
+        () => DeleteProductPresentationUseCase(
+          Get.find<ProductPresentationRepository>(),
+        ),
+        fenix: true,
+      );
+    }
   }
 }
