@@ -312,6 +312,8 @@ class CreateInvoiceItemRequestModel {
       isTemporary:
           isTemporary ? true : null, // SOLO enviar isTemporary si es temporal
       category: category,
+      // Presentación de venta (Fase 3): backend descontará quantity × factor
+      presentationId: isTemporary ? null : params.presentationId,
     );
   }
 

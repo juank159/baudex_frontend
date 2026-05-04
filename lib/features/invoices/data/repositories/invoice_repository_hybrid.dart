@@ -303,6 +303,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
                       discountAmount: item.discountAmount,
                       unit: item.unit,
                       notes: item.notes,
+                      presentationId: item.presentationId,
                     ),
                   )
                   .toList(),
@@ -408,6 +409,7 @@ class InvoiceRepositoryHybrid implements InvoiceRepository {
                       discountAmount: item.discountAmount,
                       unit: item.unit,
                       notes: item.notes,
+                      presentationId: item.presentationId,
                     ),
                   )
                   .toList(),

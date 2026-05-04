@@ -133,6 +133,10 @@ class CreateInvoiceItemParams {
   final String? unit;
   final String? notes;
   final String? productId;
+  // Presentación de venta (Fase 3): si la factura está vendiendo el producto
+  // en una presentación específica (cartón, kilo, cajetilla...), el backend
+  // descontará quantity × factor del stock vía FIFO.
+  final String? presentationId;
 
   const CreateInvoiceItemParams({
     required this.description,
@@ -143,6 +147,7 @@ class CreateInvoiceItemParams {
     this.unit,
     this.notes,
     this.productId,
+    this.presentationId,
   });
 
   Map<String, dynamic> toJson() {
@@ -155,6 +160,7 @@ class CreateInvoiceItemParams {
       if (unit != null) 'unit': unit,
       if (notes != null) 'notes': notes,
       if (productId != null) 'productId': productId,
+      if (presentationId != null) 'presentationId': presentationId,
     };
   }
 }

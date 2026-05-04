@@ -2289,6 +2289,7 @@ class InvoiceFormController extends GetxController {
                 unit: item.unit,
                 notes: item.notes,
                 productId: item.productId,
+                presentationId: item.presentationId,
               ),
             )
             .toList();
@@ -2485,6 +2486,7 @@ class InvoiceFormController extends GetxController {
                 unit: item.unit,
                 notes: item.notes,
                 productId: item.productId,
+                presentationId: item.presentationId,
               ),
             )
             .toList();

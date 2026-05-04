@@ -1457,6 +1457,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
                 taxPercentage: item.taxPercentage ?? 0,
                 discountPercentage: item.discountPercentage ?? 0,
                 discountAmount: item.discountAmount ?? 0,
+                presentationId: item.presentationId,
               );
             }).toList();
 
@@ -1508,6 +1509,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
                 taxPercentage: item.taxPercentage ?? 0,
                 discountPercentage: item.discountPercentage ?? 0,
                 discountAmount: item.discountAmount ?? 0,
+                presentationId: item.presentationId,
               );
             }).toList();
 
