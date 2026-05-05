@@ -252,6 +252,22 @@ class CustomerLocalDataSourceIsar implements CustomerLocalDataSource {
     }
   }
 
+  /// Implementación del contrato `CustomerLocalDataSource.getCachedCustomerByDocument`.
+  /// Misma lógica que `getCustomerByDocument` pero null-safe (no lanza
+  /// excepciones en cache miss — apropiado para fallback offline en el
+  /// repository).
+  @override
+  Future<CustomerModel?> getCachedCustomerByDocument(
+    String documentNumber,
+  ) async {
+    try {
+      return await getCustomerByDocument(documentNumber);
+    } catch (e) {
+      print('⚠️ Error al buscar cliente por documento (Isar DS): $e');
+      return null;
+    }
+  }
+
   /// Get customer by email
   Future<CustomerModel?> getCustomerByEmail(String email) async {
     try {

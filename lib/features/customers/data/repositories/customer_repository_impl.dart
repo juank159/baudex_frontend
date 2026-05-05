@@ -339,9 +339,17 @@ class CustomerRepositoryImpl implements CustomerRepository {
 
         return Right(response.toEntity());
       } on ServerException catch (e) {
+        // Si el servidor falla, intentar cache local antes de devolver error
+        final cached =
+            await localDataSource.getCachedCustomerByDocument(documentNumber);
+        if (cached != null) return Right(cached.toEntity());
         return Left(_mapServerExceptionToFailure(e));
-      } on ConnectionException catch (e) {
-        return Left(ConnectionFailure(e.message));
+      } on ConnectionException catch (_) {
+        // Conexión perdida durante la request: caer al cache local.
+        final cached =
+            await localDataSource.getCachedCustomerByDocument(documentNumber);
+        if (cached != null) return Right(cached.toEntity());
+        return const Left(ConnectionFailure.noInternet);
       } catch (e) {
         return Left(
           UnknownFailure(
@@ -350,6 +358,12 @@ class CustomerRepositoryImpl implements CustomerRepository {
         );
       }
     } else {
+      // Offline: leer directamente del cache local (Isar). El método
+      // devuelve null si no está cacheado — solo en ese caso reportamos
+      // sin conexión para evitar bloquear al cajero por DNI no consultados.
+      final cached =
+          await localDataSource.getCachedCustomerByDocument(documentNumber);
+      if (cached != null) return Right(cached.toEntity());
       return const Left(ConnectionFailure.noInternet);
     }
   }
