@@ -284,6 +284,16 @@ class AppDrawerController extends GetxController {
         isInSettings: true,
         isInConfigurationGroup: true,
       ),
+
+      const DrawerMenuItem(
+        id: 'diagnostics',
+        title: 'Diagnóstico',
+        icon: Icons.health_and_safety_outlined,
+        route: AppRoutes.diagnostics,
+        subtitle: 'Estado de sincronización y errores',
+        isInSettings: true,
+        isInConfigurationGroup: true,
+      ),
     ];
   }
 
