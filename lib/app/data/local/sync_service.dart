@@ -9,6 +9,8 @@ import '../../core/network/dio_client.dart';
 import '../../core/storage/secure_storage_service.dart';
 import 'isar_database.dart';
 import 'sync_queue.dart';
+import 'sync_event_log.dart';
+import 'sync_event_log_service.dart';
 import 'sync_config.dart';
 import 'sync_lock.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
@@ -1097,6 +1099,19 @@ class SyncService extends GetxService {
         'Sincronizada: ${operation.entityType} ${operation.operationType.name}',
         tag: 'SYNC',
       );
+
+      // Log persistente para módulo de diagnóstico. Tolerante a fallas:
+      // si el log no se puede escribir, NO afecta el resultado del sync.
+      _logEventSafe(
+        severity: SyncEventSeverity.info,
+        eventType: SyncEventType.pushOperation,
+        operation: operation.operationType.name,
+        entityType: operation.entityType,
+        entityId: operation.entityId,
+        message: 'Operación sincronizada exitosamente',
+        retryCount: operation.retryCount,
+      );
+
       return _SyncOpResult.success;
     } catch (e) {
       try {
@@ -1112,13 +1127,32 @@ class SyncService extends GetxService {
       await _isarDatabase.markSyncOperationFailed(operation.id, e.toString());
 
       final errorMsg = e.toString().toLowerCase();
-      if (errorMsg.contains('connection refused') ||
-          errorMsg.contains('socketexception')) {
+      final isNetworkError = errorMsg.contains('connection refused') ||
+          errorMsg.contains('socketexception');
+      if (isNetworkError) {
         AppLogger.d(
           '${operation.entityType} pendiente - backend no disponible',
           tag: 'SYNC',
         );
       }
+
+      // Log persistente para módulo de diagnóstico
+      _logEventSafe(
+        severity: isNetworkError
+            ? SyncEventSeverity.warning  // red transitoria, se reintentará
+            : SyncEventSeverity.error,    // error real
+        eventType: isNetworkError
+            ? SyncEventType.network
+            : SyncEventType.pushOperation,
+        operation: operation.operationType.name,
+        entityType: operation.entityType,
+        entityId: operation.entityId,
+        message: isNetworkError
+            ? 'Operación pendiente — sin conexión'
+            : 'Falló sincronización',
+        details: e.toString(),
+        retryCount: operation.retryCount,
+      );
 
       // 🔒 SUSCRIPCIÓN EXPIRADA (403) — no tiene sentido reintentar.
       // Pausamos todo el sync hasta que el usuario renueve. Detectamos por
@@ -7420,5 +7454,34 @@ class SyncService extends GetxService {
       return '+57$cleaned';
     }
     return phone.trim();
+  }
+
+  /// Persiste un evento del log de diagnóstico de manera tolerante a fallas.
+  /// Si el `SyncEventLogService` no está registrado o algo falla al escribir,
+  /// el flujo de sync continúa sin alterarse. NUNCA propaga excepciones.
+  void _logEventSafe({
+    required SyncEventSeverity severity,
+    required SyncEventType eventType,
+    required String operation,
+    required String entityType,
+    required String entityId,
+    required String message,
+    String? details,
+    int retryCount = 0,
+  }) {
+    try {
+      if (!Get.isRegistered<SyncEventLogService>()) return;
+      // Disparar y olvidar — no esperamos a que termine para no bloquear sync.
+      Get.find<SyncEventLogService>().log(
+        severity: severity,
+        eventType: eventType,
+        operation: operation,
+        entityType: entityType,
+        entityId: entityId,
+        message: message,
+        details: details,
+        retryCount: retryCount,
+      );
+    } catch (_) {/* tolerante a fallas */}
   }
 }

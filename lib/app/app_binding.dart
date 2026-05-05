@@ -18,6 +18,7 @@ import 'services/password_validation_service.dart';
 import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
 import '../features/products/presentation/bindings/product_presentation_binding.dart';
+import 'data/local/sync_event_log_service.dart';
 import '../features/settings/presentation/bindings/settings_binding.dart';
 import '../features/settings/data/datasources/user_preferences_remote_datasource.dart';
 import '../features/settings/data/datasources/user_preferences_local_datasource.dart';
@@ -135,6 +136,12 @@ class InitialBinding implements Bindings {
     // el dialog selector del POS funcione sin haber visitado antes la
     // pantalla de "Gestionar presentaciones". Idempotente, lazy.
     ProductPresentationBinding.registerCore();
+
+    // ==================== DIAGNÓSTICO / LOG DE EVENTOS DE SYNC ===========
+    // Servicio singleton para persistir eventos del sync en Isar. El
+    // sync_service lo invoca opcionalmente y la pantalla de diagnóstico
+    // lo lee. Tolerante a fallas: si Isar falla escribir, el sync sigue.
+    Get.lazyPut<SyncEventLogService>(() => SyncEventLogService(), fenix: true);
 
     print('✅ SimpleAppBinding: Dependencias básicas registradas exitosamente');
   }

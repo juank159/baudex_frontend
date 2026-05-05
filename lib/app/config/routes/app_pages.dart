@@ -130,6 +130,8 @@ import 'package:baudex_desktop/features/customer_credits/presentation/pages/clie
 import 'package:baudex_desktop/features/notifications/presentation/bindings/notification_binding.dart';
 import 'package:baudex_desktop/features/notifications/presentation/screens/notifications_list_screen.dart';
 import 'package:baudex_desktop/features/notifications/presentation/screens/notification_detail_screen.dart';
+import 'package:baudex_desktop/features/diagnostics/presentation/bindings/sync_diagnostic_binding.dart';
+import 'package:baudex_desktop/features/diagnostics/presentation/screens/sync_diagnostic_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -1648,6 +1650,15 @@ class AppPages {
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],
+    ),
+
+    // DIAGNOSTICO DEL SISTEMA
+    GetPage(
+      name: AppRoutes.diagnostics,
+      page: () => const SyncDiagnosticScreen(),
+      binding: SyncDiagnosticBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
     ),
 
     // 📝 FACTURAS CON PESTAÑAS

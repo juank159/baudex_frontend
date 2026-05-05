@@ -258,6 +258,7 @@ abstract class AppRoutes {
   static const String settingsBackup = '/settings/backup';
   static const String settingsSecurity = '/settings/security';
   static const String settingsNotifications = '/settings/notifications';
+  static const String diagnostics = '/settings/diagnostics';
 
   // Error Routes
   static const String notFound = '/404';
