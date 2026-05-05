@@ -11,20 +11,8 @@ import '../../../customers/domain/usecases/create_customer_usecase.dart';
 /// de factura. Offline-first: el usecase encola en SyncQueue si no hay
 /// red y devuelve un Customer con id temporal `customer_offline_*` que
 /// se puede usar inmediatamente en la factura.
-///
-/// Campos pedidos (mínimos para una venta de mostrador):
-///   - Nombre y apellido (requeridos)
-///   - Tipo y número de documento (requeridos)
-///   - Teléfono (opcional pero recomendado)
-///   - Email (opcional — si se omite generamos uno único basado en doc)
 class QuickCreateCustomerDialog extends StatefulWidget {
-  /// Callback cuando se crea el cliente exitosamente. El padre
-  /// típicamente lo usa para seleccionar el cliente recién creado en la
-  /// factura.
   final void Function(Customer customer)? onCreated;
-
-  /// Texto inicial para `firstName` (útil cuando el cajero ya tipeó algo
-  /// en la búsqueda y no encontró coincidencias).
   final String? prefilledName;
 
   const QuickCreateCustomerDialog({
@@ -75,9 +63,6 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
     final phone = _phoneCtrl.text.trim();
     final emailInput = _emailCtrl.text.trim();
 
-    // Email es required en CreateCustomerParams. Si el cajero no lo
-    // ingresa generamos uno único basado en el documento — el cliente
-    // mostrador típico no tiene email registrado.
     final email = emailInput.isNotEmpty
         ? emailInput
         : 'cliente.${documentNumber.toLowerCase()}@local.baudex';
@@ -100,199 +85,460 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
         (failure) {
           if (!mounted) return;
           setState(() => _saving = false);
-          Get.snackbar(
+          _showSnack(
             'No se pudo crear el cliente',
             failure.toString().replaceAll('Failure(', '').replaceAll(')', ''),
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-            duration: const Duration(milliseconds: 2500),
+            isError: true,
           );
         },
         (customer) {
           if (!mounted) return;
           widget.onCreated?.call(customer);
-          Get.back(); // cierra dialog
-          Get.snackbar(
+          Get.back();
+          _showSnack(
             'Cliente creado',
             '${customer.firstName} ${customer.lastName} listo para usar',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
-            icon: const Icon(Icons.check_circle, color: Colors.green),
-            duration: const Duration(milliseconds: 2000),
+            isError: false,
           );
         },
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      Get.snackbar(
-        'Error',
-        'No se pudo crear el cliente: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        duration: const Duration(milliseconds: 2500),
-      );
+      _showSnack('Error', 'No se pudo crear el cliente: $e', isError: true);
     }
+  }
+
+  void _showSnack(String title, String message, {required bool isError}) {
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: isError
+          ? ElegantLightTheme.errorRed.withValues(alpha: 0.95)
+          : ElegantLightTheme.successGreen.withValues(alpha: 0.95),
+      colorText: Colors.white,
+      icon: Icon(
+        isError ? Icons.error_outline : Icons.check_circle_outline,
+        color: Colors.white,
+      ),
+      duration: Duration(milliseconds: isError ? 2500 : 2000),
+      margin: const EdgeInsets.all(12),
+      borderRadius: 10,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
+    final size = MediaQuery.of(context).size;
+    // Ancho responsive: en pantallas pequeñas usa casi todo el ancho.
+    final dialogWidth = size.width < 480
+        ? size.width - 32
+        : (size.width < 800 ? 440.0 : 480.0);
+    // Alto máximo: nunca exceder el viewport.
+    final maxHeight = size.height - 80;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: dialogWidth,
+          maxHeight: maxHeight,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: ElegantLightTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeader(),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                  child: Form(key: _formKey, child: _buildFormFields()),
+                ),
+              ),
+              _buildActions(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.primaryGradient,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              gradient: ElegantLightTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(8),
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.person_add_alt_1,
               color: Colors.white,
-              size: 18,
+              size: 22,
             ),
           ),
-          const SizedBox(width: 10),
-          const Text('Nuevo cliente'),
-        ],
-      ),
-      contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      content: SizedBox(
-        width: 380,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
+          const SizedBox(width: 14),
+          const Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
-                  controller: _firstNameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre *',
-                    isDense: true,
+                Text(
+                  'Nuevo cliente',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
                   ),
-                  textCapitalization: TextCapitalization.words,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Requerido' : null,
                 ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _lastNameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Apellido *',
-                    isDense: true,
+                SizedBox(height: 2),
+                Text(
+                  'Acceso rápido desde la factura',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
                   ),
-                  textCapitalization: TextCapitalization.words,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Requerido' : null,
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: DropdownButtonFormField<DocumentType>(
-                        initialValue: _documentType,
-                        decoration: const InputDecoration(
-                          labelText: 'Tipo doc',
-                          isDense: true,
-                        ),
-                        items: DocumentType.values
-                            .map((t) => DropdownMenuItem(
-                                  value: t,
-                                  child: Text(t.name.toUpperCase()),
-                                ))
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null) setState(() => _documentType = v);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 3,
-                      child: TextFormField(
-                        controller: _documentNumberCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Número *',
-                          isDense: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[0-9A-Za-z\-]'),
-                          ),
-                        ],
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Requerido';
-                          }
-                          if (v.trim().length < 4) return 'Muy corto';
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _phoneCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Teléfono',
-                    isDense: true,
-                    hintText: 'Opcional',
-                  ),
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+\- ]')),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _emailCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    isDense: true,
-                    hintText: 'Opcional, se genera si lo dejas vacío',
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return null;
-                    if (!v.contains('@') || !v.contains('.')) {
-                      return 'Email inválido';
-                    }
-                    return null;
-                  },
                 ),
               ],
             ),
           ),
-        ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: _saving ? null : () => Get.back(),
+              child: const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(Icons.close, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ],
       ),
-      actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Get.back(),
-          child: const Text('Cancelar'),
+    );
+  }
+
+  Widget _buildFormFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _elegantField(
+          controller: _firstNameCtrl,
+          label: 'Nombre',
+          icon: Icons.person_outline,
+          required: true,
+          textCapitalization: TextCapitalization.words,
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? 'Requerido' : null,
         ),
-        ElevatedButton.icon(
-          icon: _saving
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.check, size: 16),
-          label: Text(_saving ? 'Guardando...' : 'Crear y seleccionar'),
-          onPressed: _saving ? null : _save,
+        const SizedBox(height: 12),
+        _elegantField(
+          controller: _lastNameCtrl,
+          label: 'Apellido',
+          icon: Icons.person_outline,
+          required: true,
+          textCapitalization: TextCapitalization.words,
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+        ),
+        const SizedBox(height: 12),
+        _buildDocumentRow(),
+        const SizedBox(height: 12),
+        _elegantField(
+          controller: _phoneCtrl,
+          label: 'Teléfono',
+          icon: Icons.phone_outlined,
+          hint: 'Opcional',
+          keyboardType: TextInputType.phone,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9+\- ]')),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _elegantField(
+          controller: _emailCtrl,
+          label: 'Email',
+          icon: Icons.email_outlined,
+          hint: 'Opcional, se genera si lo dejas vacío',
+          keyboardType: TextInputType.emailAddress,
+          validator: (v) {
+            if (v == null || v.trim().isEmpty) return null;
+            if (!v.contains('@') || !v.contains('.')) return 'Email inválido';
+            return null;
+          },
         ),
       ],
+    );
+  }
+
+  /// Fila de tipo + número de documento. Antes había overflow porque el
+  /// dropdown era estrecho; ahora usamos LayoutBuilder y, en pantallas
+  /// muy angostas, apilamos los campos en columna.
+  Widget _buildDocumentRow() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 360;
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildDocumentTypeDropdown(),
+              const SizedBox(height: 12),
+              _elegantField(
+                controller: _documentNumberCtrl,
+                label: 'Número de documento',
+                icon: Icons.badge_outlined,
+                required: true,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9A-Za-z\-]')),
+                ],
+                validator: _validateDocumentNumber,
+              ),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 130,
+              child: _buildDocumentTypeDropdown(),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _elegantField(
+                controller: _documentNumberCtrl,
+                label: 'Número',
+                icon: Icons.badge_outlined,
+                required: true,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9A-Za-z\-]')),
+                ],
+                validator: _validateDocumentNumber,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String? _validateDocumentNumber(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Requerido';
+    if (v.trim().length < 4) return 'Muy corto';
+    return null;
+  }
+
+  Widget _buildDocumentTypeDropdown() {
+    return DropdownButtonFormField<DocumentType>(
+      initialValue: _documentType,
+      isExpanded: true,
+      decoration: _elegantInputDecoration(
+        label: 'Tipo doc *',
+        icon: Icons.assignment_ind_outlined,
+      ),
+      items: DocumentType.values
+          .map(
+            (t) => DropdownMenuItem(
+              value: t,
+              child: Text(
+                t.name.toUpperCase(),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: (v) {
+        if (v != null) setState(() => _documentType = v);
+      },
+    );
+  }
+
+  Widget _elegantField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool required = false,
+    String? hint,
+    TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      textCapitalization: textCapitalization,
+      inputFormatters: inputFormatters,
+      validator: validator,
+      decoration: _elegantInputDecoration(
+        label: required ? '$label *' : label,
+        icon: icon,
+        hint: hint,
+      ),
+    );
+  }
+
+  InputDecoration _elegantInputDecoration({
+    required String label,
+    required IconData icon,
+    String? hint,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, color: ElegantLightTheme.primaryBlue, size: 18),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.4),
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(
+          color: ElegantLightTheme.primaryBlue,
+          width: 1.6,
+        ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: ElegantLightTheme.errorRed),
+      ),
+      labelStyle: const TextStyle(
+        color: ElegantLightTheme.textSecondary,
+        fontSize: 13,
+      ),
+      hintStyle: TextStyle(
+        color: ElegantLightTheme.textTertiary.withValues(alpha: 0.7),
+        fontSize: 12,
+      ),
+    );
+  }
+
+  Widget _buildActions() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.cardColor,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(16),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextButton(
+              onPressed: _saving ? null : () => Get.back(),
+              style: TextButton.styleFrom(
+                foregroundColor: ElegantLightTheme.textSecondary,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Cancelar'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 2,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: _saving
+                    ? null
+                    : ElegantLightTheme.primaryGradient,
+                color: _saving
+                    ? ElegantLightTheme.textTertiary.withValues(alpha: 0.4)
+                    : null,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: _saving
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: ElegantLightTheme.primaryBlue
+                              .withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: _saving ? null : _save,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_saving)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        else
+                          const Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _saving ? 'Guardando...' : 'Crear y seleccionar',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
