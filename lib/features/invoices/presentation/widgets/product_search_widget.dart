@@ -1214,9 +1214,16 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   }
 
   /// Notifica al usuario (visual + voz) que el producto no tiene stock y
-  /// no se puede agregar a la factura. Se llama tanto desde el tap como
-  /// desde el Enter cuando `shouldValidateStock` está activo.
+  /// no se puede agregar a la factura.
+  ///
+  /// Guardia interna: si la preferencia "validar stock" está desactivada,
+  /// el método NO hace nada — el cajero ya decidió que la app permite
+  /// vender sin validar inventario, así que ni siquiera deberíamos
+  /// avisarlo. Defense in depth para que cualquier camino que llame
+  /// este método respete la preferencia.
   void _notifyOutOfStock(Product product) {
+    if (!widget.controller.shouldValidateStock) return;
+
     // Audio TTS — async, no bloquea UI. Servicio offline (no requiere red).
     AudioNotificationService.instance.announceOutOfStock();
 
