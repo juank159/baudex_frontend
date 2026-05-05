@@ -274,12 +274,15 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
           // ✅ CRÍTICO: Interceptar Enter ANTES de que llegue al TextField
           if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
             if (_showResults && _searchResults.isNotEmpty && _selectedResultIndex >= 0) {
-              print('🚫 INTERCEPTANDO Enter - hay selección activa ($_selectedResultIndex)');
               final selectedProduct = _searchResults[_selectedResultIndex];
               if (!widget.controller.shouldValidateStock || selectedProduct.stock > 0) {
                 _selectProduct(selectedProduct);
+              } else {
+                // Producto sin stock con validación activa: avisar al usuario
+                // (snackbar + audio) en lugar de silenciar la tecla.
+                _notifyOutOfStock(selectedProduct);
               }
-              return KeyEventResult.handled; // ✅ Bloquear propagación
+              return KeyEventResult.handled;
             }
           }
           return KeyEventResult.ignored; // ✅ Permitir propagación normal
@@ -423,9 +426,9 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
         borderRadius: BorderRadius.circular(isMobile ? 8 : 10),
         child: InkWell(
           borderRadius: BorderRadius.circular(isMobile ? 8 : 10),
-          onTap: canSelect ? () => _selectProduct(product) : () {
-            print('🔊 Producto sin stock: ${product.name}');
-          },
+          onTap: canSelect
+              ? () => _selectProduct(product)
+              : () => _notifyOutOfStock(product),
           child: Container(
             decoration: isSelected
                 ? BoxDecoration(
@@ -1208,6 +1211,24 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
       // Mantener focus aunque haya error
       _ensureSearchFieldFocus();
     }
+  }
+
+  /// Notifica al usuario (visual + voz) que el producto no tiene stock y
+  /// no se puede agregar a la factura. Se llama tanto desde el tap como
+  /// desde el Enter cuando `shouldValidateStock` está activo.
+  void _notifyOutOfStock(Product product) {
+    // Audio TTS — async, no bloquea UI. Servicio offline (no requiere red).
+    AudioNotificationService.instance.announceOutOfStock();
+
+    Get.snackbar(
+      'Sin stock',
+      '${product.name} no tiene unidades disponibles',
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.red.shade100,
+      colorText: Colors.red.shade800,
+      icon: const Icon(Icons.block, color: Colors.red),
+      duration: const Duration(milliseconds: 2500),
+    );
   }
 
   void _selectProduct(Product product, {double quantity = 1}) {

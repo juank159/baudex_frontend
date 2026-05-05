@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import 'package:baudex_desktop/app/core/errors/failures.dart';
+import 'package:baudex_desktop/app/core/services/audio_notification_service.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
@@ -1123,6 +1124,7 @@ class InvoiceFormController extends GetxController {
       // Solo validar stock si la preferencia está activa y no permite sobreventa
       if (shouldValidateStock && product.stock <= 0) {
         _showError('Sin Stock', '${product.name} no tiene stock disponible');
+        AudioNotificationService.instance.announceOutOfStock();
         return;
       }
     }
@@ -1169,6 +1171,7 @@ class InvoiceFormController extends GetxController {
           'Stock Insuficiente',
           'Solo hay ${product.stock} unidades disponibles de ${product.name}',
         );
+        AudioNotificationService.instance.announceOutOfStock();
         return;
       }
 
@@ -1198,6 +1201,7 @@ class InvoiceFormController extends GetxController {
           'Stock Insuficiente',
           'Solo hay ${product.stock} unidades disponibles de ${product.name}',
         );
+        AudioNotificationService.instance.announceOutOfStock();
         return;
       }
 
