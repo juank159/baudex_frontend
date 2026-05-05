@@ -1348,15 +1348,18 @@ class InvoiceFormController extends GetxController {
       }
 
       // ═══════════════════════════════════════════════════
-      // PASO 3: Filtrar activos y con stock
+      // PASO 3: Filtrar SOLO por estado activo
       // ═══════════════════════════════════════════════════
+      // Los productos sin stock SÍ aparecen en los resultados (con la
+      // marca visual `canSelect=false` en _buildResultItem). Si el cajero
+      // intenta agregarlos y `shouldValidateStock=true`, se le notifica
+      // con audio + snackbar y la app rechaza la acción. Filtrar acá los
+      // sin stock los ocultaba del cajero, que es lo opuesto al UX
+      // pedido: ver que existen pero no poder venderlos.
       final uniqueResults = <String, Product>{};
-      final validateStock = shouldValidateStock;
       for (final product in localResults) {
         if (product.status == ProductStatus.active) {
-          if (!validateStock || product.stock > 0) {
-            uniqueResults[product.id] = product;
-          }
+          uniqueResults[product.id] = product;
         }
       }
 
