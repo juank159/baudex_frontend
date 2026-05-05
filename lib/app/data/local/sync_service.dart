@@ -3061,28 +3061,6 @@ class SyncService extends GetxService {
       ),
     );
 
-    // Resetear isSynced=true en el IsarProduct: el cambio local ya está
-    // reflejado en el backend, así el próximo PULL puede traer datos frescos
-    // (incluido el stock real recalculado por FIFO en el servidor).
-    try {
-      final isar = IsarDatabase.instance.database;
-      await isar.writeTxn(() async {
-        final isarProduct = await isar.isarProducts
-            .filter()
-            .serverIdEqualTo(productId)
-            .findFirst();
-        if (isarProduct != null && !isarProduct.isSynced) {
-          isarProduct.isSynced = true;
-          await isar.isarProducts.put(isarProduct);
-        }
-      });
-    } catch (e) {
-      AppLogger.w(
-        'No se pudo resetear isSynced en producto $productId tras merma: $e',
-        tag: 'SYNC',
-      );
-    }
-
     AppLogger.i(
       'Merma sincronizada con servidor: producto=$productId qty=$quantity',
       tag: 'SYNC',

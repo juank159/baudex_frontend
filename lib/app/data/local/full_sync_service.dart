@@ -576,17 +576,6 @@ class FullSyncService extends GetxService {
     int page = 1;
     bool hasMore = true;
 
-    // Respetar isSynced=false: productos con cambios locales pendientes de PUSH
-    // (merma offline, factura offline, etc.) NO se sobreescriben con datos del
-    // servidor. Cada PUSH handler debe resetear isSynced=true cuando complete
-    // exitosamente para que el siguiente PULL pueda traer datos frescos.
-    final unsyncedProducts = await _isar.isarProducts
-        .filter()
-        .isSyncedEqualTo(false)
-        .findAll();
-    final unsyncedServerIds =
-        unsyncedProducts.map((p) => p.serverId).toSet();
-
     while (hasMore && !_abortRequested) {
       final response = await remoteDS.getProducts(
         ProductQueryModel(page: page, limit: _pageSize, includePrices: true, includeCategory: true),
@@ -595,12 +584,10 @@ class FullSyncService extends GetxService {
       if (response.data.isEmpty) break;
 
       await _isar.writeTxn(() async {
-        for (final model in response.data) {
-          // Skip productos con cambios locales pendientes
-          if (unsyncedServerIds.contains(model.id)) continue;
-          final isarModel = IsarProduct.fromModel(model);
-          await _isar.isarProducts.putByServerId(isarModel);
-        }
+        final isarModels = response.data.map((model) {
+          return IsarProduct.fromModel(model);
+        }).toList();
+        await _isar.isarProducts.putAllByServerId(isarModels);
       });
 
       totalSynced += response.data.length;
