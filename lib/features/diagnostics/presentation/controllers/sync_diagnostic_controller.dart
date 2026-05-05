@@ -1,4 +1,6 @@
 // lib/features/diagnostics/presentation/controllers/sync_diagnostic_controller.dart
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 
@@ -442,6 +444,3 @@ class SyncDiagnosticController extends GetxController {
   }
 }
 
-void unawaited(Future<void> future) {
-  // ignore: avoid_returning_null_for_void
-}
