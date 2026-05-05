@@ -47,12 +47,10 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   // Timer para debounce
   Timer? _debounceTimer;
   static const Duration _debounceDuration = Duration(milliseconds: 500);
-  
-  // ✅ NUEVO: Timer para mantener focus persistente
-  Timer? _focusTimer;
-  static const Duration _focusCheckDuration = Duration(milliseconds: 100);
-  
-  // ✅ NUEVO: Control para pausar temporalmente la restauración de focus
+
+  // Control para pausar la restauración automática de focus.
+  // El padre (ej: CustomerSelectorWidget) lo puede activar mientras el
+  // usuario está editando otros campos.
   bool _pauseFocusRestoration = false;
 
   @override
@@ -60,29 +58,43 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
     super.initState();
     _searchController.addListener(_onSearchChanged);
 
-    // ✅ NUEVO: Inicializar servicio de audio para notificaciones de voz
+    // Reaccionar SOLO cuando el focus realmente cambia (no en un timer).
+    _focusNode.addListener(_onFocusChanged);
+
     _initializeAudioService();
 
-    // Auto focus al abrir la pantalla - con delay para evitar bloqueos
+    // Auto focus al abrir la pantalla — un solo intento, sin timer continuo.
     if (widget.autoFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) {
-            _focusNode.requestFocus(); // TextField focus
-            _startPersistentFocusMonitoring(); // ✅ NUEVO: Iniciar monitoreo de focus para scanning
-          }
-        });
-      });
-    } else {
-      // ✅ NUEVO: Siempre iniciar focus monitoring para escáner de códigos de barras
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            _startPersistentFocusMonitoring();
-          }
+          if (mounted) _focusNode.requestFocus();
         });
       });
     }
+  }
+
+  /// Reacciona a cambios de focus del campo de búsqueda. Diseñado para
+  /// barcode scanning: si el campo perdió focus pero NADIE más lo tomó,
+  /// lo recuperamos para que el siguiente escaneo siga llegando aquí.
+  /// Si otro campo (cliente, cantidad, etc) tomó focus, lo respetamos.
+  void _onFocusChanged() {
+    if (!mounted || _pauseFocusRestoration) return;
+    if (_focusNode.hasFocus) return;
+    if (_hasModalRouteAbove()) return;
+
+    // Si OTRO widget (otro TextField, botón con focus) tiene primary focus,
+    // no robarlo. Solo restaurar si nadie más lo tiene.
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary != null && primary != _focusNode) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _pauseFocusRestoration) return;
+      if (_focusNode.hasFocus) return;
+      if (_hasModalRouteAbove()) return;
+      if (FocusManager.instance.primaryFocus != null &&
+          FocusManager.instance.primaryFocus != _focusNode) return;
+      _focusNode.requestFocus();
+    });
   }
 
   /// ✅ NUEVO: Inicializar servicio de notificaciones de audio
@@ -99,37 +111,18 @@ class ProductSearchWidgetState extends State<ProductSearchWidget> {
   void dispose() {
     try {
       _debounceTimer?.cancel();
-      _focusTimer?.cancel(); // ✅ NUEVO: Cancelar timer de focus
-      
-      // Remover listener antes de dispose
+
       _searchController.removeListener(_onSearchChanged);
-      
+      _focusNode.removeListener(_onFocusChanged);
+
       _searchController.dispose();
       _focusNode.dispose();
-      _keyboardFocusNode.dispose(); // ✅ NUEVO: Limpiar keyboard focus node
-      _resultsScrollController.dispose(); // ✅ NUEVO: Limpiar scroll controller
+      _keyboardFocusNode.dispose();
+      _resultsScrollController.dispose();
     } catch (e) {
       print('⚠️ Error en dispose de ProductSearchWidget: $e');
     }
     super.dispose();
-  }
-
-  // ✅ MEJORADO: Sistema de focus persistente para barcode scanning
-  void _startPersistentFocusMonitoring() {
-    print('🔍 FOCUS: Iniciando monitoreo de focus persistente para códigos de barras');
-    
-    _focusTimer = Timer.periodic(_focusCheckDuration, (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      
-      // Solo mantener focus activo si no hay dialogs modales abiertos Y no está pausado
-      if (!_hasModalRouteAbove() && !_focusNode.hasFocus && !_pauseFocusRestoration) {
-        _focusNode.requestFocus();
-        print('🔍 Focus restaurado automáticamente');
-      }
-    });
   }
 
   // ✅ NUEVO: Verificar si hay rutas modales abiertas (dialogs)
