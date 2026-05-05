@@ -1351,7 +1351,7 @@ class InvoiceDetailController extends GetxController {
       backgroundColor: Colors.red.shade100,
       colorText: Colors.red.shade800,
       icon: const Icon(Icons.error, color: Colors.red),
-      duration: const Duration(seconds: 4),
+      duration: const Duration(milliseconds: 2500),
     );
   }
 
@@ -1363,7 +1363,7 @@ class InvoiceDetailController extends GetxController {
       backgroundColor: Colors.green.shade100,
       colorText: Colors.green.shade800,
       icon: const Icon(Icons.check_circle, color: Colors.green),
-      duration: const Duration(seconds: 3),
+      duration: const Duration(milliseconds: 2000),
     );
   }
 
@@ -1375,7 +1375,7 @@ class InvoiceDetailController extends GetxController {
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
       icon: const Icon(Icons.info, color: Colors.blue),
-      duration: const Duration(seconds: 3),
+      duration: const Duration(milliseconds: 2000),
     );
   }
 
