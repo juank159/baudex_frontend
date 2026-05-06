@@ -576,6 +576,26 @@ class FullSyncService extends GetxService {
     int page = 1;
     bool hasMore = true;
 
+    // Proteger productos con cambios locales pendientes de PUSH (ej: stock
+    // descontado por una factura offline o por una merma offline). Sin esta
+    // protección, el PULL pisa los stocks locales con los del servidor y el
+    // descuento offline "se deshace" en pantalla.
+    //
+    // IMPORTANTE: solo se protegen productos con `serverId` REAL (UUID).
+    // Los productos creados offline (`product_offline_*`) NO entran a este
+    // skip — esa fue la causa del bug del revert 367d638 (productos
+    // offline desaparecían). Esos siguen el flujo normal de upsert: cuando
+    // el handler de CREATE termina exitoso, su `serverId` ya es UUID real
+    // y este skip empieza a protegerlos en el siguiente PULL.
+    final unsyncedProducts = await _isar.isarProducts
+        .filter()
+        .isSyncedEqualTo(false)
+        .findAll();
+    final protectedServerIds = unsyncedProducts
+        .where((p) => !p.serverId.startsWith('product_offline_'))
+        .map((p) => p.serverId)
+        .toSet();
+
     while (hasMore && !_abortRequested) {
       final response = await remoteDS.getProducts(
         ProductQueryModel(page: page, limit: _pageSize, includePrices: true, includeCategory: true),
@@ -584,10 +604,12 @@ class FullSyncService extends GetxService {
       if (response.data.isEmpty) break;
 
       await _isar.writeTxn(() async {
-        final isarModels = response.data.map((model) {
-          return IsarProduct.fromModel(model);
-        }).toList();
-        await _isar.isarProducts.putAllByServerId(isarModels);
+        for (final model in response.data) {
+          // Skip productos con cambios locales pendientes (UUID real + isSynced=false)
+          if (protectedServerIds.contains(model.id)) continue;
+          final isarModel = IsarProduct.fromModel(model);
+          await _isar.isarProducts.putByServerId(isarModel);
+        }
       });
 
       totalSynced += response.data.length;

@@ -4927,6 +4927,51 @@ class SyncService extends GetxService {
                   tag: 'SYNC',
                 );
               }
+
+              // ✅ CRÍTICO: resetear isSynced=true en los productos descontados
+              // por esta factura. Sin esto, el flag queda en false para siempre
+              // y el siguiente PULL los protege (skip en _syncProducts) →
+              // los productos NUNCA se actualizan con datos frescos del backend.
+              try {
+                final itemsPayload = finalData['items'];
+                if (itemsPayload is List) {
+                  final productIdsToReset = <String>{};
+                  for (final item in itemsPayload) {
+                    if (item is Map && item['productId'] is String) {
+                      final pid = item['productId'] as String;
+                      if (pid.isNotEmpty) productIdsToReset.add(pid);
+                    }
+                  }
+                  if (productIdsToReset.isNotEmpty) {
+                    int resetCount = 0;
+                    await isar.writeTxn(() async {
+                      for (final pid in productIdsToReset) {
+                        final p = await isar.isarProducts
+                            .filter()
+                            .serverIdEqualTo(pid)
+                            .findFirst();
+                        if (p != null && !p.isSynced) {
+                          p.isSynced = true;
+                          p.lastSyncAt = DateTime.now();
+                          await isar.isarProducts.put(p);
+                          resetCount++;
+                        }
+                      }
+                    });
+                    if (resetCount > 0) {
+                      AppLogger.i(
+                        'Reseteado isSynced=true en $resetCount productos (post-Invoice sync)',
+                        tag: 'SYNC',
+                      );
+                    }
+                  }
+                }
+              } catch (e) {
+                AppLogger.w(
+                  'Error reseteando isSynced en productos: $e',
+                  tag: 'SYNC',
+                );
+              }
             } catch (e) {
               AppLogger.w('Error actualizando factura en ISAR: $e', tag: 'SYNC');
             }
