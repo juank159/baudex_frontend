@@ -55,6 +55,17 @@ class SyncDiagnosticScreen extends GetView<SyncDiagnosticController> {
                         ],
                       );
                     }),
+                    Obx(() {
+                      if (controller.orphanedRecords.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Column(
+                        children: [
+                          _OrphanedRecordsSection(isNarrow: isNarrow),
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    }),
                     _RecentEventsSection(isNarrow: isNarrow),
                     const SizedBox(height: 100),
                   ],
@@ -546,6 +557,241 @@ class _ExpandableEntityListState extends State<_ExpandableEntityList> {
         ],
       ],
     );
+  }
+}
+
+// ==================== ORPHANED RECORDS ====================
+
+class _OrphanedRecordsSection extends GetView<SyncDiagnosticController> {
+  final bool isNarrow;
+  const _OrphanedRecordsSection({required this.isNarrow});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Registros huérfanos',
+      icon: Icons.warning_amber_rounded,
+      child: Obx(() {
+        final orphans = controller.orphanedRecords;
+        final recoverable = orphans.where((o) => o.canAutoRequeue).length;
+        final manual = orphans.length - recoverable;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ElegantLightTheme.warningOrange.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: ElegantLightTheme.warningOrange.withValues(alpha: 0.3),
+                ),
+              ),
+              child: const Text(
+                'Registros creados offline que no tienen una operación de '
+                'sincronización activa. Esto puede pasar si una versión '
+                'anterior del sync silenció errores. Reencolar reintenta '
+                'subirlos al servidor.',
+                style: TextStyle(fontSize: 12, height: 1.4),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                _SummaryChip(
+                  label: '$recoverable recuperables',
+                  color: ElegantLightTheme.primaryBlue,
+                ),
+                if (manual > 0)
+                  _SummaryChip(
+                    label: '$manual requieren acción manual',
+                    color: ElegantLightTheme.warningOrange,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...orphans.take(15).map((o) => _OrphanRow(orphan: o)),
+            if (orphans.length > 15)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '+${orphans.length - 15} más…',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 14),
+            if (recoverable > 0)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _confirmRequeueAll(context, recoverable),
+                  icon: const Icon(Icons.cloud_upload_outlined, size: 16),
+                  label: Text('Reencolar todos los recuperables ($recoverable)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ElegantLightTheme.primaryBlue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Future<void> _confirmRequeueAll(BuildContext context, int count) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reencolar registros huérfanos'),
+        content: Text(
+          'Se agregarán $count registros a la cola de sincronización. Si hay '
+          'conexión, se sincronizarán de inmediato.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ElegantLightTheme.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reencolar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await controller.requeueAllOrphans();
+    }
+  }
+}
+
+class _OrphanRow extends GetView<SyncDiagnosticController> {
+  final OrphanedRecord orphan;
+  const _OrphanRow({required this.orphan});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: orphan.canAutoRequeue
+                  ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.1)
+                  : ElegantLightTheme.warningOrange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              orphan.entityType,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: orphan.canAutoRequeue
+                    ? ElegantLightTheme.primaryBlue
+                    : ElegantLightTheme.warningOrange,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  orphan.label.isEmpty ? '(sin nombre)' : orphan.label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  AppFormatters.formatDateTime(orphan.createdAt),
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          if (orphan.canAutoRequeue)
+            IconButton(
+              onPressed: () => controller.requeueOrphan(orphan),
+              icon: const Icon(
+                Icons.cloud_upload_outlined,
+                size: 18,
+                color: ElegantLightTheme.primaryBlue,
+              ),
+              tooltip: 'Reencolar',
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: EdgeInsets.zero,
+            ),
+          IconButton(
+            onPressed: () => _confirmDelete(context),
+            icon: Icon(
+              Icons.delete_outline,
+              size: 18,
+              color: Colors.grey[600],
+            ),
+            tooltip: 'Eliminar',
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar registro local'),
+        content: Text(
+          'Se eliminará "${orphan.label}" de la base local. Esta acción NO '
+          'lo borra del servidor (si ya estuviera ahí). ¿Continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(
+              'Eliminar',
+              style: TextStyle(color: ElegantLightTheme.errorRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await controller.deleteOrphan(orphan);
+    }
   }
 }
 

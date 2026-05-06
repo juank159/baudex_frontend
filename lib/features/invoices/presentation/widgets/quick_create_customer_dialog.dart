@@ -395,7 +395,7 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
 
   Widget _buildDocumentTypeDropdown() {
     return DropdownButtonFormField<DocumentType>(
-      initialValue: _documentType,
+      value: _documentType,
       isExpanded: true,
       decoration: _elegantInputDecoration(
         label: 'Tipo doc *',

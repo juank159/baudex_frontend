@@ -3631,14 +3631,39 @@ class SyncService extends GetxService {
             'Actualizando cliente en servidor: ${operation.entityId}',
             tag: 'SYNC',
           );
+          // Misma defensa que en CREATE: phone/mobile sólo si normalizan
+          // a +57XXXXXXXXXX exacto; paymentTerms sólo si es >= 1.
+          String? upPhone = _normalizeColombianPhone(data['phone']);
+          if (upPhone != null && !RegExp(r'^\+57\d{10}$').hasMatch(upPhone)) {
+            AppLogger.w(
+              'Sync Customer UPDATE: phone "$upPhone" inválido — omitiendo',
+              tag: 'SYNC',
+            );
+            upPhone = null;
+          }
+          String? upMobile = _normalizeColombianPhone(data['mobile']);
+          if (upMobile != null && !RegExp(r'^\+57\d{10}$').hasMatch(upMobile)) {
+            AppLogger.w(
+              'Sync Customer UPDATE: mobile "$upMobile" inválido — omitiendo',
+              tag: 'SYNC',
+            );
+            upMobile = null;
+          }
+          final rawUpPaymentTerms = data['paymentTerms'];
+          int? safeUpPaymentTerms;
+          if (rawUpPaymentTerms is int && rawUpPaymentTerms >= 1) {
+            safeUpPaymentTerms = rawUpPaymentTerms;
+          } else if (rawUpPaymentTerms is num && rawUpPaymentTerms >= 1) {
+            safeUpPaymentTerms = rawUpPaymentTerms.toInt();
+          }
           // ✅ Usar constructor directo (no fromParams) porque data ya tiene strings
           final updateRequest = UpdateCustomerRequestModel(
             firstName: data['firstName'],
             lastName: data['lastName'],
             companyName: data['companyName'],
             email: data['email'],
-            phone: _normalizeColombianPhone(data['phone']),
-            mobile: _normalizeColombianPhone(data['mobile']),
+            phone: upPhone,
+            mobile: upMobile,
             documentType: data['documentType'],
             documentNumber: data['documentNumber'],
             address: data['address'],
@@ -3648,7 +3673,7 @@ class SyncService extends GetxService {
             country: data['country'],
             status: data['status'],
             creditLimit: data['creditLimit']?.toDouble(),
-            paymentTerms: data['paymentTerms'],
+            paymentTerms: safeUpPaymentTerms,
             notes: data['notes'],
             metadata: data['metadata'] != null
                 ? Map<String, dynamic>.from(data['metadata'])
