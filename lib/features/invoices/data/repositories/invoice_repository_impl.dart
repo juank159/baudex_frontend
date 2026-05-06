@@ -20,6 +20,8 @@ import '../datasources/invoice_remote_datasource.dart';
 import '../models/invoice_model.dart';
 import '../models/isar/isar_invoice.dart';
 import 'invoice_offline_repository_simple.dart';
+import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
+import '../../../products/data/models/isar/isar_product.dart';
 
 import '../models/create_invoice_request_model.dart';
 import '../models/update_invoice_request_model.dart';
@@ -685,6 +687,22 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         print('💾 Nueva factura cacheada');
       } catch (e) {
         print('⚠️ Error al cachear nueva factura: $e');
+      }
+
+      // ✅ DESCUENTO LOCAL INMEDIATO (espejo del flujo offline).
+      // El backend ya descontó stock y FIFO en su transacción. Sin esto,
+      // ISAR seguiría con el stock viejo hasta que el FullSync periódico
+      // (cada ~60s) lo refresque. Aplicamos el mismo descuento localmente
+      // para que la siguiente venta vea cantidades correctas al instante.
+      // NOTA: NO marcamos productos como unsynced — backend ya tiene la
+      // verdad. NO encolamos movement — backend ya lo registró.
+      // Si esto falla, NO afecta la factura ya creada.
+      try {
+        await _applyLocalInventoryDeductionAfterOnlineSale(
+          items: createdInvoice.items,
+        );
+      } catch (e) {
+        print('⚠️ Error al aplicar descuento local post-online sale: $e');
       }
 
       // ✅ Para facturas a crédito puro, crear el CustomerCredit en el servidor
@@ -1573,6 +1591,84 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         return IsarCreditStatus.cancelled;
       case CreditStatus.overdue:
         return IsarCreditStatus.overdue;
+    }
+  }
+
+  // ==================== INVENTARIO LOCAL POST-VENTA ONLINE ====================
+
+  /// Descuenta stock e inventario FIFO localmente DESPUÉS de un POST online
+  /// exitoso. El backend ya hizo el descuento en su transacción; este método
+  /// solo refleja el cambio en ISAR para que la UI no espere al próximo
+  /// FullSync (~60s) para mostrar stocks correctos.
+  ///
+  /// Diferencias clave con el descuento offline:
+  ///   * NO marca productos como `isSynced=false` — backend tiene la verdad.
+  ///   * NO encola operaciones de inventory_movement — backend ya las registró.
+  ///   * Si algo falla, simplemente loguea y continúa (la factura YA existe
+  ///     en backend; el FullSync próximo corregirá cualquier discrepancia).
+  Future<void> _applyLocalInventoryDeductionAfterOnlineSale({
+    required List<dynamic> items,
+  }) async {
+    final isar = IsarDatabase.instance.database;
+    final stockDeductions = <String, double>{}; // productId → qty acumulada
+
+    for (final item in items) {
+      // dynamic accept Invoice items o item maps con productId/quantity
+      final productId = item.productId as String?;
+      if (productId == null || productId.isEmpty) continue;
+      final qty = (item.quantity as num).toDouble();
+      if (qty <= 0) continue;
+
+      // 1) Consumir batches FIFO (más antiguos primero, igual que backend)
+      final batches = await isar.isarInventoryBatchs
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .productIdEqualTo(productId)
+          .findAll();
+      batches.sort((a, b) => a.entryDate.compareTo(b.entryDate));
+
+      int remaining = qty.toInt();
+      final updatedBatches = <IsarInventoryBatch>[];
+      for (final batch in batches) {
+        if (remaining <= 0) break;
+        final canTake = batch.currentQuantity;
+        if (canTake <= 0) continue;
+        final consumed = remaining > canTake ? canTake : remaining;
+        batch.consume(consumed, modifiedBy: 'online_sale');
+        updatedBatches.add(batch);
+        remaining -= consumed;
+      }
+      if (updatedBatches.isNotEmpty) {
+        await isar.writeTxn(() async {
+          await isar.isarInventoryBatchs.putAll(updatedBatches);
+        });
+      }
+
+      stockDeductions[productId] = (stockDeductions[productId] ?? 0) + qty;
+    }
+
+    // 2) Decrementar IsarProduct.stock en una sola transacción
+    if (stockDeductions.isNotEmpty) {
+      final productsToUpdate = <IsarProduct>[];
+      for (final entry in stockDeductions.entries) {
+        final p = await isar.isarProducts
+            .filter()
+            .serverIdEqualTo(entry.key)
+            .findFirst();
+        if (p == null) continue;
+        p.stock = (p.stock - entry.value).clamp(0.0, double.infinity).toDouble();
+        // Importante: NO p.markAsUnsynced(). El backend ya tiene el dato
+        // correcto. Si markamos unsynced, el siguiente FullSync skipearía
+        // este producto (por el patrón del commit 7b57055) y nunca llegaría
+        // un refresh fresco — quedaría protegido para siempre.
+        productsToUpdate.add(p);
+      }
+      if (productsToUpdate.isNotEmpty) {
+        await isar.writeTxn(() async {
+          await isar.isarProducts.putAll(productsToUpdate);
+        });
+      }
     }
   }
 }

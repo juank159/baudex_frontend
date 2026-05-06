@@ -19,6 +19,7 @@ import '../datasources/credit_note_remote_datasource.dart';
 import '../models/credit_note_model.dart';
 import '../models/isar/isar_credit_note.dart';
 import '../../../products/data/models/isar/isar_product.dart';
+import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
 
 class CreditNoteRepositoryImpl implements CreditNoteRepository {
   final CreditNoteRemoteDataSource remoteDataSource;
@@ -294,11 +295,24 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       final creditNote = await remoteDataSource.confirmCreditNote(id);
       AppLogger.i('Nota de crédito confirmada exitosamente', tag: 'CREDIT_NOTE');
 
-      // ✅ CRÍTICO: backend ya restauró inventario en el endpoint /confirm
-      // (restoreToBatchesIntelligent + customer balance). Reseteamos
-      // isSynced=true en los productos involucrados para que el siguiente
-      // FullSync traiga el stock fresco del servidor — sin esto el
-      // _syncProducts seguiría protegiendo los productos eternamente.
+      // ✅ CRÍTICO: backend ya restauró inventario en /confirm
+      // (restoreToBatchesIntelligent + customer balance). Aplicamos el mismo
+      // efecto en ISAR local PARA QUE LA UI VEA EL CAMBIO INMEDIATO sin
+      // esperar al FullSync periódico (~60s).
+      // PASO 1: restaurar localmente stock + batches.
+      // PASO 2: resetear isSynced=true para que el próximo FullSync pueda
+      //         traer datos frescos del backend si hay otras actualizaciones.
+      try {
+        await _applyLocalInventoryRestoreAfterOnlineConfirm(
+          items: creditNote.items,
+        );
+      } catch (e) {
+        AppLogger.w(
+          'Error aplicando restauración local post-confirm: $e',
+          tag: 'CREDIT_NOTE',
+        );
+      }
+
       try {
         final productIds = <String>{};
         for (final item in creditNote.items) {
@@ -721,6 +735,78 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
     } catch (e) {
       AppLogger.e('Error deleting credit note offline: $e', tag: 'CREDIT_NOTE');
       return Left(CacheFailure('Error al eliminar nota de crédito offline: $e'));
+    }
+  }
+
+  // ==================== INVENTARIO LOCAL POST-CONFIRM ONLINE ====================
+
+  /// Restaura stock e inventario localmente DESPUÉS de un POST exitoso a
+  /// /confirm. El backend ya aplicó `restoreToBatchesIntelligent` y ajustó
+  /// `customer balance`. Aquí solo refleja el cambio en ISAR para UI inmediata.
+  ///
+  /// Espejo de `_applyLocalInventoryDeductionAfterOnlineSale` pero para
+  /// restauración (suma) en vez de descuento (resta).
+  ///
+  /// NO marca productos como `isSynced=false` — el backend ya tiene la verdad.
+  /// Si falla, NO afecta la confirmación remota (que ya completó).
+  Future<void> _applyLocalInventoryRestoreAfterOnlineConfirm({
+    required List<dynamic> items,
+  }) async {
+    final isar = IsarDatabase.instance.database;
+    final stockRestorations = <String, double>{};
+
+    for (final item in items) {
+      final productId = item.productId as String?;
+      if (productId == null || productId.isEmpty) continue;
+      final qty = (item.quantity as num).toDouble();
+      if (qty <= 0) continue;
+
+      // Restaurar a batches (LIFO inverso: más reciente primero)
+      final batches = await isar.isarInventoryBatchs
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .productIdEqualTo(productId)
+          .findAll();
+      batches.sort((a, b) => b.entryDate.compareTo(a.entryDate));
+
+      int remaining = qty.toInt();
+      final updatedBatches = <IsarInventoryBatch>[];
+      for (final batch in batches) {
+        if (remaining <= 0) break;
+        final headroom = batch.originalQuantity - batch.currentQuantity;
+        if (headroom <= 0) continue;
+        final toRestore = remaining > headroom ? headroom : remaining;
+        batch.addQuantity(toRestore, modifiedBy: 'online_credit_confirm');
+        updatedBatches.add(batch);
+        remaining -= toRestore;
+      }
+      if (updatedBatches.isNotEmpty) {
+        await isar.writeTxn(() async {
+          await isar.isarInventoryBatchs.putAll(updatedBatches);
+        });
+      }
+
+      stockRestorations[productId] = (stockRestorations[productId] ?? 0) + qty;
+    }
+
+    if (stockRestorations.isNotEmpty) {
+      final productsToUpdate = <IsarProduct>[];
+      for (final entry in stockRestorations.entries) {
+        final p = await isar.isarProducts
+            .filter()
+            .serverIdEqualTo(entry.key)
+            .findFirst();
+        if (p == null) continue;
+        p.stock = (p.stock + entry.value).toDouble();
+        // NO p.markAsUnsynced() — backend ya tiene la verdad.
+        productsToUpdate.add(p);
+      }
+      if (productsToUpdate.isNotEmpty) {
+        await isar.writeTxn(() async {
+          await isar.isarProducts.putAll(productsToUpdate);
+        });
+      }
     }
   }
 }
