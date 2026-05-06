@@ -1442,9 +1442,54 @@ class SyncService extends GetxService {
     }
   }
 
-  /// Forzar sincronización manual
+  /// Forzar sincronización manual.
+  ///
+  /// Cuando el usuario pide explícitamente sincronizar (botón en la
+  /// pantalla de Diagnóstico, retry de operaciones fallidas, etc.), NO
+  /// confiamos en el cache de `isServerReachable`. El cache puede estar
+  /// stale: el servidor pudo haberse caído por minutos y el flag quedó
+  /// en false, pero ya está vivo y el usuario quiere usarlo.
+  ///
+  /// Hacemos un health-check fresh (~5s) y, si el servidor responde,
+  /// reseteamos el flag antes de proceder. Sin este reset, `syncAll()`
+  /// aborta inmediatamente con "Servidor no alcanzable, omitiendo
+  /// sincronización" y las operaciones offline jamás se sincronizan.
   Future<void> forceSyncNow() async {
     AppLogger.i('Sincronización manual forzada', tag: 'SYNC');
+
+    try {
+      final networkInfo = Get.find<NetworkInfo>();
+      if (!networkInfo.isServerReachable) {
+        AppLogger.d(
+          'Sync manual: cache marca servidor como inalcanzable, '
+          'verificando con health-check fresh...',
+          tag: 'SYNC',
+        );
+        final reachable = await networkInfo.canReachServer(
+          timeout: const Duration(seconds: 5),
+        );
+        if (reachable) {
+          networkInfo.resetServerReachability();
+          AppLogger.i(
+            'Sync manual: servidor recuperado, procediendo',
+            tag: 'SYNC',
+          );
+        } else {
+          AppLogger.w(
+            'Sync manual: servidor confirmado inalcanzable',
+            tag: 'SYNC',
+          );
+          // syncAll() detectará el flag false y abortará igualmente,
+          // pero ahora con confirmación real, no cache stale.
+        }
+      }
+    } catch (e) {
+      AppLogger.w(
+        'Error verificando servidor en sync manual: $e',
+        tag: 'SYNC',
+      );
+    }
+
     await syncAll();
   }
 
