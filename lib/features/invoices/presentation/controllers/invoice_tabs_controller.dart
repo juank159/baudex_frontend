@@ -102,15 +102,9 @@ class InvoiceTabsController extends GetxController
   }
 
   void _updateTabController() {
-    print('🔖 DEBUG: _updateTabController() called with ${_tabs.length} tabs');
-
     _tabController?.dispose();
     if (_tabs.isNotEmpty) {
       final initialIndex = _currentTabIndex.value.clamp(0, _tabs.length - 1);
-      print(
-        '🔖 DEBUG: Creating TabController with length: ${_tabs.length}, initialIndex: $initialIndex',
-      );
-
       _tabController = TabController(
         length: _tabs.length,
         vsync: this,
@@ -119,15 +113,10 @@ class InvoiceTabsController extends GetxController
 
       _tabController!.addListener(() {
         if (_tabController!.index != _currentTabIndex.value) {
-          print('🔖 DEBUG: Tab index changed to: ${_tabController!.index}');
           _currentTabIndex.value = _tabController!.index;
           _updateTabActivity(_tabController!.index);
         }
       });
-
-      print('🔖 DEBUG: TabController created successfully');
-    } else {
-      print('🔖 DEBUG: No tabs available, TabController set to null');
     }
   }
 

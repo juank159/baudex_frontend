@@ -72,9 +72,6 @@ class ProductModel {
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     try {
-      print('🔍 ProductModel.fromJson: Procesando JSON');
-      print('📋 JSON keys: ${json.keys.toList()}');
-
       return ProductModel(
         id: json['id'] as String,
         name: json['name'] as String,

@@ -78,8 +78,6 @@ class InvoiceItemModel extends InvoiceItem {
   }
 
   factory InvoiceItemModel.fromJson(Map<String, dynamic> json) {
-    print('🔍 InvoiceItemModel.fromJson: Procesando item ${json['id']}');
-
     try {
       return InvoiceItemModel(
         id: json['id']?.toString() ?? '',

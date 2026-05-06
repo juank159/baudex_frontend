@@ -25,9 +25,6 @@ class ProductFormScreen extends GetView<ProductFormController> {
 
   @override
   Widget build(BuildContext context) {
-    print('🖼️ ProductFormScreen: Construyendo pantalla...');
-    print('DEBUG: context.isMobile es: ${context.isMobile}');
-
     return Scaffold(
       appBar: _buildAppBar(context),
       resizeToAvoidBottomInset:

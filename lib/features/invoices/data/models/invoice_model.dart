@@ -240,8 +240,6 @@ class InvoiceModel extends Invoice {
   }
 
   factory InvoiceModel.fromJson(Map<String, dynamic> json) {
-    print('🔍 InvoiceModel.fromJson: Procesando factura ${json['id']}');
-
     try {
       return InvoiceModel(
         id: json['id']?.toString() ?? '',
@@ -330,7 +328,6 @@ class InvoiceModel extends Invoice {
       }
     }
 
-    print('✅ Items parseados: ${items.length} de ${itemsData.length}');
     return items;
   }
 
@@ -360,7 +357,6 @@ class InvoiceModel extends Invoice {
       }
     }
 
-    print('✅ Payments parseados: ${payments.length} de ${paymentsData.length}');
     return payments;
   }
 

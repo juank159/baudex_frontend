@@ -202,7 +202,7 @@ class DashboardController extends GetxController
     if (!_isAlive) return;
     // Guard: evitar cargas concurrentes
     if (_isLoadingData) {
-      print('📊 Dashboard: Carga ya en progreso, ignorando duplicado');
+      // Carga ya en progreso, ignorando duplicado
       return;
     }
     _isLoadingData = true;
@@ -212,7 +212,6 @@ class DashboardController extends GetxController
       final endDate = _selectedDateRange.value?.end;
 
       // ═══ PASO 1: ISAR instantáneo (offline-first) ═══
-      print('📊 Dashboard: Cargando desde ISAR (offline-first)...');
       await _loadAllOffline(startDate, endDate);
       if (!_isAlive) return;
       update();
@@ -247,7 +246,6 @@ class DashboardController extends GetxController
         final isOnline = await networkInfo.isConnected;
         if (!isOnline || !_isAlive || v != _dataVersion) return;
 
-        print('🌐 Dashboard: Refrescando desde servidor en background...');
         await Future.wait([
           // Cada timeout también resetea su flag de loading. Sin esto, si el
           // backend tarda más que el timeout, el flag interno queda en true
@@ -301,7 +299,6 @@ class DashboardController extends GetxController
 
         if (!_isAlive || v != _dataVersion) return;
         update();
-        print('✅ Dashboard: Datos actualizados desde servidor');
       } catch (e) {
         print('⚠️ Dashboard: Error en refresh background: $e');
       }
@@ -347,7 +344,6 @@ class DashboardController extends GetxController
         if (exactProfitability != null) {
           _profitabilityStats.value = exactProfitability;
           hasExactCache = true;
-          print('💾 Profitability offline: cache EXACTO del backend (COGS=${exactProfitability.totalCOGS})');
         } else {
           // Fallback: usar ISAR revenue como base, pero intentar obtener ratio COGS del cache
           final fallbackProfitability = await _getFallbackProfitabilityStats();
@@ -423,12 +419,6 @@ class DashboardController extends GetxController
         if (hasExactCache) {
           _harmonizeFinancialData();
         }
-
-        print('📴 Dashboard offline: Revenue=${_dashboardStats.value?.sales.totalAmount}, '
-            'Expenses=${_dashboardStats.value?.expenses.totalAmount}, '
-            'NetProfit=${_profitabilityStats.value?.netProfit}, '
-            'Categories=${rawExpensesByCategory.length}, '
-            'CacheExacto=$hasExactCache');
       }
 
       if (!_isAlive) return;
@@ -467,9 +457,6 @@ class DashboardController extends GetxController
     if (profitability.totalRevenue <= 0) return;
 
     _dashboardStats.value = stats.copyWith(profitability: profitability);
-    print('🔄 Datos armonizados: Collected=${stats.totalCollected}, Billed=${stats.totalBilled}, '
-        'COGS=${profitability.totalCOGS}, GrossProfit=${profitability.grossProfit}, '
-        'NetProfit=${profitability.netProfit}');
   }
 
   Future<void> loadDashboardStats({
@@ -481,7 +468,6 @@ class DashboardController extends GetxController
     _statsError.value = null;
 
     try {
-      print('📊 Cargando dashboard stats...');
       final result = await _getDashboardStatsUseCase(
         GetDashboardStatsParams(startDate: startDate, endDate: endDate),
       );
@@ -493,12 +479,6 @@ class DashboardController extends GetxController
           _statsError.value = _mapFailureToMessage(failure);
         },
         (stats) {
-          print('✅ Dashboard stats cargados exitosamente!');
-          print('   💰 Total Revenue: ${stats.profitability.totalRevenue}');
-          print('   💸 Total Expenses: ${stats.expenses.totalAmount}');
-          print('   💵 Gross Profit: ${stats.profitability.grossProfit}');
-          print('   📊 Payment Methods: ${stats.paymentMethodsBreakdown.length} métodos');
-          print('   💳 Income Breakdown - Facturas: ${stats.incomeTypeBreakdown.invoices}, Créditos: ${stats.incomeTypeBreakdown.credits}');
           _dashboardStats.value = stats;
           // ✅ Notificar a widgets GetBuilder
           update();
@@ -521,7 +501,6 @@ class DashboardController extends GetxController
     String? categoryId,
   }) async {
     if (!_isAlive) return;
-    print('🎯 INICIANDO loadProfitabilityStats...');
     _isLoadingProfitability.value = true;
     _profitabilityError.value = null;
 
@@ -538,9 +517,6 @@ class DashboardController extends GetxController
       if (!_isAlive) return;
       if (result.isRight()) {
         final stats = result.getOrElse(() => throw Exception());
-        print('✅ ÉXITO loadProfitabilityStats: Revenue=${stats.totalRevenue}, COGS=${stats.totalCOGS}');
-        print('   📊 Gross Profit: ${stats.grossProfit}, Margin: ${stats.grossMarginPercentage}%');
-        print('   📈 Top Products: ${stats.topProfitableProducts.length}');
         _profitabilityStats.value = stats;
         _cacheProfitabilityStats(stats, startDate, endDate);
         update();
@@ -551,7 +527,6 @@ class DashboardController extends GetxController
         if (!_isAlive) return;
         if (cached != null) {
           _profitabilityStats.value = cached;
-          print('💾 Profitability fallback: usando cache real (COGS=${cached.totalCOGS})');
         } else {
           _profitabilityError.value = _mapFailureToMessage(failure);
         }
@@ -1299,7 +1274,6 @@ class DashboardController extends GetxController
       });
       await secureStorage.write(_profitabilityLatestKey, metadata);
 
-      print('💾 Profitability cacheada: ${_profitabilityCacheKey(startDate, endDate)}');
     } catch (e) {
       print('⚠️ Error cacheando profitability: $e');
     }
@@ -1315,7 +1289,6 @@ class DashboardController extends GetxController
       final exactData = await secureStorage.read(exactKey);
       if (exactData != null) {
         final jsonMap = json.decode(exactData) as Map<String, dynamic>;
-        print('💾 Profitability desde cache exacto: $exactKey');
         return ProfitabilityStatsModel.fromJson(jsonMap);
       }
     } catch (e) {
@@ -1332,7 +1305,6 @@ class DashboardController extends GetxController
       if (latestData != null) {
         final metadata = json.decode(latestData) as Map<String, dynamic>;
         final data = metadata['data'] as Map<String, dynamic>;
-        print('💾 Profitability desde cache latest (solo COGS/margenes)');
         return ProfitabilityStatsModel.fromJson(data);
       }
     } catch (e) {

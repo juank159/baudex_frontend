@@ -244,18 +244,21 @@ class DioClient {
     // Agregar interceptor de tenant para multitenant
     _dio.interceptors.add(TenantInterceptor(_storageService));
 
-    // Interceptor para logs en desarrollo
-    if (kDebugMode) {
+    // Interceptor de logs DIO desactivado por defecto.
+    // Generaba ~880 líneas por sesión (uri, headers, response body completo)
+    // y dificultaba leer logs reales. Para reactivar puntualmente durante un
+    // debug específico, exporta `BAUDEX_DIO_LOG=1` antes de `flutter run`.
+    if (kDebugMode &&
+        const bool.fromEnvironment('BAUDEX_DIO_LOG', defaultValue: false)) {
       _dio.interceptors.add(
         LogInterceptor(
-          request: false, // ✅ NO mostrar requests (evita logs de requests fallidos)
+          request: false,
           requestBody: false,
           requestHeader: false,
-          responseBody: true, // ✅ Solo mostrar responses exitosas
+          responseBody: true,
           responseHeader: false,
-          error: false, // NO mostrar errores (manejados manualmente)
+          error: false,
           logPrint: (obj) {
-            // NO imprimir logs de errores de conexión
             final str = obj.toString();
             if (!str.contains('DioException') &&
                 !str.contains('Connection refused') &&
