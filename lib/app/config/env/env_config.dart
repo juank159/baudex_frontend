@@ -72,18 +72,32 @@ class EnvConfig {
     return int.tryParse(portStr) ?? 3000;
   }
 
+  /// Decide si usar HTTPS basándose en señales múltiples:
+  /// - Puerto 443 (puerto estándar de HTTPS) → siempre https.
+  /// - APP_ENV='production' o 'staging' → https (ambos despliegan en SSL).
+  /// - Cualquier otro caso (dev local en puerto 80/3000) → http.
+  ///
+  /// Antes este check era solo `isProduction ? https : http`, lo cual
+  /// hacía que staging (APP_ENV='staging') generara URLs inválidas
+  /// `http://...:443` que el servidor rechaza con 404.
+  static bool get _useHttps {
+    if (serverPort == 443) return true;
+    final env = environment.toLowerCase();
+    return env == 'production' || env == 'staging';
+  }
+
   /// URL base completa del API
   static String get baseUrl {
-    final protocol = isProduction ? 'https' : 'http';
-    final defaultPort = isProduction ? 443 : 80;
+    final protocol = _useHttps ? 'https' : 'http';
+    final defaultPort = _useHttps ? 443 : 80;
     final portSuffix = serverPort == defaultPort ? '' : ':$serverPort';
     return '$protocol://$serverIP$portSuffix/api';
   }
 
   /// URL base sin /api (para WebSocket, etc.)
   static String get serverUrl {
-    final protocol = isProduction ? 'https' : 'http';
-    final defaultPort = isProduction ? 443 : 80;
+    final protocol = _useHttps ? 'https' : 'http';
+    final defaultPort = _useHttps ? 443 : 80;
     final portSuffix = serverPort == defaultPort ? '' : ':$serverPort';
     return '$protocol://$serverIP$portSuffix';
   }
