@@ -60,7 +60,9 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
     final firstName = _firstNameCtrl.text.trim();
     final lastName = _lastNameCtrl.text.trim();
     final documentNumber = _documentNumberCtrl.text.trim();
-    final phone = _phoneCtrl.text.trim();
+    // Normalizar a formato +57XXXXXXXXXX antes de enviar (lo que exige
+    // el backend). El validador ya garantiza que el dato es válido.
+    final phone = _normalizeColombianPhone(_phoneCtrl.text);
     final emailInput = _emailCtrl.text.trim();
 
     final email = emailInput.isNotEmpty
@@ -74,7 +76,7 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
           firstName: firstName,
           lastName: lastName,
           email: email,
-          phone: phone.isNotEmpty ? phone : null,
+          phone: (phone != null && phone.isNotEmpty) ? phone : null,
           documentType: _documentType,
           documentNumber: documentNumber,
           status: CustomerStatus.active,
@@ -272,11 +274,12 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
           controller: _phoneCtrl,
           label: 'Teléfono',
           icon: Icons.phone_outlined,
-          hint: 'Opcional',
+          hint: 'Ej: 3001234567 (10 dígitos colombianos)',
           keyboardType: TextInputType.phone,
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9+\- ]')),
           ],
+          validator: _validateColombianPhone,
         ),
         const SizedBox(height: 12),
         _elegantField(
@@ -351,6 +354,43 @@ class _QuickCreateCustomerDialogState extends State<QuickCreateCustomerDialog> {
     if (v == null || v.trim().isEmpty) return 'Requerido';
     if (v.trim().length < 4) return 'Muy corto';
     return null;
+  }
+
+  /// Valida formato de teléfono colombiano (lo que el backend exige).
+  /// Reglas:
+  ///   - Vacío → válido (campo opcional).
+  ///   - 10 dígitos limpios (3001234567) → válido (se agrega +57 al guardar).
+  ///   - +573001234567 (12 dígitos con prefijo) → válido.
+  ///   - Cualquier otra cosa → error con mensaje claro al usuario.
+  ///
+  /// Esto evita el caso real reportado: el usuario creó un cliente con
+  /// teléfono no-colombiano y el backend lo rechazó con HTTP 400, perdiendo
+  /// silenciosamente el dato. Ahora ni siquiera deja escribirlo así.
+  String? _validateColombianPhone(String? v) {
+    if (v == null || v.trim().isEmpty) return null;
+    final cleaned = v.trim().replaceAll(RegExp(r'[\s\-]'), '');
+    if (cleaned.length == 10 && RegExp(r'^\d{10}$').hasMatch(cleaned)) {
+      return null;
+    }
+    if (cleaned.length == 13 &&
+        cleaned.startsWith('+57') &&
+        RegExp(r'^\+57\d{10}$').hasMatch(cleaned)) {
+      return null;
+    }
+    return 'Debe ser un teléfono colombiano (10 dígitos o +57XXXXXXXXXX)';
+  }
+
+  /// Normaliza el teléfono al formato que el backend acepta antes de
+  /// enviarlo: si vienen 10 dígitos limpios, antepone '+57'. Si ya viene
+  /// con +57 lo deja tal cual.
+  String? _normalizeColombianPhone(String? phone) {
+    if (phone == null || phone.trim().isEmpty) return null;
+    final cleaned = phone.trim().replaceAll(RegExp(r'[\s\-]'), '');
+    if (cleaned.length == 10 && RegExp(r'^\d{10}$').hasMatch(cleaned)) {
+      return '+57$cleaned';
+    }
+    if (cleaned.startsWith('+57')) return cleaned;
+    return cleaned;
   }
 
   Widget _buildDocumentTypeDropdown() {
