@@ -20,6 +20,8 @@ import '../models/credit_note_model.dart';
 import '../models/isar/isar_credit_note.dart';
 import '../../../products/data/models/isar/isar_product.dart';
 import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
+import '../../../invoices/data/models/isar/isar_invoice.dart';
+import '../../../../app/data/local/enums/isar_enums.dart';
 
 class CreditNoteRepositoryImpl implements CreditNoteRepository {
   final CreditNoteRemoteDataSource remoteDataSource;
@@ -436,6 +438,12 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
   Future<Either<Failure, AvailableQuantitiesResponse>> getAvailableQuantitiesForCreditNote(
     String invoiceId,
   ) async {
+    // Si no hay conexión, calcular directamente desde ISAR sin pasar por el
+    // backend. Sin esto el formulario de nota crédito quedaba bloqueado
+    // offline por el error "Bad Gateway".
+    if (!(await networkInfo.isConnected)) {
+      return _getAvailableQuantitiesOffline(invoiceId);
+    }
     try {
       AppLogger.d('Obteniendo cantidades disponibles para factura $invoiceId', tag: 'CREDIT_NOTE');
       final response = await remoteDataSource.getAvailableQuantitiesForCreditNote(
@@ -479,8 +487,144 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       AppLogger.i('Cantidades disponibles obtenidas: ${domainResponse.items.length} items');
       return Right(domainResponse);
     } catch (e) {
-      AppLogger.w('Error del servidor en getAvailableQuantitiesForCreditNote: $e');
-      return Left(ServerFailure('Error al obtener cantidades disponibles: $e'));
+      AppLogger.w(
+        'Error del servidor en getAvailableQuantitiesForCreditNote: $e — intentando offline',
+        tag: 'CREDIT_NOTE',
+      );
+      // Backend caído (502/Bad Gateway, timeout, etc.) → fallback ISAR.
+      return _getAvailableQuantitiesOffline(invoiceId);
+    }
+  }
+
+  /// Calcula localmente las cantidades disponibles para nota de crédito
+  /// usando los datos en ISAR. Replica la lógica del backend:
+  ///   availableQty = originalQty - creditedQty - draftQty
+  /// donde:
+  ///   - originalQty = cantidad del item en la factura
+  ///   - creditedQty = sum de items en notas de crédito CONFIRMED para
+  ///                   el mismo invoiceItemId
+  ///   - draftQty    = sum de items en notas DRAFT (incluye las offline
+  ///                   con id temporal `creditnote_offline_*`)
+  Future<Either<Failure, AvailableQuantitiesResponse>> _getAvailableQuantitiesOffline(
+    String invoiceId,
+  ) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+
+      // 1) Cargar la factura local
+      final isarInvoice = await isar.isarInvoices
+          .filter()
+          .serverIdEqualTo(invoiceId)
+          .findFirst();
+      if (isarInvoice == null) {
+        return Left(CacheFailure(
+          'Factura $invoiceId no encontrada en ISAR — no se puede calcular '
+          'cantidades disponibles offline',
+        ));
+      }
+      final invoice = isarInvoice.toEntity();
+
+      // 2) Cargar notas de crédito existentes para esta factura (incluye
+      //    offline con id temporal y confirmed con UUID).
+      final localCreditNotes = await isar.isarCreditNotes
+          .filter()
+          .invoiceIdEqualTo(invoiceId)
+          .deletedAtIsNull()
+          .findAll();
+
+      // 3) Acumular qty creditada/draft por invoiceItemId
+      final creditedByItem = <String, double>{};
+      final draftByItem = <String, double>{};
+      final draftQtyByItem = <String, List<String>>{};
+      double totalCredited = 0;
+      double totalDraft = 0;
+      final draftSummaries = <DraftCreditNoteSummary>[];
+
+      for (final cn in localCreditNotes) {
+        final isDraft = cn.status == IsarCreditNoteStatus.draft;
+        final isConfirmedOrApplied = cn.status == IsarCreditNoteStatus.confirmed;
+        if (!isDraft && !isConfirmedOrApplied) continue;
+
+        if (isDraft) {
+          totalDraft += cn.total;
+          draftSummaries.add(DraftCreditNoteSummary(
+            id: cn.serverId,
+            number: cn.number,
+            total: cn.total,
+            type: cn.type.name,
+            createdAt: cn.createdAt,
+          ));
+        } else {
+          totalCredited += cn.total;
+        }
+
+        // Sumar qty por item
+        final entity = cn.toEntity();
+        for (final item in entity.items) {
+          if (item.invoiceItemId == null) continue;
+          final iid = item.invoiceItemId!;
+          if (isDraft) {
+            draftByItem[iid] = (draftByItem[iid] ?? 0) + item.quantity;
+            draftQtyByItem.putIfAbsent(iid, () => []).add(cn.number);
+          } else {
+            creditedByItem[iid] = (creditedByItem[iid] ?? 0) + item.quantity;
+          }
+        }
+      }
+
+      // 4) Construir response por cada item de la factura
+      final items = <AvailableQuantityItem>[];
+      for (final item in invoice.items) {
+        final iid = item.id;
+        final original = item.quantity;
+        final credited = creditedByItem[iid] ?? 0;
+        final draft = draftByItem[iid] ?? 0;
+        final available = (original - credited - draft).clamp(0, double.infinity);
+
+        items.add(AvailableQuantityItem(
+          invoiceItemId: iid,
+          productId: item.productId,
+          description: item.description,
+          unit: item.unit ?? 'pcs',
+          unitPrice: item.unitPrice,
+          originalQuantity: original,
+          creditedQuantity: credited,
+          draftQuantity: draft,
+          availableQuantity: available.toDouble(),
+          isFullyCredited: available <= 0 && original > 0,
+          hasDraft: draft > 0,
+          draftCreditNoteNumbers: draftQtyByItem[iid] ?? const [],
+        ));
+      }
+
+      final remainingCreditable =
+          (invoice.total - totalCredited - totalDraft).clamp(0, double.infinity).toDouble();
+      final canCreate = remainingCreditable > 0;
+
+      final response = AvailableQuantitiesResponse(
+        invoiceId: invoiceId,
+        invoiceNumber: invoice.number,
+        invoiceTotal: invoice.total,
+        remainingCreditableAmount: remainingCreditable,
+        totalCreditedAmount: totalCredited,
+        totalDraftAmount: totalDraft,
+        items: items,
+        draftCreditNotes: draftSummaries,
+        canCreateFullCreditNote: canCreate,
+        canCreatePartialCreditNote: canCreate,
+        message: 'Calculado offline desde ISAR — los datos pueden no reflejar '
+            'cambios hechos por otros usuarios hasta que vuelva la conexión',
+      );
+
+      AppLogger.i(
+        'Cantidades disponibles OFFLINE calculadas: ${items.length} items, '
+        'creditable restante \$${remainingCreditable.toStringAsFixed(2)}',
+        tag: 'CREDIT_NOTE',
+      );
+      return Right(response);
+    } catch (e) {
+      AppLogger.e('Error calculando cantidades disponibles offline: $e', tag: 'CREDIT_NOTE');
+      return Left(CacheFailure('Error calculando cantidades offline: $e'));
     }
   }
 
