@@ -249,22 +249,42 @@ class DashboardController extends GetxController
 
         print('🌐 Dashboard: Refrescando desde servidor en background...');
         await Future.wait([
+          // Cada timeout también resetea su flag de loading. Sin esto, si el
+          // backend tarda más que el timeout, el flag interno queda en true
+          // hasta que la operación termine (puede ser nunca con red colgada),
+          // y el gráfico de barras se queda eternamente con spinner.
           loadDashboardStats(startDate: startDate, endDate: endDate).timeout(
             const Duration(seconds: 8),
-            onTimeout: () => print('⏰ Timeout en estadísticas'),
+            onTimeout: () {
+              print('⏰ Timeout en estadísticas');
+              if (_isAlive) _isLoadingStats.value = false;
+            },
           ),
           loadProfitabilityStats(startDate: startDate, endDate: endDate).timeout(
             const Duration(seconds: 6),
-            onTimeout: () => print('⏰ Timeout en rentabilidad'),
+            onTimeout: () {
+              print('⏰ Timeout en rentabilidad');
+              if (_isAlive) _isLoadingProfitability.value = false;
+            },
           ),
           loadRecentActivity().timeout(
             const Duration(seconds: 6),
-            onTimeout: () {},
-          ).catchError((e) => print('⚠️ Error actividades: $e')),
+            onTimeout: () {
+              if (_isAlive) _isLoadingActivity.value = false;
+            },
+          ).catchError((e) {
+            print('⚠️ Error actividades: $e');
+            if (_isAlive) _isLoadingActivity.value = false;
+          }),
           loadNotifications().timeout(
             const Duration(seconds: 6),
-            onTimeout: () {},
-          ).catchError((e) => print('⚠️ Error notificaciones: $e')),
+            onTimeout: () {
+              if (_isAlive) _isLoadingNotifications.value = false;
+            },
+          ).catchError((e) {
+            print('⚠️ Error notificaciones: $e');
+            if (_isAlive) _isLoadingNotifications.value = false;
+          }),
           loadUnreadNotificationsCount().timeout(
             const Duration(seconds: 4),
             onTimeout: () {},
@@ -460,31 +480,38 @@ class DashboardController extends GetxController
     _isLoadingStats.value = true;
     _statsError.value = null;
 
-    print('📊 Cargando dashboard stats...');
-    final result = await _getDashboardStatsUseCase(
-      GetDashboardStatsParams(startDate: startDate, endDate: endDate),
-    );
+    try {
+      print('📊 Cargando dashboard stats...');
+      final result = await _getDashboardStatsUseCase(
+        GetDashboardStatsParams(startDate: startDate, endDate: endDate),
+      );
 
-    if (!_isAlive) return;
-    result.fold(
-      (failure) {
-        print('❌ Error cargando dashboard stats: $failure');
-        _statsError.value = _mapFailureToMessage(failure);
-      },
-      (stats) {
-        print('✅ Dashboard stats cargados exitosamente!');
-        print('   💰 Total Revenue: ${stats.profitability.totalRevenue}');
-        print('   💸 Total Expenses: ${stats.expenses.totalAmount}');
-        print('   💵 Gross Profit: ${stats.profitability.grossProfit}');
-        print('   📊 Payment Methods: ${stats.paymentMethodsBreakdown.length} métodos');
-        print('   💳 Income Breakdown - Facturas: ${stats.incomeTypeBreakdown.invoices}, Créditos: ${stats.incomeTypeBreakdown.credits}');
-        _dashboardStats.value = stats;
-        // ✅ Notificar a widgets GetBuilder
-        update();
-      },
-    );
-
-    if (_isAlive) _isLoadingStats.value = false;
+      if (!_isAlive) return;
+      result.fold(
+        (failure) {
+          print('❌ Error cargando dashboard stats: $failure');
+          _statsError.value = _mapFailureToMessage(failure);
+        },
+        (stats) {
+          print('✅ Dashboard stats cargados exitosamente!');
+          print('   💰 Total Revenue: ${stats.profitability.totalRevenue}');
+          print('   💸 Total Expenses: ${stats.expenses.totalAmount}');
+          print('   💵 Gross Profit: ${stats.profitability.grossProfit}');
+          print('   📊 Payment Methods: ${stats.paymentMethodsBreakdown.length} métodos');
+          print('   💳 Income Breakdown - Facturas: ${stats.incomeTypeBreakdown.invoices}, Créditos: ${stats.incomeTypeBreakdown.credits}');
+          _dashboardStats.value = stats;
+          // ✅ Notificar a widgets GetBuilder
+          update();
+        },
+      );
+    } catch (e) {
+      print('❌ Excepción no controlada en loadDashboardStats: $e');
+      if (_isAlive) _statsError.value = 'Error inesperado';
+    } finally {
+      // CRÍTICO: el flag siempre se resetea para que el spinner del gráfico
+      // de barras NO quede colgado si el use case lanza excepción.
+      if (_isAlive) _isLoadingStats.value = false;
+    }
   }
 
   Future<void> loadProfitabilityStats({
@@ -498,38 +525,42 @@ class DashboardController extends GetxController
     _isLoadingProfitability.value = true;
     _profitabilityError.value = null;
 
-    final result = await _getProfitabilityStatsUseCase(
-      GetProfitabilityStatsParams(
-        startDate: startDate,
-        endDate: endDate,
-        warehouseId: warehouseId,
-        categoryId: categoryId,
-      ),
-    );
+    try {
+      final result = await _getProfitabilityStatsUseCase(
+        GetProfitabilityStatsParams(
+          startDate: startDate,
+          endDate: endDate,
+          warehouseId: warehouseId,
+          categoryId: categoryId,
+        ),
+      );
 
-    if (!_isAlive) return;
-    if (result.isRight()) {
-      final stats = result.getOrElse(() => throw Exception());
-      print('✅ ÉXITO loadProfitabilityStats: Revenue=${stats.totalRevenue}, COGS=${stats.totalCOGS}');
-      print('   📊 Gross Profit: ${stats.grossProfit}, Margin: ${stats.grossMarginPercentage}%');
-      print('   📈 Top Products: ${stats.topProfitableProducts.length}');
-      _profitabilityStats.value = stats;
-      _cacheProfitabilityStats(stats, startDate, endDate);
-      update();
-    } else {
-      final failure = result.fold((f) => f, (_) => throw Exception());
-      print('❌ ERROR loadProfitabilityStats: $failure');
-      final cached = await _getCachedProfitabilityStats(startDate, endDate);
       if (!_isAlive) return;
-      if (cached != null) {
-        _profitabilityStats.value = cached;
-        print('💾 Profitability fallback: usando cache real (COGS=${cached.totalCOGS})');
+      if (result.isRight()) {
+        final stats = result.getOrElse(() => throw Exception());
+        print('✅ ÉXITO loadProfitabilityStats: Revenue=${stats.totalRevenue}, COGS=${stats.totalCOGS}');
+        print('   📊 Gross Profit: ${stats.grossProfit}, Margin: ${stats.grossMarginPercentage}%');
+        print('   📈 Top Products: ${stats.topProfitableProducts.length}');
+        _profitabilityStats.value = stats;
+        _cacheProfitabilityStats(stats, startDate, endDate);
+        update();
       } else {
-        _profitabilityError.value = _mapFailureToMessage(failure);
+        final failure = result.fold((f) => f, (_) => throw Exception());
+        print('❌ ERROR loadProfitabilityStats: $failure');
+        final cached = await _getCachedProfitabilityStats(startDate, endDate);
+        if (!_isAlive) return;
+        if (cached != null) {
+          _profitabilityStats.value = cached;
+          print('💾 Profitability fallback: usando cache real (COGS=${cached.totalCOGS})');
+        } else {
+          _profitabilityError.value = _mapFailureToMessage(failure);
+        }
       }
+    } catch (e) {
+      print('❌ Excepción no controlada en loadProfitabilityStats: $e');
+    } finally {
+      if (_isAlive) _isLoadingProfitability.value = false;
     }
-
-    if (_isAlive) _isLoadingProfitability.value = false;
   }
 
   Future<void> loadRecentActivity({
@@ -541,21 +572,25 @@ class DashboardController extends GetxController
     _activityError.value = null;
 
     try {
-      await loadAdvancedRecentActivities(page: 1, limit: limit);
+      try {
+        await loadAdvancedRecentActivities(page: 1, limit: limit);
+      } catch (e) {
+        if (!_isAlive) return;
+        final result = await _getRecentActivityUseCase(
+          GetRecentActivityParams(limit: limit, types: types),
+        );
+
+        if (!_isAlive) return;
+        result.fold(
+          (failure) => _activityError.value = _mapFailureToMessage(failure),
+          (activities) => _recentActivities.assignAll(activities),
+        );
+      }
     } catch (e) {
-      if (!_isAlive) return;
-      final result = await _getRecentActivityUseCase(
-        GetRecentActivityParams(limit: limit, types: types),
-      );
-
-      if (!_isAlive) return;
-      result.fold(
-        (failure) => _activityError.value = _mapFailureToMessage(failure),
-        (activities) => _recentActivities.assignAll(activities),
-      );
+      print('❌ Excepción no controlada en loadRecentActivity: $e');
+    } finally {
+      if (_isAlive) _isLoadingActivity.value = false;
     }
-
-    if (_isAlive) _isLoadingActivity.value = false;
   }
 
   // Método para cargar actividades avanzadas con paginación
@@ -650,21 +685,25 @@ class DashboardController extends GetxController
     _notificationsError.value = null;
 
     try {
-      await loadAdvancedNotifications(page: 1, limit: limit, includeRead: !(unreadOnly ?? false));
+      try {
+        await loadAdvancedNotifications(page: 1, limit: limit, includeRead: !(unreadOnly ?? false));
+      } catch (e) {
+        if (!_isAlive) return;
+        final result = await _getNotificationsUseCase(
+          GetDashboardNotificationsParams(limit: limit, unreadOnly: unreadOnly),
+        );
+
+        if (!_isAlive) return;
+        result.fold(
+          (failure) => _notificationsError.value = _mapFailureToMessage(failure),
+          (notifications) => _notifications.assignAll(notifications),
+        );
+      }
     } catch (e) {
-      if (!_isAlive) return;
-      final result = await _getNotificationsUseCase(
-        GetDashboardNotificationsParams(limit: limit, unreadOnly: unreadOnly),
-      );
-
-      if (!_isAlive) return;
-      result.fold(
-        (failure) => _notificationsError.value = _mapFailureToMessage(failure),
-        (notifications) => _notifications.assignAll(notifications),
-      );
+      print('❌ Excepción no controlada en loadNotifications: $e');
+    } finally {
+      if (_isAlive) _isLoadingNotifications.value = false;
     }
-
-    if (_isAlive) _isLoadingNotifications.value = false;
   }
 
   // Método para cargar notificaciones avanzadas con paginación
