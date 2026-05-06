@@ -3495,10 +3495,44 @@ class SyncService extends GetxService {
             }
           }
 
-          // ✅ Usar constructor directo (no fromParams) porque finalData ya tiene strings
-          // Normalizar teléfono al formato colombiano +57XXXXXXXXXX
+          // ✅ Sanitizar campos antes del POST para evitar HTTP 400 del
+          // backend (que silenciaba el dato del usuario en versiones
+          // previas).
+          //
+          // 1) Phone/mobile: el backend EXIGE formato +57XXXXXXXXXX.
+          //    Si la normalización no produjo un valor válido, OMITIMOS
+          //    el campo (es opcional) en vez de enviar basura que el
+          //    backend rechaza.
+          //
+          // 2) paymentTerms: el backend exige >= 1 día. Si el cliente
+          //    offline lo dejó en 0/null/negativo, fallback a 30 (default
+          //    estándar de "30 días neto").
           String? normalizedPhone = _normalizeColombianPhone(finalData['phone']);
+          if (normalizedPhone != null &&
+              !RegExp(r'^\+57\d{10}$').hasMatch(normalizedPhone)) {
+            AppLogger.w(
+              'Sync Customer: phone "$normalizedPhone" no es colombiano válido — omitiendo del payload',
+              tag: 'SYNC',
+            );
+            normalizedPhone = null;
+          }
           String? normalizedMobile = _normalizeColombianPhone(finalData['mobile']);
+          if (normalizedMobile != null &&
+              !RegExp(r'^\+57\d{10}$').hasMatch(normalizedMobile)) {
+            AppLogger.w(
+              'Sync Customer: mobile "$normalizedMobile" no es colombiano válido — omitiendo del payload',
+              tag: 'SYNC',
+            );
+            normalizedMobile = null;
+          }
+
+          final rawPaymentTerms = finalData['paymentTerms'];
+          int safePaymentTerms = 30; // default 30 días
+          if (rawPaymentTerms is int && rawPaymentTerms >= 1) {
+            safePaymentTerms = rawPaymentTerms;
+          } else if (rawPaymentTerms is num && rawPaymentTerms >= 1) {
+            safePaymentTerms = rawPaymentTerms.toInt();
+          }
 
           final request = CreateCustomerRequestModel(
             firstName: finalData['firstName'],
@@ -3516,7 +3550,7 @@ class SyncService extends GetxService {
             country: finalData['country'] ?? 'Colombia',
             status: 'active',
             creditLimit: finalData['creditLimit']?.toDouble() ?? 0,
-            paymentTerms: finalData['paymentTerms'] ?? 30,
+            paymentTerms: safePaymentTerms,
             notes: finalData['notes'],
             metadata: finalData['metadata'],
           );
@@ -4680,13 +4714,19 @@ class SyncService extends GetxService {
                       tag: 'SYNC',
                     );
                   } else {
-                    // No hay sync pendiente ni customer real → error permanente
+                    // No hay sync pendiente ni customer real → error permanente.
+                    // Usamos _PermanentValidationException para que el outer
+                    // catch de _processOperation NO marque como completed.
                     AppLogger.e(
-                      'Customer $resolvedCustomerId no tiene UUID real y no hay sync pendiente - marcando como fallido',
+                      'Customer $resolvedCustomerId no tiene UUID real y no hay sync pendiente - marcando como fallido permanente',
                       tag: 'SYNC',
                     );
-                    throw Exception(
-                      'PERMANENT: Customer $resolvedCustomerId no tiene UUID real y no hay operación de sync pendiente',
+                    throw _PermanentValidationException(
+                      entityType: 'Invoice',
+                      entityId: operation.entityId,
+                      statusCode: 0,
+                      backendMessage:
+                          'Cliente $resolvedCustomerId no se sincronizó al backend. La factura no se puede enviar hasta que el cliente sea creado correctamente.',
                     );
                   }
                 } else {
@@ -4694,8 +4734,12 @@ class SyncService extends GetxService {
                     'Customer $resolvedCustomerId sin nombre - no se puede resolver',
                     tag: 'SYNC',
                   );
-                  throw Exception(
-                    'PERMANENT: Customer $resolvedCustomerId sin nombre para resolución alternativa',
+                  throw _PermanentValidationException(
+                    entityType: 'Invoice',
+                    entityId: operation.entityId,
+                    statusCode: 0,
+                    backendMessage:
+                        'Cliente $resolvedCustomerId sin datos para resolución alternativa',
                   );
                 }
               } else {
@@ -4708,12 +4752,9 @@ class SyncService extends GetxService {
               }
             } catch (e) {
               if (e.toString().contains('aún no sincronizado')) rethrow;
-              if (e.toString().contains('PERMANENT:')) {
-                // Error permanente - marcar operación como fallida definitivamente
-                AppLogger.e('Error permanente resolviendo customerId: $e', tag: 'SYNC');
-                await _isarDatabase.markSyncOperationFailed(operation.id, e.toString());
-                return;
-              }
+              // Error permanente — propagar para que el outer catch lo marque
+              // como failed (NO completed silenciosamente como hacía antes).
+              if (e is _PermanentValidationException) rethrow;
               AppLogger.w('Error resolviendo customerId temporal: $e', tag: 'SYNC');
             }
           }
