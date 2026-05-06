@@ -2563,6 +2563,13 @@ class InvoiceFormController extends GetxController {
     _discountAmount.value = 0.0;
     _recalculateTotals();
 
+    // ✅ Refresca _availableProducts desde ISAR fire-and-forget. La factura
+    // recién creada descontó stock en ISAR (vía _processInventoryForOfflineInvoice
+    // o backend al sincronizar online), pero la lista en memoria aún tenía
+    // los stocks viejos cargados al inicio del POS. Sin este refresh, la
+    // siguiente búsqueda muestra cantidades obsoletas.
+    unawaited(_loadProductsFromCacheFirst());
+
     print('🔄 Formulario preparado para nueva venta');
   }
 
