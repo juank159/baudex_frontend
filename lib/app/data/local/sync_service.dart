@@ -6575,6 +6575,13 @@ class SyncService extends GetxService {
                   await _isarDatabase.deleteSyncOperation(op.id);
                 }
               }
+
+              // NOTA: el reset de isSynced=true en productos NO se hace aquí
+              // porque el backend crea la nota en estado DRAFT y solo restaura
+              // inventario en el endpoint /confirm. El reset se hace en el
+              // repository al confirmar (ver credit_note_repository_impl.dart
+              // confirmCreditNote()), donde sí estamos seguros de que backend
+              // ya tiene el inventario actualizado.
             } catch (e) {
               AppLogger.w('Error actualizando nota de crédito en ISAR: $e', tag: 'SYNC');
             }

@@ -18,6 +18,7 @@ import '../datasources/credit_note_local_datasource.dart';
 import '../datasources/credit_note_remote_datasource.dart';
 import '../models/credit_note_model.dart';
 import '../models/isar/isar_credit_note.dart';
+import '../../../products/data/models/isar/isar_product.dart';
 
 class CreditNoteRepositoryImpl implements CreditNoteRepository {
   final CreditNoteRemoteDataSource remoteDataSource;
@@ -292,6 +293,50 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       AppLogger.i('Confirmando nota de crédito $id', tag: 'CREDIT_NOTE');
       final creditNote = await remoteDataSource.confirmCreditNote(id);
       AppLogger.i('Nota de crédito confirmada exitosamente', tag: 'CREDIT_NOTE');
+
+      // ✅ CRÍTICO: backend ya restauró inventario en el endpoint /confirm
+      // (restoreToBatchesIntelligent + customer balance). Reseteamos
+      // isSynced=true en los productos involucrados para que el siguiente
+      // FullSync traiga el stock fresco del servidor — sin esto el
+      // _syncProducts seguiría protegiendo los productos eternamente.
+      try {
+        final productIds = <String>{};
+        for (final item in creditNote.items) {
+          if (item.productId != null && item.productId!.isNotEmpty) {
+            productIds.add(item.productId!);
+          }
+        }
+        if (productIds.isNotEmpty) {
+          final isar = IsarDatabase.instance.database;
+          int resetCount = 0;
+          await isar.writeTxn(() async {
+            for (final pid in productIds) {
+              final p = await isar.isarProducts
+                  .filter()
+                  .serverIdEqualTo(pid)
+                  .findFirst();
+              if (p != null && !p.isSynced) {
+                p.isSynced = true;
+                p.lastSyncAt = DateTime.now();
+                await isar.isarProducts.put(p);
+                resetCount++;
+              }
+            }
+          });
+          if (resetCount > 0) {
+            AppLogger.i(
+              'Reseteado isSynced=true en $resetCount productos (post-confirm CreditNote)',
+              tag: 'CREDIT_NOTE',
+            );
+          }
+        }
+      } catch (e) {
+        AppLogger.w(
+          'Error reseteando isSynced post-confirm: $e',
+          tag: 'CREDIT_NOTE',
+        );
+      }
+
       return Right(creditNote);
     } catch (e) {
       AppLogger.e('Error al confirmar nota de crédito: $e', tag: 'CREDIT_NOTE');
