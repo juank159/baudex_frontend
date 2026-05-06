@@ -309,8 +309,12 @@ class SyncService extends GetxService {
     // 🔧 REPARACIÓN: Corregir movimientos de inventario con referenceId temporal
     await _repairMovementsWithTempReferenceId();
 
-    // 🗑️ LIMPIEZA: Eliminar operaciones que excedieron máximo de reintentos
-    await cleanPermanentlyFailedOperations();
+    // ⚠️ LIMPIEZA DESACTIVADA EN INIT: borrar automáticamente ops con
+    // retryCount>=maxRetries causaba pérdida silenciosa de datos del usuario
+    // cuando un fix llegaba después del retry límite. Ahora la limpieza solo
+    // se ejecuta cuando el usuario lo solicita desde Diagnóstico (botón
+    // "Limpiar fallidas") o desde el indicador de estado del sync.
+    // await cleanPermanentlyFailedOperations();
 
     // 🔧 REPARACIÓN: Intentar reparar facturas con items vacíos
     await repairInvoiceOperationsWithMissingItems();
