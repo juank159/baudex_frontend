@@ -1126,6 +1126,29 @@ class SyncService extends GetxService {
 
       await _isarDatabase.markSyncOperationFailed(operation.id, e.toString());
 
+      // Si es error de validación PERMANENTE (datos rechazados por backend),
+      // setear retryCount al máximo para que NO se reintente automáticamente.
+      // El usuario verá el error en Diagnóstico y podrá corregirlo.
+      if (e is _PermanentValidationException) {
+        try {
+          final isar = IsarDatabase.instance.database;
+          await isar.writeTxn(() async {
+            final op = await isar.syncOperations.get(operation.id);
+            if (op != null) {
+              op.retryCount = SyncConfig.maxRetries;
+              op.error =
+                  'VALIDACIÓN: ${e.backendMessage} (HTTP ${e.statusCode})';
+              await isar.syncOperations.put(op);
+            }
+          });
+        } catch (markErr) {
+          AppLogger.w(
+            'No se pudo setear retryCount=max tras error permanente: $markErr',
+            tag: 'SYNC',
+          );
+        }
+      }
+
       final errorMsg = e.toString().toLowerCase();
       final isNetworkError = errorMsg.contains('connection refused') ||
           errorMsg.contains('socketexception');
@@ -3650,13 +3673,26 @@ class SyncService extends GetxService {
           );
           return;
         }
-        // 400/422 - errores de validación que no se resolverán con retries
+        // 400/422 - errores de validación que no se resolverán con retries.
+        // ANTES: return → outer marcaba como completed (datos del usuario
+        // descartados silenciosamente). Bug detectado en sesión real con
+        // un teléfono no-colombiano que el backend rechazó: el cliente
+        // jamás llegó al servidor pero la app dijo "Sincronizado" y el
+        // dato se perdió.
+        // AHORA: lanzamos _PermanentValidationException, el outer catch
+        // marca como failed + retryCount=maxRetries (no se reintenta) +
+        // log persistente para que el usuario corrija desde Diagnóstico.
         if (e.statusCode == 400 || e.statusCode == 422) {
           AppLogger.e(
-            'Error de validación en sync Customer (${e.statusCode}): ${e.message} - marcando como completado para no bloquear cola',
+            'Error de validación en sync Customer (${e.statusCode}): ${e.message}',
             tag: 'SYNC',
           );
-          return;
+          throw _PermanentValidationException(
+            entityType: 'Customer',
+            entityId: operation.entityId,
+            statusCode: e.statusCode ?? 400,
+            backendMessage: e.message,
+          );
         }
       }
       rethrow;
@@ -7529,4 +7565,31 @@ class SyncService extends GetxService {
       );
     } catch (_) {/* tolerante a fallas */}
   }
+}
+
+/// Excepción levantada por handlers cuando el backend rechaza datos por
+/// errores de validación permanentes (HTTP 400/422). NO debe reintentarse
+/// automáticamente — el dato es incorrecto y necesita corrección manual.
+///
+/// El outer catch del `_processOperation` la detecta para:
+///   1. Marcar la op como `failed` (no `completed` — datos NO se descartan).
+///   2. Setear `retryCount = maxRetries` para suprimir reintentos automáticos.
+///   3. Persistir un log de error para que el usuario lo vea en Diagnóstico.
+class _PermanentValidationException implements Exception {
+  final String entityType;
+  final String entityId;
+  final int statusCode;
+  final String backendMessage;
+
+  _PermanentValidationException({
+    required this.entityType,
+    required this.entityId,
+    required this.statusCode,
+    required this.backendMessage,
+  });
+
+  @override
+  String toString() =>
+      'PermanentValidationError [$entityType:$entityId] '
+      'HTTP $statusCode: $backendMessage';
 }
