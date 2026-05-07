@@ -17,6 +17,7 @@ import '../../../features/invoices/data/models/isar/isar_invoice.dart';
 import '../../../features/credit_notes/data/models/isar/isar_credit_note.dart';
 import '../../../features/notifications/data/models/isar/isar_notification.dart';
 import '../../../features/bank_accounts/data/models/isar/isar_bank_account.dart';
+import '../../../features/bank_accounts/data/models/isar/isar_bank_account_movement.dart';
 import '../../../features/suppliers/data/models/isar/isar_supplier.dart';
 import '../../../features/purchase_orders/data/models/isar/isar_purchase_order.dart';
 import '../../../features/purchase_orders/data/models/isar/isar_purchase_order_item.dart';
@@ -91,6 +92,7 @@ class IsarDatabase implements IIsarDatabase {
           IsarCreditNoteSchema,
           IsarNotificationSchema,
           IsarBankAccountSchema,
+          IsarBankAccountMovementSchema,
           IsarSupplierSchema,
           IsarPurchaseOrderSchema,
           IsarPurchaseOrderItemSchema,

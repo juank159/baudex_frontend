@@ -267,6 +267,30 @@ enum IsarBankAccountType {
   other,
 }
 
+@Name('BankAccountMovementType')
+enum IsarBankAccountMovementType {
+  @Name('initial_balance')
+  initialBalance,
+  @Name('deposit')
+  deposit,
+  @Name('withdrawal')
+  withdrawal,
+  @Name('invoice_payment')
+  invoicePayment,
+  @Name('credit_payment')
+  creditPayment,
+  @Name('expense_payment')
+  expensePayment,
+  @Name('transfer_out')
+  transferOut,
+  @Name('transfer_in')
+  transferIn,
+  @Name('adjustment')
+  adjustment,
+  @Name('refund')
+  refund,
+}
+
 // ==================== SUPPLIER ENUMS ====================
 
 @Name('SupplierStatus')
