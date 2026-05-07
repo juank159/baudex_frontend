@@ -6546,6 +6546,26 @@ class SyncService extends GetxService {
             tag: 'SYNC',
           );
 
+          // ✅ AUTO-CONFIRMAR si restoreInventory=true (mismo comportamiento
+          // que el repository online — el backend crea en DRAFT y solo
+          // restaura inventario + ajusta balance al confirmar). Sin esto,
+          // las notas hechas offline quedaban en DRAFT permanente en backend.
+          final shouldAutoConfirm = (finalData['restoreInventory'] ?? true) == true;
+          if (shouldAutoConfirm) {
+            try {
+              await remoteDataSource.confirmCreditNote(createdCreditNote.id);
+              AppLogger.i(
+                'Nota ${createdCreditNote.number} auto-confirmada en servidor',
+                tag: 'SYNC',
+              );
+            } catch (e) {
+              AppLogger.w(
+                'No se pudo auto-confirmar nota offline: $e (queda DRAFT en backend)',
+                tag: 'SYNC',
+              );
+            }
+          }
+
           // ✅ Actualizar ISAR con el ID real del servidor
           if (operation.entityId.startsWith('creditnote_offline_')) {
             try {

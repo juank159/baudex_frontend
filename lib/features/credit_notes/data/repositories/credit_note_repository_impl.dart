@@ -52,6 +52,40 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
         }
 
         AppLogger.i('Nota de crédito creada exitosamente', tag: 'CREDIT_NOTE');
+
+        // ✅ AUTO-CONFIRMAR: el backend crea la nota en estado DRAFT y solo
+        // restaura inventario + ajusta balance del cliente cuando se llama
+        // /confirm. Para que el comportamiento UX coincida con lo que el
+        // usuario espera (devolución se aplica al instante, igual que POS
+        // de Walmart/Falabella), si la nota debe restaurar inventario,
+        // confirmamos automáticamente. Si el usuario quiere flujo de
+        // aprobación, puede cambiar restoreInventory=false en params.
+        if (params.restoreInventory) {
+          AppLogger.d(
+            'Auto-confirmando nota de crédito ${creditNote.number}...',
+            tag: 'CREDIT_NOTE',
+          );
+          final confirmResult = await confirmCreditNote(creditNote.id);
+          return confirmResult.fold(
+            (failure) {
+              AppLogger.w(
+                'Nota creada pero auto-confirmación falló: ${failure.message}',
+                tag: 'CREDIT_NOTE',
+              );
+              // La nota existe en DRAFT — devolvemos esa para que la UI
+              // pueda informar al usuario y ofrecer reintentar el confirm.
+              return Right<Failure, CreditNote>(creditNote);
+            },
+            (confirmed) {
+              AppLogger.i(
+                'Nota ${confirmed.number} confirmada (inventario restaurado + balance ajustado)',
+                tag: 'CREDIT_NOTE',
+              );
+              return Right<Failure, CreditNote>(confirmed);
+            },
+          );
+        }
+
         return Right(creditNote);
       } on ServerException catch (e) {
         AppLogger.w('[CN_REPO] ServerException en create: ${e.message} - Fallback offline...');
