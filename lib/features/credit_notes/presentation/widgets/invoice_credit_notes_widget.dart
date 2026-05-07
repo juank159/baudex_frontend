@@ -7,6 +7,7 @@ import '../../domain/entities/credit_note.dart';
 import '../../domain/usecases/get_credit_notes_by_invoice.dart';
 import '../screens/credit_note_form_screen.dart';
 import '../bindings/credit_note_binding.dart';
+import '../../../../app/config/routes/app_routes.dart';
 
 /// Widget para mostrar las notas de crédito asociadas a una factura
 class InvoiceCreditNotesWidget extends StatefulWidget {
@@ -80,6 +81,19 @@ class _InvoiceCreditNotesWidgetState extends State<InvoiceCreditNotesWidget> {
     )?.then((_) {
       // Recargar las notas de crédito al regresar
       print('🔄 Regresando de crear nota de crédito, recargando lista...');
+      _loadCreditNotes();
+    });
+  }
+
+  /// Navega a la pantalla de "Cambio de producto" — devolución parcial
+  /// + factura nueva en una sola operación.
+  void _navigateToProductExchange() {
+    print('🔄 Navegando a cambio de producto para factura: ${widget.invoiceId}');
+    Get.toNamed(
+      AppRoutes.productExchange,
+      arguments: {'invoiceId': widget.invoiceId},
+    )?.then((_) {
+      print('🔄 Regresando de cambio de producto, recargando lista...');
       _loadCreditNotes();
     });
   }
@@ -230,6 +244,20 @@ class _InvoiceCreditNotesWidgetState extends State<InvoiceCreditNotesWidget> {
                       ],
                     ),
                   ),
+                ),
+              ),
+            ),
+            SizedBox(height: spacing / 2),
+            // Botón secundario: cambio de producto
+            TextButton.icon(
+              onPressed: _navigateToProductExchange,
+              icon: const Icon(Icons.swap_horiz, size: 16),
+              label: const Text('Cambio de producto'),
+              style: TextButton.styleFrom(
+                foregroundColor: ElegantLightTheme.primaryGradient.colors.first,
+                padding: EdgeInsets.symmetric(
+                  horizontal: spacing,
+                  vertical: spacing / 2,
                 ),
               ),
             ),

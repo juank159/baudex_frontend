@@ -120,6 +120,8 @@ import 'package:baudex_desktop/features/credit_notes/presentation/bindings/credi
 import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_list_screen.dart';
 import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_detail_screen.dart';
 import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_form_screen.dart';
+import 'package:baudex_desktop/features/invoices/presentation/screens/product_exchange_screen.dart';
+import 'package:baudex_desktop/features/invoices/presentation/bindings/product_exchange_binding.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/bindings/bank_accounts_binding.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/bindings/bank_account_movements_binding.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_accounts_screen.dart';
@@ -1832,6 +1834,24 @@ class AppPages {
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],
+    ),
+
+    // 🔄 CAMBIO DE PRODUCTO (Product Exchange)
+    GetPage(
+      name: AppRoutes.productExchange,
+      page: () => const ProductExchangeScreen(),
+      binding: BindingsBuilder(() {
+        // Asegurar dependencias core de Invoice
+        if (!InvoiceBinding.areBaseDependenciesRegistered()) {
+          InvoiceBinding().dependencies();
+        }
+        // Asegurar dependencias de CreditNote
+        CreditNoteFormBinding().dependencies();
+        // Registrar binding del exchange
+        ProductExchangeBinding().dependencies();
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
     ),
 
     // 👁️ DETALLE DE NOTA DE CRÉDITO

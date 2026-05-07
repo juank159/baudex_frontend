@@ -221,6 +221,10 @@ abstract class AppRoutes {
   static const String creditNotesEdit = '/credit-notes/edit';
   static const String creditNotesDetail = '/credit-notes/detail';
 
+  // ==================== PRODUCT EXCHANGE ROUTE ====================
+  /// Cambio de producto: nota crédito + factura nueva en una operación.
+  static const String productExchange = '/invoices/exchange';
+
   // Credit Notes with parameters
   static String creditNoteEdit(String id) => '/credit-notes/edit/$id';
   static String creditNoteDetail(String id) => '/credit-notes/detail/$id';
