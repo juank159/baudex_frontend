@@ -201,6 +201,27 @@ class FullSyncService extends GetxService {
         );
       }
 
+      // ✅ CRÍTICO: health-check al backend ANTES de hacer .clear() en ISAR.
+      // Sin esto, si el backend está caído (502 Bad Gateway, timeout, etc.)
+      // pero hay internet, el código antiguo borraba TODA la base de datos
+      // ISAR y luego no podía repoblarla → usuario perdía cache offline.
+      // Reportado por el usuario: "la app se queda sin datos en cache".
+      if (!skipCleanup) {
+        final reachable = await networkInfo.canReachServer(
+          timeout: const Duration(seconds: 5),
+        );
+        if (!reachable) {
+          print('🛑 [FULL_SYNC] Backend NO alcanzable — NO se borrará el cache. '
+              'Datos locales preservados.');
+          return FullSyncResult(
+            syncedCounts: {},
+            errors: {'general': 'Servidor no alcanzable (cache preservado)'},
+            duration: stopwatch.elapsed,
+            wasAborted: true,
+          );
+        }
+      }
+
       // Limpiar datos del tenant anterior SELECTIVAMENTE
       // NUNCA borrar: syncOperations, idempotencyRecords, printerSettings no sincronizados
       // skipCleanup=true para pulls periódicos: upsert by serverId es seguro sin limpiar
