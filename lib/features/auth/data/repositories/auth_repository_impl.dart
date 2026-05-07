@@ -14,6 +14,7 @@ import '../../domain/entities/auth_result.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../datasources/auth_local_datasource.dart';
+import '../../../../app/core/storage/secure_storage_service.dart';
 import '../models/login_request_model.dart';
 import '../models/register_request_model.dart';
 import '../models/change_password_request_model.dart';
@@ -295,30 +296,47 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, Unit>> logout() async {
     try {
-      // Intentar logout remoto si hay conexión
+      // ✅ ESTRATEGIA "LOGOUT PEREZOSO" — preserva el cache offline-first.
+      // Antes el logout borraba TODA la BD ISAR (datos de negocio: clientes,
+      // facturas, productos, etc). Si el usuario hacía logout offline o
+      // backend caído, perdía todos sus datos sin posibilidad de recuperar.
+      //
+      // AHORA:
+      //   1. Persistir el userId actual en SecureStorage (`lastUserId`).
+      //   2. Logout remoto best-effort (si hay red).
+      //   3. Limpiar tokens auth (clearAuthData), pero NO TOCAR ISAR.
+      //   4. La BD se borra solo en el próximo login si detecta que es OTRO
+      //      usuario distinto al `lastUserId` (cambio real de tenant).
+      //   5. Si vuelves a entrar con el MISMO usuario, los datos están ahí
+      //      intactos y solo se hace un sync incremental (FullSync).
+
+      // 1. Guardar lastUserId ANTES de limpiar tokens (para que sobreviva
+      //    al clearAuthData y esté disponible en el próximo login).
+      try {
+        final currentUser = await localDataSource.getUser();
+        if (currentUser != null) {
+          final storage = Get.find<SecureStorageService>();
+          await storage.setLastUserId(currentUser.id);
+          print('🔖 lastUserId persistido: ${currentUser.id}');
+        }
+      } catch (e) {
+        print('⚠️ No se pudo persistir lastUserId: $e');
+      }
+
+      // 2. Logout remoto best-effort
       if (await networkInfo.isConnected) {
         try {
           await remoteDataSource.logout();
         } catch (e) {
-          // Si falla el logout remoto, continúa con el local
           print('Error en logout remoto (continuando con local): $e');
         }
       }
 
-      // CRÍTICO: Limpiar base de datos ISAR (datos de negocio del tenant)
-      try {
-        final isarDatabase = IsarDatabase.instance;
-        if (isarDatabase.isInitialized) {
-          await isarDatabase.clear();
-          print('✅ ISAR: Base de datos de negocio limpiada en logout');
-        }
-      } catch (e) {
-        print('⚠️ Error limpiando ISAR en logout (no crítico): $e');
-      }
-
-      // Limpiar datos locales (auth + cache de negocio en SecureStorage)
+      // 3. Limpiar SOLO tokens auth — NO TOCAR ISAR.
+      // SecureStorage.clearAll() ahora preserva lastUserId además de deviceId.
       await localDataSource.clearAuthData();
 
+      print('✅ Logout completado — BD ISAR preservada (logout perezoso)');
       return const Right(unit);
     } on CacheException catch (e) {
       return Left(CacheFailure(e.message));
@@ -482,18 +500,21 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, Unit>> clearLocalAuth() async {
     try {
-      // Limpiar ISAR (datos de negocio del tenant)
+      // ✅ Misma estrategia "logout perezoso" que `logout()`:
+      // persistir lastUserId, NO tocar ISAR, solo limpiar tokens auth.
+      // La BD se borra en el próximo login si detecta cambio de tenant.
       try {
-        final isarDatabase = IsarDatabase.instance;
-        if (isarDatabase.isInitialized) {
-          await isarDatabase.clear();
-          print('✅ ISAR: Base de datos limpiada en clearLocalAuth');
+        final currentUser = await localDataSource.getUser();
+        if (currentUser != null) {
+          final storage = Get.find<SecureStorageService>();
+          await storage.setLastUserId(currentUser.id);
         }
       } catch (e) {
-        print('⚠️ Error limpiando ISAR en clearLocalAuth: $e');
+        print('⚠️ No se pudo persistir lastUserId en clearLocalAuth: $e');
       }
 
       await localDataSource.clearAuthData();
+      print('✅ clearLocalAuth completado — BD ISAR preservada');
       return const Right(unit);
     } on CacheException catch (e) {
       return Left(CacheFailure(e.message));

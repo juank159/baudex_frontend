@@ -22,6 +22,7 @@ import '../../domain/usecases/reset_password_usecase.dart'
     show ResetPasswordParams;
 import '../../../../core/storage/tenant_storage.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
+import '../../../../app/data/local/isar_database.dart';
 // ✅ IMPORT PARA LIMPIAR CACHE DE CATEGORÍAS AL LOGOUT
 import '../../../products/presentation/controllers/product_form_controller.dart';
 import '../../../../app/data/local/full_sync_service.dart';
@@ -293,21 +294,78 @@ class AuthController extends GetxController {
   }
 
   void _triggerFullSync() {
+    _triggerFullSyncWithRetry(attempt: 1);
+  }
+
+  /// FullSync con reintento exponencial. Antes era fire-and-forget: si fallaba
+  /// (Bad Gateway, timeout) el dashboard quedaba vacío hasta el próximo
+  /// arranque. Ahora reintenta hasta 3 veces con backoff (4s, 16s, 60s).
+  void _triggerFullSyncWithRetry({required int attempt}) {
     try {
-      if (Get.isRegistered<FullSyncService>()) {
-        final fullSyncService = Get.find<FullSyncService>();
-        // Ejecutar en background sin bloquear la UI
-        fullSyncService.performFullSync().then((result) {
-          print('🔄 AuthController: Full Sync completado - ${result.totalSynced} registros');
-          if (result.hasErrors) {
-            print('⚠️ AuthController: Full Sync con errores: ${result.errors}');
+      if (!Get.isRegistered<FullSyncService>()) return;
+      final fullSyncService = Get.find<FullSyncService>();
+      fullSyncService.performFullSync().then((result) {
+        if (result.totalSynced > 0) {
+          print('🔄 AuthController: Full Sync OK ($attempt/3) - ${result.totalSynced} registros');
+        }
+        if (result.wasAborted || result.hasErrors) {
+          if (attempt < 3) {
+            // Backoff: 4s → 16s → 60s
+            final delaySeconds = attempt == 1 ? 4 : (attempt == 2 ? 16 : 60);
+            print(
+              '⏳ AuthController: FullSync incompleto, reintentando en ${delaySeconds}s (intento ${attempt + 1}/3)...',
+            );
+            Future.delayed(Duration(seconds: delaySeconds), () {
+              _triggerFullSyncWithRetry(attempt: attempt + 1);
+            });
+          } else {
+            print('❌ AuthController: FullSync falló tras 3 intentos. El usuario verá datos en cache.');
           }
-        }).catchError((e) {
-          print('❌ AuthController: Error en Full Sync: $e');
-        });
-      }
+        }
+      }).catchError((e) {
+        print('❌ AuthController: Error en Full Sync (intento $attempt): $e');
+        if (attempt < 3) {
+          final delaySeconds = attempt == 1 ? 4 : (attempt == 2 ? 16 : 60);
+          Future.delayed(Duration(seconds: delaySeconds), () {
+            _triggerFullSyncWithRetry(attempt: attempt + 1);
+          });
+        }
+      });
     } catch (e) {
       print('⚠️ AuthController: No se pudo iniciar Full Sync: $e');
+    }
+  }
+
+  /// Detecta cambio de tenant comparando el userId actual con el lastUserId
+  /// guardado al hacer logout. Si son DIFERENTES, borra la BD ISAR para
+  /// evitar mezcla de datos entre tenants. Si son IGUALES, preserva el
+  /// cache offline-first.
+  Future<void> _handleTenantSwitchIfNeeded(String newUserId) async {
+    try {
+      final storage = Get.find<SecureStorageService>();
+      final lastUserId = await storage.getLastUserId();
+
+      if (lastUserId != null && lastUserId != newUserId) {
+        print('🔄 AuthController: Cambio de tenant detectado ($lastUserId → $newUserId). Limpiando ISAR...');
+        try {
+          final isarDatabase = IsarDatabase.instance;
+          if (isarDatabase.isInitialized) {
+            await isarDatabase.clear();
+            print('✅ ISAR limpiado por cambio de tenant');
+          }
+        } catch (e) {
+          print('⚠️ Error limpiando ISAR en cambio de tenant: $e');
+        }
+      } else if (lastUserId == newUserId) {
+        print('✅ Mismo usuario que el último login — preservando cache ISAR (logout perezoso)');
+      } else {
+        print('🆕 Primer login en este dispositivo — sin cleanup');
+      }
+
+      // Persistir el userId actual para el próximo logout/login
+      await storage.setLastUserId(newUserId);
+    } catch (e) {
+      print('⚠️ Error en _handleTenantSwitchIfNeeded: $e');
     }
   }
 
@@ -397,6 +455,11 @@ class AuthController extends GetxController {
 
           _isAuthenticated.value = true;
           _currentUser.value = authResult.user;
+
+          // ✅ CRÍTICO: detectar cambio de tenant ANTES de cualquier sync.
+          // Solo se borra la BD ISAR si el usuario que entra es DIFERENTE
+          // al que cerró sesión. Si es el mismo, el cache offline se preserva.
+          await _handleTenantSwitchIfNeeded(authResult.user.id);
 
           // CRÍTICO: Establecer tenant del usuario después del login exitoso
           await _setTenantAfterLogin(authResult.user);

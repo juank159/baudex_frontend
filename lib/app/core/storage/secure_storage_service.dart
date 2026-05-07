@@ -226,23 +226,29 @@ class SecureStorageService {
     }
   }
 
-  /// Limpiar todo el almacenamiento excepto device ID.
+  /// Limpiar todo el almacenamiento excepto device ID y lastUserId.
+  /// `lastUserId` se preserva para detectar cambio de tenant en el próximo
+  /// login y poder hacer "logout perezoso": NO borrar la BD ISAR si el
+  /// próximo login es del mismo usuario (mantener cache offline-first).
   /// Usa borrado selectivo para evitar race conditions.
   Future<void> clearAll() async {
     try {
       if (await _shouldUseSharedPreferences()) {
         final prefs = await SharedPreferences.getInstance();
         final keys = prefs.getKeys()
-            .where((key) => key.startsWith('secure_') && key != 'secure_$_deviceIdKey')
+            .where((key) =>
+                key.startsWith('secure_') &&
+                key != 'secure_$_deviceIdKey' &&
+                key != 'secure_$_lastUserIdKey')
             .toList();
         for (final key in keys) {
           await prefs.remove(key);
         }
       } else {
-        // Leer todas las keys y borrar solo las que NO son deviceId
+        // Leer todas las keys y borrar solo las que NO son deviceId/lastUserId
         final allData = await _storage.readAll();
         for (final key in allData.keys) {
-          if (key != _deviceIdKey) {
+          if (key != _deviceIdKey && key != _lastUserIdKey) {
             await _storage.delete(key: key);
           }
         }
@@ -703,6 +709,36 @@ class SecureStorageService {
       return daysSinceSaved <= 30;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ===================== LAST USER ID (LOGOUT PEREZOSO) =====================
+
+  /// Clave para guardar el ID del último usuario que estuvo logueado.
+  /// Se persiste a través de logout para que el próximo login pueda detectar
+  /// si es el MISMO usuario (no tocar BD) o uno DIFERENTE (cambio de tenant
+  /// real → ahí sí borrar BD y descargar todo del nuevo tenant).
+  static const String _lastUserIdKey = 'last_user_id';
+
+  /// Lee el ID del último usuario guardado. `null` si nunca hubo login.
+  Future<String?> getLastUserId() async {
+    try {
+      final v = await _readSecure(_lastUserIdKey);
+      return (v != null && v.isNotEmpty) ? v : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Guarda el ID del usuario actual. Llamar antes de logout o al confirmar
+  /// login exitoso. Sobrevive al `clearAll()`.
+  Future<void> setLastUserId(String userId) async {
+    try {
+      await _writeSecure(_lastUserIdKey, userId);
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ No se pudo persistir lastUserId: $e');
+      }
     }
   }
 }
