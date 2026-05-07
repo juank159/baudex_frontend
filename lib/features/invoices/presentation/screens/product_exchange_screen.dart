@@ -1,14 +1,28 @@
 // lib/features/invoices/presentation/screens/product_exchange_screen.dart
 //
-// Pantalla "Cambio de producto" — el cliente devuelve items de una factura
-// previa Y lleva otros nuevos en una sola transacción.
+// Pantalla "Cambio de producto" — responsive (mobile / tablet / desktop).
+//
+// Layout:
+//   - Mobile (<700px):  single column, secciones apiladas verticalmente.
+//   - Tablet/Desktop:    2 columnas (devuelto izq | entregado der),
+//                        conciliación abajo full-width.
+//
+// Features:
+//   • Selector de productos del catálogo (busca en ProductsController.products)
+//   • Selector de bank account (opcional) cuando hay diferencia
+//   • Sticky footer con resumen + botón procesar
+//   • Snack de éxito ofreciendo opciones (volver, imprimir cuando se conecte
+//     impresora térmica si está disponible)
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../bank_accounts/presentation/controllers/bank_accounts_controller.dart';
 import '../../../credit_notes/domain/entities/credit_note.dart';
+import '../../../products/domain/entities/product.dart';
+import '../../../products/presentation/controllers/products_controller.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/entities/invoice_item.dart';
 import '../../domain/entities/product_exchange.dart';
@@ -16,6 +30,10 @@ import '../controllers/product_exchange_controller.dart';
 
 class ProductExchangeScreen extends GetView<ProductExchangeController> {
   const ProductExchangeScreen({super.key});
+
+  // ==================== BREAKPOINTS ====================
+  static const double _mobileBreak = 700;
+  static const double _tabletBreak = 1100;
 
   @override
   Widget build(BuildContext context) {
@@ -35,51 +53,88 @@ class ProductExchangeScreen extends GetView<ProductExchangeController> {
           );
         }
         if (controller.error != null && controller.originalInvoice == null) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline,
-                      size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text(
-                    controller.error!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-          );
+          return _buildError(controller.error!);
         }
         final invoice = controller.originalInvoice;
         if (invoice == null) {
           return const Center(child: Text('Factura no encontrada'));
         }
 
-        return Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _InvoiceHeader(invoice: invoice),
-                  const SizedBox(height: 16),
-                  _ReturnedSection(invoice: invoice),
-                  const SizedBox(height: 16),
-                  _DeliveredSection(),
-                  const SizedBox(height: 16),
-                  _SettlementSection(),
-                  const SizedBox(height: 100),
-                ],
-              ),
-            ),
-            _Footer(),
-          ],
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final isMobile = width < _mobileBreak;
+            final isTablet = width >= _mobileBreak && width < _tabletBreak;
+
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(isMobile ? 12 : 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _InvoiceHeader(invoice: invoice, isMobile: isMobile),
+                        SizedBox(height: isMobile ? 12 : 16),
+                        if (isMobile)
+                          _buildMobileLayout(invoice)
+                        else
+                          _buildWideLayout(invoice, isTablet),
+                        SizedBox(height: isMobile ? 12 : 16),
+                        _SettlementSection(isMobile: isMobile),
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ),
+                _Footer(isMobile: isMobile),
+              ],
+            );
+          },
         );
       }),
+    );
+  }
+
+  Widget _buildMobileLayout(Invoice invoice) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ReturnedSection(invoice: invoice, isMobile: true),
+        const SizedBox(height: 12),
+        _DeliveredSection(isMobile: true),
+      ],
+    );
+  }
+
+  Widget _buildWideLayout(Invoice invoice, bool isTablet) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: _ReturnedSection(invoice: invoice, isMobile: false)),
+        SizedBox(width: isTablet ? 12 : 16),
+        Expanded(child: _DeliveredSection(isMobile: false)),
+      ],
+    );
+  }
+
+  Widget _buildError(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -88,12 +143,13 @@ class ProductExchangeScreen extends GetView<ProductExchangeController> {
 
 class _InvoiceHeader extends StatelessWidget {
   final Invoice invoice;
-  const _InvoiceHeader({required this.invoice});
+  final bool isMobile;
+  const _InvoiceHeader({required this.invoice, required this.isMobile});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(isMobile ? 12 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -101,25 +157,28 @@ class _InvoiceHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.receipt_long_outlined,
-              color: ElegantLightTheme.primaryBlue),
-          const SizedBox(width: 12),
+          Icon(
+            Icons.receipt_long_outlined,
+            color: ElegantLightTheme.primaryBlue,
+            size: isMobile ? 20 : 24,
+          ),
+          SizedBox(width: isMobile ? 10 : 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Factura ${invoice.number}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 15,
+                    fontSize: isMobile ? 14 : 15,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${invoice.customer?.fullName ?? "Cliente"} · ${AppFormatters.formatCurrency(invoice.total)}',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: isMobile ? 11 : 12,
                     color: Colors.grey.shade700,
                   ),
                 ),
@@ -136,7 +195,8 @@ class _InvoiceHeader extends StatelessWidget {
 
 class _ReturnedSection extends GetView<ProductExchangeController> {
   final Invoice invoice;
-  const _ReturnedSection({required this.invoice});
+  final bool isMobile;
+  const _ReturnedSection({required this.invoice, required this.isMobile});
 
   @override
   Widget build(BuildContext context) {
@@ -144,9 +204,11 @@ class _ReturnedSection extends GetView<ProductExchangeController> {
       title: 'Items devueltos',
       icon: Icons.undo,
       iconColor: Colors.orange,
+      isMobile: isMobile,
       child: Column(
         children: invoice.items
-            .map((item) => _ReturnedItemRow(invoiceItem: item))
+            .map((item) =>
+                _ReturnedItemRow(invoiceItem: item, isMobile: isMobile))
             .toList(),
       ),
     );
@@ -155,16 +217,28 @@ class _ReturnedSection extends GetView<ProductExchangeController> {
 
 class _ReturnedItemRow extends GetView<ProductExchangeController> {
   final InvoiceItem invoiceItem;
-  const _ReturnedItemRow({required this.invoiceItem});
+  final bool isMobile;
+  const _ReturnedItemRow({required this.invoiceItem, required this.isMobile});
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final returned = controller.returnedItems[invoiceItem.id];
       final qty = returned?.quantity ?? 0;
+      final selected = qty > 0;
 
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+      return Container(
+        margin: EdgeInsets.symmetric(vertical: isMobile ? 4 : 6),
+        padding: EdgeInsets.all(isMobile ? 8 : 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? Colors.orange.withValues(alpha: 0.05)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: selected ? Colors.orange.shade200 : Colors.grey.shade200,
+          ),
+        ),
         child: Row(
           children: [
             Expanded(
@@ -173,15 +247,18 @@ class _ReturnedItemRow extends GetView<ProductExchangeController> {
                 children: [
                   Text(
                     invoiceItem.description,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w500,
-                      fontSize: 13,
+                      fontSize: isMobile ? 12 : 13,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     'Facturado: ${invoiceItem.quantity.toStringAsFixed(0)} × ${AppFormatters.formatCurrency(invoiceItem.unitPrice)}',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: isMobile ? 10 : 11,
                       color: Colors.grey.shade600,
                     ),
                   ),
@@ -189,7 +266,6 @@ class _ReturnedItemRow extends GetView<ProductExchangeController> {
               ),
             ),
             const SizedBox(width: 8),
-            // Stepper de cantidad
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey.shade300),
@@ -199,32 +275,36 @@ class _ReturnedItemRow extends GetView<ProductExchangeController> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove, size: 16),
+                    icon: Icon(Icons.remove, size: isMobile ? 14 : 16),
                     onPressed: qty > 0
                         ? () => controller.setReturnedItem(invoiceItem, qty - 1)
                         : null,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: BoxConstraints(
+                      minWidth: isMobile ? 28 : 32,
+                      minHeight: isMobile ? 28 : 32,
+                    ),
                     padding: EdgeInsets.zero,
                   ),
                   SizedBox(
-                    width: 36,
+                    width: isMobile ? 30 : 36,
                     child: Text(
                       qty.toStringAsFixed(0),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                        fontSize: isMobile ? 13 : 14,
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add, size: 16),
+                    icon: Icon(Icons.add, size: isMobile ? 14 : 16),
                     onPressed: qty < invoiceItem.quantity
                         ? () => controller.setReturnedItem(invoiceItem, qty + 1)
                         : null,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: BoxConstraints(
+                      minWidth: isMobile ? 28 : 32,
+                      minHeight: isMobile ? 28 : 32,
+                    ),
                     padding: EdgeInsets.zero,
                   ),
                 ],
@@ -240,37 +320,59 @@ class _ReturnedItemRow extends GetView<ProductExchangeController> {
 // ==================== NEW ITEMS ====================
 
 class _DeliveredSection extends GetView<ProductExchangeController> {
+  final bool isMobile;
+  const _DeliveredSection({required this.isMobile});
+
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'Items entregados',
       icon: Icons.shopping_bag_outlined,
       iconColor: ElegantLightTheme.primaryBlue,
+      isMobile: isMobile,
       child: Obx(() {
         final items = controller.newItems;
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (items.isEmpty)
               Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
                   'Sin items entregados — solo devolución',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: isMobile ? 11 : 12,
                     color: Colors.grey.shade600,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
               ),
             ...items.asMap().entries.map(
-                  (entry) =>
-                      _NewItemRow(index: entry.key, item: entry.value),
+                  (entry) => _NewItemRow(
+                    index: entry.key,
+                    item: entry.value,
+                    isMobile: isMobile,
+                  ),
                 ),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => _showAddItemDialog(context),
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Agregar item entregado'),
+            ElevatedButton.icon(
+              onPressed: () => _showProductPicker(context),
+              icon: Icon(Icons.add_shopping_cart, size: isMobile ? 16 : 18),
+              label: Text(
+                'Agregar producto',
+                style: TextStyle(fontSize: isMobile ? 12 : 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ElegantLightTheme.primaryBlue,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(
+                  vertical: isMobile ? 10 : 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
             ),
           ],
         );
@@ -278,58 +380,12 @@ class _DeliveredSection extends GetView<ProductExchangeController> {
     );
   }
 
-  Future<void> _showAddItemDialog(BuildContext context) async {
-    final descCtrl = TextEditingController();
-    final qtyCtrl = TextEditingController(text: '1');
-    final priceCtrl = TextEditingController();
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Agregar item entregado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: descCtrl,
-              decoration: const InputDecoration(labelText: 'Descripción'),
-            ),
-            TextField(
-              controller: qtyCtrl,
-              decoration: const InputDecoration(labelText: 'Cantidad'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: priceCtrl,
-              decoration:
-                  const InputDecoration(labelText: 'Precio unitario'),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Agregar'),
-          ),
-        ],
-      ),
+  Future<void> _showProductPicker(BuildContext context) async {
+    final picked = await Get.dialog<ExchangeNewItem>(
+      const _ProductPickerDialog(),
     );
-
-    if (result == true) {
-      final qty = double.tryParse(qtyCtrl.text) ?? 0;
-      final price = double.tryParse(priceCtrl.text) ?? 0;
-      if (descCtrl.text.isNotEmpty && qty > 0 && price > 0) {
-        controller.addNewItem(ExchangeNewItem(
-          description: descCtrl.text,
-          quantity: qty,
-          unitPrice: price,
-        ));
-      }
+    if (picked != null) {
+      controller.addNewItem(picked);
     }
   }
 }
@@ -337,12 +393,25 @@ class _DeliveredSection extends GetView<ProductExchangeController> {
 class _NewItemRow extends GetView<ProductExchangeController> {
   final int index;
   final ExchangeNewItem item;
-  const _NewItemRow({required this.index, required this.item});
+  final bool isMobile;
+  const _NewItemRow({
+    required this.index,
+    required this.item,
+    required this.isMobile,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: isMobile ? 3 : 4),
+      padding: EdgeInsets.all(isMobile ? 8 : 10),
+      decoration: BoxDecoration(
+        color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.2),
+        ),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -351,13 +420,17 @@ class _NewItemRow extends GetView<ProductExchangeController> {
               children: [
                 Text(
                   item.description,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w500, fontSize: 13),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: isMobile ? 12 : 13,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   '${item.quantity.toStringAsFixed(0)} × ${AppFormatters.formatCurrency(item.unitPrice)}',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: isMobile ? 10 : 11,
                     color: Colors.grey.shade600,
                   ),
                 ),
@@ -366,13 +439,284 @@ class _NewItemRow extends GetView<ProductExchangeController> {
           ),
           Text(
             AppFormatters.formatCurrency(item.subtotal),
-            style: const TextStyle(fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: isMobile ? 12 : 14,
+            ),
           ),
           IconButton(
             onPressed: () => controller.removeNewItem(index),
-            icon: const Icon(Icons.close, size: 18, color: Colors.red),
+            icon: Icon(
+              Icons.close,
+              size: isMobile ? 16 : 18,
+              color: Colors.red,
+            ),
+            constraints: BoxConstraints(
+              minWidth: isMobile ? 32 : 40,
+              minHeight: isMobile ? 32 : 40,
+            ),
+            padding: EdgeInsets.zero,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ==================== PRODUCT PICKER DIALOG ====================
+
+class _ProductPickerDialog extends StatefulWidget {
+  const _ProductPickerDialog();
+
+  @override
+  State<_ProductPickerDialog> createState() => _ProductPickerDialogState();
+}
+
+class _ProductPickerDialogState extends State<_ProductPickerDialog> {
+  final _searchCtrl = TextEditingController();
+  String _search = '';
+  Product? _selectedProduct;
+  final _qtyCtrl = TextEditingController(text: '1');
+  final _priceCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _qtyCtrl.dispose();
+    _priceCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 600;
+    final dialogWidth = isMobile ? width * 0.92 : 480.0;
+
+    final productsCtrl = Get.isRegistered<ProductsController>()
+        ? Get.find<ProductsController>()
+        : null;
+
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Container(
+        width: dialogWidth,
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        padding: EdgeInsets.all(isMobile ? 14 : 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              _selectedProduct == null
+                  ? 'Seleccionar producto'
+                  : 'Configurar item',
+              style: TextStyle(
+                fontSize: isMobile ? 15 : 17,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_selectedProduct == null) ...[
+              TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Buscar por nombre, SKU o código',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (v) => setState(() => _search = v.toLowerCase()),
+              ),
+              const SizedBox(height: 12),
+              if (productsCtrl == null)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Catálogo no disponible. Intenta abrir la pantalla de Productos primero.',
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              else
+                Flexible(
+                  child: Obx(() {
+                    final products = productsCtrl.products
+                        .where((p) {
+                          if (_search.isEmpty) return true;
+                          final s = _search;
+                          return p.name.toLowerCase().contains(s) ||
+                              p.sku.toLowerCase().contains(s) ||
+                              (p.barcode?.toLowerCase().contains(s) ?? false);
+                        })
+                        .where((p) => p.status == ProductStatus.active)
+                        .toList();
+                    if (products.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          _search.isEmpty
+                              ? 'No hay productos cargados'
+                              : 'Sin resultados para "$_search"',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: products.length,
+                      itemBuilder: (ctx, i) {
+                        final p = products[i];
+                        final price = (p.prices?.isNotEmpty ?? false)
+                            ? p.prices!.first.amount
+                            : 0.0;
+                        return ListTile(
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 4),
+                          dense: true,
+                          title: Text(
+                            p.name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w500),
+                          ),
+                          subtitle: Text(
+                            'SKU: ${p.sku} · Stock: ${p.stock.toStringAsFixed(0)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          trailing: Text(
+                            AppFormatters.formatCurrency(price),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: ElegantLightTheme.primaryBlue,
+                            ),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              _selectedProduct = p;
+                              _priceCtrl.text = price.toStringAsFixed(0);
+                            });
+                          },
+                        );
+                      },
+                    );
+                  }),
+                ),
+            ] else ...[
+              // Configurar cantidad y precio
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedProduct!.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            'SKU: ${_selectedProduct!.sku}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => setState(() {
+                        _selectedProduct = null;
+                        _searchCtrl.clear();
+                        _search = '';
+                      }),
+                      child: const Text('Cambiar'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _qtyCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Cantidad',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _priceCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Precio unitario',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Get.back(result: null),
+                  child: const Text('Cancelar'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _selectedProduct == null ? null : _confirm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ElegantLightTheme.primaryBlue,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Agregar'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirm() {
+    final qty = double.tryParse(_qtyCtrl.text) ?? 0;
+    final price = double.tryParse(_priceCtrl.text) ?? 0;
+    if (qty <= 0 || price <= 0 || _selectedProduct == null) {
+      Get.snackbar(
+        'Datos incompletos',
+        'Cantidad y precio deben ser mayores a 0',
+        snackPosition: SnackPosition.TOP,
+      );
+      return;
+    }
+    Get.back(
+      result: ExchangeNewItem(
+        productId: _selectedProduct!.id,
+        description: _selectedProduct!.name,
+        quantity: qty,
+        unitPrice: price,
+        unit: _selectedProduct!.unit,
       ),
     );
   }
@@ -381,12 +725,16 @@ class _NewItemRow extends GetView<ProductExchangeController> {
 // ==================== SETTLEMENT ====================
 
 class _SettlementSection extends GetView<ProductExchangeController> {
+  final bool isMobile;
+  const _SettlementSection({required this.isMobile});
+
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'Conciliación',
       icon: Icons.account_balance_wallet_outlined,
       iconColor: Colors.green,
+      isMobile: isMobile,
       child: Obx(() {
         final diff = controller.difference;
         return Column(
@@ -396,32 +744,41 @@ class _SettlementSection extends GetView<ProductExchangeController> {
               'Total devuelto',
               AppFormatters.formatCurrency(controller.totalReturned),
               Colors.orange,
+              isMobile,
             ),
             _row(
               'Total entregado',
               AppFormatters.formatCurrency(controller.totalDelivered),
               ElegantLightTheme.primaryBlue,
+              isMobile,
             ),
             const Divider(),
             _row(
               controller.differenceLabel,
               AppFormatters.formatCurrency(diff.abs()),
-              diff < 0 ? Colors.green : Colors.red,
+              diff < 0 ? Colors.green : (diff > 0 ? Colors.red : Colors.grey),
+              isMobile,
               bold: true,
             ),
             const SizedBox(height: 12),
             if (diff != 0) ...[
-              const Text(
+              Text(
                 'Cómo conciliar:',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: isMobile ? 12 : 13,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 6),
               ...controller.availableSettlementModes.map(
                 (mode) => RadioListTile<ExchangeSettlementMode>(
-                  title: Text(_settlementLabel(mode)),
+                  title: Text(
+                    _settlementLabel(mode),
+                    style: TextStyle(fontSize: isMobile ? 12 : 13),
+                  ),
                   subtitle: Text(
                     _settlementDescription(mode),
-                    style: const TextStyle(fontSize: 11),
+                    style: TextStyle(fontSize: isMobile ? 10 : 11),
                   ),
                   value: mode,
                   groupValue: controller.settlementMode,
@@ -429,8 +786,17 @@ class _SettlementSection extends GetView<ProductExchangeController> {
                     if (v != null) controller.settlementMode = v;
                   },
                   dense: true,
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
+              // Selector de banco solo cuando aplica (cashPayment / cashRefund)
+              if (controller.settlementMode ==
+                      ExchangeSettlementMode.cashPayment ||
+                  controller.settlementMode ==
+                      ExchangeSettlementMode.cashRefund) ...[
+                const SizedBox(height: 12),
+                _BankAccountPicker(isMobile: isMobile),
+              ],
             ],
           ],
         );
@@ -438,7 +804,8 @@ class _SettlementSection extends GetView<ProductExchangeController> {
     );
   }
 
-  Widget _row(String label, String value, Color color, {bool bold = false}) {
+  Widget _row(String label, String value, Color color, bool isMobile,
+      {bool bold = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -447,14 +814,14 @@ class _SettlementSection extends GetView<ProductExchangeController> {
           Text(
             label,
             style: TextStyle(
-              fontSize: bold ? 14 : 13,
+              fontSize: bold ? (isMobile ? 13 : 14) : (isMobile ? 12 : 13),
               fontWeight: bold ? FontWeight.w700 : FontWeight.normal,
             ),
           ),
           Text(
             value,
             style: TextStyle(
-              fontSize: bold ? 16 : 14,
+              fontSize: bold ? (isMobile ? 15 : 16) : (isMobile ? 13 : 14),
               fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
               color: color,
             ),
@@ -491,15 +858,93 @@ class _SettlementSection extends GetView<ProductExchangeController> {
   }
 }
 
+// ==================== BANK ACCOUNT PICKER ====================
+
+class _BankAccountPicker extends GetView<ProductExchangeController> {
+  final bool isMobile;
+  const _BankAccountPicker({required this.isMobile});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Get.isRegistered<BankAccountsController>()) {
+      // Bank accounts no disponible — sin selector, va a caja general.
+      return const SizedBox.shrink();
+    }
+    final bankCtrl = Get.find<BankAccountsController>();
+
+    return Obx(() {
+      final accounts = bankCtrl.bankAccounts;
+      if (accounts.isEmpty) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            'Sin cuentas bancarias configuradas — usará caja general',
+            style: TextStyle(
+              fontSize: isMobile ? 11 : 12,
+              fontStyle: FontStyle.italic,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Cuenta para registrar el movimiento:',
+            style: TextStyle(
+              fontSize: isMobile ? 12 : 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String?>(
+            value: controller.bankAccountId,
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: isMobile ? 8 : 12,
+              ),
+              isDense: true,
+            ),
+            items: [
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('Caja general (efectivo)'),
+              ),
+              ...accounts.map((acc) {
+                return DropdownMenuItem<String?>(
+                  value: acc.id,
+                  child: Text(
+                    acc.bankName != null
+                        ? '${acc.name} — ${acc.bankName}'
+                        : acc.name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }),
+            ],
+            onChanged: (v) => controller.bankAccountId = v,
+          ),
+        ],
+      );
+    });
+  }
+}
+
 // ==================== FOOTER ====================
 
 class _Footer extends GetView<ProductExchangeController> {
+  final bool isMobile;
+  const _Footer({required this.isMobile});
+
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final canProcess = controller.returnedItems.isNotEmpty;
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isMobile ? 12 : 16),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
@@ -523,24 +968,23 @@ class _Footer extends GetView<ProductExchangeController> {
                     }
                   : null,
               icon: controller.isProcessing
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
+                  ? SizedBox(
+                      width: isMobile ? 16 : 18,
+                      height: isMobile ? 16 : 18,
+                      child: const CircularProgressIndicator(
                         strokeWidth: 2,
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.swap_horiz),
+                  : Icon(Icons.swap_horiz, size: isMobile ? 18 : 20),
               label: Text(
-                controller.isProcessing
-                    ? 'Procesando...'
-                    : 'Procesar cambio',
+                controller.isProcessing ? 'Procesando...' : 'Procesar cambio',
+                style: TextStyle(fontSize: isMobile ? 14 : 15),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: ElegantLightTheme.primaryBlue,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -560,17 +1004,19 @@ class _SectionCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final Widget child;
+  final bool isMobile;
   const _SectionCard({
     required this.title,
     required this.icon,
     required this.iconColor,
     required this.child,
+    required this.isMobile,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(isMobile ? 12 : 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -581,18 +1027,18 @@ class _SectionCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: iconColor, size: 18),
+              Icon(icon, color: iconColor, size: isMobile ? 16 : 18),
               const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 14,
+                style: TextStyle(
+                  fontSize: isMobile ? 13 : 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: isMobile ? 10 : 12),
           child,
         ],
       ),

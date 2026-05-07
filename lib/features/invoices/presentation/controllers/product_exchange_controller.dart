@@ -9,7 +9,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../../app/core/errors/failures.dart';
 import '../../../../app/core/utils/app_logger.dart';
 import '../../../credit_notes/domain/entities/credit_note.dart';
 import '../../domain/entities/invoice.dart';
@@ -60,6 +59,12 @@ class ProductExchangeController extends GetxController {
   final RxString _reasonDescription = ''.obs;
   String get reasonDescription => _reasonDescription.value;
   set reasonDescription(String v) => _reasonDescription.value = v;
+
+  /// Cuenta bancaria opcional para registrar el cobro / refund cuando hay
+  /// diferencia. `null` = caja general / efectivo sin cuenta específica.
+  final RxnString _bankAccountId = RxnString();
+  String? get bankAccountId => _bankAccountId.value;
+  set bankAccountId(String? id) => _bankAccountId.value = id;
 
   final RxBool _isLoading = false.obs;
   bool get isLoading => _isLoading.value;
@@ -217,6 +222,7 @@ class ProductExchangeController extends GetxController {
         reason: _reason.value,
         reasonDescription:
             _reasonDescription.value.isEmpty ? null : _reasonDescription.value,
+        bankAccountId: _bankAccountId.value,
         restoreInventory: true,
       );
 
