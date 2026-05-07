@@ -560,6 +560,31 @@ class IsarDatabase implements IIsarDatabase {
     }
   }
 
+  /// Resetear el contador de reintentos de una operación a cero
+  ///
+  /// Útil cuando se sabe que la causa del fallo ya fue corregida
+  /// (ej: bug de backend resuelto, conexión recuperada después de mucho
+  /// tiempo, datos del servidor cambiados). La operación pasa a `pending`
+  /// con retryCount=0 para que vuelva a entrar al ciclo normal de sync.
+  Future<void> resetSyncOperationRetry(int operationId) async {
+    if (_isar == null) return;
+
+    try {
+      await _isar!.writeTxn(() async {
+        final operation = await _isar!.syncOperations.get(operationId);
+        if (operation != null) {
+          operation.status = SyncStatus.pending;
+          operation.updatedAt = DateTime.now();
+          operation.retryCount = 0;
+          operation.error = null;
+          await _isar!.syncOperations.put(operation);
+        }
+      });
+    } catch (e) {
+      AppLogger.w('Error reseteando retry: $e', tag: 'ISAR');
+    }
+  }
+
   /// Marcar una operación como en conflicto
   ///
   /// Útil para tracking de conflictos 409 del servidor

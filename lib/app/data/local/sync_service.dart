@@ -242,6 +242,13 @@ class SyncService extends GetxService {
   final RxInt _pendingOperationsCount = 0.obs;
   int get pendingOperationsCount => _pendingOperationsCount.value;
 
+  // Operaciones que excedieron el límite de reintentos y quedaron bloqueadas.
+  // Cuando este contador es > 0, hay datos que NUNCA se sincronizarán hasta
+  // que el usuario las desbloquee manualmente (ej: tras arreglar un bug del
+  // backend o restaurar conexión después de mucho tiempo).
+  final RxInt _permanentlyFailedCount = 0.obs;
+  int get permanentlyFailedCount => _permanentlyFailedCount.value;
+
   // Stream subscription para connectivity
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
@@ -504,8 +511,24 @@ class SyncService extends GetxService {
   /// Actualizar conteo de operaciones pendientes
   Future<void> _updatePendingCount() async {
     try {
-      final pending = await _isarDatabase.getPendingSyncOperations();
-      _pendingOperationsCount.value = pending.length;
+      // `getPendingSyncOperations()` ya retorna pending + failed.
+      // Una op bloqueada (retryCount >= maxRetries) puede tener status
+      // pending O failed dependiendo del momento del fallo, así que filtramos
+      // por retryCount aquí en vez de por status.
+      final List<SyncOperation> all = List<SyncOperation>.from(
+        await _isarDatabase.getPendingSyncOperations() as Iterable,
+      );
+      int blocked = 0;
+      int active = 0;
+      for (final op in all) {
+        if (op.retryCount >= SyncConfig.maxRetries) {
+          blocked++;
+        } else {
+          active++;
+        }
+      }
+      _pendingOperationsCount.value = active;
+      _permanentlyFailedCount.value = blocked;
     } catch (e) {
       AppLogger.e('Error actualizando conteo pendientes: $e', tag: 'SYNC');
     }
@@ -1674,6 +1697,103 @@ class SyncService extends GetxService {
       }
     } catch (e) {
       AppLogger.e('Error reintentando operaciones fallidas: $e', tag: 'SYNC');
+    }
+  }
+
+  /// Forzar reintento de operaciones que excedieron el máximo de reintentos.
+  ///
+  /// `retryFailedOperations()` ignora ops con retryCount >= maxRetries para
+  /// no spammear al servidor con datos rotos. Pero cuando la causa del
+  /// fallo se corrige (ej: bug de backend, datos del servidor cambiados),
+  /// esas ops quedan zombi sin forma de revivir.
+  ///
+  /// Este método las desbloquea: resetea retryCount=0, limpia el error y
+  /// las pasa a `pending`. Luego dispara `syncAll()` para procesarlas en
+  /// el ciclo normal.
+  ///
+  /// USO: SOLO bajo acción explícita del usuario (botón "Reintentar
+  /// bloqueadas"). NUNCA llamar automáticamente — defeats el propósito
+  /// del límite de retries.
+  Future<int> forceRetryPermanentlyFailed() async {
+    if (!_isOnline.value) {
+      AppLogger.w(
+        'Sin conexión, no se puede reintentar bloqueadas',
+        tag: 'SYNC',
+      );
+      return 0;
+    }
+
+    try {
+      // Cubrir ops con status pending Y failed que excedieron reintentos.
+      // `_isarDatabase` está tipado como `dynamic` (para mocks), así que
+      // casteamos explícitamente para que el `.where()` infiera bien.
+      final List<SyncOperation> all = List<SyncOperation>.from(
+        await _isarDatabase.getPendingSyncOperations() as Iterable,
+      );
+      final blocked = all
+          .where((op) => op.retryCount >= SyncConfig.maxRetries)
+          .toList();
+
+      if (blocked.isEmpty) {
+        AppLogger.i('No hay operaciones bloqueadas', tag: 'SYNC');
+        return 0;
+      }
+
+      AppLogger.i(
+        'Desbloqueando ${blocked.length} operaciones (reset retryCount=0)',
+        tag: 'SYNC',
+      );
+
+      for (final op in blocked) {
+        await _isarDatabase.resetSyncOperationRetry(op.id);
+      }
+
+      await _updatePendingCount();
+      // Trigger sync para que se procesen en el siguiente ciclo
+      await syncAll();
+
+      return blocked.length;
+    } catch (e) {
+      AppLogger.e('Error desbloqueando operaciones: $e', tag: 'SYNC');
+      return 0;
+    }
+  }
+
+  /// Eliminar permanentemente todas las operaciones bloqueadas.
+  ///
+  /// Alternativa a `forceRetryPermanentlyFailed()` cuando los datos ya
+  /// no son válidos o el usuario decide descartarlos. Útil cuando el
+  /// dato local quedó stale (ej: factura con cliente borrado, ítem que
+  /// ya se vendió por otra vía, etc).
+  ///
+  /// USO: SOLO bajo acción explícita del usuario, idealmente con
+  /// confirmación que indique cuántas operaciones se descartarán.
+  Future<int> discardPermanentlyFailed() async {
+    try {
+      // Cubrir ops con status pending Y failed que excedieron reintentos.
+      final List<SyncOperation> all = List<SyncOperation>.from(
+        await _isarDatabase.getPendingSyncOperations() as Iterable,
+      );
+      final blocked = all
+          .where((op) => op.retryCount >= SyncConfig.maxRetries)
+          .toList();
+
+      if (blocked.isEmpty) return 0;
+
+      AppLogger.w(
+        'Descartando ${blocked.length} operaciones bloqueadas',
+        tag: 'SYNC',
+      );
+
+      for (final op in blocked) {
+        await _isarDatabase.deleteSyncOperation(op.id);
+      }
+
+      await _updatePendingCount();
+      return blocked.length;
+    } catch (e) {
+      AppLogger.e('Error descartando operaciones: $e', tag: 'SYNC');
+      return 0;
     }
   }
 
