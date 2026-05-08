@@ -13,6 +13,7 @@ import '../widgets/bank_accounts_summary.dart';
 import '../widgets/income_breakdown_widget.dart';
 import '../widgets/accounts_receivable_widget.dart';
 import '../widgets/cash_flow_summary_widget.dart';
+import '../widgets/credit_notes_banner.dart';
 import '../widgets/currency_breakdown_widget.dart';
 import '../widgets/purchase_currency_breakdown_widget.dart';
 import '../../../../app/core/utils/formatters.dart';
@@ -337,6 +338,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Phase 1B: Banner prominente cuando hay devoluciones (NCs aplicadas).
+        const CreditNotesBanner(),
         // Charts Section unificada con animación
         _buildAnimatedCard(
           const DashboardChartsSection(),
@@ -486,6 +489,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Phase 1B: Banner prominente cuando hay devoluciones (NCs aplicadas).
+        const CreditNotesBanner(),
         // Charts Section unificada - Primera fila con animación
         _buildAnimatedCard(
           const SizedBox(
@@ -656,6 +661,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Phase 1B: Banner prominente cuando hay devoluciones (NCs aplicadas).
+        const CreditNotesBanner(),
         // Primera fila: Análisis Financiero y Desglose de Ingresos en 2 columnas
         SizedBox(
           height: topRowHeight,
