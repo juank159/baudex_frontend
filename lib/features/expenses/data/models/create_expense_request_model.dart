@@ -16,6 +16,8 @@ class CreateExpenseRequestModel {
   final List<String>? tags;
   final Map<String, dynamic>? metadata;
   final String? status;
+  final String? paidFrom;
+  final String? bankAccountId;
 
   const CreateExpenseRequestModel({
     required this.description,
@@ -32,6 +34,8 @@ class CreateExpenseRequestModel {
     this.tags,
     this.metadata,
     this.status,
+    this.paidFrom,
+    this.bankAccountId,
   });
 
   factory CreateExpenseRequestModel.fromParams({
@@ -49,6 +53,8 @@ class CreateExpenseRequestModel {
     List<String>? tags,
     Map<String, dynamic>? metadata,
     ExpenseStatus? status,
+    ExpensePaidFrom? paidFrom,
+    String? bankAccountId,
   }) {
     return CreateExpenseRequestModel(
       description: description,
@@ -71,6 +77,8 @@ class CreateExpenseRequestModel {
       tags: tags,
       metadata: metadata,
       status: status?.name,
+      paidFrom: paidFrom?.value,
+      bankAccountId: bankAccountId,
     );
   }
 
@@ -102,6 +110,8 @@ class CreateExpenseRequestModel {
     if (tags?.isNotEmpty == true) data['tags'] = tags;
     if (metadata?.isNotEmpty == true) data['metadata'] = metadata;
     if (status?.isNotEmpty == true) data['status'] = status;
+    if (paidFrom?.isNotEmpty == true) data['paidFrom'] = paidFrom;
+    if (bankAccountId?.isNotEmpty == true) data['bankAccountId'] = bankAccountId;
 
     return data;
   }

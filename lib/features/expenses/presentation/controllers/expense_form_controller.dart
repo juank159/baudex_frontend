@@ -18,6 +18,8 @@ import '../../../../app/core/services/file_service.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/utils/subscription_error_handler.dart';
 import 'package:dartz/dartz.dart';
+import '../../../bank_accounts/domain/entities/bank_account.dart';
+import '../../../bank_accounts/domain/repositories/bank_account_repository.dart';
 
 class ExpenseFormController extends GetxController {
   // Dependencies
@@ -79,11 +81,19 @@ class ExpenseFormController extends GetxController {
   final selectedCategory = Rxn<ExpenseCategory>();
   final selectedType = Rxn<ExpenseType>();
   final selectedPaymentMethod = Rxn<PaymentMethod>();
+  // Origen del pago (de dónde sale el dinero) y cuenta bancaria
+  // asociada cuando paidFrom == bankAccount.
+  final selectedPaidFrom = Rxn<ExpensePaidFrom>();
+  final selectedBankAccountId = Rxn<String>();
   final attachments = <AttachmentFile>[].obs;
   final tags = <String>[].obs;
 
   // Categorías disponibles
   final categories = <ExpenseCategory>[].obs;
+
+  // Cuentas bancarias activas (para selector cuando paidFrom = bankAccount).
+  final bankAccounts = <BankAccount>[].obs;
+  final isLoadingBankAccounts = false.obs;
 
   // Datos para edición
   final _expenseId = Rxn<String>();
@@ -177,7 +187,9 @@ class ExpenseFormController extends GetxController {
   // Inicialización
   Future<void> _initializeData() async {
     await loadCategories();
-    
+    // Cargar cuentas bancarias en paralelo (no bloqueante).
+    loadBankAccounts();
+
     if (isEditMode) {
       await _loadExpenseForEditing();
     } else {
@@ -205,6 +217,23 @@ class ExpenseFormController extends GetxController {
     selectedDate.value = Get.find<TenantDateTimeService>().now();
     selectedType.value = ExpenseType.operating;
     selectedPaymentMethod.value = PaymentMethod.cash;
+  }
+
+  /// Carga las cuentas bancarias activas para el selector de origen
+  /// cuando `paidFrom` = bankAccount. No bloquea la apertura del form.
+  Future<void> loadBankAccounts() async {
+    if (!Get.isRegistered<BankAccountRepository>()) return;
+    try {
+      isLoadingBankAccounts.value = true;
+      final repo = Get.find<BankAccountRepository>();
+      final result = await repo.getActiveBankAccounts();
+      result.fold(
+        (_) {},
+        (accounts) => bankAccounts.value = accounts,
+      );
+    } finally {
+      isLoadingBankAccounts.value = false;
+    }
   }
 
   Future<void> _loadExpenseForEditing() async {
@@ -235,13 +264,15 @@ class ExpenseFormController extends GetxController {
   void _populateFormWithExpense(Expense expense) {
     descriptionController.text = expense.description;
     amountController.text = AppFormatters.formatNumber(expense.amount);
-    
+
     // Sincronizar observables
     _description.value = expense.description;
     _amount.value = AppFormatters.formatNumber(expense.amount);
     selectedDate.value = expense.date;
     selectedType.value = expense.type;
     selectedPaymentMethod.value = expense.paymentMethod;
+    selectedPaidFrom.value = expense.paidFrom;
+    selectedBankAccountId.value = expense.bankAccountId;
     vendorController.text = expense.vendor ?? '';
     invoiceNumberController.text = expense.invoiceNumber ?? '';
     referenceController.text = expense.reference ?? '';
@@ -367,6 +398,10 @@ class ExpenseFormController extends GetxController {
           attachments: null, // No enviar adjuntos aquí
           tags: tags.isEmpty ? null : tags.toList(),
           status: status,
+          paidFrom: selectedPaidFrom.value,
+          bankAccountId: selectedPaidFrom.value == ExpensePaidFrom.bankAccount
+              ? selectedBankAccountId.value
+              : null,
         ),
       );
 

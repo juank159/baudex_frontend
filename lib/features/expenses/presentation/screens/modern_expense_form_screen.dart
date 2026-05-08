@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/app_scaffold.dart';
 import '../../../../app/config/routes/app_routes.dart';
+import '../../domain/entities/expense.dart';
 import '../controllers/expense_form_controller.dart';
 import '../widgets/modern_category_selector_widget.dart';
 import '../widgets/modern_expense_selector_widget.dart';
@@ -567,6 +569,8 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
                           controller.selectedPaymentMethod.value = method,
                       isRequired: true,
                     )),
+                    const SizedBox(height: 10),
+                    _buildPaidFromSection(context, controller),
                   ],
                 )
               : Row(
@@ -589,6 +593,9 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
                     ),
                   ],
                 ),
+          const SizedBox(height: 10),
+          if (!ResponsiveHelper.isMobile(context))
+            _buildPaidFromSection(context, controller),
         ],
       ),
     );
@@ -1730,5 +1737,193 @@ class ModernExpenseFormScreen extends GetView<ExpenseFormController> {
     if (color == ElegantLightTheme.accentOrange) return ElegantLightTheme.warningGradient;
     if (color == Colors.red.shade600) return ElegantLightTheme.errorGradient;
     return ElegantLightTheme.primaryGradient;
+  }
+
+  /// Sección "¿De dónde sale el dinero?" — chips para elegir ExpensePaidFrom
+  /// + dropdown de cuenta bancaria cuando se elige bankAccount.
+  Widget _buildPaidFromSection(
+    BuildContext context,
+    ExpenseFormController controller,
+  ) {
+    return Obx(() {
+      final selected = controller.selectedPaidFrom.value;
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: ElegantLightTheme.cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: ElegantLightTheme.textSecondary.withOpacity(0.15)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.account_balance_wallet_rounded,
+                    size: 18, color: ElegantLightTheme.textSecondary),
+                const SizedBox(width: 8),
+                Text(
+                  '¿De dónde sale el dinero?',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: ElegantLightTheme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                if (selected != null)
+                  TextButton.icon(
+                    onPressed: () {
+                      controller.selectedPaidFrom.value = null;
+                      controller.selectedBankAccountId.value = null;
+                    },
+                    icon: const Icon(Icons.clear, size: 14),
+                    label: const Text('Limpiar', style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ExpensePaidFrom.values.map((opt) {
+                final isSelected = opt == selected;
+                return ChoiceChip(
+                  label: Text(opt.displayName),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    controller.selectedPaidFrom.value = opt;
+                    if (opt != ExpensePaidFrom.bankAccount) {
+                      controller.selectedBankAccountId.value = null;
+                    }
+                  },
+                  avatar: Icon(_paidFromIcon(opt),
+                      size: 16,
+                      color: isSelected ? Colors.white : _paidFromColor(opt)),
+                  selectedColor: _paidFromColor(opt),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                );
+              }).toList(),
+            ),
+            if (selected == ExpensePaidFrom.bankAccount) ...[
+              const SizedBox(height: 12),
+              _buildBankAccountDropdown(context, controller),
+            ],
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildBankAccountDropdown(
+    BuildContext context,
+    ExpenseFormController controller,
+  ) {
+    return Obx(() {
+      if (controller.isLoadingBankAccounts.value) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(width: 8),
+              Text('Cargando cuentas...', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+        );
+      }
+      final accounts = controller.bankAccounts;
+      if (accounts.isEmpty) {
+        return Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.amber.shade300),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.amber, size: 16),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'No tienes cuentas bancarias activas. Crea una en el módulo de Cuentas Bancarias.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      return DropdownButtonFormField<String>(
+        value: controller.selectedBankAccountId.value,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: 'Cuenta bancaria *',
+          prefixIcon: const Icon(Icons.account_balance, size: 20),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        items: accounts.map((acc) {
+          return DropdownMenuItem<String>(
+            value: acc.id,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(acc.name, overflow: TextOverflow.ellipsis),
+                ),
+                Text(
+                  AppFormatters.formatCurrency(acc.currentBalance),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+        onChanged: (id) => controller.selectedBankAccountId.value = id,
+      );
+    });
+  }
+
+  IconData _paidFromIcon(ExpensePaidFrom v) {
+    switch (v) {
+      case ExpensePaidFrom.cashRegister:
+        return Icons.point_of_sale_rounded;
+      case ExpensePaidFrom.bankAccount:
+        return Icons.account_balance_rounded;
+      case ExpensePaidFrom.pettyCash:
+        return Icons.savings_rounded;
+      case ExpensePaidFrom.ownerCapital:
+        return Icons.person_rounded;
+    }
+  }
+
+  Color _paidFromColor(ExpensePaidFrom v) {
+    switch (v) {
+      case ExpensePaidFrom.cashRegister:
+        return Colors.teal.shade700;
+      case ExpensePaidFrom.bankAccount:
+        return Colors.indigo.shade700;
+      case ExpensePaidFrom.pettyCash:
+        return Colors.amber.shade700;
+      case ExpensePaidFrom.ownerCapital:
+        return Colors.purple.shade700;
+    }
   }
 }

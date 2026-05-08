@@ -253,6 +253,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     List<String>? tags,
     Map<String, dynamic>? metadata,
     ExpenseStatus? status,
+    ExpensePaidFrom? paidFrom,
+    String? bankAccountId,
   }) async {
     if (await networkInfo.isConnected) {
       try {
@@ -271,6 +273,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           tags: tags,
           metadata: metadata,
           status: status,
+          paidFrom: paidFrom,
+          bankAccountId: bankAccountId,
         );
 
         final expenseModel = await remoteDataSource.createExpense(request);
@@ -293,6 +297,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           tags: tags,
           metadata: metadata,
           status: status,
+          paidFrom: paidFrom,
+          bankAccountId: bankAccountId,
         );
       } on ConnectionException catch (e) {
         AppLogger.w(' ExpenseRepository: ConnectionException en createExpense, cambiando a modo offline');
@@ -311,6 +317,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           tags: tags,
           metadata: metadata,
           status: status,
+          paidFrom: paidFrom,
+          bankAccountId: bankAccountId,
         );
       } catch (e) {
         AppLogger.w(' ExpenseRepository: Error genérico en createExpense: $e - Fallback offline...');
@@ -329,6 +337,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           tags: tags,
           metadata: metadata,
           status: status,
+          paidFrom: paidFrom,
+          bankAccountId: bankAccountId,
         );
       }
     } else {
@@ -348,6 +358,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         tags: tags,
         metadata: metadata,
         status: status,
+        paidFrom: paidFrom,
+        bankAccountId: bankAccountId,
       );
     }
   }
@@ -1421,6 +1433,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     List<String>? tags,
     Map<String, dynamic>? metadata,
     ExpenseStatus? status,
+    ExpensePaidFrom? paidFrom,
+    String? bankAccountId,
   }) async {
     AppLogger.d(' ExpenseRepository: Creando gasto offline: $description');
     try {
@@ -1493,6 +1507,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         deletedAt: null,
         isSynced: false,
         lastSyncAt: null,
+        paidFromValue: paidFrom?.value,
+        bankAccountId: bankAccountId,
       );
 
       // Guardar en ISAR
@@ -1529,6 +1545,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
         createdAt: now,
         updatedAt: now,
         deletedAt: null,
+        paidFrom: paidFrom,
+        bankAccountId: bankAccountId,
       );
 
       // Guardar en SecureStorage
@@ -1560,6 +1578,8 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
             'tags': tags,
             'metadata': metadata,
             'status': status?.name,
+            if (paidFrom != null) 'paidFrom': paidFrom.value,
+            if (bankAccountId != null) 'bankAccountId': bankAccountId,
           },
           priority: 1, // Alta prioridad para creación
         );

@@ -52,6 +52,14 @@ class IsarExpense {
 
   String? createdById;
 
+  /// Origen del pago (cash_register / bank_account / petty_cash / owner_capital).
+  /// Guardado como string para evitar coupling con un IsarEnum dedicado.
+  String? paidFromValue;
+
+  /// Cuenta bancaria asociada cuando paidFromValue == 'bank_account'.
+  @Index()
+  String? bankAccountId;
+
   // Campos de auditoría
   late DateTime createdAt;
   late DateTime updatedAt;
@@ -97,6 +105,8 @@ class IsarExpense {
     this.version = 0,
     this.lastModifiedAt,
     this.lastModifiedBy,
+    this.paidFromValue,
+    this.bankAccountId,
   });
 
   // Mappers
@@ -133,6 +143,8 @@ class IsarExpense {
       deletedAt: entity.deletedAt,
       isSynced: true,
       lastSyncAt: DateTime.now(),
+      paidFromValue: entity.paidFrom?.value,
+      bankAccountId: entity.bankAccountId,
     );
   }
 
@@ -161,6 +173,8 @@ class IsarExpense {
       createdAt: createdAt,
       updatedAt: updatedAt,
       deletedAt: deletedAt,
+      paidFrom: ExpensePaidFrom.fromString(paidFromValue),
+      bankAccountId: bankAccountId,
     );
   }
 
