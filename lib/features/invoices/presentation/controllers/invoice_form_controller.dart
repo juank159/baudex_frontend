@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/app/core/services/audio_notification_service.dart';
+import 'package:baudex_desktop/features/cash_register/presentation/controllers/cash_register_controller.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
@@ -1858,6 +1859,17 @@ class InvoiceFormController extends GetxController {
   }) async {
     if (!_validateForm()) return false;
 
+    // Phase 2: bloquear venta en efectivo si NO hay caja abierta.
+    // Aplica si el método principal es cash O si entre los pagos
+    // múltiples hay alguno en efectivo.
+    final hasCashPayment = paymentMethod == PaymentMethod.cash ||
+        (multiplePayments?.any((p) => p.method == PaymentMethod.cash) ??
+            false);
+    if (hasCashPayment) {
+      final blocked = await _ensureCashRegisterOpenOrPrompt();
+      if (blocked) return false;
+    }
+
     try {
       _isSaving.value = true;
 
@@ -1928,6 +1940,17 @@ class InvoiceFormController extends GetxController {
 
         print('✅ === FACTURA GUARDADA EXITOSAMENTE ===');
         print('🎉 RETORNANDO TRUE - OPERACIÓN EXITOSA');
+
+        // Phase 2: refrescar Caja Registradora si está abierta. La venta
+        // en efectivo afecta el "esperado" del turno actual; el badge del
+        // AppBar y la pantalla de caja deben reflejar el cambio inmediato
+        // sin esperar al auto-refresh de 60s.
+        try {
+          if (Get.isRegistered<CashRegisterController>()) {
+            Get.find<CashRegisterController>().loadCurrent(silent: true);
+          }
+        } catch (_) {}
+
         // ✅ NO MOSTRAR SNACKBAR AQUÍ - LA PANTALLA LO MOSTRARÁ
         return true; // ✅ ÉXITO
       } else {
@@ -2814,5 +2837,57 @@ class InvoiceFormController extends GetxController {
     print('   - Total: \${total.toStringAsFixed(2)}');
     print('   - Can Save: $canSave');
     print('   - Is Printing: $isPrinting');
+  }
+
+  /// Phase 2: bloqueo de ventas en efectivo cuando no hay caja abierta.
+  ///
+  /// Devuelve `true` si la operación debe abortar (no se permite),
+  /// `false` si puede continuar (caja abierta o usuario decide ignorar
+  /// — futuro setting `requireCashRegister`).
+  ///
+  /// Si la caja está cerrada, muestra un diálogo modal explicando la
+  /// regla con un botón directo "Ir a abrir caja".
+  Future<bool> _ensureCashRegisterOpenOrPrompt() async {
+    if (!Get.isRegistered<CashRegisterController>()) return false;
+    final ctrl = Get.find<CashRegisterController>();
+    // Refrescar el estado por si está stale (silencioso, sin loading visible).
+    await ctrl.loadCurrent(silent: true);
+    if (ctrl.hasOpenRegister) return false; // OK, hay caja abierta
+
+    // Caja CERRADA: mostrar diálogo bloqueante.
+    final goToOpen = await Get.dialog<bool>(
+      AlertDialog(
+        icon: Icon(Icons.point_of_sale_rounded,
+            color: Colors.amber.shade700, size: 36),
+        title: const Text('Caja cerrada'),
+        content: const Text(
+          'No hay una caja abierta en este momento. Para registrar ventas '
+          'en efectivo necesitas abrir la caja primero (declarar el saldo '
+          'inicial del turno).\n\n'
+          'Si pagas con tarjeta o transferencia, puedes guardar la factura '
+          'sin caja — solo se bloquean los pagos en efectivo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.lock_open_rounded, size: 18),
+            label: const Text('Ir a abrir caja'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade700,
+            ),
+            onPressed: () => Get.back(result: true),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+
+    if (goToOpen == true) {
+      Get.toNamed('/cash-register');
+    }
+    return true; // siempre abortar el guardado
   }
 }

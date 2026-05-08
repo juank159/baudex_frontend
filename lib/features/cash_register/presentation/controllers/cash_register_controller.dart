@@ -1,13 +1,24 @@
 // lib/features/cash_register/presentation/controllers/cash_register_controller.dart
+import 'dart:async';
 import 'package:flutter/material.dart' show Color;
 import 'package:get/get.dart';
 import '../../domain/entities/cash_register.dart';
 import '../../domain/repositories/cash_register_repository.dart';
 
+/// Controlador de Caja Registradora.
+///
+/// Es PERMANENTE (registrado en app_binding) para que el badge del
+/// AppBar y el banner del dashboard reaccionen al estado en vivo
+/// sin importar en qué pantalla esté el usuario.
+///
+/// Auto-refresca cada 60s para que el "esperado" se mantenga al día
+/// cuando se cobran facturas en efectivo o se pagan gastos con caja.
 class CashRegisterController extends GetxController {
   final CashRegisterRepository repository;
 
   CashRegisterController({required this.repository});
+
+  Timer? _autoRefreshTimer;
 
   // ===== State =====
   final isLoading = false.obs;
@@ -27,21 +38,37 @@ class CashRegisterController extends GetxController {
   void onReady() {
     super.onReady();
     loadCurrent();
+    // Auto-refresh cada 60s para mantener el "esperado" al día.
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (!isSubmitting.value) loadCurrent(silent: true);
+    });
   }
 
-  Future<void> loadCurrent() async {
-    isLoading.value = true;
-    errorMessage.value = '';
+  @override
+  void onClose() {
+    _autoRefreshTimer?.cancel();
+    super.onClose();
+  }
+
+  /// Carga el estado de la caja del tenant.
+  /// `silent`: no mostrar loading spinner ni borrar errores previos.
+  /// Útil para auto-refresh en background.
+  Future<void> loadCurrent({bool silent = false}) async {
+    if (!silent) {
+      isLoading.value = true;
+      errorMessage.value = '';
+    }
     final result = await repository.getCurrent();
     result.fold(
       (failure) {
-        errorMessage.value = failure.message;
+        if (!silent) errorMessage.value = failure.message;
       },
       (state) {
         currentState.value = state;
+        if (silent) errorMessage.value = ''; // limpiar si refresh exitoso
       },
     );
-    isLoading.value = false;
+    if (!silent) isLoading.value = false;
   }
 
   /// Abre caja con saldo inicial.

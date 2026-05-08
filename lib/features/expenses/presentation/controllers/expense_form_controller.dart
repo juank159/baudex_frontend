@@ -20,6 +20,7 @@ import '../../../../app/shared/utils/subscription_error_handler.dart';
 import 'package:dartz/dartz.dart';
 import '../../../bank_accounts/domain/entities/bank_account.dart';
 import '../../../bank_accounts/domain/repositories/bank_account_repository.dart';
+import '../../../cash_register/presentation/controllers/cash_register_controller.dart';
 
 class ExpenseFormController extends GetxController {
   // Dependencies
@@ -359,6 +360,16 @@ class ExpenseFormController extends GetxController {
       return false;
     }
 
+    // Phase 2: bloquear si paidFrom=cashRegister y no hay caja abierta.
+    // Solo aplica cuando el gasto se va a guardar como aprobado/pagado;
+    // para drafts no validamos (el usuario puede preparar el gasto antes
+    // de abrir caja).
+    if (selectedPaidFrom.value == ExpensePaidFrom.cashRegister &&
+        status != ExpenseStatus.draft) {
+      final blocked = await _ensureCashRegisterOpenOrPrompt();
+      if (blocked) return false;
+    }
+
     _isSaving.value = true;
 
     try {
@@ -370,6 +381,48 @@ class ExpenseFormController extends GetxController {
     } finally {
       _isSaving.value = false;
     }
+  }
+
+  /// Phase 2: bloqueo de gastos pagados con caja cuando no hay caja abierta.
+  /// Devuelve `true` si la operación debe abortar.
+  Future<bool> _ensureCashRegisterOpenOrPrompt() async {
+    if (!Get.isRegistered<CashRegisterController>()) return false;
+    final ctrl = Get.find<CashRegisterController>();
+    await ctrl.loadCurrent(silent: true);
+    if (ctrl.hasOpenRegister) return false;
+
+    final goToOpen = await Get.dialog<bool>(
+      AlertDialog(
+        icon: Icon(Icons.point_of_sale_rounded,
+            color: Colors.amber.shade700, size: 36),
+        title: const Text('Caja cerrada'),
+        content: const Text(
+          'Este gasto se pagará con la caja del día, pero no hay una caja '
+          'abierta en este momento. Abre la caja primero o cambia el '
+          'origen del pago (cuenta bancaria, caja chica, etc).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.lock_open_rounded, size: 18),
+            label: const Text('Ir a abrir caja'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade700,
+            ),
+            onPressed: () => Get.back(result: true),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+
+    if (goToOpen == true) {
+      Get.toNamed('/cash-register');
+    }
+    return true;
   }
 
   Future<bool> _createExpenseWithStatus(ExpenseStatus status) async {
@@ -461,6 +514,16 @@ class ExpenseFormController extends GetxController {
               ? 'Gasto guardado como borrador exitosamente'
               : 'Gasto creado y aprobado exitosamente';
           _showSuccess(message);
+
+          // Phase 2: si el gasto fue pagado con caja, refrescar el badge
+          // y la pantalla de caja para reflejar el cambio inmediatamente.
+          if (selectedPaidFrom.value == ExpensePaidFrom.cashRegister) {
+            try {
+              if (Get.isRegistered<CashRegisterController>()) {
+                Get.find<CashRegisterController>().loadCurrent(silent: true);
+              }
+            } catch (_) {}
+          }
           return true;
         },
       );

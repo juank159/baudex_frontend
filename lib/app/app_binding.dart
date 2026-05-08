@@ -38,6 +38,10 @@ import '../features/bank_accounts/data/repositories/bank_account_repository_impl
 import '../features/bank_accounts/data/repositories/bank_account_offline_repository.dart';
 import '../features/bank_accounts/data/datasources/bank_account_remote_datasource.dart';
 import '../features/bank_accounts/domain/repositories/bank_account_repository.dart';
+import '../features/cash_register/data/datasources/cash_register_remote_datasource.dart';
+import '../features/cash_register/data/repositories/cash_register_repository_impl.dart';
+import '../features/cash_register/domain/repositories/cash_register_repository.dart';
+import '../features/cash_register/presentation/controllers/cash_register_controller.dart';
 import '../features/products/data/repositories/product_repository_impl.dart';
 import '../features/products/data/repositories/product_offline_repository.dart';
 import '../features/products/data/datasources/product_remote_datasource.dart';
@@ -202,6 +206,29 @@ class InitialBinding implements Bindings {
         networkInfo: Get.find<NetworkInfo>(),
       ),
       fenix: true,
+    );
+
+    // Cash Register - Remote DataSource + Repository + Controller permanente.
+    // Se registra como permanente porque el badge del AppBar y el banner
+    // del dashboard se montan/desmontan en distintas pantallas y deben
+    // compartir el mismo estado en vivo. El controller auto-refresca cada 60s.
+    Get.lazyPut<CashRegisterRemoteDataSource>(
+      () => CashRegisterRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+      fenix: true,
+    );
+    Get.lazyPut<CashRegisterRepository>(
+      () => CashRegisterRepositoryImpl(
+        remoteDataSource: Get.find<CashRegisterRemoteDataSource>(),
+        networkInfo: Get.find<NetworkInfo>(),
+        secureStorage: Get.find<SecureStorageService>(),
+      ),
+      fenix: true,
+    );
+    Get.put<CashRegisterController>(
+      CashRegisterController(
+        repository: Get.find<CashRegisterRepository>(),
+      ),
+      permanent: true,
     );
 
     // Products - Remote DataSource (necesario para SyncService)

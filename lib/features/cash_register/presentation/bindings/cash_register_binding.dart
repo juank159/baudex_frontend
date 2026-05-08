@@ -23,10 +23,18 @@ class CashRegisterBinding extends Bindings {
         ),
       );
     }
-    Get.lazyPut<CashRegisterController>(
-      () => CashRegisterController(
-        repository: Get.find<CashRegisterRepository>(),
-      ),
-    );
+    // El controller permanente se registra en `app_binding.dart` al
+    // arranque para que el badge del AppBar y el banner del dashboard
+    // mantengan el estado en vivo. Aquí solo aseguramos que existe
+    // (por si alguien navega directo a la pantalla sin pasar por el
+    // dashboard).
+    if (!Get.isRegistered<CashRegisterController>()) {
+      Get.put<CashRegisterController>(
+        CashRegisterController(
+          repository: Get.find<CashRegisterRepository>(),
+        ),
+        permanent: true,
+      );
+    }
   }
 }

@@ -16,6 +16,7 @@ import '../widgets/cash_flow_summary_widget.dart';
 import '../widgets/credit_notes_banner.dart';
 import '../widgets/currency_breakdown_widget.dart';
 import '../widgets/purchase_currency_breakdown_widget.dart';
+import '../../../cash_register/presentation/widgets/cash_register_status_badge.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -203,6 +204,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
       ),
       actions: [
+        // Phase 2: Badge permanente con estado de caja registradora.
+        // Click → navega a la pantalla de caja (abrir/cerrar/ver detalle).
+        const CashRegisterStatusBadge(),
         // FASE 6: Indicador de estado de sincronización
         const SyncStatusIcon(),
         IconButton(
@@ -338,6 +342,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Phase 2: Banner prominente cuando la caja está CERRADA.
+        // Va arriba de todo porque es la "acción requerida" más urgente
+        // del día (sin caja abierta, no se pueden cuadrar ventas en efectivo).
+        const CashRegisterClosedBanner(),
         // Phase 1B: Banner prominente cuando hay devoluciones (NCs aplicadas).
         const CreditNotesBanner(),
         // Charts Section unificada con animación
@@ -493,6 +501,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Phase 2: Banner prominente cuando la caja está CERRADA.
+        // Va arriba de todo porque es la "acción requerida" más urgente
+        // del día (sin caja abierta, no se pueden cuadrar ventas en efectivo).
+        const CashRegisterClosedBanner(),
         // Phase 1B: Banner prominente cuando hay devoluciones (NCs aplicadas).
         const CreditNotesBanner(),
         // Charts Section unificada - Primera fila con animación
@@ -669,6 +681,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Phase 2: Banner prominente cuando la caja está CERRADA.
+        // Va arriba de todo porque es la "acción requerida" más urgente
+        // del día (sin caja abierta, no se pueden cuadrar ventas en efectivo).
+        const CashRegisterClosedBanner(),
         // Phase 1B: Banner prominente cuando hay devoluciones (NCs aplicadas).
         const CreditNotesBanner(),
         // Primera fila: Análisis Financiero y Desglose de Ingresos en 2 columnas
