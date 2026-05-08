@@ -14,6 +14,7 @@ import '../../../customers/data/models/isar/isar_customer.dart';
 import '../../../notifications/data/models/isar/isar_notification.dart';
 import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
 import '../../../bank_accounts/data/models/isar/isar_bank_account.dart';
+import '../../../credit_notes/data/models/isar/isar_credit_note.dart';
 import '../../../settings/data/models/isar/isar_organization.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../../domain/entities/recent_activity_advanced.dart';
@@ -157,13 +158,19 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         final isPaid = inv.status == IsarInvoiceStatus.paid;
         final isPartial = inv.status == IsarInvoiceStatus.partiallyPaid;
         final isPending = inv.status == IsarInvoiceStatus.pending;
+        // `credited` y `partiallyCredited` significan que se aplicó una NC
+        // posteriormente. El dinero SÍ entró cuando se pagó originalmente,
+        // así que cuentan como revenue. La devolución se descuenta vía NC.
+        final isCredited = inv.status == IsarInvoiceStatus.credited;
+        final isPartiallyCredited =
+            inv.status == IsarInvoiceStatus.partiallyCredited;
 
         // Todas las facturas no canceladas cuentan a lo facturado.
         if (inv.status != IsarInvoiceStatus.cancelled) {
           totalBilled += inv.total;
         }
 
-        if (isPaid || isPartial) {
+        if (isPaid || isPartial || isCredited || isPartiallyCredited) {
           totalRevenue += inv.paidAmount;
           totalPaidCount++;
           if (inv.date.isAfter(todayStart)) todaySales += inv.paidAmount;
@@ -196,7 +203,7 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
             paymentMethodsMap[methodKey]!.totalAmount += inv.paidAmount;
           }
         }
-        if (isPaid) {
+        if (isPaid || isCredited) {
           paidInvoices++;
           invoicesIncome += inv.paidAmount;
         }
@@ -328,14 +335,48 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       // ⚡ RECEIVABLES con semáforo (global, no filtrado por fecha)
       final receivables = await _buildReceivables(now);
 
+      // ⚡ NOTAS DE CRÉDITO APLICADAS en el rango (paridad con backend dashboard)
+      // Filtra NCs confirmed (= aplicadas en este sistema) cuyo appliedAt
+      // (o date como fallback) cae dentro del rango. Suma el total devuelto.
+      final isar = _database.database;
+      final creditNotesAll = await isar.isarCreditNotes
+          .filter()
+          .deletedAtIsNull()
+          .and()
+          .statusEqualTo(IsarCreditNoteStatus.confirmed)
+          .findAll();
+      double creditNotesTotal = 0.0;
+      int creditNotesCount = 0;
+      final ncRangeStart = startDate ?? DateTime(1970);
+      final ncRangeEnd = endDate ?? DateTime(2100);
+      for (final cn in creditNotesAll) {
+        // Usar appliedAt si existe (más correcto contablemente), si no date.
+        final ref = cn.appliedAt ?? cn.date;
+        if (!ref.isBefore(ncRangeStart) && !ref.isAfter(ncRangeEnd)) {
+          creditNotesTotal += cn.total;
+          creditNotesCount++;
+        }
+      }
+
+      // Phase 1B: ingreso neto = lo cobrado menos las notas de crédito.
+      // Refleja el dinero que efectivamente se quedó la empresa.
+      final netRevenue = totalRevenue - creditNotesTotal;
+
       // ⚡ CALCULAR COGS REAL desde precios de costo de productos
       final cogsResult = _calculateCOGSFromProducts(invoices, products);
       final totalCOGS = cogsResult.totalCOGS;
-      final grossProfit = totalRevenue - totalCOGS;
-      final grossMarginPercentage = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0.0;
+      // Phase 1B: profitabilidad sobre netRevenue (no totalRevenue) para que
+      // los márgenes reflejen la realidad económica cuando hay devoluciones.
+      final grossProfit = netRevenue - totalCOGS;
+      final grossMarginPercentage = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0.0;
       final netProfit = grossProfit - totalExpensesAmount;
-      final netMarginPercentage = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0.0;
+      final netMarginPercentage = netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0.0;
       final averageMarginPerSale = totalPaidCount > 0 ? grossProfit / totalPaidCount : 0.0;
+
+      AppLogger.d(
+        'Dashboard ISAR: revenue=\$$totalRevenue, NCs=\$$creditNotesTotal ($creditNotesCount), netRevenue=\$$netRevenue',
+        tag: 'DASHBOARD',
+      );
 
       return DashboardStatsModel(
         sales: SalesStatsModel(
@@ -415,6 +456,9 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
         receivables: receivables,
         totalCollected: totalRevenue,
         totalBilled: totalBilled,
+        creditNotesTotal: creditNotesTotal,
+        creditNotesCount: creditNotesCount,
+        netRevenue: netRevenue,
         grossMarginPercentage: grossMarginPercentage.toDouble(),
         netMarginPercentage: netMarginPercentage.toDouble(),
         trend: trendPoints,
