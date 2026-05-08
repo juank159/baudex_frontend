@@ -26,10 +26,21 @@ class DashboardStats extends Equatable {
   /// Se muestra como métrica secundaria.
   final double totalBilled;
 
-  /// Margen bruto real con COGS descontado (sobre totalCollected).
+  /// Phase 1B: total de notas de crédito aplicadas en el período.
+  /// Representa devoluciones / saldos a favor que reducen el ingreso real.
+  final double creditNotesTotal;
+
+  /// Cantidad de notas de crédito aplicadas en el período.
+  final int creditNotesCount;
+
+  /// Phase 1B: ingreso neto real = `totalCollected - creditNotesTotal`.
+  /// Es el dinero que efectivamente se quedó la empresa en el período.
+  final double netRevenue;
+
+  /// Margen bruto real con COGS descontado (sobre netRevenue).
   final double grossMarginPercentage;
 
-  /// Margen neto con COGS + gastos (sobre totalCollected).
+  /// Margen neto con COGS + gastos (sobre netRevenue).
   final double netMarginPercentage;
 
   /// Puntos de tendencia reales por día (no fabricados).
@@ -55,6 +66,9 @@ class DashboardStats extends Equatable {
     this.receivables,
     this.totalCollected = 0,
     this.totalBilled = 0,
+    this.creditNotesTotal = 0,
+    this.creditNotesCount = 0,
+    this.netRevenue = 0,
     this.grossMarginPercentage = 0,
     this.netMarginPercentage = 0,
     this.trend = const [],
@@ -78,6 +92,9 @@ class DashboardStats extends Equatable {
     receivables,
     totalCollected,
     totalBilled,
+    creditNotesTotal,
+    creditNotesCount,
+    netRevenue,
     grossMarginPercentage,
     netMarginPercentage,
     trend,
@@ -103,6 +120,9 @@ class DashboardStats extends Equatable {
     ReceivablesStats? receivables,
     double? totalCollected,
     double? totalBilled,
+    double? creditNotesTotal,
+    int? creditNotesCount,
+    double? netRevenue,
     double? grossMarginPercentage,
     double? netMarginPercentage,
     List<TrendPoint>? trend,
@@ -125,6 +145,9 @@ class DashboardStats extends Equatable {
       receivables: receivables ?? this.receivables,
       totalCollected: totalCollected ?? this.totalCollected,
       totalBilled: totalBilled ?? this.totalBilled,
+      creditNotesTotal: creditNotesTotal ?? this.creditNotesTotal,
+      creditNotesCount: creditNotesCount ?? this.creditNotesCount,
+      netRevenue: netRevenue ?? this.netRevenue,
       grossMarginPercentage: grossMarginPercentage ?? this.grossMarginPercentage,
       netMarginPercentage: netMarginPercentage ?? this.netMarginPercentage,
       trend: trend ?? this.trend,

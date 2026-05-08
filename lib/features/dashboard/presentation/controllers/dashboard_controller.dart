@@ -122,6 +122,25 @@ class DashboardController extends GetxController
     return tb > 0 ? tb : totalRevenue;
   }
 
+  /// Phase 1B: total de notas de crédito aplicadas en el período.
+  double get creditNotesTotal => dashboardStats?.creditNotesTotal ?? 0.0;
+
+  /// Phase 1B: cantidad de notas de crédito aplicadas en el período.
+  int get creditNotesCount => dashboardStats?.creditNotesCount ?? 0;
+
+  /// Phase 1B: ingreso neto = `totalCollected - creditNotesTotal`. Es el
+  /// dinero que realmente se quedó la empresa (descontando devoluciones).
+  /// Si el backend no lo envía aún, fallback a totalCollected.
+  double get netRevenue {
+    final nr = dashboardStats?.netRevenue ?? 0.0;
+    if (nr > 0) return nr;
+    final fallback = totalCollected - creditNotesTotal;
+    return fallback > 0 ? fallback : totalCollected;
+  }
+
+  /// Indicador para la UI: ¿hubo devoluciones en el período?
+  bool get hasCreditNotes => creditNotesTotal > 0;
+
   /// @deprecated Usar totalCollected o totalBilled según el caso.
   double get totalRevenue => dashboardStats?.sales.totalAmount ?? 0.0;
   int get totalInvoices => dashboardStats?.invoices.totalInvoices ?? 0;

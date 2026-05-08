@@ -119,21 +119,43 @@ class DashboardStatsGrid extends GetView<DashboardController> {
   Widget _buildRevenueCard() {
     final collected = controller.totalCollected;
     final billed = controller.totalBilled;
-    // El subtítulo muestra el facturado solo si difiere (hay ventas a crédito sin cobrar).
+    final hasCreditNotes = controller.hasCreditNotes;
     final hasPending = billed > collected + 1; // tolerancia de 1 peso
-    final subtitle = hasPending
-        ? 'de ${AppFormatters.formatCurrency(billed)} facturado'
-        : '${controller.dashboardStats?.sales.totalSales ?? 0} ventas';
+
+    // Phase 1B: Si hay devoluciones, mostramos el ingreso NETO como valor
+    // principal y el cobrado bruto como subtítulo (transparente con el
+    // usuario sobre el impacto de las notas de crédito).
+    final value = hasCreditNotes
+        ? AppFormatters.formatCurrency(controller.netRevenue)
+        : AppFormatters.formatCurrency(collected);
+
+    final String subtitle;
+    if (hasCreditNotes) {
+      // Hay devoluciones: prioritizamos mostrar el bruto + cuánto se devolvió.
+      final creditCount = controller.creditNotesCount;
+      subtitle =
+          '${AppFormatters.formatCurrency(collected)} bruto'
+          ' · −${AppFormatters.formatCurrency(controller.creditNotesTotal)}'
+          ' ($creditCount NC)';
+    } else if (hasPending) {
+      subtitle = 'de ${AppFormatters.formatCurrency(billed)} facturado';
+    } else {
+      subtitle = '${controller.dashboardStats?.sales.totalSales ?? 0} ventas';
+    }
 
     return _StatCard(
-      title: 'Ingresos Cobrados',
-      value: AppFormatters.formatCurrency(collected),
+      title: hasCreditNotes ? 'Ingresos Netos' : 'Ingresos Cobrados',
+      value: value,
       subtitle: subtitle,
       icon: Icons.trending_up,
       color: AppColors.success,
       onTap: controller.navigateToSales,
-      tooltip:
-          'Dinero que realmente entró a caja en el período. "Facturado" incluye ventas a crédito que aún no se cobran.',
+      tooltip: hasCreditNotes
+          ? 'Ingreso real del período: bruto cobrado menos notas de crédito '
+              'aplicadas (devoluciones / saldos a favor). Refleja el dinero '
+              'que efectivamente se quedó la empresa.'
+          : 'Dinero que realmente entró a caja en el período. "Facturado" '
+              'incluye ventas a crédito que aún no se cobran.',
     );
   }
 
