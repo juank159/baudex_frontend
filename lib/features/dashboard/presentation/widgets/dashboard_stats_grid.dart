@@ -36,6 +36,8 @@ class DashboardStatsGrid extends GetView<DashboardController> {
   bool get _hasReceivables =>
       (controller.dashboardStats?.sales.accountsReceivable ?? 0) > 0;
 
+  bool get _hasCreditNotes => controller.hasCreditNotes;
+
   Widget _buildMobileGrid() {
     return Column(
       children: [
@@ -43,17 +45,30 @@ class DashboardStatsGrid extends GetView<DashboardController> {
           children: [
             Expanded(child: _buildRevenueCard()),
             const SizedBox(width: AppDimensions.spacingSmall),
-            Expanded(child: _buildInvoicesCard()),
+            Expanded(child: _hasCreditNotes ? _buildCreditNotesCard() : _buildInvoicesCard()),
           ],
         ),
-        const SizedBox(height: AppDimensions.spacingSmall),
-        Row(
-          children: [
-            Expanded(child: _buildProductsCard()),
-            const SizedBox(width: AppDimensions.spacingSmall),
-            Expanded(child: _buildExpensesCard()),
-          ],
-        ),
+        if (_hasCreditNotes) ...[
+          const SizedBox(height: AppDimensions.spacingSmall),
+          Row(
+            children: [
+              Expanded(child: _buildInvoicesCard()),
+              const SizedBox(width: AppDimensions.spacingSmall),
+              Expanded(child: _buildExpensesCard()),
+            ],
+          ),
+          const SizedBox(height: AppDimensions.spacingSmall),
+          _buildProductsCard(),
+        ] else ...[
+          const SizedBox(height: AppDimensions.spacingSmall),
+          Row(
+            children: [
+              Expanded(child: _buildProductsCard()),
+              const SizedBox(width: AppDimensions.spacingSmall),
+              Expanded(child: _buildExpensesCard()),
+            ],
+          ),
+        ],
         if (_hasReceivables) ...[
           const SizedBox(height: AppDimensions.spacingSmall),
           _buildReceivablesCard(),
@@ -69,6 +84,10 @@ class DashboardStatsGrid extends GetView<DashboardController> {
           children: [
             Expanded(child: _buildRevenueCard()),
             const SizedBox(width: AppDimensions.spacingSmall),
+            if (_hasCreditNotes) ...[
+              Expanded(child: _buildCreditNotesCard()),
+              const SizedBox(width: AppDimensions.spacingSmall),
+            ],
             Expanded(child: _buildInvoicesCard()),
             const SizedBox(width: AppDimensions.spacingSmall),
             Expanded(child: _buildProductsCard()),
@@ -96,6 +115,10 @@ class DashboardStatsGrid extends GetView<DashboardController> {
           children: [
             Expanded(child: _buildRevenueCard()),
             const SizedBox(width: AppDimensions.spacingMedium),
+            if (_hasCreditNotes) ...[
+              Expanded(child: _buildCreditNotesCard()),
+              const SizedBox(width: AppDimensions.spacingMedium),
+            ],
             Expanded(child: _buildInvoicesCard()),
             const SizedBox(width: AppDimensions.spacingMedium),
             Expanded(child: _buildProductsCard()),
@@ -171,6 +194,25 @@ class DashboardStatsGrid extends GetView<DashboardController> {
       color:
           controller.pendingInvoices > 0 ? AppColors.warning : AppColors.info,
       onTap: controller.navigateToInvoices,
+    );
+  }
+
+  /// Phase 1B: Card visible cuando se aplicaron notas de crédito en el
+  /// período. Hace OBVIO al usuario que hubo devoluciones que reducen
+  /// el ingreso real.
+  Widget _buildCreditNotesCard() {
+    final total = controller.creditNotesTotal;
+    final count = controller.creditNotesCount;
+    return _StatCard(
+      title: 'Devoluciones (NC)',
+      value: '−${AppFormatters.formatCurrency(total)}',
+      subtitle: '$count nota${count != 1 ? 's' : ''} de crédito aplicada${count != 1 ? 's' : ''}',
+      icon: Icons.assignment_return,
+      color: AppColors.error,
+      onTap: () => Get.toNamed('/credit-notes'),
+      tooltip:
+          'Total devuelto vía notas de crédito en el período. Reduce el '
+          'ingreso bruto cobrado para calcular el ingreso neto real.',
     );
   }
 

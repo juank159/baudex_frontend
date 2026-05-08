@@ -497,8 +497,43 @@ class DashboardController extends GetxController
           print('❌ Error cargando dashboard stats: $failure');
           _statsError.value = _mapFailureToMessage(failure);
         },
-        (stats) {
-          _dashboardStats.value = stats;
+        (stats) async {
+          // Phase 1B: SIEMPRE recalcular creditNotesTotal/netRevenue desde
+          // ISAR. El backend puede o no enviar estos campos (Dokploy quizás
+          // aún no redespliegue), pero ISAR siempre tiene las NCs reales.
+          // El frontend es la fuente de verdad para esos campos hasta que
+          // el backend lo entregue de manera consistente.
+          DashboardStats finalStats = stats;
+          try {
+            final localDataSource = Get.find<DashboardLocalDataSource>();
+            final offlineStats = await localDataSource.getCachedDashboardStats(
+              startDate: startDate,
+              endDate: endDate,
+            );
+            if (offlineStats != null) {
+              // Usar collected del SERVER (fuente de verdad para revenue)
+              // y NCs del LOCAL (fuente de verdad mientras backend no
+              // envíe el campo).
+              final ncTotal = offlineStats.creditNotesTotal;
+              final ncCount = offlineStats.creditNotesCount;
+              final collectedForNet = stats.totalCollected > 0
+                  ? stats.totalCollected
+                  : offlineStats.totalCollected;
+              final netRevenue = collectedForNet - ncTotal;
+              finalStats = stats.copyWith(
+                creditNotesTotal: ncTotal,
+                creditNotesCount: ncCount,
+                netRevenue: netRevenue,
+              );
+              print(
+                '[DASHBOARD] Stats armonizadas: server collected=\$${stats.totalCollected}, '
+                'local NCs=\$$ncTotal ($ncCount), netRevenue=\$$netRevenue',
+              );
+            }
+          } catch (e) {
+            print('⚠️ Error armonizando NCs locales: $e');
+          }
+          _dashboardStats.value = finalStats;
           // ✅ Notificar a widgets GetBuilder
           update();
         },
