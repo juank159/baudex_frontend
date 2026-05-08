@@ -1,7 +1,7 @@
 // lib/features/bank_accounts/presentation/controllers/bank_account_movements_controller.dart
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import '../../domain/entities/bank_account.dart';
+import '../../domain/entities/bank_account_movement.dart';
 import '../../domain/entities/bank_account_transaction.dart';
 import '../../domain/repositories/bank_account_repository.dart';
 
@@ -79,7 +79,11 @@ class BankAccountMovementsController extends GetxController {
 
   // ==================== METHODS ====================
 
-  /// Cargar transacciones
+  /// Cargar transacciones desde la tabla `bank_account_movements` (real).
+  ///
+  /// Antes leía Payment + CreditPayment calculados on-the-fly. Ahora usa
+  /// los movements auditables (incluye depósitos manuales, retiros,
+  /// transferencias, refunds, ajustes, etc).
   Future<void> loadTransactions({bool refresh = false}) async {
     if (account.value == null) return;
     if (isLoading.value && !refresh) return;
@@ -93,17 +97,12 @@ class BankAccountMovementsController extends GetxController {
     errorMessage.value = '';
     hasError.value = false;
 
-    final result = await repository.getBankAccountTransactions(
+    final result = await repository.listMovements(
       account.value!.id,
-      startDate: startDate.value != null
-          ? DateFormat('yyyy-MM-dd').format(startDate.value!)
-          : null,
-      endDate: endDate.value != null
-          ? DateFormat('yyyy-MM-dd').format(endDate.value!)
-          : null,
+      startDate: startDate.value,
+      endDate: endDate.value,
       page: currentPage.value,
       limit: pageSize.value,
-      search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
     );
 
     result.fold(
@@ -111,21 +110,126 @@ class BankAccountMovementsController extends GetxController {
         errorMessage.value = failure.message;
         hasError.value = true;
       },
-      (response) {
-        accountInfo.value = response.account;
+      (page) {
+        // Mapear movements → BankAccountTransaction para reusar la UI existente.
+        // Filtrado por search en cliente (el endpoint del backend aún no lo soporta).
+        final mapped = page.items
+            .map(_movementToTransaction)
+            .where((tx) {
+              final q = searchQuery.value.trim().toLowerCase();
+              if (q.isEmpty) return true;
+              return tx.description.toLowerCase().contains(q) ||
+                  (tx.notes?.toLowerCase().contains(q) ?? false);
+            })
+            .toList();
 
         if (refresh) {
-          transactions.value = response.transactions;
+          transactions.value = mapped;
         } else {
-          transactions.addAll(response.transactions);
+          transactions.addAll(mapped);
         }
 
-        pagination.value = response.pagination;
-        summary.value = response.summary;
+        // Actualizar info de cuenta + paginación + summary.
+        final acc = account.value!;
+        accountInfo.value = TransactionAccountInfo(
+          id: acc.id,
+          name: acc.name,
+          type: acc.type.value,
+          currentBalance: acc.currentBalance,
+          bankName: acc.bankName,
+          accountNumber: acc.accountNumber,
+        );
+
+        pagination.value = TransactionsPagination(
+          page: page.page,
+          limit: page.limit,
+          total: page.total,
+          totalPages:
+              page.limit > 0 ? ((page.total + page.limit - 1) ~/ page.limit) : 1,
+        );
+
+        // Summary: total income = suma de inflows (depósitos + invoice/credit
+        // payment + transfer in). Promedio sobre transactions visibles.
+        final totalIncome = mapped
+            .where((tx) => tx.amount > 0)
+            .fold<double>(0.0, (sum, tx) => sum + tx.amount);
+        summary.value = TransactionsSummary(
+          totalIncome: totalIncome,
+          transactionCount: mapped.length,
+          periodStart: startDate.value,
+          periodEnd: endDate.value,
+          averageTransaction:
+              mapped.isNotEmpty ? totalIncome / mapped.length : 0.0,
+        );
       },
     );
 
     isLoading.value = false;
+  }
+
+  /// Convierte un movement de la BD nueva al formato legacy de la UI.
+  /// Los campos `customer` e `invoice` se quedan en null porque el endpoint
+  /// de movements no los hidrata; cuando el usuario quiera detalle de la
+  /// factura puede tocar el item y abrir esa pantalla.
+  BankAccountTransaction _movementToTransaction(BankAccountMovement m) {
+    final isInflow = m.signedAmount > 0;
+    final signedAmount = m.signedAmount;
+
+    String description;
+    TransactionType txType;
+    switch (m.type) {
+      case BankAccountMovementType.invoicePayment:
+        description = m.description ?? 'Pago de factura';
+        txType = TransactionType.invoicePayment;
+        break;
+      case BankAccountMovementType.creditPayment:
+        description = m.description ?? 'Abono a crédito';
+        txType = TransactionType.creditPayment;
+        break;
+      case BankAccountMovementType.deposit:
+        description = m.description ?? 'Depósito manual';
+        txType = TransactionType.invoicePayment;
+        break;
+      case BankAccountMovementType.withdrawal:
+        description = m.description ?? 'Retiro manual';
+        txType = TransactionType.invoicePayment;
+        break;
+      case BankAccountMovementType.transferIn:
+        description = m.description ?? 'Transferencia entrada';
+        txType = TransactionType.invoicePayment;
+        break;
+      case BankAccountMovementType.transferOut:
+        description = m.description ?? 'Transferencia salida';
+        txType = TransactionType.invoicePayment;
+        break;
+      case BankAccountMovementType.expensePayment:
+        description = m.description ?? 'Pago de gasto';
+        txType = TransactionType.invoicePayment;
+        break;
+      case BankAccountMovementType.refund:
+        description = m.description ?? 'Reembolso';
+        txType = TransactionType.invoicePayment;
+        break;
+      case BankAccountMovementType.adjustment:
+        description = m.description ?? 'Ajuste manual';
+        txType = TransactionType.invoicePayment;
+        break;
+      case BankAccountMovementType.initialBalance:
+        description = m.description ?? 'Saldo inicial';
+        txType = TransactionType.invoicePayment;
+        break;
+    }
+
+    return BankAccountTransaction(
+      id: m.id,
+      date: m.movementDate,
+      type: txType,
+      amount: signedAmount,
+      paymentMethod: m.type.displayName,
+      description: description,
+      notes: 'Saldo: \$${m.balanceAfter.toStringAsFixed(2)}'
+          '${isInflow ? '' : ''}',
+    );
   }
 
   /// Cargar más transacciones (scroll infinito)

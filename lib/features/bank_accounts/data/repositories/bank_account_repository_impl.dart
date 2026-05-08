@@ -10,7 +10,9 @@ import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../../../app/data/local/enums/isar_enums.dart';
 import '../models/isar/isar_bank_account.dart';
+import '../models/isar/isar_bank_account_movement.dart';
 import '../../domain/entities/bank_account.dart';
+import '../../domain/entities/bank_account_movement.dart';
 import '../../domain/entities/bank_account_transaction.dart';
 import '../../domain/repositories/bank_account_repository.dart';
 import '../datasources/bank_account_remote_datasource.dart';
@@ -687,6 +689,104 @@ class BankAccountRepositoryImpl implements BankAccountRepository {
       return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(UnknownFailure('Error inesperado: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, BankAccountMovementsPage>> listMovements(
+    String accountId, {
+    DateTime? startDate,
+    DateTime? endDate,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    // ============ MODO ONLINE ============
+    if (await networkInfo.isConnected) {
+      try {
+        final result = await remoteDataSource.listMovements(
+          accountId,
+          startDate: startDate,
+          endDate: endDate,
+          page: page,
+          limit: limit,
+        );
+
+        // Cachear en ISAR (upsert por serverId) para acceso offline.
+        try {
+          final isar = IsarDatabase.instance.database;
+          await isar.writeTxn(() async {
+            for (final m in result.items) {
+              final existing = await isar.isarBankAccountMovements
+                  .filter()
+                  .serverIdEqualTo(m.id)
+                  .findFirst();
+              final fresh = IsarBankAccountMovement.fromEntity(m);
+              if (existing != null) {
+                fresh.id = existing.id;
+              }
+              await isar.isarBankAccountMovements.put(fresh);
+            }
+          });
+        } catch (e) {
+          print('⚠️ Error cacheando movements en ISAR (no crítico): $e');
+        }
+
+        return Right(BankAccountMovementsPage(
+          // BankAccountMovementModel extiende BankAccountMovement, asignación directa
+          items: List<BankAccountMovement>.from(result.items),
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+        ));
+      } on ServerException catch (e) {
+        print('⚠️ [BANK_REPO] listMovements ServerException: ${e.message} - fallback ISAR');
+        return _listMovementsFromIsar(accountId, startDate, endDate, page, limit);
+      } catch (e) {
+        print('⚠️ [BANK_REPO] listMovements Exception: $e - fallback ISAR');
+        return _listMovementsFromIsar(accountId, startDate, endDate, page, limit);
+      }
+    }
+
+    // ============ MODO OFFLINE ============
+    return _listMovementsFromIsar(accountId, startDate, endDate, page, limit);
+  }
+
+  Future<Either<Failure, BankAccountMovementsPage>> _listMovementsFromIsar(
+    String accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+    int page,
+    int limit,
+  ) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      var qb = isar.isarBankAccountMovements
+          .filter()
+          .bankAccountIdEqualTo(accountId)
+          .deletedAtIsNull();
+      if (startDate != null) {
+        qb = qb.movementDateGreaterThan(startDate, include: true);
+      }
+      if (endDate != null) {
+        qb = qb.movementDateLessThan(endDate, include: true);
+      }
+
+      final total = await qb.count();
+      final items = await qb
+          .sortByMovementDateDesc()
+          .thenByCreatedAtDesc()
+          .offset((page - 1) * limit)
+          .limit(limit)
+          .findAll();
+
+      return Right(BankAccountMovementsPage(
+        items: items.map((e) => e.toEntity()).toList(),
+        total: total,
+        page: page,
+        limit: limit,
+      ));
+    } catch (e) {
+      return Left(CacheFailure('Error leyendo movements desde ISAR: $e'));
     }
   }
 

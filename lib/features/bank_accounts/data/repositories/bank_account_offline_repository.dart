@@ -8,9 +8,11 @@ import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../domain/entities/bank_account.dart';
+import '../../domain/entities/bank_account_movement.dart';
 import '../../domain/entities/bank_account_transaction.dart';
 import '../../domain/repositories/bank_account_repository.dart';
 import '../models/isar/isar_bank_account.dart';
+import '../models/isar/isar_bank_account_movement.dart';
 
 /// Implementación offline del repositorio de cuentas bancarias usando ISAR
 class BankAccountOfflineRepository implements BankAccountRepository {
@@ -140,6 +142,45 @@ class BankAccountOfflineRepository implements BankAccountRepository {
       ));
     } catch (e) {
       return Left(CacheFailure('Error loading transactions: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, BankAccountMovementsPage>> listMovements(
+    String accountId, {
+    DateTime? startDate,
+    DateTime? endDate,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    try {
+      var qb = _isar.isarBankAccountMovements
+          .filter()
+          .bankAccountIdEqualTo(accountId)
+          .deletedAtIsNull();
+      if (startDate != null) {
+        qb = qb.movementDateGreaterThan(startDate, include: true);
+      }
+      if (endDate != null) {
+        qb = qb.movementDateLessThan(endDate, include: true);
+      }
+
+      final total = await qb.count();
+      final items = await qb
+          .sortByMovementDateDesc()
+          .thenByCreatedAtDesc()
+          .offset((page - 1) * limit)
+          .limit(limit)
+          .findAll();
+
+      return Right(BankAccountMovementsPage(
+        items: items.map((e) => e.toEntity()).toList(),
+        total: total,
+        page: page,
+        limit: limit,
+      ));
+    } catch (e) {
+      return Left(CacheFailure('Error leyendo movements: $e'));
     }
   }
 
