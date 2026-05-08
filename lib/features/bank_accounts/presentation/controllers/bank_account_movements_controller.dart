@@ -5,6 +5,7 @@ import '../../domain/entities/bank_account.dart';
 import '../../domain/entities/bank_account_movement.dart';
 import '../../domain/entities/bank_account_transaction.dart';
 import '../../domain/repositories/bank_account_repository.dart';
+import 'bank_accounts_controller.dart';
 
 /// Controlador para la pantalla de movimientos de cuentas bancarias
 class BankAccountMovementsController extends GetxController {
@@ -388,6 +389,49 @@ class BankAccountMovementsController extends GetxController {
       (_) {
         _refreshAccount();
         loadTransactions(refresh: true);
+        return true;
+      },
+    );
+  }
+
+  /// Transferir entre la cuenta actual (origen) y otra cuenta (destino).
+  /// Backend genera 2 movements atómicos. Offline genera 2 movements
+  /// locales que se sincronizan como una sola op compuesta.
+  Future<bool> submitTransfer({
+    required String toAccountId,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  }) async {
+    if (account.value == null) return false;
+    final result = await repository.transferBetweenAccounts(
+      fromAccountId: account.value!.id,
+      toAccountId: toAccountId,
+      amount: amount,
+      description: description,
+      movementDate: movementDate,
+    );
+    return result.fold(
+      (failure) {
+        errorMessage.value = failure.message;
+        Get.snackbar(
+          'Error',
+          failure.message,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFFD32F2F),
+          colorText: const Color(0xFFFFFFFF),
+        );
+        return false;
+      },
+      (_) {
+        _refreshAccount();
+        loadTransactions(refresh: true);
+        // Si el BankAccountsController está vivo, refresca su lista para
+        // que el saldo de la cuenta destino aparezca actualizado.
+        try {
+          final ctrl = Get.find<BankAccountsController>();
+          ctrl.loadBankAccounts();
+        } catch (_) {}
         return true;
       },
     );

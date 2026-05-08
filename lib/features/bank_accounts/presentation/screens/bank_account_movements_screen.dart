@@ -8,6 +8,7 @@ import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../domain/entities/bank_account_transaction.dart';
 import '../controllers/bank_account_movements_controller.dart';
 import '../widgets/bank_account_movement_dialog.dart';
+import '../widgets/bank_account_transfer_dialog.dart';
 import '../widgets/movement_card.dart';
 
 /// Pantalla de movimientos/transacciones de una cuenta bancaria
@@ -645,6 +646,17 @@ class _NewMovementFab extends StatelessWidget {
               onTap: () {
                 Navigator.of(ctx).pop();
                 BankAccountMovementDialog.showWithdrawal(context, account);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.swap_horiz_rounded,
+                  color: Colors.indigo.shade700, size: 28),
+              title: const Text('Transferencia',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Mueve dinero a otra cuenta'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                BankAccountTransferDialog.show(context, account);
               },
             ),
             const SizedBox(height: 8),
