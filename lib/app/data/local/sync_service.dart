@@ -76,7 +76,9 @@ import '../../../features/expenses/data/repositories/expense_offline_repository.
 import '../../../features/bank_accounts/data/datasources/bank_account_remote_datasource.dart';
 import '../../../features/bank_accounts/data/models/bank_account_model.dart';
 import '../../../features/bank_accounts/data/models/isar/isar_bank_account.dart';
+import '../../../features/bank_accounts/data/models/isar/isar_bank_account_movement.dart';
 import '../../../features/bank_accounts/data/repositories/bank_account_offline_repository.dart'; // ⭐ FASE 1 - Problema 3
+import '../../../features/bank_accounts/domain/entities/bank_account_movement.dart';
 
 // User Preferences
 import '../../../features/settings/presentation/controllers/user_preferences_controller.dart';
@@ -1072,6 +1074,14 @@ class SyncService extends GetxService {
         case 'BankAccount':
         case 'bank_account':
           await _syncBankAccountOperation(operation);
+          break;
+        case 'BankAccountMovement':
+        case 'bank_account_movement':
+          await _syncBankAccountMovementOperation(operation);
+          break;
+        case 'BankAccountTransfer':
+        case 'bank_account_transfer':
+          await _syncBankAccountTransferOperation(operation);
           break;
         case 'Invoice':
         case 'invoice':
@@ -4699,6 +4709,216 @@ class SyncService extends GetxService {
         );
         return;
       }
+      rethrow;
+    }
+  }
+
+  /// Sincronizar movement manual (depósito o retiro). El payload trae
+  /// `bankAccountId`, `type` ('deposit'/'withdrawal'/...), `amount`,
+  /// y opcionales `description`/`movementDate`.
+  ///
+  /// Solo soporta CREATE. Movements son inmutables — UPDATE/DELETE no
+  /// aplican (correcciones se hacen vía nuevo movement con type=adjustment).
+  Future<void> _syncBankAccountMovementOperation(SyncOperation operation) async {
+    try {
+      if (operation.operationType != SyncOperationType.create) {
+        AppLogger.w(
+          'BankAccountMovement solo soporta CREATE — operación ${operation.operationType.name} ignorada',
+          tag: 'SYNC',
+        );
+        return;
+      }
+
+      final remoteDataSource = Get.find<BankAccountRemoteDataSource>();
+      final data = jsonDecode(operation.payload);
+
+      final bankAccountId = data['bankAccountId'] as String;
+      final typeStr = data['type'] as String;
+      final amount = (data['amount'] as num).toDouble();
+      final description = data['description'] as String?;
+      final movementDateStr = data['movementDate'] as String?;
+      final movementDate =
+          movementDateStr != null ? DateTime.parse(movementDateStr) : null;
+      // Mapear el string del enum del backend al frontend.
+      final type = BankAccountMovementType.fromString(typeStr);
+
+      AppLogger.d(
+        'Sincronizando movement: ${type.value} \$$amount → cuenta $bankAccountId',
+        tag: 'SYNC',
+      );
+
+      final created = await remoteDataSource.createManualMovement(
+        bankAccountId,
+        type: type,
+        amount: amount,
+        description: description,
+        movementDate: movementDate,
+      );
+
+      AppLogger.i(
+        'Movement sincronizado con ID servidor: ${created.id}',
+        tag: 'SYNC',
+      );
+
+      // Actualizar el movement local: cambiar serverId temp → real, marcar synced.
+      try {
+        final isar = IsarDatabase.instance.database;
+        final localMovement = await isar.isarBankAccountMovements
+            .filter()
+            .serverIdEqualTo(operation.entityId)
+            .findFirst();
+        if (localMovement != null) {
+          await isar.writeTxn(() async {
+            localMovement.serverId = created.id;
+            localMovement.balanceAfter = created.balanceAfter;
+            localMovement.markAsSynced();
+            await isar.isarBankAccountMovements.put(localMovement);
+          });
+        }
+      } catch (e) {
+        AppLogger.w('Error actualizando movement local tras sync: $e', tag: 'SYNC');
+      }
+
+      // El server actualizó el saldo de la cuenta atómicamente. Refrescar
+      // saldo en ISAR para que el dashboard / card / movements screen
+      // muestre el valor correcto (puede diferir del estimado offline si
+      // hubo race conditions con otro device).
+      try {
+        final fresh = await remoteDataSource.getBankAccountById(bankAccountId);
+        final isar = IsarDatabase.instance.database;
+        await isar.writeTxn(() async {
+          final existing = await isar.isarBankAccounts
+              .filter()
+              .serverIdEqualTo(bankAccountId)
+              .findFirst();
+          if (existing != null) {
+            existing.updateFromEntity(fresh.toEntity());
+            await isar.isarBankAccounts.put(existing);
+          }
+        });
+      } catch (e) {
+        AppLogger.w('Error refrescando saldo de cuenta tras movement: $e', tag: 'SYNC');
+      }
+    } catch (e) {
+      AppLogger.e('Error sincronizando movement: $e', tag: 'SYNC');
+      rethrow;
+    }
+  }
+
+  /// Sincronizar transferencia entre cuentas. El payload trae
+  /// `fromAccountId`, `toAccountId`, `amount`, `tempOutId`, `tempInId`.
+  /// El backend genera 2 movements atómicos.
+  Future<void> _syncBankAccountTransferOperation(SyncOperation operation) async {
+    try {
+      if (operation.operationType != SyncOperationType.create) {
+        AppLogger.w(
+          'BankAccountTransfer solo soporta CREATE',
+          tag: 'SYNC',
+        );
+        return;
+      }
+
+      final remoteDataSource = Get.find<BankAccountRemoteDataSource>();
+      final data = jsonDecode(operation.payload);
+
+      final fromAccountId = data['fromAccountId'] as String;
+      final toAccountId = data['toAccountId'] as String;
+      final amount = (data['amount'] as num).toDouble();
+      final description = data['description'] as String?;
+      final tempOutId = data['tempOutId'] as String?;
+      final tempInId = data['tempInId'] as String?;
+      final movementDateStr = data['movementDate'] as String?;
+      final movementDate =
+          movementDateStr != null ? DateTime.parse(movementDateStr) : null;
+
+      AppLogger.d(
+        'Sincronizando transferencia \$$amount: $fromAccountId → $toAccountId',
+        tag: 'SYNC',
+      );
+
+      final movements = await remoteDataSource.transferBetweenAccounts(
+        fromAccountId: fromAccountId,
+        toAccountId: toAccountId,
+        amount: amount,
+        description: description,
+        movementDate: movementDate,
+      );
+
+      // El server devuelve [outMovement, inMovement] (o vice versa según orden).
+      // Las identificamos por type.
+      String? serverOutId;
+      String? serverInId;
+      double? finalFromBalance;
+      double? finalToBalance;
+      for (final m in movements) {
+        if (m.type == BankAccountMovementType.transferOut) {
+          serverOutId = m.id;
+          finalFromBalance = m.balanceAfter;
+        } else if (m.type == BankAccountMovementType.transferIn) {
+          serverInId = m.id;
+          finalToBalance = m.balanceAfter;
+        }
+      }
+
+      // Actualizar los 2 movements locales: cambiar tempIds → serverIds,
+      // ajustar balance_after exacto del server, marcar synced.
+      try {
+        final isar = IsarDatabase.instance.database;
+        await isar.writeTxn(() async {
+          if (tempOutId != null && serverOutId != null) {
+            final localOut = await isar.isarBankAccountMovements
+                .filter()
+                .serverIdEqualTo(tempOutId)
+                .findFirst();
+            if (localOut != null) {
+              localOut.serverId = serverOutId;
+              if (finalFromBalance != null) localOut.balanceAfter = finalFromBalance;
+              if (serverInId != null) localOut.counterpartyMovementId = serverInId;
+              localOut.markAsSynced();
+              await isar.isarBankAccountMovements.put(localOut);
+            }
+          }
+          if (tempInId != null && serverInId != null) {
+            final localIn = await isar.isarBankAccountMovements
+                .filter()
+                .serverIdEqualTo(tempInId)
+                .findFirst();
+            if (localIn != null) {
+              localIn.serverId = serverInId;
+              if (finalToBalance != null) localIn.balanceAfter = finalToBalance;
+              if (serverOutId != null) localIn.counterpartyMovementId = serverOutId;
+              localIn.markAsSynced();
+              await isar.isarBankAccountMovements.put(localIn);
+            }
+          }
+        });
+      } catch (e) {
+        AppLogger.w('Error actualizando movements locales tras transfer: $e', tag: 'SYNC');
+      }
+
+      // Refrescar saldos de ambas cuentas desde el server.
+      for (final accId in [fromAccountId, toAccountId]) {
+        try {
+          final fresh = await remoteDataSource.getBankAccountById(accId);
+          final isar = IsarDatabase.instance.database;
+          await isar.writeTxn(() async {
+            final existing = await isar.isarBankAccounts
+                .filter()
+                .serverIdEqualTo(accId)
+                .findFirst();
+            if (existing != null) {
+              existing.updateFromEntity(fresh.toEntity());
+              await isar.isarBankAccounts.put(existing);
+            }
+          });
+        } catch (e) {
+          AppLogger.w('Error refrescando saldo cuenta $accId: $e', tag: 'SYNC');
+        }
+      }
+
+      AppLogger.i('Transferencia sincronizada exitosamente', tag: 'SYNC');
+    } catch (e) {
+      AppLogger.e('Error sincronizando transferencia: $e', tag: 'SYNC');
       rethrow;
     }
   }

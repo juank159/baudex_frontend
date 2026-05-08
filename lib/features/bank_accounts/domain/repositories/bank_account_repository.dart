@@ -105,4 +105,36 @@ abstract class BankAccountRepository {
 
   /// Activar/desactivar cuenta
   Future<Either<Failure, BankAccount>> toggleBankAccountActive(String id);
+
+  // ==================== MOVEMENTS WRITE ====================
+
+  /// Registrar un depósito manual en una cuenta. Online → POST al backend
+  /// + cachea movement en ISAR. Offline → crea movement local + actualiza
+  /// saldo de la cuenta + encola sync op.
+  Future<Either<Failure, BankAccountMovement>> depositManual({
+    required String bankAccountId,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  });
+
+  /// Registrar un retiro manual de una cuenta. Misma mecánica que depósito
+  /// pero el monto resta del saldo.
+  Future<Either<Failure, BankAccountMovement>> withdrawManual({
+    required String bankAccountId,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  });
+
+  /// Transferir entre dos cuentas. Backend genera 2 movements atómicos.
+  /// Offline → genera 2 movements locales con `counterpartyMovementId`
+  /// cruzados + encola un solo sync op compuesto.
+  Future<Either<Failure, List<BankAccountMovement>>> transferBetweenAccounts({
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  });
 }

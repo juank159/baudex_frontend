@@ -1,4 +1,5 @@
 // lib/features/bank_accounts/presentation/controllers/bank_account_movements_controller.dart
+import 'package:flutter/material.dart' show Color;
 import 'package:get/get.dart';
 import '../../domain/entities/bank_account.dart';
 import '../../domain/entities/bank_account_movement.dart';
@@ -319,6 +320,84 @@ class BankAccountMovementsController extends GetxController {
     }
 
     await loadTransactions(refresh: true);
+  }
+
+  // ==================== MANUAL MOVEMENT ACTIONS ====================
+
+  /// Registrar un depósito manual en la cuenta actual.
+  /// Devuelve true si se registró (online o offline). Si falla, llena
+  /// `errorMessage` con detalle.
+  Future<bool> submitDeposit({
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  }) async {
+    if (account.value == null) return false;
+    final result = await repository.depositManual(
+      bankAccountId: account.value!.id,
+      amount: amount,
+      description: description,
+      movementDate: movementDate,
+    );
+    return result.fold(
+      (failure) {
+        errorMessage.value = failure.message;
+        Get.snackbar(
+          'Error',
+          failure.message,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFFD32F2F),
+          colorText: const Color(0xFFFFFFFF),
+        );
+        return false;
+      },
+      (_) {
+        // Refrescar saldo de la cuenta + lista de movements.
+        _refreshAccount();
+        loadTransactions(refresh: true);
+        return true;
+      },
+    );
+  }
+
+  /// Registrar un retiro manual de la cuenta actual.
+  Future<bool> submitWithdrawal({
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  }) async {
+    if (account.value == null) return false;
+    final result = await repository.withdrawManual(
+      bankAccountId: account.value!.id,
+      amount: amount,
+      description: description,
+      movementDate: movementDate,
+    );
+    return result.fold(
+      (failure) {
+        errorMessage.value = failure.message;
+        Get.snackbar(
+          'Error',
+          failure.message,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFFD32F2F),
+          colorText: const Color(0xFFFFFFFF),
+        );
+        return false;
+      },
+      (_) {
+        _refreshAccount();
+        loadTransactions(refresh: true);
+        return true;
+      },
+    );
+  }
+
+  /// Re-leer la cuenta para reflejar el saldo nuevo en la pantalla.
+  Future<void> _refreshAccount() async {
+    if (account.value == null) return;
+    final result = await repository.getBankAccountById(account.value!.id);
+    result.fold((_) {}, (acc) => account.value = acc);
   }
 
   // ==================== CLEANUP ====================
