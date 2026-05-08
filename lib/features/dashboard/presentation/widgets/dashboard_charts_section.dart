@@ -91,9 +91,11 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
         );
       }
 
-      // El chart comparativo ahora usa el cobrado real (cash basis) en vez del
-      // total facturado, para no inflar la barra con ventas a crédito no cobradas.
-      final totalSales = dashboardController.totalCollected;
+      // El chart comparativo usa el ingreso NETO (cobrado − notas de crédito)
+      // para no inflar la barra con dinero que se devolvió. Si no hay NCs,
+      // netRevenue == totalCollected (sin cambio respecto al comportamiento
+      // previo). Si hay NCs, refleja el ingreso real del período.
+      final totalSales = dashboardController.netRevenue;
       final totalExpenses = stats?.expenses.totalAmount ?? 0;
       final maxValue = math.max(totalSales, totalExpenses);
 

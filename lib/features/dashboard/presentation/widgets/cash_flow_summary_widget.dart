@@ -11,12 +11,23 @@ import '../../domain/entities/dashboard_stats.dart';
 /// Se oculta cuando no hay movimientos en ningún concepto.
 class CashFlowSummaryWidget extends StatelessWidget {
   final CashFlowStats cashFlow;
+  /// Phase 1B: total devuelto vía notas de crédito en el período.
+  /// Si > 0, el widget muestra una fila roja "Devoluciones" + un total
+  /// neto al final.
+  final double creditNotesTotal;
+  final int creditNotesCount;
 
-  const CashFlowSummaryWidget({super.key, required this.cashFlow});
+  const CashFlowSummaryWidget({
+    super.key,
+    required this.cashFlow,
+    this.creditNotesTotal = 0,
+    this.creditNotesCount = 0,
+  });
 
   static const _salesColor = Color(0xFF10B981);
   static const _loanColor = Color(0xFFF59E0B);
   static const _depositColor = Color(0xFF8B5CF6);
+  static final _refundColor = Colors.red.shade700;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +92,89 @@ class CashFlowSummaryWidget extends StatelessWidget {
                           'Dinero que un cliente te deja como saldo a favor antes de facturar. Es un pasivo (lo debes) hasta que se aplique a una factura futura.',
                       breakdown: cashFlow.customerDepositsBreakdown,
                     ),
+                    // Phase 1B: Devoluciones — solo si hay NCs aplicadas
+                    if (creditNotesTotal > 0) ...[
+                      const SizedBox(height: 8),
+                      _buildRow(
+                        icon: Icons.assignment_return_outlined,
+                        label: 'Devoluciones',
+                        subtitle: _countLabel(creditNotesCount, 'nota crédito', 'notas crédito'),
+                        amount: -creditNotesTotal,
+                        percentage: -pct(creditNotesTotal),
+                        color: _refundColor,
+                        tooltip:
+                            'Dinero devuelto al cliente vía notas de crédito '
+                            'en el período. Reduce el ingreso bruto cobrado.',
+                        isNegative: true,
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: (total - creditNotesTotal) > 0
+                              ? Colors.green.shade50
+                              : Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: (total - creditNotesTotal) > 0
+                                ? Colors.green.shade300
+                                : Colors.orange.shade300,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.account_balance_wallet_rounded,
+                              color: (total - creditNotesTotal) > 0
+                                  ? Colors.green.shade700
+                                  : Colors.orange.shade700,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'CAJA NETA REAL',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: (total - creditNotesTotal) > 0
+                                          ? Colors.green.shade800
+                                          : Colors.orange.shade800,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Entradas − Devoluciones',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: (total - creditNotesTotal) > 0
+                                          ? Colors.green.shade600
+                                          : Colors.orange.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              AppFormatters.formatCurrency(
+                                  total - creditNotesTotal),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: (total - creditNotesTotal) > 0
+                                    ? Colors.green.shade800
+                                    : Colors.orange.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -174,6 +268,7 @@ class CashFlowSummaryWidget extends StatelessWidget {
     required Color color,
     required String tooltip,
     List<CashFlowMethodRow> breakdown = const [],
+    bool isNegative = false,
   }) {
     final hasBreakdown = breakdown.isNotEmpty && amount > 0;
     return Container(

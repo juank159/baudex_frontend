@@ -451,7 +451,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           return Column(
             children: [
               _buildAnimatedCard(
-                CashFlowSummaryWidget(cashFlow: stats.cashFlow),
+                CashFlowSummaryWidget(
+                  cashFlow: stats.cashFlow,
+                  creditNotesTotal: stats.creditNotesTotal,
+                  creditNotesCount: stats.creditNotesCount,
+                ),
                 delay: 450,
               ),
               const SizedBox(height: AppDimensions.spacingMedium),
@@ -605,7 +609,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           return Column(
             children: [
               _buildAnimatedCard(
-                CashFlowSummaryWidget(cashFlow: stats.cashFlow),
+                CashFlowSummaryWidget(
+                  cashFlow: stats.cashFlow,
+                  creditNotesTotal: stats.creditNotesTotal,
+                  creditNotesCount: stats.creditNotesCount,
+                ),
                 delay: 450,
               ),
               const SizedBox(height: AppDimensions.spacingLarge),
@@ -813,7 +821,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           return Column(
             children: [
               _buildAnimatedCard(
-                CashFlowSummaryWidget(cashFlow: stats.cashFlow),
+                CashFlowSummaryWidget(
+                  cashFlow: stats.cashFlow,
+                  creditNotesTotal: stats.creditNotesTotal,
+                  creditNotesCount: stats.creditNotesCount,
+                ),
                 delay: 450,
               ),
               const SizedBox(height: AppDimensions.spacingLarge),
