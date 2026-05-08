@@ -240,6 +240,10 @@ abstract class AppRoutes {
   // Bank Accounts with parameters
   static String bankAccountMovementsById(String id) => '/bank-accounts/$id/movements';
 
+  // ==================== CASH REGISTER ROUTES ====================
+  static const String cashRegister = '/cash-register';
+  static const String cashRegisterHistory = '/cash-register/history';
+
   // ==================== CUSTOMER CREDITS ROUTES ====================
   static const String customerCredits = '/customer-credits';
   static const String customerCreditsDetail = '/customer-credits/detail';

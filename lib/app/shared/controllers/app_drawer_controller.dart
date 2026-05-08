@@ -199,6 +199,13 @@ class AppDrawerController extends GetxController {
             route: AppRoutes.bankAccounts,
             subtitle: 'Métodos de pago',
           ),
+          DrawerMenuItem(
+            id: 'cash_register',
+            title: 'Caja Registradora',
+            icon: Icons.point_of_sale_rounded,
+            route: AppRoutes.cashRegister,
+            subtitle: 'Apertura y cierre de caja',
+          ),
         ],
       ),
 
