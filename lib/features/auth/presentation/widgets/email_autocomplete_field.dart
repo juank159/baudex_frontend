@@ -40,8 +40,11 @@ class _EmailAutocompleteFieldState extends State<EmailAutocompleteField> {
 
   void _onFocusChange() {
     if (!_focusNode.hasFocus) {
-      // Pequeño delay para permitir que el tap en una sugerencia se procese primero
-      Future.delayed(const Duration(milliseconds: 150), () {
+      // Delay más amplio (300ms) para dar tiempo a que el tap del item
+      // del dropdown se procese antes de cerrar las sugerencias. En
+      // desktop el focus puede perderse antes que el tap se capture,
+      // así que necesitamos un margen mayor.
+      Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted && !_focusNode.hasFocus) {
           authController.hideEmailSuggestions();
         }
@@ -138,59 +141,74 @@ class _EmailAutocompleteFieldState extends State<EmailAutocompleteField> {
   Widget _buildEmailSuggestionTile(String email) {
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          authController.selectSavedEmail(email);
-          widget.onChanged?.call(email);
-          // Quitar focus del campo para cerrar teclado en mobile
-          _focusNode.unfocus();
-        },
-        borderRadius: BorderRadius.circular(8),
-        hoverColor: ElegantLightTheme.primaryBlue.withOpacity(0.05),
-        splashColor: ElegantLightTheme.primaryBlue.withOpacity(0.1),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              // Icono de correo
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      ElegantLightTheme.primaryBlue.withOpacity(0.1),
-                      ElegantLightTheme.primaryBlueLight.withOpacity(0.05),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.email_outlined,
-                  size: 16,
-                  color: ElegantLightTheme.primaryBlue,
+      child: Row(
+        children: [
+          // Zona principal: tap = seleccionar el email.
+          // Usamos Expanded + InkWell para que ocupe TODO el ancho
+          // excepto el botón eliminar.
+          Expanded(
+            child: InkWell(
+              onTap: () {
+                authController.selectSavedEmail(email);
+                widget.onChanged?.call(email);
+                // NO unfocus: el cambio en `_showEmailSuggestions` ya
+                // oculta el dropdown. Hacer unfocus aquí cancela el
+                // tap si el focusNode se pierde antes de procesar.
+              },
+              hoverColor: ElegantLightTheme.primaryBlue.withOpacity(0.05),
+              splashColor: ElegantLightTheme.primaryBlue.withOpacity(0.1),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            ElegantLightTheme.primaryBlue
+                                .withOpacity(0.1),
+                            ElegantLightTheme.primaryBlueLight
+                                .withOpacity(0.05),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.email_outlined,
+                        size: 16,
+                        color: ElegantLightTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        email,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: ElegantLightTheme.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-
-              // Email text
-              Expanded(
-                child: Text(
-                  email,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: ElegantLightTheme.textPrimary,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-
-              // Botón para eliminar
-              InkWell(
+            ),
+          ),
+          // Botón eliminar SEPARADO con su propio Material+InkWell.
+          // No anida con el del email, así no compiten por el tap.
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
                 onTap: () => authController.removeSavedEmail(email),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 child: Padding(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   child: Icon(
                     Icons.close_rounded,
                     size: 16,
@@ -198,9 +216,9 @@ class _EmailAutocompleteFieldState extends State<EmailAutocompleteField> {
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

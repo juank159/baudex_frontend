@@ -506,10 +506,10 @@ class _CircleData {
   _CircleData(this.cx, this.cy, this.radius, this.opacity, this.phase);
 }
 
-/// Phase 3 — Campo "Negocio" estilo POS profesional.
-/// Si está recordado del último login en este dispositivo, muestra un
-/// chip "Recordado en este dispositivo" + botón "Cambiar de negocio"
-/// para olvidar la cache. Si no, es un input normal.
+/// Phase 3 — Campo "Negocio" usando el mismo `CustomTextField` que
+/// el resto del formulario para consistencia visual total. Cuando el
+/// dispositivo recuerda el negocio, agrega una pequeña leyenda debajo
+/// + un icono de cerrar para olvidarlo.
 class _BusinessField extends StatelessWidget {
   final TextEditingController controller;
   final bool isRemembered;
@@ -526,99 +526,33 @@ class _BusinessField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: ElegantLightTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isRemembered
-                  ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
-                  : ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-              width: isRemembered ? 1.5 : 1,
-            ),
-            boxShadow: isRemembered
-                ? [
-                    BoxShadow(
-                      color: ElegantLightTheme.primaryBlue
-                          .withValues(alpha: 0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 14, right: 8),
-                child: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ElegantLightTheme.primaryBlue
-                            .withValues(alpha: 0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.store_rounded,
-                      color: Colors.white, size: 16),
-                ),
-              ),
-              Expanded(
-                child: TextFormField(
-                  controller: controller,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Negocio',
-                    hintText: 'Ej: Mi Tienda',
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 14),
-                  ),
-                  style: TextStyle(
-                    color: ElegantLightTheme.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              if (isRemembered)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      size: 18,
-                      color: ElegantLightTheme.textSecondary,
-                    ),
-                    tooltip: 'Cambiar de negocio',
-                    onPressed: onClearRemembered,
-                  ),
-                ),
-            ],
-          ),
+        CustomTextField(
+          controller: controller,
+          label: 'Negocio',
+          hint: 'Ej: Mi Tienda',
+          prefixIcon: Icons.store_rounded,
+          suffixIcon: isRemembered ? Icons.close_rounded : null,
+          onSuffixIconPressed: isRemembered ? onClearRemembered : null,
         ),
         if (isRemembered) ...[
           const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(Icons.devices_rounded,
-                  size: 12,
-                  color: ElegantLightTheme.primaryBlue),
-              const SizedBox(width: 4),
-              Text(
-                'Recordado en este dispositivo',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: ElegantLightTheme.primaryBlue,
-                  fontWeight: FontWeight.w500,
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Row(
+              children: [
+                Icon(Icons.devices_rounded,
+                    size: 12, color: ElegantLightTheme.primaryBlue),
+                const SizedBox(width: 4),
+                Text(
+                  'Recordado en este dispositivo',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: ElegantLightTheme.primaryBlue,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ],
