@@ -128,6 +128,7 @@ import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_
 import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_account_movements_screen.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/bindings/cash_register_binding.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/screens/cash_register_screen.dart';
+import 'package:baudex_desktop/features/cash_register/presentation/screens/cash_register_history_screen.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/bindings/customer_credit_binding.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/pages/customer_credits_page.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/pages/client_balances_page.dart';
@@ -1904,6 +1905,15 @@ class AppPages {
       page: () => const CashRegisterScreen(),
       binding: CashRegisterBinding(),
       transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+    ),
+
+    // 🧾 HISTORIAL DE CAJAS
+    GetPage(
+      name: AppRoutes.cashRegisterHistory,
+      page: () => const CashRegisterHistoryScreen(),
+      binding: CashRegisterBinding(),
+      transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
     ),
 

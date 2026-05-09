@@ -101,12 +101,7 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
           tooltip: 'Historial',
           onPressed: () {
             controller.loadHistory();
-            // TODO: pantalla de historial
-            Get.snackbar(
-              'Historial',
-              'Pantalla de historial próximamente',
-              snackPosition: SnackPosition.BOTTOM,
-            );
+            Get.toNamed('/cash-register/history');
           },
         ),
         const SizedBox(width: 8),
