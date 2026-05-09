@@ -612,6 +612,34 @@ class SecureStorageService {
     }
   }
 
+  /// Phase 3 — Persistir nombre del negocio para mostrarlo pre-login.
+  /// No es información sensible (es solo display) pero igual va al
+  /// SecureStorage para reusar la API existente. Permite recordar
+  /// el "negocio" del último login en este dispositivo.
+  static const _lastBusinessKey = 'last_business_name';
+
+  Future<void> saveLastBusiness(String name) async {
+    try {
+      await _writeSecure(_lastBusinessKey, name);
+    } catch (_) {
+      // No bloquear flujo por error de cache
+    }
+  }
+
+  Future<String?> getLastBusiness() async {
+    try {
+      return await _readSecure(_lastBusinessKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> clearLastBusiness() async {
+    try {
+      await _deleteSecure(_lastBusinessKey);
+    } catch (_) {}
+  }
+
   /// Limpiar todos los correos guardados
   Future<void> clearSavedEmails() async {
     try {

@@ -89,6 +89,13 @@ class AuthController extends GetxController {
   // Form controllers para login
   final loginEmailController = TextEditingController();
   final loginPasswordController = TextEditingController();
+  // Phase 3 — Login profesional: campo "Negocio" persistente. No es
+  // funcional para auth (el backend determina la organización por el
+  // email del usuario), pero da la experiencia POS profesional de
+  // saber a qué negocio estás entrando antes de meter credenciales.
+  final loginBusinessController = TextEditingController();
+  final _hasRememberedBusiness = false.obs;
+  bool get hasRememberedBusiness => _hasRememberedBusiness.value;
 
   // Form controllers para registro
   final registerFirstNameController = TextEditingController();
@@ -400,6 +407,7 @@ class AuthController extends GetxController {
     // Limpiar controllers de forma segura
     _safeDisposeController(loginEmailController);
     _safeDisposeController(loginPasswordController);
+    _safeDisposeController(loginBusinessController);
     _safeDisposeController(registerFirstNameController);
     _safeDisposeController(registerLastNameController);
     _safeDisposeController(registerEmailController);
@@ -473,6 +481,16 @@ class AuthController extends GetxController {
           await _saveEmailAfterSuccessfulLogin(
             loginEmailController.text.trim(),
           );
+
+          // Phase 3 — Guardar el negocio si el usuario lo declaró,
+          // así la próxima vez en este dispositivo aparece pre-llenado.
+          final business = loginBusinessController.text.trim();
+          if (business.isNotEmpty) {
+            try {
+              await _secureStorageService.saveLastBusiness(business);
+              _hasRememberedBusiness.value = true;
+            } catch (_) {}
+          }
 
           _clearLoginForm();
 
@@ -968,9 +986,28 @@ class AuthController extends GetxController {
       if (lastEmail != null && lastEmail.isNotEmpty) {
         loginEmailController.text = lastEmail;
       }
+
+      // Phase 3 — Cargar el último negocio guardado en este dispositivo.
+      // Si existe, pre-rellena el campo y marca el flag para que la UI
+      // pueda mostrar el "Volver a entrar a TuNegocio" más amigable.
+      final lastBusiness = await _secureStorageService.getLastBusiness();
+      if (lastBusiness != null && lastBusiness.trim().isNotEmpty) {
+        loginBusinessController.text = lastBusiness;
+        _hasRememberedBusiness.value = true;
+      }
     } catch (e) {
       print('⚠️ Error cargando correos guardados: $e');
     }
+  }
+
+  /// Olvida el negocio recordado en este dispositivo. Útil cuando el
+  /// usuario cambia de empresa o presta el dispositivo.
+  Future<void> clearRememberedBusiness() async {
+    try {
+      await _secureStorageService.clearLastBusiness();
+      loginBusinessController.clear();
+      _hasRememberedBusiness.value = false;
+    } catch (_) {}
   }
 
   /// Configurar listener para el campo de email

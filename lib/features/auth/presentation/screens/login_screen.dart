@@ -33,10 +33,14 @@ class LoginScreen extends GetView<AuthController> {
         child: Column(
           children: [
             SizedBox(height: context.verticalSpacing),
-            const AuthHeaderWidget(
-              title: 'Iniciar Sesión',
-              subtitle: 'Bienvenido de vuelta',
-            ),
+            Obx(() => AuthHeaderWidget(
+                  title: controller.hasRememberedBusiness
+                      ? '¡Bienvenido de vuelta!'
+                      : 'Iniciar Sesión',
+                  subtitle: controller.hasRememberedBusiness
+                      ? 'Entra a ${controller.loginBusinessController.text}'
+                      : 'Accede a tu cuenta',
+                )),
             SizedBox(height: context.verticalSpacing * 2),
             _buildLoginForm(context),
             SizedBox(height: context.verticalSpacing),
@@ -56,10 +60,14 @@ class LoginScreen extends GetView<AuthController> {
             child: Column(
               children: [
                 SizedBox(height: context.verticalSpacing),
-                const AuthHeaderWidget(
-                  title: 'Iniciar Sesión',
-                  subtitle: 'Bienvenido de vuelta',
-                ),
+                Obx(() => AuthHeaderWidget(
+                      title: controller.hasRememberedBusiness
+                          ? '¡Bienvenido de vuelta!'
+                          : 'Iniciar Sesión',
+                      subtitle: controller.hasRememberedBusiness
+                          ? 'Entra a ${controller.loginBusinessController.text}'
+                          : 'Bienvenido de vuelta',
+                    )),
                 SizedBox(height: context.verticalSpacing * 2),
                 GlassCard(
                   child: _buildLoginForm(context),
@@ -95,10 +103,14 @@ class LoginScreen extends GetView<AuthController> {
                     constraints: const BoxConstraints(maxWidth: 420),
                     child: Column(
                       children: [
-                        const AuthHeaderWidget(
-                          title: 'Iniciar Sesión',
-                          subtitle: 'Accede a tu cuenta',
-                        ),
+                        Obx(() => AuthHeaderWidget(
+                              title: controller.hasRememberedBusiness
+                                  ? '¡Bienvenido de vuelta!'
+                                  : 'Iniciar Sesión',
+                              subtitle: controller.hasRememberedBusiness
+                                  ? 'Entra a ${controller.loginBusinessController.text}'
+                                  : 'Accede a tu cuenta',
+                            )),
                         SizedBox(height: context.verticalSpacing * 2),
                         GlassCard(
                           child: _buildLoginForm(context),
@@ -123,6 +135,16 @@ class LoginScreen extends GetView<AuthController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Phase 3 — Campo "Negocio" estilo POS profesional. Es el
+          // primer campo del form porque es lo que el cajero ve primero
+          // al llegar a su terminal: a qué negocio voy a entrar.
+          Obx(() => _BusinessField(
+                controller: controller.loginBusinessController,
+                isRemembered: controller.hasRememberedBusiness,
+                onClearRemembered:
+                    controller.clearRememberedBusiness,
+              )),
+          SizedBox(height: context.verticalSpacing),
           EmailAutocompleteField(
             controller: controller.loginEmailController,
             label: 'Correo Electrónico',
@@ -482,4 +504,124 @@ class _LoginPatternPainter extends CustomPainter {
 class _CircleData {
   final double cx, cy, radius, opacity, phase;
   _CircleData(this.cx, this.cy, this.radius, this.opacity, this.phase);
+}
+
+/// Phase 3 — Campo "Negocio" estilo POS profesional.
+/// Si está recordado del último login en este dispositivo, muestra un
+/// chip "Recordado en este dispositivo" + botón "Cambiar de negocio"
+/// para olvidar la cache. Si no, es un input normal.
+class _BusinessField extends StatelessWidget {
+  final TextEditingController controller;
+  final bool isRemembered;
+  final VoidCallback onClearRemembered;
+
+  const _BusinessField({
+    required this.controller,
+    required this.isRemembered,
+    required this.onClearRemembered,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: ElegantLightTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isRemembered
+                  ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.3)
+                  : ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+              width: isRemembered ? 1.5 : 1,
+            ),
+            boxShadow: isRemembered
+                ? [
+                    BoxShadow(
+                      color: ElegantLightTheme.primaryBlue
+                          .withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 14, right: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: ElegantLightTheme.primaryBlue
+                            .withValues(alpha: 0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.store_rounded,
+                      color: Colors.white, size: 16),
+                ),
+              ),
+              Expanded(
+                child: TextFormField(
+                  controller: controller,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Negocio',
+                    hintText: 'Ej: Mi Tienda',
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 14),
+                  ),
+                  style: TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (isRemembered)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: ElegantLightTheme.textSecondary,
+                    ),
+                    tooltip: 'Cambiar de negocio',
+                    onPressed: onClearRemembered,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (isRemembered) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.devices_rounded,
+                  size: 12,
+                  color: ElegantLightTheme.primaryBlue),
+              const SizedBox(width: 4),
+              Text(
+                'Recordado en este dispositivo',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: ElegantLightTheme.primaryBlue,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
 }
