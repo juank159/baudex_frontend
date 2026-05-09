@@ -461,6 +461,28 @@ class AuthController extends GetxController {
             '🔧 AuthController: Token recibido - ${authResult.token.substring(0, 20)}...',
           );
 
+          // Phase 3 — Validar que el "Negocio" declarado por el usuario
+          // coincida con el organization.name real al que pertenece el
+          // email. El backend ya determinó la org correcta por el email;
+          // este check es UX defensivo (alerta amistosa al cajero que
+          // se equivocó de negocio en la pantalla de login).
+          final declaredBusiness = loginBusinessController.text.trim();
+          final realOrgName =
+              authResult.user.organizationName?.trim() ?? '';
+          if (declaredBusiness.isNotEmpty &&
+              realOrgName.isNotEmpty &&
+              declaredBusiness.toLowerCase() != realOrgName.toLowerCase()) {
+            final shouldContinue = await _showBusinessMismatchDialog(
+              declaredBusiness,
+              realOrgName,
+            );
+            if (!shouldContinue) {
+              // El usuario decidió no continuar — abortar el login
+              // (no guardamos token, no navegamos).
+              return;
+            }
+          }
+
           _isAuthenticated.value = true;
           _currentUser.value = authResult.user;
 
@@ -482,13 +504,17 @@ class AuthController extends GetxController {
             loginEmailController.text.trim(),
           );
 
-          // Phase 3 — Guardar el negocio si el usuario lo declaró,
-          // así la próxima vez en este dispositivo aparece pre-llenado.
-          final business = loginBusinessController.text.trim();
-          if (business.isNotEmpty) {
+          // Phase 3 — Guardar SIEMPRE el organization.name REAL devuelto
+          // por el backend (no lo que el usuario tipeó), así para usuarios
+          // que ya estaban registrados antes de este feature, el nombre
+          // correcto del negocio queda persistido en el dispositivo desde
+          // el primer login post-update.
+          final realBusiness = authResult.user.organizationName?.trim() ?? '';
+          if (realBusiness.isNotEmpty) {
             try {
-              await _secureStorageService.saveLastBusiness(business);
+              await _secureStorageService.saveLastBusiness(realBusiness);
               _hasRememberedBusiness.value = true;
+              loginBusinessController.text = realBusiness;
             } catch (_) {}
           }
 
@@ -1008,6 +1034,99 @@ class AuthController extends GetxController {
       loginBusinessController.clear();
       _hasRememberedBusiness.value = false;
     } catch (_) {}
+  }
+
+  /// Phase 3 — Diálogo amistoso cuando el negocio que el usuario tipeó
+  /// en el login no coincide con la organización real de su correo.
+  /// Devuelve true si el usuario decide continuar igual; false si cancela.
+  Future<bool> _showBusinessMismatchDialog(
+    String declaredBusiness,
+    String realOrgName,
+  ) async {
+    final result = await Get.dialog<bool>(
+      AlertDialog(
+        icon: Icon(Icons.info_outline_rounded,
+            color: Colors.amber.shade700, size: 36),
+        title: const Text('Verificar negocio'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Escribiste el negocio como:',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Text(
+                declaredBusiness,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.amber.shade900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Pero tu correo pertenece realmente a:',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade300),
+              ),
+              child: Text(
+                realOrgName,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.green.shade900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '¿Quieres continuar y entrar a $realOrgName?',
+              style: const TextStyle(fontSize: 13, height: 1.4),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Get.back(result: true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.green.shade700,
+            ),
+            child: Text('Sí, entrar a $realOrgName'),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+    return result ?? false;
   }
 
   /// Configurar listener para el campo de email
