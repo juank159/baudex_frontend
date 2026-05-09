@@ -240,14 +240,60 @@ class CashRegisterHistoryScreen extends GetView<CashRegisterController> {
                               CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              AppFormatters.formatDateTime(reg.openedAt),
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color:
-                                    ElegantLightTheme.textPrimary,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    AppFormatters.formatDateTime(
+                                        reg.openedAt),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: ElegantLightTheme
+                                          .textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: ElegantLightTheme
+                                        .successGreen
+                                        .withValues(alpha: 0.12),
+                                    borderRadius:
+                                        BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: ElegantLightTheme
+                                          .successGreen
+                                          .withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.savings_rounded,
+                                        size: 11,
+                                        color: ElegantLightTheme
+                                            .successGreen,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Inicial: ${AppFormatters.formatCurrency(reg.openingAmount)}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight:
+                                              FontWeight.w700,
+                                          color: ElegantLightTheme
+                                              .successGreen,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 2),
                             Row(
