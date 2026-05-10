@@ -50,6 +50,40 @@ class CashRegisterController extends GetxController {
     super.onClose();
   }
 
+  /// Limpia TODO el estado en memoria del controller y dispara una carga
+  /// inmediata del estado del nuevo tenant. Crítico al cambiar de tenant
+  /// o hacer logout: como el controller es `permanent: true`, no se
+  /// recrea automáticamente.
+  ///
+  /// **UX**: dejamos `isLoading=true` para que el badge muestre spinner
+  /// (no "Caja cerrada" engañoso) mientras llega el dato real. La llamada
+  /// `loadCurrent()` se dispara FIRE-AND-FORGET; el caller no necesita
+  /// awaitear. Soporta tanto online (lee del server) como offline (lee
+  /// del cache, si existe — si fue borrado por cambio de tenant, mostrará
+  /// el error apropiado).
+  void resetStateAndReload() {
+    // Estado limpio + spinner activo
+    isLoading.value = true;
+    isSubmitting.value = false;
+    errorMessage.value = '';
+    currentState.value = const CashRegisterCurrentState();
+    history.clear();
+    // Disparar carga del nuevo tenant SIN bloquear al caller. El badge
+    // mostrará spinner hasta que esto resuelva.
+    // ignore: discarded_futures
+    loadCurrent();
+  }
+
+  /// Variante sin reload — útil si el caller quiere solo limpiar (ej. en
+  /// pruebas o flujos donde el reload se dispara por otra ruta).
+  void resetState() {
+    isLoading.value = false;
+    isSubmitting.value = false;
+    errorMessage.value = '';
+    currentState.value = const CashRegisterCurrentState();
+    history.clear();
+  }
+
   /// Carga el estado de la caja del tenant.
   /// `silent`: no mostrar loading spinner ni borrar errores previos.
   /// Útil para auto-refresh en background.

@@ -6231,6 +6231,8 @@ class MockExpenseRepository extends _i1.Mock implements _i81.ExpenseRepository {
     List<String>? tags,
     Map<String, dynamic>? metadata,
     _i82.ExpenseStatus? status,
+    _i82.ExpensePaidFrom? paidFrom,
+    String? bankAccountId,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -6251,6 +6253,8 @@ class MockExpenseRepository extends _i1.Mock implements _i81.ExpenseRepository {
             #tags: tags,
             #metadata: metadata,
             #status: status,
+            #paidFrom: paidFrom,
+            #bankAccountId: bankAccountId,
           },
         ),
         returnValue: _i39.Future<_i5.Either<_i44.Failure, _i82.Expense>>.value(
@@ -6274,6 +6278,8 @@ class MockExpenseRepository extends _i1.Mock implements _i81.ExpenseRepository {
               #tags: tags,
               #metadata: metadata,
               #status: status,
+              #paidFrom: paidFrom,
+              #bankAccountId: bankAccountId,
             },
           ),
         )),

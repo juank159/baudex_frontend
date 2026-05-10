@@ -5,6 +5,8 @@ import 'package:lottie/lottie.dart';
 import '../../config/routes/app_routes.dart';
 import '../controllers/app_drawer_controller.dart';
 import '../models/drawer_menu_item.dart';
+import '../utils/drawer_permission_filter.dart';
+import '../../core/services/permissions_service.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../core/theme/elegant_light_theme.dart';
 import '../../presentation/widgets/sync_status_indicator.dart';
@@ -319,7 +321,15 @@ class AppDrawer extends GetWidget<AppDrawerController> {
 
   Widget _buildMenuItems(BuildContext context) {
     return Obx(() {
-      final menuItems = controller.menuItems;
+      // CRÍTICO: filtrar por permisos del usuario actual ANTES de
+      // separar en grupos. Items que el usuario no puede ver se ocultan
+      // del drawer (admin siempre ve todo por shortcut en PermissionsService).
+      final permsService = Get.isRegistered<PermissionsService>()
+          ? Get.find<PermissionsService>()
+          : null;
+      // Forzar dependencia reactiva: cuando los permisos cambian, Obx rebuild.
+      final _ = permsService?.rxPermissions.length;
+      final menuItems = DrawerPermissionFilter.apply(controller.menuItems);
       final size = MediaQuery.of(context).size;
       final isMobile = size.width < 600;
       final isTablet = size.width >= 600 && size.width < 1200;
@@ -920,16 +930,26 @@ class AppDrawer extends GetWidget<AppDrawerController> {
   }
 
   Widget _buildConfigurationGroup(BuildContext context) {
-    final configItems =
-        controller.menuItems
-            .where((item) => item.isInConfigurationGroup)
-            .toList();
-
-    if (configItems.isEmpty) return const SizedBox.shrink();
-
     return Obx(() {
       final drawerController = Get.find<AppDrawerController>();
       final isExpanded = drawerController.getConfigurationExpandedState();
+
+      // CRÍTICO: el filtro DEBE estar DENTRO del Obx para que cuando
+      // cambien los permisos del usuario actual (al login o tras un
+      // cambio en otra sesión), el grupo se rebuildee y oculte/muestre
+      // los items según corresponda.
+      // Forzamos la suscripción reactiva a rxPermissions tocando .length.
+      final permsService = Get.isRegistered<PermissionsService>()
+          ? Get.find<PermissionsService>()
+          : null;
+      // ignore: unused_local_variable
+      final _permsLength = permsService?.rxPermissions.length;
+      final filteredItems = DrawerPermissionFilter.apply(controller.menuItems);
+      final configItems = filteredItems
+          .where((item) => item.isInConfigurationGroup)
+          .toList();
+
+      if (configItems.isEmpty) return const SizedBox.shrink();
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

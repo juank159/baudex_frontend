@@ -89,6 +89,9 @@ abstract class AppRoutes {
   static String productWaste(String productId) =>
       '/products/$productId/waste';
 
+  // ==================== EMPLOYEES ROUTES ====================
+  static const String employees = '/employees';
+
   // ==================== CUSTOMERS ROUTES ====================
   static const String customers = '/customers';
   static const String customersCreate = '/customers/create';

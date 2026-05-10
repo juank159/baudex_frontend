@@ -27,6 +27,8 @@ import '../../../../app/data/local/isar_database.dart';
 import '../../../products/presentation/controllers/product_form_controller.dart';
 import '../../../../app/data/local/full_sync_service.dart';
 import '../../../subscriptions/presentation/controllers/subscription_controller.dart';
+import '../../../cash_register/presentation/controllers/cash_register_controller.dart';
+import '../../../../app/core/services/permissions_service.dart';
 
 class AuthController extends GetxController {
   // Dependencies
@@ -347,32 +349,124 @@ class AuthController extends GetxController {
   /// guardado al hacer logout. Si son DIFERENTES, borra la BD ISAR para
   /// evitar mezcla de datos entre tenants. Si son IGUALES, preserva el
   /// cache offline-first.
+  ///
+  /// **Orden de operaciones (CRÍTICO para resiliencia):**
+  /// 1. Persistir `lastUserId` PRIMERO. Si la app muere después de este
+  ///    paso, el próximo arranque detectará correctamente el tenant.
+  /// 2. SOLO ENTONCES borrar ISAR si hace falta. El clear se ejecuta
+  ///    bajo timeout para no bloquear el login indefinidamente.
+  /// 3. Cualquier excepción se loguea pero NO se propaga: un error aquí
+  ///    no debe impedir que el usuario inicie sesión.
   Future<void> _handleTenantSwitchIfNeeded(String newUserId) async {
+    final storage = Get.find<SecureStorageService>();
+    String? lastUserId;
     try {
-      final storage = Get.find<SecureStorageService>();
-      final lastUserId = await storage.getLastUserId();
+      lastUserId = await storage.getLastUserId();
+    } catch (e) {
+      print('⚠️ No se pudo leer lastUserId: $e');
+      lastUserId = null;
+    }
 
-      if (lastUserId != null && lastUserId != newUserId) {
-        print('🔄 AuthController: Cambio de tenant detectado ($lastUserId → $newUserId). Limpiando ISAR...');
-        try {
-          final isarDatabase = IsarDatabase.instance;
-          if (isarDatabase.isInitialized) {
-            await isarDatabase.clear();
-            print('✅ ISAR limpiado por cambio de tenant');
-          }
-        } catch (e) {
-          print('⚠️ Error limpiando ISAR en cambio de tenant: $e');
-        }
-      } else if (lastUserId == newUserId) {
-        print('✅ Mismo usuario que el último login — preservando cache ISAR (logout perezoso)');
+    // PASO 1: Persistir lastUserId ANTES de tocar ISAR. Atómico semántico:
+    // si el clear falla o la app muere, el próximo arranque ya sabe a qué
+    // tenant pertenece la BD actual.
+    try {
+      await storage.setLastUserId(newUserId);
+    } catch (e) {
+      print('⚠️ No se pudo persistir lastUserId: $e — continuando login');
+    }
+
+    // PASO 2: Decidir si hace falta limpiar ISAR.
+    final needsClear = lastUserId != null && lastUserId != newUserId;
+    if (!needsClear) {
+      if (lastUserId == newUserId) {
+        print('✅ Mismo usuario que el último login — preservando cache ISAR');
       } else {
         print('🆕 Primer login en este dispositivo — sin cleanup');
       }
+      return;
+    }
 
-      // Persistir el userId actual para el próximo logout/login
-      await storage.setLastUserId(newUserId);
+    print('🔄 Cambio de tenant detectado ($lastUserId → $newUserId). Limpiando ISAR + caches...');
+
+    // PASO 3: Clear ISAR con timeout y guard de inicialización. Si ISAR
+    // nunca se inicializó (init falló en main.dart), NO crasheamos: el
+    // próximo arranque tras un buen init recupera todo desde el server.
+    try {
+      final isarDatabase = IsarDatabase.instance;
+      if (!isarDatabase.isInitialized) {
+        print('⚠️ ISAR no inicializado — saltando clear (se reseteará en próximo arranque)');
+      } else {
+        await isarDatabase.clear().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            print('⚠️ Timeout limpiando ISAR — continuando login (se reintentará)');
+          },
+        );
+        print('✅ ISAR limpiado por cambio de tenant');
+      }
     } catch (e) {
-      print('⚠️ Error en _handleTenantSwitchIfNeeded: $e');
+      // Cualquier error (incluyendo IsarError) NO debe impedir el login.
+      // El full sync posterior bajará todo desde el server.
+      print('⚠️ Error limpiando ISAR en cambio de tenant: $e — continuando login');
+    }
+
+    // PASO 4: Limpiar caches del tenant que viven FUERA de ISAR.
+    // Crítico: la caja registradora (cash_register_current_cache) y otros
+    // caches de negocio se guardan en SecureStorage/SharedPreferences. Si
+    // no los borramos aquí, el nuevo usuario verá el estado de caja del
+    // anterior — bug grave de aislamiento entre tenants.
+    try {
+      await storage.clearTenantBusinessCaches();
+    } catch (e) {
+      print('⚠️ Error limpiando caches de tenant: $e — continuando login');
+    }
+
+    // PASO 5: Resetear estado en MEMORIA de controllers permanent que
+    // guardan datos del tenant. CashRegisterController vive con
+    // permanent:true, así que su `currentState` (caja abierta del tenant
+    // anterior) sobrevive al logout/login. Hay que pedirle reset explícito.
+    try {
+      _resetPermanentTenantControllers();
+    } catch (e) {
+      print('⚠️ Error reseteando controllers de tenant: $e — continuando login');
+    }
+  }
+
+  /// Resetea el estado en memoria de controllers `permanent: true` que
+  /// guardan datos del tenant. Se llama en cambio de tenant Y en logout.
+  /// Si un controller no está registrado (binding aún no cargado), se
+  /// ignora silenciosamente — no es un error crítico.
+  ///
+  /// `triggerReload`: si true, dispara fetch del nuevo estado para evitar
+  /// que la UI muestre "vacío" (badge spinner en vez de "caja cerrada"
+  /// engañoso). Si false (típicamente en logout, donde no hay nuevo tenant),
+  /// solo limpia memoria.
+  void _resetPermanentTenantControllers({bool triggerReload = true}) {
+    try {
+      if (Get.isRegistered<CashRegisterController>()) {
+        final controller = Get.find<CashRegisterController>();
+        if (triggerReload) {
+          controller.resetStateAndReload();
+        } else {
+          controller.resetState();
+        }
+        print('🔄 CashRegisterController: estado reseteado (reload=$triggerReload)');
+      }
+    } catch (e) {
+      print('⚠️ Error reseteando CashRegisterController: $e');
+    }
+
+    // Permisos granulares: limpiar cache. La carga del nuevo tenant se
+    // dispara desde el login flow (loadCurrentUserPermissions) tras
+    // confirmar tenant correcto.
+    try {
+      if (Get.isRegistered<PermissionsService>()) {
+        Get.find<PermissionsService>().clear();
+        print('🔄 PermissionsService: cache limpiado');
+      }
+    } catch (e) {
+      print('⚠️ Error limpiando PermissionsService: $e');
     }
   }
 
@@ -444,7 +538,18 @@ class AuthController extends GetxController {
           // Detectar error de límite de dispositivos (403 del backend)
           if (failure.code == 403 && failure.message.contains('dispositivo')) {
             _showDeviceLimitDialog(failure.message);
+          } else if (failure.code == 401 ||
+              failure.message.toLowerCase().contains('credencial') ||
+              failure.message.toLowerCase().contains('invalid') ||
+              failure.message.toLowerCase().contains('correo') ||
+              failure.message.toLowerCase().contains('contraseña')) {
+            // Mensaje genérico para credenciales malas — debe ser
+            // IDÉNTICO al que mostramos cuando el negocio no coincide,
+            // para no filtrar cuál de los tres campos falló.
+            _showGenericLoginError();
           } else {
+            // Otros errores (red, server caído, etc.) sí pueden ser
+            // específicos — no son enumeration de cuentas.
             Get.snackbar(
               'Error de Login',
               failure.message,
@@ -462,25 +567,22 @@ class AuthController extends GetxController {
           );
 
           // Phase 3 — Validar que el "Negocio" declarado por el usuario
-          // coincida con el organization.name real al que pertenece el
-          // email. El backend ya determinó la org correcta por el email;
-          // este check es UX defensivo (alerta amistosa al cajero que
-          // se equivocó de negocio en la pantalla de login).
+          // COINCIDA con la organización real del correo. Si no coincide,
+          // mostrar el MISMO mensaje genérico que se muestra ante
+          // credenciales inválidas — NO revelar el nombre real del negocio
+          // (eso sería enumeration: un atacante con solo el correo podría
+          // descubrir a qué empresa pertenece el usuario).
           final declaredBusiness = loginBusinessController.text.trim();
           final realOrgName =
               authResult.user.organizationName?.trim() ?? '';
-          if (declaredBusiness.isNotEmpty &&
-              realOrgName.isNotEmpty &&
-              declaredBusiness.toLowerCase() != realOrgName.toLowerCase()) {
-            final shouldContinue = await _showBusinessMismatchDialog(
-              declaredBusiness,
-              realOrgName,
-            );
-            if (!shouldContinue) {
-              // El usuario decidió no continuar — abortar el login
-              // (no guardamos token, no navegamos).
-              return;
-            }
+          final businessMatches = realOrgName.isNotEmpty &&
+              declaredBusiness.toLowerCase() == realOrgName.toLowerCase();
+          if (!businessMatches) {
+            // No guardamos token, no navegamos. Mensaje genérico
+            // indistinguible del de password incorrecta para no filtrar
+            // si lo que falló fue la pass o el nombre del negocio.
+            _showGenericLoginError();
+            return;
           }
 
           _isAuthenticated.value = true;
@@ -497,6 +599,16 @@ class AuthController extends GetxController {
           // Recargar suscripción ahora que tenemos JWT válido
           if (Get.isRegistered<SubscriptionController>()) {
             Get.find<SubscriptionController>().loadSubscription();
+          }
+
+          // Cargar permisos granulares del usuario actual. El servicio
+          // cachea en memoria; las pantallas usarán PermissionsService.to
+          // para verificar acceso a módulos y acciones.
+          try {
+            await Get.find<PermissionsService>()
+                .loadCurrentUserPermissions(authResult.user.role);
+          } catch (e) {
+            print('⚠️ Error cargando permisos: $e');
           }
 
           // Guardar el correo para recordarlo en futuros logins
@@ -650,6 +762,11 @@ class AuthController extends GetxController {
         },
         (user) {
           _currentUser.value = user;
+          // CRÍTICO: cuando la app abre con sesión persistida (sin pasar
+          // por login), también necesitamos cargar permisos. Sin esto el
+          // drawer queda oculto al reabrir la app porque el cache de
+          // permisos está vacío y canView retorna false en todo.
+          _loadPermissionsSafely(user.role);
         },
       );
     } finally {
@@ -657,55 +774,119 @@ class AuthController extends GetxController {
     }
   }
 
-  /// Cerrar sesión
+  /// Carga permisos sin bloquear el flow. Si falla, loguea pero no
+  /// rompe la app — el usuario simplemente verá un drawer recortado
+  /// hasta que la siguiente carga funcione.
+  void _loadPermissionsSafely(UserRole role) {
+    try {
+      if (Get.isRegistered<PermissionsService>()) {
+        // Fire-and-forget: el drawer reactivo (Obx en rxPermissions)
+        // se actualizará cuando los permisos lleguen.
+        Get.find<PermissionsService>().loadCurrentUserPermissions(role);
+      }
+    } catch (e) {
+      print('⚠️ Error disparando carga de permisos: $e');
+    }
+  }
+
+  /// Cerrar sesión.
+  ///
+  /// **Orden de operaciones (CRÍTICO para resiliencia):**
+  /// 1. Persistir `lastUserId` con AWAIT antes de cualquier limpieza.
+  ///    Si la app muere durante el logout, el próximo login del MISMO
+  ///    usuario detecta "tenant igual" y preserva el cache ISAR.
+  /// 2. Llamar al backend para invalidar la sesión.
+  /// 3. Si backend OK → limpiar locales y navegar.
+  /// 4. Si backend FALLA → forzar limpieza local igual (el usuario quiere
+  ///    salir y los datos sensibles deben borrarse aunque la red caiga).
   Future<void> logout() async {
     _isLoading.value = true;
+
+    // PASO 1: Persistir lastUserId DEFENSIVAMENTE antes de tocar nada.
+    // Esto asegura que el próximo login detecte correctamente si es el
+    // mismo tenant (preserva cache) o diferente (borra cache).
+    try {
+      final currentUserId = _currentUser.value?.id;
+      if (currentUserId != null && currentUserId.isNotEmpty) {
+        final storage = Get.find<SecureStorageService>();
+        await storage.setLastUserId(currentUserId);
+      }
+    } catch (e) {
+      print('⚠️ AuthController: No se pudo persistir lastUserId en logout: $e');
+    }
 
     try {
       final result = await _logoutUseCase(const NoParams());
 
-      result.fold(
-        (failure) {
-          Get.snackbar(
-            'Error',
-            'Error al cerrar sesión: ${failure.message}',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-            icon: const Icon(Icons.error, color: Colors.red),
-          );
-        },
-        (_) {
-          _isAuthenticated.value = false;
-          _currentUser.value = null;
+      // Función helper para limpieza local. Se ejecuta en AMBOS paths
+      // (éxito o fallo del backend) para garantizar que los datos
+      // sensibles se borren del dispositivo aunque la red haya caído.
+      Future<void> doLocalCleanup({required bool navigate}) async {
+        _isAuthenticated.value = false;
+        _currentUser.value = null;
 
-          // ✅ LIMPIAR CACHE DE CATEGORÍAS AL CERRAR SESIÓN
-          try {
-            ProductFormController.clearCategoriesCache();
-            print(
-              '🗑️ AuthController: Cache de categorías limpiado al cerrar sesión',
-            );
-          } catch (e) {
-            print(
-              '⚠️ AuthController: Error al limpiar cache de categorías: $e',
-            );
-          }
+        // Defensa final: si el repo falló al borrar credenciales, lo
+        // intentamos de nuevo aquí. Sin esto, en próximo arranque el
+        // token "fantasma" haría que la app entre logueada sin user.
+        try {
+          final storage = Get.find<SecureStorageService>();
+          await storage.deleteToken();
+          await storage.deleteRefreshToken();
+          await storage.deleteUserData();
+        } catch (e) {
+          print('⚠️ Limpieza de token de respaldo falló: $e');
+        }
 
-          _clearAllForms();
+        try {
+          ProductFormController.clearCategoriesCache();
+        } catch (e) {
+          print('⚠️ Error al limpiar cache de categorías: $e');
+        }
 
-          Get.snackbar(
-            'Sesión Cerrada',
-            'Has cerrado sesión exitosamente',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.blue.shade100,
-            colorText: Colors.blue.shade800,
-            icon: const Icon(Icons.info, color: Colors.blue),
-          );
+        // Resetear estado en memoria de controllers permanent que guardan
+        // datos del tenant (CashRegister, etc.). Sin esto el badge de caja
+        // mostraría la caja del usuario que hizo logout hasta el próximo
+        // login + refresh. En logout NO disparamos reload (no hay tenant).
+        _resetPermanentTenantControllers(triggerReload: false);
 
-          // Navegar al login
+        _clearAllForms();
+
+        if (navigate) {
           Get.offAllNamed(AppRoutes.login);
-        },
+        }
+      }
+
+      // Extraemos los datos de result con fold y luego ejecutamos la
+      // limpieza con await — fold() no permite awaitear callbacks async.
+      final failureMessage = result.fold(
+        (failure) => failure.message,
+        (_) => null,
       );
+
+      // Ejecutar cleanup CON await para garantizar que el token se borre
+      // antes de navegar al login.
+      await doLocalCleanup(navigate: true);
+
+      if (failureMessage != null) {
+        print('⚠️ Logout backend falló: $failureMessage — limpieza local forzada');
+        Get.snackbar(
+          'Sesión Cerrada',
+          'Has cerrado sesión (offline)',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade900,
+          icon: const Icon(Icons.cloud_off, color: Colors.orange),
+        );
+      } else {
+        Get.snackbar(
+          'Sesión Cerrada',
+          'Has cerrado sesión exitosamente',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.blue.shade100,
+          colorText: Colors.blue.shade800,
+          icon: const Icon(Icons.info, color: Colors.blue),
+        );
+      }
     } finally {
       _isLoading.value = false;
     }
@@ -1036,97 +1217,23 @@ class AuthController extends GetxController {
     } catch (_) {}
   }
 
-  /// Phase 3 — Diálogo amistoso cuando el negocio que el usuario tipeó
-  /// en el login no coincide con la organización real de su correo.
-  /// Devuelve true si el usuario decide continuar igual; false si cancela.
-  Future<bool> _showBusinessMismatchDialog(
-    String declaredBusiness,
-    String realOrgName,
-  ) async {
-    final result = await Get.dialog<bool>(
-      AlertDialog(
-        icon: Icon(Icons.info_outline_rounded,
-            color: Colors.amber.shade700, size: 36),
-        title: const Text('Verificar negocio'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Escribiste el negocio como:',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber.shade300),
-              ),
-              child: Text(
-                declaredBusiness,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.amber.shade900,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Pero tu correo pertenece realmente a:',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green.shade300),
-              ),
-              child: Text(
-                realOrgName,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.green.shade900,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '¿Quieres continuar y entrar a $realOrgName?',
-              style: const TextStyle(fontSize: 13, height: 1.4),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Get.back(result: true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.green.shade700,
-            ),
-            child: Text('Sí, entrar a $realOrgName'),
-          ),
-        ],
-      ),
-      barrierDismissible: false,
+  /// Phase 3 — Mensaje de error de login GENÉRICO. Mismo texto e
+  /// indicador visual sin importar si lo que falló fue el correo, la
+  /// contraseña o el nombre del negocio. Esto evita un ataque de
+  /// enumeration: con solo el correo, un atacante NO debe poder
+  /// descubrir a qué organización pertenece ni si la pass es correcta.
+  ///
+  /// Solo se llama desde paths donde NO se va a guardar token ni navegar.
+  void _showGenericLoginError() {
+    Get.snackbar(
+      'No se pudo iniciar sesión',
+      'Verifica que el negocio, correo y contraseña sean correctos.',
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.red.shade100,
+      colorText: Colors.red.shade800,
+      icon: const Icon(Icons.error_outline_rounded, color: Colors.red),
+      duration: const Duration(seconds: 4),
     );
-    return result ?? false;
   }
 
   /// Configurar listener para el campo de email

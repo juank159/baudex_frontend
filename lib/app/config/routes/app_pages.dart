@@ -13,6 +13,8 @@ import 'package:baudex_desktop/features/categories/presentation/screens/category
 import 'package:baudex_desktop/features/categories/presentation/screens/category_tree_screen.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customers_usecase.dart';
 import 'package:baudex_desktop/features/customers/presentation/bindings/customer_binding.dart';
+import 'package:baudex_desktop/features/employees/presentation/bindings/employee_binding.dart';
+import 'package:baudex_desktop/features/employees/presentation/screens/employees_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_detail_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_form_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_stats_screen.dart';
@@ -563,6 +565,15 @@ class AppPages {
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== EMPLOYEES PAGES ====================
+    GetPage(
+      name: AppRoutes.employees,
+      page: () => const EmployeesScreen(),
+      binding: EmployeeBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
     ),
 
     // ==================== CUSTOMERS PAGES ====================

@@ -223,6 +223,16 @@ class AppDrawerController extends GetxController {
       ),
 
       const DrawerMenuItem(
+        id: 'employees',
+        title: 'Empleados',
+        icon: Icons.groups_rounded,
+        route: AppRoutes.employees,
+        subtitle: 'Equipo del negocio',
+        isInSettings: true,
+        isInConfigurationGroup: true,
+      ),
+
+      const DrawerMenuItem(
         id: 'invoice_settings',
         title: 'Facturas',
         icon: Icons.receipt_long_outlined,

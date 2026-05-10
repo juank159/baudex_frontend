@@ -135,14 +135,16 @@ class LoginScreen extends GetView<AuthController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Phase 3 — Campo "Negocio" estilo POS profesional. Es el
-          // primer campo del form porque es lo que el cajero ve primero
-          // al llegar a su terminal: a qué negocio voy a entrar.
+          // Phase 3 — Campo "Negocio" estilo POS profesional, OBLIGATORIO.
+          // Es el primer campo del form: al llegar a su terminal el cajero
+          // declara a qué negocio entra. Si no coincide con la organization
+          // del email, el login se aborta con un error claro.
           Obx(() => _BusinessField(
                 controller: controller.loginBusinessController,
                 isRemembered: controller.hasRememberedBusiness,
                 onClearRemembered:
                     controller.clearRememberedBusiness,
+                validator: _validateBusiness,
               )),
           SizedBox(height: context.verticalSpacing),
           EmailAutocompleteField(
@@ -254,6 +256,16 @@ class LoginScreen extends GetView<AuthController> {
   }
 
   // ==================== VALIDACIONES ====================
+
+  String? _validateBusiness(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'El nombre del negocio es requerido';
+    }
+    if (value.trim().length < 2) {
+      return 'Ingresa el nombre completo del negocio';
+    }
+    return null;
+  }
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
@@ -514,11 +526,13 @@ class _BusinessField extends StatelessWidget {
   final TextEditingController controller;
   final bool isRemembered;
   final VoidCallback onClearRemembered;
+  final String? Function(String?)? validator;
 
   const _BusinessField({
     required this.controller,
     required this.isRemembered,
     required this.onClearRemembered,
+    this.validator,
   });
 
   @override
@@ -529,10 +543,11 @@ class _BusinessField extends StatelessWidget {
         CustomTextField(
           controller: controller,
           label: 'Negocio',
-          hint: 'Ej: Mi Tienda',
+          hint: 'Nombre exacto de tu negocio',
           prefixIcon: Icons.store_rounded,
           suffixIcon: isRemembered ? Icons.close_rounded : null,
           onSuffixIconPressed: isRemembered ? onClearRemembered : null,
+          validator: validator,
         ),
         if (isRemembered) ...[
           const SizedBox(height: 6),

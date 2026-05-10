@@ -84,8 +84,70 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    // Registramos un listener del ciclo de vida para garantizar que ISAR
+    // se cierre limpiamente cuando el usuario hace cmd+Q, apaga la Mac
+    // o cierra la ventana. Sin esto, una transacción ISAR en vuelo podría
+    // dejar la BD corrupta al reabrir la app.
+    _lifecycleListener = AppLifecycleListener(
+      onExitRequested: _onExitRequested,
+      // onDetach es VoidCallback (no espera futures). Disparamos el cierre
+      // como best-effort fire-and-forget. La ruta principal de cierre limpio
+      // es onExitRequested, que SÍ es awaitable.
+      onDetach: () {
+        _flushAndCloseIsar();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  /// Antes de que el SO termine la app: dar tiempo a flushear writes en
+  /// vuelo y cerrar ISAR. Si tarda más de 3s, dejamos que cierre igual
+  /// (mejor un cierre forzado que bloquear al usuario).
+  Future<AppExitResponse> _onExitRequested() async {
+    try {
+      await _flushAndCloseIsar().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          print('⚠️ Timeout cerrando ISAR — permitiendo exit igual');
+        },
+      );
+    } catch (e) {
+      print('⚠️ Error en exit cleanup (no bloquea): $e');
+    }
+    return AppExitResponse.exit;
+  }
+
+  /// Cierra ISAR forzando flush de cualquier transacción pendiente.
+  /// Idempotente: seguro de llamar varias veces.
+  Future<void> _flushAndCloseIsar() async {
+    try {
+      final db = IsarDatabase.instance;
+      if (db.isInitialized) {
+        await db.close();
+        print('💾 ISAR cerrado limpiamente al salir');
+      }
+    } catch (e) {
+      print('⚠️ Error cerrando ISAR al salir: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

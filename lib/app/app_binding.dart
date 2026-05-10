@@ -14,6 +14,7 @@ import 'core/network/network_info.dart';
 import 'core/services/audio_notification_service.dart';
 import 'core/services/file_service.dart';
 import 'core/services/tenant_datetime_service.dart';
+import 'core/services/permissions_service.dart';
 import 'services/password_validation_service.dart';
 import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
@@ -98,6 +99,16 @@ class InitialBinding implements Bindings {
 
     // ==================== TENANT DATETIME SERVICE ====================
     Get.put(TenantDateTimeService(), permanent: true);
+
+    // ==================== PERMISSIONS SERVICE (granular per-module) ====================
+    // Permanente para cachear permisos del usuario actual y sobrevivir a
+    // navegación. Se inicializa después del DioClient (registrado más abajo
+    // en _registerOfflineInfrastructure), así que usamos lazyPut con fenix
+    // para que se construya bajo demanda cuando el AuthController lo invoque.
+    Get.lazyPut<PermissionsService>(
+      () => PermissionsService(Get.find<DioClient>()),
+      fenix: true,
+    );
 
     // ==================== OFFLINE INFRASTRUCTURE ====================
     _registerOfflineInfrastructure();

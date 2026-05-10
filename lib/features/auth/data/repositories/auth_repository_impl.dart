@@ -334,7 +334,23 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // 3. Limpiar SOLO tokens auth — NO TOCAR ISAR.
       // SecureStorage.clearAll() ahora preserva lastUserId además de deviceId.
-      await localDataSource.clearAuthData();
+      // Si clearAuthData falla (storage corrupto), intentamos al MENOS
+      // borrar el token (lo más sensible) con un fallback directo. Mejor
+      // dejar la app inconsistente que dejar el token vivo en disco.
+      try {
+        await localDataSource.clearAuthData();
+      } catch (e) {
+        print('⚠️ clearAuthData falló: $e — intentando borrar token directamente');
+        try {
+          final storage = Get.find<SecureStorageService>();
+          await storage.deleteToken();
+          await storage.deleteRefreshToken();
+          await storage.deleteUserData();
+        } catch (e2) {
+          print('💥 No se pudo borrar token tampoco: $e2');
+          return Left(UnknownFailure('No se pudo limpiar credenciales: $e2'));
+        }
+      }
 
       print('✅ Logout completado — BD ISAR preservada (logout perezoso)');
       return const Right(unit);

@@ -515,13 +515,74 @@ class SecureStorageService {
       }
 
       if (keysToRemove.isNotEmpty) {
-        print('✅ SecureStorageService: ${keysToRemove.length} claves de cache de negocio eliminadas');
+        print('✅ SecureStorageService: ${keysToRemove.length} claves de cache de negocio eliminadas (SharedPreferences)');
       } else {
-        print('✅ SecureStorageService: No había cache de negocio que limpiar');
+        print('✅ SecureStorageService: No había cache de negocio en SharedPreferences');
       }
+
+      // CRÍTICO: caches que viven en SecureStorage (keychain/keystore) NO se
+      // limpian con SharedPreferences. Por ejemplo `cash_register_current_cache`
+      // está en SecureStorage y sobreviviría al cambio de tenant si solo
+      // tocáramos SharedPreferences. Aquí los purgamos explícitamente.
+      await _clearTenantSecureStorageCaches();
     } catch (e) {
       print('⚠️ SecureStorageService: Error limpiando cache de negocio (no crítico): $e');
     }
+  }
+
+  /// Lista de keys del SecureStorage que pertenecen al TENANT (datos de
+  /// negocio) y deben borrarse al hacer logout o cambiar de tenant.
+  /// Listadas explícitamente para evitar borrar accidentalmente claves
+  /// de dispositivo o de auth recién creadas durante el login.
+  ///
+  /// **NO incluir aquí**: token, refresh_token, user_data, device_id,
+  /// last_user_id, last_email, saved_emails, last_business_name,
+  /// offline_credentials. Esas se manejan en otros métodos o sobreviven
+  /// al cambio de tenant intencionalmente.
+  static const List<String> _tenantBusinessCacheKeys = [
+    'cash_register_current_cache',
+    // Si hay otros caches específicos por feature, agregarlos aquí.
+  ];
+
+  /// Borra los caches del SecureStorage que pertenecen al tenant.
+  /// Idempotente y silenciosa: si una key no existe, no falla.
+  Future<void> _clearTenantSecureStorageCaches() async {
+    int cleared = 0;
+    for (final key in _tenantBusinessCacheKeys) {
+      try {
+        if (await containsKey(key)) {
+          await _deleteSecure(key);
+          cleared++;
+        }
+      } catch (_) {
+        // No bloquear flujo por error en una key.
+      }
+    }
+    if (cleared > 0) {
+      print('✅ SecureStorageService: $cleared claves de cache de tenant eliminadas (SecureStorage)');
+    }
+  }
+
+  /// Versión PÚBLICA para que otros componentes (ej: cambio de tenant en
+  /// login) puedan disparar la limpieza sin pasar por todo `clearAuthData`.
+  Future<void> clearTenantBusinessCaches() async {
+    await _clearTenantSecureStorageCaches();
+    // También limpiamos los de SharedPreferences para mantener consistencia.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keysToRemove = <String>[];
+      for (final key in prefs.getKeys()) {
+        if (key.contains('inventory_warehouses_cache')) keysToRemove.add(key);
+        if (key.contains('alert_products_')) keysToRemove.add(key);
+        if (key.contains('_cache') && !key.startsWith('flutter.')) keysToRemove.add(key);
+      }
+      for (final key in keysToRemove) {
+        await prefs.remove(key);
+      }
+      if (keysToRemove.isNotEmpty) {
+        print('✅ Cache de tenant en SharedPreferences limpiado: ${keysToRemove.length} claves');
+      }
+    } catch (_) {}
   }
 
   /// Verificar si el usuario está autenticado

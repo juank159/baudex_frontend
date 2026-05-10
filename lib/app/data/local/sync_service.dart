@@ -752,12 +752,39 @@ class SyncService extends GetxService {
           final chainFutures = batchIds.map((entityId) async {
             final chainResults = <_SyncOpResult>[];
             for (final op in groupedByEntity[entityId]!) {
-              chainResults.add(await _processSingleOperation(op));
+              try {
+                chainResults.add(await _processSingleOperation(op));
+              } catch (e, st) {
+                // Defensa en profundidad: _processSingleOperation YA tiene
+                // su propio try/catch global, pero un IsarError o un
+                // Error fatal podría escapar y romper la chain de OTRA
+                // entidad por Future.wait. Capturamos aquí para que el
+                // resto de chains continúe procesándose sin interrupción.
+                AppLogger.e(
+                  'Excepción inesperada en chain de $entityId (op ${op.id}): $e',
+                  tag: 'SYNC',
+                  stackTrace: st,
+                );
+                try {
+                  await _isarDatabase.markSyncOperationFailed(
+                    op.id,
+                    'Excepción no manejada: $e',
+                  );
+                } catch (_) {
+                  // Si ni siquiera podemos marcar falla, ISAR está roto.
+                  // Cortamos esta chain pero NO el bucle global.
+                }
+                chainResults.add(_SyncOpResult.failure);
+              }
             }
             return chainResults;
           }).toList();
 
-          final allChainResults = await Future.wait(chainFutures);
+          // eagerError: false → si una chain falla, NO cancela las demás.
+          final allChainResults = await Future.wait(
+            chainFutures,
+            eagerError: false,
+          );
           for (final chainResults in allChainResults) {
             for (final result in chainResults) {
               if (result == _SyncOpResult.success) {
