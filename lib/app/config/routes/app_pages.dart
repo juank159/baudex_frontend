@@ -128,6 +128,7 @@ import 'package:baudex_desktop/features/bank_accounts/presentation/bindings/bank
 import 'package:baudex_desktop/features/bank_accounts/presentation/bindings/bank_account_movements_binding.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_accounts_screen.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_account_movements_screen.dart';
+import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_accounts_audit_screen.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/bindings/cash_register_binding.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/screens/cash_register_screen.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/screens/cash_register_history_screen.dart';
@@ -1908,6 +1909,16 @@ class AppPages {
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],
+    ),
+
+    // 🔍 AUDITORÍA DE SALDOS BANCARIOS (Phase 0.4)
+    GetPage(
+      name: AppRoutes.bankAccountsAudit,
+      page: () => const BankAccountsAuditScreen(),
+      // Reusa el mismo binding que ya provee BankAccountRemoteDataSource.
+      binding: BankAccountsBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
     ),
 
     // 🧾 CAJA REGISTRADORA

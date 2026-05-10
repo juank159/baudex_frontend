@@ -239,6 +239,7 @@ abstract class AppRoutes {
   // ==================== BANK ACCOUNTS ROUTES ====================
   static const String bankAccounts = '/bank-accounts';
   static const String bankAccountMovements = '/bank-accounts/movements';
+  static const String bankAccountsAudit = '/bank-accounts/audit';
 
   // Bank Accounts with parameters
   static String bankAccountMovementsById(String id) => '/bank-accounts/$id/movements';

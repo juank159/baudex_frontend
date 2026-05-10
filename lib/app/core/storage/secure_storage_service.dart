@@ -8,6 +8,89 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import '../../config/constants/api_constants.dart';
 
+/// Cifrador simétrico ligero para el fallback de SharedPreferences en macOS
+/// y Windows cuando el keychain falla. Usa HMAC-SHA256 como keystream
+/// (XOR cipher) + tag de autenticación, sin agregar dependencias.
+///
+/// **NO es AES-GCM ni reemplaza el keychain.** Sirve para que un atacante
+/// que abra el archivo `.plist`/registry NO vea el JWT en plaintext.
+/// La clave se deriva de un salt del hardware (hostname + OS version +
+/// procesadores) + un secret de la app. Si el atacante se lleva SOLO el
+/// archivo (no el Mac entero), no puede descifrar.
+class _TokenCipher {
+  static const _appSecret = 'baudex-token-2026-v1';
+
+  static List<int> _deriveKey() {
+    final salt = '${Platform.localHostname}|'
+        '${Platform.operatingSystem}|'
+        '${Platform.operatingSystemVersion}|'
+        '${Platform.numberOfProcessors}|'
+        '$_appSecret';
+    return Hmac(sha256, utf8.encode(_appSecret)).convert(utf8.encode(salt)).bytes;
+  }
+
+  static List<int> _keystream(List<int> key, int length) {
+    final out = <int>[];
+    int counter = 0;
+    while (out.length < length) {
+      final block = Hmac(sha256, key)
+          .convert(utf8.encode('ctr-$counter'))
+          .bytes;
+      out.addAll(block);
+      counter++;
+    }
+    return out.sublist(0, length);
+  }
+
+  /// Cifra un string. Devuelve `enc:v1:<base64(tag+ciphertext)>`. El
+  /// prefijo permite distinguir valores cifrados de los antiguos sin
+  /// cifrar y migrarlos transparentemente.
+  static String encrypt(String plaintext) {
+    if (plaintext.isEmpty) return plaintext;
+    try {
+      final key = _deriveKey();
+      final pt = utf8.encode(plaintext);
+      final ks = _keystream(key, pt.length);
+      final ct = List<int>.generate(pt.length, (i) => pt[i] ^ ks[i]);
+      final tag = Hmac(sha256, key).convert(ct).bytes.sublist(0, 16);
+      return 'enc:v1:${base64Encode(tag + ct)}';
+    } catch (_) {
+      // Si la derivación falla, mejor guardar plaintext que perder el dato.
+      return plaintext;
+    }
+  }
+
+  /// Descifra un valor. Si NO empieza con `enc:v1:`, lo devuelve tal cual
+  /// (compatibilidad con valores plaintext del esquema viejo). Si el tag
+  /// no coincide → null (token corrupto o de OTRO equipo: rechazamos).
+  static String? decrypt(String value) {
+    if (!value.startsWith('enc:v1:')) return value; // formato viejo
+    try {
+      final raw = base64Decode(value.substring(7));
+      if (raw.length < 16) return null;
+      final key = _deriveKey();
+      final tag = raw.sublist(0, 16);
+      final ct = raw.sublist(16);
+      final expectedTag = Hmac(sha256, key).convert(ct).bytes.sublist(0, 16);
+      if (!_constantTimeEquals(tag, expectedTag)) return null;
+      final ks = _keystream(key, ct.length);
+      final pt = List<int>.generate(ct.length, (i) => ct[i] ^ ks[i]);
+      return utf8.decode(pt);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static bool _constantTimeEquals(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    var result = 0;
+    for (var i = 0; i < a.length; i++) {
+      result |= a[i] ^ b[i];
+    }
+    return result == 0;
+  }
+}
+
 class SecureStorageService {
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -55,21 +138,50 @@ class SecureStorageService {
     return false;
   }
 
-  /// Wrapper para escribir datos con fallback
+  /// Conjunto de claves SENSIBLES (tokens, credenciales) que se cifran
+  /// con `_TokenCipher` cuando se usa el fallback de SharedPreferences.
+  /// Para el resto de claves (preferencias, lista de emails, etc.) no
+  /// vale la pena el costo de cifrado.
+  static const Set<String> _sensitiveKeys = {
+    // ApiConstants.tokenKey, refreshTokenKey, userKey — añadidos al
+    // calcular runtime ya que son strings dinámicos. Ver _isSensitive().
+  };
+
+  static bool _isSensitive(String key) {
+    return key == ApiConstants.tokenKey ||
+        key == ApiConstants.refreshTokenKey ||
+        key == ApiConstants.userKey ||
+        key == _offlineCredentialsKey ||
+        _sensitiveKeys.contains(key);
+  }
+
+  /// Wrapper para escribir datos con fallback. Cifra automáticamente
+  /// las claves sensibles cuando se cae en SharedPreferences (sin
+  /// keychain real, el archivo es legible en disco).
   static Future<void> _writeSecure(String key, String value) async {
     if (await _shouldUseSharedPreferences()) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('secure_$key', value);
+      final stored =
+          _isSensitive(key) ? _TokenCipher.encrypt(value) : value;
+      await prefs.setString('secure_$key', stored);
     } else {
       await _storage.write(key: key, value: value);
     }
   }
 
-  /// Wrapper para leer datos con fallback
+  /// Wrapper para leer datos con fallback. Descifra transparentemente
+  /// si la clave es sensible. Si el formato es viejo (sin prefijo
+  /// `enc:v1:`), lo retorna tal cual y se reescribirá cifrado en el
+  /// próximo write.
   static Future<String?> _readSecure(String key) async {
     if (await _shouldUseSharedPreferences()) {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getString('secure_$key');
+      final raw = prefs.getString('secure_$key');
+      if (raw == null) return null;
+      if (_isSensitive(key)) {
+        return _TokenCipher.decrypt(raw);
+      }
+      return raw;
     } else {
       return await _storage.read(key: key);
     }

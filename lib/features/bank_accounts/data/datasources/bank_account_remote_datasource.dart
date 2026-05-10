@@ -88,6 +88,18 @@ abstract class BankAccountRemoteDataSource {
     String? description,
     DateTime? movementDate,
   });
+
+  // ==================== AUDITORÍA (Phase 0.4) ====================
+
+  /// GET /bank-accounts/audit — lista cuentas con discrepancia entre el
+  /// `currentBalance` guardado y el balance reconstruido desde movimientos.
+  /// Si todo está OK, retorna lista vacía.
+  Future<List<Map<String, dynamic>>> auditAccounts();
+
+  /// POST /bank-accounts/:id/recalculate-balance — recalcula el saldo
+  /// desde movimientos y reescribe `balanceAfter` en cascada. Idempotente.
+  /// Retorna { previousBalance, newBalance, movementCount }.
+  Future<Map<String, dynamic>> recalculateBalance(String accountId);
 }
 
 /// Implementación del datasource remoto usando Dio
@@ -500,6 +512,51 @@ class BankAccountRemoteDataSourceImpl implements BankAccountRemoteDataSource {
       throw ServerException(
         'Respuesta inesperada de transferencia: ${response.statusCode}',
       );
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  // ==================== AUDITORÍA (Phase 0.4) ====================
+
+  @override
+  Future<List<Map<String, dynamic>>> auditAccounts() async {
+    try {
+      final response = await dioClient.get('${ApiConstants.bankAccounts}/audit');
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final list = (data is List)
+            ? data
+            : (data is Map<String, dynamic> && data['data'] is List
+                ? data['data'] as List
+                : <dynamic>[]);
+        return list
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false);
+      }
+      throw _handleErrorResponse(response);
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> recalculateBalance(String accountId) async {
+    try {
+      final response = await dioClient.post(
+        '${ApiConstants.bankAccounts}/$accountId/recalculate-balance',
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = response.data;
+        if (data is Map<String, dynamic>) {
+          if (data['data'] is Map<String, dynamic>) {
+            return Map<String, dynamic>.from(data['data'] as Map);
+          }
+          return Map<String, dynamic>.from(data);
+        }
+        return <String, dynamic>{};
+      }
+      throw _handleErrorResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
