@@ -7,6 +7,7 @@ import 'package:baudex_desktop/features/dashboard/domain/usecases/mark_notificat
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_profitability_stats_usecase.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import '../../../../app/data/local/sync_service.dart';
 import 'dart:convert';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
@@ -262,6 +263,23 @@ class DashboardController extends GetxController
         final isOnline = await networkInfo.isConnected;
         if (!isOnline || !_isAlive || v != _dataVersion) return;
 
+        // CRÍTICO: si hay operaciones pendientes en sync queue (factura
+        // recién creada que aún no se subió), NO consultar al server.
+        // El server devolvería datos viejos y sobrescribiría los stats
+        // locales correctos calculados desde ISAR. Cuando el sync termine,
+        // `onSyncCompleted()` re-disparará este refresh con datos actualizados.
+        try {
+          if (Get.isRegistered<SyncService>()) {
+            final pending = Get.find<SyncService>().pendingOperationsCount;
+            if (pending > 0) {
+              print(
+                '🚫 Dashboard: skip server refresh — hay $pending operación(es) pendiente(s) en sync queue',
+              );
+              return;
+            }
+          }
+        } catch (_) {}
+
         await Future.wait([
           // Cada timeout también resetea su flag de loading. Sin esto, si el
           // backend tarda más que el timeout, el flag interno queda en true
@@ -496,10 +514,8 @@ class DashboardController extends GetxController
         },
         (stats) async {
           // Phase 1B: SIEMPRE recalcular creditNotesTotal/netRevenue desde
-          // ISAR. El backend puede o no enviar estos campos (Dokploy quizás
-          // aún no redespliegue), pero ISAR siempre tiene las NCs reales.
-          // El frontend es la fuente de verdad para esos campos hasta que
-          // el backend lo entregue de manera consistente.
+          // ISAR. El backend puede o no enviar estos campos, pero ISAR
+          // siempre tiene las NCs reales.
           DashboardStats finalStats = stats;
           try {
             final localDataSource = Get.find<DashboardLocalDataSource>();
@@ -508,30 +524,57 @@ class DashboardController extends GetxController
               endDate: endDate,
             );
             if (offlineStats != null) {
-              // Usar collected del SERVER (fuente de verdad para revenue)
-              // y NCs del LOCAL (fuente de verdad mientras backend no
-              // envíe el campo).
-              final ncTotal = offlineStats.creditNotesTotal;
-              final ncCount = offlineStats.creditNotesCount;
-              final collectedForNet = stats.totalCollected > 0
-                  ? stats.totalCollected
-                  : offlineStats.totalCollected;
-              final netRevenue = collectedForNet - ncTotal;
-              finalStats = stats.copyWith(
-                creditNotesTotal: ncTotal,
-                creditNotesCount: ncCount,
-                netRevenue: netRevenue,
-              );
-              print(
-                '[DASHBOARD] Stats armonizadas: server collected=\$${stats.totalCollected}, '
-                'local NCs=\$$ncTotal ($ncCount), netRevenue=\$$netRevenue',
-              );
+              // Merge defensivo: si el server retorna MENOS data que el
+              // local (típicamente porque la factura recién creada aún no
+              // se ha sincronizado al server), preferimos los datos locales
+              // de ISAR. Sin esto, el dashboard mostraría revenue=$0 justo
+              // después de crear una factura — bug que el usuario reportó.
+              final serverHasLessData =
+                  stats.totalCollected < offlineStats.totalCollected ||
+                      stats.sales.totalAmount < offlineStats.sales.totalAmount;
+
+              if (serverHasLessData) {
+                print(
+                  '⚠️ [DASHBOARD] Server stats < local (server=\$${stats.totalCollected} vs local=\$${offlineStats.totalCollected}). '
+                  'Usando local — sync probablemente pendiente.',
+                );
+                finalStats = offlineStats;
+              } else {
+                // Server tiene data igual o más reciente. Mergeamos:
+                //  - revenue/totalCollected del server (fuente de verdad)
+                //  - NCs del local (mientras backend no envíe consistente)
+                //  - expensesByCategory del LOCAL si el server retorna vacío
+                //    (el server a veces devuelve 0 categorías aunque haya
+                //    gastos cuando no aplica el join correcto).
+                final ncTotal = offlineStats.creditNotesTotal;
+                final ncCount = offlineStats.creditNotesCount;
+                final netRevenue = stats.totalCollected - ncTotal;
+                final serverExpensesByCat = stats.expenses.expensesByCategory;
+                final localExpensesByCat = offlineStats.expenses.expensesByCategory;
+                final mergedExpenses = serverExpensesByCat.isEmpty &&
+                        localExpensesByCat.isNotEmpty
+                    ? stats.expenses.copyWith(
+                        expensesByCategory: localExpensesByCat,
+                      )
+                    : stats.expenses;
+
+                finalStats = stats.copyWith(
+                  creditNotesTotal: ncTotal,
+                  creditNotesCount: ncCount,
+                  netRevenue: netRevenue,
+                  expenses: mergedExpenses,
+                );
+                print(
+                  '[DASHBOARD] Stats armonizadas: server collected=\$${stats.totalCollected}, '
+                  'local NCs=\$$ncTotal ($ncCount), netRevenue=\$$netRevenue, '
+                  'expensesCat=${mergedExpenses.expensesByCategory.length} cats',
+                );
+              }
             }
           } catch (e) {
             print('⚠️ Error armonizando NCs locales: $e');
           }
           _dashboardStats.value = finalStats;
-          // ✅ Notificar a widgets GetBuilder
           update();
         },
       );

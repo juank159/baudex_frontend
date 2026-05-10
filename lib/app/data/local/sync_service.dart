@@ -334,6 +334,11 @@ class SyncService extends GetxService {
     // 🧹 LIMPIEZA: Eliminar ops FIFO huérfanas cuya Invoice ya se sincronizó
     await _cleanupOrphanedFifoOperations();
 
+    // 🧹 PURGA: Eliminar ops FIFO bloqueadas (retry max). Endpoint no existe.
+    // Sin esto, una op fantasma bloqueada se queda en la cola para siempre,
+    // causando que el contador "pendientes" nunca llegue a 0.
+    await _purgeBlockedFifoOperations();
+
     // Configurar sincronización periódica (cada 5 minutos si hay internet)
     _setupPeriodicSync();
 
@@ -674,6 +679,14 @@ class SyncService extends GetxService {
     try {
       _syncState.value = SyncState.syncing;
       AppLogger.i('Iniciando sincronización...', tag: 'SYNC');
+
+      // 🧹 PRE-LIMPIEZA: Eliminar ops `inventory_movement_fifo` bloqueadas
+      // (retry max alcanzado). Estas ops apuntan a un endpoint que NO existe
+      // en el backend (process-outbound-fifo) — el server hoy maneja FIFO
+      // automáticamente al crear factura. Si quedan en la cola, bloquean
+      // el contador de pendientes para siempre. Se ejecuta en cada syncAll
+      // para que el usuario nunca tenga que limpiar manualmente.
+      await _purgeBlockedFifoOperations();
 
       final operations = await _isarDatabase.getPendingSyncOperations();
 
@@ -1221,6 +1234,32 @@ class SyncService extends GetxService {
           '${operation.entityType} pendiente - backend no disponible',
           tag: 'SYNC',
         );
+      }
+
+      // 🚫 ENDPOINT NO EXISTE (404 / Cannot POST/GET ...) — no tiene sentido
+      // reintentar al infinito. Borramos la op directamente. Caso típico:
+      // ops `inventory_movement_fifo` huérfanas que apuntan a un endpoint
+      // viejo que ya no existe (el backend hoy maneja FIFO via registerSale).
+      final isEndpointNotFound = errorMsg.contains('404') ||
+          errorMsg.contains('cannot post') ||
+          errorMsg.contains('cannot get') ||
+          errorMsg.contains('cannot patch') ||
+          errorMsg.contains('cannot delete');
+      if (isEndpointNotFound) {
+        AppLogger.w(
+          '🚫 Op ${operation.entityType}:${operation.entityId} apunta a endpoint inexistente (404). Eliminando — no se puede reintentar.',
+          tag: 'SYNC',
+        );
+        try {
+          await _isarDatabase.deleteSyncOperation(operation.id);
+        } catch (_) {}
+        // Si era una op FIFO huérfana, aprovechar para limpiar todas las
+        // demás del mismo tipo (suelen venir en grupo).
+        if (operation.entityType == 'inventory_movement_fifo') {
+          unawaited(_cleanupOrphanedFifoOperations());
+        }
+        await _updatePendingCount();
+        return _SyncOpResult.failure;
       }
 
       // Log persistente para módulo de diagnóstico
@@ -1982,6 +2021,45 @@ class SyncService extends GetxService {
   /// y ya no pueden sincronizarse. Útil para limpiar la cola de operaciones
   /// que nunca podrán completarse.
   ///
+  /// 🧹 Purga ops `inventory_movement_fifo` bloqueadas (retry >= maxRetries).
+  ///
+  /// Estas ops apuntan a `POST /inventory/movements/process-outbound-fifo`
+  /// que NO existe en el backend actual (404). El backend descuenta FIFO
+  /// automáticamente al crear factura via `registerSale()`. Una op FIFO en
+  /// la cola es ruido — no se puede sincronizar y bloquea el contador.
+  ///
+  /// A diferencia de `_cleanupOrphanedFifoOperations`, esto NO mira si la
+  /// factura asociada está pendiente: el endpoint NO existe, no hay nada
+  /// que esperar. Si la op alcanzó el max de retries, fuera.
+  Future<void> _purgeBlockedFifoOperations() async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final blocked = await isar.syncOperations
+          .filter()
+          .entityTypeEqualTo('inventory_movement_fifo')
+          .findAll();
+
+      if (blocked.isEmpty) return;
+
+      int deleted = 0;
+      for (final op in blocked) {
+        if (op.retryCount >= SyncConfig.maxRetries) {
+          await _isarDatabase.deleteSyncOperation(op.id);
+          deleted++;
+        }
+      }
+      if (deleted > 0) {
+        AppLogger.i(
+          '🧹 Purgadas $deleted ops inventory_movement_fifo bloqueadas (endpoint 404)',
+          tag: 'SYNC',
+        );
+        await _updatePendingCount();
+      }
+    } catch (e) {
+      AppLogger.w('Error purgando ops FIFO bloqueadas: $e', tag: 'SYNC');
+    }
+  }
+
   /// Retorna el número de operaciones eliminadas.
   /// 🧹 Elimina operaciones inventory_movement_fifo huérfanas.
   ///

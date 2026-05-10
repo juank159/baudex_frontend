@@ -453,6 +453,28 @@ class ExpenseStats extends Equatable {
     monthlyGrowth,
     expensesByCategory,
   ];
+
+  ExpenseStats copyWith({
+    double? totalAmount,
+    int? totalExpenses,
+    double? monthlyExpenses,
+    double? todayExpenses,
+    int? pendingExpenses,
+    int? approvedExpenses,
+    double? monthlyGrowth,
+    Map<String, double>? expensesByCategory,
+  }) {
+    return ExpenseStats(
+      totalAmount: totalAmount ?? this.totalAmount,
+      totalExpenses: totalExpenses ?? this.totalExpenses,
+      monthlyExpenses: monthlyExpenses ?? this.monthlyExpenses,
+      todayExpenses: todayExpenses ?? this.todayExpenses,
+      pendingExpenses: pendingExpenses ?? this.pendingExpenses,
+      approvedExpenses: approvedExpenses ?? this.approvedExpenses,
+      monthlyGrowth: monthlyGrowth ?? this.monthlyGrowth,
+      expensesByCategory: expensesByCategory ?? this.expensesByCategory,
+    );
+  }
 }
 
 // 🆕 NUEVA ENTIDAD: Métricas de Rentabilidad FIFO

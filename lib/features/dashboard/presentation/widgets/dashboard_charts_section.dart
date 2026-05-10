@@ -61,7 +61,12 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
     return Obx(() {
       final stats = dashboardController.dashboardStats;
 
-      if (dashboardController.isLoading) {
+      // Solo mostrar spinner si AÚN no hay stats. El getter `isLoading`
+      // combina 5 flags distintos (stats, profitability, activity,
+      // notifications, expenses por categoría); si uno solo está activo
+      // mientras el resto ya cargó, el chart se quedaba colgado en
+      // spinner aunque ya tenía data válida que mostrar. Bug clásico.
+      if (stats == null && dashboardController.isLoadingStats) {
         return Container(
           margin: const EdgeInsets.all(2),
           padding: const EdgeInsets.all(6),
