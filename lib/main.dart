@@ -118,20 +118,17 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
   }
 
-  /// Antes de que el SO termine la app: dar tiempo a flushear writes en
-  /// vuelo y cerrar ISAR. Si tarda más de 3s, dejamos que cierre igual
-  /// (mejor un cierre forzado que bloquear al usuario).
+  /// Antes de que el SO termine la app: confirmamos el exit pero NO
+  /// cerramos ISAR aquí. Razón: este callback se dispara también en
+  /// escenarios donde la app PUEDE NO cerrarse (cmd+W, focus loss en
+  /// macOS, exit cancelado por el SO). Si cerramos ISAR ahora y la app
+  /// sigue viva, todo lo que toque la BD explota con
+  /// "ISAR database not initialized".
+  ///
+  /// El cierre real de ISAR se hace en `onDetach` (cuando el engine se
+  /// despega), y sus transacciones son ACID + auto-flush, así que no
+  /// perdemos datos aunque el SO mate el proceso de golpe.
   Future<AppExitResponse> _onExitRequested() async {
-    try {
-      await _flushAndCloseIsar().timeout(
-        const Duration(seconds: 3),
-        onTimeout: () {
-          print('⚠️ Timeout cerrando ISAR — permitiendo exit igual');
-        },
-      );
-    } catch (e) {
-      print('⚠️ Error en exit cleanup (no bloquea): $e');
-    }
     return AppExitResponse.exit;
   }
 

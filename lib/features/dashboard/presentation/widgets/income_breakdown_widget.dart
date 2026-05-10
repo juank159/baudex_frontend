@@ -270,12 +270,12 @@ class IncomeBreakdownWidget extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
-                    color: stats.netRevenue > 0
+                    color: stats.effectiveNetRevenue > 0
                         ? Colors.green.shade50
                         : Colors.orange.shade50,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: stats.netRevenue > 0
+                      color: stats.effectiveNetRevenue > 0
                           ? Colors.green.shade300
                           : Colors.orange.shade300,
                     ),
@@ -283,7 +283,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(Icons.savings_rounded,
-                          color: stats.netRevenue > 0
+                          color: stats.effectiveNetRevenue > 0
                               ? Colors.green.shade700
                               : Colors.orange.shade700,
                           size: 18),
@@ -293,7 +293,7 @@ class IncomeBreakdownWidget extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
-                          color: stats.netRevenue > 0
+                          color: stats.effectiveNetRevenue > 0
                               ? Colors.green.shade800
                               : Colors.orange.shade800,
                           letterSpacing: 0.5,
@@ -301,11 +301,11 @@ class IncomeBreakdownWidget extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        AppFormatters.formatCurrency(stats.netRevenue),
+                        AppFormatters.formatCurrency(stats.effectiveNetRevenue),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: stats.netRevenue > 0
+                          color: stats.effectiveNetRevenue > 0
                               ? Colors.green.shade800
                               : Colors.orange.shade800,
                         ),

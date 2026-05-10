@@ -328,7 +328,7 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
               children: [
                 Expanded(
                   child: _buildCompactMetricCard(
-                    'Ingresos',
+                    'Ingresos Netos',
                     AppFormatters.formatCurrency(totalSales.toInt()),
                     AppColors.success,
                     Icons.trending_up,
@@ -598,7 +598,7 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
                         barIndex: 0,
                         totalValue: totalSales,
                         percentage: salesPercentage,
-                        label: 'Ingresos',
+                        label: 'Ingresos Netos',
                       );
                     },
                   ),
@@ -628,7 +628,7 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
                       ),
                     ),
                     child: Text(
-                      'Ingresos',
+                      'Ingresos Netos',
                       style: TextStyle(
                         color: AppColors.success,
                         fontWeight: FontWeight.w700,
@@ -1012,9 +1012,9 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Indicador de Ingresos
+        // Indicador de Ingresos Netos (post-devoluciones)
         _buildLegendItem(
-          'Ingresos',
+          'Ingresos Netos',
           AppFormatters.formatCurrency(totalSales.toInt()),
           '${salesPercentage.toStringAsFixed(1)}%',
           AppColors.success,
