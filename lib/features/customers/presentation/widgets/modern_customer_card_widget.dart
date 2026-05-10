@@ -4,6 +4,8 @@ import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/presentation/widgets/offline_badge.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/customer.dart';
 
 class ModernCustomerCardWidget extends StatelessWidget {
@@ -192,23 +194,32 @@ class ModernCustomerCardWidget extends StatelessWidget {
                   child: Row(
                     children: [
                       if (onEdit != null)
-                        Expanded(
-                          child: _buildActionButton(
-                            icon: Icons.edit_rounded,
-                            label: 'Editar',
-                            color: ElegantLightTheme.primaryBlue,
-                            onTap: onEdit!,
+                        PermissionGate.canEdit(
+                          moduleCode: ModuleCode.customers,
+                          child: Expanded(
+                            child: _buildActionButton(
+                              icon: Icons.edit_rounded,
+                              label: 'Editar',
+                              color: ElegantLightTheme.primaryBlue,
+                              onTap: onEdit!,
+                            ),
                           ),
                         ),
                       if (onEdit != null && onDelete != null)
-                        const SizedBox(width: 10),
+                        PermissionGate.canDelete(
+                          moduleCode: ModuleCode.customers,
+                          child: const SizedBox(width: 10),
+                        ),
                       if (onDelete != null)
-                        Expanded(
-                          child: _buildActionButton(
-                            icon: Icons.delete_rounded,
-                            label: 'Eliminar',
-                            color: const Color(0xFFEF4444),
-                            onTap: onDelete!,
+                        PermissionGate.canDelete(
+                          moduleCode: ModuleCode.customers,
+                          child: Expanded(
+                            child: _buildActionButton(
+                              icon: Icons.delete_rounded,
+                              label: 'Eliminar',
+                              color: const Color(0xFFEF4444),
+                              onTap: onDelete!,
+                            ),
                           ),
                         ),
                     ],
@@ -369,20 +380,29 @@ class ModernCustomerCardWidget extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (onEdit != null)
-                      _buildDesktopAction(
-                        icon: Icons.edit_rounded,
-                        color: ElegantLightTheme.primaryBlue,
-                        tooltip: 'Editar cliente',
-                        onTap: onEdit!,
+                      PermissionGate.canEdit(
+                        moduleCode: ModuleCode.customers,
+                        child: _buildDesktopAction(
+                          icon: Icons.edit_rounded,
+                          color: ElegantLightTheme.primaryBlue,
+                          tooltip: 'Editar cliente',
+                          onTap: onEdit!,
+                        ),
                       ),
                     if (onEdit != null && onDelete != null)
-                      const SizedBox(width: 10),
+                      PermissionGate.canDelete(
+                        moduleCode: ModuleCode.customers,
+                        child: const SizedBox(width: 10),
+                      ),
                     if (onDelete != null)
-                      _buildDesktopAction(
-                        icon: Icons.delete_rounded,
-                        color: const Color(0xFFEF4444),
-                        tooltip: 'Eliminar cliente',
-                        onTap: onDelete!,
+                      PermissionGate.canDelete(
+                        moduleCode: ModuleCode.customers,
+                        child: _buildDesktopAction(
+                          icon: Icons.delete_rounded,
+                          color: const Color(0xFFEF4444),
+                          tooltip: 'Eliminar cliente',
+                          onTap: onDelete!,
+                        ),
                       ),
                     const SizedBox(width: 8),
                     // Flecha indicadora

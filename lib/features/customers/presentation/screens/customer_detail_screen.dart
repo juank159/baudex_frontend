@@ -7,6 +7,9 @@ import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../../app/core/services/permissions_service.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../controllers/customer_detail_controller.dart';
 import '../../domain/entities/customer.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
@@ -114,10 +117,13 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
       actions: [
         const SyncStatusIcon(),
         if (controller.hasCustomer) ...[
-          IconButton(
-            icon: const Icon(Icons.edit, size: 20),
-            onPressed: controller.goToEditCustomer,
-            tooltip: 'Editar cliente',
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.customers,
+            child: IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: controller.goToEditCustomer,
+              tooltip: 'Editar cliente',
+            ),
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, size: 20, color: Colors.white),
@@ -127,13 +133,28 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
               borderRadius: BorderRadius.circular(16),
             ),
             elevation: 8,
-            itemBuilder: (context) => [
-              _buildPopupMenuItem('status', Icons.toggle_on, 'Cambiar Estado', ElegantLightTheme.infoGradient),
-              _buildPopupMenuItem('purchase', Icons.credit_card, 'Verificar Compra', ElegantLightTheme.successGradient),
-              _buildPopupMenuItem('refresh', Icons.refresh, 'Actualizar', ElegantLightTheme.primaryGradient),
-              const PopupMenuDivider(),
-              _buildPopupMenuItem('delete', Icons.delete, 'Eliminar', ElegantLightTheme.errorGradient, isDestructive: true),
-            ],
+            itemBuilder: (context) {
+              final canEdit = Get.isRegistered<PermissionsService>()
+                  ? PermissionsService.to.canEdit(ModuleCode.customers)
+                  : true;
+              final canDelete = Get.isRegistered<PermissionsService>()
+                  ? PermissionsService.to.canDelete(ModuleCode.customers)
+                  : true;
+              return [
+                if (canEdit)
+                  _buildPopupMenuItem('status', Icons.toggle_on,
+                      'Cambiar Estado', ElegantLightTheme.infoGradient),
+                _buildPopupMenuItem('purchase', Icons.credit_card,
+                    'Verificar Compra', ElegantLightTheme.successGradient),
+                _buildPopupMenuItem('refresh', Icons.refresh, 'Actualizar',
+                    ElegantLightTheme.primaryGradient),
+                if (canDelete) const PopupMenuDivider(),
+                if (canDelete)
+                  _buildPopupMenuItem('delete', Icons.delete, 'Eliminar',
+                      ElegantLightTheme.errorGradient,
+                      isDestructive: true),
+              ];
+            },
           ),
           const SizedBox(width: 8),
         ],
@@ -734,24 +755,33 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
           _buildCompactCardHeader('Acciones', Icons.flash_on, ElegantLightTheme.warningGradient),
           const SizedBox(height: 12),
 
-          // Grid de acciones 2x2
+          // Grid de acciones 2x2 — gated por permisos del módulo customers
           Row(
             children: [
-              Expanded(
-                child: _buildCompactActionButton(
-                  icon: Icons.edit,
-                  label: 'Editar',
-                  color: ElegantLightTheme.primaryBlue,
-                  onTap: controller.goToEditCustomer,
+              PermissionGate.canEdit(
+                moduleCode: ModuleCode.customers,
+                child: Expanded(
+                  child: _buildCompactActionButton(
+                    icon: Icons.edit,
+                    label: 'Editar',
+                    color: ElegantLightTheme.primaryBlue,
+                    onTap: controller.goToEditCustomer,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCompactActionButton(
-                  icon: Icons.swap_horiz,
-                  label: 'Estado',
-                  color: const Color(0xFF3B82F6),
-                  onTap: controller.showStatusChangeDialog,
+              PermissionGate.canEdit(
+                moduleCode: ModuleCode.customers,
+                child: const SizedBox(width: 8),
+              ),
+              PermissionGate.canEdit(
+                moduleCode: ModuleCode.customers,
+                child: Expanded(
+                  child: _buildCompactActionButton(
+                    icon: Icons.swap_horiz,
+                    label: 'Estado',
+                    color: const Color(0xFF3B82F6),
+                    onTap: controller.showStatusChangeDialog,
+                  ),
                 ),
               ),
             ],
@@ -767,13 +797,19 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
                   onTap: controller.showPurchaseCheckDialog,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCompactActionButton(
-                  icon: Icons.delete_outline,
-                  label: 'Eliminar',
-                  color: const Color(0xFFEF4444),
-                  onTap: controller.confirmDeleteCustomer,
+              PermissionGate.canDelete(
+                moduleCode: ModuleCode.customers,
+                child: const SizedBox(width: 8),
+              ),
+              PermissionGate.canDelete(
+                moduleCode: ModuleCode.customers,
+                child: Expanded(
+                  child: _buildCompactActionButton(
+                    icon: Icons.delete_outline,
+                    label: 'Eliminar',
+                    color: const Color(0xFFEF4444),
+                    onTap: controller.confirmDeleteCustomer,
+                  ),
                 ),
               ),
             ],
@@ -1754,27 +1790,41 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
           const SizedBox(height: 16),
 
           // Edit Button - Primary Action
-          _buildElegantActionButton(
-            icon: Icons.edit,
-            label: 'Editar Cliente',
-            description: 'Modificar información',
-            gradient: ElegantLightTheme.primaryGradient,
-            onTap: controller.goToEditCustomer,
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.customers,
+            child: Column(children: [
+              _buildElegantActionButton(
+                icon: Icons.edit,
+                label: 'Editar Cliente',
+                description: 'Modificar información',
+                gradient: ElegantLightTheme.primaryGradient,
+                onTap: controller.goToEditCustomer,
+              ),
+              const SizedBox(height: 10),
+            ]),
           ),
-          const SizedBox(height: 10),
 
           // Change Status Button
-          Obx(() => _buildElegantActionButton(
-            icon: Icons.toggle_on,
-            label: controller.isUpdatingStatus ? 'Actualizando...' : 'Cambiar Estado',
-            description: 'Activar, inactivar o suspender',
-            gradient: ElegantLightTheme.infoGradient,
-            onTap: controller.isUpdatingStatus ? null : controller.showStatusChangeDialog,
-            isLoading: controller.isUpdatingStatus,
-          )),
-          const SizedBox(height: 10),
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.customers,
+            child: Column(children: [
+              Obx(() => _buildElegantActionButton(
+                    icon: Icons.toggle_on,
+                    label: controller.isUpdatingStatus
+                        ? 'Actualizando...'
+                        : 'Cambiar Estado',
+                    description: 'Activar, inactivar o suspender',
+                    gradient: ElegantLightTheme.infoGradient,
+                    onTap: controller.isUpdatingStatus
+                        ? null
+                        : controller.showStatusChangeDialog,
+                    isLoading: controller.isUpdatingStatus,
+                  )),
+              const SizedBox(height: 10),
+            ]),
+          ),
 
-          // Verify Purchase Button
+          // Verify Purchase Button (lectura — no requiere permiso especial)
           _buildElegantActionButton(
             icon: Icons.credit_card,
             label: 'Verificar Compra',
@@ -1801,16 +1851,23 @@ class CustomerDetailScreen extends GetView<CustomerDetailController> {
 
           const SizedBox(height: 16),
 
-          // Delete Button - Danger Action
-          Obx(() => _buildElegantActionButton(
-            icon: Icons.delete_outline,
-            label: controller.isDeleting ? 'Eliminando...' : 'Eliminar Cliente',
-            description: 'Eliminar permanentemente',
-            gradient: ElegantLightTheme.errorGradient,
-            onTap: controller.isDeleting ? null : controller.confirmDeleteCustomer,
-            isLoading: controller.isDeleting,
-            isDanger: true,
-          )),
+          // Delete Button - Danger Action (gated)
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.customers,
+            child: Obx(() => _buildElegantActionButton(
+              icon: Icons.delete_outline,
+              label: controller.isDeleting
+                  ? 'Eliminando...'
+                  : 'Eliminar Cliente',
+              description: 'Eliminar permanentemente',
+              gradient: ElegantLightTheme.errorGradient,
+              onTap: controller.isDeleting
+                  ? null
+                  : controller.confirmDeleteCustomer,
+              isLoading: controller.isDeleting,
+              isDanger: true,
+            )),
+          ),
         ],
       ),
     );

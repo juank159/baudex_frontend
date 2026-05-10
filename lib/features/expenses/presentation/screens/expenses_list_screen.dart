@@ -5,6 +5,8 @@ import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/app_scaffold.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../controllers/enhanced_expenses_controller.dart';
 import '../widgets/modern_expense_card_widget.dart';
@@ -24,7 +26,10 @@ class ExpensesListScreen extends GetView<EnhancedExpensesController> {
           ResponsiveHelper.isMobile(context)
               ? _buildMobileLayout(context)
               : _buildDesktopLayout(context),
-      floatingActionButton: _buildFloatingActionButton(context),
+      floatingActionButton: PermissionGate.canEdit(
+        moduleCode: ModuleCode.expenses,
+        child: _buildFloatingActionButton(context) ?? const SizedBox.shrink(),
+      ),
     );
   }
 

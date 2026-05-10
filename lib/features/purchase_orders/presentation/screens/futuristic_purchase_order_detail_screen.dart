@@ -5,6 +5,8 @@ import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/theme/futuristic_notifications.dart';
+import '../../../../app/core/services/permissions_service.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../controllers/purchase_order_detail_controller.dart';
 import '../widgets/futuristic_purchase_order_widgets.dart';
 import '../widgets/smart_workflow_widget.dart';
@@ -666,7 +668,11 @@ class FuturisticPurchaseOrderDetailScreen
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (controller.canDelete)
+                if (controller.canDelete &&
+                    (Get.isRegistered<PermissionsService>()
+                        ? PermissionsService.to
+                            .canDelete(ModuleCode.purchaseOrders)
+                        : true))
                   ListTile(
                     leading: const Icon(Icons.delete, color: Colors.red),
                     title: const Text(

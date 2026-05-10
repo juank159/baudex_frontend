@@ -5,7 +5,10 @@ import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../../app/core/services/permissions_service.dart';
 import '../../../../app/config/routes/app_routes.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../controllers/product_detail_controller.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
@@ -115,10 +118,13 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
             onPressed: controller.shareProduct,
             tooltip: 'Compartir producto',
           ),
-          IconButton(
-            icon: const Icon(Icons.edit, size: 20),
-            onPressed: controller.goToEditProduct,
-            tooltip: 'Editar producto',
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.products,
+            child: IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: controller.goToEditProduct,
+              tooltip: 'Editar producto',
+            ),
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, size: 20, color: Colors.white),
@@ -128,33 +134,46 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
               borderRadius: BorderRadius.circular(16),
             ),
             elevation: 8,
-            itemBuilder:
-                (context) => [
+            itemBuilder: (context) {
+              final canEdit = Get.isRegistered<PermissionsService>()
+                  ? PermissionsService.to.canEdit(ModuleCode.products)
+                  : true;
+              final canDelete = Get.isRegistered<PermissionsService>()
+                  ? PermissionsService.to.canDelete(ModuleCode.products)
+                  : true;
+              // canEdit gobierna inventario/stock (es mutación)
+              final canManageInventory =
+                  Get.isRegistered<PermissionsService>()
+                      ? PermissionsService.to.canEdit(ModuleCode.inventory)
+                      : true;
+              return [
+                if (canManageInventory)
                   _buildPopupMenuItem(
                     'stock',
                     Icons.inventory,
                     'Gestionar Stock',
                     ElegantLightTheme.infoGradient,
                   ),
-                  _buildPopupMenuItem(
-                    'print',
-                    Icons.print,
-                    'Imprimir Etiqueta',
-                    ElegantLightTheme.successGradient,
-                  ),
-                  _buildPopupMenuItem(
-                    'report',
-                    Icons.analytics,
-                    'Generar Reporte',
-                    ElegantLightTheme.primaryGradient,
-                  ),
-                  _buildPopupMenuItem(
-                    'refresh',
-                    Icons.refresh,
-                    'Actualizar',
-                    ElegantLightTheme.infoGradient,
-                  ),
-                  const PopupMenuDivider(),
+                _buildPopupMenuItem(
+                  'print',
+                  Icons.print,
+                  'Imprimir Etiqueta',
+                  ElegantLightTheme.successGradient,
+                ),
+                _buildPopupMenuItem(
+                  'report',
+                  Icons.analytics,
+                  'Generar Reporte',
+                  ElegantLightTheme.primaryGradient,
+                ),
+                _buildPopupMenuItem(
+                  'refresh',
+                  Icons.refresh,
+                  'Actualizar',
+                  ElegantLightTheme.infoGradient,
+                ),
+                if (canDelete) const PopupMenuDivider(),
+                if (canDelete)
                   _buildPopupMenuItem(
                     'delete',
                     Icons.delete,
@@ -162,7 +181,8 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                     ElegantLightTheme.errorGradient,
                     isDestructive: true,
                   ),
-                ],
+              ];
+            },
           ),
           const SizedBox(width: 8),
         ],
@@ -728,28 +748,39 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
           ),
           const SizedBox(height: 12),
 
+          // Fila 1: Editar (canEdit products) + Stock (canEdit inventory)
           Row(
             children: [
-              Expanded(
-                child: _buildCompactActionButton(
-                  icon: Icons.edit,
-                  label: 'Editar',
-                  color: ElegantLightTheme.primaryBlue,
-                  onTap: controller.goToEditProduct,
+              PermissionGate.canEdit(
+                moduleCode: ModuleCode.products,
+                child: Expanded(
+                  child: _buildCompactActionButton(
+                    icon: Icons.edit,
+                    label: 'Editar',
+                    color: ElegantLightTheme.primaryBlue,
+                    onTap: controller.goToEditProduct,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCompactActionButton(
-                  icon: Icons.inventory,
-                  label: 'Stock',
-                  color: const Color(0xFF3B82F6),
-                  onTap: controller.showStockDialog,
+              PermissionGate.canEdit(
+                moduleCode: ModuleCode.inventory,
+                child: const SizedBox(width: 8),
+              ),
+              PermissionGate.canEdit(
+                moduleCode: ModuleCode.inventory,
+                child: Expanded(
+                  child: _buildCompactActionButton(
+                    icon: Icons.inventory,
+                    label: 'Stock',
+                    color: const Color(0xFF3B82F6),
+                    onTap: controller.showStockDialog,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
+          // Fila 2: Etiqueta (libre, lectura) + Eliminar (canDelete products)
           Row(
             children: [
               Expanded(
@@ -760,15 +791,22 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
                   onTap: controller.printLabel,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Obx(
-                  () => _buildCompactActionButton(
-                    icon: Icons.delete_outline,
-                    label: 'Eliminar',
-                    color: const Color(0xFFEF4444),
-                    onTap:
-                        controller.isDeleting ? null : controller.confirmDelete,
+              PermissionGate.canDelete(
+                moduleCode: ModuleCode.products,
+                child: const SizedBox(width: 8),
+              ),
+              PermissionGate.canDelete(
+                moduleCode: ModuleCode.products,
+                child: Expanded(
+                  child: Obx(
+                    () => _buildCompactActionButton(
+                      icon: Icons.delete_outline,
+                      label: 'Eliminar',
+                      color: const Color(0xFFEF4444),
+                      onTap: controller.isDeleting
+                          ? null
+                          : controller.confirmDelete,
+                    ),
                   ),
                 ),
               ),
@@ -1717,24 +1755,37 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
           ),
           const SizedBox(height: 16),
 
-          _buildElegantActionButton(
-            icon: Icons.edit,
-            label: 'Editar Producto',
-            description: 'Modificar información',
-            gradient: ElegantLightTheme.primaryGradient,
-            onTap: controller.goToEditProduct,
+          // Editar — requiere canEdit('products')
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.products,
+            child: Column(children: [
+              _buildElegantActionButton(
+                icon: Icons.edit,
+                label: 'Editar Producto',
+                description: 'Modificar información',
+                gradient: ElegantLightTheme.primaryGradient,
+                onTap: controller.goToEditProduct,
+              ),
+              const SizedBox(height: 10),
+            ]),
           ),
-          const SizedBox(height: 10),
 
-          _buildElegantActionButton(
-            icon: Icons.inventory,
-            label: 'Gestionar Stock',
-            description: 'Ajustar inventario',
-            gradient: ElegantLightTheme.infoGradient,
-            onTap: controller.showStockDialog,
+          // Gestionar Stock — requiere canEdit('inventory') (es módulo aparte)
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.inventory,
+            child: Column(children: [
+              _buildElegantActionButton(
+                icon: Icons.inventory,
+                label: 'Gestionar Stock',
+                description: 'Ajustar inventario',
+                gradient: ElegantLightTheme.infoGradient,
+                onTap: controller.showStockDialog,
+              ),
+              const SizedBox(height: 10),
+            ]),
           ),
-          const SizedBox(height: 10),
 
+          // Imprimir Etiqueta — lectura pura, sin gate
           _buildElegantActionButton(
             icon: Icons.print,
             label: 'Imprimir Etiqueta',
@@ -1743,34 +1794,40 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
             onTap: controller.printLabel,
           ),
 
-          const SizedBox(height: 16),
-
-          Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
-                  Colors.transparent,
-                ],
+          // Sección destructiva — solo si canDelete('products')
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.products,
+            child: Column(children: [
+              const SizedBox(height: 16),
+              Container(
+                height: 1,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      ElegantLightTheme.textTertiary.withValues(alpha: 0.3),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          Obx(
-            () => _buildElegantActionButton(
-              icon: Icons.delete_outline,
-              label:
-                  controller.isDeleting ? 'Eliminando...' : 'Eliminar Producto',
-              description: 'Eliminar permanentemente',
-              gradient: ElegantLightTheme.errorGradient,
-              onTap: controller.isDeleting ? null : controller.confirmDelete,
-              isLoading: controller.isDeleting,
-              isDanger: true,
-            ),
+              const SizedBox(height: 16),
+              Obx(
+                () => _buildElegantActionButton(
+                  icon: Icons.delete_outline,
+                  label: controller.isDeleting
+                      ? 'Eliminando...'
+                      : 'Eliminar Producto',
+                  description: 'Eliminar permanentemente',
+                  gradient: ElegantLightTheme.errorGradient,
+                  onTap: controller.isDeleting
+                      ? null
+                      : controller.confirmDelete,
+                  isLoading: controller.isDeleting,
+                  isDanger: true,
+                ),
+              ),
+            ]),
           ),
         ],
       ),
@@ -2126,6 +2183,12 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
   Widget _buildManagePresentationsButton(BuildContext context) {
     return Obx(() {
       if (!controller.hasProduct) return const SizedBox.shrink();
+      // Gating de permisos: gestionar presentaciones es una mutación
+      // sobre el catálogo de productos.
+      if (Get.isRegistered<PermissionsService>() &&
+          !PermissionsService.to.canEdit(ModuleCode.products)) {
+        return const SizedBox.shrink();
+      }
       final product = controller.product!;
       return Card(
         elevation: 2,
@@ -2194,6 +2257,12 @@ class ProductDetailScreen extends GetView<ProductDetailController> {
   Widget _buildRegisterWasteButton(BuildContext context) {
     return Obx(() {
       if (!controller.hasProduct) return const SizedBox.shrink();
+      // Registrar merma es una mutación destructiva: requiere canDelete
+      // sobre productos (descarta unidades del stock).
+      if (Get.isRegistered<PermissionsService>() &&
+          !PermissionsService.to.canDelete(ModuleCode.products)) {
+        return const SizedBox.shrink();
+      }
       final product = controller.product!;
       return Card(
         elevation: 2,

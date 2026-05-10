@@ -7,6 +7,8 @@ import '../../../../app/shared/widgets/custom_text_field.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../controllers/categories_controller.dart';
 import '../widgets/category_card_widget.dart';
 import '../widgets/category_filter_widget.dart';
@@ -51,7 +53,11 @@ class CategoriesListScreen extends GetWidget<CategoriesController> {
           ],
         ),
       ),
-      floatingActionButton: _buildFuturisticFloatingActionButton(context),
+      floatingActionButton: PermissionGate.canEdit(
+        moduleCode: ModuleCode.products,
+        child: _buildFuturisticFloatingActionButton(context) ??
+            const SizedBox.shrink(),
+      ),
     );
   }
 

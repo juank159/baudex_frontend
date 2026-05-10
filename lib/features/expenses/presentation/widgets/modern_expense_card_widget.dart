@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/presentation/widgets/offline_badge.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/expense.dart';
 
 class ModernExpenseCardWidget extends StatelessWidget {
@@ -177,58 +179,64 @@ class ModernExpenseCardWidget extends StatelessWidget {
 
                 const SizedBox(height: 8),
 
-                // Acciones compactas con gradiente
+                // Acciones compactas con gradiente — gated por permisos
                 Row(
                   children: [
                     if (onEdit != null && expense.canBeEdited)
-                      Expanded(
-                        child: _buildActionButton(
-                          'Editar',
-                          Icons.edit,
-                          ElegantLightTheme.primaryBlue,
-                          onEdit!,
+                      PermissionGate.canEdit(
+                        moduleCode: ModuleCode.expenses,
+                        child: Expanded(
+                          child: _buildActionButton(
+                            'Editar',
+                            Icons.edit,
+                            ElegantLightTheme.primaryBlue,
+                            onEdit!,
+                          ),
                         ),
                       ),
-                    if (onEdit != null &&
-                        expense.canBeEdited &&
-                        (onSubmit != null && expense.canBeSubmitted ||
-                            onApprove != null && expense.canBeApproved ||
-                            onDelete != null))
-                      const SizedBox(width: 8),
                     if (onSubmit != null && expense.canBeSubmitted)
-                      Expanded(
-                        child: _buildActionButton(
-                          'Enviar',
-                          Icons.send,
-                          Colors.blue.shade600,
-                          onSubmit!,
+                      PermissionGate.canEdit(
+                        moduleCode: ModuleCode.expenses,
+                        child: Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: _buildActionButton(
+                              'Enviar',
+                              Icons.send,
+                              Colors.blue.shade600,
+                              onSubmit!,
+                            ),
+                          ),
                         ),
                       ),
-                    if (onSubmit != null &&
-                        expense.canBeSubmitted &&
-                        (onApprove != null && expense.canBeApproved ||
-                            onDelete != null))
-                      const SizedBox(width: 8),
                     if (onApprove != null && expense.canBeApproved)
-                      Expanded(
-                        child: _buildActionButton(
-                          'Aprobar',
-                          Icons.check_circle,
-                          Colors.green.shade600,
-                          onApprove!,
+                      PermissionGate.canEdit(
+                        moduleCode: ModuleCode.expenses,
+                        child: Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: _buildActionButton(
+                              'Aprobar',
+                              Icons.check_circle,
+                              Colors.green.shade600,
+                              onApprove!,
+                            ),
+                          ),
                         ),
                       ),
-                    if (onApprove != null &&
-                        expense.canBeApproved &&
-                        onDelete != null)
-                      const SizedBox(width: 8),
                     if (onDelete != null)
-                      Expanded(
-                        child: _buildActionButton(
-                          'Eliminar',
-                          Icons.delete,
-                          Colors.red.shade600,
-                          onDelete!,
+                      PermissionGate.canDelete(
+                        moduleCode: ModuleCode.expenses,
+                        child: Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: _buildActionButton(
+                              'Eliminar',
+                              Icons.delete,
+                              Colors.red.shade600,
+                              onDelete!,
+                            ),
+                          ),
                         ),
                       ),
                   ],

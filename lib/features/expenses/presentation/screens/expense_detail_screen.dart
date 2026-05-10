@@ -5,6 +5,9 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../../app/core/services/permissions_service.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../controllers/expense_detail_controller.dart';
 import '../../domain/entities/expense.dart';
 
@@ -104,13 +107,15 @@ class ExpenseDetailScreen extends GetView<ExpenseDetailController> {
       ),
       actions: [
         if (controller.expense.value != null) ...[
-          IconButton(
-            icon: const Icon(Icons.edit, size: 20),
-            onPressed:
-                () => Get.toNamed(
-                  '/expenses/edit/${controller.expense.value?.id}',
-                ),
-            tooltip: 'Editar gasto',
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.expenses,
+            child: IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: () => Get.toNamed(
+                '/expenses/edit/${controller.expense.value?.id}',
+              ),
+              tooltip: 'Editar gasto',
+            ),
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, size: 20, color: Colors.white),
@@ -120,27 +125,37 @@ class ExpenseDetailScreen extends GetView<ExpenseDetailController> {
               borderRadius: BorderRadius.circular(16),
             ),
             elevation: 8,
-            itemBuilder:
-                (context) => [
+            itemBuilder: (context) {
+              final canEdit = Get.isRegistered<PermissionsService>()
+                  ? PermissionsService.to.canEdit(ModuleCode.expenses)
+                  : true;
+              final canDelete = Get.isRegistered<PermissionsService>()
+                  ? PermissionsService.to.canDelete(ModuleCode.expenses)
+                  : true;
+              return [
+                if (canEdit)
                   _buildPopupMenuItem(
                     'approve',
                     Icons.check_circle,
                     'Aprobar',
                     ElegantLightTheme.successGradient,
                   ),
+                if (canEdit)
                   _buildPopupMenuItem(
                     'reject',
                     Icons.cancel,
                     'Rechazar',
                     ElegantLightTheme.warningGradient,
                   ),
+                if (canEdit)
                   _buildPopupMenuItem(
                     'duplicate',
                     Icons.copy,
                     'Duplicar',
                     ElegantLightTheme.infoGradient,
                   ),
-                  const PopupMenuDivider(),
+                if (canDelete) const PopupMenuDivider(),
+                if (canDelete)
                   _buildPopupMenuItem(
                     'delete',
                     Icons.delete,
@@ -148,7 +163,8 @@ class ExpenseDetailScreen extends GetView<ExpenseDetailController> {
                     ElegantLightTheme.errorGradient,
                     isDestructive: true,
                   ),
-                ],
+              ];
+            },
           ),
           const SizedBox(width: 8),
         ],
@@ -1119,44 +1135,66 @@ class ExpenseDetailScreen extends GetView<ExpenseDetailController> {
             ElegantLightTheme.warningGradient,
           ),
           const SizedBox(height: 16),
-          _buildActionButton(
-            icon: Icons.edit,
-            label: 'Editar Gasto',
-            color: ElegantLightTheme.primaryBlue,
-            onTap: () => Get.toNamed('/expenses/edit/${expense.id}'),
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.expenses,
+            child: Column(children: [
+              _buildActionButton(
+                icon: Icons.edit,
+                label: 'Editar Gasto',
+                color: ElegantLightTheme.primaryBlue,
+                onTap: () => Get.toNamed('/expenses/edit/${expense.id}'),
+              ),
+              const SizedBox(height: 8),
+            ]),
           ),
-          const SizedBox(height: 8),
           if (expense.status == ExpenseStatus.draft ||
               expense.status == ExpenseStatus.pending)
-            _buildActionButton(
-              icon: Icons.check_circle,
-              label: 'Aprobar',
-              color: const Color(0xFF10B981),
-              onTap: () => _handleMenuAction('approve', context),
+            PermissionGate.canEdit(
+              moduleCode: ModuleCode.expenses,
+              child: _buildActionButton(
+                icon: Icons.check_circle,
+                label: 'Aprobar',
+                color: const Color(0xFF10B981),
+                onTap: () => _handleMenuAction('approve', context),
+              ),
             ),
           if (expense.status == ExpenseStatus.draft ||
-              expense.status == ExpenseStatus.pending) ...[
-            const SizedBox(height: 8),
-            _buildActionButton(
-              icon: Icons.cancel,
-              label: 'Rechazar',
-              color: const Color(0xFFF59E0B),
-              onTap: () => _handleMenuAction('reject', context),
+              expense.status == ExpenseStatus.pending)
+            PermissionGate.canEdit(
+              moduleCode: ModuleCode.expenses,
+              child: Column(children: [
+                const SizedBox(height: 8),
+                _buildActionButton(
+                  icon: Icons.cancel,
+                  label: 'Rechazar',
+                  color: const Color(0xFFF59E0B),
+                  onTap: () => _handleMenuAction('reject', context),
+                ),
+              ]),
             ),
-          ],
-          const SizedBox(height: 8),
-          _buildActionButton(
-            icon: Icons.copy,
-            label: 'Duplicar',
-            color: const Color(0xFF8B5CF6),
-            onTap: () => _handleMenuAction('duplicate', context),
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.expenses,
+            child: Column(children: [
+              const SizedBox(height: 8),
+              _buildActionButton(
+                icon: Icons.copy,
+                label: 'Duplicar',
+                color: const Color(0xFF8B5CF6),
+                onTap: () => _handleMenuAction('duplicate', context),
+              ),
+            ]),
           ),
-          const SizedBox(height: 8),
-          _buildActionButton(
-            icon: Icons.delete,
-            label: 'Eliminar',
-            color: const Color(0xFFEF4444),
-            onTap: () => _handleMenuAction('delete', context),
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.expenses,
+            child: Column(children: [
+              const SizedBox(height: 8),
+              _buildActionButton(
+                icon: Icons.delete,
+                label: 'Eliminar',
+                color: const Color(0xFFEF4444),
+                onTap: () => _handleMenuAction('delete', context),
+              ),
+            ]),
           ),
         ],
       ),
@@ -1444,45 +1482,62 @@ class ExpenseDetailScreen extends GetView<ExpenseDetailController> {
             ElegantLightTheme.warningGradient,
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactActionButton(
-                  icon: Icons.edit,
-                  label: 'Editar',
-                  color: ElegantLightTheme.primaryBlue,
-                  onTap: () => Get.toNamed('/expenses/edit/${expense.id}'),
+          // Fila 1: Editar + Aprobar (canEdit)
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.expenses,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildCompactActionButton(
+                    icon: Icons.edit,
+                    label: 'Editar',
+                    color: ElegantLightTheme.primaryBlue,
+                    onTap: () => Get.toNamed('/expenses/edit/${expense.id}'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCompactActionButton(
-                  icon: Icons.check_circle,
-                  label: 'Aprobar',
-                  color: const Color(0xFF10B981),
-                  onTap: () => _handleMenuAction('approve', context),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildCompactActionButton(
+                    icon: Icons.check_circle,
+                    label: 'Aprobar',
+                    color: const Color(0xFF10B981),
+                    onTap: () => _handleMenuAction('approve', context),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.expenses,
+            child: const SizedBox(height: 8),
+          ),
+          // Fila 2: Duplicar (canEdit) + Eliminar (canDelete)
           Row(
             children: [
-              Expanded(
-                child: _buildCompactActionButton(
-                  icon: Icons.copy,
-                  label: 'Duplicar',
-                  color: const Color(0xFF8B5CF6),
-                  onTap: () => _handleMenuAction('duplicate', context),
+              PermissionGate.canEdit(
+                moduleCode: ModuleCode.expenses,
+                child: Expanded(
+                  child: _buildCompactActionButton(
+                    icon: Icons.copy,
+                    label: 'Duplicar',
+                    color: const Color(0xFF8B5CF6),
+                    onTap: () => _handleMenuAction('duplicate', context),
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCompactActionButton(
-                  icon: Icons.delete,
-                  label: 'Eliminar',
-                  color: const Color(0xFFEF4444),
-                  onTap: () => _handleMenuAction('delete', context),
+              PermissionGate.canDelete(
+                moduleCode: ModuleCode.expenses,
+                child: const SizedBox(width: 8),
+              ),
+              PermissionGate.canDelete(
+                moduleCode: ModuleCode.expenses,
+                child: Expanded(
+                  child: _buildCompactActionButton(
+                    icon: Icons.delete,
+                    label: 'Eliminar',
+                    color: const Color(0xFFEF4444),
+                    onTap: () => _handleMenuAction('delete', context),
+                  ),
                 ),
               ),
             ],

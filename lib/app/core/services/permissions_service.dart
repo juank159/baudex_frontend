@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 import '../network/dio_client.dart';
+import '../storage/secure_storage_service.dart';
 import '../../../features/auth/domain/entities/user.dart';
 import '../../../features/employees/domain/entities/module_permission.dart';
 
@@ -19,6 +21,11 @@ class PermissionsService extends GetxService {
 
   final DioClient _dio;
   PermissionsService(this._dio);
+
+  /// Clave de cache offline. Compartida cross-tenant porque solo guardamos
+  /// los permisos del usuario actualmente logueado (se sobrescribe en cada
+  /// login y se limpia en logout/tenant switch).
+  static const String _cacheKey = 'permissions_cache_v1';
 
   /// Permisos en memoria (clave = moduleCode).
   final RxMap<String, ModulePermission> _permissions =
@@ -60,10 +67,17 @@ class PermissionsService extends GetxService {
       return;
     }
 
+    // OFFLINE-FIRST: hidratamos PRIMERO desde el cache local. Si la red
+    // está caída, esto es lo que tenemos. Si la red responde, lo
+    // sobrescribiremos con datos frescos.
+    await _hydrateFromCache();
+
     isLoading.value = true;
     try {
       // ignore: avoid_print
-      print('📥 PermissionsService: cargando permisos del usuario (rol=${role.value})...');
+      print(
+        '📥 PermissionsService: cargando permisos (rol=${role.value})...',
+      );
       final res = await _dio.get('/users/me/permissions');
       final data = res.data;
       final list = (data is List)
@@ -79,16 +93,19 @@ class PermissionsService extends GetxService {
         ..clear()
         ..addEntries(perms.map((p) => MapEntry(p.moduleCode, p)));
       isLoaded.value = true;
+      // Persistir en cache para próximo arranque offline.
+      await _persistToCache(perms);
       // ignore: avoid_print
       print(
-        '✅ PermissionsService: ${perms.length} permisos cargados — '
+        '✅ PermissionsService: ${perms.length} permisos cargados online — '
         '${perms.where((p) => p.canView).length} con canView=true',
       );
     } on DioException catch (e) {
+      // Sin red o server caído → mantenemos lo que cargamos del cache.
       // ignore: avoid_print
       print(
-        '⚠️ PermissionsService: error HTTP cargando permisos: '
-        '${e.response?.statusCode} — ${e.response?.data ?? e.message}',
+        '⚠️ PermissionsService: HTTP falló (${e.response?.statusCode ?? "sin red"}). '
+        'Usando cache local: ${_permissions.length} permisos',
       );
     } catch (e) {
       // ignore: avoid_print
@@ -98,12 +115,67 @@ class PermissionsService extends GetxService {
     }
   }
 
+  /// Lee permisos persistidos en SecureStorage. Idempotente y tolerante:
+  /// si no hay cache o está corrupto, deja `_permissions` vacío.
+  Future<void> _hydrateFromCache() async {
+    try {
+      if (!Get.isRegistered<SecureStorageService>()) return;
+      final storage = Get.find<SecureStorageService>();
+      final raw = await storage.read(_cacheKey);
+      if (raw == null || raw.isEmpty) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      final perms = decoded
+          .whereType<Map<String, dynamic>>()
+          .map(ModulePermission.fromJson)
+          .toList();
+      if (perms.isEmpty) return;
+      _permissions
+        ..clear()
+        ..addEntries(perms.map((p) => MapEntry(p.moduleCode, p)));
+      isLoaded.value = true;
+      // ignore: avoid_print
+      print(
+        '💾 PermissionsService: ${perms.length} permisos hidratados desde cache offline',
+      );
+    } catch (e) {
+      // ignore: avoid_print
+      print('⚠️ Error hidratando cache de permisos: $e');
+    }
+  }
+
+  /// Persiste los permisos en SecureStorage para uso offline en próximo
+  /// arranque. No bloquea al caller en caso de error.
+  Future<void> _persistToCache(List<ModulePermission> perms) async {
+    try {
+      if (!Get.isRegistered<SecureStorageService>()) return;
+      final storage = Get.find<SecureStorageService>();
+      final json = jsonEncode(perms.map((p) => p.toJson()).toList());
+      await storage.write(_cacheKey, json);
+    } catch (e) {
+      // ignore: avoid_print
+      print('⚠️ Error persistiendo cache de permisos: $e');
+    }
+  }
+
   /// Reset al hacer logout o cambio de tenant.
+  /// También borra el cache offline para que el próximo usuario que use
+  /// este dispositivo no pueda heredar los permisos del anterior.
   void clear() {
     _permissions.clear();
     _currentRole.value = null;
     isLoaded.value = false;
     isLoading.value = false;
+    // Fire-and-forget: si el delete falla, el próximo login lo sobrescribe.
+    _clearCache();
+  }
+
+  Future<void> _clearCache() async {
+    try {
+      if (!Get.isRegistered<SecureStorageService>()) return;
+      final storage = Get.find<SecureStorageService>();
+      await storage.delete(_cacheKey);
+    } catch (_) {}
   }
 
   // ===== CRUD para administrar permisos de OTROS empleados =====

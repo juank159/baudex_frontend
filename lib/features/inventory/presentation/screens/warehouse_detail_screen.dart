@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/warehouse_detail_controller.dart';
@@ -657,15 +659,22 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
           
           Column(
             children: [
-              _buildActionButton(
-                icon: Icons.edit,
-                label: 'Editar Almacén',
-                gradient: ElegantLightTheme.primaryGradient,
-                onPressed: controller.goToEditWarehouse,
-                isDesktop: isDesktop,
+              // Editar — requiere canEdit('inventory')
+              PermissionGate.canEdit(
+                moduleCode: ModuleCode.inventory,
+                child: Column(children: [
+                  _buildActionButton(
+                    icon: Icons.edit,
+                    label: 'Editar Almacén',
+                    gradient: ElegantLightTheme.primaryGradient,
+                    onPressed: controller.goToEditWarehouse,
+                    isDesktop: isDesktop,
+                  ),
+                  SizedBox(height: isDesktop ? 12 : 10),
+                ]),
               ),
-              SizedBox(height: isDesktop ? 12 : 10),
-              
+
+              // Ver movimientos / inventario — son lectura, libres
               _buildActionButton(
                 icon: Icons.swap_horiz,
                 label: 'Ver Movimientos',
@@ -674,7 +683,7 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
                 isDesktop: isDesktop,
               ),
               SizedBox(height: isDesktop ? 12 : 10),
-              
+
               _buildActionButton(
                 icon: Icons.inventory,
                 label: 'Ver Inventario',
@@ -682,25 +691,37 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
                 onPressed: () => _handleMenuAction('inventory'),
                 isDesktop: isDesktop,
               ),
-              SizedBox(height: isDesktop ? 12 : 10),
-              
-              Obx(() => _buildActionButton(
-                icon: controller.isActive ? Icons.pause : Icons.play_arrow,
-                label: controller.isActive ? 'Desactivar' : 'Activar',
-                gradient: controller.isActive 
-                    ? ElegantLightTheme.errorGradient
-                    : ElegantLightTheme.successGradient,
-                onPressed: () => _handleMenuAction('toggle_status'),
-                isDesktop: isDesktop,
-              )),
-              SizedBox(height: isDesktop ? 16 : 12),
-              
-              _buildActionButton(
-                icon: Icons.delete_forever,
-                label: 'Eliminar Almacén',
-                gradient: ElegantLightTheme.errorGradient,
-                onPressed: () => _handleMenuAction('delete'),
-                isDesktop: isDesktop,
+
+              // Activar/Desactivar — canEdit
+              PermissionGate.canEdit(
+                moduleCode: ModuleCode.inventory,
+                child: Column(children: [
+                  SizedBox(height: isDesktop ? 12 : 10),
+                  Obx(() => _buildActionButton(
+                    icon: controller.isActive ? Icons.pause : Icons.play_arrow,
+                    label: controller.isActive ? 'Desactivar' : 'Activar',
+                    gradient: controller.isActive
+                        ? ElegantLightTheme.errorGradient
+                        : ElegantLightTheme.successGradient,
+                    onPressed: () => _handleMenuAction('toggle_status'),
+                    isDesktop: isDesktop,
+                  )),
+                ]),
+              ),
+
+              // Eliminar — canDelete
+              PermissionGate.canDelete(
+                moduleCode: ModuleCode.inventory,
+                child: Column(children: [
+                  SizedBox(height: isDesktop ? 16 : 12),
+                  _buildActionButton(
+                    icon: Icons.delete_forever,
+                    label: 'Eliminar Almacén',
+                    gradient: ElegantLightTheme.errorGradient,
+                    onPressed: () => _handleMenuAction('delete'),
+                    isDesktop: isDesktop,
+                  ),
+                ]),
               ),
             ],
           ),
@@ -978,12 +999,17 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
 
   List<Widget> _buildAppBarActions(BuildContext context) {
     return [
-      // Botón de editar
-      Obx(() => IconButton(
-        onPressed: controller.hasWarehouse ? controller.goToEditWarehouse : null,
-        icon: const Icon(Icons.edit),
-        tooltip: 'Editar Almacén',
-      )),
+      // Botón de editar — gated
+      PermissionGate.canEdit(
+        moduleCode: ModuleCode.inventory,
+        child: Obx(() => IconButton(
+          onPressed: controller.hasWarehouse
+              ? controller.goToEditWarehouse
+              : null,
+          icon: const Icon(Icons.edit),
+          tooltip: 'Editar Almacén',
+        )),
+      ),
       
       // Botón de refrescar
       IconButton(

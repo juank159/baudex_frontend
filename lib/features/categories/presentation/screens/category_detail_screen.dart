@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../../app/core/services/permissions_service.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../controllers/category_detail_controller.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
@@ -61,66 +64,80 @@ class CategoryDetailScreen extends GetView<CategoryDetailController> {
       ),
       actions: [
         const SyncStatusIcon(),
-        // Editar
-        IconButton(
-          icon: const Icon(Icons.edit, color: Colors.white, size: 20),
-          onPressed: controller.goToEditCategory,
-          tooltip: 'Editar categoría',
+        // Editar — gated
+        PermissionGate.canEdit(
+          moduleCode: ModuleCode.products,
+          child: IconButton(
+            icon: const Icon(Icons.edit, color: Colors.white, size: 20),
+            onPressed: controller.goToEditCategory,
+            tooltip: 'Editar categoría',
+          ),
         ),
 
-        // Cambiar estado
-        Obx(() => IconButton(
-          icon: Icon(
-            controller.category?.isActive == true
-                ? Icons.toggle_on
-                : Icons.toggle_off,
-            color: Colors.white,
-            size: 24,
-          ),
-          onPressed: controller.showStatusDialog,
-          tooltip: 'Cambiar estado',
-        )),
+        // Cambiar estado — también es edición
+        PermissionGate.canEdit(
+          moduleCode: ModuleCode.products,
+          child: Obx(() => IconButton(
+            icon: Icon(
+              controller.category?.isActive == true
+                  ? Icons.toggle_on
+                  : Icons.toggle_off,
+              color: Colors.white,
+              size: 24,
+            ),
+            onPressed: controller.showStatusDialog,
+            tooltip: 'Cambiar estado',
+          )),
+        ),
 
-        // Menú de opciones
+        // Menú de opciones — items gated dentro
         PopupMenuButton<String>(
           onSelected: (value) => _handleMenuAction(value, context),
           icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'create_subcategory',
-              child: Row(
-                children: [
-                  Icon(Icons.add, color: ElegantLightTheme.primaryBlue),
-                  SizedBox(width: 8),
-                  Text('Crear Subcategoría'),
-                ],
+          itemBuilder: (context) {
+            final canEdit = Get.isRegistered<PermissionsService>()
+                ? PermissionsService.to.canEdit(ModuleCode.products)
+                : true;
+            final canDelete = Get.isRegistered<PermissionsService>()
+                ? PermissionsService.to.canDelete(ModuleCode.products)
+                : true;
+            return [
+              if (canEdit) const PopupMenuItem(
+                value: 'create_subcategory',
+                child: Row(
+                  children: [
+                    Icon(Icons.add, color: ElegantLightTheme.primaryBlue),
+                    SizedBox(width: 8),
+                    Text('Crear Subcategoría'),
+                  ],
+                ),
               ),
-            ),
-            const PopupMenuItem(
-              value: 'refresh',
-              child: Row(
-                children: [
-                  Icon(Icons.refresh, color: ElegantLightTheme.primaryBlue),
-                  SizedBox(width: 8),
-                  Text('Actualizar'),
-                ],
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, color: ElegantLightTheme.primaryBlue),
+                    SizedBox(width: 8),
+                    Text('Actualizar'),
+                  ],
+                ),
               ),
-            ),
-            const PopupMenuDivider(),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Eliminar', style: TextStyle(color: Colors.red)),
-                ],
+              if (canDelete) const PopupMenuDivider(),
+              if (canDelete) const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Eliminar', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ];
+          },
         ),
       ],
     );
@@ -674,32 +691,37 @@ class CategoryDetailScreen extends GetView<CategoryDetailController> {
                 ),
               ),
               SizedBox(height: isMobile ? 16 : 20),
-              _buildFuturisticActionCard(
-                'Editar Categoría',
-                'Modificar nombre, descripción y configuración',
-                Icons.edit,
-                ElegantLightTheme.infoGradient,
-                controller.goToEditCategory,
+              PermissionGate.canEdit(
+                moduleCode: ModuleCode.products,
+                child: Column(children: [
+                  _buildFuturisticActionCard(
+                    'Editar Categoría',
+                    'Modificar nombre, descripción y configuración',
+                    Icons.edit,
+                    ElegantLightTheme.infoGradient,
+                    controller.goToEditCategory,
+                  ),
+                  SizedBox(height: isMobile ? 12 : 16),
+                  Obx(() => _buildFuturisticActionCard(
+                    controller.category?.isActive == true ? 'Desactivar' : 'Activar',
+                    'Cambiar el estado de disponibilidad de la categoría',
+                    controller.category?.isActive == true ? Icons.toggle_off : Icons.toggle_on,
+                    controller.category?.isActive == true
+                        ? ElegantLightTheme.warningGradient
+                        : ElegantLightTheme.successGradient,
+                    controller.showStatusDialog,
+                  )),
+                  SizedBox(height: isMobile ? 12 : 16),
+                  _buildFuturisticActionCard(
+                    'Nueva Subcategoría',
+                    'Crear una nueva categoría hija',
+                    Icons.add,
+                    ElegantLightTheme.primaryGradient,
+                    controller.goToCreateSubcategory,
+                  ),
+                  SizedBox(height: isMobile ? 12 : 16),
+                ]),
               ),
-              SizedBox(height: isMobile ? 12 : 16),
-              Obx(() => _buildFuturisticActionCard(
-                controller.category?.isActive == true ? 'Desactivar' : 'Activar',
-                'Cambiar el estado de disponibilidad de la categoría',
-                controller.category?.isActive == true ? Icons.toggle_off : Icons.toggle_on,
-                controller.category?.isActive == true 
-                    ? ElegantLightTheme.warningGradient 
-                    : ElegantLightTheme.successGradient,
-                controller.showStatusDialog,
-              )),
-              SizedBox(height: isMobile ? 12 : 16),
-              _buildFuturisticActionCard(
-                'Nueva Subcategoría',
-                'Crear una nueva categoría hija',
-                Icons.add,
-                ElegantLightTheme.primaryGradient,
-                controller.goToCreateSubcategory,
-              ),
-              SizedBox(height: isMobile ? 12 : 16),
               _buildFuturisticActionCard(
                 'Actualizar Datos',
                 'Refrescar la información desde el servidor',
@@ -709,13 +731,16 @@ class CategoryDetailScreen extends GetView<CategoryDetailController> {
                 isOutline: true,
               ),
               SizedBox(height: isMobile ? 16 : 24),
-              _buildFuturisticActionCard(
-                'Eliminar Categoría',
-                'Eliminar permanentemente esta categoría',
-                Icons.delete,
-                ElegantLightTheme.errorGradient,
-                controller.confirmDelete,
-                isDangerous: true,
+              PermissionGate.canDelete(
+                moduleCode: ModuleCode.products,
+                child: _buildFuturisticActionCard(
+                  'Eliminar Categoría',
+                  'Eliminar permanentemente esta categoría',
+                  Icons.delete,
+                  ElegantLightTheme.errorGradient,
+                  controller.confirmDelete,
+                  isDangerous: true,
+                ),
               ),
             ],
           ),

@@ -6,6 +6,8 @@ import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/presentation/widgets/offline_badge.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/bank_account.dart';
 import 'bank_account_form_dialog.dart';
 
@@ -539,28 +541,40 @@ class _BankAccountCardState extends State<BankAccountCard>
               ),
             ),
           ],
-          if (widget.onEdit != null) ...[
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.edit_rounded,
-                label: 'Editar',
-                onPressed: widget.onEdit!,
-                gradient: ElegantLightTheme.primaryGradient,
+          if (widget.onEdit != null)
+            PermissionGate.canEdit(
+              moduleCode: ModuleCode.bankAccounts,
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.edit_rounded,
+                      label: 'Editar',
+                      onPressed: widget.onEdit!,
+                      gradient: ElegantLightTheme.primaryGradient,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-          if (widget.onDelete != null) ...[
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.delete_outline_rounded,
-                label: 'Eliminar',
-                onPressed: widget.onDelete!,
-                gradient: ElegantLightTheme.errorGradient,
+          if (widget.onDelete != null)
+            PermissionGate.canDelete(
+              moduleCode: ModuleCode.bankAccounts,
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Eliminar',
+                      onPressed: widget.onDelete!,
+                      gradient: ElegantLightTheme.errorGradient,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
         ],
       );
     }
@@ -596,18 +610,24 @@ class _BankAccountCardState extends State<BankAccountCard>
             color: const Color(0xFFF59E0B),
           ),
         if (widget.onEdit != null)
-          _buildIconButton(
-            icon: Icons.edit_rounded,
-            tooltip: 'Editar cuenta',
-            onPressed: widget.onEdit!,
-            color: ElegantLightTheme.primaryBlue,
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.bankAccounts,
+            child: _buildIconButton(
+              icon: Icons.edit_rounded,
+              tooltip: 'Editar cuenta',
+              onPressed: widget.onEdit!,
+              color: ElegantLightTheme.primaryBlue,
+            ),
           ),
         if (widget.onDelete != null)
-          _buildIconButton(
-            icon: Icons.delete_outline_rounded,
-            tooltip: 'Eliminar cuenta',
-            onPressed: widget.onDelete!,
-            color: const Color(0xFFEF4444),
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.bankAccounts,
+            child: _buildIconButton(
+              icon: Icons.delete_outline_rounded,
+              tooltip: 'Eliminar cuenta',
+              onPressed: widget.onDelete!,
+              color: const Color(0xFFEF4444),
+            ),
           ),
       ],
     );

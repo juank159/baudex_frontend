@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/presentation/widgets/offline_badge.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/category.dart';
 
 class CategoryCardWidget extends StatelessWidget {
@@ -382,29 +384,39 @@ class CategoryCardWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (onEdit != null)
-          InkWell(
-            onTap: onEdit,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(2), // ✅ REDUCIDO A LA MITAD: de 4 a 2
-              child: Icon(
-                Icons.edit,
-                size: 12, // ✅ REDUCIDO: de 16 a 12
-                color: Colors.blue.shade600,
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.products,
+            child: InkWell(
+              onTap: onEdit,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                child: Icon(
+                  Icons.edit,
+                  size: 12,
+                  color: Colors.blue.shade600,
+                ),
               ),
             ),
           ),
-        if (onEdit != null && onDelete != null) const SizedBox(width: 2), // ✅ REDUCIDO A LA MITAD: de 4 a 2
+        if (onEdit != null && onDelete != null)
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.products,
+            child: const SizedBox(width: 2),
+          ),
         if (onDelete != null)
-          InkWell(
-            onTap: onDelete,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(2), // ✅ REDUCIDO A LA MITAD: de 4 a 2
-              child: Icon(
-                Icons.delete,
-                size: 12, // ✅ REDUCIDO: de 16 a 12
-                color: Colors.red.shade600,
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.products,
+            child: InkWell(
+              onTap: onDelete,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                child: Icon(
+                  Icons.delete,
+                  size: 12,
+                  color: Colors.red.shade600,
+                ),
               ),
             ),
           ),
@@ -413,26 +425,31 @@ class CategoryCardWidget extends StatelessWidget {
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    // En móvil ya no usamos este método, usamos _buildMobileActionIcons
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (onEdit != null)
-          IconButton(
-            onPressed: onEdit,
-            icon: const Icon(Icons.edit),
-            tooltip: 'Editar categoría',
-            iconSize: context.isDesktop ? 14 : 12, // ✅ REDUCIDO: desktop 18→14, tablet 16→12
-            visualDensity: VisualDensity.compact, // ✅ COMPACTO
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.products,
+            child: IconButton(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit),
+              tooltip: 'Editar categoría',
+              iconSize: context.isDesktop ? 14 : 12,
+              visualDensity: VisualDensity.compact,
+            ),
           ),
         if (onDelete != null)
-          IconButton(
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete),
-            tooltip: 'Eliminar categoría',
-            color: Colors.red,
-            iconSize: context.isDesktop ? 14 : 12, // ✅ REDUCIDO: desktop 18→14, tablet 16→12
-            visualDensity: VisualDensity.compact, // ✅ COMPACTO
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.products,
+            child: IconButton(
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete),
+              tooltip: 'Eliminar categoría',
+              color: Colors.red,
+              iconSize: context.isDesktop ? 14 : 12,
+              visualDensity: VisualDensity.compact,
+            ),
           ),
       ],
     );

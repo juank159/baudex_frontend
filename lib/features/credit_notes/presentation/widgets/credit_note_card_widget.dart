@@ -1,8 +1,11 @@
 // lib/features/credit_notes/presentation/widgets/credit_note_card_widget.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../app/core/services/permissions_service.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/presentation/widgets/offline_badge.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/credit_note.dart';
 import 'credit_note_status_widget.dart';
 
@@ -435,16 +438,27 @@ class CreditNoteCardWidget extends StatelessWidget {
           child: const Icon(Icons.more_vert, color: Colors.white, size: 14),
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        itemBuilder: (context) => [
-          _buildMenuItem('view', 'Ver Detalles', Icons.visibility, Colors.blue),
-          _buildMenuItem('pdf', 'Descargar PDF', Icons.picture_as_pdf, Colors.red.shade400),
-          if (creditNote.canBeConfirmed)
-            _buildMenuItem('confirm', 'Confirmar', Icons.check_circle, const Color(0xFF10B981)),
-          if (creditNote.canBeCancelled)
-            _buildMenuItem('cancel', 'Cancelar', Icons.cancel, Colors.orange),
-          if (creditNote.canBeDeleted)
-            _buildMenuItem('delete', 'Eliminar', Icons.delete, Colors.red),
-        ],
+        itemBuilder: (context) {
+          // Filtramos las opciones de mutación según permisos. Las acciones
+          // de solo-lectura (ver, descargar PDF) siempre están disponibles.
+          final canEdit = Get.isRegistered<PermissionsService>()
+              ? PermissionsService.to.canEdit(ModuleCode.invoices)
+              : true;
+          final canDelete = Get.isRegistered<PermissionsService>()
+              ? PermissionsService.to.canDelete(ModuleCode.invoices)
+              : true;
+          return [
+            _buildMenuItem('view', 'Ver Detalles', Icons.visibility, Colors.blue),
+            _buildMenuItem('pdf', 'Descargar PDF', Icons.picture_as_pdf, Colors.red.shade400),
+            if (creditNote.canBeConfirmed && canEdit)
+              _buildMenuItem('confirm', 'Confirmar', Icons.check_circle,
+                  const Color(0xFF10B981)),
+            if (creditNote.canBeCancelled && canEdit)
+              _buildMenuItem('cancel', 'Cancelar', Icons.cancel, Colors.orange),
+            if (creditNote.canBeDeleted && canDelete)
+              _buildMenuItem('delete', 'Eliminar', Icons.delete, Colors.red),
+          ];
+        },
       ),
     );
   }

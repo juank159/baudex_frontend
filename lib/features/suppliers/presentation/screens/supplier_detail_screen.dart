@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../../app/core/services/permissions_service.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
@@ -23,17 +26,26 @@ class SupplierDetailScreen extends GetView<SupplierDetailController> {
         actions: [
           const SyncStatusIcon(),
           if (controller.canEdit)
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: controller.goToEdit,
-              tooltip: 'Editar',
+            PermissionGate.canEdit(
+              moduleCode: ModuleCode.purchaseOrders,
+              child: IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: controller.goToEdit,
+                tooltip: 'Editar',
+              ),
             ),
           PopupMenuButton<String>(
             onSelected: _handleMenuAction,
             icon: const Icon(Icons.more_vert, size: 20),
-            itemBuilder:
-                (context) => [
-                  PopupMenuItem(
+            itemBuilder: (context) {
+              final permsCanEdit = Get.isRegistered<PermissionsService>()
+                  ? PermissionsService.to.canEdit(ModuleCode.purchaseOrders)
+                  : true;
+              final permsCanDelete = Get.isRegistered<PermissionsService>()
+                  ? PermissionsService.to.canDelete(ModuleCode.purchaseOrders)
+                  : true;
+              return [
+                  if (permsCanEdit) PopupMenuItem(
                     value: 'toggle_status',
                     enabled: controller.canToggleStatus,
                     child: Row(
@@ -125,8 +137,8 @@ class SupplierDetailScreen extends GetView<SupplierDetailController> {
                       ],
                     ),
                   ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
+                  if (permsCanDelete) const PopupMenuDivider(),
+                  if (permsCanDelete) PopupMenuItem(
                     value: 'delete',
                     enabled: controller.canDelete,
                     child: Row(
@@ -155,7 +167,8 @@ class SupplierDetailScreen extends GetView<SupplierDetailController> {
                       ],
                     ),
                   ),
-                ],
+                ];
+            },
           ),
         ],
         body:

@@ -6,6 +6,9 @@ import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_button.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../../app/core/services/permissions_service.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/invoice_detail_controller.dart';
 import '../bindings/invoice_binding.dart';
@@ -239,13 +242,16 @@ class InvoiceDetailScreen extends StatelessWidget {
       ),
       actions: [
         const SyncStatusIcon(),
-        // Editar
+        // Editar (solo si la factura permite editar Y el usuario tiene canEdit)
         GetBuilder<InvoiceDetailController>(
           builder: (controller) => controller.canEdit
-              ? IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.white, size: 20),
-                  onPressed: controller.goToEditInvoice,
-                  tooltip: 'Editar factura',
+              ? PermissionGate.canEdit(
+                  moduleCode: ModuleCode.invoices,
+                  child: IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.white, size: 20),
+                    onPressed: controller.goToEditInvoice,
+                    tooltip: 'Editar factura',
+                  ),
                 )
               : const SizedBox.shrink(),
         ),
@@ -279,6 +285,12 @@ class InvoiceDetailScreen extends StatelessWidget {
   List<PopupMenuEntry<String>> _buildFuturisticMenuItems(
     InvoiceDetailController controller,
   ) {
+    final permsCanEdit = Get.isRegistered<PermissionsService>()
+        ? PermissionsService.to.canEdit(ModuleCode.invoices)
+        : true;
+    final permsCanDelete = Get.isRegistered<PermissionsService>()
+        ? PermissionsService.to.canDelete(ModuleCode.invoices)
+        : true;
     return [
       if (controller.canPrint)
         PopupMenuItem(
@@ -308,7 +320,7 @@ class InvoiceDetailScreen extends StatelessWidget {
           color: Colors.blue.shade600,
         ),
       ),
-      if (controller.canConfirm) ...[
+      if (controller.canConfirm && permsCanEdit) ...[
         const PopupMenuDivider(height: 16),
         PopupMenuItem(
           value: 'confirm',
@@ -320,7 +332,7 @@ class InvoiceDetailScreen extends StatelessWidget {
           ),
         ),
       ],
-      if (controller.canDelete) ...[
+      if (controller.canDelete && permsCanDelete) ...[
         const PopupMenuDivider(height: 16),
         PopupMenuItem(
           value: 'delete',

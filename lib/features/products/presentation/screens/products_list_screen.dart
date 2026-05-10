@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/products_controller.dart';
@@ -54,7 +56,10 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
           desktop: _buildDesktopLayout(context),
         ),
       ),
-      floatingActionButton: _buildFloatingActionButton(context),
+      floatingActionButton: PermissionGate.canEdit(
+        moduleCode: ModuleCode.products,
+        child: _buildFloatingActionButton(context),
+      ),
     );
   }
 

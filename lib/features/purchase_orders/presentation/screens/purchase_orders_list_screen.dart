@@ -4,6 +4,8 @@ import 'package:baudex_desktop/features/purchase_orders/domain/entities/purchase
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/spectacular_floating_action_button.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/purchase_orders_controller.dart';
@@ -44,19 +46,22 @@ class _PurchaseOrdersListScreenState extends State<PurchaseOrdersListScreen> {
     return MainLayout(
       title: 'Órdenes de Compra',
       actions: _buildAppBarActions(context),
-      floatingActionButton: LayoutBuilder(
-        builder: (context, constraints) {
-          // Solo mostrar FAB en móvil y tablet, no en desktop
-          final isDesktop = constraints.maxWidth >= 1200;
-          if (isDesktop) return const SizedBox.shrink();
-          
-          return SpectacularFloatingActionButton(
-            onPressed: controller.goToCreatePurchaseOrder,
-            icon: Icons.add,
-            text: 'Nueva Orden',
-            showText: false, // En móvil/tablet solo icono
-          );
-        },
+      floatingActionButton: PermissionGate.canEdit(
+        moduleCode: ModuleCode.purchaseOrders,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Solo mostrar FAB en móvil y tablet, no en desktop
+            final isDesktop = constraints.maxWidth >= 1200;
+            if (isDesktop) return const SizedBox.shrink();
+
+            return SpectacularFloatingActionButton(
+              onPressed: controller.goToCreatePurchaseOrder,
+              icon: Icons.add,
+              text: 'Nueva Orden',
+              showText: false, // En móvil/tablet solo icono
+            );
+          },
+        ),
       ),
       body: SafeArea(
         child: LayoutBuilder(
