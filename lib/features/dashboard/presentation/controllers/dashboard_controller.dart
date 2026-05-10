@@ -1076,10 +1076,16 @@ class DashboardController extends GetxController
 
       while (hasMoreData) {
         try {
+          // NOTA: NO filtramos por status en el endpoint para no excluir
+          // gastos `paid` (los pagados directamente, ej. los de caja del
+          // día). El filtro local más abajo descarta solo los que NO
+          // impactan al negocio (draft, rejected, cancelled). Antes
+          // estaba `status='approved'` y eso ocultaba gastos `paid`,
+          // lo que causaba que el pie chart apareciera vacío aunque sí
+          // había gastos del día.
           final params = <String, dynamic>{
             'page': page,
             'limit': limit,
-            'status': 'approved',
           };
 
           if (dateRange != null) {
@@ -1100,10 +1106,18 @@ class DashboardController extends GetxController
 
             print('📄 Página $page/$totalPages: ${expenses.length} gastos');
 
+            // Estados que SÍ impactan al negocio (cuentan como gasto real).
+            // Excluimos draft, rejected y cancelled — esos aún no afectan.
+            const countableStatuses = {'paid', 'approved', 'pending'};
+
             for (int expenseIndex = 0; expenseIndex < expenses.length; expenseIndex++) {
               final expenseJson = expenses[expenseIndex];
               if (expenseJson is Map<String, dynamic>) {
                 try {
+                  final status =
+                      expenseJson['status']?.toString().toLowerCase() ?? '';
+                  if (!countableStatuses.contains(status)) continue;
+
                   final amountStr = expenseJson['amount']?.toString() ?? '0';
                   final amount = double.tryParse(amountStr) ?? 0.0;
 
