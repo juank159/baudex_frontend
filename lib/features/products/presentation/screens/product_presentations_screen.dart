@@ -33,16 +33,15 @@ class ProductPresentationsScreen
         }
         return _buildList(context);
       }),
-      // FAB adaptativo: mobile = redondo con sólo ícono; tablet/desktop
-      // = extended con etiqueta (hay espacio de sobra). El patrón
-      // estándar de Material 3 — un FAB con texto en mobile se ve
-      // apretado y no respeta el tap target.
-      floatingActionButton: _buildResponsiveFab(
-        context,
-        icon: Icons.add,
-        label: 'Nueva Presentación',
-        tooltip: 'Nueva presentación',
+      // FAB redondo sólo con ícono — sin texto en ningún tamaño.
+      // Patrón Material 3 estándar; el `.extended` con label se ve
+      // desproporcionado y apretado, incluso en desktop. El tooltip
+      // cumple la función descubridora sin saturar la UI.
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _showPresentationForm(context),
+        backgroundColor: ElegantLightTheme.primaryBlue,
+        tooltip: 'Nueva presentación',
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -219,36 +218,6 @@ class ProductPresentationsScreen
             );
           },
         ),
-      ),
-    );
-  }
-
-  // ==================== HELPERS ====================
-
-  Widget _buildResponsiveFab(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
-    if (isMobile) {
-      return FloatingActionButton(
-        onPressed: onPressed,
-        backgroundColor: ElegantLightTheme.primaryBlue,
-        tooltip: tooltip,
-        child: Icon(icon, color: Colors.white),
-      );
-    }
-    return FloatingActionButton.extended(
-      onPressed: onPressed,
-      backgroundColor: ElegantLightTheme.primaryBlue,
-      icon: Icon(icon, color: Colors.white),
-      label: Text(
-        label,
-        style: const TextStyle(
-            color: Colors.white, fontWeight: FontWeight.w600),
       ),
     );
   }

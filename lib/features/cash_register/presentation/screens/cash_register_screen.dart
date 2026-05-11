@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/core/utils/number_input_formatter.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 import '../../domain/entities/cash_register.dart';
@@ -813,12 +814,11 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                     TextFormField(
                       controller: amountCtrl,
                       autofocus: true,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                            RegExp(r'[0-9.,]')),
-                      ],
+                      keyboardType: TextInputType.number,
+                      // Mismo formateador que se usa en productos,
+                      // gastos y demás campos monetarios — separador
+                      // de miles en vivo mientras el cajero tipea.
+                      inputFormatters: [PriceInputFormatter()],
                       style: TextStyle(
                           color: ElegantLightTheme.textPrimary,
                           fontWeight: FontWeight.w700,
@@ -849,8 +849,10 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                         if (v == null || v.trim().isEmpty) {
                           return 'Ingresa el saldo (puede ser 0)';
                         }
-                        final n =
-                            double.tryParse(v.replaceAll(',', ''));
+                        // El TextField muestra "15.000" con puntos —
+                        // parseamos con AppFormatters que entiende ese
+                        // formato (no `double.parse` directo).
+                        final n = AppFormatters.parseNumber(v);
                         if (n == null || n < 0) return 'Monto inválido';
                         return null;
                       },
@@ -945,13 +947,17 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                                                 .currentState!
                                                 .validate())
                                               return;
-                                            final amount = double
-                                                    .tryParse(
-                                                        amountCtrl
-                                                            .text
-                                                            .replaceAll(
-                                                                ',',
-                                                                '')) ??
+                                            // El TextField muestra el
+                                            // monto con separador de
+                                            // miles ("15.000") gracias
+                                            // a `PriceInputFormatter`.
+                                            // `AppFormatters.parseNumber`
+                                            // entiende ese formato; un
+                                            // `double.parse` crudo
+                                            // rompería al ver el punto.
+                                            final amount = AppFormatters
+                                                    .parseNumber(
+                                                        amountCtrl.text) ??
                                                 0;
                                             final desc = notesCtrl
                                                 .text
@@ -1176,12 +1182,12 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                     TextFormField(
                       controller: actualCtrl,
                       autofocus: true,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                            RegExp(r'[0-9.,]')),
-                      ],
+                      keyboardType: TextInputType.number,
+                      // Separador de miles en vivo. Idéntico al campo
+                      // "Saldo inicial" de la apertura — coherencia
+                      // visual y la misma forma de parsear con
+                      // AppFormatters.parseNumber al validar.
+                      inputFormatters: [PriceInputFormatter()],
                       style: TextStyle(
                           color: ElegantLightTheme.textPrimary,
                           fontWeight: FontWeight.w700,
@@ -1214,8 +1220,9 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                         if (v == null || v.trim().isEmpty) {
                           return 'Cuenta el efectivo y registra el monto';
                         }
-                        final n =
-                            double.tryParse(v.replaceAll(',', ''));
+                        // AppFormatters entiende "15.000" con puntos
+                        // de miles; `double.parse` directo los rompe.
+                        final n = AppFormatters.parseNumber(v);
                         if (n == null || n < 0) return 'Monto inválido';
                         return null;
                       },
@@ -1309,13 +1316,13 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                                                 .currentState!
                                                 .validate())
                                               return;
-                                            final actual = double
-                                                    .tryParse(
-                                                        actualCtrl
-                                                            .text
-                                                            .replaceAll(
-                                                                ',',
-                                                                '')) ??
+                                            // Mismo motivo que en el
+                                            // submit de apertura — el
+                                            // text trae puntos de miles
+                                            // visuales.
+                                            final actual = AppFormatters
+                                                    .parseNumber(
+                                                        actualCtrl.text) ??
                                                 0;
                                             final desc = notesCtrl
                                                 .text

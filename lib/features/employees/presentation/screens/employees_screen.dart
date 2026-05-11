@@ -60,47 +60,19 @@ class EmployeesScreen extends StatelessWidget {
           ),
         ],
       ),
-      // FAB adaptativo: en mobile usamos un FAB redondo (sólo ícono),
-      // que es el patrón Material estándar. En tablet/desktop usamos
-      // el `extended` con etiqueta porque hay espacio de sobra y el
-      // texto orienta mejor al usuario.
-      floatingActionButton: _buildResponsiveFab(
-        context,
-        icon: Icons.person_add_rounded,
-        label: 'Nuevo empleado',
-        tooltip: 'Nuevo empleado',
+      // FAB redondo sólo con ícono — sin texto en ningún tamaño.
+      // El tooltip basta para descubrir la acción. Patrón Material 3
+      // estándar; el `.extended` con label se ve apretado y
+      // desproporcionado incluso en desktop dentro de esta vista.
+      floatingActionButton: FloatingActionButton(
         onPressed: () => EmployeeFormDialog.show(),
+        backgroundColor: ElegantLightTheme.primaryBlue,
+        tooltip: 'Nuevo empleado',
+        child: const Icon(Icons.person_add_rounded, color: Colors.white),
       ),
     );
   }
 
-  Widget _buildResponsiveFab(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
-    if (isMobile) {
-      return FloatingActionButton(
-        onPressed: onPressed,
-        backgroundColor: ElegantLightTheme.primaryBlue,
-        tooltip: tooltip,
-        child: Icon(icon, color: Colors.white),
-      );
-    }
-    return FloatingActionButton.extended(
-      onPressed: onPressed,
-      backgroundColor: ElegantLightTheme.primaryBlue,
-      icon: Icon(icon, color: Colors.white),
-      label: Text(
-        label,
-        style: const TextStyle(
-            color: Colors.white, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
 }
 
 class _Header extends StatelessWidget {
