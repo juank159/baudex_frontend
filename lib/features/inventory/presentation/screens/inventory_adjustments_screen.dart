@@ -6,6 +6,7 @@ import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/inventory_adjustments_controller.dart';
+import '../widgets/confirm_password_dialog.dart';
 import '../widgets/product_search_widget.dart';
 
 class InventoryAdjustmentsScreen
@@ -32,46 +33,39 @@ class InventoryAdjustmentsScreen
                   constraints.maxWidth >= 600 && constraints.maxWidth < 1200;
               final isMobile = constraints.maxWidth < 600;
 
+              // Sin `ConstrainedBox` global — el contenido se expande
+              // a todo el ancho disponible (igual que bulk-adjustments).
+              // Antes el `maxWidth: 1100` dejaba dos franjas vacías a
+              // los lados en pantallas anchas.
               return SingleChildScrollView(
                 padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: isDesktop
-                          ? 1100.0
-                          : isTablet
-                              ? 860.0
-                              : double.infinity,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildInstructionsCard(),
-                        const SizedBox(height: 16),
-                        _buildWarehouseCard(isMobile),
-                        const SizedBox(height: 16),
-                        _buildProductCard(),
-                        Obx(() {
-                          if (!controller.hasCurrentBalance) {
-                            return const SizedBox.shrink();
-                          }
-                          return Column(
-                            children: [
-                              const SizedBox(height: 16),
-                              if (isDesktop)
-                                _buildDesktopLayout()
-                              else if (isTablet)
-                                _buildTabletLayout()
-                              else
-                                _buildMobileLayout(),
-                              const SizedBox(height: 24),
-                              _buildSubmitButton(isMobile),
-                            ],
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInstructionsCard(),
+                    const SizedBox(height: 16),
+                    _buildWarehouseCard(isMobile),
+                    const SizedBox(height: 16),
+                    _buildProductCard(),
+                    Obx(() {
+                      if (!controller.hasCurrentBalance) {
+                        return const SizedBox.shrink();
+                      }
+                      return Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          if (isDesktop)
+                            _buildDesktopLayout()
+                          else if (isTablet)
+                            _buildTabletLayout()
+                          else
+                            _buildMobileLayout(),
+                          const SizedBox(height: 24),
+                          _buildSubmitButton(isMobile),
+                        ],
+                      );
+                    }),
+                  ],
                 ),
               );
             },
@@ -1245,7 +1239,7 @@ class InventoryAdjustmentsScreen
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: valid && !submitting ? controller.createAdjustment : null,
+            onTap: valid && !submitting ? _onApplyPressed : null,
             borderRadius: BorderRadius.circular(14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1298,5 +1292,33 @@ class InventoryAdjustmentsScreen
       // Mobile: full-width
       return SizedBox(width: double.infinity, child: button);
     });
+  }
+
+  // ──────────────────────── CONFIRMACIÓN CON CONTRASEÑA ────────────────────────
+
+  /// Pide la contraseña del usuario antes de aplicar el ajuste. Igual
+  /// que en ajustes masivos — cualquier modificación de inventario es
+  /// sensible y debe confirmarse explícitamente.
+  Future<void> _onApplyPressed() async {
+    final product = controller.selectedProductName.value;
+    final warehouse = controller.selectedWarehouseName.value;
+    final current = controller.currentBalance.value?.totalQuantity ?? 0;
+    final newQty = controller.newQuantity.value;
+    final diff = newQty - current;
+    final diffText = diff > 0
+        ? 'aumentará en $diff unidades'
+        : diff < 0
+            ? 'disminuirá en ${diff.abs()} unidades'
+            : 'no tendrá cambio de stock';
+    final confirmed = await showConfirmPasswordDialog(
+      title: 'Confirmar ajuste de inventario',
+      message:
+          'Se aplicará el ajuste a "$product" en $warehouse. El stock $diffText. '
+          'Esta acción no se puede deshacer.',
+      confirmButtonText: 'Confirmar y aplicar',
+    );
+    if (confirmed) {
+      controller.createAdjustment();
+    }
   }
 }
