@@ -179,8 +179,8 @@ class SyncConfig {
     'client_balance',
     'ExpenseCategory',
     'expense_category',
-    'Notification',
-    'notification',
+    // Nota: Notification queda registrada SOLO en `readOnlyEntityTypes`
+    // — backend la genera, frontend nunca debe encolarla.
     'Organization',
     'organization',
     'organization_profit_margin',
@@ -195,7 +195,33 @@ class SyncConfig {
 
   /// Verifica si un tipo de entidad es soportado
   static bool isEntityTypeSupported(String entityType) {
-    return supportedEntityTypes.contains(entityType);
+    return supportedEntityTypes.contains(entityType) ||
+        readOnlyEntityTypes.contains(entityType);
+  }
+
+  /// Entidades que SOLO se descargan del servidor (PULL).
+  ///
+  /// El backend las crea/actualiza automáticamente (suscripciones, almacenes,
+  /// lotes de inventario regenerados por FIFO al sincronizar facturas, etc.)
+  /// y NUNCA deben sincronizarse en sentido PUSH. Si por accidente algo
+  /// intenta encolarlas, `addOperation()` debe descartar silenciosamente
+  /// con un log claro en vez de crashear con ArgumentError o un
+  /// `default: throw "Tipo de entidad no soportado"` en el switch del sync
+  /// service. Mantenerlo explícito previene fallos silenciosos.
+  static const Set<String> readOnlyEntityTypes = {
+    'Subscription',
+    'subscription',
+    'Warehouse',
+    'warehouse',
+    'InventoryBatch',
+    'inventory_batch',
+    'Notification',
+    'notification',
+  };
+
+  /// Verifica si la entidad es read-only (solo PULL, no PUSH).
+  static bool isReadOnlyEntity(String entityType) {
+    return readOnlyEntityTypes.contains(entityType);
   }
 
   // ==================== ESTADOS DE SALUD ====================

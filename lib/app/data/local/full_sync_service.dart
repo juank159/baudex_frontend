@@ -365,6 +365,16 @@ class FullSyncService extends GetxService {
 
         await Future.wait(futures);
 
+        // Yield al event loop entre tiers. Sin esto, los 4 tiers se
+        // ejecutan back-to-back sin dejar respirar al main isolate, y
+        // si el usuario está navegando, sus frames de Flutter quedan
+        // hambreados (la UI se siente "pegada"). Un `Future.delayed
+        // (Duration.zero)` cede el turno al scheduler para que
+        // pinten frames pendientes antes del siguiente tier.
+        if (tierIdx < _syncTiers.length - 1) {
+          await Future.delayed(Duration.zero);
+        }
+
         // Early abort: si TODAS las entidades del tier fallaron, el servidor está caído
         // No tiene sentido continuar con los demás tiers (evita ~18 requests innecesarias)
         final tierErrors = tier.where((e) => errors.containsKey(e)).length;
@@ -1182,9 +1192,19 @@ class FullSyncService extends GetxService {
       print('🧹 [FULL_SYNC] Limpiando registros huérfanos...');
       final isarDb = IsarDatabase.instance;
 
-      // Obtener TODAS las operaciones de sync pendientes para no borrar records activos
-      final allPendingOps = await isarDb.getPendingSyncOperations();
-      final pendingEntityIds = allPendingOps.map((op) => op.entityId).toSet();
+      // CRÍTICO: incluir tanto operaciones PENDING como FAILED. Sin esto,
+      // si una factura offline tiene sync fallido (ej. backend rechazó
+      // por validación de caja), su operación queda en estado `failed`
+      // y NO aparece en `getPendingSyncOperations()`. El cleanup la
+      // consideraba huérfana y la borraba → pérdida silenciosa de datos
+      // del usuario. Ahora una factura offline con cualquier operación
+      // en cola (pending o failed) se preserva.
+      final pendingOps = await isarDb.getPendingSyncOperations();
+      final failedOps = await isarDb.getFailedSyncOperations();
+      final pendingEntityIds = <String>{
+        ...pendingOps.map((op) => op.entityId),
+        ...failedOps.map((op) => op.entityId),
+      };
 
       int totalCleaned = 0;
 

@@ -264,6 +264,21 @@ class SyncService extends GetxService {
   // FASE 5: Última descarga (pull) del servidor - throttle cada 5 minutos
   DateTime? _lastPullTime;
 
+  // Marca de actividad de navegación reciente. El NavigationGuard lo
+  // actualiza en cada `offAllNamed`/`toNamed`. Si el usuario está
+  // navegando activamente, postergamos el pull periódico para no
+  // saturar el isolate (cargar 273 registros en paralelo mientras
+  // Flutter está desmontando árboles deja la UI congelada).
+  DateTime? _lastNavigationAt;
+  static const Duration _navigationQuietPeriod = Duration(seconds: 3);
+
+  /// El NavigationGuard llama a esto en cada navegación. No hace
+  /// nada más que actualizar el timestamp — el chequeo se hace en
+  /// [_shouldPeriodicPull].
+  void markNavigationActivity() {
+    _lastNavigationAt = DateTime.now();
+  }
+
   // 🔒 Lock para prevenir sincronizaciones concurrentes
   final SyncServiceLock _lock = SyncServiceLock();
 
@@ -476,10 +491,21 @@ class SyncService extends GetxService {
     );
   }
 
-  /// Verifica si es momento de hacer un pull periódico (cada 60s)
+  /// Verifica si es momento de hacer un pull periódico (cada 60s).
+  ///
+  /// Skip si:
+  ///  - hay formularios abiertos (evita perder datos en edición)
+  ///  - hubo navegación en los últimos [_navigationQuietPeriod]
+  ///    segundos (el isolate está ocupado armando la nueva pantalla,
+  ///    arrancar un fetch de 273 registros encima cuelga la UI)
+  ///  - el último pull fue hace menos de 60s
   bool _shouldPeriodicPull() {
-    // No hacer pull si hay formularios abiertos (evita tráfico innecesario)
     if (hasActiveForm) return false;
+    if (_lastNavigationAt != null &&
+        DateTime.now().difference(_lastNavigationAt!) <
+            _navigationQuietPeriod) {
+      return false;
+    }
     if (_lastPullTime == null) return true;
     return DateTime.now().difference(_lastPullTime!) > const Duration(seconds: 60);
   }
@@ -1438,6 +1464,22 @@ class SyncService extends GetxService {
   }) async {
     // ✅ VALIDACIONES DE DATOS
     // 1. Validar tipo de entidad
+    //
+    // 1.a Read-only: si algo intenta encolar una entidad que sólo se
+    // descarga del servidor (suscripciones, almacenes, lotes regenerados
+    // por FIFO, notificaciones), descartamos sin crash. Antes esto
+    // crasheaba con ArgumentError → quedaban fallos silenciosos
+    // imposibles de debuggear. Ahora dejamos rastro en log y la
+    // operación simplemente no entra a la cola.
+    if (SyncConfig.isReadOnlyEntity(entityType)) {
+      AppLogger.w(
+        'Operación descartada — $entityType es read-only (solo PULL, backend la genera). '
+        'entityId=$entityId op=$operationType',
+        tag: 'SYNC',
+      );
+      return;
+    }
+
     if (!SyncConfig.isEntityTypeSupported(entityType)) {
       AppLogger.e(
         'Tipo de entidad no soportado: $entityType',
@@ -5083,25 +5125,36 @@ class SyncService extends GetxService {
                     tag: 'SYNC',
                   );
 
-                  // Usar items de ISAR si existen, sino mantener del payload
+                  // Usar items de ISAR si existen, sino mantener del payload.
+                  //
+                  // Productos TEMPORALES: si el item tiene productId con
+                  // prefijo `temp_` significa que es un producto no
+                  // registrado (ej. "papas $5.000" sin catálogo). El
+                  // backend espera `isTemporary: true` SIN `productId`
+                  // (su validador rechaza productId no-UUID). Sin esta
+                  // distinción, el sync retry mandaba `productId: temp_xxx`
+                  // y backend respondía 400 → operación quedaba en failed
+                  // → FullSync la borraba como huérfana → factura perdida.
                   final itemsToUse = hasItemsInIsar
-                      ? invoice.items
-                          .map(
-                            (item) => {
+                      ? invoice.items.map((item) {
+                          final isTemp =
+                              item.productId?.startsWith('temp_') ?? false;
+                          return {
+                            if (!isTemp && item.productId != null)
                               'productId': item.productId,
-                              'description': item.description,
-                              'quantity': item.quantity,
-                              'unitPrice': item.unitPrice,
-                              'unit': item.unit,
-                              'discountPercentage': item.discountPercentage,
-                              'discountAmount': item.discountAmount,
-                              'notes': item.notes,
-                              // Presentación de venta (Fase 3) — se omite si null
-                              if (item.presentationId != null)
-                                'presentationId': item.presentationId,
-                            },
-                          )
-                          .toList()
+                            if (isTemp) 'isTemporary': true,
+                            'description': item.description,
+                            'quantity': item.quantity,
+                            'unitPrice': item.unitPrice,
+                            'unit': item.unit,
+                            'discountPercentage': item.discountPercentage,
+                            'discountAmount': item.discountAmount,
+                            'notes': item.notes,
+                            // Presentación de venta (Fase 3) — se omite si null
+                            if (item.presentationId != null)
+                              'presentationId': item.presentationId,
+                          };
+                        }).toList()
                       : data['items']; // Mantener items del payload original
 
                   // Actualizar finalData con datos de ISAR pero preservando items si es necesario
