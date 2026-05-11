@@ -984,140 +984,13 @@ class InventoryBulkAdjustmentsScreen
   }
 
   Widget _buildItemQuantityControl(BulkAdjustmentItem item) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
-      decoration: BoxDecoration(
-        gradient: ElegantLightTheme.glassGradient,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: ElegantLightTheme.primaryBlue.withOpacity(0.25),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Nueva Cantidad',
-            style: const TextStyle(
-              fontSize: 9,
-              color: ElegantLightTheme.primaryBlue,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Botón −
-              GestureDetector(
-                onTap: () {
-                  if (item.newQuantity.value > 0) {
-                    item.newQuantity.value--;
-                  }
-                },
-                onLongPress: () {
-                  final v = item.newQuantity.value - 10;
-                  item.newQuantity.value = v < 0 ? 0 : v;
-                },
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    gradient: item.newQuantity.value > 0
-                        ? ElegantLightTheme.primaryGradient
-                        : null,
-                    color: item.newQuantity.value > 0
-                        ? null
-                        : ElegantLightTheme.cardColor,
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Icon(
-                    Icons.remove,
-                    size: 14,
-                    color: item.newQuantity.value > 0
-                        ? Colors.white
-                        : ElegantLightTheme.textTertiary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-
-              // TextField cantidad (sin controller para evitar key conflicts en grillas)
-              Expanded(
-                child: Obx(() => TextFormField(
-                      key: ValueKey('qty_${item.id}'),
-                      initialValue: item.newQuantity.value.toString(),
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: ElegantLightTheme.textPrimary,
-                      ),
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: ElegantLightTheme.primaryBlue
-                                .withOpacity(0.3),
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: ElegantLightTheme.primaryBlue
-                                .withOpacity(0.3),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: ElegantLightTheme.primaryBlue,
-                            width: 1.5,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        isDense: true,
-                      ),
-                      onChanged: (value) {
-                        item.newQuantity.value = int.tryParse(value) ?? 0;
-                      },
-                    )),
-              ),
-
-              const SizedBox(width: 4),
-
-              // Botón +
-              GestureDetector(
-                onTap: () => item.newQuantity.value++,
-                onLongPress: () => item.newQuantity.value += 10,
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    gradient: ElegantLightTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: const Icon(
-                    Icons.add,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+    // Widget separado con su propio State para que el TextField y los
+    // botones +/- compartan la misma fuente de verdad (`item.newQuantity`)
+    // sin desfases visuales — el bug histórico era que `TextFormField`
+    // con `initialValue` cacheaba el valor original en su FormFieldState
+    // interno y los clicks en +/- actualizaban el Rx pero el texto
+    // mostrado en pantalla no.
+    return _ItemQuantityControl(item: item);
   }
 
   // ──────────────────────── FOOTER FIJO ────────────────────────
@@ -1630,6 +1503,201 @@ class _BulkConfirmPasswordDialogState
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Control de cantidad de un item del ajuste masivo.
+///
+/// Tiene su propio `TextEditingController` y un `Worker.ever()` que
+/// mantiene el texto en sync con el observable `item.newQuantity`.
+/// Es la única forma confiable de que **tanto el teclado como los
+/// botones +/-** se mantengan visualmente sincronizados — el patrón
+/// anterior (`TextFormField` con `initialValue` dentro de `Obx`) no
+/// funcionaba porque el FormFieldState cachea el valor inicial y no
+/// reacciona a rebuilds del Obx.
+class _ItemQuantityControl extends StatefulWidget {
+  final BulkAdjustmentItem item;
+  const _ItemQuantityControl({required this.item});
+
+  @override
+  State<_ItemQuantityControl> createState() => _ItemQuantityControlState();
+}
+
+class _ItemQuantityControlState extends State<_ItemQuantityControl> {
+  late final TextEditingController _ctrl;
+  Worker? _rxWorker;
+
+  /// Lock para evitar loop infinito: Rx → controller → onChanged → Rx.
+  bool _syncingFromRx = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(
+      text: widget.item.newQuantity.value.toString(),
+    );
+    // Cuando el Rx cambia (por +/- u otra fuente externa), reflejarlo
+    // en el TextField sin retrigger el onChanged.
+    _rxWorker = ever<int>(widget.item.newQuantity, (val) {
+      final str = val.toString();
+      if (_ctrl.text == str) return;
+      _syncingFromRx = true;
+      _ctrl.value = TextEditingValue(
+        text: str,
+        selection: TextSelection.collapsed(offset: str.length),
+      );
+      _syncingFromRx = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _rxWorker?.dispose();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.glassGradient,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.25),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Nueva Cantidad',
+            style: TextStyle(
+              fontSize: 9,
+              color: ElegantLightTheme.primaryBlue,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Botón − (con Obx para que su color/gradient reaccione
+              // al valor actual)
+              Obx(() {
+                final enabled = item.newQuantity.value > 0;
+                return GestureDetector(
+                  onTap: enabled
+                      ? () => item.newQuantity.value--
+                      : null,
+                  onLongPress: enabled
+                      ? () {
+                          final v = item.newQuantity.value - 10;
+                          item.newQuantity.value = v < 0 ? 0 : v;
+                        }
+                      : null,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      gradient: enabled
+                          ? ElegantLightTheme.primaryGradient
+                          : null,
+                      color: enabled
+                          ? null
+                          : ElegantLightTheme.cardColor,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(
+                      Icons.remove,
+                      size: 14,
+                      color: enabled
+                          ? Colors.white
+                          : ElegantLightTheme.textTertiary,
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(width: 4),
+              // TextField conectado al controller — el controller se
+              // mantiene en sync con el Rx vía el Worker en initState.
+              Expanded(
+                child: TextField(
+                  controller: _ctrl,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color:
+                            ElegantLightTheme.primaryBlue.withOpacity(0.3),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color:
+                            ElegantLightTheme.primaryBlue.withOpacity(0.3),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(
+                        color: ElegantLightTheme.primaryBlue,
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 4,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
+                  ),
+                  onChanged: (value) {
+                    // Skip si el cambio viene del Rx (evita loop).
+                    if (_syncingFromRx) return;
+                    final parsed = int.tryParse(value) ?? 0;
+                    if (item.newQuantity.value != parsed) {
+                      item.newQuantity.value = parsed;
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Botón +
+              GestureDetector(
+                onTap: () => item.newQuantity.value++,
+                onLongPress: () => item.newQuantity.value += 10,
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    gradient: ElegantLightTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Icon(
+                    Icons.add,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
