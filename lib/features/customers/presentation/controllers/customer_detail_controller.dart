@@ -1,6 +1,7 @@
 // lib/features/customers/presentation/controllers/customer_detail_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/safe_text_editing_controller.dart';
@@ -10,7 +11,7 @@ import '../../domain/usecases/get_customer_by_id_usecase.dart';
 import '../../domain/usecases/update_customer_usecase.dart';
 import '../../domain/usecases/delete_customer_usecase.dart';
 
-class CustomerDetailController extends GetxController {
+class CustomerDetailController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
   final GetCustomerByIdUseCase _getCustomerByIdUseCase;
   final UpdateCustomerUseCase _updateCustomerUseCase;
@@ -52,7 +53,15 @@ class CustomerDetailController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     _loadCustomerData();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    if (customerId.isNotEmpty) {
+      await loadCustomer();
+    }
   }
 
   // ==================== DATA LOADING ====================

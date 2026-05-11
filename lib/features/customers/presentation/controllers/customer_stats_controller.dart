@@ -1,13 +1,14 @@
 // lib/features/customers/presentation/controllers/customer_stats_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/customer_stats.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/usecases/get_customer_stats_usecase.dart';
 import '../../domain/repositories/customer_repository.dart';
 
-class CustomerStatsController extends GetxController {
+class CustomerStatsController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
   final GetCustomerStatsUseCase _getCustomerStatsUseCase;
   final CustomerRepository _customerRepository;
@@ -121,7 +122,14 @@ class CustomerStatsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     _initializeData();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    _isLoadAllInProgress = false;
+    await loadAllStats();
   }
 
   // ==================== INITIALIZATION ====================

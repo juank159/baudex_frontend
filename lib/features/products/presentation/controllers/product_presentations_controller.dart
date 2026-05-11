@@ -1,12 +1,14 @@
 // lib/features/products/presentation/controllers/product_presentations_controller.dart
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/product_presentation.dart';
 import '../../domain/usecases/get_product_presentations_usecase.dart';
 import '../../domain/usecases/create_product_presentation_usecase.dart';
 import '../../domain/usecases/update_product_presentation_usecase.dart';
 import '../../domain/usecases/delete_product_presentation_usecase.dart';
 
-class ProductPresentationsController extends GetxController {
+class ProductPresentationsController extends GetxController
+    with SyncAutoRefreshMixin {
   final GetProductPresentationsUseCase getPresentationsUseCase;
   final CreateProductPresentationUseCase createPresentationUseCase;
   final UpdateProductPresentationUseCase updatePresentationUseCase;
@@ -34,6 +36,8 @@ class ProductPresentationsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
+
     final params = Get.parameters;
     final args = Get.arguments;
 
@@ -49,6 +53,13 @@ class ProductPresentationsController extends GetxController {
 
     if (productId.value.isNotEmpty) {
       loadPresentations();
+    }
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    if (productId.value.isNotEmpty) {
+      await loadPresentations();
     }
   }
 

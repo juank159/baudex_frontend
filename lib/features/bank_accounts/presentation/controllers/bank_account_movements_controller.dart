@@ -1,6 +1,7 @@
 // lib/features/bank_accounts/presentation/controllers/bank_account_movements_controller.dart
 import 'package:flutter/material.dart' show Color;
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/bank_account.dart';
 import '../../domain/entities/bank_account_movement.dart';
 import '../../domain/entities/bank_account_transaction.dart';
@@ -8,7 +9,8 @@ import '../../domain/repositories/bank_account_repository.dart';
 import 'bank_accounts_controller.dart';
 
 /// Controlador para la pantalla de movimientos de cuentas bancarias
-class BankAccountMovementsController extends GetxController {
+class BankAccountMovementsController extends GetxController
+    with SyncAutoRefreshMixin {
   final BankAccountRepository repository;
 
   BankAccountMovementsController({required this.repository});
@@ -59,6 +61,22 @@ class BankAccountMovementsController extends GetxController {
   /// Filtros activos
   bool get hasActiveFilters =>
       startDate.value != null || endDate.value != null || searchQuery.value.isNotEmpty;
+
+  // ==================== LIFECYCLE ====================
+
+  @override
+  void onInit() {
+    super.onInit();
+    setupSyncListener();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    final id = account.value?.id;
+    if (id != null && id.isNotEmpty) {
+      await loadTransactions(refresh: true);
+    }
+  }
 
   // ==================== INITIALIZATION ====================
 

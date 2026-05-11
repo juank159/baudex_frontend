@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/credit_note.dart';
 import '../../domain/usecases/get_credit_note_by_id.dart';
@@ -10,7 +11,8 @@ import '../../domain/usecases/cancel_credit_note.dart';
 import '../../domain/usecases/delete_credit_note.dart';
 import '../../domain/usecases/download_credit_note_pdf.dart';
 
-class CreditNoteDetailController extends GetxController {
+class CreditNoteDetailController extends GetxController
+    with SyncAutoRefreshMixin {
   // Dependencies
   final GetCreditNoteById _getCreditNoteByIdUseCase;
   final ConfirmCreditNote _confirmCreditNoteUseCase;
@@ -50,9 +52,18 @@ class CreditNoteDetailController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     final id = Get.parameters['id'];
     if (id != null) {
       loadCreditNote(id);
+    }
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    final id = _creditNote.value?.id ?? Get.parameters['id'];
+    if (id != null && id.isNotEmpty) {
+      await loadCreditNote(id);
     }
   }
 

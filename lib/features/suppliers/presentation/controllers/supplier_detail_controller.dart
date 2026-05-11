@@ -1,13 +1,14 @@
 // lib/features/suppliers/presentation/controllers/supplier_detail_controller.dart
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/supplier.dart';
 import '../../domain/usecases/get_supplier_by_id_usecase.dart';
 import '../../domain/usecases/delete_supplier_usecase.dart';
 import '../../domain/usecases/update_supplier_usecase.dart';
 
-class SupplierDetailController extends GetxController {
+class SupplierDetailController extends GetxController with SyncAutoRefreshMixin {
   final GetSupplierByIdUseCase getSupplierByIdUseCase;
   final DeleteSupplierUseCase deleteSupplierUseCase;
   final UpdateSupplierUseCase updateSupplierUseCase;
@@ -34,7 +35,15 @@ class SupplierDetailController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     _initializeData();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    if (supplierId.value.isNotEmpty) {
+      await loadSupplier();
+    }
   }
 
   // ==================== INITIALIZATION ====================

@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/app_settings.dart';
 import '../../domain/entities/invoice_settings.dart';
@@ -14,7 +15,7 @@ import '../../domain/usecases/get_printer_settings_usecase.dart';
 import '../../domain/usecases/save_printer_settings_usecase.dart';
 import '../../../invoices/presentation/controllers/thermal_printer_controller.dart';
 
-class SettingsController extends GetxController {
+class SettingsController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
   final GetAppSettingsUseCase _getAppSettingsUseCase;
   final SaveAppSettingsUseCase _saveAppSettingsUseCase;
@@ -92,8 +93,14 @@ class SettingsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     print('🚀 SettingsController: Inicializando...');
     loadAllSettings();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    await loadAllSettings();
   }
 
   // ==================== CORE METHODS ====================

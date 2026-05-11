@@ -1,6 +1,7 @@
 // lib/features/categories/presentation/controllers/category_detail_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/usecases/get_categories_usecase.dart';
 import '../../domain/usecases/get_category_by_id_usecase.dart';
@@ -8,7 +9,7 @@ import '../../domain/usecases/delete_category_usecase.dart';
 import '../../domain/usecases/update_category_usecase.dart';
 
 class CategoryDetailController extends GetxController
-    with GetSingleTickerProviderStateMixin {
+    with GetSingleTickerProviderStateMixin, SyncAutoRefreshMixin {
   // Dependencies
   final GetCategoryByIdUseCase _getCategoryByIdUseCase;
   final GetCategoriesUseCase _getCategoriesUseCase;
@@ -64,12 +65,21 @@ class CategoryDetailController extends GetxController
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     // Inicializar TabController
     tabController = TabController(length: 3, vsync: this);
 
     final categoryId = Get.parameters['id'];
     if (categoryId != null) {
       loadCategoryDetail(categoryId);
+    }
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    final id = _category.value?.id ?? Get.parameters['id'];
+    if (id != null && id.isNotEmpty) {
+      await loadCategoryDetail(id);
     }
   }
 
