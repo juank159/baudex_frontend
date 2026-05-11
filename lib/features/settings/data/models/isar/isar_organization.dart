@@ -104,9 +104,12 @@ class IsarOrganization {
   // ==================== MAPPERS ====================
 
   static IsarOrganization fromEntity(Organization entity) {
-    // Inyectar multiCurrencyEnabled en settings para persistir en ISAR sin cambiar schema
-    final settingsWithMultiCurrency = Map<String, dynamic>.from(entity.settings ?? {});
-    settingsWithMultiCurrency['multiCurrencyEnabled'] = entity.multiCurrencyEnabled;
+    // Inyectar flags top-level dentro de settings JSONB para persistir
+    // en ISAR sin cambiar el schema (multiCurrencyEnabled,
+    // cashRegisterEnabled, etc.).
+    final settingsWithFlags = Map<String, dynamic>.from(entity.settings ?? {});
+    settingsWithFlags['multiCurrencyEnabled'] = entity.multiCurrencyEnabled;
+    settingsWithFlags['cashRegisterEnabled'] = entity.cashRegisterEnabled;
 
     return IsarOrganization.create(
       serverId: entity.id,
@@ -114,7 +117,7 @@ class IsarOrganization {
       slug: entity.slug,
       domain: entity.domain,
       logo: entity.logo,
-      settingsJson: _encodeSettings(settingsWithMultiCurrency),
+      settingsJson: _encodeSettings(settingsWithFlags),
       subscriptionPlan: _mapSubscriptionPlan(entity.subscriptionPlan),
       subscriptionStatus: _mapSubscriptionStatus(entity.subscriptionStatus),
       isActive: entity.isActive,
@@ -139,8 +142,14 @@ class IsarOrganization {
 
   Organization toEntity() {
     final decodedSettings = _decodeSettings(settingsJson);
-    // Extraer multiCurrencyEnabled de settings (almacenado ahí para evitar cambio de schema ISAR)
-    final multiCurrency = decodedSettings.remove('multiCurrencyEnabled') as bool? ?? false;
+    // Extraer flags top-level de settings (almacenados ahí para evitar
+    // cambio de schema ISAR). Defaults conservadores: multi-currency
+    // false (era el comportamiento histórico), cash register `true`
+    // (módulo activo para no romper a clientes existentes).
+    final multiCurrency =
+        decodedSettings.remove('multiCurrencyEnabled') as bool? ?? false;
+    final cashRegister =
+        decodedSettings.remove('cashRegisterEnabled') as bool? ?? true;
 
     return Organization(
       id: serverId,
@@ -156,6 +165,7 @@ class IsarOrganization {
       locale: locale,
       timezone: timezone,
       multiCurrencyEnabled: multiCurrency,
+      cashRegisterEnabled: cashRegister,
       defaultProfitMarginPercentage: defaultProfitMarginPercentage,
       subscriptionStartDate: subscriptionStartDate,
       subscriptionEndDate: subscriptionEndDate,
@@ -176,9 +186,10 @@ class IsarOrganization {
     slug = entity.slug;
     domain = entity.domain;
     logo = entity.logo;
-    final settingsWithMultiCurrency = Map<String, dynamic>.from(entity.settings ?? {});
-    settingsWithMultiCurrency['multiCurrencyEnabled'] = entity.multiCurrencyEnabled;
-    settingsJson = _encodeSettings(settingsWithMultiCurrency);
+    final settingsWithFlags = Map<String, dynamic>.from(entity.settings ?? {});
+    settingsWithFlags['multiCurrencyEnabled'] = entity.multiCurrencyEnabled;
+    settingsWithFlags['cashRegisterEnabled'] = entity.cashRegisterEnabled;
+    settingsJson = _encodeSettings(settingsWithFlags);
     subscriptionPlan = _mapSubscriptionPlan(entity.subscriptionPlan);
     subscriptionStatus = _mapSubscriptionStatus(entity.subscriptionStatus);
     isActive = entity.isActive;

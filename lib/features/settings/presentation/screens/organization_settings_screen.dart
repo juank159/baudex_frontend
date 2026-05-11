@@ -327,6 +327,8 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           const SizedBox(height: 24),
           _buildMultiCurrencyCard(),
           const SizedBox(height: 24),
+          _buildCashRegisterModuleCard(),
+          const SizedBox(height: 24),
           _buildQuickActionsCard(),
           const SizedBox(height: 100),
         ],
@@ -347,6 +349,8 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           const SizedBox(height: 32),
           _buildMultiCurrencyCard(),
           const SizedBox(height: 32),
+          _buildCashRegisterModuleCard(),
+          const SizedBox(height: 32),
           _buildQuickActionsCard(),
           const SizedBox(height: 100),
         ],
@@ -366,6 +370,8 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
           const MainWarehouseSelector(),
           const SizedBox(height: 32),
           _buildMultiCurrencyCard(),
+          const SizedBox(height: 32),
+          _buildCashRegisterModuleCard(),
           const SizedBox(height: 32),
           _buildQuickActionsCard(),
           const SizedBox(height: 40),
@@ -576,6 +582,175 @@ class _OrganizationSettingsScreenState extends State<OrganizationSettingsScreen>
                         controller,
                       )),
               ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// Toggle del módulo de caja registradora — habilita/deshabilita
+  /// para el tenant completo. Confirma con un dialog antes de apagar
+  /// (para evitar accidentes), ya que apagarlo oculta banners, badge,
+  /// item del drawer, guard de facturas y la opción "Caja del día" en
+  /// gastos.
+  Widget _buildCashRegisterModuleCard() {
+    final controller = Get.find<OrganizationController>();
+
+    return FuturisticContainer(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: ElegantLightTheme.glowShadow,
+                ),
+                child: const Icon(
+                  Icons.point_of_sale_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text(
+                  'Caja Registradora',
+                  style: TextStyle(
+                    color: ElegantLightTheme.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Si tu negocio maneja caja del día (efectivo físico con '
+            'apertura/cierre diario), mantenlo activo. Si vendes solo '
+            'por transferencia o no usas caja como concepto, apágalo y '
+            'desaparece todo el módulo.',
+            style: TextStyle(
+              color: ElegantLightTheme.textSecondary,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Obx(() {
+            final enabled = controller.isCashRegisterEnabled;
+            return Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: enabled
+                    ? ElegantLightTheme.successGradient.colors.first
+                        .withValues(alpha: 0.1)
+                    : ElegantLightTheme.backgroundColor.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: enabled
+                      ? ElegantLightTheme.successGradient.colors.first
+                          .withValues(alpha: 0.3)
+                      : ElegantLightTheme.textSecondary
+                          .withValues(alpha: 0.1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    enabled ? Icons.check_circle : Icons.toggle_off_outlined,
+                    color: enabled
+                        ? ElegantLightTheme.successGradient.colors.first
+                        : ElegantLightTheme.textSecondary,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      enabled
+                          ? 'Módulo de caja activo'
+                          : 'Módulo de caja desactivado',
+                      style: const TextStyle(
+                        color: ElegantLightTheme.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: enabled,
+                    onChanged: (val) async {
+                      if (!val) {
+                        // Confirmar antes de apagar — un toggle accidental
+                        // oculta TODO el módulo y al usuario podría
+                        // parecerle que perdió funcionalidad.
+                        final ok = await Get.dialog<bool>(
+                          AlertDialog(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            icon: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                gradient:
+                                    ElegantLightTheme.warningGradient,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                            title: const Text(
+                              'Desactivar caja registradora',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            content: const Text(
+                              'Esto ocultará el badge del AppBar, los '
+                              'recordatorios del dashboard, el ítem '
+                              '"Caja" del menú y dejará de exigir caja '
+                              'abierta para facturar.\n\n'
+                              'Los datos históricos de cajas anteriores '
+                              'se conservan. Puedes reactivarlo desde '
+                              'aquí cuando quieras.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(height: 1.4),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Get.back<bool>(result: false),
+                                child: const Text('Cancelar'),
+                              ),
+                              FilledButton(
+                                onPressed: () =>
+                                    Get.back<bool>(result: true),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor:
+                                      ElegantLightTheme.warningOrange,
+                                ),
+                                child: const Text('Desactivar'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (ok != true) return;
+                      }
+                      await controller.toggleCashRegister(val);
+                    },
+                    activeColor:
+                        ElegantLightTheme.successGradient.colors.first,
+                  ),
+                ],
+              ),
             );
           }),
         ],

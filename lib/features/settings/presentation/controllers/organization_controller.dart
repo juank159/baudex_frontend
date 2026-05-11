@@ -41,6 +41,10 @@ class OrganizationController extends GetxController
 
   // ==================== LIFECYCLE ====================
 
+  /// Worker que reacciona al cambio de autenticación. Se asigna en
+  /// `onInit()` y se libera en `onClose()`.
+  Worker? _authWorker;
+
   @override
   void onInit() {
     super.onInit();
@@ -49,6 +53,31 @@ class OrganizationController extends GetxController
     if (_isAuthenticated) {
       loadCurrentOrganization();
     }
+
+    // CRÍTICO: el OrganizationController se registra como `permanent`
+    // antes del login, así que su `onInit` corre con _isAuthenticated
+    // = false. Si NO escuchamos cambios, la organización (y por ende
+    // el flag `cashRegisterEnabled`) NUNCA se carga al iniciar sesión
+    // — sólo cuando el usuario navega manualmente a Settings.
+    //
+    // Este Worker dispara `loadCurrentOrganization()` apenas el
+    // AuthController marca `_isAuthenticated.value = true`. Es
+    // offline-first: el método lee de ISAR primero, después refresca
+    // del server en background.
+    if (Get.isRegistered<AuthController>()) {
+      final auth = Get.find<AuthController>();
+      _authWorker = ever<bool>(auth.isAuthenticatedRx, (authenticated) {
+        if (authenticated && _currentOrganization.value == null) {
+          loadCurrentOrganization();
+        }
+      });
+    }
+  }
+
+  @override
+  void onClose() {
+    _authWorker?.dispose();
+    super.onClose();
   }
 
   @override
@@ -251,9 +280,41 @@ class OrganizationController extends GetxController
     return await updateCurrentOrganization({'settings': settings});
   }
 
+  // ==================== CASH REGISTER MODULE ====================
+
+  /// Si el módulo de caja registradora está habilitado para este
+  /// tenant. Default `true` para no romper clientes existentes.
+  ///
+  /// Cuando es `false`:
+  ///   - Banner y badge de caja en el dashboard desaparecen
+  ///   - Item "Caja" del drawer se oculta
+  ///   - Guard de facturas (CashRegisterGuard) deja pasar todo
+  ///   - Opción "Caja del día" en gastos se quita del selector
+  bool get isCashRegisterEnabled =>
+      currentOrganization?.cashRegisterEnabled ?? true;
+
+  /// Activar/desactivar el módulo de caja para la organización.
+  /// Se persiste en settings JSONB y se sincroniza online/offline igual
+  /// que cualquier otra config — el endpoint update encola la operación
+  /// si el server no está disponible.
+  Future<bool> toggleCashRegister(bool enabled) async {
+    final org = currentOrganization;
+    if (org == null) return false;
+
+    final settings = _buildSettings(org);
+    settings['cashRegisterEnabled'] = enabled;
+
+    return await updateCurrentOrganization({'settings': settings});
+  }
+
   Map<String, dynamic> _buildSettings(Organization org) {
     final settings = Map<String, dynamic>.from(org.settings ?? {});
+    // Inyectar SIEMPRE los flags top-level dentro del settings JSONB
+    // antes de hacer PATCH al server. Sin esto se perderían entre
+    // edición y edición porque settings sólo contiene los campos que
+    // vinieron del servidor; los flags viven como columnas/derivadas.
     settings['multiCurrencyEnabled'] = org.multiCurrencyEnabled;
+    settings['cashRegisterEnabled'] = org.cashRegisterEnabled;
     return settings;
   }
 

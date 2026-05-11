@@ -19,6 +19,7 @@ class OrganizationModel extends Organization {
     required super.updatedAt,
     super.defaultProfitMarginPercentage,
     super.multiCurrencyEnabled,
+    super.cashRegisterEnabled,
     super.subscriptionStartDate,
     super.subscriptionEndDate,
     super.trialStartDate,
@@ -61,7 +62,14 @@ class OrganizationModel extends Organization {
       multiCurrencyEnabled: (json['settings'] is Map ? json['settings']['multiCurrencyEnabled'] as bool? : null)
         ?? json['multiCurrencyEnabled'] as bool?
         ?? false,
-      subscriptionStartDate: json['subscriptionStartDate'] != null 
+      // Caja registradora — leemos de settings JSONB; default `true` si
+      // el campo no existe (organizaciones legacy / clientes existentes
+      // ven el módulo activado como hasta hoy).
+      cashRegisterEnabled: (json['settings'] is Map
+              ? json['settings']['cashRegisterEnabled'] as bool?
+              : null) ??
+          true,
+      subscriptionStartDate: json['subscriptionStartDate'] != null
         ? DateTime.parse(json['subscriptionStartDate'])
         : null,
       subscriptionEndDate: json['subscriptionEndDate'] != null 

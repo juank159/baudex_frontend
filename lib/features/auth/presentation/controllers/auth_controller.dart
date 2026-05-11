@@ -135,6 +135,13 @@ class AuthController extends GetxController {
   bool get isRegisterLoading => _isRegisterLoading.value;
   bool get isProfileLoading => _isProfileLoading.value;
   bool get isAuthenticated => _isAuthenticated.value;
+  /// Observable público para que otros controllers reaccionen al estado
+  /// de autenticación (ej. OrganizationController cargando la org del
+  /// tenant apenas se completa el login). Sin esto, los controllers
+  /// permanentes inicializados ANTES del login quedan colgados con
+  /// datos vacíos hasta que el usuario navega manualmente a la pantalla
+  /// que los carga.
+  RxBool get isAuthenticatedRx => _isAuthenticated;
   User? get currentUser => _currentUser.value;
 
   bool get isLoginPasswordVisible => _isLoginPasswordVisible.value;
