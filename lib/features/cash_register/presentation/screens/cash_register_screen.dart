@@ -762,11 +762,16 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
               decoration: BoxDecoration(
                 gradient: ElegantLightTheme.glassGradient,
               ),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+              // SingleChildScrollView protege contra overflows masivos
+              // cuando el teclado del celular invade el viewport y el
+              // dialog ya no cabe. Sin esto el RenderFlex tira el famoso
+              // "A RenderFlex overflowed by 99880 pixels".
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -1016,14 +1021,28 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                     ),
                   ],
                 ),
+                ),
               ),
             ),
           ),
         ),
       ),
     );
-    amountCtrl.dispose();
-    notesCtrl.dispose();
+    // Dispose AFTER el siguiente frame.
+    //
+    // Bug previo: cuando `showDialog` retorna por Navigator.pop, la
+    // animación de cierre del Dialog sigue corriendo unos frames más
+    // (transitions.dart `_AnimatedState.didUpdateWidget` rebuilds).
+    // Hacer dispose inmediatamente provoca
+    // "A TextEditingController was used after being disposed" +
+    // "_dependents.isEmpty" del Inherited.
+    //
+    // Retrasar el dispose hasta después del frame siguiente garantiza
+    // que la animación de cierre terminó antes de matar el controller.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      amountCtrl.dispose();
+      notesCtrl.dispose();
+    });
     if (result == true) controller.loadCurrent();
   }
 
@@ -1049,15 +1068,19 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
               decoration: BoxDecoration(
                 gradient: ElegantLightTheme.glassGradient,
               ),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
+              // Scrollable defensivo — el teclado al desplegar reduce
+              // el viewport y este dialog tiene varios campos. Sin esto
+              // RenderFlex tira "overflowed by 99880 pixels".
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           gradient:
                               ElegantLightTheme.errorGradient,
@@ -1363,13 +1386,17 @@ class CashRegisterScreen extends GetView<CashRegisterController> {
                     ),
                   ],
                 ),
+                ),
               ),
             ),
           ),
         ),
       ),
     );
-    actualCtrl.dispose();
-    notesCtrl.dispose();
+    // Ver nota en _showOpenDialog. Mismo bug, mismo fix.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      actualCtrl.dispose();
+      notesCtrl.dispose();
+    });
   }
 }

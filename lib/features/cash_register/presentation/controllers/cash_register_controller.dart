@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' show Color;
 import 'package:get/get.dart';
 import '../../domain/entities/cash_register.dart';
 import '../../domain/repositories/cash_register_repository.dart';
+import '../../../settings/presentation/controllers/organization_controller.dart';
 
 /// Controlador de Caja Registradora.
 ///
@@ -34,13 +35,26 @@ class CashRegisterController extends GetxController {
   CashRegisterSummary get summary => currentState.value.summary;
   double get expectedAmount => currentState.value.expectedAmount;
 
+  /// Si el tenant tiene el módulo de caja activo. Si está apagado,
+  /// evitamos llamadas HTTP innecesarias (loadCurrent + auto-refresh
+  /// cada 60s) — el controller existe como singleton permanent, pero
+  /// queda dormido sin gastar red.
+  bool get _moduleEnabled {
+    if (!Get.isRegistered<OrganizationController>()) return true;
+    return Get.find<OrganizationController>().isCashRegisterEnabled;
+  }
+
   @override
   void onReady() {
     super.onReady();
-    loadCurrent();
-    // Auto-refresh cada 60s para mantener el "esperado" al día.
+    if (_moduleEnabled) loadCurrent();
+    // Auto-refresh cada 60s. El tick chequea el flag — si el admin
+    // apaga/prende el módulo en runtime, el siguiente tick respeta
+    // el nuevo estado automáticamente (sin recrear el timer).
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      if (!isSubmitting.value) loadCurrent(silent: true);
+      if (isSubmitting.value) return;
+      if (!_moduleEnabled) return;
+      loadCurrent(silent: true);
     });
   }
 
@@ -88,6 +102,10 @@ class CashRegisterController extends GetxController {
   /// `silent`: no mostrar loading spinner ni borrar errores previos.
   /// Útil para auto-refresh en background.
   Future<void> loadCurrent({bool silent = false}) async {
+    // Módulo apagado para el tenant → no hacemos fetch. El caller que
+    // dependa del flag debe verificarlo antes; este chequeo es defensa
+    // en profundidad para callers externos (auth reset, resync, etc.).
+    if (!_moduleEnabled) return;
     if (!silent) {
       isLoading.value = true;
       errorMessage.value = '';

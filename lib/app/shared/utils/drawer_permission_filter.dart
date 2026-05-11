@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import '../../core/services/permissions_service.dart';
 import '../../../features/employees/domain/entities/module_permission.dart';
+import '../../../features/settings/presentation/controllers/organization_controller.dart';
 import '../models/drawer_menu_item.dart';
 
 /// Filtra los items del drawer según los permisos del usuario actual.
@@ -67,11 +68,28 @@ class DrawerPermissionFilter {
         .toList();
   }
 
+  /// Items que pertenecen a un módulo OPCIONAL controlado por
+  /// configuración del tenant (no por permisos del usuario). Si la
+  /// organización tiene ese módulo apagado, el item se oculta para
+  /// todos los usuarios del tenant.
+  static const Set<String> _cashRegisterItems = {
+    'cash_register',
+  };
+
   /// Devuelve null si el item debe ocultarse.
   static DrawerMenuItem? _filterItem(
     DrawerMenuItem item,
     PermissionsService perms,
   ) {
+    // 0. Módulos opcionales del tenant. Si el admin desactivó la caja
+    // registradora desde Settings, los items asociados desaparecen del
+    // menú independientemente de los permisos del usuario.
+    if (_cashRegisterItems.contains(item.id) &&
+        Get.isRegistered<OrganizationController>() &&
+        !Get.find<OrganizationController>().isCashRegisterEnabled) {
+      return null;
+    }
+
     // 1. Si el item tiene submenu, filtrar sus hijos primero.
     if (item.hasSubmenu) {
       final filteredChildren = item.submenu!

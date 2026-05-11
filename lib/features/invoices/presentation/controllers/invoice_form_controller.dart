@@ -4,6 +4,8 @@ import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import 'package:baudex_desktop/app/core/errors/failures.dart';
 import 'package:baudex_desktop/app/core/services/audio_notification_service.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/controllers/cash_register_controller.dart';
+import 'package:baudex_desktop/features/cash_register/presentation/widgets/open_cash_register_dialog.dart';
+import 'package:baudex_desktop/features/settings/presentation/controllers/organization_controller.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
@@ -2848,14 +2850,24 @@ class InvoiceFormController extends GetxController {
   /// Si la caja está cerrada, muestra un diálogo modal explicando la
   /// regla con un botón directo "Ir a abrir caja".
   Future<bool> _ensureCashRegisterOpenOrPrompt() async {
+    // Si el tenant tiene el módulo de caja apagado en settings, no
+    // exigimos caja abierta — facturación con efectivo funciona normal,
+    // los pagos cash se registran en `payments` igual. Esto es lo que
+    // permite que clientes "sin caja" facturen sin restricciones.
+    if (Get.isRegistered<OrganizationController>() &&
+        !Get.find<OrganizationController>().isCashRegisterEnabled) {
+      return false;
+    }
+
     if (!Get.isRegistered<CashRegisterController>()) return false;
     final ctrl = Get.find<CashRegisterController>();
     // Refrescar el estado por si está stale (silencioso, sin loading visible).
     await ctrl.loadCurrent(silent: true);
     if (ctrl.hasOpenRegister) return false; // OK, hay caja abierta
 
-    // Caja CERRADA: mostrar diálogo bloqueante.
-    final goToOpen = await Get.dialog<bool>(
+    // Caja CERRADA — dialog con opción de abrir INLINE (sin navegar),
+    // para no perder los ítems del carrito si el usuario eligió abrir.
+    final shouldOpen = await Get.dialog<bool>(
       AlertDialog(
         icon: Icon(Icons.point_of_sale_rounded,
             color: Colors.amber.shade700, size: 36),
@@ -2874,7 +2886,7 @@ class InvoiceFormController extends GetxController {
           ),
           FilledButton.icon(
             icon: const Icon(Icons.lock_open_rounded, size: 18),
-            label: const Text('Ir a abrir caja'),
+            label: const Text('Abrir caja ahora'),
             style: FilledButton.styleFrom(
               backgroundColor: Colors.amber.shade700,
             ),
@@ -2885,9 +2897,16 @@ class InvoiceFormController extends GetxController {
       barrierDismissible: false,
     );
 
-    if (goToOpen == true) {
-      Get.toNamed('/cash-register');
+    if (shouldOpen == true) {
+      // Abrir dialog INLINE — no navega, no perdemos los ítems del
+      // carrito. Si el usuario completa la apertura, retornamos false
+      // (no bloqueado) y el flujo de procesar venta sigue.
+      final ctx = Get.context;
+      if (ctx != null) {
+        final opened = await showOpenCashRegisterDialog(ctx);
+        if (opened) return false; // caja recién abierta → continuar
+      }
     }
-    return true; // siempre abortar el guardado
+    return true; // bloquea el guardado
   }
 }

@@ -132,6 +132,7 @@ import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_
 import 'package:baudex_desktop/features/cash_register/presentation/bindings/cash_register_binding.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/screens/cash_register_screen.dart';
 import 'package:baudex_desktop/features/cash_register/presentation/screens/cash_register_history_screen.dart';
+import 'package:baudex_desktop/app/core/navigation/cash_register_route_middleware.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/bindings/customer_credit_binding.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/pages/customer_credits_page.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/pages/client_balances_page.dart';
@@ -1922,10 +1923,13 @@ class AppPages {
     ),
 
     // 🧾 CAJA REGISTRADORA
+    // Middleware bloquea acceso si el tenant tiene el módulo desactivado
+    // (deep link, bookmark, botón residual). Redirige a /dashboard.
     GetPage(
       name: AppRoutes.cashRegister,
       page: () => const CashRegisterScreen(),
       binding: CashRegisterBinding(),
+      middlewares: [CashRegisterRouteMiddleware()],
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
     ),
@@ -1935,6 +1939,7 @@ class AppPages {
       name: AppRoutes.cashRegisterHistory,
       page: () => const CashRegisterHistoryScreen(),
       binding: CashRegisterBinding(),
+      middlewares: [CashRegisterRouteMiddleware()],
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
     ),
