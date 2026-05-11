@@ -22,6 +22,10 @@ abstract class CustomerLocalDataSource {
 
   // ⭐ FASE 1: Método para acceder a versión ISAR (detección de conflictos)
   Future<IsarCustomer?> getIsarCustomer(String id);
+
+  /// Buscar cliente cacheado por número de documento. Ofrece soporte
+  /// offline en pantallas que buscan clientes por DNI/RUC sin red.
+  Future<CustomerModel?> getCachedCustomerByDocument(String documentNumber);
 }
 
 /// Implementación del datasource local usando SecureStorage
@@ -261,6 +265,30 @@ class CustomerLocalDataSourceImpl implements CustomerLocalDataSource {
       return isarCustomer;
     } catch (e) {
       print('⚠️ Error al obtener IsarCustomer: $e');
+      return null;
+    }
+  }
+
+  /// Busca un cliente en ISAR por número de documento (offline-first).
+  /// Devuelve null si no está cacheado, en lugar de lanzar excepción —
+  /// el repository lo interpreta como "no encontrado offline" sin que
+  /// el flujo de la UI tenga que manejar exceptions.
+  @override
+  Future<CustomerModel?> getCachedCustomerByDocument(
+    String documentNumber,
+  ) async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final isarCustomer = await isar.isarCustomers
+          .filter()
+          .documentNumberEqualTo(documentNumber)
+          .deletedAtIsNull()
+          .findFirst();
+
+      if (isarCustomer == null) return null;
+      return CustomerModel.fromEntity(isarCustomer.toEntity());
+    } catch (e) {
+      print('⚠️ Error al buscar cliente por documento en ISAR: $e');
       return null;
     }
   }

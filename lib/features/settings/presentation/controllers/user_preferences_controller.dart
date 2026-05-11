@@ -1,13 +1,15 @@
 //lib features/settings/presentation/controllers/user_preferences_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../../../app/services/password_validation_service.dart';
 import '../../domain/entities/user_preferences.dart';
 import '../../domain/usecases/get_user_preferences_usecase.dart';
 import '../../domain/usecases/update_user_preferences_usecase.dart';
 
-class UserPreferencesController extends GetxController {
+class UserPreferencesController extends GetxController
+    with SyncAutoRefreshMixin {
   final GetUserPreferencesUseCase _getUserPreferencesUseCase;
   final UpdateUserPreferencesUseCase _updateUserPreferencesUseCase;
 
@@ -50,7 +52,13 @@ class UserPreferencesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     loadUserPreferences();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    await loadUserPreferences();
   }
 
   Future<void> loadUserPreferences() async {

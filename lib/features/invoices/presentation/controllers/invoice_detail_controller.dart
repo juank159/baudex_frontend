@@ -1,4 +1,5 @@
 // lib/features/invoices/presentation/controllers/invoice_detail_controller.dart
+import 'package:baudex_desktop/app/core/mixins/sync_auto_refresh_mixin.dart';
 import 'package:baudex_desktop/app/core/utils/responsive.dart';
 import 'package:baudex_desktop/app/core/utils/number_input_formatter.dart';
 import 'package:baudex_desktop/app/shared/widgets/custom_button.dart';
@@ -26,7 +27,7 @@ import '../../../customer_credits/presentation/controllers/customer_credit_contr
 import '../../../dashboard/presentation/controllers/dashboard_controller.dart';
 import 'package:share_plus/share_plus.dart';
 
-class InvoiceDetailController extends GetxController {
+class InvoiceDetailController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
   final GetInvoiceByIdUseCase _getInvoiceByIdUseCase;
   final AddPaymentUseCase _addPaymentUseCase;
@@ -122,6 +123,7 @@ class InvoiceDetailController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     print('🚀 InvoiceDetailController: Inicializando...');
     print('🔍 ID de factura recibido: $invoiceId');
     print('🔍 Ruta actual en onInit: ${Get.currentRoute}');
@@ -133,6 +135,13 @@ class InvoiceDetailController extends GetxController {
       print('❌ ID de factura no válido, EVITANDO Get.back() automático');
       // ✅ SOLUCIÓN: No hacer Get.back() automático para evitar [GETX] Redirect to null
       // Get.back();
+    }
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    if (invoiceId.isNotEmpty) {
+      await loadInvoice();
     }
   }
 
@@ -1351,7 +1360,7 @@ class InvoiceDetailController extends GetxController {
       backgroundColor: Colors.red.shade100,
       colorText: Colors.red.shade800,
       icon: const Icon(Icons.error, color: Colors.red),
-      duration: const Duration(seconds: 4),
+      duration: const Duration(milliseconds: 2500),
     );
   }
 
@@ -1363,7 +1372,7 @@ class InvoiceDetailController extends GetxController {
       backgroundColor: Colors.green.shade100,
       colorText: Colors.green.shade800,
       icon: const Icon(Icons.check_circle, color: Colors.green),
-      duration: const Duration(seconds: 3),
+      duration: const Duration(milliseconds: 2000),
     );
   }
 
@@ -1375,7 +1384,7 @@ class InvoiceDetailController extends GetxController {
       backgroundColor: Colors.blue.shade100,
       colorText: Colors.blue.shade800,
       icon: const Icon(Icons.info, color: Colors.blue),
-      duration: const Duration(seconds: 3),
+      duration: const Duration(milliseconds: 2000),
     );
   }
 

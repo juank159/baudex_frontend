@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/dashboard_controller.dart';
+import '../../../../app/core/navigation/cash_register_guard.dart';
+import '../../../../app/core/navigation/navigation_guard.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/config/themes/app_text_styles.dart';
@@ -55,14 +57,14 @@ class QuickActionsSection extends GetView<DashboardController> {
               title: 'Nueva Factura',
               icon: Icons.receipt_long,
               color: AppColors.primary,
-              onTap: () => Get.toNamed('/invoices/create'),
+              onTap: _openInvoiceForm,
             )),
             const SizedBox(width: AppDimensions.spacingSmall),
             Expanded(child: _buildActionCard(
               title: 'Nuevo Producto',
               icon: Icons.add_box,
               color: AppColors.success,
-              onTap: () => Get.toNamed('/products/create'),
+              onTap: () => AppNav.toNamed('/products/create'),
             )),
           ],
         ),
@@ -73,14 +75,14 @@ class QuickActionsSection extends GetView<DashboardController> {
               title: 'Nuevo Cliente',
               icon: Icons.person_add,
               color: AppColors.info,
-              onTap: () => Get.toNamed('/customers/create'),
+              onTap: () => AppNav.toNamed('/customers/create'),
             )),
             const SizedBox(width: AppDimensions.spacingSmall),
             Expanded(child: _buildActionCard(
               title: 'Nuevo Gasto',
               icon: Icons.money_off,
               color: AppColors.error,
-              onTap: () => Get.toNamed('/expenses/create'),
+              onTap: () => AppNav.toNamed('/expenses/create'),
             )),
           ],
         ),
@@ -95,28 +97,28 @@ class QuickActionsSection extends GetView<DashboardController> {
           title: 'Nueva Factura',
           icon: Icons.receipt_long,
           color: AppColors.primary,
-          onTap: () => Get.toNamed('/invoices/create'),
+          onTap: _openInvoiceForm,
         )),
         const SizedBox(width: AppDimensions.spacingSmall),
         Expanded(child: _buildActionCard(
           title: 'Nuevo Producto',
           icon: Icons.add_box,
           color: AppColors.success,
-          onTap: () => Get.toNamed('/products/create'),
+          onTap: () => AppNav.toNamed('/products/create'),
         )),
         const SizedBox(width: AppDimensions.spacingSmall),
         Expanded(child: _buildActionCard(
           title: 'Nuevo Cliente',
           icon: Icons.person_add,
           color: AppColors.info,
-          onTap: () => Get.toNamed('/customers/create'),
+          onTap: () => AppNav.toNamed('/customers/create'),
         )),
         const SizedBox(width: AppDimensions.spacingSmall),
         Expanded(child: _buildActionCard(
           title: 'Nuevo Gasto',
           icon: Icons.money_off,
           color: AppColors.error,
-          onTap: () => Get.toNamed('/expenses/create'),
+          onTap: () => AppNav.toNamed('/expenses/create'),
         )),
       ],
     );
@@ -130,7 +132,7 @@ class QuickActionsSection extends GetView<DashboardController> {
           subtitle: 'Crear factura de venta',
           icon: Icons.receipt_long,
           color: AppColors.primary,
-          onTap: () => Get.toNamed('/invoices/create'),
+          onTap: _openInvoiceForm,
         )),
         const SizedBox(width: AppDimensions.spacingMedium),
         Expanded(child: _buildActionCard(
@@ -138,7 +140,7 @@ class QuickActionsSection extends GetView<DashboardController> {
           subtitle: 'Agregar al inventario',
           icon: Icons.add_box,
           color: AppColors.success,
-          onTap: () => Get.toNamed('/products/create'),
+          onTap: () => AppNav.toNamed('/products/create'),
         )),
         const SizedBox(width: AppDimensions.spacingMedium),
         Expanded(child: _buildActionCard(
@@ -146,7 +148,7 @@ class QuickActionsSection extends GetView<DashboardController> {
           subtitle: 'Registrar cliente',
           icon: Icons.person_add,
           color: AppColors.info,
-          onTap: () => Get.toNamed('/customers/create'),
+          onTap: () => AppNav.toNamed('/customers/create'),
         )),
         const SizedBox(width: AppDimensions.spacingMedium),
         Expanded(child: _buildActionCard(
@@ -154,7 +156,7 @@ class QuickActionsSection extends GetView<DashboardController> {
           subtitle: 'Registrar gasto',
           icon: Icons.money_off,
           color: AppColors.error,
-          onTap: () => Get.toNamed('/expenses/create'),
+          onTap: () => AppNav.toNamed('/expenses/create'),
         )),
         const SizedBox(width: AppDimensions.spacingMedium),
         Expanded(child: _buildActionCard(
@@ -166,6 +168,20 @@ class QuickActionsSection extends GetView<DashboardController> {
         )),
       ],
     );
+  }
+
+  /// Apertura de "Nueva Factura" protegida por el guard de caja.
+  /// Si la caja está cerrada, ofrece abrirla inline antes de navegar
+  /// al form — así el usuario nunca empieza a agregar ítems en un
+  /// contexto sin caja y termina perdiéndolos al ir a abrirla.
+  Future<void> _openInvoiceForm() async {
+    final ctx = Get.context;
+    if (ctx == null) {
+      AppNav.toNamed('/invoices/create');
+      return;
+    }
+    final canProceed = await CashRegisterGuard.requireOpen(ctx);
+    if (canProceed) AppNav.toNamed('/invoices/create');
   }
 
   Widget _buildActionCard({

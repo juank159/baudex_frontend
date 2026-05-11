@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/purchase_order.dart';
@@ -19,7 +20,8 @@ import '../../../inventory/data/models/warehouse_model.dart';
 import '../../../inventory/data/datasources/inventory_local_datasource_isar.dart';
 import 'purchase_orders_controller.dart';
 
-class PurchaseOrderDetailController extends GetxController {
+class PurchaseOrderDetailController extends GetxController
+    with SyncAutoRefreshMixin {
   final GetPurchaseOrderByIdUseCase getPurchaseOrderByIdUseCase;
   final DeletePurchaseOrderUseCase deletePurchaseOrderUseCase;
   final UpdatePurchaseOrderUseCase updatePurchaseOrderUseCase;
@@ -69,7 +71,15 @@ class PurchaseOrderDetailController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     _initializeData();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    if (purchaseOrderId.value.isNotEmpty) {
+      await loadPurchaseOrder();
+    }
   }
 
   // ==================== INITIALIZATION ====================

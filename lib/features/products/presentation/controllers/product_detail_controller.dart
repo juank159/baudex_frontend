@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 // Imports de entidades del dominio
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 
 // Imports de use cases (que contienen los parámetros correctos)
 import '../../domain/usecases/get_product_by_id_usecase.dart';
@@ -24,7 +25,7 @@ import 'products_controller.dart';
 /// - Controlar navegación entre pestañas (Detalles, Precios, Movimientos)
 /// - Proporcionar helpers para la UI
 class ProductDetailController extends GetxController
-    with GetSingleTickerProviderStateMixin {
+    with GetSingleTickerProviderStateMixin, SyncAutoRefreshMixin {
   // ==================== DEPENDENCIES ====================
 
   final GetProductByIdUseCase _getProductByIdUseCase;
@@ -97,6 +98,7 @@ class ProductDetailController extends GetxController
   void onInit() {
     super.onInit();
     print('🚀 ProductDetailController: Inicializando con ID: $productId');
+    setupSyncListener();
 
     // Inicializar TabController para 3 pestañas: Detalles, Precios, Movimientos
     tabController = TabController(length: 3, vsync: this);
@@ -114,6 +116,13 @@ class ProductDetailController extends GetxController
       // Mostrar error si no hay ID válido
       _showError('Error', 'ID de producto no válido');
       print('❌ ProductDetailController: ID de producto vacío o inválido');
+    }
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    if (productId.isNotEmpty) {
+      await loadProductDetails();
     }
   }
 

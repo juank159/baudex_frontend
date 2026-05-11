@@ -58,6 +58,10 @@ class SyncConfig {
     'category': 2,
     'BankAccount': 2,
     'bank_account': 2,
+    'BankAccountMovement': 5,
+    'bank_account_movement': 5,
+    'BankAccountTransfer': 5,
+    'bank_account_transfer': 5,
     'PrinterSettings': 2,
     'printer_settings': 2,
     'ExpenseCategory': 2,
@@ -66,6 +70,8 @@ class SyncConfig {
     // Prioridad 3: Entidades con dependencias simples
     'Product': 3,
     'product': 3,
+    'ProductPresentation': 3,
+    'product_presentation': 3,
     'Customer': 3,
     'customer': 3,
     'Supplier': 3,
@@ -89,6 +95,8 @@ class SyncConfig {
     'inventory_movement_fifo': 5,
     'CustomerCredit': 5,
     'customer_credit': 5,
+    'ProductWaste': 5,
+    'product_waste': 5,
 
     // Prioridad 6: Entidades auxiliares
     'Notification': 6,
@@ -138,6 +146,10 @@ class SyncConfig {
   static const Set<String> supportedEntityTypes = {
     'Product',
     'product',
+    'ProductPresentation',
+    'product_presentation',
+    'ProductWaste',
+    'product_waste',
     'Category',
     'category',
     'Customer',
@@ -150,6 +162,10 @@ class SyncConfig {
     'expense',
     'BankAccount',
     'bank_account',
+    'BankAccountMovement',
+    'bank_account_movement',
+    'BankAccountTransfer',
+    'bank_account_transfer',
     'PurchaseOrder',
     'purchase_order',
     'InventoryMovement',
@@ -163,8 +179,8 @@ class SyncConfig {
     'client_balance',
     'ExpenseCategory',
     'expense_category',
-    'Notification',
-    'notification',
+    // Nota: Notification queda registrada SOLO en `readOnlyEntityTypes`
+    // — backend la genera, frontend nunca debe encolarla.
     'Organization',
     'organization',
     'organization_profit_margin',
@@ -179,7 +195,33 @@ class SyncConfig {
 
   /// Verifica si un tipo de entidad es soportado
   static bool isEntityTypeSupported(String entityType) {
-    return supportedEntityTypes.contains(entityType);
+    return supportedEntityTypes.contains(entityType) ||
+        readOnlyEntityTypes.contains(entityType);
+  }
+
+  /// Entidades que SOLO se descargan del servidor (PULL).
+  ///
+  /// El backend las crea/actualiza automáticamente (suscripciones, almacenes,
+  /// lotes de inventario regenerados por FIFO al sincronizar facturas, etc.)
+  /// y NUNCA deben sincronizarse en sentido PUSH. Si por accidente algo
+  /// intenta encolarlas, `addOperation()` debe descartar silenciosamente
+  /// con un log claro en vez de crashear con ArgumentError o un
+  /// `default: throw "Tipo de entidad no soportado"` en el switch del sync
+  /// service. Mantenerlo explícito previene fallos silenciosos.
+  static const Set<String> readOnlyEntityTypes = {
+    'Subscription',
+    'subscription',
+    'Warehouse',
+    'warehouse',
+    'InventoryBatch',
+    'inventory_batch',
+    'Notification',
+    'notification',
+  };
+
+  /// Verifica si la entidad es read-only (solo PULL, no PUSH).
+  static bool isReadOnlyEntity(String entityType) {
+    return readOnlyEntityTypes.contains(entityType);
   }
 
   // ==================== ESTADOS DE SALUD ====================

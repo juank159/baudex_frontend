@@ -14,9 +14,12 @@ import 'core/network/network_info.dart';
 import 'core/services/audio_notification_service.dart';
 import 'core/services/file_service.dart';
 import 'core/services/tenant_datetime_service.dart';
+import 'core/services/permissions_service.dart';
 import 'services/password_validation_service.dart';
 import 'shared/controllers/app_drawer_controller.dart';
 import '../features/auth/presentation/bindings/auth_binding_stub.dart';
+import '../features/products/presentation/bindings/product_presentation_binding.dart';
+import 'data/local/sync_event_log_service.dart';
 import '../features/settings/presentation/bindings/settings_binding.dart';
 import '../features/settings/data/datasources/user_preferences_remote_datasource.dart';
 import '../features/settings/data/datasources/user_preferences_local_datasource.dart';
@@ -36,6 +39,10 @@ import '../features/bank_accounts/data/repositories/bank_account_repository_impl
 import '../features/bank_accounts/data/repositories/bank_account_offline_repository.dart';
 import '../features/bank_accounts/data/datasources/bank_account_remote_datasource.dart';
 import '../features/bank_accounts/domain/repositories/bank_account_repository.dart';
+import '../features/cash_register/data/datasources/cash_register_remote_datasource.dart';
+import '../features/cash_register/data/repositories/cash_register_repository_impl.dart';
+import '../features/cash_register/domain/repositories/cash_register_repository.dart';
+import '../features/cash_register/presentation/controllers/cash_register_controller.dart';
 import '../features/products/data/repositories/product_repository_impl.dart';
 import '../features/products/data/repositories/product_offline_repository.dart';
 import '../features/products/data/datasources/product_remote_datasource.dart';
@@ -73,6 +80,7 @@ import '../features/settings/data/repositories/organization_offline_repository.d
 // Subscription services
 import '../features/subscriptions/presentation/bindings/subscription_binding.dart';
 import 'shared/services/subscription_offline_policy.dart';
+import 'shared/services/subscription_alert_service.dart';
 
 class InitialBinding implements Bindings {
   static bool _initialized = false;
@@ -92,6 +100,16 @@ class InitialBinding implements Bindings {
 
     // ==================== TENANT DATETIME SERVICE ====================
     Get.put(TenantDateTimeService(), permanent: true);
+
+    // ==================== PERMISSIONS SERVICE (granular per-module) ====================
+    // Permanente para cachear permisos del usuario actual y sobrevivir a
+    // navegación. Se inicializa después del DioClient (registrado más abajo
+    // en _registerOfflineInfrastructure), así que usamos lazyPut con fenix
+    // para que se construya bajo demanda cuando el AuthController lo invoque.
+    Get.lazyPut<PermissionsService>(
+      () => PermissionsService(Get.find<DioClient>()),
+      fenix: true,
+    );
 
     // ==================== OFFLINE INFRASTRUCTURE ====================
     _registerOfflineInfrastructure();
@@ -129,6 +147,18 @@ class InitialBinding implements Bindings {
     // ==================== USER PREFERENCES ====================
     _registerUserPreferences();
 
+    // ==================== PRODUCT PRESENTATIONS (Fase 3) ====================
+    // Registrar core (datasources + repo + use cases) globalmente para que
+    // el dialog selector del POS funcione sin haber visitado antes la
+    // pantalla de "Gestionar presentaciones". Idempotente, lazy.
+    ProductPresentationBinding.registerCore();
+
+    // ==================== DIAGNÓSTICO / LOG DE EVENTOS DE SYNC ===========
+    // Servicio singleton para persistir eventos del sync en Isar. El
+    // sync_service lo invoca opcionalmente y la pantalla de diagnóstico
+    // lo lee. Tolerante a fallas: si Isar falla escribir, el sync sigue.
+    Get.lazyPut<SyncEventLogService>(() => SyncEventLogService(), fenix: true);
+
     print('✅ SimpleAppBinding: Dependencias básicas registradas exitosamente');
   }
 
@@ -150,6 +180,12 @@ class InitialBinding implements Bindings {
 
     // Security services
     Get.lazyPut<PasswordValidationService>(() => PasswordValidationService(Get.find<DioClient>()), fenix: true);
+
+    // Throttling central de avisos de suscripción — todos los puntos
+    // que muestren dialog/banner/snackbar de suscripción consultan
+    // este servicio antes (regla: solo cuando queda ≤1 día, cooldown
+    // 2h entre avisos, persistido entre sesiones).
+    Get.put<SubscriptionAlertService>(SubscriptionAlertService(), permanent: true);
 
     // UI Controllers
     Get.lazyPut<AppDrawerController>(() => AppDrawerController(), fenix: true);
@@ -188,6 +224,29 @@ class InitialBinding implements Bindings {
         networkInfo: Get.find<NetworkInfo>(),
       ),
       fenix: true,
+    );
+
+    // Cash Register - Remote DataSource + Repository + Controller permanente.
+    // Se registra como permanente porque el badge del AppBar y el banner
+    // del dashboard se montan/desmontan en distintas pantallas y deben
+    // compartir el mismo estado en vivo. El controller auto-refresca cada 60s.
+    Get.lazyPut<CashRegisterRemoteDataSource>(
+      () => CashRegisterRemoteDataSourceImpl(dioClient: Get.find<DioClient>()),
+      fenix: true,
+    );
+    Get.lazyPut<CashRegisterRepository>(
+      () => CashRegisterRepositoryImpl(
+        remoteDataSource: Get.find<CashRegisterRemoteDataSource>(),
+        networkInfo: Get.find<NetworkInfo>(),
+        secureStorage: Get.find<SecureStorageService>(),
+      ),
+      fenix: true,
+    );
+    Get.put<CashRegisterController>(
+      CashRegisterController(
+        repository: Get.find<CashRegisterRepository>(),
+      ),
+      permanent: true,
     );
 
     // Products - Remote DataSource (necesario para SyncService)

@@ -5,6 +5,8 @@ import '../../../../app/core/services/tenant_datetime_service.dart';
 import '../../../../app/core/utils/responsive.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/widgets/custom_card.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../widgets/invoice_status_widget.dart';
 import '../../domain/entities/invoice.dart';
@@ -1227,24 +1229,36 @@ class InvoiceCardWidget extends StatelessWidget {
   Widget _buildQuickActions(BuildContext context) {
     return Row(
       children: [
-        if (invoice.canBeEdited) ...[
-          _buildActionButton(
-            'Editar',
-            Icons.edit,
-            Colors.blue,
-            () => onActionTap?.call('edit'),
+        if (invoice.canBeEdited)
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.invoices,
+            child: Row(
+              children: [
+                _buildActionButton(
+                  'Editar',
+                  Icons.edit,
+                  Colors.blue,
+                  () => onActionTap?.call('edit'),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
           ),
-          const SizedBox(width: 8),
-        ],
-        if (invoice.status == InvoiceStatus.draft) ...[
-          _buildActionButton(
-            'Confirmar',
-            Icons.check_circle,
-            Colors.green,
-            () => onActionTap?.call('confirm'),
+        if (invoice.status == InvoiceStatus.draft)
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.invoices,
+            child: Row(
+              children: [
+                _buildActionButton(
+                  'Confirmar',
+                  Icons.check_circle,
+                  Colors.green,
+                  () => onActionTap?.call('confirm'),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
           ),
-          const SizedBox(width: 8),
-        ],
         _buildActionButton(
           'Imprimir',
           Icons.print,

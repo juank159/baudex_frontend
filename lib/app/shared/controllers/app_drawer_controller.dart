@@ -199,6 +199,13 @@ class AppDrawerController extends GetxController {
             route: AppRoutes.bankAccounts,
             subtitle: 'Métodos de pago',
           ),
+          DrawerMenuItem(
+            id: 'cash_register',
+            title: 'Caja Registradora',
+            icon: Icons.point_of_sale_rounded,
+            route: AppRoutes.cashRegister,
+            subtitle: 'Apertura y cierre de caja',
+          ),
         ],
       ),
 
@@ -211,6 +218,16 @@ class AppDrawerController extends GetxController {
         icon: Icons.business,
         route: AppRoutes.settingsOrganization,
         subtitle: 'Configuración de empresa',
+        isInSettings: true,
+        isInConfigurationGroup: true,
+      ),
+
+      const DrawerMenuItem(
+        id: 'employees',
+        title: 'Empleados',
+        icon: Icons.groups_rounded,
+        route: AppRoutes.employees,
+        subtitle: 'Equipo del negocio',
         isInSettings: true,
         isInConfigurationGroup: true,
       ),
@@ -281,6 +298,16 @@ class AppDrawerController extends GetxController {
         icon: Icons.notifications_outlined,
         route: AppRoutes.settingsNotifications,
         subtitle: 'Configuración de notificaciones',
+        isInSettings: true,
+        isInConfigurationGroup: true,
+      ),
+
+      const DrawerMenuItem(
+        id: 'diagnostics',
+        title: 'Diagnóstico',
+        icon: Icons.health_and_safety_outlined,
+        route: AppRoutes.diagnostics,
+        subtitle: 'Estado de sincronización y errores',
         isInSettings: true,
         isInConfigurationGroup: true,
       ),

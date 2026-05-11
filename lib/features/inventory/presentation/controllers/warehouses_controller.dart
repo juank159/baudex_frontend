@@ -66,28 +66,36 @@ class WarehousesController extends GetxController {
 
   // ==================== LIFECYCLE ====================
 
+  // Workers de los listeners de filtros — rastreados para poder disposarlos
+  // en onClose y evitar leaks si el controller se recrea (fenix).
+  final List<Worker> _filterWorkers = [];
+
   @override
   void onInit() {
     super.onInit();
     loadWarehouses();
-    
-    // Configurar listeners para filtros básicos
-    ever(_searchQuery, (_) => _applyFiltersAsync());
-    ever(_selectedStatus, (_) => _applyFiltersAsync());
-    ever(_sortBy, (_) => _applyFiltersAsync());
-    ever(_sortOrder, (_) => _applyFiltersAsync());
-    
-    // Configurar listeners para filtros avanzados
-    ever(_dateFrom, (_) => _applyFiltersAsync());
-    ever(_dateTo, (_) => _applyFiltersAsync());
-    ever(_filterWithDescription, (_) => _applyFiltersAsync());
-    ever(_filterWithAddress, (_) => _applyFiltersAsync());
-    ever(_filterRecent, (_) => _applyFiltersAsync());
+
+    // Listeners de filtros básicos y avanzados (todos llaman _applyFiltersAsync).
+    _filterWorkers.addAll([
+      ever(_searchQuery, (_) => _applyFiltersAsync()),
+      ever(_selectedStatus, (_) => _applyFiltersAsync()),
+      ever(_sortBy, (_) => _applyFiltersAsync()),
+      ever(_sortOrder, (_) => _applyFiltersAsync()),
+      ever(_dateFrom, (_) => _applyFiltersAsync()),
+      ever(_dateTo, (_) => _applyFiltersAsync()),
+      ever(_filterWithDescription, (_) => _applyFiltersAsync()),
+      ever(_filterWithAddress, (_) => _applyFiltersAsync()),
+      ever(_filterRecent, (_) => _applyFiltersAsync()),
+    ]);
   }
 
   @override
   void onClose() {
-    // Limpiar recursos de performance
+    // Disposar todos los workers de filtros antes de limpiar el resto.
+    for (final w in _filterWorkers) {
+      w.dispose();
+    }
+    _filterWorkers.clear();
     WarehousePerformanceService.dispose();
     super.onClose();
   }

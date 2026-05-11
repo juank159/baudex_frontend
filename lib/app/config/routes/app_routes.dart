@@ -76,11 +76,21 @@ abstract class AppRoutes {
   static const String productsStats = '/products/stats';
   static const String productsInitialInventory = '/products/initial-inventory';
 
+  // ==================== PRODUCT PRESENTATIONS ROUTES ====================
+  static const String productPresentations = '/products/presentations';
+
   // Products with parameters
   static String productEdit(String id) => '/products/edit/$id';
   static String productDetail(String id) => '/products/detail/$id';
   static String productsByCategory(String categoryId) =>
       '/products/category/$categoryId';
+  static String productPresentationsList(String productId) =>
+      '/products/$productId/presentations';
+  static String productWaste(String productId) =>
+      '/products/$productId/waste';
+
+  // ==================== EMPLOYEES ROUTES ====================
+  static const String employees = '/employees';
 
   // ==================== CUSTOMERS ROUTES ====================
   static const String customers = '/customers';
@@ -214,6 +224,10 @@ abstract class AppRoutes {
   static const String creditNotesEdit = '/credit-notes/edit';
   static const String creditNotesDetail = '/credit-notes/detail';
 
+  // ==================== PRODUCT EXCHANGE ROUTE ====================
+  /// Cambio de producto: nota crédito + factura nueva en una operación.
+  static const String productExchange = '/invoices/exchange';
+
   // Credit Notes with parameters
   static String creditNoteEdit(String id) => '/credit-notes/edit/$id';
   static String creditNoteDetail(String id) => '/credit-notes/detail/$id';
@@ -225,9 +239,14 @@ abstract class AppRoutes {
   // ==================== BANK ACCOUNTS ROUTES ====================
   static const String bankAccounts = '/bank-accounts';
   static const String bankAccountMovements = '/bank-accounts/movements';
+  static const String bankAccountsAudit = '/bank-accounts/audit';
 
   // Bank Accounts with parameters
   static String bankAccountMovementsById(String id) => '/bank-accounts/$id/movements';
+
+  // ==================== CASH REGISTER ROUTES ====================
+  static const String cashRegister = '/cash-register';
+  static const String cashRegisterHistory = '/cash-register/history';
 
   // ==================== CUSTOMER CREDITS ROUTES ====================
   static const String customerCredits = '/customer-credits';
@@ -251,6 +270,7 @@ abstract class AppRoutes {
   static const String settingsBackup = '/settings/backup';
   static const String settingsSecurity = '/settings/security';
   static const String settingsNotifications = '/settings/notifications';
+  static const String diagnostics = '/settings/diagnostics';
 
   // Error Routes
   static const String notFound = '/404';

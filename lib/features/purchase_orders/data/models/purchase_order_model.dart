@@ -152,7 +152,6 @@ class PurchaseOrderModel {
       if (supplierName == null && json['supplier'] != null) {
         final supplier = json['supplier'] as Map<String, dynamic>;
         supplierName = supplier['name'] as String?;
-        print('🏢 DEBUG: Extrayendo supplierName del objeto supplier: $supplierName');
       }
       
       // Extraer supplierId del objeto supplier si está disponible

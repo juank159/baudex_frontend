@@ -9,6 +9,8 @@ import '../../core/network/dio_client.dart';
 import '../../core/storage/secure_storage_service.dart';
 import 'isar_database.dart';
 import 'sync_queue.dart';
+import 'sync_event_log.dart';
+import 'sync_event_log_service.dart';
 import 'sync_config.dart';
 import 'sync_lock.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
@@ -17,6 +19,9 @@ import '../../core/services/idempotency_service.dart';
 import '../../core/services/conflict_resolution_service.dart';
 import '../../core/utils/app_logger.dart';
 import '../../shared/widgets/subscription_error_dialog.dart';
+import '../../shared/services/subscription_alert_service.dart';
+import '../../../features/subscriptions/domain/entities/subscription.dart'
+    show SubscriptionAlertLevel;
 
 // Products
 import '../../../features/products/data/datasources/product_remote_datasource.dart';
@@ -29,6 +34,13 @@ import '../../../features/products/domain/entities/product_price.dart';
 import '../../../features/products/domain/entities/tax_enums.dart';
 import '../../../features/products/domain/repositories/product_repository.dart'
     show CreateProductPriceParams;
+
+// Product Presentations
+import '../../../features/products/data/datasources/product_presentation_remote_datasource.dart';
+import '../../../features/products/data/models/create_product_presentation_request_model.dart';
+import '../../../features/products/data/models/update_product_presentation_request_model.dart';
+import '../../../features/products/data/models/isar/isar_product_presentation.dart';
+import '../../../features/products/data/models/register_product_waste_request_model.dart';
 
 // Categories
 import '../../../features/categories/data/datasources/category_remote_datasource.dart';
@@ -67,7 +79,9 @@ import '../../../features/expenses/data/repositories/expense_offline_repository.
 import '../../../features/bank_accounts/data/datasources/bank_account_remote_datasource.dart';
 import '../../../features/bank_accounts/data/models/bank_account_model.dart';
 import '../../../features/bank_accounts/data/models/isar/isar_bank_account.dart';
+import '../../../features/bank_accounts/data/models/isar/isar_bank_account_movement.dart';
 import '../../../features/bank_accounts/data/repositories/bank_account_offline_repository.dart'; // ⭐ FASE 1 - Problema 3
+import '../../../features/bank_accounts/domain/entities/bank_account_movement.dart';
 
 // User Preferences
 import '../../../features/settings/presentation/controllers/user_preferences_controller.dart';
@@ -233,6 +247,13 @@ class SyncService extends GetxService {
   final RxInt _pendingOperationsCount = 0.obs;
   int get pendingOperationsCount => _pendingOperationsCount.value;
 
+  // Operaciones que excedieron el límite de reintentos y quedaron bloqueadas.
+  // Cuando este contador es > 0, hay datos que NUNCA se sincronizarán hasta
+  // que el usuario las desbloquee manualmente (ej: tras arreglar un bug del
+  // backend o restaurar conexión después de mucho tiempo).
+  final RxInt _permanentlyFailedCount = 0.obs;
+  int get permanentlyFailedCount => _permanentlyFailedCount.value;
+
   // Stream subscription para connectivity
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
@@ -245,6 +266,21 @@ class SyncService extends GetxService {
 
   // FASE 5: Última descarga (pull) del servidor - throttle cada 5 minutos
   DateTime? _lastPullTime;
+
+  // Marca de actividad de navegación reciente. El NavigationGuard lo
+  // actualiza en cada `offAllNamed`/`toNamed`. Si el usuario está
+  // navegando activamente, postergamos el pull periódico para no
+  // saturar el isolate (cargar 273 registros en paralelo mientras
+  // Flutter está desmontando árboles deja la UI congelada).
+  DateTime? _lastNavigationAt;
+  static const Duration _navigationQuietPeriod = Duration(seconds: 3);
+
+  /// El NavigationGuard llama a esto en cada navegación. No hace
+  /// nada más que actualizar el timestamp — el chequeo se hace en
+  /// [_shouldPeriodicPull].
+  void markNavigationActivity() {
+    _lastNavigationAt = DateTime.now();
+  }
 
   // 🔒 Lock para prevenir sincronizaciones concurrentes
   final SyncServiceLock _lock = SyncServiceLock();
@@ -300,8 +336,12 @@ class SyncService extends GetxService {
     // 🔧 REPARACIÓN: Corregir movimientos de inventario con referenceId temporal
     await _repairMovementsWithTempReferenceId();
 
-    // 🗑️ LIMPIEZA: Eliminar operaciones que excedieron máximo de reintentos
-    await cleanPermanentlyFailedOperations();
+    // ⚠️ LIMPIEZA DESACTIVADA EN INIT: borrar automáticamente ops con
+    // retryCount>=maxRetries causaba pérdida silenciosa de datos del usuario
+    // cuando un fix llegaba después del retry límite. Ahora la limpieza solo
+    // se ejecuta cuando el usuario lo solicita desde Diagnóstico (botón
+    // "Limpiar fallidas") o desde el indicador de estado del sync.
+    // await cleanPermanentlyFailedOperations();
 
     // 🔧 REPARACIÓN: Intentar reparar facturas con items vacíos
     await repairInvoiceOperationsWithMissingItems();
@@ -311,6 +351,11 @@ class SyncService extends GetxService {
 
     // 🧹 LIMPIEZA: Eliminar ops FIFO huérfanas cuya Invoice ya se sincronizó
     await _cleanupOrphanedFifoOperations();
+
+    // 🧹 PURGA: Eliminar ops FIFO bloqueadas (retry max). Endpoint no existe.
+    // Sin esto, una op fantasma bloqueada se queda en la cola para siempre,
+    // causando que el contador "pendientes" nunca llegue a 0.
+    await _purgeBlockedFifoOperations();
 
     // Configurar sincronización periódica (cada 5 minutos si hay internet)
     _setupPeriodicSync();
@@ -449,10 +494,21 @@ class SyncService extends GetxService {
     );
   }
 
-  /// Verifica si es momento de hacer un pull periódico (cada 60s)
+  /// Verifica si es momento de hacer un pull periódico (cada 60s).
+  ///
+  /// Skip si:
+  ///  - hay formularios abiertos (evita perder datos en edición)
+  ///  - hubo navegación en los últimos [_navigationQuietPeriod]
+  ///    segundos (el isolate está ocupado armando la nueva pantalla,
+  ///    arrancar un fetch de 273 registros encima cuelga la UI)
+  ///  - el último pull fue hace menos de 60s
   bool _shouldPeriodicPull() {
-    // No hacer pull si hay formularios abiertos (evita tráfico innecesario)
     if (hasActiveForm) return false;
+    if (_lastNavigationAt != null &&
+        DateTime.now().difference(_lastNavigationAt!) <
+            _navigationQuietPeriod) {
+      return false;
+    }
     if (_lastPullTime == null) return true;
     return DateTime.now().difference(_lastPullTime!) > const Duration(seconds: 60);
   }
@@ -491,8 +547,24 @@ class SyncService extends GetxService {
   /// Actualizar conteo de operaciones pendientes
   Future<void> _updatePendingCount() async {
     try {
-      final pending = await _isarDatabase.getPendingSyncOperations();
-      _pendingOperationsCount.value = pending.length;
+      // `getPendingSyncOperations()` ya retorna pending + failed.
+      // Una op bloqueada (retryCount >= maxRetries) puede tener status
+      // pending O failed dependiendo del momento del fallo, así que filtramos
+      // por retryCount aquí en vez de por status.
+      final List<SyncOperation> all = List<SyncOperation>.from(
+        await _isarDatabase.getPendingSyncOperations() as Iterable,
+      );
+      int blocked = 0;
+      int active = 0;
+      for (final op in all) {
+        if (op.retryCount >= SyncConfig.maxRetries) {
+          blocked++;
+        } else {
+          active++;
+        }
+      }
+      _pendingOperationsCount.value = active;
+      _permanentlyFailedCount.value = blocked;
     } catch (e) {
       AppLogger.e('Error actualizando conteo pendientes: $e', tag: 'SYNC');
     }
@@ -637,6 +709,14 @@ class SyncService extends GetxService {
       _syncState.value = SyncState.syncing;
       AppLogger.i('Iniciando sincronización...', tag: 'SYNC');
 
+      // 🧹 PRE-LIMPIEZA: Eliminar ops `inventory_movement_fifo` bloqueadas
+      // (retry max alcanzado). Estas ops apuntan a un endpoint que NO existe
+      // en el backend (process-outbound-fifo) — el server hoy maneja FIFO
+      // automáticamente al crear factura. Si quedan en la cola, bloquean
+      // el contador de pendientes para siempre. Se ejecuta en cada syncAll
+      // para que el usuario nunca tenga que limpiar manualmente.
+      await _purgeBlockedFifoOperations();
+
       final operations = await _isarDatabase.getPendingSyncOperations();
 
       if (operations.isEmpty) {
@@ -714,12 +794,39 @@ class SyncService extends GetxService {
           final chainFutures = batchIds.map((entityId) async {
             final chainResults = <_SyncOpResult>[];
             for (final op in groupedByEntity[entityId]!) {
-              chainResults.add(await _processSingleOperation(op));
+              try {
+                chainResults.add(await _processSingleOperation(op));
+              } catch (e, st) {
+                // Defensa en profundidad: _processSingleOperation YA tiene
+                // su propio try/catch global, pero un IsarError o un
+                // Error fatal podría escapar y romper la chain de OTRA
+                // entidad por Future.wait. Capturamos aquí para que el
+                // resto de chains continúe procesándose sin interrupción.
+                AppLogger.e(
+                  'Excepción inesperada en chain de $entityId (op ${op.id}): $e',
+                  tag: 'SYNC',
+                  stackTrace: st,
+                );
+                try {
+                  await _isarDatabase.markSyncOperationFailed(
+                    op.id,
+                    'Excepción no manejada: $e',
+                  );
+                } catch (_) {
+                  // Si ni siquiera podemos marcar falla, ISAR está roto.
+                  // Cortamos esta chain pero NO el bucle global.
+                }
+                chainResults.add(_SyncOpResult.failure);
+              }
             }
             return chainResults;
           }).toList();
 
-          final allChainResults = await Future.wait(chainFutures);
+          // eagerError: false → si una chain falla, NO cancela las demás.
+          final allChainResults = await Future.wait(
+            chainFutures,
+            eagerError: false,
+          );
           for (final chainResults in allChainResults) {
             for (final result in chainResults) {
               if (result == _SyncOpResult.success) {
@@ -1005,6 +1112,14 @@ class SyncService extends GetxService {
         case 'product':
           await _syncProductOperation(operation);
           break;
+        case 'ProductPresentation':
+        case 'product_presentation':
+          await _syncProductPresentationOperation(operation);
+          break;
+        case 'ProductWaste':
+        case 'product_waste':
+          await _syncProductWasteOperation(operation);
+          break;
         case 'Category':
         case 'category':
           await _syncCategoryOperation(operation);
@@ -1028,6 +1143,14 @@ class SyncService extends GetxService {
         case 'BankAccount':
         case 'bank_account':
           await _syncBankAccountOperation(operation);
+          break;
+        case 'BankAccountMovement':
+        case 'bank_account_movement':
+          await _syncBankAccountMovementOperation(operation);
+          break;
+        case 'BankAccountTransfer':
+        case 'bank_account_transfer':
+          await _syncBankAccountTransferOperation(operation);
           break;
         case 'Invoice':
         case 'invoice':
@@ -1082,6 +1205,19 @@ class SyncService extends GetxService {
         'Sincronizada: ${operation.entityType} ${operation.operationType.name}',
         tag: 'SYNC',
       );
+
+      // Log persistente para módulo de diagnóstico. Tolerante a fallas:
+      // si el log no se puede escribir, NO afecta el resultado del sync.
+      _logEventSafe(
+        severity: SyncEventSeverity.info,
+        eventType: SyncEventType.pushOperation,
+        operation: operation.operationType.name,
+        entityType: operation.entityType,
+        entityId: operation.entityId,
+        message: 'Operación sincronizada exitosamente',
+        retryCount: operation.retryCount,
+      );
+
       return _SyncOpResult.success;
     } catch (e) {
       try {
@@ -1096,14 +1232,82 @@ class SyncService extends GetxService {
 
       await _isarDatabase.markSyncOperationFailed(operation.id, e.toString());
 
+      // Si es error de validación PERMANENTE (datos rechazados por backend),
+      // setear retryCount al máximo para que NO se reintente automáticamente.
+      // El usuario verá el error en Diagnóstico y podrá corregirlo.
+      if (e is _PermanentValidationException) {
+        try {
+          final isar = IsarDatabase.instance.database;
+          await isar.writeTxn(() async {
+            final op = await isar.syncOperations.get(operation.id);
+            if (op != null) {
+              op.retryCount = SyncConfig.maxRetries;
+              op.error =
+                  'VALIDACIÓN: ${e.backendMessage} (HTTP ${e.statusCode})';
+              await isar.syncOperations.put(op);
+            }
+          });
+        } catch (markErr) {
+          AppLogger.w(
+            'No se pudo setear retryCount=max tras error permanente: $markErr',
+            tag: 'SYNC',
+          );
+        }
+      }
+
       final errorMsg = e.toString().toLowerCase();
-      if (errorMsg.contains('connection refused') ||
-          errorMsg.contains('socketexception')) {
+      final isNetworkError = errorMsg.contains('connection refused') ||
+          errorMsg.contains('socketexception');
+      if (isNetworkError) {
         AppLogger.d(
           '${operation.entityType} pendiente - backend no disponible',
           tag: 'SYNC',
         );
       }
+
+      // 🚫 ENDPOINT NO EXISTE (404 / Cannot POST/GET ...) — no tiene sentido
+      // reintentar al infinito. Borramos la op directamente. Caso típico:
+      // ops `inventory_movement_fifo` huérfanas que apuntan a un endpoint
+      // viejo que ya no existe (el backend hoy maneja FIFO via registerSale).
+      final isEndpointNotFound = errorMsg.contains('404') ||
+          errorMsg.contains('cannot post') ||
+          errorMsg.contains('cannot get') ||
+          errorMsg.contains('cannot patch') ||
+          errorMsg.contains('cannot delete');
+      if (isEndpointNotFound) {
+        AppLogger.w(
+          '🚫 Op ${operation.entityType}:${operation.entityId} apunta a endpoint inexistente (404). Eliminando — no se puede reintentar.',
+          tag: 'SYNC',
+        );
+        try {
+          await _isarDatabase.deleteSyncOperation(operation.id);
+        } catch (_) {}
+        // Si era una op FIFO huérfana, aprovechar para limpiar todas las
+        // demás del mismo tipo (suelen venir en grupo).
+        if (operation.entityType == 'inventory_movement_fifo') {
+          unawaited(_cleanupOrphanedFifoOperations());
+        }
+        await _updatePendingCount();
+        return _SyncOpResult.failure;
+      }
+
+      // Log persistente para módulo de diagnóstico
+      _logEventSafe(
+        severity: isNetworkError
+            ? SyncEventSeverity.warning  // red transitoria, se reintentará
+            : SyncEventSeverity.error,    // error real
+        eventType: isNetworkError
+            ? SyncEventType.network
+            : SyncEventType.pushOperation,
+        operation: operation.operationType.name,
+        entityType: operation.entityType,
+        entityId: operation.entityId,
+        message: isNetworkError
+            ? 'Operación pendiente — sin conexión'
+            : 'Falló sincronización',
+        details: e.toString(),
+        retryCount: operation.retryCount,
+      );
 
       // 🔒 SUSCRIPCIÓN EXPIRADA (403) — no tiene sentido reintentar.
       // Pausamos todo el sync hasta que el usuario renueve. Detectamos por
@@ -1180,11 +1384,30 @@ class SyncService extends GetxService {
 
   /// Muestra el diálogo de suscripción expirada de forma segura (post-frame).
   /// Llamado cuando el sync detecta un 403 por primera vez en la sesión.
+  ///
+  /// Pasa por el `SubscriptionAlertService` para no duplicar el aviso
+  /// si el usuario ya lo vio recientemente desde otro flujo (validation
+  /// service, error handler, dashboard onReady). Cooldown 2h en
+  /// memoria/storage centralizado.
   void _showSubscriptionExpiredDialog() {
     try {
-      // Diferimos con microtask para no chocar con el build actual.
-      Future.microtask(() {
+      Future.microtask(() async {
         try {
+          // Consulta central — si está en cooldown, no mostramos.
+          if (Get.isRegistered<SubscriptionAlertService>()) {
+            final svc = Get.find<SubscriptionAlertService>();
+            final allowed = await svc.tryShow(
+              level: SubscriptionAlertLevel.expired,
+              daysUntilExpiration: 0,
+            );
+            if (!allowed) {
+              AppLogger.d(
+                'Dialog de sync expirado suprimido por cooldown central',
+                tag: 'SYNC',
+              );
+              return;
+            }
+          }
           SubscriptionErrorDialog.showSubscriptionExpired(
             customMessage:
                 'Algunas operaciones creadas sin internet (productos, '
@@ -1263,6 +1486,22 @@ class SyncService extends GetxService {
   }) async {
     // ✅ VALIDACIONES DE DATOS
     // 1. Validar tipo de entidad
+    //
+    // 1.a Read-only: si algo intenta encolar una entidad que sólo se
+    // descarga del servidor (suscripciones, almacenes, lotes regenerados
+    // por FIFO, notificaciones), descartamos sin crash. Antes esto
+    // crasheaba con ArgumentError → quedaban fallos silenciosos
+    // imposibles de debuggear. Ahora dejamos rastro en log y la
+    // operación simplemente no entra a la cola.
+    if (SyncConfig.isReadOnlyEntity(entityType)) {
+      AppLogger.w(
+        'Operación descartada — $entityType es read-only (solo PULL, backend la genera). '
+        'entityId=$entityId op=$operationType',
+        tag: 'SYNC',
+      );
+      return;
+    }
+
     if (!SyncConfig.isEntityTypeSupported(entityType)) {
       AppLogger.e(
         'Tipo de entidad no soportado: $entityType',
@@ -1393,9 +1632,54 @@ class SyncService extends GetxService {
     }
   }
 
-  /// Forzar sincronización manual
+  /// Forzar sincronización manual.
+  ///
+  /// Cuando el usuario pide explícitamente sincronizar (botón en la
+  /// pantalla de Diagnóstico, retry de operaciones fallidas, etc.), NO
+  /// confiamos en el cache de `isServerReachable`. El cache puede estar
+  /// stale: el servidor pudo haberse caído por minutos y el flag quedó
+  /// en false, pero ya está vivo y el usuario quiere usarlo.
+  ///
+  /// Hacemos un health-check fresh (~5s) y, si el servidor responde,
+  /// reseteamos el flag antes de proceder. Sin este reset, `syncAll()`
+  /// aborta inmediatamente con "Servidor no alcanzable, omitiendo
+  /// sincronización" y las operaciones offline jamás se sincronizan.
   Future<void> forceSyncNow() async {
     AppLogger.i('Sincronización manual forzada', tag: 'SYNC');
+
+    try {
+      final networkInfo = Get.find<NetworkInfo>();
+      if (!networkInfo.isServerReachable) {
+        AppLogger.d(
+          'Sync manual: cache marca servidor como inalcanzable, '
+          'verificando con health-check fresh...',
+          tag: 'SYNC',
+        );
+        final reachable = await networkInfo.canReachServer(
+          timeout: const Duration(seconds: 5),
+        );
+        if (reachable) {
+          networkInfo.resetServerReachability();
+          AppLogger.i(
+            'Sync manual: servidor recuperado, procediendo',
+            tag: 'SYNC',
+          );
+        } else {
+          AppLogger.w(
+            'Sync manual: servidor confirmado inalcanzable',
+            tag: 'SYNC',
+          );
+          // syncAll() detectará el flag false y abortará igualmente,
+          // pero ahora con confirmación real, no cache stale.
+        }
+      }
+    } catch (e) {
+      AppLogger.w(
+        'Error verificando servidor en sync manual: $e',
+        tag: 'SYNC',
+      );
+    }
+
     await syncAll();
   }
 
@@ -1556,6 +1840,103 @@ class SyncService extends GetxService {
     }
   }
 
+  /// Forzar reintento de operaciones que excedieron el máximo de reintentos.
+  ///
+  /// `retryFailedOperations()` ignora ops con retryCount >= maxRetries para
+  /// no spammear al servidor con datos rotos. Pero cuando la causa del
+  /// fallo se corrige (ej: bug de backend, datos del servidor cambiados),
+  /// esas ops quedan zombi sin forma de revivir.
+  ///
+  /// Este método las desbloquea: resetea retryCount=0, limpia el error y
+  /// las pasa a `pending`. Luego dispara `syncAll()` para procesarlas en
+  /// el ciclo normal.
+  ///
+  /// USO: SOLO bajo acción explícita del usuario (botón "Reintentar
+  /// bloqueadas"). NUNCA llamar automáticamente — defeats el propósito
+  /// del límite de retries.
+  Future<int> forceRetryPermanentlyFailed() async {
+    if (!_isOnline.value) {
+      AppLogger.w(
+        'Sin conexión, no se puede reintentar bloqueadas',
+        tag: 'SYNC',
+      );
+      return 0;
+    }
+
+    try {
+      // Cubrir ops con status pending Y failed que excedieron reintentos.
+      // `_isarDatabase` está tipado como `dynamic` (para mocks), así que
+      // casteamos explícitamente para que el `.where()` infiera bien.
+      final List<SyncOperation> all = List<SyncOperation>.from(
+        await _isarDatabase.getPendingSyncOperations() as Iterable,
+      );
+      final blocked = all
+          .where((op) => op.retryCount >= SyncConfig.maxRetries)
+          .toList();
+
+      if (blocked.isEmpty) {
+        AppLogger.i('No hay operaciones bloqueadas', tag: 'SYNC');
+        return 0;
+      }
+
+      AppLogger.i(
+        'Desbloqueando ${blocked.length} operaciones (reset retryCount=0)',
+        tag: 'SYNC',
+      );
+
+      for (final op in blocked) {
+        await _isarDatabase.resetSyncOperationRetry(op.id);
+      }
+
+      await _updatePendingCount();
+      // Trigger sync para que se procesen en el siguiente ciclo
+      await syncAll();
+
+      return blocked.length;
+    } catch (e) {
+      AppLogger.e('Error desbloqueando operaciones: $e', tag: 'SYNC');
+      return 0;
+    }
+  }
+
+  /// Eliminar permanentemente todas las operaciones bloqueadas.
+  ///
+  /// Alternativa a `forceRetryPermanentlyFailed()` cuando los datos ya
+  /// no son válidos o el usuario decide descartarlos. Útil cuando el
+  /// dato local quedó stale (ej: factura con cliente borrado, ítem que
+  /// ya se vendió por otra vía, etc).
+  ///
+  /// USO: SOLO bajo acción explícita del usuario, idealmente con
+  /// confirmación que indique cuántas operaciones se descartarán.
+  Future<int> discardPermanentlyFailed() async {
+    try {
+      // Cubrir ops con status pending Y failed que excedieron reintentos.
+      final List<SyncOperation> all = List<SyncOperation>.from(
+        await _isarDatabase.getPendingSyncOperations() as Iterable,
+      );
+      final blocked = all
+          .where((op) => op.retryCount >= SyncConfig.maxRetries)
+          .toList();
+
+      if (blocked.isEmpty) return 0;
+
+      AppLogger.w(
+        'Descartando ${blocked.length} operaciones bloqueadas',
+        tag: 'SYNC',
+      );
+
+      for (final op in blocked) {
+        await _isarDatabase.deleteSyncOperation(op.id);
+      }
+
+      await _updatePendingCount();
+      return blocked.length;
+    } catch (e) {
+      AppLogger.e('Error descartando operaciones: $e', tag: 'SYNC');
+      return 0;
+    }
+  }
+
   /// Calcula el delay de reintento usando exponential backoff
   ///
   /// Fórmula: 2^retryCount segundos, máximo 5 minutos (300s)
@@ -1704,6 +2085,45 @@ class SyncService extends GetxService {
   /// y ya no pueden sincronizarse. Útil para limpiar la cola de operaciones
   /// que nunca podrán completarse.
   ///
+  /// 🧹 Purga ops `inventory_movement_fifo` bloqueadas (retry >= maxRetries).
+  ///
+  /// Estas ops apuntan a `POST /inventory/movements/process-outbound-fifo`
+  /// que NO existe en el backend actual (404). El backend descuenta FIFO
+  /// automáticamente al crear factura via `registerSale()`. Una op FIFO en
+  /// la cola es ruido — no se puede sincronizar y bloquea el contador.
+  ///
+  /// A diferencia de `_cleanupOrphanedFifoOperations`, esto NO mira si la
+  /// factura asociada está pendiente: el endpoint NO existe, no hay nada
+  /// que esperar. Si la op alcanzó el max de retries, fuera.
+  Future<void> _purgeBlockedFifoOperations() async {
+    try {
+      final isar = IsarDatabase.instance.database;
+      final blocked = await isar.syncOperations
+          .filter()
+          .entityTypeEqualTo('inventory_movement_fifo')
+          .findAll();
+
+      if (blocked.isEmpty) return;
+
+      int deleted = 0;
+      for (final op in blocked) {
+        if (op.retryCount >= SyncConfig.maxRetries) {
+          await _isarDatabase.deleteSyncOperation(op.id);
+          deleted++;
+        }
+      }
+      if (deleted > 0) {
+        AppLogger.i(
+          '🧹 Purgadas $deleted ops inventory_movement_fifo bloqueadas (endpoint 404)',
+          tag: 'SYNC',
+        );
+        await _updatePendingCount();
+      }
+    } catch (e) {
+      AppLogger.w('Error purgando ops FIFO bloqueadas: $e', tag: 'SYNC');
+    }
+  }
+
   /// Retorna el número de operaciones eliminadas.
   /// 🧹 Elimina operaciones inventory_movement_fifo huérfanas.
   ///
@@ -1938,6 +2358,8 @@ class SyncService extends GetxService {
                     'discountPercentage': item.discountPercentage,
                     'discountAmount': item.discountAmount,
                     'notes': item.notes,
+                    if (item.presentationId != null)
+                      'presentationId': item.presentationId,
                   }).toList();
 
                   // Actualizar el payload con los items reparados
@@ -2637,6 +3059,419 @@ class SyncService extends GetxService {
     }
   }
 
+  /// Sincronizar operación de ProductPresentation
+  Future<void> _syncProductPresentationOperation(
+    SyncOperation operation,
+  ) async {
+    try {
+      final ProductPresentationRemoteDataSource remoteDS;
+      if (Get.isRegistered<ProductPresentationRemoteDataSource>()) {
+        remoteDS = Get.find<ProductPresentationRemoteDataSource>();
+      } else {
+        remoteDS = ProductPresentationRemoteDataSourceImpl(
+          dioClient: Get.find<DioClient>(),
+        );
+      }
+
+      final data = jsonDecode(operation.payload);
+
+      switch (operation.operationType) {
+        case SyncOperationType.create:
+          AppLogger.d(
+            'Creando presentación en servidor: ${data['name']}',
+            tag: 'SYNC',
+          );
+
+          // Leer datos frescos de ISAR si es presentación offline
+          Map<String, dynamic> finalData = data;
+
+          if (operation.entityId.startsWith('presentation_offline_')) {
+            AppLogger.d(
+              'Presentación offline detectada – leyendo datos actuales de ISAR',
+              tag: 'SYNC',
+            );
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarPresentation = await isar.isarProductPresentations
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+
+              if (isarPresentation != null) {
+                finalData = {
+                  'productId': isarPresentation.productId,
+                  'name': isarPresentation.name,
+                  'factor': isarPresentation.factor,
+                  'price': isarPresentation.price,
+                  'currency': isarPresentation.currency,
+                  'barcode': isarPresentation.barcode,
+                  'sku': isarPresentation.sku,
+                  'isDefault': isarPresentation.isDefault,
+                  'isActive': isarPresentation.isActive,
+                  'sortOrder': isarPresentation.sortOrder,
+                };
+                AppLogger.d(
+                  'Datos actuales obtenidos de ISAR para presentación: ${isarPresentation.name}',
+                  tag: 'SYNC',
+                );
+              }
+            } catch (e) {
+              AppLogger.w(
+                'Error leyendo presentación de ISAR: $e – usando datos del payload',
+                tag: 'SYNC',
+              );
+            }
+          }
+
+          // Resolver productId temporal si el producto aún no se sincronizó
+          String productId = finalData['productId'] as String? ?? '';
+          if (productId.startsWith('product_offline_')) {
+            AppLogger.d(
+              'ProductId temporal detectado: $productId – buscando ID real en ISAR...',
+              tag: 'SYNC',
+            );
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarProduct = await isar.isarProducts
+                  .filter()
+                  .serverIdEqualTo(productId)
+                  .findFirst();
+
+              if (isarProduct != null &&
+                  !isarProduct.serverId.startsWith('product_offline_')) {
+                productId = isarProduct.serverId;
+                AppLogger.d(
+                  'ProductId resuelto: $productId',
+                  tag: 'SYNC',
+                );
+              } else {
+                // Product not yet synced – abort and let the queue retry
+                AppLogger.w(
+                  'ProductId temporal no resuelto ($productId) – abortando para reintentar después',
+                  tag: 'SYNC',
+                );
+                throw Exception(
+                  'productId temporal no resuelto: $productId',
+                );
+              }
+            } catch (e) {
+              if (e.toString().contains('productId temporal no resuelto')) {
+                rethrow;
+              }
+              AppLogger.w(
+                'Error resolviendo productId temporal: $e',
+                tag: 'SYNC',
+              );
+              throw Exception(
+                'Error resolviendo productId temporal: $e',
+              );
+            }
+          }
+
+          final request = CreateProductPresentationRequestModel(
+            name: finalData['name'] as String,
+            factor: (finalData['factor'] as num).toDouble(),
+            price: (finalData['price'] as num).toDouble(),
+            currency: finalData['currency'] as String?,
+            barcode: finalData['barcode'] as String?,
+            sku: finalData['sku'] as String?,
+            isDefault: finalData['isDefault'] as bool?,
+            isActive: finalData['isActive'] as bool?,
+            sortOrder: finalData['sortOrder'] as int?,
+          );
+
+          final created = await remoteDS.createPresentation(productId, request);
+          AppLogger.i(
+            'Presentación creada en servidor con ID: ${created.id}',
+            tag: 'SYNC',
+          );
+
+          // Actualizar ISAR con el ID real del servidor
+          if (operation.entityId.startsWith('presentation_offline_')) {
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarPresentation = await isar.isarProductPresentations
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+
+              if (isarPresentation != null) {
+                isarPresentation.serverId = created.id;
+                isarPresentation.markAsSynced();
+                await isar.writeTxn(() async {
+                  await isar.isarProductPresentations.put(isarPresentation);
+                });
+                AppLogger.i(
+                  'ISAR presentación actualizada: ${operation.entityId} → ${created.id}',
+                  tag: 'SYNC',
+                );
+              }
+
+              // Eliminar operaciones UPDATE obsoletas para el temp ID
+              final pendingOps =
+                  await _isarDatabase.getPendingSyncOperations();
+              for (final op in pendingOps) {
+                if (op.entityId == operation.entityId &&
+                    op.operationType == SyncOperationType.update) {
+                  await _isarDatabase.deleteSyncOperation(op.id);
+                  AppLogger.d(
+                    'Operación UPDATE obsoleta eliminada para ${operation.entityId}',
+                    tag: 'SYNC',
+                  );
+                }
+              }
+
+              // Reference resolution: actualizar payloads pendientes que
+              // referencian el temp ID de la presentación
+              final oldId = operation.entityId;
+              final newId = created.id;
+              for (final op in pendingOps) {
+                final isPresentation =
+                    op.entityType == 'ProductPresentation' ||
+                    op.entityType == 'product_presentation';
+                if (isPresentation && op.entityId == oldId) {
+                  try {
+                    final payload = jsonDecode(op.payload);
+                    await _isarDatabase.updateSyncOperationPayload(
+                      op.id,
+                      jsonEncode(payload),
+                    );
+                  } catch (_) {}
+                }
+              }
+
+              AppLogger.i(
+                'Presentación offline sincronizada: $oldId → $newId',
+                tag: 'SYNC',
+              );
+            } catch (e) {
+              AppLogger.w(
+                'Error en post-sync de presentación: $e',
+                tag: 'SYNC',
+              );
+            }
+          }
+          break;
+
+        case SyncOperationType.update:
+          AppLogger.d(
+            'Actualizando presentación en servidor: ${operation.entityId}',
+            tag: 'SYNC',
+          );
+
+          // Skip update if entityId is still a temp (CREATE not yet synced)
+          if (operation.entityId.startsWith('presentation_offline_')) {
+            AppLogger.w(
+              'UPDATE para presentación temporal ${operation.entityId} – ignorando (CREATE pendiente)',
+              tag: 'SYNC',
+            );
+            return;
+          }
+
+          // Resolve productId from payload
+          String updateProductId = data['productId'] as String? ?? '';
+          if (updateProductId.startsWith('product_offline_')) {
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarProduct = await isar.isarProducts
+                  .filter()
+                  .serverIdEqualTo(updateProductId)
+                  .findFirst();
+              if (isarProduct != null &&
+                  !isarProduct.serverId.startsWith('product_offline_')) {
+                updateProductId = isarProduct.serverId;
+              }
+            } catch (_) {}
+          }
+
+          // If productId not yet available, get it from ISAR presentation record
+          if (updateProductId.isEmpty ||
+              updateProductId.startsWith('product_offline_')) {
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarPresentation = await isar.isarProductPresentations
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+              if (isarPresentation != null &&
+                  !isarPresentation.productId.startsWith('product_offline_')) {
+                updateProductId = isarPresentation.productId;
+              }
+            } catch (_) {}
+          }
+
+          final updateRequest = UpdateProductPresentationRequestModel(
+            name: data['name'] as String?,
+            factor: data['factor'] != null
+                ? (data['factor'] as num).toDouble()
+                : null,
+            price: data['price'] != null
+                ? (data['price'] as num).toDouble()
+                : null,
+            currency: data['currency'] as String?,
+            barcode: data['barcode'] as String?,
+            sku: data['sku'] as String?,
+            isDefault: data['isDefault'] as bool?,
+            isActive: data['isActive'] as bool?,
+            sortOrder: data['sortOrder'] as int?,
+          );
+
+          await remoteDS.updatePresentation(
+            updateProductId,
+            operation.entityId,
+            updateRequest,
+          );
+          AppLogger.i(
+            'Presentación actualizada en servidor exitosamente',
+            tag: 'SYNC',
+          );
+          break;
+
+        case SyncOperationType.delete:
+          AppLogger.d(
+            'Eliminando presentación en servidor: ${operation.entityId}',
+            tag: 'SYNC',
+          );
+
+          // Temp IDs should never reach DELETE in queue (cleaned up at source)
+          if (operation.entityId.startsWith('presentation_offline_')) {
+            AppLogger.w(
+              'DELETE para presentación temporal ${operation.entityId} – ignorando',
+              tag: 'SYNC',
+            );
+            return;
+          }
+
+          // Determine productId
+          String deleteProductId = data['productId'] as String? ?? '';
+          if (deleteProductId.isEmpty ||
+              deleteProductId.startsWith('product_offline_')) {
+            try {
+              final isar = IsarDatabase.instance.database;
+              final isarPresentation = await isar.isarProductPresentations
+                  .filter()
+                  .serverIdEqualTo(operation.entityId)
+                  .findFirst();
+              if (isarPresentation != null) {
+                deleteProductId = isarPresentation.productId;
+              }
+            } catch (_) {}
+          }
+
+          await remoteDS.deletePresentation(deleteProductId, operation.entityId);
+          AppLogger.i(
+            'Presentación eliminada en servidor exitosamente',
+            tag: 'SYNC',
+          );
+
+          // Remove from ISAR (soft-delete on server; we delete local copy)
+          try {
+            final isar = IsarDatabase.instance.database;
+            final isarPresentation = await isar.isarProductPresentations
+                .filter()
+                .serverIdEqualTo(operation.entityId)
+                .findFirst();
+            if (isarPresentation != null) {
+              await isar.writeTxn(() async {
+                await isar.isarProductPresentations
+                    .delete(isarPresentation.id);
+              });
+              AppLogger.d(
+                'Presentación eliminada de ISAR: ${operation.entityId}',
+                tag: 'SYNC',
+              );
+            }
+          } catch (e) {
+            AppLogger.w(
+              'Error limpiando presentación de ISAR: $e',
+              tag: 'SYNC',
+            );
+          }
+          break;
+
+        default:
+          throw Exception('Operación no soportada: ${operation.operationType}');
+      }
+    } catch (e) {
+      if (e is ServerException && e.statusCode == 409) {
+        return;
+      }
+
+      if (e.toString().contains('Connection refused') ||
+          e.toString().contains('Connection error') ||
+          e.toString().contains('Error de conexión') ||
+          e.toString().contains('SocketException') ||
+          e.toString().contains('productId temporal no resuelto')) {
+        rethrow;
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  /// Sincronizar operación de **Merma de producto** (ProductWaste).
+  ///
+  /// Reproduce contra el backend (POST /products/:id/waste) una merma que el
+  /// usuario registró offline. El stock local ya fue descontado en el momento
+  /// del registro, pero el FIFO real (lotes) lo descuenta el backend ahora y
+  /// se reconcilia en el próximo PULL.
+  ///
+  /// Solo soporta `create` — actualizar/eliminar mermas no es semánticamente
+  /// válido (una vez ocurrida, queda registrada como movimiento histórico).
+  Future<void> _syncProductWasteOperation(SyncOperation operation) async {
+    if (operation.operationType != SyncOperationType.create) {
+      AppLogger.w(
+        'ProductWaste solo soporta CREATE — operación ${operation.operationType} ignorada',
+        tag: 'SYNC',
+      );
+      return;
+    }
+
+    final data = jsonDecode(operation.payload) as Map<String, dynamic>;
+    final productId = data['productId']?.toString() ?? '';
+    final rawQty = data['quantity'];
+    final reason = data['reason']?.toString() ?? '';
+    final warehouseId = data['warehouseId']?.toString();
+
+    if (productId.isEmpty) {
+      throw Exception('ProductWaste sin productId — operación inválida');
+    }
+    final quantity = rawQty is num ? rawQty.toDouble() : 0.0;
+    if (quantity <= 0) {
+      throw Exception('ProductWaste con quantity inválida: $quantity');
+    }
+
+    // Si el productId aún es temporal (producto creado offline y no
+    // sincronizado), abortamos para que se reintente cuando el producto
+    // ya tenga su id real en ISAR.
+    if (productId.startsWith('product_offline_') ||
+        productId.startsWith('temp_')) {
+      throw Exception(
+        'ProductWaste apunta a producto temp ($productId) — productId temporal no resuelto, reintentar',
+      );
+    }
+
+    AppLogger.d(
+      'Reproduciendo merma offline: productId=$productId qty=$quantity',
+      tag: 'SYNC',
+    );
+
+    final remote = Get.find<ProductRemoteDataSource>();
+    await remote.registerWaste(
+      productId,
+      RegisterProductWasteRequestModel(
+        quantity: quantity,
+        reason: reason,
+        warehouseId: warehouseId,
+      ),
+    );
+
+    AppLogger.i(
+      'Merma sincronizada con servidor: producto=$productId qty=$quantity',
+      tag: 'SYNC',
+    );
+  }
+
   /// Sincronizar operación de Category
   Future<void> _syncCategoryOperation(SyncOperation operation) async {
     try {
@@ -2963,10 +3798,44 @@ class SyncService extends GetxService {
             }
           }
 
-          // ✅ Usar constructor directo (no fromParams) porque finalData ya tiene strings
-          // Normalizar teléfono al formato colombiano +57XXXXXXXXXX
+          // ✅ Sanitizar campos antes del POST para evitar HTTP 400 del
+          // backend (que silenciaba el dato del usuario en versiones
+          // previas).
+          //
+          // 1) Phone/mobile: el backend EXIGE formato +57XXXXXXXXXX.
+          //    Si la normalización no produjo un valor válido, OMITIMOS
+          //    el campo (es opcional) en vez de enviar basura que el
+          //    backend rechaza.
+          //
+          // 2) paymentTerms: el backend exige >= 1 día. Si el cliente
+          //    offline lo dejó en 0/null/negativo, fallback a 30 (default
+          //    estándar de "30 días neto").
           String? normalizedPhone = _normalizeColombianPhone(finalData['phone']);
+          if (normalizedPhone != null &&
+              !RegExp(r'^\+57\d{10}$').hasMatch(normalizedPhone)) {
+            AppLogger.w(
+              'Sync Customer: phone "$normalizedPhone" no es colombiano válido — omitiendo del payload',
+              tag: 'SYNC',
+            );
+            normalizedPhone = null;
+          }
           String? normalizedMobile = _normalizeColombianPhone(finalData['mobile']);
+          if (normalizedMobile != null &&
+              !RegExp(r'^\+57\d{10}$').hasMatch(normalizedMobile)) {
+            AppLogger.w(
+              'Sync Customer: mobile "$normalizedMobile" no es colombiano válido — omitiendo del payload',
+              tag: 'SYNC',
+            );
+            normalizedMobile = null;
+          }
+
+          final rawPaymentTerms = finalData['paymentTerms'];
+          int safePaymentTerms = 30; // default 30 días
+          if (rawPaymentTerms is int && rawPaymentTerms >= 1) {
+            safePaymentTerms = rawPaymentTerms;
+          } else if (rawPaymentTerms is num && rawPaymentTerms >= 1) {
+            safePaymentTerms = rawPaymentTerms.toInt();
+          }
 
           final request = CreateCustomerRequestModel(
             firstName: finalData['firstName'],
@@ -2984,7 +3853,7 @@ class SyncService extends GetxService {
             country: finalData['country'] ?? 'Colombia',
             status: 'active',
             creditLimit: finalData['creditLimit']?.toDouble() ?? 0,
-            paymentTerms: finalData['paymentTerms'] ?? 30,
+            paymentTerms: safePaymentTerms,
             notes: finalData['notes'],
             metadata: finalData['metadata'],
           );
@@ -3065,14 +3934,39 @@ class SyncService extends GetxService {
             'Actualizando cliente en servidor: ${operation.entityId}',
             tag: 'SYNC',
           );
+          // Misma defensa que en CREATE: phone/mobile sólo si normalizan
+          // a +57XXXXXXXXXX exacto; paymentTerms sólo si es >= 1.
+          String? upPhone = _normalizeColombianPhone(data['phone']);
+          if (upPhone != null && !RegExp(r'^\+57\d{10}$').hasMatch(upPhone)) {
+            AppLogger.w(
+              'Sync Customer UPDATE: phone "$upPhone" inválido — omitiendo',
+              tag: 'SYNC',
+            );
+            upPhone = null;
+          }
+          String? upMobile = _normalizeColombianPhone(data['mobile']);
+          if (upMobile != null && !RegExp(r'^\+57\d{10}$').hasMatch(upMobile)) {
+            AppLogger.w(
+              'Sync Customer UPDATE: mobile "$upMobile" inválido — omitiendo',
+              tag: 'SYNC',
+            );
+            upMobile = null;
+          }
+          final rawUpPaymentTerms = data['paymentTerms'];
+          int? safeUpPaymentTerms;
+          if (rawUpPaymentTerms is int && rawUpPaymentTerms >= 1) {
+            safeUpPaymentTerms = rawUpPaymentTerms;
+          } else if (rawUpPaymentTerms is num && rawUpPaymentTerms >= 1) {
+            safeUpPaymentTerms = rawUpPaymentTerms.toInt();
+          }
           // ✅ Usar constructor directo (no fromParams) porque data ya tiene strings
           final updateRequest = UpdateCustomerRequestModel(
             firstName: data['firstName'],
             lastName: data['lastName'],
             companyName: data['companyName'],
             email: data['email'],
-            phone: _normalizeColombianPhone(data['phone']),
-            mobile: _normalizeColombianPhone(data['mobile']),
+            phone: upPhone,
+            mobile: upMobile,
             documentType: data['documentType'],
             documentNumber: data['documentNumber'],
             address: data['address'],
@@ -3082,7 +3976,7 @@ class SyncService extends GetxService {
             country: data['country'],
             status: data['status'],
             creditLimit: data['creditLimit']?.toDouble(),
-            paymentTerms: data['paymentTerms'],
+            paymentTerms: safeUpPaymentTerms,
             notes: data['notes'],
             metadata: data['metadata'] != null
                 ? Map<String, dynamic>.from(data['metadata'])
@@ -3141,13 +4035,26 @@ class SyncService extends GetxService {
           );
           return;
         }
-        // 400/422 - errores de validación que no se resolverán con retries
+        // 400/422 - errores de validación que no se resolverán con retries.
+        // ANTES: return → outer marcaba como completed (datos del usuario
+        // descartados silenciosamente). Bug detectado en sesión real con
+        // un teléfono no-colombiano que el backend rechazó: el cliente
+        // jamás llegó al servidor pero la app dijo "Sincronizado" y el
+        // dato se perdió.
+        // AHORA: lanzamos _PermanentValidationException, el outer catch
+        // marca como failed + retryCount=maxRetries (no se reintenta) +
+        // log persistente para que el usuario corrija desde Diagnóstico.
         if (e.statusCode == 400 || e.statusCode == 422) {
           AppLogger.e(
-            'Error de validación en sync Customer (${e.statusCode}): ${e.message} - marcando como completado para no bloquear cola',
+            'Error de validación en sync Customer (${e.statusCode}): ${e.message}',
             tag: 'SYNC',
           );
-          return;
+          throw _PermanentValidationException(
+            entityType: 'Customer',
+            entityId: operation.entityId,
+            statusCode: e.statusCode ?? 400,
+            backendMessage: e.message,
+          );
         }
       }
       rethrow;
@@ -3975,6 +4882,216 @@ class SyncService extends GetxService {
     }
   }
 
+  /// Sincronizar movement manual (depósito o retiro). El payload trae
+  /// `bankAccountId`, `type` ('deposit'/'withdrawal'/...), `amount`,
+  /// y opcionales `description`/`movementDate`.
+  ///
+  /// Solo soporta CREATE. Movements son inmutables — UPDATE/DELETE no
+  /// aplican (correcciones se hacen vía nuevo movement con type=adjustment).
+  Future<void> _syncBankAccountMovementOperation(SyncOperation operation) async {
+    try {
+      if (operation.operationType != SyncOperationType.create) {
+        AppLogger.w(
+          'BankAccountMovement solo soporta CREATE — operación ${operation.operationType.name} ignorada',
+          tag: 'SYNC',
+        );
+        return;
+      }
+
+      final remoteDataSource = Get.find<BankAccountRemoteDataSource>();
+      final data = jsonDecode(operation.payload);
+
+      final bankAccountId = data['bankAccountId'] as String;
+      final typeStr = data['type'] as String;
+      final amount = (data['amount'] as num).toDouble();
+      final description = data['description'] as String?;
+      final movementDateStr = data['movementDate'] as String?;
+      final movementDate =
+          movementDateStr != null ? DateTime.parse(movementDateStr) : null;
+      // Mapear el string del enum del backend al frontend.
+      final type = BankAccountMovementType.fromString(typeStr);
+
+      AppLogger.d(
+        'Sincronizando movement: ${type.value} \$$amount → cuenta $bankAccountId',
+        tag: 'SYNC',
+      );
+
+      final created = await remoteDataSource.createManualMovement(
+        bankAccountId,
+        type: type,
+        amount: amount,
+        description: description,
+        movementDate: movementDate,
+      );
+
+      AppLogger.i(
+        'Movement sincronizado con ID servidor: ${created.id}',
+        tag: 'SYNC',
+      );
+
+      // Actualizar el movement local: cambiar serverId temp → real, marcar synced.
+      try {
+        final isar = IsarDatabase.instance.database;
+        final localMovement = await isar.isarBankAccountMovements
+            .filter()
+            .serverIdEqualTo(operation.entityId)
+            .findFirst();
+        if (localMovement != null) {
+          await isar.writeTxn(() async {
+            localMovement.serverId = created.id;
+            localMovement.balanceAfter = created.balanceAfter;
+            localMovement.markAsSynced();
+            await isar.isarBankAccountMovements.put(localMovement);
+          });
+        }
+      } catch (e) {
+        AppLogger.w('Error actualizando movement local tras sync: $e', tag: 'SYNC');
+      }
+
+      // El server actualizó el saldo de la cuenta atómicamente. Refrescar
+      // saldo en ISAR para que el dashboard / card / movements screen
+      // muestre el valor correcto (puede diferir del estimado offline si
+      // hubo race conditions con otro device).
+      try {
+        final fresh = await remoteDataSource.getBankAccountById(bankAccountId);
+        final isar = IsarDatabase.instance.database;
+        await isar.writeTxn(() async {
+          final existing = await isar.isarBankAccounts
+              .filter()
+              .serverIdEqualTo(bankAccountId)
+              .findFirst();
+          if (existing != null) {
+            existing.updateFromEntity(fresh.toEntity());
+            await isar.isarBankAccounts.put(existing);
+          }
+        });
+      } catch (e) {
+        AppLogger.w('Error refrescando saldo de cuenta tras movement: $e', tag: 'SYNC');
+      }
+    } catch (e) {
+      AppLogger.e('Error sincronizando movement: $e', tag: 'SYNC');
+      rethrow;
+    }
+  }
+
+  /// Sincronizar transferencia entre cuentas. El payload trae
+  /// `fromAccountId`, `toAccountId`, `amount`, `tempOutId`, `tempInId`.
+  /// El backend genera 2 movements atómicos.
+  Future<void> _syncBankAccountTransferOperation(SyncOperation operation) async {
+    try {
+      if (operation.operationType != SyncOperationType.create) {
+        AppLogger.w(
+          'BankAccountTransfer solo soporta CREATE',
+          tag: 'SYNC',
+        );
+        return;
+      }
+
+      final remoteDataSource = Get.find<BankAccountRemoteDataSource>();
+      final data = jsonDecode(operation.payload);
+
+      final fromAccountId = data['fromAccountId'] as String;
+      final toAccountId = data['toAccountId'] as String;
+      final amount = (data['amount'] as num).toDouble();
+      final description = data['description'] as String?;
+      final tempOutId = data['tempOutId'] as String?;
+      final tempInId = data['tempInId'] as String?;
+      final movementDateStr = data['movementDate'] as String?;
+      final movementDate =
+          movementDateStr != null ? DateTime.parse(movementDateStr) : null;
+
+      AppLogger.d(
+        'Sincronizando transferencia \$$amount: $fromAccountId → $toAccountId',
+        tag: 'SYNC',
+      );
+
+      final movements = await remoteDataSource.transferBetweenAccounts(
+        fromAccountId: fromAccountId,
+        toAccountId: toAccountId,
+        amount: amount,
+        description: description,
+        movementDate: movementDate,
+      );
+
+      // El server devuelve [outMovement, inMovement] (o vice versa según orden).
+      // Las identificamos por type.
+      String? serverOutId;
+      String? serverInId;
+      double? finalFromBalance;
+      double? finalToBalance;
+      for (final m in movements) {
+        if (m.type == BankAccountMovementType.transferOut) {
+          serverOutId = m.id;
+          finalFromBalance = m.balanceAfter;
+        } else if (m.type == BankAccountMovementType.transferIn) {
+          serverInId = m.id;
+          finalToBalance = m.balanceAfter;
+        }
+      }
+
+      // Actualizar los 2 movements locales: cambiar tempIds → serverIds,
+      // ajustar balance_after exacto del server, marcar synced.
+      try {
+        final isar = IsarDatabase.instance.database;
+        await isar.writeTxn(() async {
+          if (tempOutId != null && serverOutId != null) {
+            final localOut = await isar.isarBankAccountMovements
+                .filter()
+                .serverIdEqualTo(tempOutId)
+                .findFirst();
+            if (localOut != null) {
+              localOut.serverId = serverOutId;
+              if (finalFromBalance != null) localOut.balanceAfter = finalFromBalance;
+              if (serverInId != null) localOut.counterpartyMovementId = serverInId;
+              localOut.markAsSynced();
+              await isar.isarBankAccountMovements.put(localOut);
+            }
+          }
+          if (tempInId != null && serverInId != null) {
+            final localIn = await isar.isarBankAccountMovements
+                .filter()
+                .serverIdEqualTo(tempInId)
+                .findFirst();
+            if (localIn != null) {
+              localIn.serverId = serverInId;
+              if (finalToBalance != null) localIn.balanceAfter = finalToBalance;
+              if (serverOutId != null) localIn.counterpartyMovementId = serverOutId;
+              localIn.markAsSynced();
+              await isar.isarBankAccountMovements.put(localIn);
+            }
+          }
+        });
+      } catch (e) {
+        AppLogger.w('Error actualizando movements locales tras transfer: $e', tag: 'SYNC');
+      }
+
+      // Refrescar saldos de ambas cuentas desde el server.
+      for (final accId in [fromAccountId, toAccountId]) {
+        try {
+          final fresh = await remoteDataSource.getBankAccountById(accId);
+          final isar = IsarDatabase.instance.database;
+          await isar.writeTxn(() async {
+            final existing = await isar.isarBankAccounts
+                .filter()
+                .serverIdEqualTo(accId)
+                .findFirst();
+            if (existing != null) {
+              existing.updateFromEntity(fresh.toEntity());
+              await isar.isarBankAccounts.put(existing);
+            }
+          });
+        } catch (e) {
+          AppLogger.w('Error refrescando saldo cuenta $accId: $e', tag: 'SYNC');
+        }
+      }
+
+      AppLogger.i('Transferencia sincronizada exitosamente', tag: 'SYNC');
+    } catch (e) {
+      AppLogger.e('Error sincronizando transferencia: $e', tag: 'SYNC');
+      rethrow;
+    }
+  }
+
   /// Sincronizar operación de Invoice
   Future<void> _syncInvoiceOperation(SyncOperation operation) async {
     try {
@@ -4030,22 +5147,36 @@ class SyncService extends GetxService {
                     tag: 'SYNC',
                   );
 
-                  // Usar items de ISAR si existen, sino mantener del payload
+                  // Usar items de ISAR si existen, sino mantener del payload.
+                  //
+                  // Productos TEMPORALES: si el item tiene productId con
+                  // prefijo `temp_` significa que es un producto no
+                  // registrado (ej. "papas $5.000" sin catálogo). El
+                  // backend espera `isTemporary: true` SIN `productId`
+                  // (su validador rechaza productId no-UUID). Sin esta
+                  // distinción, el sync retry mandaba `productId: temp_xxx`
+                  // y backend respondía 400 → operación quedaba en failed
+                  // → FullSync la borraba como huérfana → factura perdida.
                   final itemsToUse = hasItemsInIsar
-                      ? invoice.items
-                          .map(
-                            (item) => {
+                      ? invoice.items.map((item) {
+                          final isTemp =
+                              item.productId?.startsWith('temp_') ?? false;
+                          return {
+                            if (!isTemp && item.productId != null)
                               'productId': item.productId,
-                              'description': item.description,
-                              'quantity': item.quantity,
-                              'unitPrice': item.unitPrice,
-                              'unit': item.unit,
-                              'discountPercentage': item.discountPercentage,
-                              'discountAmount': item.discountAmount,
-                              'notes': item.notes,
-                            },
-                          )
-                          .toList()
+                            if (isTemp) 'isTemporary': true,
+                            'description': item.description,
+                            'quantity': item.quantity,
+                            'unitPrice': item.unitPrice,
+                            'unit': item.unit,
+                            'discountPercentage': item.discountPercentage,
+                            'discountAmount': item.discountAmount,
+                            'notes': item.notes,
+                            // Presentación de venta (Fase 3) — se omite si null
+                            if (item.presentationId != null)
+                              'presentationId': item.presentationId,
+                          };
+                        }).toList()
                       : data['items']; // Mantener items del payload original
 
                   // Actualizar finalData con datos de ISAR pero preservando items si es necesario
@@ -4132,13 +5263,19 @@ class SyncService extends GetxService {
                       tag: 'SYNC',
                     );
                   } else {
-                    // No hay sync pendiente ni customer real → error permanente
+                    // No hay sync pendiente ni customer real → error permanente.
+                    // Usamos _PermanentValidationException para que el outer
+                    // catch de _processOperation NO marque como completed.
                     AppLogger.e(
-                      'Customer $resolvedCustomerId no tiene UUID real y no hay sync pendiente - marcando como fallido',
+                      'Customer $resolvedCustomerId no tiene UUID real y no hay sync pendiente - marcando como fallido permanente',
                       tag: 'SYNC',
                     );
-                    throw Exception(
-                      'PERMANENT: Customer $resolvedCustomerId no tiene UUID real y no hay operación de sync pendiente',
+                    throw _PermanentValidationException(
+                      entityType: 'Invoice',
+                      entityId: operation.entityId,
+                      statusCode: 0,
+                      backendMessage:
+                          'Cliente $resolvedCustomerId no se sincronizó al backend. La factura no se puede enviar hasta que el cliente sea creado correctamente.',
                     );
                   }
                 } else {
@@ -4146,8 +5283,12 @@ class SyncService extends GetxService {
                     'Customer $resolvedCustomerId sin nombre - no se puede resolver',
                     tag: 'SYNC',
                   );
-                  throw Exception(
-                    'PERMANENT: Customer $resolvedCustomerId sin nombre para resolución alternativa',
+                  throw _PermanentValidationException(
+                    entityType: 'Invoice',
+                    entityId: operation.entityId,
+                    statusCode: 0,
+                    backendMessage:
+                        'Cliente $resolvedCustomerId sin datos para resolución alternativa',
                   );
                 }
               } else {
@@ -4160,12 +5301,9 @@ class SyncService extends GetxService {
               }
             } catch (e) {
               if (e.toString().contains('aún no sincronizado')) rethrow;
-              if (e.toString().contains('PERMANENT:')) {
-                // Error permanente - marcar operación como fallida definitivamente
-                AppLogger.e('Error permanente resolviendo customerId: $e', tag: 'SYNC');
-                await _isarDatabase.markSyncOperationFailed(operation.id, e.toString());
-                return;
-              }
+              // Error permanente — propagar para que el outer catch lo marque
+              // como failed (NO completed silenciosamente como hacía antes).
+              if (e is _PermanentValidationException) rethrow;
               AppLogger.w('Error resolviendo customerId temporal: $e', tag: 'SYNC');
             }
           }
@@ -4306,6 +5444,51 @@ class SyncService extends GetxService {
               if (fifoDeleted > 0) {
                 AppLogger.i(
                   'Eliminadas $fifoDeleted ops FIFO de factura $tempInvoiceId (backend ya descontó inventario)',
+                  tag: 'SYNC',
+                );
+              }
+
+              // ✅ CRÍTICO: resetear isSynced=true en los productos descontados
+              // por esta factura. Sin esto, el flag queda en false para siempre
+              // y el siguiente PULL los protege (skip en _syncProducts) →
+              // los productos NUNCA se actualizan con datos frescos del backend.
+              try {
+                final itemsPayload = finalData['items'];
+                if (itemsPayload is List) {
+                  final productIdsToReset = <String>{};
+                  for (final item in itemsPayload) {
+                    if (item is Map && item['productId'] is String) {
+                      final pid = item['productId'] as String;
+                      if (pid.isNotEmpty) productIdsToReset.add(pid);
+                    }
+                  }
+                  if (productIdsToReset.isNotEmpty) {
+                    int resetCount = 0;
+                    await isar.writeTxn(() async {
+                      for (final pid in productIdsToReset) {
+                        final p = await isar.isarProducts
+                            .filter()
+                            .serverIdEqualTo(pid)
+                            .findFirst();
+                        if (p != null && !p.isSynced) {
+                          p.isSynced = true;
+                          p.lastSyncAt = DateTime.now();
+                          await isar.isarProducts.put(p);
+                          resetCount++;
+                        }
+                      }
+                    });
+                    if (resetCount > 0) {
+                      AppLogger.i(
+                        'Reseteado isSynced=true en $resetCount productos (post-Invoice sync)',
+                        tag: 'SYNC',
+                      );
+                    }
+                  }
+                }
+              } catch (e) {
+                AppLogger.w(
+                  'Error reseteando isSynced en productos: $e',
                   tag: 'SYNC',
                 );
               }
@@ -5883,6 +7066,26 @@ class SyncService extends GetxService {
             tag: 'SYNC',
           );
 
+          // ✅ AUTO-CONFIRMAR si restoreInventory=true (mismo comportamiento
+          // que el repository online — el backend crea en DRAFT y solo
+          // restaura inventario + ajusta balance al confirmar). Sin esto,
+          // las notas hechas offline quedaban en DRAFT permanente en backend.
+          final shouldAutoConfirm = (finalData['restoreInventory'] ?? true) == true;
+          if (shouldAutoConfirm) {
+            try {
+              await remoteDataSource.confirmCreditNote(createdCreditNote.id);
+              AppLogger.i(
+                'Nota ${createdCreditNote.number} auto-confirmada en servidor',
+                tag: 'SYNC',
+              );
+            } catch (e) {
+              AppLogger.w(
+                'No se pudo auto-confirmar nota offline: $e (queda DRAFT en backend)',
+                tag: 'SYNC',
+              );
+            }
+          }
+
           // ✅ Actualizar ISAR con el ID real del servidor
           if (operation.entityId.startsWith('creditnote_offline_')) {
             try {
@@ -5912,6 +7115,13 @@ class SyncService extends GetxService {
                   await _isarDatabase.deleteSyncOperation(op.id);
                 }
               }
+
+              // NOTA: el reset de isSynced=true en productos NO se hace aquí
+              // porque el backend crea la nota en estado DRAFT y solo restaura
+              // inventario en el endpoint /confirm. El reset se hace en el
+              // repository al confirmar (ver credit_note_repository_impl.dart
+              // confirmCreditNote()), donde sí estamos seguros de que backend
+              // ya tiene el inventario actualizado.
             } catch (e) {
               AppLogger.w('Error actualizando nota de crédito en ISAR: $e', tag: 'SYNC');
             }
@@ -6988,4 +8198,60 @@ class SyncService extends GetxService {
     }
     return phone.trim();
   }
+
+  /// Persiste un evento del log de diagnóstico de manera tolerante a fallas.
+  /// Si el `SyncEventLogService` no está registrado o algo falla al escribir,
+  /// el flujo de sync continúa sin alterarse. NUNCA propaga excepciones.
+  void _logEventSafe({
+    required SyncEventSeverity severity,
+    required SyncEventType eventType,
+    required String operation,
+    required String entityType,
+    required String entityId,
+    required String message,
+    String? details,
+    int retryCount = 0,
+  }) {
+    try {
+      if (!Get.isRegistered<SyncEventLogService>()) return;
+      // Disparar y olvidar — no esperamos a que termine para no bloquear sync.
+      Get.find<SyncEventLogService>().log(
+        severity: severity,
+        eventType: eventType,
+        operation: operation,
+        entityType: entityType,
+        entityId: entityId,
+        message: message,
+        details: details,
+        retryCount: retryCount,
+      );
+    } catch (_) {/* tolerante a fallas */}
+  }
+}
+
+/// Excepción levantada por handlers cuando el backend rechaza datos por
+/// errores de validación permanentes (HTTP 400/422). NO debe reintentarse
+/// automáticamente — el dato es incorrecto y necesita corrección manual.
+///
+/// El outer catch del `_processOperation` la detecta para:
+///   1. Marcar la op como `failed` (no `completed` — datos NO se descartan).
+///   2. Setear `retryCount = maxRetries` para suprimir reintentos automáticos.
+///   3. Persistir un log de error para que el usuario lo vea en Diagnóstico.
+class _PermanentValidationException implements Exception {
+  final String entityType;
+  final String entityId;
+  final int statusCode;
+  final String backendMessage;
+
+  _PermanentValidationException({
+    required this.entityType,
+    required this.entityId,
+    required this.statusCode,
+    required this.backendMessage,
+  });
+
+  @override
+  String toString() =>
+      'PermanentValidationError [$entityType:$entityId] '
+      'HTTP $statusCode: $backendMessage';
 }

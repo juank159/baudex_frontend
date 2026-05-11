@@ -23,6 +23,20 @@ enum ExpenseStatus {
         return 'Pagado';
     }
   }
+
+  /// Estados que impactan financieramente al negocio.
+  /// FUENTE ÚNICA — todos los cálculos de gastos (dashboard, reportes,
+  /// pie/bar charts) deben usar esto para evitar inconsistencias.
+  /// Excluye draft, rejected y cancelled — esos aún no afectan caja.
+  bool get isCountable =>
+      this == ExpenseStatus.paid ||
+      this == ExpenseStatus.approved ||
+      this == ExpenseStatus.pending;
+
+  static bool isCountableString(String? raw) {
+    final s = raw?.toLowerCase();
+    return s == 'paid' || s == 'approved' || s == 'pending';
+  }
 }
 
 enum ExpenseType {
@@ -74,6 +88,28 @@ enum PaymentMethod {
   }
 }
 
+/// Origen del pago de un gasto. Espejo del enum del backend.
+/// Determina DE DÓNDE salió el dinero. Cuando es `bankAccount` debe
+/// venir también `bankAccountId` (la cuenta concreta).
+enum ExpensePaidFrom {
+  cashRegister('cash_register', 'Caja del día'),
+  bankAccount('bank_account', 'Cuenta bancaria'),
+  pettyCash('petty_cash', 'Caja chica'),
+  ownerCapital('owner_capital', 'Aporte del dueño');
+
+  const ExpensePaidFrom(this.value, this.displayName);
+  final String value;
+  final String displayName;
+
+  static ExpensePaidFrom? fromString(String? value) {
+    if (value == null) return null;
+    for (final v in ExpensePaidFrom.values) {
+      if (v.value == value) return v;
+    }
+    return null;
+  }
+}
+
 class Expense extends Equatable {
   final String id;
   final String description;
@@ -97,6 +133,9 @@ class Expense extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
+  // Origen del pago + cuenta bancaria asociada (cuando paidFrom = bankAccount).
+  final ExpensePaidFrom? paidFrom;
+  final String? bankAccountId;
 
   const Expense({
     required this.id,
@@ -121,6 +160,8 @@ class Expense extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
+    this.paidFrom,
+    this.bankAccountId,
   });
 
   @override
@@ -147,6 +188,8 @@ class Expense extends Equatable {
     createdAt,
     updatedAt,
     deletedAt,
+    paidFrom,
+    bankAccountId,
   ];
 
   // Getters útiles
@@ -207,6 +250,8 @@ class Expense extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
+    ExpensePaidFrom? paidFrom,
+    String? bankAccountId,
   }) {
     return Expense(
       id: id ?? this.id,
@@ -231,6 +276,8 @@ class Expense extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      paidFrom: paidFrom ?? this.paidFrom,
+      bankAccountId: bankAccountId ?? this.bankAccountId,
     );
   }
 

@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
+import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../domain/entities/bank_account.dart';
 import '../controllers/bank_accounts_controller.dart';
@@ -22,7 +25,10 @@ class BankAccountsScreen extends GetView<BankAccountsController> {
       appBar: _buildAppBar(context),
       drawer: const AppDrawer(currentRoute: '/bank-accounts'),
       body: _buildBody(context),
-      floatingActionButton: _buildFloatingActionButton(context),
+      floatingActionButton: PermissionGate.canEdit(
+        moduleCode: ModuleCode.bankAccounts,
+        child: _buildFloatingActionButton(context) ?? const SizedBox.shrink(),
+      ),
     );
   }
 
@@ -46,6 +52,15 @@ class BankAccountsScreen extends GetView<BankAccountsController> {
       ),
       actions: [
         const SyncStatusIcon(),
+        // Auditoría de saldos — solo admin (canDelete porque es destructivo).
+        PermissionGate.canDelete(
+          moduleCode: ModuleCode.bankAccounts,
+          child: IconButton(
+            icon: const Icon(Icons.fact_check_rounded, color: Colors.white),
+            tooltip: 'Auditar saldos',
+            onPressed: () => Get.toNamed(AppRoutes.bankAccountsAudit),
+          ),
+        ),
         // Filtro por tipo
         PopupMenuButton<BankAccountType?>(
           icon: const Icon(

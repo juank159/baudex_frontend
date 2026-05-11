@@ -39,8 +39,6 @@ class ProductPriceModel {
 
   factory ProductPriceModel.fromJson(Map<String, dynamic> json) {
     try {
-      print('🔍 ProductPriceModel.fromJson: Procesando precio ${json['id']}');
-
       return ProductPriceModel(
         id: json['id'] as String? ?? '',
         // ✅ CORRECCIÓN CRÍTICA: Guardar type como string para evitar problemas con enum

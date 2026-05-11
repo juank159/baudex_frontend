@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../customers/domain/entities/customer.dart';
 import '../controllers/invoice_form_controller.dart';
+import 'quick_create_customer_dialog.dart';
 
 class CustomerSelectorWidget extends StatefulWidget {
   final Customer? selectedCustomer;
@@ -223,6 +224,28 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
               ],
             ),
           ),
+
+          // Botón crear cliente nuevo (acceso rápido sin salir de factura)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: _openCreateCustomerDialog,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade600,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.person_add_alt_1,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
 
           // Botón de búsqueda con gradiente
           Material(
@@ -528,6 +551,31 @@ class CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
           ),
         ],
       ),
+    );
+  }
+
+  // ==================== CREAR CLIENTE RÁPIDO ====================
+
+  /// Abre el dialog de creación rápida de cliente. Si el cajero estaba
+  /// buscando algo, ese texto se pasa como nombre prellenado. Cuando el
+  /// dialog crea exitosamente, el cliente queda seleccionado en la
+  /// factura sin pasos adicionales. Funciona offline-first vía el
+  /// usecase del repositorio (encola en SyncQueue si no hay red).
+  void _openCreateCustomerDialog() {
+    final prefilledName = _searchController.text.trim().isNotEmpty
+        ? _searchController.text.trim()
+        : null;
+
+    Get.dialog(
+      QuickCreateCustomerDialog(
+        prefilledName: prefilledName,
+        onCreated: (customer) {
+          // Cerrar la búsqueda si estaba abierta y seleccionar el nuevo cliente.
+          _closeSearch();
+          widget.onCustomerSelected(customer);
+        },
+      ),
+      barrierDismissible: true,
     );
   }
 

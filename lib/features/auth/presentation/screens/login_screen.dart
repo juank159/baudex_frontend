@@ -33,10 +33,14 @@ class LoginScreen extends GetView<AuthController> {
         child: Column(
           children: [
             SizedBox(height: context.verticalSpacing),
-            const AuthHeaderWidget(
-              title: 'Iniciar Sesión',
-              subtitle: 'Bienvenido de vuelta',
-            ),
+            Obx(() => AuthHeaderWidget(
+                  title: controller.hasRememberedBusiness
+                      ? '¡Bienvenido de vuelta!'
+                      : 'Iniciar Sesión',
+                  subtitle: controller.hasRememberedBusiness
+                      ? 'Entra a ${controller.loginBusinessController.text}'
+                      : 'Accede a tu cuenta',
+                )),
             SizedBox(height: context.verticalSpacing * 2),
             _buildLoginForm(context),
             SizedBox(height: context.verticalSpacing),
@@ -56,10 +60,14 @@ class LoginScreen extends GetView<AuthController> {
             child: Column(
               children: [
                 SizedBox(height: context.verticalSpacing),
-                const AuthHeaderWidget(
-                  title: 'Iniciar Sesión',
-                  subtitle: 'Bienvenido de vuelta',
-                ),
+                Obx(() => AuthHeaderWidget(
+                      title: controller.hasRememberedBusiness
+                          ? '¡Bienvenido de vuelta!'
+                          : 'Iniciar Sesión',
+                      subtitle: controller.hasRememberedBusiness
+                          ? 'Entra a ${controller.loginBusinessController.text}'
+                          : 'Bienvenido de vuelta',
+                    )),
                 SizedBox(height: context.verticalSpacing * 2),
                 GlassCard(
                   child: _buildLoginForm(context),
@@ -95,10 +103,14 @@ class LoginScreen extends GetView<AuthController> {
                     constraints: const BoxConstraints(maxWidth: 420),
                     child: Column(
                       children: [
-                        const AuthHeaderWidget(
-                          title: 'Iniciar Sesión',
-                          subtitle: 'Accede a tu cuenta',
-                        ),
+                        Obx(() => AuthHeaderWidget(
+                              title: controller.hasRememberedBusiness
+                                  ? '¡Bienvenido de vuelta!'
+                                  : 'Iniciar Sesión',
+                              subtitle: controller.hasRememberedBusiness
+                                  ? 'Entra a ${controller.loginBusinessController.text}'
+                                  : 'Accede a tu cuenta',
+                            )),
                         SizedBox(height: context.verticalSpacing * 2),
                         GlassCard(
                           child: _buildLoginForm(context),
@@ -123,6 +135,18 @@ class LoginScreen extends GetView<AuthController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Phase 3 — Campo "Negocio" estilo POS profesional, OBLIGATORIO.
+          // Es el primer campo del form: al llegar a su terminal el cajero
+          // declara a qué negocio entra. Si no coincide con la organization
+          // del email, el login se aborta con un error claro.
+          Obx(() => _BusinessField(
+                controller: controller.loginBusinessController,
+                isRemembered: controller.hasRememberedBusiness,
+                onClearRemembered:
+                    controller.clearRememberedBusiness,
+                validator: _validateBusiness,
+              )),
+          SizedBox(height: context.verticalSpacing),
           EmailAutocompleteField(
             controller: controller.loginEmailController,
             label: 'Correo Electrónico',
@@ -232,6 +256,16 @@ class LoginScreen extends GetView<AuthController> {
   }
 
   // ==================== VALIDACIONES ====================
+
+  String? _validateBusiness(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'El nombre del negocio es requerido';
+    }
+    if (value.trim().length < 2) {
+      return 'Ingresa el nombre completo del negocio';
+    }
+    return null;
+  }
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
@@ -482,4 +516,61 @@ class _LoginPatternPainter extends CustomPainter {
 class _CircleData {
   final double cx, cy, radius, opacity, phase;
   _CircleData(this.cx, this.cy, this.radius, this.opacity, this.phase);
+}
+
+/// Phase 3 — Campo "Negocio" usando el mismo `CustomTextField` que
+/// el resto del formulario para consistencia visual total. Cuando el
+/// dispositivo recuerda el negocio, agrega una pequeña leyenda debajo
+/// + un icono de cerrar para olvidarlo.
+class _BusinessField extends StatelessWidget {
+  final TextEditingController controller;
+  final bool isRemembered;
+  final VoidCallback onClearRemembered;
+  final String? Function(String?)? validator;
+
+  const _BusinessField({
+    required this.controller,
+    required this.isRemembered,
+    required this.onClearRemembered,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CustomTextField(
+          controller: controller,
+          label: 'Negocio',
+          hint: 'Nombre exacto de tu negocio',
+          prefixIcon: Icons.store_rounded,
+          suffixIcon: isRemembered ? Icons.close_rounded : null,
+          onSuffixIconPressed: isRemembered ? onClearRemembered : null,
+          validator: validator,
+        ),
+        if (isRemembered) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Row(
+              children: [
+                Icon(Icons.devices_rounded,
+                    size: 12, color: ElegantLightTheme.primaryBlue),
+                const SizedBox(width: 4),
+                Text(
+                  'Recordado en este dispositivo',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: ElegantLightTheme.primaryBlue,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }

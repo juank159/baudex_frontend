@@ -5,16 +5,19 @@ import '../../core/utils/app_logger.dart';
 
 // Import ISAR models
 import 'sync_queue.dart';
+import 'sync_event_log.dart';
 import 'models/isar_idempotency_record.dart'; // ⭐ FASE 1: Idempotencia
 import '../../../features/categories/data/models/isar/isar_category.dart';
 import '../../../features/customers/data/models/isar/isar_customer.dart';
 import '../../../features/customer_credits/data/models/isar/isar_customer_credit.dart';
 import '../../../features/products/data/models/isar/isar_product.dart';
+import '../../../features/products/data/models/isar/isar_product_presentation.dart';
 import '../../../features/expenses/data/models/isar/isar_expense.dart';
 import '../../../features/invoices/data/models/isar/isar_invoice.dart';
 import '../../../features/credit_notes/data/models/isar/isar_credit_note.dart';
 import '../../../features/notifications/data/models/isar/isar_notification.dart';
 import '../../../features/bank_accounts/data/models/isar/isar_bank_account.dart';
+import '../../../features/bank_accounts/data/models/isar/isar_bank_account_movement.dart';
 import '../../../features/suppliers/data/models/isar/isar_supplier.dart';
 import '../../../features/purchase_orders/data/models/isar/isar_purchase_order.dart';
 import '../../../features/purchase_orders/data/models/isar/isar_purchase_order_item.dart';
@@ -77,16 +80,19 @@ class IsarDatabase implements IIsarDatabase {
       _isar = await Isar.open(
         [
           SyncOperationSchema,
+          IsarSyncEventLogSchema, // Diagnóstico: log persistente de eventos de sync
           IsarIdempotencyRecordSchema, // ⭐ FASE 1: Idempotencia
           IsarCategorySchema,
           IsarCustomerSchema,
           IsarCustomerCreditSchema,
           IsarProductSchema,
+          IsarProductPresentationSchema,
           IsarExpenseSchema,
           IsarInvoiceSchema,
           IsarCreditNoteSchema,
           IsarNotificationSchema,
           IsarBankAccountSchema,
+          IsarBankAccountMovementSchema,
           IsarSupplierSchema,
           IsarPurchaseOrderSchema,
           IsarPurchaseOrderItemSchema,
@@ -551,6 +557,31 @@ class IsarDatabase implements IIsarDatabase {
     } catch (e) {
       // Registrar error pero no propagar (puede ser schema mismatch temporal)
       AppLogger.w('Error en operación ISAR: $e', tag: 'ISAR');
+    }
+  }
+
+  /// Resetear el contador de reintentos de una operación a cero
+  ///
+  /// Útil cuando se sabe que la causa del fallo ya fue corregida
+  /// (ej: bug de backend resuelto, conexión recuperada después de mucho
+  /// tiempo, datos del servidor cambiados). La operación pasa a `pending`
+  /// con retryCount=0 para que vuelva a entrar al ciclo normal de sync.
+  Future<void> resetSyncOperationRetry(int operationId) async {
+    if (_isar == null) return;
+
+    try {
+      await _isar!.writeTxn(() async {
+        final operation = await _isar!.syncOperations.get(operationId);
+        if (operation != null) {
+          operation.status = SyncStatus.pending;
+          operation.updatedAt = DateTime.now();
+          operation.retryCount = 0;
+          operation.error = null;
+          await _isar!.syncOperations.put(operation);
+        }
+      });
+    } catch (e) {
+      AppLogger.w('Error reseteando retry: $e', tag: 'ISAR');
     }
   }
 

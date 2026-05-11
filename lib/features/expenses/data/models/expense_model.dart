@@ -25,6 +25,8 @@ class ExpenseModel extends Expense {
     super.approvedAt,
     super.rejectionReason,
     super.deletedAt,
+    super.paidFrom,
+    super.bankAccountId,
   });
 
   factory ExpenseModel.fromJson(Map<String, dynamic> json) {
@@ -59,6 +61,8 @@ class ExpenseModel extends Expense {
       deletedAt: json['deletedAt'] != null
           ? DateTime.parse(json['deletedAt'] as String)
           : null,
+      paidFrom: ExpensePaidFrom.fromString(json['paidFrom'] as String?),
+      bankAccountId: json['bankAccountId'] as String?,
     );
   }
 
@@ -86,6 +90,8 @@ class ExpenseModel extends Expense {
       'approvedAt': approvedAt?.toIso8601String(),
       'rejectionReason': rejectionReason,
       'deletedAt': deletedAt?.toIso8601String(),
+      if (paidFrom != null) 'paidFrom': paidFrom!.value,
+      if (bankAccountId != null) 'bankAccountId': bankAccountId,
     };
   }
 

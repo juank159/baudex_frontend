@@ -3,8 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lottie/lottie.dart';
 import '../../config/routes/app_routes.dart';
+import '../../core/navigation/cash_register_guard.dart';
+import '../../core/navigation/navigation_guard.dart';
 import '../controllers/app_drawer_controller.dart';
 import '../models/drawer_menu_item.dart';
+import '../utils/drawer_permission_filter.dart';
+import '../../core/services/permissions_service.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../core/theme/elegant_light_theme.dart';
 import '../../presentation/widgets/sync_status_indicator.dart';
@@ -319,7 +323,15 @@ class AppDrawer extends GetWidget<AppDrawerController> {
 
   Widget _buildMenuItems(BuildContext context) {
     return Obx(() {
-      final menuItems = controller.menuItems;
+      // CRÍTICO: filtrar por permisos del usuario actual ANTES de
+      // separar en grupos. Items que el usuario no puede ver se ocultan
+      // del drawer (admin siempre ve todo por shortcut en PermissionsService).
+      final permsService = Get.isRegistered<PermissionsService>()
+          ? Get.find<PermissionsService>()
+          : null;
+      // Forzar dependencia reactiva: cuando los permisos cambian, Obx rebuild.
+      final _ = permsService?.rxPermissions.length;
+      final menuItems = DrawerPermissionFilter.apply(controller.menuItems);
       final size = MediaQuery.of(context).size;
       final isMobile = size.width < 600;
       final isTablet = size.width >= 600 && size.width < 1200;
@@ -884,6 +896,14 @@ class AppDrawer extends GetWidget<AppDrawerController> {
     );
   }
 
+  /// Rutas que exigen una caja registradora abierta antes de entrar.
+  /// Mantener esta lista corta y específica — solo flujos donde
+  /// arrancar sin caja causa pérdida de datos (carrito de factura).
+  static bool _routeRequiresOpenCashRegister(String route) {
+    return route == AppRoutes.invoicesWithTabs ||
+        route == AppRoutes.invoicesCreate;
+  }
+
   void _handleMenuTap(BuildContext context, DrawerMenuItem item) {
     // Si es un item con submenú, alternar expansión
     if (item.hasSubmenu && (item.route == null || item.route!.isEmpty)) {
@@ -901,11 +921,43 @@ class AppDrawer extends GetWidget<AppDrawerController> {
     // Validar que la ruta existe antes de navegar
     if (item.route != null && item.route!.isNotEmpty) {
       final currentRoute = Get.currentRoute;
-      if (currentRoute != item.route) {
-        Get.offAllNamed(item.route!);
-      } else {
+      if (currentRoute == item.route) {
+        // Misma ruta: sólo cerrar el drawer.
         Navigator.pop(context);
+        return;
       }
+
+      // Pop drawer y AppNav.offAllNamed en frames distintos.
+      //
+      // El bug histórico: hacer `Navigator.pop` y luego inmediatamente
+      // `Get.offAllNamed` en el mismo frame deja el árbol del drawer
+      // a medio desmontar mientras GetX arranca teardown del scaffold
+      // actual + Bindings nuevos. Con muchos controllers en juego
+      // (DashboardController + AppDrawerController + Workers de sync)
+      // el frame se satura, observers caen en estado inconsistente y
+      // la app aparece colgada.
+      //
+      // Hacer pop, esperar al siguiente frame (drawer ya desmontado)
+      // y recién entonces invocar el guard garantiza que el árbol
+      // viejo del drawer está limpio antes del teardown del scaffold.
+      // El guard a su vez serializa con la cola FIFO si llega otra
+      // navegación encima.
+      final route = item.route!;
+      Navigator.pop(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        // Si la ruta es de creación de facturas, validar caja antes.
+        // Sin esto el usuario podía entrar al form sin caja abierta,
+        // agregar ítems, intentar procesar y al ir a abrir la caja
+        // perdía todos los ítems del carrito.
+        if (_routeRequiresOpenCashRegister(route)) {
+          final ctx = Get.context;
+          if (ctx != null) {
+            final canProceed = await CashRegisterGuard.requireOpen(ctx);
+            if (!canProceed) return;
+          }
+        }
+        AppNav.offAllNamed(route);
+      });
     } else {
       Navigator.pop(context);
       Get.snackbar(
@@ -920,16 +972,26 @@ class AppDrawer extends GetWidget<AppDrawerController> {
   }
 
   Widget _buildConfigurationGroup(BuildContext context) {
-    final configItems =
-        controller.menuItems
-            .where((item) => item.isInConfigurationGroup)
-            .toList();
-
-    if (configItems.isEmpty) return const SizedBox.shrink();
-
     return Obx(() {
       final drawerController = Get.find<AppDrawerController>();
       final isExpanded = drawerController.getConfigurationExpandedState();
+
+      // CRÍTICO: el filtro DEBE estar DENTRO del Obx para que cuando
+      // cambien los permisos del usuario actual (al login o tras un
+      // cambio en otra sesión), el grupo se rebuildee y oculte/muestre
+      // los items según corresponda.
+      // Forzamos la suscripción reactiva a rxPermissions tocando .length.
+      final permsService = Get.isRegistered<PermissionsService>()
+          ? Get.find<PermissionsService>()
+          : null;
+      // ignore: unused_local_variable
+      final _permsLength = permsService?.rxPermissions.length;
+      final filteredItems = DrawerPermissionFilter.apply(controller.menuItems);
+      final configItems = filteredItems
+          .where((item) => item.isInConfigurationGroup)
+          .toList();
+
+      if (configItems.isEmpty) return const SizedBox.shrink();
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1383,7 +1445,12 @@ class AppDrawer extends GetWidget<AppDrawerController> {
   void _handleUserAction(String action, AuthController authController) {
     switch (action) {
       case 'profile':
-        Get.offAllNamed(AppRoutes.profile);
+        // Igual que en `_handleMenuTap`: si el menú de usuario abrió un
+        // popup, dejamos que cierre antes de navegar para evitar dos
+        // teardowns superpuestos.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          AppNav.offAllNamed(AppRoutes.profile);
+        });
         break;
       case 'settings':
         // TODO: Implementar pantalla de configuración de usuario

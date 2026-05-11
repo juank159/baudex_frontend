@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../domain/entities/inventory_movement.dart';
 import '../../domain/usecases/create_bulk_stock_adjustments_usecase.dart';
@@ -110,6 +111,11 @@ class InventoryBulkAdjustmentsController extends GetxController {
         (warehousesList) {
           warehouses.value = warehousesList;
           print('✅ Almacenes cargados: ${warehousesList.length}');
+          // Auto-seleccionar si hay exactamente un almacén disponible
+          if (warehousesList.length == 1) {
+            final w = warehousesList.first;
+            _applyWarehouseChange(w.id, w.name);
+          }
         },
       );
     } catch (e) {
@@ -364,26 +370,50 @@ class InventoryBulkAdjustmentsController extends GetxController {
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
+            margin: const EdgeInsets.all(12),
+            borderRadius: 12,
+            backgroundColor:
+                ElegantLightTheme.errorRed.withValues(alpha: 0.95),
+            colorText: Colors.white,
+            icon: const Icon(Icons.error_outline, color: Colors.white),
+            titleText: const Text(
+              'Error',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
           );
         },
         (movements) {
           Get.snackbar(
-            'Éxito',
-            '${movements.length} ajustes creados correctamente',
+            'Ajustes aplicados',
+            '${movements.length} ajuste(s) creado(s) correctamente',
             snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
+            margin: const EdgeInsets.all(12),
+            borderRadius: 12,
+            backgroundColor:
+                ElegantLightTheme.successGreen.withValues(alpha: 0.95),
+            colorText: Colors.white,
+            icon: const Icon(Icons.check_circle, color: Colors.white),
+            titleText: const Text(
+              'Ajustes aplicados',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
           );
-          
-          // Esperar un momento y luego forzar actualización de balances
+
+          // Forzar actualización de balances tras un breve delay
           Future.delayed(const Duration(seconds: 1), () {
             _forceInventoryRefresh();
           });
-          
+
           _clearForm();
-          Get.back(); // Return to previous screen
+          Get.back();
         },
       );
     } catch (e) {

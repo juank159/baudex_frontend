@@ -38,6 +38,12 @@ class BankAccount extends Equatable {
   final bool isDefault;
   final int sortOrder;
   final String? description;
+
+  /// Saldo actual de la cuenta (suma de inflows menos outflows). Se mantiene
+  /// sincronizado con el backend por movements registrados en cada cobro,
+  /// pago, depósito, retiro o transferencia.
+  final double currentBalance;
+
   final Map<String, dynamic>? metadata;
   final String organizationId;
   final String? createdById;
@@ -58,6 +64,7 @@ class BankAccount extends Equatable {
     required this.isDefault,
     required this.sortOrder,
     this.description,
+    this.currentBalance = 0,
     this.metadata,
     required this.organizationId,
     this.createdById,
@@ -80,6 +87,7 @@ class BankAccount extends Equatable {
         isDefault,
         sortOrder,
         description,
+        currentBalance,
         metadata,
         organizationId,
         createdById,
@@ -123,6 +131,7 @@ class BankAccount extends Equatable {
     bool? isDefault,
     int? sortOrder,
     String? description,
+    double? currentBalance,
     Map<String, dynamic>? metadata,
     String? organizationId,
     String? createdById,
@@ -143,6 +152,7 @@ class BankAccount extends Equatable {
       isDefault: isDefault ?? this.isDefault,
       sortOrder: sortOrder ?? this.sortOrder,
       description: description ?? this.description,
+      currentBalance: currentBalance ?? this.currentBalance,
       metadata: metadata ?? this.metadata,
       organizationId: organizationId ?? this.organizationId,
       createdById: createdById ?? this.createdById,

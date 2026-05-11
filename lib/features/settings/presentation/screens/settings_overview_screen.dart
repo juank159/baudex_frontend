@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/config/themes/app_colors.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/responsive_builder.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
 
@@ -279,6 +280,13 @@ class SettingsOverviewScreen extends StatelessWidget {
         icon: Icons.notifications_outlined,
         color: Colors.indigo,
         route: AppRoutes.settingsNotifications,
+      ),
+      ConfigurationItem(
+        title: 'Diagnóstico del sistema',
+        description: 'Estado de sincronización, errores, recuperación',
+        icon: Icons.health_and_safety_outlined,
+        color: ElegantLightTheme.primaryBlue,
+        route: AppRoutes.diagnostics,
       ),
     ];
   }

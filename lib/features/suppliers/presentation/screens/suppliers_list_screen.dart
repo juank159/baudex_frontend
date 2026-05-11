@@ -6,6 +6,8 @@ import 'package:get/get.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../controllers/suppliers_controller.dart';
 import '../widgets/supplier_card_widget.dart';
 import '../widgets/supplier_filter_widget.dart';
@@ -38,7 +40,10 @@ class SuppliersListScreen extends GetView<SuppliersController> {
           tooltip: 'Actualizar',
         )),
       ],
-      floatingActionButton: _buildFloatingActionButton(context),
+      floatingActionButton: PermissionGate.canEdit(
+        moduleCode: ModuleCode.purchaseOrders,
+        child: _buildFloatingActionButton(context) ?? const SizedBox.shrink(),
+      ),
       body:
           ResponsiveHelper.isMobile(context)
               ? _buildMobileLayout(context)

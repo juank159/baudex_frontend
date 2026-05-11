@@ -89,6 +89,7 @@ flutter:
     - .env
     - .env.development
     - .env.production
+    - .env.staging
     - assets/images/LOGO_GRANADA.png
     - assets/images/baudex_logo.png
     - assets/images/LOGO_FORTALEZA.png

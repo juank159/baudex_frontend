@@ -12,6 +12,9 @@ import '../../../../app/data/local/sync_queue.dart';
 import '../../domain/entities/credit_note.dart';
 import '../../domain/repositories/credit_note_repository.dart';
 import '../models/isar/isar_credit_note.dart';
+import '../../../../app/core/utils/app_logger.dart';
+import '../../../inventory/data/models/isar/isar_inventory_batch.dart';
+import '../../../products/data/models/isar/isar_product.dart';
 
 /// Implementación offline del repositorio de notas de crédito usando ISAR
 ///
@@ -288,6 +291,18 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
         await _isar.isarCreditNotes.put(isarCreditNote);
       });
 
+      // ✅ Restaurar inventario localmente si la nota lo requiere.
+      // Espejo offline de lo que el backend hace en confirm() →
+      // restoreToBatchesIntelligent. Solo se ejecuta si el flag es true.
+      // Backend al confirmar verifica `inventoryRestored=false` antes de
+      // procesar otra vez, por eso no hay doble restauración.
+      if (params.restoreInventory) {
+        await _restoreInventoryForOfflineCreditNote(
+          itemsPayload: params.items,
+          creditNoteNumber: number,
+        );
+      }
+
       // Add to sync queue
       try {
         final syncService = Get.find<SyncService>();
@@ -302,6 +317,7 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
             'reasonDescription': params.reasonDescription,
             'items': params.items.map((item) => {
               'invoiceItemId': item.invoiceItemId,
+              'productId': item.productId,
               'quantity': item.quantity,
               'unitPrice': item.unitPrice,
               'description': item.description,
@@ -618,6 +634,109 @@ class CreditNoteOfflineRepository implements CreditNoteRepository {
         return IsarCreditNoteReason.discountGranted;
       case CreditNoteReason.other:
         return IsarCreditNoteReason.other;
+    }
+  }
+
+  // ==================== INVENTARIO OFFLINE ====================
+
+  /// Restaura inventario localmente para una nota de crédito creada offline.
+  ///
+  /// Estrategia espejo de `_processInventoryForOfflineInvoice` pero al revés:
+  ///   * Suma cantidades a `IsarInventoryBatch` con `addQuantity()` (LIFO inverso:
+  ///     devuelve primero al batch más reciente, simulando lo que hace el
+  ///     backend en `restoreToBatchesIntelligent`).
+  ///   * Aumenta `IsarProduct.stock` en una transacción única.
+  ///   * Marca productos como `unsynced` para que el FullSync los proteja
+  ///     hasta que el push de la nota termine y resetee el flag.
+  ///
+  /// NO encola operaciones de movement separadas: el backend al recibir la
+  /// nota de crédito (en `confirm()`) ejecuta `restoreToBatchesIntelligent()`
+  /// y marca `inventoryRestored=true`. El backend no duplica porque verifica
+  /// el flag `inventoryRestored=false` antes de procesar.
+  Future<void> _restoreInventoryForOfflineCreditNote({
+    required List<CreateCreditNoteItemParams> itemsPayload,
+    required String creditNoteNumber,
+  }) async {
+    try {
+      final stockRestorations = <String, int>{}; // productId -> qty acumulada
+      int processedItems = 0;
+
+      for (final item in itemsPayload) {
+        final productId = item.productId;
+        if (productId == null || productId.isEmpty) continue;
+        final qty = item.quantity.toInt();
+        if (qty <= 0) continue;
+
+        // 1) Restaurar a batches (LIFO inverso: más recientes primero).
+        final batches = await _isar.isarInventoryBatchs
+            .filter()
+            .deletedAtIsNull()
+            .and()
+            .productIdEqualTo(productId)
+            .findAll();
+        // Más reciente primero — opuesto a FIFO de consume()
+        batches.sort((a, b) => b.entryDate.compareTo(a.entryDate));
+
+        int remaining = qty;
+        final updatedBatches = <IsarInventoryBatch>[];
+        for (final batch in batches) {
+          if (remaining <= 0) break;
+          final headroom = batch.originalQuantity - batch.currentQuantity;
+          if (headroom <= 0) continue;
+          final toRestore = remaining > headroom ? headroom : remaining;
+          batch.addQuantity(toRestore, modifiedBy: 'offline_credit_note');
+          updatedBatches.add(batch);
+          remaining -= toRestore;
+        }
+        if (updatedBatches.isNotEmpty) {
+          await _isar.writeTxn(() async {
+            await _isar.isarInventoryBatchs.putAll(updatedBatches);
+          });
+        }
+        if (remaining > 0) {
+          AppLogger.w(
+            'CreditNote $creditNoteNumber: $remaining unidades de $productId no se pudieron restaurar a ningún batch (sin headroom). Stock del producto se incrementa de todos modos.',
+            tag: 'CREDIT_NOTE',
+          );
+        }
+
+        stockRestorations[productId] =
+            (stockRestorations[productId] ?? 0) + qty;
+        processedItems++;
+      }
+
+      // 2) Aumentar IsarProduct.stock en una sola transacción.
+      if (stockRestorations.isNotEmpty) {
+        final productsToSave = <IsarProduct>[];
+        for (final entry in stockRestorations.entries) {
+          final p = await _isar.isarProducts
+              .filter()
+              .serverIdEqualTo(entry.key)
+              .findFirst();
+          if (p == null) continue;
+          p.stock = (p.stock + entry.value).toDouble();
+          p.markAsUnsynced();
+          productsToSave.add(p);
+        }
+        if (productsToSave.isNotEmpty) {
+          await _isar.writeTxn(() async {
+            await _isar.isarProducts.putAll(productsToSave);
+          });
+        }
+      }
+
+      if (processedItems > 0) {
+        AppLogger.i(
+          'CreditNote $creditNoteNumber: inventario restaurado offline en $processedItems items',
+          tag: 'CREDIT_NOTE',
+        );
+      }
+    } catch (e) {
+      AppLogger.e(
+        'Error restaurando inventario offline (nota $creditNoteNumber): $e',
+        tag: 'CREDIT_NOTE',
+      );
+      // NO propagar — la nota ya está guardada en ISAR, no fallar por esto.
     }
   }
 }

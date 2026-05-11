@@ -239,6 +239,81 @@ class IncomeBreakdownWidget extends StatelessWidget {
                   ],
                 ),
               ],
+              // Phase 1B: Devoluciones (NCs aplicadas) — solo si hay
+              if (stats.creditNotesTotal > 0) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.assignment_return_outlined,
+                        color: Colors.red.shade700, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Devoluciones (${stats.creditNotesCount} NC)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '−${AppFormatters.formatCurrency(stats.creditNotesTotal)}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: stats.effectiveNetRevenue > 0
+                        ? Colors.green.shade50
+                        : Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: stats.effectiveNetRevenue > 0
+                          ? Colors.green.shade300
+                          : Colors.orange.shade300,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.savings_rounded,
+                          color: stats.effectiveNetRevenue > 0
+                              ? Colors.green.shade700
+                              : Colors.orange.shade700,
+                          size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        'INGRESO REAL',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: stats.effectiveNetRevenue > 0
+                              ? Colors.green.shade800
+                              : Colors.orange.shade800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        AppFormatters.formatCurrency(stats.effectiveNetRevenue),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: stats.effectiveNetRevenue > 0
+                              ? Colors.green.shade800
+                              : Colors.orange.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

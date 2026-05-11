@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/core/services/permissions_service.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/credit_note.dart';
 import '../controllers/credit_note_detail_controller.dart';
 import '../widgets/credit_note_status_widget.dart';
@@ -897,24 +899,33 @@ class CreditNoteDetailScreen extends GetView<CreditNoteDetailController> {
           children: [
             _buildCardHeader('Acciones', Icons.flash_on, ElegantLightTheme.primaryBlue, isDesktop: isDesktop),
             SizedBox(height: isDesktop ? 14 : 10),
-            if (isMobile)
-              Row(
+            // Permisos: confirmar/cancelar = canEdit; eliminar = canDelete
+            Builder(builder: (context) {
+              final permsCanEdit = Get.isRegistered<PermissionsService>()
+                  ? PermissionsService.to.canEdit(ModuleCode.invoices)
+                  : true;
+              final permsCanDelete = Get.isRegistered<PermissionsService>()
+                  ? PermissionsService.to.canDelete(ModuleCode.invoices)
+                  : true;
+              if (isMobile) {
+                return Row(
+                  children: [
+                    if (creditNote.canBeConfirmed && permsCanEdit) Expanded(child: _buildActionButton('Confirmar', Icons.check_circle, controller.confirmCreditNote, ElegantLightTheme.successGradient, isSmall: true)),
+                    if (creditNote.canBeConfirmed && permsCanEdit && creditNote.canBeCancelled && permsCanEdit) const SizedBox(width: 8),
+                    if (creditNote.canBeCancelled && permsCanEdit) Expanded(child: _buildActionButton('Cancelar', Icons.cancel, controller.cancelCreditNote, ElegantLightTheme.warningGradient, isSmall: true)),
+                    if ((creditNote.canBeConfirmed || creditNote.canBeCancelled) && permsCanEdit && creditNote.canBeDeleted && permsCanDelete) const SizedBox(width: 8),
+                    if (creditNote.canBeDeleted && permsCanDelete) Expanded(child: _buildActionButton('Eliminar', Icons.delete, controller.deleteCreditNote, ElegantLightTheme.errorGradient, isSmall: true)),
+                  ],
+                );
+              }
+              return Column(
                 children: [
-                  if (creditNote.canBeConfirmed) Expanded(child: _buildActionButton('Confirmar', Icons.check_circle, controller.confirmCreditNote, ElegantLightTheme.successGradient, isSmall: true)),
-                  if (creditNote.canBeConfirmed && creditNote.canBeCancelled) const SizedBox(width: 8),
-                  if (creditNote.canBeCancelled) Expanded(child: _buildActionButton('Cancelar', Icons.cancel, controller.cancelCreditNote, ElegantLightTheme.warningGradient, isSmall: true)),
-                  if ((creditNote.canBeConfirmed || creditNote.canBeCancelled) && creditNote.canBeDeleted) const SizedBox(width: 8),
-                  if (creditNote.canBeDeleted) Expanded(child: _buildActionButton('Eliminar', Icons.delete, controller.deleteCreditNote, ElegantLightTheme.errorGradient, isSmall: true)),
+                  if (creditNote.canBeConfirmed && permsCanEdit) _buildActionButton('Confirmar Nota', Icons.check_circle, controller.confirmCreditNote, ElegantLightTheme.successGradient, fullWidth: true),
+                  if (creditNote.canBeCancelled && permsCanEdit) ...[if (creditNote.canBeConfirmed && permsCanEdit) SizedBox(height: isDesktop ? 10 : 8), _buildActionButton('Cancelar Nota', Icons.cancel, controller.cancelCreditNote, ElegantLightTheme.warningGradient, fullWidth: true)],
+                  if (creditNote.canBeDeleted && permsCanDelete) ...[if ((creditNote.canBeConfirmed && permsCanEdit) || (creditNote.canBeCancelled && permsCanEdit)) SizedBox(height: isDesktop ? 10 : 8), _buildActionButton('Eliminar Nota', Icons.delete, controller.deleteCreditNote, ElegantLightTheme.errorGradient, fullWidth: true)],
                 ],
-              )
-            else
-              Column(
-                children: [
-                  if (creditNote.canBeConfirmed) _buildActionButton('Confirmar Nota', Icons.check_circle, controller.confirmCreditNote, ElegantLightTheme.successGradient, fullWidth: true),
-                  if (creditNote.canBeCancelled) ...[if (creditNote.canBeConfirmed) SizedBox(height: isDesktop ? 10 : 8), _buildActionButton('Cancelar Nota', Icons.cancel, controller.cancelCreditNote, ElegantLightTheme.warningGradient, fullWidth: true)],
-                  if (creditNote.canBeDeleted) ...[if (creditNote.canBeConfirmed || creditNote.canBeCancelled) SizedBox(height: isDesktop ? 10 : 8), _buildActionButton('Eliminar Nota', Icons.delete, controller.deleteCreditNote, ElegantLightTheme.errorGradient, fullWidth: true)],
-                ],
-              ),
+              );
+            }),
           ],
         ),
       );

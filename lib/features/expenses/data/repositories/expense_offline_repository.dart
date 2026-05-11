@@ -158,6 +158,8 @@ class ExpenseOfflineRepository implements ExpenseRepository {
     Map<String, dynamic>? metadata,
     ExpenseStatus? status,
     String? createdById,
+    ExpensePaidFrom? paidFrom,
+    String? bankAccountId,
   }) async {
     try {
       final now = DateTime.now();
@@ -185,6 +187,8 @@ class ExpenseOfflineRepository implements ExpenseRepository {
         createdAt: now,
         updatedAt: now,
         isSynced: false,
+        paidFromValue: paidFrom?.value,
+        bankAccountId: bankAccountId,
       );
 
       await _isar.writeTxn(() async {

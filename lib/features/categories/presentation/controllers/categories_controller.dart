@@ -398,6 +398,7 @@ import 'package:baudex_desktop/features/categories/domain/entities/category_stat
 import 'package:baudex_desktop/app/core/widgets/safe_text_editing_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/usecases/usecase.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/repositories/category_repository.dart';
@@ -406,7 +407,7 @@ import '../../domain/usecases/delete_category_usecase.dart';
 import '../../domain/usecases/search_categories_usecase.dart';
 import '../../domain/usecases/get_category_stats_usecase.dart';
 
-class CategoriesController extends GetxController {
+class CategoriesController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
   final GetCategoriesUseCase _getCategoriesUseCase;
   final DeleteCategoryUseCase _deleteCategoryUseCase;
@@ -495,7 +496,13 @@ class CategoriesController extends GetxController {
   void onInit() {
     super.onInit();
     _setupScrollListener();
+    setupSyncListener();
     _initializeData();
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    await refreshCategories();
   }
 
   @override

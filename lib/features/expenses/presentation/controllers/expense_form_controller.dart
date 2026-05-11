@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
+import '../../../settings/presentation/controllers/organization_controller.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_category.dart';
 import '../../domain/usecases/create_expense_usecase.dart';
@@ -18,6 +19,9 @@ import '../../../../app/core/services/file_service.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/shared/utils/subscription_error_handler.dart';
 import 'package:dartz/dartz.dart';
+import '../../../bank_accounts/domain/entities/bank_account.dart';
+import '../../../bank_accounts/domain/repositories/bank_account_repository.dart';
+import '../../../cash_register/presentation/controllers/cash_register_controller.dart';
 
 class ExpenseFormController extends GetxController {
   // Dependencies
@@ -79,11 +83,19 @@ class ExpenseFormController extends GetxController {
   final selectedCategory = Rxn<ExpenseCategory>();
   final selectedType = Rxn<ExpenseType>();
   final selectedPaymentMethod = Rxn<PaymentMethod>();
+  // Origen del pago (de dónde sale el dinero) y cuenta bancaria
+  // asociada cuando paidFrom == bankAccount.
+  final selectedPaidFrom = Rxn<ExpensePaidFrom>();
+  final selectedBankAccountId = Rxn<String>();
   final attachments = <AttachmentFile>[].obs;
   final tags = <String>[].obs;
 
   // Categorías disponibles
   final categories = <ExpenseCategory>[].obs;
+
+  // Cuentas bancarias activas (para selector cuando paidFrom = bankAccount).
+  final bankAccounts = <BankAccount>[].obs;
+  final isLoadingBankAccounts = false.obs;
 
   // Datos para edición
   final _expenseId = Rxn<String>();
@@ -98,12 +110,21 @@ class ExpenseFormController extends GetxController {
   bool get isEditMode => _expenseId.value != null;
 
   bool get canSave {
+    // En creación, `paid_from` es obligatorio. En edición lo permitimos
+    // null sólo por compatibilidad con gastos existentes.
+    final paidFromOk = isEditMode || selectedPaidFrom.value != null;
+    // Si paidFrom=bankAccount también exigir cuenta seleccionada.
+    final bankOk = selectedPaidFrom.value != ExpensePaidFrom.bankAccount ||
+        (selectedBankAccountId.value != null &&
+            selectedBankAccountId.value!.isNotEmpty);
     return _description.value.trim().isNotEmpty &&
            _amount.value.trim().isNotEmpty &&
            selectedDate.value != null &&
            selectedCategory.value != null &&
            selectedType.value != null &&
            selectedPaymentMethod.value != null &&
+           paidFromOk &&
+           bankOk &&
            !_isSaving.value &&
            _isValidAmount(_amount.value) &&
            _isValidDescription(_description.value);
@@ -177,7 +198,9 @@ class ExpenseFormController extends GetxController {
   // Inicialización
   Future<void> _initializeData() async {
     await loadCategories();
-    
+    // Cargar cuentas bancarias en paralelo (no bloqueante).
+    loadBankAccounts();
+
     if (isEditMode) {
       await _loadExpenseForEditing();
     } else {
@@ -205,6 +228,27 @@ class ExpenseFormController extends GetxController {
     selectedDate.value = Get.find<TenantDateTimeService>().now();
     selectedType.value = ExpenseType.operating;
     selectedPaymentMethod.value = PaymentMethod.cash;
+    // `selectedPaidFrom` intencionalmente queda en null — es REQUERIDO
+    // y el usuario debe elegirlo explícitamente (caja del día, banco o
+    // caja chica). Sin esto el gasto no afectaría caja/banco y quedaría
+    // huérfano. La validación en `_saveExpenseWithStatus` lo enforcea.
+  }
+
+  /// Carga las cuentas bancarias activas para el selector de origen
+  /// cuando `paidFrom` = bankAccount. No bloquea la apertura del form.
+  Future<void> loadBankAccounts() async {
+    if (!Get.isRegistered<BankAccountRepository>()) return;
+    try {
+      isLoadingBankAccounts.value = true;
+      final repo = Get.find<BankAccountRepository>();
+      final result = await repo.getActiveBankAccounts();
+      result.fold(
+        (_) {},
+        (accounts) => bankAccounts.value = accounts,
+      );
+    } finally {
+      isLoadingBankAccounts.value = false;
+    }
   }
 
   Future<void> _loadExpenseForEditing() async {
@@ -235,13 +279,15 @@ class ExpenseFormController extends GetxController {
   void _populateFormWithExpense(Expense expense) {
     descriptionController.text = expense.description;
     amountController.text = AppFormatters.formatNumber(expense.amount);
-    
+
     // Sincronizar observables
     _description.value = expense.description;
     _amount.value = AppFormatters.formatNumber(expense.amount);
     selectedDate.value = expense.date;
     selectedType.value = expense.type;
     selectedPaymentMethod.value = expense.paymentMethod;
+    selectedPaidFrom.value = expense.paidFrom;
+    selectedBankAccountId.value = expense.bankAccountId;
     vendorController.text = expense.vendor ?? '';
     invoiceNumberController.text = expense.invoiceNumber ?? '';
     referenceController.text = expense.reference ?? '';
@@ -307,14 +353,20 @@ class ExpenseFormController extends GetxController {
     }
   }
 
-  // Guardar gasto como aprobado (comportamiento por defecto)
+  // Guardar gasto como PAGADO directamente. Sin flujo de aprobación —
+  // el gasto afecta caja/banco al instante. El backend ya promueve a
+  // PAID cuando llega `paidFrom`, así que basta con enviar `paid` para
+  // que la lógica sea consistente en ambos sentidos.
   Future<bool> saveExpense() async {
-    return await _saveExpenseWithStatus(ExpenseStatus.approved);
+    return await _saveExpenseWithStatus(ExpenseStatus.paid);
   }
 
-  // Guardar gasto como borrador
+  // Compat: la pantalla aún puede llamar este método pero ya no se
+  // expone como botón. Si alguien lo invoca, guardamos como pending
+  // (no como `draft` que el usuario considera confuso).
+  @Deprecated('Usar saveExpense(). El flujo de borrador fue removido.')
   Future<bool> saveExpenseAsDraft() async {
-    return await _saveExpenseWithStatus(ExpenseStatus.draft);
+    return await _saveExpenseWithStatus(ExpenseStatus.pending);
   }
 
   // Método privado para guardar con status específico
@@ -328,6 +380,38 @@ class ExpenseFormController extends GetxController {
       return false;
     }
 
+    // `paid_from` es OBLIGATORIO al crear un gasto. Si no se indica
+    // de dónde salió el dinero (caja del día, banco o caja chica), el
+    // gasto quedaría huérfano contablemente — sin impacto en caja ni
+    // en saldo bancario. En edición lo permitimos vacío sólo si el
+    // gasto fue creado antes de que el campo fuera requerido.
+    if (!isEditMode && selectedPaidFrom.value == null) {
+      _showError(
+        'Falta el origen del pago',
+        'Selecciona de dónde salió el dinero: caja del día, '
+            'cuenta bancaria o caja chica.',
+      );
+      return false;
+    }
+
+    // Si paid_from=bankAccount, además exigir la cuenta concreta.
+    if (selectedPaidFrom.value == ExpensePaidFrom.bankAccount &&
+        (selectedBankAccountId.value == null ||
+            selectedBankAccountId.value!.isEmpty)) {
+      _showError(
+        'Falta la cuenta bancaria',
+        'Selecciona la cuenta de la que salió el dinero.',
+      );
+      return false;
+    }
+
+    // Phase 2: bloquear si paidFrom=cashRegister y no hay caja abierta.
+    if (selectedPaidFrom.value == ExpensePaidFrom.cashRegister &&
+        status != ExpenseStatus.draft) {
+      final blocked = await _ensureCashRegisterOpenOrPrompt();
+      if (blocked) return false;
+    }
+
     _isSaving.value = true;
 
     try {
@@ -339,6 +423,58 @@ class ExpenseFormController extends GetxController {
     } finally {
       _isSaving.value = false;
     }
+  }
+
+  /// Phase 2: bloqueo de gastos pagados con caja cuando no hay caja abierta.
+  /// Devuelve `true` si la operación debe abortar.
+  Future<bool> _ensureCashRegisterOpenOrPrompt() async {
+    // Defensa en profundidad: si el tenant tiene el módulo apagado,
+    // no exigimos caja abierta para gastos. El form ya oculta la
+    // opción "Caja del día" en ese caso, pero si por alguna razón
+    // (edición de gasto antiguo con paidFrom=cashRegister) llegamos
+    // hasta acá con el módulo off, dejamos pasar.
+    if (Get.isRegistered<OrganizationController>() &&
+        !Get.find<OrganizationController>().isCashRegisterEnabled) {
+      return false;
+    }
+
+    if (!Get.isRegistered<CashRegisterController>()) return false;
+    final ctrl = Get.find<CashRegisterController>();
+    await ctrl.loadCurrent(silent: true);
+    if (ctrl.hasOpenRegister) return false;
+
+    final goToOpen = await Get.dialog<bool>(
+      AlertDialog(
+        icon: Icon(Icons.point_of_sale_rounded,
+            color: Colors.amber.shade700, size: 36),
+        title: const Text('Caja cerrada'),
+        content: const Text(
+          'Este gasto se pagará con la caja del día, pero no hay una caja '
+          'abierta en este momento. Abre la caja primero o cambia el '
+          'origen del pago (cuenta bancaria, caja chica, etc).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.lock_open_rounded, size: 18),
+            label: const Text('Ir a abrir caja'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade700,
+            ),
+            onPressed: () => Get.back(result: true),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+
+    if (goToOpen == true) {
+      Get.toNamed('/cash-register');
+    }
+    return true;
   }
 
   Future<bool> _createExpenseWithStatus(ExpenseStatus status) async {
@@ -367,6 +503,10 @@ class ExpenseFormController extends GetxController {
           attachments: null, // No enviar adjuntos aquí
           tags: tags.isEmpty ? null : tags.toList(),
           status: status,
+          paidFrom: selectedPaidFrom.value,
+          bankAccountId: selectedPaidFrom.value == ExpensePaidFrom.bankAccount
+              ? selectedBankAccountId.value
+              : null,
         ),
       );
 
@@ -426,6 +566,16 @@ class ExpenseFormController extends GetxController {
               ? 'Gasto guardado como borrador exitosamente'
               : 'Gasto creado y aprobado exitosamente';
           _showSuccess(message);
+
+          // Phase 2: si el gasto fue pagado con caja, refrescar el badge
+          // y la pantalla de caja para reflejar el cambio inmediatamente.
+          if (selectedPaidFrom.value == ExpensePaidFrom.cashRegister) {
+            try {
+              if (Get.isRegistered<CashRegisterController>()) {
+                Get.find<CashRegisterController>().loadCurrent(silent: true);
+              }
+            } catch (_) {}
+          }
           return true;
         },
       );

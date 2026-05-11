@@ -38,6 +38,8 @@ abstract class ExpenseRepository {
     List<String>? tags,
     Map<String, dynamic>? metadata,
     ExpenseStatus? status,
+    ExpensePaidFrom? paidFrom,
+    String? bankAccountId,
   });
 
   Future<Either<Failure, Expense>> updateExpense({

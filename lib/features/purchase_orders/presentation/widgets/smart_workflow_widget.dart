@@ -1,7 +1,14 @@
 // lib/features/purchase_orders/presentation/widgets/smart_workflow_widget.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../app/core/services/permissions_service.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/purchase_order.dart';
+
+/// Tipos de permiso que requieren las acciones del workflow.
+enum _ActionPerm { edit, delete }
 
 // Widget inteligente que combina múltiples acciones en una sola
 class SmartWorkflowWidget extends StatefulWidget {
@@ -590,13 +597,48 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
     );
   }
 
+  /// Permisos requeridos por acción. Las acciones que no aparecen aquí
+  /// se ejecutan sin chequeo (ej: 'view_batches' es lectura).
+  static const Map<String, _ActionPerm> _actionPermissions = {
+    'edit': _ActionPerm.edit,
+    'submit_for_review': _ActionPerm.edit,
+    'approve': _ActionPerm.edit,
+    'approve_and_send': _ActionPerm.edit,
+    'send': _ActionPerm.edit,
+    'quick_receive': _ActionPerm.edit,
+    'custom_receive': _ActionPerm.edit,
+    'duplicate': _ActionPerm.edit,
+    'cancel': _ActionPerm.delete,
+  };
+
   void _executeAction(String action) {
+    if (!_userCanPerform(action)) {
+      PermissionDeniedSnackbar.show();
+      return;
+    }
     if (widget.onAction != null) {
       widget.onAction!(action);
     }
   }
 
+  bool _userCanPerform(String action) {
+    final required = _actionPermissions[action];
+    if (required == null) return true; // acción sin gating (lectura)
+    if (!Get.isRegistered<PermissionsService>()) return true;
+    final svc = PermissionsService.to;
+    switch (required) {
+      case _ActionPerm.edit:
+        return svc.canEdit(ModuleCode.purchaseOrders);
+      case _ActionPerm.delete:
+        return svc.canDelete(ModuleCode.purchaseOrders);
+    }
+  }
+
   void _executeSmartAction(String action) async {
+    if (!_userCanPerform(action)) {
+      PermissionDeniedSnackbar.show();
+      return;
+    }
     setState(() {
       _isProcessing = true;
     });
@@ -604,6 +646,12 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
 
     // Simular procesamiento
     await Future.delayed(const Duration(seconds: 2));
+
+    // El widget puede haber sido desmontado durante el await
+    // (navegación, cambio de estado del PO que oculta este action,
+    // etc.). Sin el guard, setState lanza
+    // "setState() called after dispose()".
+    if (!mounted) return;
 
     setState(() {
       _isProcessing = false;

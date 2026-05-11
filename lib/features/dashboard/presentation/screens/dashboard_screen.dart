@@ -11,10 +11,13 @@ import '../widgets/period_selector.dart';
 import '../widgets/expense_pie_chart.dart';
 import '../widgets/bank_accounts_summary.dart';
 import '../widgets/income_breakdown_widget.dart';
+import '../widgets/financial_analysis_widget.dart';
 import '../widgets/accounts_receivable_widget.dart';
 import '../widgets/cash_flow_summary_widget.dart';
+import '../widgets/credit_notes_banner.dart';
 import '../widgets/currency_breakdown_widget.dart';
 import '../widgets/purchase_currency_breakdown_widget.dart';
+import '../../../cash_register/presentation/widgets/cash_register_status_badge.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/config/themes/app_dimensions.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -160,38 +163,37 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   PreferredSizeWidget _buildFuturisticAppBar() {
+    // En mobile el AppBar tiene que pelear espacio entre 5 elementos:
+    // drawer hamburguesa + título + badge de caja (con valor) + sync +
+    // refresh. Para que quepan TODOS sin que el badge se trunque, en
+    // mobile:
+    //  - eliminamos el cuadrito con ícono de dashboard (estético, no
+    //    aporta info)
+    //  - título más chico (17 vs 20)
+    //  - badge en modo `compact` (oculta etiqueta interna, sólo valor)
+    final isMobile = MediaQuery.of(Get.context!).size.width < 700;
     return AppBar(
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: ElegantLightTheme.glowShadow,
-            ),
-            child: const Icon(
-              Icons.dashboard,
-              color: Colors.white,
-              size: 24,
-            ),
+      // `centerTitle: false` fuerza el título a la izquierda — sin esto
+      // Flutter lo centra cuando hay actions en mobile, lo que dejaba
+      // "Dashboard" en el medio y le robaba ancho al badge de caja.
+      centerTitle: false,
+      titleSpacing: isMobile ? 0 : NavigationToolbar.kMiddleSpacing,
+      title: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Dashboard',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: isMobile ? 17 : 20,
+            shadows: const [
+              Shadow(
+                color: Colors.black26,
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Text(
-            'Dashboard',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 20,
-              shadows: [
-                Shadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
       automaticallyImplyLeading: false,
       leading: Builder(
@@ -202,14 +204,26 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
       ),
       actions: [
+        // Badge de caja: el valor REAL (no compacto). El usuario quiere
+        // ver $15.428.000, no $15M.
+        const CashRegisterStatusBadge(),
+        // Separador para que el valor de la caja no quede pegado al
+        // icono de sincronización (se veían fundidos visualmente).
+        SizedBox(width: isMobile ? 6 : 10),
         // FASE 6: Indicador de estado de sincronización
         const SyncStatusIcon(),
         IconButton(
           icon: const Icon(Icons.refresh),
           onPressed: controller.refreshAll,
           tooltip: 'Actualizar datos',
+          padding: isMobile
+              ? const EdgeInsets.symmetric(horizontal: 6)
+              : null,
+          constraints: isMobile
+              ? const BoxConstraints(minWidth: 36, minHeight: 36)
+              : null,
         ),
-        const SizedBox(width: AppDimensions.paddingSmall),
+        SizedBox(width: isMobile ? 4 : AppDimensions.paddingSmall),
       ],
       flexibleSpace: Container(
         decoration: BoxDecoration(
@@ -337,6 +351,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Phase 2: Banner prominente cuando la caja está CERRADA.
+        // Va arriba de todo porque es la "acción requerida" más urgente
+        // del día (sin caja abierta, no se pueden cuadrar ventas en efectivo).
+        const CashRegisterClosedBanner(),
+        // Phase 1B: Banner prominente cuando hay devoluciones (NCs aplicadas).
+        const CreditNotesBanner(),
         // Charts Section unificada con animación
         _buildAnimatedCard(
           const DashboardChartsSection(),
@@ -344,7 +364,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         const SizedBox(height: AppDimensions.spacingMedium),
 
-        // Income Breakdown Widget con animación
+        // Análisis financiero unificado (operación + canal en tabs)
         Obx(() {
           final stats = controller.dashboardStats;
           if (stats == null) return const SizedBox.shrink();
@@ -352,7 +372,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           return Column(
             children: [
               _buildAnimatedCard(
-                IncomeBreakdownWidget(stats: stats),
+                FinancialAnalysisWidget(stats: stats),
                 delay: 250,
               ),
               if (rec != null && rec.hasAny) ...[
@@ -408,23 +428,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           );
         }),
 
-        // Cuentas por Cobrar (condicional)
-        Obx(() {
-          final stats = controller.dashboardStats;
-          final receivable = stats?.sales.accountsReceivable ?? 0;
-          if (receivable <= 0) return const SizedBox.shrink();
-          final count = stats?.sales.receivableCount ?? 0;
-          return Column(
-            children: [
-              _buildAnimatedCard(
-                _buildReceivablesCard(receivable, count),
-                delay: 270,
-              ),
-              const SizedBox(height: AppDimensions.spacingMedium),
-            ],
-          );
-        }),
-
         // Expense Pie Chart con animación (sin altura fija para móvil)
         _buildAnimatedCard(
           const ExpensePieChart(),
@@ -439,24 +442,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         const SizedBox(height: AppDimensions.spacingMedium),
 
-        // Resumen de caja (ventas + préstamos + anticipos)
-        Obx(() {
-          final stats = controller.dashboardStats;
-          if (stats == null || !stats.cashFlow.hasAny) {
-            return const SizedBox.shrink();
-          }
-          return Column(
-            children: [
-              _buildAnimatedCard(
-                CashFlowSummaryWidget(cashFlow: stats.cashFlow),
-                delay: 450,
-              ),
-              const SizedBox(height: AppDimensions.spacingMedium),
-            ],
-          );
-        }),
-
         // Bank Accounts Summary con animación
+        // (El antiguo CashFlowSummary se fusionó en FinancialAnalysisWidget arriba)
         _buildAnimatedCard(
           Obx(() => BankAccountsSummaryWidget(
             startDate: controller.selectedDateRange?.start,
@@ -486,6 +473,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Phase 2: Banner prominente cuando la caja está CERRADA.
+        // Va arriba de todo porque es la "acción requerida" más urgente
+        // del día (sin caja abierta, no se pueden cuadrar ventas en efectivo).
+        const CashRegisterClosedBanner(),
+        // Phase 1B: Banner prominente cuando hay devoluciones (NCs aplicadas).
+        const CreditNotesBanner(),
         // Charts Section unificada - Primera fila con animación
         _buildAnimatedCard(
           const SizedBox(
@@ -504,7 +497,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           return Column(
             children: [
               _buildAnimatedCard(
-                IncomeBreakdownWidget(stats: stats),
+                FinancialAnalysisWidget(stats: stats),
                 delay: 250,
               ),
               if (rec != null && rec.hasAny) ...[
@@ -557,23 +550,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           );
         }),
 
-        // Cuentas por Cobrar (condicional)
-        Obx(() {
-          final stats = controller.dashboardStats;
-          final receivable = stats?.sales.accountsReceivable ?? 0;
-          if (receivable <= 0) return const SizedBox.shrink();
-          final count = stats?.sales.receivableCount ?? 0;
-          return Column(
-            children: [
-              _buildAnimatedCard(
-                _buildReceivablesCard(receivable, count),
-                delay: 270,
-              ),
-              const SizedBox(height: AppDimensions.spacingLarge),
-            ],
-          );
-        }),
-
         // Expense Pie Chart - Tercera fila con animación
         _buildAnimatedCard(
           const SizedBox(
@@ -591,22 +567,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         const SizedBox(height: AppDimensions.spacingLarge),
 
-        // Resumen de caja (ventas + préstamos + anticipos)
-        Obx(() {
-          final stats = controller.dashboardStats;
-          if (stats == null || !stats.cashFlow.hasAny) {
-            return const SizedBox.shrink();
-          }
-          return Column(
-            children: [
-              _buildAnimatedCard(
-                CashFlowSummaryWidget(cashFlow: stats.cashFlow),
-                delay: 450,
-              ),
-              const SizedBox(height: AppDimensions.spacingLarge),
-            ],
-          );
-        }),
+        // (Resumen de caja fusionado dentro de FinancialAnalysisWidget arriba)
 
         // Bank Accounts Summary - Cuarta fila con animación
         _buildAnimatedCard(
@@ -656,6 +617,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Phase 2: Banner prominente cuando la caja está CERRADA.
+        // Va arriba de todo porque es la "acción requerida" más urgente
+        // del día (sin caja abierta, no se pueden cuadrar ventas en efectivo).
+        const CashRegisterClosedBanner(),
+        // Phase 1B: Banner prominente cuando hay devoluciones (NCs aplicadas).
+        const CreditNotesBanner(),
         // Primera fila: Análisis Financiero y Desglose de Ingresos en 2 columnas
         SizedBox(
           height: topRowHeight,
@@ -687,7 +654,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       Expanded(
                         flex: showReceivables ? 11 : 20,
                         child: _buildAnimatedCard(
-                          IncomeBreakdownWidget(stats: stats),
+                          FinancialAnalysisWidget(stats: stats),
                           delay: 250,
                         ),
                       ),
@@ -709,23 +676,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ),
         const SizedBox(height: AppDimensions.spacingLarge),
-
-        // Cuentas por Cobrar (condicional)
-        Obx(() {
-          final stats = controller.dashboardStats;
-          final receivable = stats?.sales.accountsReceivable ?? 0;
-          if (receivable <= 0) return const SizedBox.shrink();
-          final count = stats?.sales.receivableCount ?? 0;
-          return Column(
-            children: [
-              _buildAnimatedCard(
-                _buildReceivablesCard(receivable, count),
-                delay: 270,
-              ),
-              const SizedBox(height: AppDimensions.spacingLarge),
-            ],
-          );
-        }),
 
         // Segunda fila: Expense Pie Chart + Currency Breakdown (condicional)
         Obx(() {
@@ -797,22 +747,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         const SizedBox(height: AppDimensions.spacingLarge),
 
-        // Resumen de caja (ventas + préstamos + anticipos)
-        Obx(() {
-          final stats = controller.dashboardStats;
-          if (stats == null || !stats.cashFlow.hasAny) {
-            return const SizedBox.shrink();
-          }
-          return Column(
-            children: [
-              _buildAnimatedCard(
-                CashFlowSummaryWidget(cashFlow: stats.cashFlow),
-                delay: 450,
-              ),
-              const SizedBox(height: AppDimensions.spacingLarge),
-            ],
-          );
-        }),
+        // (Resumen de caja fusionado dentro de FinancialAnalysisWidget arriba)
 
         // Cuarta fila: Bank Accounts Summary con animación
         _buildAnimatedCard(
@@ -906,84 +841,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildReceivablesCard(double receivable, int count) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFFF59E0B).withValues(alpha: 0.12),
-            const Color(0xFFF59E0B).withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-          width: 1.5,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-              ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.account_balance_wallet_outlined,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Cuentas por Cobrar',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: ElegantLightTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$count factura${count == 1 ? '' : 's'} pendiente${count == 1 ? '' : 's'}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            AppFormatters.formatCurrency(receivable),
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFFF59E0B),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class DiagonalDotPatternPainter extends CustomPainter {

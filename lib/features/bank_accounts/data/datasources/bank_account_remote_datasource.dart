@@ -4,6 +4,8 @@ import '../../../../app/config/constants/api_constants.dart';
 import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/errors/exceptions.dart';
 import '../models/bank_account_model.dart';
+import '../models/bank_account_movement_model.dart';
+import '../../domain/entities/bank_account_movement.dart';
 
 /// Contrato para el datasource remoto de cuentas bancarias
 abstract class BankAccountRemoteDataSource {
@@ -50,6 +52,54 @@ abstract class BankAccountRemoteDataSource {
     int? limit,
     String? search,
   });
+
+  // ==================== MOVEMENTS (nueva tabla) ====================
+
+  /// GET /bank-accounts/:id/movements — historial real auditable.
+  /// Retorna [items, total, page, limit] de la nueva tabla
+  /// `bank_account_movements` que se popula con cada cobro/pago/depósito/etc.
+  Future<BankAccountMovementPage> listMovements(
+    String accountId, {
+    DateTime? startDate,
+    DateTime? endDate,
+    int page,
+    int limit,
+  });
+
+  /// POST /bank-accounts/:id/movements — registra movement manual
+  /// (DEPOSIT, WITHDRAWAL, ADJUSTMENT, INITIAL_BALANCE).
+  /// Otros tipos (INVOICE_PAYMENT, etc.) se crean automáticamente desde
+  /// sus módulos correspondientes — NO usar este endpoint para ellos.
+  Future<BankAccountMovementModel> createManualMovement(
+    String accountId, {
+    required BankAccountMovementType type,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  });
+
+  /// POST /bank-accounts/transfers — transferencia atómica entre 2 cuentas.
+  /// Backend genera `transfer_out` + `transfer_in` cruzados.
+  /// Retorna ambos movements en orden [outMovement, inMovement].
+  Future<List<BankAccountMovementModel>> transferBetweenAccounts({
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  });
+
+  // ==================== AUDITORÍA (Phase 0.4) ====================
+
+  /// GET /bank-accounts/audit — lista cuentas con discrepancia entre el
+  /// `currentBalance` guardado y el balance reconstruido desde movimientos.
+  /// Si todo está OK, retorna lista vacía.
+  Future<List<Map<String, dynamic>>> auditAccounts();
+
+  /// POST /bank-accounts/:id/recalculate-balance — recalcula el saldo
+  /// desde movimientos y reescribe `balanceAfter` en cascada. Idempotente.
+  /// Retorna { previousBalance, newBalance, movementCount }.
+  Future<Map<String, dynamic>> recalculateBalance(String accountId);
 }
 
 /// Implementación del datasource remoto usando Dio
@@ -341,5 +391,174 @@ class BankAccountRemoteDataSourceImpl implements BankAccountRemoteDataSource {
       return _handleErrorResponse(e.response!);
     }
     return ServerException('Error de red: ${e.message}');
+  }
+
+  // ==================== MOVEMENTS API ====================
+
+  @override
+  Future<BankAccountMovementPage> listMovements(
+    String accountId, {
+    DateTime? startDate,
+    DateTime? endDate,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    try {
+      final qp = <String, dynamic>{'page': page, 'limit': limit};
+      if (startDate != null) qp['startDate'] = startDate.toIso8601String();
+      if (endDate != null) qp['endDate'] = endDate.toIso8601String();
+
+      final response = await dioClient.get(
+        '${ApiConstants.bankAccounts}/$accountId/movements',
+        queryParameters: qp,
+      );
+      if (response.statusCode == 200) {
+        // El backend puede envolver en {success, data, ...} o devolver directo.
+        Map<String, dynamic> body = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : <String, dynamic>{};
+        if (body['success'] == true && body['data'] is Map) {
+          body = Map<String, dynamic>.from(body['data'] as Map);
+        }
+        final items = (body['items'] as List? ?? const [])
+            .whereType<Map>()
+            .map((e) =>
+                BankAccountMovementModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        return BankAccountMovementPage(
+          items: items,
+          total: (body['total'] as int?) ?? items.length,
+          page: (body['page'] as int?) ?? page,
+          limit: (body['limit'] as int?) ?? limit,
+        );
+      }
+      throw ServerException('Error al obtener movements: ${response.statusCode}');
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  @override
+  Future<BankAccountMovementModel> createManualMovement(
+    String accountId, {
+    required BankAccountMovementType type,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'type': type.value,
+        'amount': amount,
+        if (description != null) 'description': description,
+        if (movementDate != null) 'movementDate': movementDate.toIso8601String(),
+      };
+      final response = await dioClient.post(
+        '${ApiConstants.bankAccounts}/$accountId/movements',
+        data: body,
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        Map<String, dynamic> data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : <String, dynamic>{};
+        if (data['success'] == true && data['data'] is Map) {
+          data = Map<String, dynamic>.from(data['data'] as Map);
+        }
+        return BankAccountMovementModel.fromJson(data);
+      }
+      throw ServerException('Error al crear movement: ${response.statusCode}');
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  @override
+  Future<List<BankAccountMovementModel>> transferBetweenAccounts({
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'fromAccountId': fromAccountId,
+        'toAccountId': toAccountId,
+        'amount': amount,
+        if (description != null) 'description': description,
+        if (movementDate != null) 'movementDate': movementDate.toIso8601String(),
+      };
+      final response = await dioClient.post(
+        '${ApiConstants.bankAccounts}/transfers',
+        data: body,
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        Map<String, dynamic> data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : <String, dynamic>{};
+        if (data['success'] == true && data['data'] is Map) {
+          data = Map<String, dynamic>.from(data['data'] as Map);
+        }
+        // Backend devuelve { outMovement, inMovement }
+        final out = data['outMovement'];
+        final inn = data['inMovement'];
+        if (out is Map && inn is Map) {
+          return [
+            BankAccountMovementModel.fromJson(Map<String, dynamic>.from(out)),
+            BankAccountMovementModel.fromJson(Map<String, dynamic>.from(inn)),
+          ];
+        }
+      }
+      throw ServerException(
+        'Respuesta inesperada de transferencia: ${response.statusCode}',
+      );
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  // ==================== AUDITORÍA (Phase 0.4) ====================
+
+  @override
+  Future<List<Map<String, dynamic>>> auditAccounts() async {
+    try {
+      final response = await dioClient.get('${ApiConstants.bankAccounts}/audit');
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final list = (data is List)
+            ? data
+            : (data is Map<String, dynamic> && data['data'] is List
+                ? data['data'] as List
+                : <dynamic>[]);
+        return list
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false);
+      }
+      throw _handleErrorResponse(response);
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> recalculateBalance(String accountId) async {
+    try {
+      final response = await dioClient.post(
+        '${ApiConstants.bankAccounts}/$accountId/recalculate-balance',
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = response.data;
+        if (data is Map<String, dynamic>) {
+          if (data['data'] is Map<String, dynamic>) {
+            return Map<String, dynamic>.from(data['data'] as Map);
+          }
+          return Map<String, dynamic>.from(data);
+        }
+        return <String, dynamic>{};
+      }
+      throw _handleErrorResponse(response);
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    }
   }
 }

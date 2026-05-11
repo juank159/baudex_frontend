@@ -5,12 +5,15 @@ import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/app_scaffold.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../controllers/enhanced_expenses_controller.dart';
 import '../widgets/modern_expense_card_widget.dart';
 import '../widgets/modern_expense_stats_widget.dart';
 import '../widgets/modern_expense_filter_widget.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
+import '../../../../app/core/network/network_info.dart';
 
 class ExpensesListScreen extends GetView<EnhancedExpensesController> {
   const ExpensesListScreen({super.key});
@@ -24,7 +27,10 @@ class ExpensesListScreen extends GetView<EnhancedExpensesController> {
           ResponsiveHelper.isMobile(context)
               ? _buildMobileLayout(context)
               : _buildDesktopLayout(context),
-      floatingActionButton: _buildFloatingActionButton(context),
+      floatingActionButton: PermissionGate.canEdit(
+        moduleCode: ModuleCode.expenses,
+        child: _buildFloatingActionButton(context) ?? const SizedBox.shrink(),
+      ),
     );
   }
 
@@ -705,114 +711,152 @@ class ExpensesListScreen extends GetView<EnhancedExpensesController> {
   Widget _buildEmptyState(BuildContext context) {
     final isMobile = ResponsiveHelper.isMobile(context);
     final hasSearch = controller.searchTerm.isNotEmpty;
+    final hasDateFilter =
+        controller.startDate != null || controller.endDate != null;
 
-    return Center(
-      child: Container(
-        constraints: BoxConstraints(maxWidth: isMobile ? 340 : 480),
-        margin: const EdgeInsets.all(24),
-        padding: EdgeInsets.all(isMobile ? 32 : 48),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.grey.shade200, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Icono con gradiente circular
-            Container(
-              width: isMobile ? 100 : 120,
-              height: isMobile ? 100 : 120,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors:
-                      hasSearch
-                          ? [
-                            ElegantLightTheme.accentOrange.withOpacity(0.1),
-                            ElegantLightTheme.accentOrange.withOpacity(0.05),
-                          ]
-                          : [
-                            ElegantLightTheme.primaryBlue.withOpacity(0.1),
-                            ElegantLightTheme.primaryBlue.withOpacity(0.05),
-                          ],
+    // Detección de modo offline. Si está offline y hay filtros activos,
+    // el empty state probablemente significa "no hay nada en este rango
+    // dentro de los datos locales" — no necesariamente que el negocio
+    // no tenga gastos. Cambia el copy para reflejar eso.
+    final isOffline = Get.isRegistered<NetworkInfo>()
+        ? !Get.find<NetworkInfo>().isServerReachable
+        : false;
+    final offlineWithFilter = isOffline && (hasSearch || hasDateFilter);
+
+    final String title;
+    final String description;
+    final IconData icon;
+    final Color color;
+    if (hasSearch) {
+      title = 'No se encontraron gastos';
+      description =
+          'Intenta con otros términos de búsqueda o ajusta los filtros aplicados';
+      icon = Icons.search_off;
+      color = ElegantLightTheme.accentOrange;
+    } else if (offlineWithFilter) {
+      title = 'Sin datos locales para este rango';
+      description =
+          'Estás trabajando sin conexión. Los gastos guardados offline aparecen al instante; '
+          'los del servidor se mostrarán cuando se restablezca la conexión.';
+      icon = Icons.cloud_off_rounded;
+      color = ElegantLightTheme.accentOrange;
+    } else {
+      title = 'No hay gastos registrados';
+      description =
+          'Comienza a registrar tus gastos para llevar un mejor control de tus finanzas';
+      icon = Icons.receipt_long_outlined;
+      color = ElegantLightTheme.primaryBlue;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Compactamos elementos cuando la altura disponible es chica
+        // (típico en mobile horizontal o ventana de desktop redimensionada).
+        // Sin esto, el Column de altura natural (~340px) se desborda
+        // dentro de un padre con ~220px → overflow visible y log de error.
+        final tight = constraints.maxHeight < 360;
+        final iconSize = tight ? (isMobile ? 72.0 : 84.0) : (isMobile ? 100.0 : 120.0);
+        final iconIconSize = tight ? 36.0 : (isMobile ? 50.0 : 60.0);
+        final titleSize = tight ? 18.0 : (isMobile ? 20.0 : 24.0);
+        final descSize = tight ? 13.0 : (isMobile ? 14.0 : 15.0);
+        final padding = tight ? 20.0 : (isMobile ? 32.0 : 48.0);
+        final gapAfterIcon = tight ? 14.0 : (isMobile ? 24.0 : 32.0);
+        final gapAfterTitle = tight ? 8.0 : 12.0;
+        final gapBeforeButton = tight ? 18.0 : (isMobile ? 28.0 : 36.0);
+        final showIcon = constraints.maxHeight >= 240;
+
+        final card = Container(
+          constraints: BoxConstraints(maxWidth: isMobile ? 340 : 480),
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: EdgeInsets.all(padding),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.grey.shade200, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (showIcon) ...[
+                Container(
+                  width: iconSize,
+                  height: iconSize,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        color.withOpacity(0.1),
+                        color.withOpacity(0.05),
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: iconIconSize, color: color),
                 ),
-                shape: BoxShape.circle,
+                SizedBox(height: gapAfterIcon),
+              ],
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: titleSize,
+                  color: ElegantLightTheme.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                ),
+                textAlign: TextAlign.center,
               ),
-              child: Icon(
-                hasSearch ? Icons.search_off : Icons.receipt_long_outlined,
-                size: isMobile ? 50 : 60,
-                color:
-                    hasSearch
-                        ? ElegantLightTheme.accentOrange
-                        : ElegantLightTheme.primaryBlue,
+              SizedBox(height: gapAfterTitle),
+              Text(
+                description,
+                style: TextStyle(
+                  color: ElegantLightTheme.textSecondary,
+                  fontSize: descSize,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
+              SizedBox(height: gapBeforeButton),
+              if (hasSearch || (offlineWithFilter && hasDateFilter))
+                _buildElegantButton(
+                  context: context,
+                  text: hasSearch ? 'Limpiar Búsqueda' : 'Limpiar Filtros',
+                  icon: Icons.clear_all,
+                  color: ElegantLightTheme.accentOrange,
+                  onPressed: controller.clearFilters,
+                  isOutline: true,
+                )
+              else
+                _buildElegantButton(
+                  context: context,
+                  text: 'Registrar Primer Gasto',
+                  icon: Icons.add_circle_outline,
+                  color: ElegantLightTheme.primaryBlue,
+                  onPressed: controller.goToCreateExpense,
+                  isOutline: false,
+                ),
+            ],
+          ),
+        );
 
-            SizedBox(height: isMobile ? 24 : 32),
-
-            // Título
-            Text(
-              hasSearch
-                  ? 'No se encontraron gastos'
-                  : 'No hay gastos registrados',
-              style: TextStyle(
-                fontSize: isMobile ? 20 : 24,
-                color: ElegantLightTheme.textPrimary,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: 12),
-
-            // Descripción
-            Text(
-              hasSearch
-                  ? 'Intenta con otros términos de búsqueda o ajusta los filtros aplicados'
-                  : 'Comienza a registrar tus gastos para llevar un mejor control de tus finanzas',
-              style: TextStyle(
-                color: ElegantLightTheme.textSecondary,
-                fontSize: isMobile ? 14 : 15,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-
-            SizedBox(height: isMobile ? 28 : 36),
-
-            // Botón elegante
-            if (hasSearch)
-              _buildElegantButton(
-                context: context,
-                text: 'Limpiar Búsqueda',
-                icon: Icons.clear_all,
-                color: ElegantLightTheme.accentOrange,
-                onPressed: controller.clearFilters,
-                isOutline: true,
-              )
-            else
-              _buildElegantButton(
-                context: context,
-                text: 'Registrar Primer Gasto',
-                icon: Icons.add_circle_outline,
-                color: ElegantLightTheme.primaryBlue,
-                onPressed: controller.goToCreateExpense,
-                isOutline: false,
-              ),
-          ],
-        ),
-      ),
+        // Si el contenido es más alto que el viewport disponible, lo
+        // hacemos scrolleable. Si cabe, queda centrado vertical.
+        return SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(child: card),
+          ),
+        );
+      },
     );
   }
 

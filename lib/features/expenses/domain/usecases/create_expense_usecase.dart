@@ -28,6 +28,8 @@ class CreateExpenseUseCase implements UseCase<Expense, CreateExpenseParams> {
       tags: params.tags,
       metadata: params.metadata,
       status: params.status,
+      paidFrom: params.paidFrom,
+      bankAccountId: params.bankAccountId,
     );
   }
 }
@@ -47,6 +49,8 @@ class CreateExpenseParams {
   final List<String>? tags;
   final Map<String, dynamic>? metadata;
   final ExpenseStatus? status;
+  final ExpensePaidFrom? paidFrom;
+  final String? bankAccountId;
 
   CreateExpenseParams({
     required this.description,
@@ -63,5 +67,7 @@ class CreateExpenseParams {
     this.tags,
     this.metadata,
     this.status,
+    this.paidFrom,
+    this.bankAccountId,
   });
 }

@@ -26,10 +26,33 @@ class DashboardStats extends Equatable {
   /// Se muestra como métrica secundaria.
   final double totalBilled;
 
-  /// Margen bruto real con COGS descontado (sobre totalCollected).
+  /// Phase 1B: total de notas de crédito aplicadas en el período.
+  /// Representa devoluciones / saldos a favor que reducen el ingreso real.
+  final double creditNotesTotal;
+
+  /// Cantidad de notas de crédito aplicadas en el período.
+  final int creditNotesCount;
+
+  /// Phase 1B: ingreso neto real = `totalCollected - creditNotesTotal`.
+  /// Es el dinero que efectivamente se quedó la empresa en el período.
+  final double netRevenue;
+
+  /// Net revenue robusto: si el server NO envía `netRevenue` (campo viejo
+  /// o cálculo offline), aplicamos el fallback aquí. Centralizar el
+  /// cálculo en este getter evita inconsistencias entre widgets que
+  /// leían unos `controller.netRevenue` y otros `stats.netRevenue`.
+  ///
+  /// Es la **única** fuente de verdad para "ingreso neto" en el frontend.
+  double get effectiveNetRevenue {
+    if (netRevenue > 0) return netRevenue;
+    final fallback = totalCollected - creditNotesTotal;
+    return fallback > 0 ? fallback : totalCollected;
+  }
+
+  /// Margen bruto real con COGS descontado (sobre netRevenue).
   final double grossMarginPercentage;
 
-  /// Margen neto con COGS + gastos (sobre totalCollected).
+  /// Margen neto con COGS + gastos (sobre netRevenue).
   final double netMarginPercentage;
 
   /// Puntos de tendencia reales por día (no fabricados).
@@ -55,6 +78,9 @@ class DashboardStats extends Equatable {
     this.receivables,
     this.totalCollected = 0,
     this.totalBilled = 0,
+    this.creditNotesTotal = 0,
+    this.creditNotesCount = 0,
+    this.netRevenue = 0,
     this.grossMarginPercentage = 0,
     this.netMarginPercentage = 0,
     this.trend = const [],
@@ -78,6 +104,9 @@ class DashboardStats extends Equatable {
     receivables,
     totalCollected,
     totalBilled,
+    creditNotesTotal,
+    creditNotesCount,
+    netRevenue,
     grossMarginPercentage,
     netMarginPercentage,
     trend,
@@ -103,6 +132,9 @@ class DashboardStats extends Equatable {
     ReceivablesStats? receivables,
     double? totalCollected,
     double? totalBilled,
+    double? creditNotesTotal,
+    int? creditNotesCount,
+    double? netRevenue,
     double? grossMarginPercentage,
     double? netMarginPercentage,
     List<TrendPoint>? trend,
@@ -125,6 +157,9 @@ class DashboardStats extends Equatable {
       receivables: receivables ?? this.receivables,
       totalCollected: totalCollected ?? this.totalCollected,
       totalBilled: totalBilled ?? this.totalBilled,
+      creditNotesTotal: creditNotesTotal ?? this.creditNotesTotal,
+      creditNotesCount: creditNotesCount ?? this.creditNotesCount,
+      netRevenue: netRevenue ?? this.netRevenue,
       grossMarginPercentage: grossMarginPercentage ?? this.grossMarginPercentage,
       netMarginPercentage: netMarginPercentage ?? this.netMarginPercentage,
       trend: trend ?? this.trend,
@@ -418,6 +453,44 @@ class ExpenseStats extends Equatable {
     monthlyGrowth,
     expensesByCategory,
   ];
+
+  ExpenseStats copyWith({
+    double? totalAmount,
+    int? totalExpenses,
+    double? monthlyExpenses,
+    double? todayExpenses,
+    int? pendingExpenses,
+    int? approvedExpenses,
+    double? monthlyGrowth,
+    Map<String, double>? expensesByCategory,
+  }) {
+    return ExpenseStats(
+      totalAmount: totalAmount ?? this.totalAmount,
+      totalExpenses: totalExpenses ?? this.totalExpenses,
+      monthlyExpenses: monthlyExpenses ?? this.monthlyExpenses,
+      todayExpenses: todayExpenses ?? this.todayExpenses,
+      pendingExpenses: pendingExpenses ?? this.pendingExpenses,
+      approvedExpenses: approvedExpenses ?? this.approvedExpenses,
+      monthlyGrowth: monthlyGrowth ?? this.monthlyGrowth,
+      expensesByCategory: expensesByCategory ?? this.expensesByCategory,
+    );
+  }
+
+  /// Total efectivo de gastos consistente con `expensesByCategory`.
+  ///
+  /// INVARIANTE: el bar chart "Ingresos vs Gastos" usa este getter en
+  /// vez de `totalAmount` crudo. Si por cualquier razón `totalAmount`
+  /// queda menor que la suma de categorías (sucedió cuando dos fuentes
+  /// con criterios distintos llenaban cada campo), devolvemos la suma
+  /// del mapa — es la fuente que el pie chart muestra al usuario.
+  ///
+  /// Esto convierte un bug visible (totales que no cuadran entre los
+  /// dos gráficos) en consistencia visual automática.
+  double get effectiveTotalAmount {
+    if (expensesByCategory.isEmpty) return totalAmount;
+    final catSum = expensesByCategory.values.fold<double>(0, (a, b) => a + b);
+    return catSum > totalAmount ? catSum : totalAmount;
+  }
 }
 
 // 🆕 NUEVA ENTIDAD: Métricas de Rentabilidad FIFO

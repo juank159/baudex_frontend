@@ -84,8 +84,67 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    // Registramos un listener del ciclo de vida para garantizar que ISAR
+    // se cierre limpiamente cuando el usuario hace cmd+Q, apaga la Mac
+    // o cierra la ventana. Sin esto, una transacción ISAR en vuelo podría
+    // dejar la BD corrupta al reabrir la app.
+    _lifecycleListener = AppLifecycleListener(
+      onExitRequested: _onExitRequested,
+      // onDetach es VoidCallback (no espera futures). Disparamos el cierre
+      // como best-effort fire-and-forget. La ruta principal de cierre limpio
+      // es onExitRequested, que SÍ es awaitable.
+      onDetach: () {
+        _flushAndCloseIsar();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  /// Antes de que el SO termine la app: confirmamos el exit pero NO
+  /// cerramos ISAR aquí. Razón: este callback se dispara también en
+  /// escenarios donde la app PUEDE NO cerrarse (cmd+W, focus loss en
+  /// macOS, exit cancelado por el SO). Si cerramos ISAR ahora y la app
+  /// sigue viva, todo lo que toque la BD explota con
+  /// "ISAR database not initialized".
+  ///
+  /// El cierre real de ISAR se hace en `onDetach` (cuando el engine se
+  /// despega), y sus transacciones son ACID + auto-flush, así que no
+  /// perdemos datos aunque el SO mate el proceso de golpe.
+  Future<AppExitResponse> _onExitRequested() async {
+    return AppExitResponse.exit;
+  }
+
+  /// Cierra ISAR forzando flush de cualquier transacción pendiente.
+  /// Idempotente: seguro de llamar varias veces.
+  Future<void> _flushAndCloseIsar() async {
+    try {
+      final db = IsarDatabase.instance;
+      if (db.isInitialized) {
+        await db.close();
+        print('💾 ISAR cerrado limpiamente al salir');
+      }
+    } catch (e) {
+      print('⚠️ Error cerrando ISAR al salir: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

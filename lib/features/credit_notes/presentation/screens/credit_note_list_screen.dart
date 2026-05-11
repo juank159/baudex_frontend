@@ -6,6 +6,8 @@ import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/credit_note.dart';
 import '../controllers/credit_note_list_controller.dart';
 import '../../../../app/presentation/widgets/sync_status_indicator.dart';
@@ -34,7 +36,10 @@ class CreditNoteListScreen extends GetView<CreditNoteListController> {
           desktop: _buildDesktopLayout(context),
         ),
       ),
-      floatingActionButton: _buildFAB(context),
+      floatingActionButton: PermissionGate.canEdit(
+        moduleCode: ModuleCode.invoices,
+        child: _buildFAB(context),
+      ),
     );
   }
 

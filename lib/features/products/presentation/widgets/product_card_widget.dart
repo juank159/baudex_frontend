@@ -4,6 +4,8 @@ import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/presentation/widgets/offline_badge.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_price.dart';
 
@@ -484,21 +486,31 @@ class ProductCardWidget extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (onEdit != null)
-                            _buildCompactActionButton(
-                              Icons.edit_outlined,
-                              'Editar',
-                              ElegantLightTheme.primaryBlue,
-                              onEdit!,
+                            PermissionGate.canEdit(
+                              moduleCode: ModuleCode.products,
+                              child: _buildCompactActionButton(
+                                Icons.edit_outlined,
+                                'Editar',
+                                ElegantLightTheme.primaryBlue,
+                                onEdit!,
+                              ),
                             ),
-                          if (onDelete != null) ...[
-                            const SizedBox(width: 6),
-                            _buildCompactActionButton(
-                              Icons.delete_outline,
-                              'Eliminar',
-                              Colors.red.shade600,
-                              onDelete!,
+                          if (onDelete != null)
+                            PermissionGate.canDelete(
+                              moduleCode: ModuleCode.products,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(width: 6),
+                                  _buildCompactActionButton(
+                                    Icons.delete_outline,
+                                    'Eliminar',
+                                    Colors.red.shade600,
+                                    onDelete!,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
                         ],
                       ),
                   ],
@@ -581,23 +593,32 @@ class ProductCardWidget extends StatelessWidget {
     return Row(
       children: [
         if (onEdit != null)
-          Expanded(
-            child: _buildActionButton(
-              'Editar',
-              Icons.edit,
-              ElegantLightTheme.primaryBlue,
-              onEdit!,
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.products,
+            child: Expanded(
+              child: _buildActionButton(
+                'Editar',
+                Icons.edit,
+                ElegantLightTheme.primaryBlue,
+                onEdit!,
+              ),
             ),
           ),
         if (onEdit != null && onDelete != null)
-          const SizedBox(width: 8),
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.products,
+            child: const SizedBox(width: 8),
+          ),
         if (onDelete != null)
-          Expanded(
-            child: _buildActionButton(
-              'Eliminar',
-              Icons.delete,
-              Colors.red.shade600,
-              onDelete!,
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.products,
+            child: Expanded(
+              child: _buildActionButton(
+                'Eliminar',
+                Icons.delete,
+                Colors.red.shade600,
+                onDelete!,
+              ),
             ),
           ),
       ],

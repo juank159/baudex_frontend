@@ -1,13 +1,14 @@
 // lib/features/expenses/presentation/controllers/expense_detail_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/usecases/get_expense_by_id_usecase.dart';
 import '../../domain/usecases/delete_expense_usecase.dart';
 import '../../domain/usecases/approve_expense_usecase.dart';
 import '../../domain/usecases/submit_expense_usecase.dart';
 
-class ExpenseDetailController extends GetxController {
+class ExpenseDetailController extends GetxController with SyncAutoRefreshMixin {
   // Dependencies
   final GetExpenseByIdUseCase _getExpenseByIdUseCase;
   final DeleteExpenseUseCase _deleteExpenseUseCase;
@@ -39,11 +40,19 @@ class ExpenseDetailController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     _expenseId = Get.parameters['id'];
     if (_expenseId == null) {
       _showError('Error', 'ID de gasto no válido');
       Get.back();
       return;
+    }
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    if (_expenseId != null && _expenseId!.isNotEmpty) {
+      await loadExpense();
     }
   }
 

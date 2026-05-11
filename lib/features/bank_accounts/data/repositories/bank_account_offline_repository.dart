@@ -8,9 +8,11 @@ import '../../../../app/data/local/isar_database.dart';
 import '../../../../app/data/local/sync_service.dart';
 import '../../../../app/data/local/sync_queue.dart';
 import '../../domain/entities/bank_account.dart';
+import '../../domain/entities/bank_account_movement.dart';
 import '../../domain/entities/bank_account_transaction.dart';
 import '../../domain/repositories/bank_account_repository.dart';
 import '../models/isar/isar_bank_account.dart';
+import '../models/isar/isar_bank_account_movement.dart';
 
 /// Implementación offline del repositorio de cuentas bancarias usando ISAR
 class BankAccountOfflineRepository implements BankAccountRepository {
@@ -140,6 +142,45 @@ class BankAccountOfflineRepository implements BankAccountRepository {
       ));
     } catch (e) {
       return Left(CacheFailure('Error loading transactions: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, BankAccountMovementsPage>> listMovements(
+    String accountId, {
+    DateTime? startDate,
+    DateTime? endDate,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    try {
+      var qb = _isar.isarBankAccountMovements
+          .filter()
+          .bankAccountIdEqualTo(accountId)
+          .deletedAtIsNull();
+      if (startDate != null) {
+        qb = qb.movementDateGreaterThan(startDate, include: true);
+      }
+      if (endDate != null) {
+        qb = qb.movementDateLessThan(endDate, include: true);
+      }
+
+      final total = await qb.count();
+      final items = await qb
+          .sortByMovementDateDesc()
+          .thenByCreatedAtDesc()
+          .offset((page - 1) * limit)
+          .limit(limit)
+          .findAll();
+
+      return Right(BankAccountMovementsPage(
+        items: items.map((e) => e.toEntity()).toList(),
+        total: total,
+        page: page,
+        limit: limit,
+      ));
+    } catch (e) {
+      return Left(CacheFailure('Error leyendo movements: $e'));
     }
   }
 
@@ -343,6 +384,210 @@ class BankAccountOfflineRepository implements BankAccountRepository {
       return updateBankAccount(id: id, isActive: newActiveStatus);
     } catch (e) {
       return Left(CacheFailure('Error toggling bank account active: ${e.toString()}'));
+    }
+  }
+
+  // ==================== MOVEMENTS WRITE ====================
+
+  @override
+  Future<Either<Failure, BankAccountMovement>> depositManual({
+    required String bankAccountId,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  }) async =>
+      _createMovementOffline(
+        bankAccountId: bankAccountId,
+        type: BankAccountMovementType.deposit,
+        amount: amount,
+        description: description,
+        movementDate: movementDate,
+      );
+
+  @override
+  Future<Either<Failure, BankAccountMovement>> withdrawManual({
+    required String bankAccountId,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  }) async =>
+      _createMovementOffline(
+        bankAccountId: bankAccountId,
+        type: BankAccountMovementType.withdrawal,
+        amount: amount,
+        description: description,
+        movementDate: movementDate,
+      );
+
+  @override
+  Future<Either<Failure, List<BankAccountMovement>>> transferBetweenAccounts({
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  }) async {
+    if (amount <= 0) {
+      return Left(ValidationFailure(['El monto debe ser mayor a cero']));
+    }
+    if (fromAccountId == toAccountId) {
+      return Left(ValidationFailure(['No se puede transferir a la misma cuenta']));
+    }
+    try {
+      final fromAccount = await _isar.isarBankAccounts
+          .filter()
+          .serverIdEqualTo(fromAccountId)
+          .findFirst();
+      final toAccount = await _isar.isarBankAccounts
+          .filter()
+          .serverIdEqualTo(toAccountId)
+          .findFirst();
+      if (fromAccount == null || toAccount == null) {
+        return Left(CacheFailure('Cuenta origen o destino no encontrada'));
+      }
+      if (fromAccount.currentBalance < amount) {
+        return Left(ValidationFailure(
+          ['Saldo insuficiente en "${fromAccount.name}"'],
+        ));
+      }
+      final now = DateTime.now();
+      final tempOutId =
+          'bank_movement_offline_out_${now.millisecondsSinceEpoch}_${fromAccountId.hashCode}';
+      final tempInId =
+          'bank_movement_offline_in_${now.millisecondsSinceEpoch}_${toAccountId.hashCode}';
+      final orgId = fromAccount.organizationId;
+      final newFrom = fromAccount.currentBalance - amount;
+      final newTo = toAccount.currentBalance + amount;
+      final out = BankAccountMovement(
+        id: tempOutId,
+        bankAccountId: fromAccountId,
+        type: BankAccountMovementType.transferOut,
+        amount: amount,
+        balanceAfter: newFrom,
+        movementDate: movementDate ?? now,
+        description: description ?? 'Transferencia entre cuentas (salida)',
+        counterpartyAccountId: toAccountId,
+        counterpartyMovementId: tempInId,
+        organizationId: orgId,
+        createdAt: now,
+        updatedAt: now,
+      );
+      final inn = BankAccountMovement(
+        id: tempInId,
+        bankAccountId: toAccountId,
+        type: BankAccountMovementType.transferIn,
+        amount: amount,
+        balanceAfter: newTo,
+        movementDate: movementDate ?? now,
+        description: description ?? 'Transferencia entre cuentas (entrada)',
+        counterpartyAccountId: fromAccountId,
+        counterpartyMovementId: tempOutId,
+        organizationId: orgId,
+        createdAt: now,
+        updatedAt: now,
+      );
+      await _isar.writeTxn(() async {
+        await _isar.isarBankAccountMovements
+            .put(IsarBankAccountMovement.fromEntity(out)..isSynced = false);
+        await _isar.isarBankAccountMovements
+            .put(IsarBankAccountMovement.fromEntity(inn)..isSynced = false);
+        fromAccount.currentBalance = newFrom;
+        fromAccount.markAsUnsynced();
+        await _isar.isarBankAccounts.put(fromAccount);
+        toAccount.currentBalance = newTo;
+        toAccount.markAsUnsynced();
+        await _isar.isarBankAccounts.put(toAccount);
+      });
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'BankAccountTransfer',
+          entityId: tempOutId,
+          operationType: SyncOperationType.create,
+          data: {
+            'fromAccountId': fromAccountId,
+            'toAccountId': toAccountId,
+            'amount': amount,
+            if (description != null) 'description': description,
+            if (movementDate != null)
+              'movementDate': movementDate.toIso8601String(),
+            'tempOutId': tempOutId,
+            'tempInId': tempInId,
+          },
+        );
+      } catch (_) {}
+      return Right([out, inn]);
+    } catch (e) {
+      return Left(CacheFailure('Error transferencia offline: $e'));
+    }
+  }
+
+  Future<Either<Failure, BankAccountMovement>> _createMovementOffline({
+    required String bankAccountId,
+    required BankAccountMovementType type,
+    required double amount,
+    String? description,
+    DateTime? movementDate,
+  }) async {
+    if (amount <= 0) {
+      return Left(ValidationFailure(['El monto debe ser mayor a cero']));
+    }
+    try {
+      final account = await _isar.isarBankAccounts
+          .filter()
+          .serverIdEqualTo(bankAccountId)
+          .findFirst();
+      if (account == null) {
+        return Left(CacheFailure('Cuenta bancaria no encontrada'));
+      }
+      final isOutflow = !type.isInflow;
+      if (isOutflow && account.currentBalance < amount) {
+        return Left(ValidationFailure(['Saldo insuficiente']));
+      }
+      final newBalance =
+          isOutflow ? account.currentBalance - amount : account.currentBalance + amount;
+      final now = DateTime.now();
+      final tempId =
+          'bank_movement_offline_${now.millisecondsSinceEpoch}_${bankAccountId.hashCode}';
+      final orgId = account.organizationId;
+      final movement = BankAccountMovement(
+        id: tempId,
+        bankAccountId: bankAccountId,
+        type: type,
+        amount: amount,
+        balanceAfter: newBalance,
+        movementDate: movementDate ?? now,
+        description: description,
+        organizationId: orgId,
+        createdAt: now,
+        updatedAt: now,
+      );
+      await _isar.writeTxn(() async {
+        await _isar.isarBankAccountMovements
+            .put(IsarBankAccountMovement.fromEntity(movement)..isSynced = false);
+        account.currentBalance = newBalance;
+        account.markAsUnsynced();
+        await _isar.isarBankAccounts.put(account);
+      });
+      try {
+        final syncService = Get.find<SyncService>();
+        await syncService.addOperationForCurrentUser(
+          entityType: 'BankAccountMovement',
+          entityId: tempId,
+          operationType: SyncOperationType.create,
+          data: {
+            'bankAccountId': bankAccountId,
+            'type': type.value,
+            'amount': amount,
+            if (description != null) 'description': description,
+            if (movementDate != null)
+              'movementDate': movementDate.toIso8601String(),
+          },
+        );
+      } catch (_) {}
+      return Right(movement);
+    } catch (e) {
+      return Left(CacheFailure('Error creando movimiento: $e'));
     }
   }
 

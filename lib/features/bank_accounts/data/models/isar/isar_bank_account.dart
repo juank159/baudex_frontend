@@ -29,6 +29,11 @@ class IsarBankAccount {
   late bool isDefault;
   late int sortOrder;
 
+  /// Saldo actual de la cuenta. Se sincroniza desde el backend en cada
+  /// PULL y se actualiza localmente cuando hay movements offline.
+  /// Default 0 al inicializar para retrocompatibilidad con DB ya creada.
+  late double currentBalance = 0;
+
   // Metadata como JSON string
   String? metadataJson;
 
@@ -68,6 +73,7 @@ class IsarBankAccount {
     required this.isActive,
     required this.isDefault,
     required this.sortOrder,
+    this.currentBalance = 0,
     this.metadataJson,
     required this.organizationId,
     this.createdById,
@@ -96,6 +102,7 @@ class IsarBankAccount {
       isActive: entity.isActive,
       isDefault: entity.isDefault,
       sortOrder: entity.sortOrder,
+      currentBalance: entity.currentBalance,
       metadataJson: entity.metadata != null ? _encodeMetadata(entity.metadata!) : null,
       organizationId: entity.organizationId,
       createdById: entity.createdById,
@@ -121,6 +128,7 @@ class IsarBankAccount {
       isActive: isActive,
       isDefault: isDefault,
       sortOrder: sortOrder,
+      currentBalance: currentBalance,
       metadata: metadataJson != null ? _decodeMetadata(metadataJson!) : null,
       organizationId: organizationId,
       createdById: createdById,
@@ -228,6 +236,7 @@ class IsarBankAccount {
     isActive = entity.isActive;
     isDefault = entity.isDefault;
     sortOrder = entity.sortOrder;
+    currentBalance = entity.currentBalance;
     metadataJson = entity.metadata != null ? _encodeMetadata(entity.metadata!) : null;
     organizationId = entity.organizationId;
     createdById = entity.createdById;

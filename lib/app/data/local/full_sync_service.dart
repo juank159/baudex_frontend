@@ -64,6 +64,8 @@ import '../../../features/settings/presentation/controllers/user_preferences_con
 import '../../../features/subscriptions/data/models/isar/isar_subscription.dart';
 import '../../../features/inventory/data/models/inventory_batch_model.dart';
 import '../../../features/inventory/domain/repositories/inventory_repository.dart';
+import '../../../features/products/data/datasources/product_presentation_remote_datasource.dart';
+import '../../../features/products/data/models/isar/isar_product_presentation.dart';
 
 /// Resultado de un Full Sync
 class FullSyncResult {
@@ -147,7 +149,7 @@ class FullSyncService extends GetxService {
   static const List<List<String>> _syncTiers = [
     ['Organización', 'Suscripción', 'Categorías', 'Categorías de Gastos', 'Preferencias de Usuario'],
     ['Productos', 'Clientes', 'Proveedores', 'Cuentas Bancarias', 'Almacenes', 'Impresoras'],
-    ['Facturas', 'Gastos', 'Órdenes de Compra'],
+    ['Presentaciones', 'Facturas', 'Gastos', 'Órdenes de Compra'],
     ['Notas de Crédito', 'Créditos de Clientes', 'Lotes de Inventario', 'Movimientos de Inventario', 'Notificaciones'],
   ];
 
@@ -197,6 +199,27 @@ class FullSyncService extends GetxService {
           duration: stopwatch.elapsed,
           wasAborted: true,
         );
+      }
+
+      // ✅ CRÍTICO: health-check al backend ANTES de hacer .clear() en ISAR.
+      // Sin esto, si el backend está caído (502 Bad Gateway, timeout, etc.)
+      // pero hay internet, el código antiguo borraba TODA la base de datos
+      // ISAR y luego no podía repoblarla → usuario perdía cache offline.
+      // Reportado por el usuario: "la app se queda sin datos en cache".
+      if (!skipCleanup) {
+        final reachable = await networkInfo.canReachServer(
+          timeout: const Duration(seconds: 5),
+        );
+        if (!reachable) {
+          print('🛑 [FULL_SYNC] Backend NO alcanzable — NO se borrará el cache. '
+              'Datos locales preservados.');
+          return FullSyncResult(
+            syncedCounts: {},
+            errors: {'general': 'Servidor no alcanzable (cache preservado)'},
+            duration: stopwatch.elapsed,
+            wasAborted: true,
+          );
+        }
       }
 
       // Limpiar datos del tenant anterior SELECTIVAMENTE
@@ -257,6 +280,7 @@ class FullSyncService extends GetxService {
         'Categorías': _syncCategories,
         'Categorías de Gastos': _syncExpenseCategories,
         'Productos': _syncProducts,
+        'Presentaciones': _syncProductPresentations,
         'Clientes': _syncCustomers,
         'Proveedores': _syncSuppliers,
         'Almacenes': _syncWarehouses,
@@ -340,6 +364,16 @@ class FullSyncService extends GetxService {
         }
 
         await Future.wait(futures);
+
+        // Yield al event loop entre tiers. Sin esto, los 4 tiers se
+        // ejecutan back-to-back sin dejar respirar al main isolate, y
+        // si el usuario está navegando, sus frames de Flutter quedan
+        // hambreados (la UI se siente "pegada"). Un `Future.delayed
+        // (Duration.zero)` cede el turno al scheduler para que
+        // pinten frames pendientes antes del siguiente tier.
+        if (tierIdx < _syncTiers.length - 1) {
+          await Future.delayed(Duration.zero);
+        }
 
         // Early abort: si TODAS las entidades del tier fallaron, el servidor está caído
         // No tiene sentido continuar con los demás tiers (evita ~18 requests innecesarias)
@@ -573,6 +607,26 @@ class FullSyncService extends GetxService {
     int page = 1;
     bool hasMore = true;
 
+    // Proteger productos con cambios locales pendientes de PUSH (ej: stock
+    // descontado por una factura offline o por una merma offline). Sin esta
+    // protección, el PULL pisa los stocks locales con los del servidor y el
+    // descuento offline "se deshace" en pantalla.
+    //
+    // IMPORTANTE: solo se protegen productos con `serverId` REAL (UUID).
+    // Los productos creados offline (`product_offline_*`) NO entran a este
+    // skip — esa fue la causa del bug del revert 367d638 (productos
+    // offline desaparecían). Esos siguen el flujo normal de upsert: cuando
+    // el handler de CREATE termina exitoso, su `serverId` ya es UUID real
+    // y este skip empieza a protegerlos en el siguiente PULL.
+    final unsyncedProducts = await _isar.isarProducts
+        .filter()
+        .isSyncedEqualTo(false)
+        .findAll();
+    final protectedServerIds = unsyncedProducts
+        .where((p) => !p.serverId.startsWith('product_offline_'))
+        .map((p) => p.serverId)
+        .toSet();
+
     while (hasMore && !_abortRequested) {
       final response = await remoteDS.getProducts(
         ProductQueryModel(page: page, limit: _pageSize, includePrices: true, includeCategory: true),
@@ -581,15 +635,99 @@ class FullSyncService extends GetxService {
       if (response.data.isEmpty) break;
 
       await _isar.writeTxn(() async {
-        final isarModels = response.data.map((model) {
-          return IsarProduct.fromModel(model);
-        }).toList();
-        await _isar.isarProducts.putAllByServerId(isarModels);
+        for (final model in response.data) {
+          // Skip productos con cambios locales pendientes (UUID real + isSynced=false)
+          if (protectedServerIds.contains(model.id)) continue;
+          final isarModel = IsarProduct.fromModel(model);
+          await _isar.isarProducts.putByServerId(isarModel);
+        }
       });
 
       totalSynced += response.data.length;
       hasMore = response.meta.hasNextPage;
       page++;
+    }
+
+    return totalSynced;
+  }
+
+  /// Sincronizar presentaciones de productos del server a ISAR.
+  ///
+  /// No hay endpoint global, así que iteramos por cada producto ya guardado en
+  /// ISAR. Para no saturar el servidor procesamos en chunks de 20 en paralelo.
+  /// Respetamos isSynced=false: las presentaciones con cambios pendientes de PUSH
+  /// NO se sobreescriben con datos del servidor.
+  Future<int> _syncProductPresentations() async {
+    final remoteDS = _getOrCreateDS<ProductPresentationRemoteDataSource>(
+      () => ProductPresentationRemoteDataSourceImpl(
+        dioClient: Get.find<DioClient>(),
+      ),
+    );
+
+    // Obtener todos los productos ya sincronizados (con serverId real = UUID).
+    //
+    // Excluimos:
+    //  - product_offline_*  → todavía no llegan al server, no tienen presentaciones
+    //  - cualquier serverId que NO sea UUID  → la colección isarProducts también
+    //    contiene un registro especial con serverId='STATS_CACHE' que guarda
+    //    metadata de estadísticas (ver product_local_datasource_isar.dart). El
+    //    backend rechaza con 400 "Validation failed (uuid is expected)" si le
+    //    pasamos ese ID al endpoint de presentaciones, contaminando los logs y
+    //    desperdiciando una request en cada pull periódico.
+    final uuidPattern = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+    final allProducts = await _isar.isarProducts.where().findAll();
+    final syncedProducts = allProducts
+        .where((p) => uuidPattern.hasMatch(p.serverId))
+        .toList();
+
+    if (syncedProducts.isEmpty) return 0;
+
+    // IDs de presentaciones con cambios pendientes de PUSH (no sobreescribir)
+    final unsyncedPresentations = await _isar.isarProductPresentations
+        .filter()
+        .isSyncedEqualTo(false)
+        .findAll();
+    final unsyncedServerIds =
+        unsyncedPresentations.map((p) => p.serverId).toSet();
+
+    int totalSynced = 0;
+    const int chunkSize = 20;
+
+    for (int i = 0; i < syncedProducts.length && !_abortRequested; i += chunkSize) {
+      final chunk = syncedProducts.sublist(
+        i,
+        (i + chunkSize).clamp(0, syncedProducts.length),
+      );
+
+      final results = await Future.wait(
+        chunk.map((product) async {
+          try {
+            final models = await remoteDS.getPresentations(product.serverId);
+            if (models.isEmpty) return 0;
+
+            await _isar.writeTxn(() async {
+              for (final model in models) {
+                // Skip local-pending-push records
+                if (unsyncedServerIds.contains(model.id)) continue;
+
+                final isarPresentation = IsarProductPresentation.fromModel(model);
+                await _isar.isarProductPresentations
+                    .putByServerId(isarPresentation);
+              }
+            });
+            return models.length;
+          } catch (e) {
+            print(
+              '[FULL_SYNC] Error sincronizando presentaciones del producto ${product.serverId}: $e',
+            );
+            return 0;
+          }
+        }),
+      );
+
+      totalSynced += results.fold<int>(0, (sum, n) => sum + n);
     }
 
     return totalSynced;
@@ -1066,9 +1204,19 @@ class FullSyncService extends GetxService {
       print('🧹 [FULL_SYNC] Limpiando registros huérfanos...');
       final isarDb = IsarDatabase.instance;
 
-      // Obtener TODAS las operaciones de sync pendientes para no borrar records activos
-      final allPendingOps = await isarDb.getPendingSyncOperations();
-      final pendingEntityIds = allPendingOps.map((op) => op.entityId).toSet();
+      // CRÍTICO: incluir tanto operaciones PENDING como FAILED. Sin esto,
+      // si una factura offline tiene sync fallido (ej. backend rechazó
+      // por validación de caja), su operación queda en estado `failed`
+      // y NO aparece en `getPendingSyncOperations()`. El cleanup la
+      // consideraba huérfana y la borraba → pérdida silenciosa de datos
+      // del usuario. Ahora una factura offline con cualquier operación
+      // en cola (pending o failed) se preserva.
+      final pendingOps = await isarDb.getPendingSyncOperations();
+      final failedOps = await isarDb.getFailedSyncOperations();
+      final pendingEntityIds = <String>{
+        ...pendingOps.map((op) => op.entityId),
+        ...failedOps.map((op) => op.entityId),
+      };
 
       int totalCleaned = 0;
 
@@ -1169,6 +1317,15 @@ class FullSyncService extends GetxService {
       totalCleaned += await _cleanupEntity<IsarProduct>(
         collection: _isar.isarProducts,
         prefix: 'product_offline_',
+        pendingIds: pendingEntityIds,
+        getServerId: (e) => e.serverId,
+        getId: (e) => e.id,
+      );
+
+      // Product Presentations: prefix 'presentation_offline_'
+      totalCleaned += await _cleanupEntity<IsarProductPresentation>(
+        collection: _isar.isarProductPresentations,
+        prefix: 'presentation_offline_',
         pendingIds: pendingEntityIds,
         getServerId: (e) => e.serverId,
         getId: (e) => e.id,

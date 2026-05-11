@@ -1,6 +1,7 @@
 // lib/features/expenses/presentation/controllers/expense_categories_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../domain/entities/expense_category.dart';
 import '../../domain/usecases/get_expense_categories_usecase.dart';
 import '../../domain/usecases/create_expense_category_usecase.dart';
@@ -8,7 +9,8 @@ import '../../domain/usecases/update_expense_category_usecase.dart';
 import '../../domain/usecases/delete_expense_category_usecase.dart';
 import '../../../../app/core/utils/formatters.dart';
 
-class ExpenseCategoriesController extends GetxController {
+class ExpenseCategoriesController extends GetxController
+    with SyncAutoRefreshMixin {
   // Dependencies
   final GetExpenseCategoriesUseCase _getExpenseCategoriesUseCase;
   final CreateExpenseCategoryUseCase _createExpenseCategoryUseCase;
@@ -44,6 +46,7 @@ class ExpenseCategoriesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setupSyncListener();
     loadCategories();
 
     // Listen to search query changes
@@ -52,6 +55,11 @@ class ExpenseCategoriesController extends GetxController {
       (_) => _filterCategories(),
       time: const Duration(milliseconds: 300),
     );
+  }
+
+  @override
+  Future<void> onSyncCompleted() async {
+    await loadCategories();
   }
 
   // Load all categories with statistics

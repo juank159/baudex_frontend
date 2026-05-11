@@ -2,6 +2,10 @@
 import 'dart:async';
 import 'package:baudex_desktop/app/data/local/sync_service.dart';
 import 'package:baudex_desktop/app/core/errors/failures.dart';
+import 'package:baudex_desktop/app/core/services/audio_notification_service.dart';
+import 'package:baudex_desktop/features/cash_register/presentation/controllers/cash_register_controller.dart';
+import 'package:baudex_desktop/features/cash_register/presentation/widgets/open_cash_register_dialog.dart';
+import 'package:baudex_desktop/features/settings/presentation/controllers/organization_controller.dart';
 import 'package:baudex_desktop/app/core/utils/formatters.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customer_by_id_usecase.dart';
 import 'package:baudex_desktop/features/invoices/domain/repositories/invoice_repository.dart';
@@ -33,8 +37,12 @@ import '../../../customers/domain/usecases/get_customers_usecase.dart';
 import '../../../customers/domain/usecases/search_customers_usecase.dart';
 import '../../../customers/domain/usecases/create_customer_usecase.dart';
 import '../../../products/domain/entities/product.dart';
+import '../../../products/domain/entities/product_presentation.dart';
 import '../../../products/domain/entities/tax_enums.dart';
 import '../../../products/domain/repositories/product_repository.dart';
+import '../../../products/domain/usecases/get_product_presentations_usecase.dart';
+import '../../../products/presentation/bindings/product_presentation_binding.dart';
+import '../widgets/presentation_picker_dialog.dart';
 import '../../../products/domain/usecases/get_products_usecase.dart';
 import '../../../products/domain/usecases/search_products_usecase.dart';
 
@@ -1022,11 +1030,85 @@ class InvoiceFormController extends GetxController {
   //   _recalculateTotals();
   // }
 
-  void addOrUpdateProductToInvoice(Product product, {double quantity = 1}) {
+  /// Punto de entrada desde el POS: decide si mostrar selector de
+  /// presentación (cartón / kilo / cajetilla / unidad) o agregar el producto
+  /// directo. Solo abre el dialog cuando el producto tiene >1 presentación
+  /// activa — productos con presentación única (factor=1, herencia del
+  /// backfill) se comportan exactamente como antes.
+  Future<void> handleProductSelection(
+    Product product, {
+    double quantity = 1,
+  }) async {
+    // Producto temporal: nunca tiene presentaciones, ruta legacy directa.
+    final isTemporary =
+        product.id.startsWith('temp_') ||
+        product.id.startsWith('unregistered_') ||
+        (product.metadata?['isTemporary'] == true);
+
+    if (isTemporary) {
+      addOrUpdateProductToInvoice(product, quantity: quantity);
+      return;
+    }
+
+    List<ProductPresentation> active = [];
+    try {
+      // Defensa: si por algún motivo el usecase no fue registrado en el
+      // InitialBinding (build viejo, hot-reload sucio), lo registramos
+      // ahora antes de seguir. Idempotente.
+      if (!Get.isRegistered<GetProductPresentationsUseCase>()) {
+        ProductPresentationBinding.registerCore();
+      }
+      final useCase = Get.find<GetProductPresentationsUseCase>();
+      final result = await useCase(
+        GetProductPresentationsParams(productId: product.id),
+      );
+      result.fold(
+        (failure) {
+          // Si falla (offline sin cache, etc.), seguimos con flujo legacy.
+          print('⚠️ No se pudieron cargar presentaciones: $failure');
+        },
+        (list) {
+          active = list.where((p) => p.isActive).toList();
+        },
+      );
+    } catch (e) {
+      print('⚠️ GetProductPresentationsUseCase no registrado o falló: $e');
+    }
+
+    if (active.length <= 1) {
+      // 0 o 1 presentación → comportamiento legacy (no enviamos presentationId).
+      addOrUpdateProductToInvoice(product, quantity: quantity);
+      return;
+    }
+
+    // >1 presentaciones activas → preguntar al usuario.
+    final selected = await Get.dialog<ProductPresentation>(
+      PresentationPickerDialog(product: product, presentations: active),
+      barrierDismissible: true,
+    );
+    if (selected == null) return; // canceló
+
+    addOrUpdateProductToInvoice(
+      product,
+      quantity: quantity,
+      presentation: selected,
+    );
+  }
+
+  void addOrUpdateProductToInvoice(
+    Product product, {
+    double quantity = 1,
+    ProductPresentation? presentation,
+  }) {
     final instanceId = hashCode;
     print(
       '🛒 Procesando producto: ${product.name} (cantidad: $quantity) (Instance: $instanceId)',
     );
+    if (presentation != null) {
+      print(
+        '   📐 Presentación: ${presentation.name} (factor=${presentation.factor}, precio=${presentation.price})',
+      );
+    }
     print('📊 Estado actual antes de agregar:');
     print('   - Items en factura: ${_invoiceItems.length}');
     print('   - Productos disponibles: ${_availableProducts.length}');
@@ -1045,21 +1127,27 @@ class InvoiceFormController extends GetxController {
       // Solo validar stock si la preferencia está activa y no permite sobreventa
       if (shouldValidateStock && product.stock <= 0) {
         _showError('Sin Stock', '${product.name} no tiene stock disponible');
+        AudioNotificationService.instance.announceOutOfStock();
         return;
       }
     }
 
     _ensureProductIsAvailable(product);
 
-    // Buscar precio: price1, luego cualquier precio activo, luego sellingPrice
-    final defaultPrice = product.getPriceByType(PriceType.price1);
-    double unitPrice = defaultPrice?.finalAmount ?? 0;
-    if (unitPrice <= 0) {
-      // Buscar cualquier precio activo que no sea cost
-      final anyPrice = product.prices?.firstWhereOrNull(
-        (p) => p.type != PriceType.cost && p.finalAmount > 0,
-      );
-      unitPrice = anyPrice?.finalAmount ?? product.sellingPrice ?? 0;
+    // Si viene una presentación, su precio toma precedencia.
+    // Si no, fallback al esquema actual: price1 → cualquier activo → sellingPrice.
+    double unitPrice;
+    if (presentation != null && presentation.price > 0) {
+      unitPrice = presentation.price;
+    } else {
+      final defaultPrice = product.getPriceByType(PriceType.price1);
+      unitPrice = defaultPrice?.finalAmount ?? 0;
+      if (unitPrice <= 0) {
+        final anyPrice = product.prices?.firstWhereOrNull(
+          (p) => p.type != PriceType.cost && p.finalAmount > 0,
+        );
+        unitPrice = anyPrice?.finalAmount ?? product.sellingPrice ?? 0;
+      }
     }
 
     if (unitPrice <= 0) {
@@ -1067,8 +1155,12 @@ class InvoiceFormController extends GetxController {
       return;
     }
 
+    // Si hay presentación, el match para "item existente" debe considerar
+    // también la presentación: 2 cartones + 5 unidades sueltas son items distintos.
     final existingIndex = _invoiceItems.indexWhere(
-      (item) => item.productId == product.id,
+      (item) =>
+          item.productId == product.id &&
+          item.presentationId == presentation?.id,
     );
 
     if (existingIndex != -1) {
@@ -1082,6 +1174,7 @@ class InvoiceFormController extends GetxController {
           'Stock Insuficiente',
           'Solo hay ${product.stock} unidades disponibles de ${product.name}',
         );
+        AudioNotificationService.instance.announceOutOfStock();
         return;
       }
 
@@ -1111,6 +1204,7 @@ class InvoiceFormController extends GetxController {
           'Stock Insuficiente',
           'Solo hay ${product.stock} unidades disponibles de ${product.name}',
         );
+        AudioNotificationService.instance.announceOutOfStock();
         return;
       }
 
@@ -1135,9 +1229,12 @@ class InvoiceFormController extends GetxController {
         description: product.name,
         quantity: quantity,
         unitPrice: unitPrice,
-        unit: product.unit ?? 'pcs',
+        unit: presentation?.name ?? product.unit ?? 'pcs',
         productId: product.id,
         taxPercentage: itemTaxPercentage, // ✅ INCLUIR IVA INDIVIDUAL
+        presentationId: presentation?.id,
+        presentationName: presentation?.name,
+        presentationFactor: presentation?.factor,
       );
 
       // ✅ MODIFICACIÓN: Agregar al inicio de la lista
@@ -1254,15 +1351,18 @@ class InvoiceFormController extends GetxController {
       }
 
       // ═══════════════════════════════════════════════════
-      // PASO 3: Filtrar activos y con stock
+      // PASO 3: Filtrar SOLO por estado activo
       // ═══════════════════════════════════════════════════
+      // Los productos sin stock SÍ aparecen en los resultados (con la
+      // marca visual `canSelect=false` en _buildResultItem). Si el cajero
+      // intenta agregarlos y `shouldValidateStock=true`, se le notifica
+      // con audio + snackbar y la app rechaza la acción. Filtrar acá los
+      // sin stock los ocultaba del cajero, que es lo opuesto al UX
+      // pedido: ver que existen pero no poder venderlos.
       final uniqueResults = <String, Product>{};
-      final validateStock = shouldValidateStock;
       for (final product in localResults) {
         if (product.status == ProductStatus.active) {
-          if (!validateStock || product.stock > 0) {
-            uniqueResults[product.id] = product;
-          }
+          uniqueResults[product.id] = product;
         }
       }
 
@@ -1761,6 +1861,17 @@ class InvoiceFormController extends GetxController {
   }) async {
     if (!_validateForm()) return false;
 
+    // Phase 2: bloquear venta en efectivo si NO hay caja abierta.
+    // Aplica si el método principal es cash O si entre los pagos
+    // múltiples hay alguno en efectivo.
+    final hasCashPayment = paymentMethod == PaymentMethod.cash ||
+        (multiplePayments?.any((p) => p.method == PaymentMethod.cash) ??
+            false);
+    if (hasCashPayment) {
+      final blocked = await _ensureCashRegisterOpenOrPrompt();
+      if (blocked) return false;
+    }
+
     try {
       _isSaving.value = true;
 
@@ -1831,6 +1942,17 @@ class InvoiceFormController extends GetxController {
 
         print('✅ === FACTURA GUARDADA EXITOSAMENTE ===');
         print('🎉 RETORNANDO TRUE - OPERACIÓN EXITOSA');
+
+        // Phase 2: refrescar Caja Registradora si está abierta. La venta
+        // en efectivo afecta el "esperado" del turno actual; el badge del
+        // AppBar y la pantalla de caja deben reflejar el cambio inmediato
+        // sin esperar al auto-refresh de 60s.
+        try {
+          if (Get.isRegistered<CashRegisterController>()) {
+            Get.find<CashRegisterController>().loadCurrent(silent: true);
+          }
+        } catch (_) {}
+
         // ✅ NO MOSTRAR SNACKBAR AQUÍ - LA PANTALLA LO MOSTRARÁ
         return true; // ✅ ÉXITO
       } else {
@@ -2206,6 +2328,7 @@ class InvoiceFormController extends GetxController {
                 unit: item.unit,
                 notes: item.notes,
                 productId: item.productId,
+                presentationId: item.presentationId,
               ),
             )
             .toList();
@@ -2402,6 +2525,7 @@ class InvoiceFormController extends GetxController {
                 unit: item.unit,
                 notes: item.notes,
                 productId: item.productId,
+                presentationId: item.presentationId,
               ),
             )
             .toList();
@@ -2463,6 +2587,13 @@ class InvoiceFormController extends GetxController {
     _discountPercentage.value = 0.0;
     _discountAmount.value = 0.0;
     _recalculateTotals();
+
+    // ✅ Refresca _availableProducts desde ISAR fire-and-forget. La factura
+    // recién creada descontó stock en ISAR (vía _processInventoryForOfflineInvoice
+    // o backend al sincronizar online), pero la lista en memoria aún tenía
+    // los stocks viejos cargados al inicio del POS. Sin este refresh, la
+    // siguiente búsqueda muestra cantidades obsoletas.
+    unawaited(_loadProductsFromCacheFirst());
 
     print('🔄 Formulario preparado para nueva venta');
   }
@@ -2708,5 +2839,74 @@ class InvoiceFormController extends GetxController {
     print('   - Total: \${total.toStringAsFixed(2)}');
     print('   - Can Save: $canSave');
     print('   - Is Printing: $isPrinting');
+  }
+
+  /// Phase 2: bloqueo de ventas en efectivo cuando no hay caja abierta.
+  ///
+  /// Devuelve `true` si la operación debe abortar (no se permite),
+  /// `false` si puede continuar (caja abierta o usuario decide ignorar
+  /// — futuro setting `requireCashRegister`).
+  ///
+  /// Si la caja está cerrada, muestra un diálogo modal explicando la
+  /// regla con un botón directo "Ir a abrir caja".
+  Future<bool> _ensureCashRegisterOpenOrPrompt() async {
+    // Si el tenant tiene el módulo de caja apagado en settings, no
+    // exigimos caja abierta — facturación con efectivo funciona normal,
+    // los pagos cash se registran en `payments` igual. Esto es lo que
+    // permite que clientes "sin caja" facturen sin restricciones.
+    if (Get.isRegistered<OrganizationController>() &&
+        !Get.find<OrganizationController>().isCashRegisterEnabled) {
+      return false;
+    }
+
+    if (!Get.isRegistered<CashRegisterController>()) return false;
+    final ctrl = Get.find<CashRegisterController>();
+    // Refrescar el estado por si está stale (silencioso, sin loading visible).
+    await ctrl.loadCurrent(silent: true);
+    if (ctrl.hasOpenRegister) return false; // OK, hay caja abierta
+
+    // Caja CERRADA — dialog con opción de abrir INLINE (sin navegar),
+    // para no perder los ítems del carrito si el usuario eligió abrir.
+    final shouldOpen = await Get.dialog<bool>(
+      AlertDialog(
+        icon: Icon(Icons.point_of_sale_rounded,
+            color: Colors.amber.shade700, size: 36),
+        title: const Text('Caja cerrada'),
+        content: const Text(
+          'No hay una caja abierta en este momento. Para registrar ventas '
+          'en efectivo necesitas abrir la caja primero (declarar el saldo '
+          'inicial del turno).\n\n'
+          'Si pagas con tarjeta o transferencia, puedes guardar la factura '
+          'sin caja — solo se bloquean los pagos en efectivo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.lock_open_rounded, size: 18),
+            label: const Text('Abrir caja ahora'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade700,
+            ),
+            onPressed: () => Get.back(result: true),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+
+    if (shouldOpen == true) {
+      // Abrir dialog INLINE — no navega, no perdemos los ítems del
+      // carrito. Si el usuario completa la apertura, retornamos false
+      // (no bloqueado) y el flujo de procesar venta sigue.
+      final ctx = Get.context;
+      if (ctx != null) {
+        final opened = await showOpenCashRegisterDialog(ctx);
+        if (opened) return false; // caja recién abierta → continuar
+      }
+    }
+    return true; // bloquea el guardado
   }
 }

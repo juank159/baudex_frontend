@@ -94,8 +94,6 @@ class InvoicePaymentModel {
   }
 
   factory InvoicePaymentModel.fromJson(Map<String, dynamic> json) {
-    print('🔍 InvoicePaymentModel.fromJson: Procesando payment ${json['id']}');
-
     try {
       // Parsear bankAccount si viene en el JSON
       BankAccount? bankAccount;

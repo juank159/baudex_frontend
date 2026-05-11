@@ -78,8 +78,6 @@ class InvoiceItemModel extends InvoiceItem {
   }
 
   factory InvoiceItemModel.fromJson(Map<String, dynamic> json) {
-    print('🔍 InvoiceItemModel.fromJson: Procesando item ${json['id']}');
-
     try {
       return InvoiceItemModel(
         id: json['id']?.toString() ?? '',
@@ -171,6 +169,9 @@ class CreateInvoiceItemRequestModel {
   // ✅ NUEVOS CAMPOS PARA PRODUCTOS TEMPORALES
   final bool? isTemporary;
   final String? category;
+  // Presentación de venta (Fase 3, opcional). Si viene, el backend
+  // descuenta quantity × factor del stock vía FIFO.
+  final String? presentationId;
 
   const CreateInvoiceItemRequestModel({
     required this.description,
@@ -183,6 +184,7 @@ class CreateInvoiceItemRequestModel {
     this.productId,
     this.isTemporary,
     this.category,
+    this.presentationId,
   });
 
   Map<String, dynamic> toJson() {
@@ -210,6 +212,11 @@ class CreateInvoiceItemRequestModel {
       json['productId'] = productId;
       // ❌ NO enviar isTemporary para productos registrados
       print('📦 Enviando producto registrado: $description (ID: $productId)');
+    }
+
+    // Presentación (Fase 3) — solo aplica a productos registrados
+    if (presentationId != null && isTemporary != true) {
+      json['presentationId'] = presentationId;
     }
 
     print('📋 JSON generado para item: $json');
@@ -303,6 +310,8 @@ class CreateInvoiceItemRequestModel {
       isTemporary:
           isTemporary ? true : null, // SOLO enviar isTemporary si es temporal
       category: category,
+      // Presentación de venta (Fase 3): backend descontará quantity × factor
+      presentationId: isTemporary ? null : params.presentationId,
     );
   }
 

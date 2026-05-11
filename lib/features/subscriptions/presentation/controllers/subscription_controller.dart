@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 
 import '../../../../app/core/network/network_info.dart';
 import '../../../../app/data/local/sync_service.dart';
+import '../../../../app/shared/services/subscription_alert_service.dart';
 import '../../../../app/shared/widgets/subscription_error_dialog.dart';
 import '../../domain/entities/subscription.dart';
 import '../../domain/entities/subscription_enums.dart';
@@ -22,6 +23,21 @@ enum _SubscriptionDialogType {
   critical,
   warning,
   trial,
+}
+
+/// Mapeo `_SubscriptionDialogType` → `SubscriptionAlertLevel` para
+/// consultar el servicio de throttling central. `trial` se trata como
+/// `warning` porque también es un aviso preventivo de "queda poco".
+SubscriptionAlertLevel _dialogTypeToAlertLevel(_SubscriptionDialogType t) {
+  switch (t) {
+    case _SubscriptionDialogType.expired:
+      return SubscriptionAlertLevel.expired;
+    case _SubscriptionDialogType.critical:
+      return SubscriptionAlertLevel.critical;
+    case _SubscriptionDialogType.warning:
+    case _SubscriptionDialogType.trial:
+      return SubscriptionAlertLevel.warning;
+  }
 }
 
 class SubscriptionController extends GetxController {
@@ -328,8 +344,8 @@ class SubscriptionController extends GetxController {
 
   /// ✅ MÉTODO PÚBLICO: Llamar desde DashboardController.onReady()
   /// para mostrar el diálogo de suscripción DESPUÉS de que el Dashboard esté listo
-  void showPendingSubscriptionDialogIfNeeded() {
-    // Evitar mostrar múltiples veces
+  Future<void> showPendingSubscriptionDialogIfNeeded() async {
+    // Evitar mostrar múltiples veces en la misma sesión.
     if (_dialogShown) {
       print('⏭️ Diálogo de suscripción ya fue mostrado, ignorando');
       return;
@@ -341,10 +357,30 @@ class SubscriptionController extends GetxController {
       return;
     }
 
-    // Marcar como mostrado
-    _dialogShown = true;
     final days = _pendingDialogDays.value;
 
+    // Throttling central: el SubscriptionAlertService decide si está
+    // permitido mostrar el aviso según la política unificada (sólo
+    // ≤1 día restante, cooldown 2h entre avisos persistido entre
+    // sesiones; `expired` 1 vez por sesión). Si dice "no", salimos sin
+    // marcar `_dialogShown` para que el siguiente trigger pueda
+    // intentar tras el cooldown.
+    final alertLevel = _dialogTypeToAlertLevel(dialogType);
+    if (Get.isRegistered<SubscriptionAlertService>()) {
+      final svc = Get.find<SubscriptionAlertService>();
+      final allowed = await svc.tryShow(
+        level: alertLevel,
+        daysUntilExpiration: days,
+      );
+      if (!allowed) {
+        print('⏸️ SubscriptionAlertService bloqueó el aviso $alertLevel '
+            '(cooldown o > 1 día restante)');
+        return;
+      }
+    }
+
+    // Marcar como mostrado en esta sesión.
+    _dialogShown = true;
     print('🔔 Mostrando diálogo de suscripción: $dialogType ($days días)');
 
     // Pequeño delay para asegurar que el Dashboard está completamente renderizado

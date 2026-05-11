@@ -15,6 +15,7 @@ class BankAccountModel extends BankAccount {
     required super.isDefault,
     required super.sortOrder,
     super.description,
+    super.currentBalance,
     super.metadata,
     required super.organizationId,
     super.createdById,
@@ -38,6 +39,8 @@ class BankAccountModel extends BankAccount {
       isDefault: json['isDefault'] as bool? ?? false,
       sortOrder: json['sortOrder'] as int? ?? 0,
       description: json['description'] as String?,
+      // Backend devuelve decimal como string a veces — parseo seguro.
+      currentBalance: _parseDouble(json['currentBalance']),
       metadata: json['metadata'] as Map<String, dynamic>?,
       organizationId: json['organizationId'] as String,
       createdById: json['createdById'] as String?,
@@ -64,6 +67,7 @@ class BankAccountModel extends BankAccount {
       'isDefault': isDefault,
       'sortOrder': sortOrder,
       'description': description,
+      'currentBalance': currentBalance,
       'metadata': metadata,
       'organizationId': organizationId,
       'createdById': createdById,
@@ -88,6 +92,7 @@ class BankAccountModel extends BankAccount {
       isDefault: entity.isDefault,
       sortOrder: entity.sortOrder,
       description: entity.description,
+      currentBalance: entity.currentBalance,
       metadata: entity.metadata,
       organizationId: entity.organizationId,
       createdById: entity.createdById,
@@ -112,6 +117,7 @@ class BankAccountModel extends BankAccount {
       isDefault: isDefault,
       sortOrder: sortOrder,
       description: description,
+      currentBalance: currentBalance,
       metadata: metadata,
       organizationId: organizationId,
       createdById: createdById,
@@ -128,6 +134,15 @@ class BankAccountModel extends BankAccount {
     if (value is DateTime) return value;
     if (value is String) return DateTime.parse(value);
     return DateTime.now();
+  }
+
+  /// Helper para parsear doubles que pueden venir como string del backend
+  /// (TypeORM serializa decimal como string en algunos casos).
+  static double _parseDouble(dynamic value) {
+    if (value == null) return 0;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0;
+    return 0;
   }
 }
 

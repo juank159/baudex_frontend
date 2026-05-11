@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/config/routes/app_routes.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
+import '../../../../app/core/utils/formatters.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/presentation/widgets/offline_badge.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../domain/entities/bank_account.dart';
 import 'bank_account_form_dialog.dart';
 
@@ -171,6 +174,12 @@ class _BankAccountCardState extends State<BankAccountCard>
                           ],
                         ),
 
+                        // Balance prominente
+                        SizedBox(
+                            height: ResponsiveHelper.getVerticalSpacing(context,
+                                size: SpacingSize.small)),
+                        _buildBalanceBlock(context),
+
                         // Details section
                         if (widget.account.bankName != null ||
                             widget.account.accountNumber != null ||
@@ -326,6 +335,110 @@ class _BankAccountCardState extends State<BankAccountCard>
     );
   }
 
+  /// Bloque prominente con el saldo actual de la cuenta.
+  /// Negativo se muestra en rojo (sobregiro), positivo en verde, cero en gris.
+  Widget _buildBalanceBlock(BuildContext context) {
+    final balance = widget.account.currentBalance;
+    final isPositive = balance > 0;
+    final isNegative = balance < 0;
+
+    final accentColor = isNegative
+        ? const Color(0xFFEF4444) // rojo
+        : isPositive
+            ? const Color(0xFF10B981) // verde
+            : ElegantLightTheme.textTertiary;
+
+    final amountFontSize = ResponsiveHelper.getFontSize(
+      context,
+      mobile: 22,
+      tablet: 24,
+      desktop: 26,
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveHelper.getFontSize(
+          context,
+          mobile: 14,
+          tablet: 16,
+          desktop: 16,
+        ),
+        vertical: ResponsiveHelper.getFontSize(
+          context,
+          mobile: 12,
+          tablet: 14,
+          desktop: 14,
+        ),
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accentColor.withOpacity(0.10),
+            accentColor.withOpacity(0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: accentColor.withOpacity(0.25),
+          width: 1.2,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isNegative
+                  ? Icons.warning_amber_rounded
+                  : Icons.account_balance_wallet_rounded,
+              size: 18,
+              color: accentColor,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Saldo actual',
+                  style: TextStyle(
+                    fontSize: ResponsiveHelper.getFontSize(
+                      context,
+                      mobile: 11,
+                      tablet: 12,
+                      desktop: 12,
+                    ),
+                    fontWeight: FontWeight.w500,
+                    color: ElegantLightTheme.textSecondary,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  AppFormatters.formatCurrency(balance),
+                  style: TextStyle(
+                    fontSize: amountFontSize,
+                    fontWeight: FontWeight.w800,
+                    color: accentColor,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDetailsSection(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -428,28 +541,40 @@ class _BankAccountCardState extends State<BankAccountCard>
               ),
             ),
           ],
-          if (widget.onEdit != null) ...[
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.edit_rounded,
-                label: 'Editar',
-                onPressed: widget.onEdit!,
-                gradient: ElegantLightTheme.primaryGradient,
+          if (widget.onEdit != null)
+            PermissionGate.canEdit(
+              moduleCode: ModuleCode.bankAccounts,
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.edit_rounded,
+                      label: 'Editar',
+                      onPressed: widget.onEdit!,
+                      gradient: ElegantLightTheme.primaryGradient,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-          if (widget.onDelete != null) ...[
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.delete_outline_rounded,
-                label: 'Eliminar',
-                onPressed: widget.onDelete!,
-                gradient: ElegantLightTheme.errorGradient,
+          if (widget.onDelete != null)
+            PermissionGate.canDelete(
+              moduleCode: ModuleCode.bankAccounts,
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Eliminar',
+                      onPressed: widget.onDelete!,
+                      gradient: ElegantLightTheme.errorGradient,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
         ],
       );
     }
@@ -485,18 +610,24 @@ class _BankAccountCardState extends State<BankAccountCard>
             color: const Color(0xFFF59E0B),
           ),
         if (widget.onEdit != null)
-          _buildIconButton(
-            icon: Icons.edit_rounded,
-            tooltip: 'Editar cuenta',
-            onPressed: widget.onEdit!,
-            color: ElegantLightTheme.primaryBlue,
+          PermissionGate.canEdit(
+            moduleCode: ModuleCode.bankAccounts,
+            child: _buildIconButton(
+              icon: Icons.edit_rounded,
+              tooltip: 'Editar cuenta',
+              onPressed: widget.onEdit!,
+              color: ElegantLightTheme.primaryBlue,
+            ),
           ),
         if (widget.onDelete != null)
-          _buildIconButton(
-            icon: Icons.delete_outline_rounded,
-            tooltip: 'Eliminar cuenta',
-            onPressed: widget.onDelete!,
-            color: const Color(0xFFEF4444),
+          PermissionGate.canDelete(
+            moduleCode: ModuleCode.bankAccounts,
+            child: _buildIconButton(
+              icon: Icons.delete_outline_rounded,
+              tooltip: 'Eliminar cuenta',
+              onPressed: widget.onDelete!,
+              color: const Color(0xFFEF4444),
+            ),
           ),
       ],
     );

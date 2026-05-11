@@ -7,6 +7,8 @@ import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
 import '../../domain/entities/bank_account_transaction.dart';
 import '../controllers/bank_account_movements_controller.dart';
+import '../widgets/bank_account_movement_dialog.dart';
+import '../widgets/bank_account_transfer_dialog.dart';
 import '../widgets/movement_card.dart';
 
 /// Pantalla de movimientos/transacciones de una cuenta bancaria
@@ -36,6 +38,10 @@ class BankAccountMovementsScreen extends GetView<BankAccountMovementsController>
         }
 
         return _buildBody(context);
+      }),
+      floatingActionButton: Obx(() {
+        if (controller.account.value == null) return const SizedBox.shrink();
+        return _NewMovementFab(account: controller.account.value!);
       }),
     );
   }
@@ -589,6 +595,73 @@ class BankAccountMovementsScreen extends GetView<BankAccountMovementsController>
             child: const Text('Buscar'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// FAB que abre un menú con las acciones manuales: depósito, retiro
+/// y (próximamente) transferencia entre cuentas.
+class _NewMovementFab extends StatelessWidget {
+  final dynamic account; // BankAccount, importado en el screen via controller
+
+  const _NewMovementFab({required this.account});
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton.extended(
+      onPressed: () => _showActionsMenu(context),
+      backgroundColor: ElegantLightTheme.primaryBlue,
+      foregroundColor: Colors.white,
+      icon: const Icon(Icons.add_rounded),
+      label: const Text('Nuevo movimiento'),
+    );
+  }
+
+  Future<void> _showActionsMenu(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.add_circle_outline,
+                  color: Colors.green.shade700, size: 28),
+              title: const Text('Depósito',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Ingresa dinero a esta cuenta'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                BankAccountMovementDialog.showDeposit(context, account);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.remove_circle_outline,
+                  color: Colors.orange.shade700, size: 28),
+              title: const Text('Retiro',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Saca dinero de esta cuenta'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                BankAccountMovementDialog.showWithdrawal(context, account);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.swap_horiz_rounded,
+                  color: Colors.indigo.shade700, size: 28),
+              title: const Text('Transferencia',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Mueve dinero a otra cuenta'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                BankAccountTransferDialog.show(context, account);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

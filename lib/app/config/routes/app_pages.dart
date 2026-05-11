@@ -13,6 +13,8 @@ import 'package:baudex_desktop/features/categories/presentation/screens/category
 import 'package:baudex_desktop/features/categories/presentation/screens/category_tree_screen.dart';
 import 'package:baudex_desktop/features/customers/domain/usecases/get_customers_usecase.dart';
 import 'package:baudex_desktop/features/customers/presentation/bindings/customer_binding.dart';
+import 'package:baudex_desktop/features/employees/presentation/bindings/employee_binding.dart';
+import 'package:baudex_desktop/features/employees/presentation/screens/employees_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_detail_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_form_screen.dart';
 import 'package:baudex_desktop/features/customers/presentation/screens/customer_stats_screen.dart';
@@ -54,6 +56,12 @@ import 'package:baudex_desktop/features/products/presentation/screens/product_de
 import 'package:baudex_desktop/features/products/presentation/screens/initial_inventory_screen.dart';
 import 'package:baudex_desktop/features/products/presentation/controllers/initial_inventory_controller.dart';
 import 'package:baudex_desktop/features/products/domain/usecases/create_product_usecase.dart';
+import 'package:baudex_desktop/features/products/presentation/screens/product_presentations_screen.dart';
+import 'package:baudex_desktop/features/products/presentation/bindings/product_presentation_binding.dart';
+import 'package:baudex_desktop/features/products/presentation/controllers/product_presentations_controller.dart';
+import 'package:baudex_desktop/features/products/presentation/screens/product_waste_screen.dart';
+import 'package:baudex_desktop/features/products/presentation/bindings/product_waste_binding.dart';
+import 'package:baudex_desktop/features/products/presentation/controllers/product_waste_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/bindings/expense_binding.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_form_controller.dart';
 import 'package:baudex_desktop/features/expenses/presentation/controllers/expense_detail_controller.dart';
@@ -114,16 +122,25 @@ import 'package:baudex_desktop/features/credit_notes/presentation/bindings/credi
 import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_list_screen.dart';
 import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_detail_screen.dart';
 import 'package:baudex_desktop/features/credit_notes/presentation/screens/credit_note_form_screen.dart';
+import 'package:baudex_desktop/features/invoices/presentation/screens/product_exchange_screen.dart';
+import 'package:baudex_desktop/features/invoices/presentation/bindings/product_exchange_binding.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/bindings/bank_accounts_binding.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/bindings/bank_account_movements_binding.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_accounts_screen.dart';
 import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_account_movements_screen.dart';
+import 'package:baudex_desktop/features/bank_accounts/presentation/screens/bank_accounts_audit_screen.dart';
+import 'package:baudex_desktop/features/cash_register/presentation/bindings/cash_register_binding.dart';
+import 'package:baudex_desktop/features/cash_register/presentation/screens/cash_register_screen.dart';
+import 'package:baudex_desktop/features/cash_register/presentation/screens/cash_register_history_screen.dart';
+import 'package:baudex_desktop/app/core/navigation/cash_register_route_middleware.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/bindings/customer_credit_binding.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/pages/customer_credits_page.dart';
 import 'package:baudex_desktop/features/customer_credits/presentation/pages/client_balances_page.dart';
 import 'package:baudex_desktop/features/notifications/presentation/bindings/notification_binding.dart';
 import 'package:baudex_desktop/features/notifications/presentation/screens/notifications_list_screen.dart';
 import 'package:baudex_desktop/features/notifications/presentation/screens/notification_detail_screen.dart';
+import 'package:baudex_desktop/features/diagnostics/presentation/bindings/sync_diagnostic_binding.dart';
+import 'package:baudex_desktop/features/diagnostics/presentation/screens/sync_diagnostic_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -396,6 +413,32 @@ class AppPages {
       // middlewares: [AuthMiddleware()],
     ),
 
+    // ==================== PRODUCT PRESENTATIONS ====================
+    GetPage(
+      name: '/products/:productId/presentations',
+      page: () => const ProductPresentationsScreen(),
+      binding: BindingsBuilder(() {
+        if (!Get.isRegistered<ProductPresentationsController>()) {
+          ProductPresentationBinding().dependencies();
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+    ),
+
+    // ==================== PRODUCT WASTE ====================
+    GetPage(
+      name: '/products/:productId/waste',
+      page: () => const ProductWasteScreen(),
+      binding: BindingsBuilder(() {
+        if (!Get.isRegistered<ProductWasteController>()) {
+          ProductWasteBinding().dependencies();
+        }
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+    ),
+
     GetPage(
       name: AppRoutes.productsLowStock,
       page: () => const ProductsListScreen(),
@@ -524,6 +567,15 @@ class AppPages {
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],
+    ),
+
+    // ==================== EMPLOYEES PAGES ====================
+    GetPage(
+      name: AppRoutes.employees,
+      page: () => const EmployeesScreen(),
+      binding: EmployeeBinding(),
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
     ),
 
     // ==================== CUSTOMERS PAGES ====================
@@ -1618,6 +1670,15 @@ class AppPages {
       // middlewares: [AuthMiddleware()],
     ),
 
+    // DIAGNOSTICO DEL SISTEMA
+    GetPage(
+      name: AppRoutes.diagnostics,
+      page: () => const SyncDiagnosticScreen(),
+      binding: SyncDiagnosticBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+    ),
+
     // 📝 FACTURAS CON PESTAÑAS
     GetPage(
       name: AppRoutes.invoicesWithTabs,
@@ -1791,6 +1852,24 @@ class AppPages {
       // middlewares: [AuthMiddleware()],
     ),
 
+    // 🔄 CAMBIO DE PRODUCTO (Product Exchange)
+    GetPage(
+      name: AppRoutes.productExchange,
+      page: () => const ProductExchangeScreen(),
+      binding: BindingsBuilder(() {
+        // Asegurar dependencias core de Invoice
+        if (!InvoiceBinding.areBaseDependenciesRegistered()) {
+          InvoiceBinding().dependencies();
+        }
+        // Asegurar dependencias de CreditNote
+        CreditNoteFormBinding().dependencies();
+        // Registrar binding del exchange
+        ProductExchangeBinding().dependencies();
+      }),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+    ),
+
     // 👁️ DETALLE DE NOTA DE CRÉDITO
     GetPage(
       name: '${AppRoutes.creditNotesDetail}/:id',
@@ -1831,6 +1910,38 @@ class AppPages {
       transition: Transition.fade,
       transitionDuration: const Duration(milliseconds: 300),
       // middlewares: [AuthMiddleware()],
+    ),
+
+    // 🔍 AUDITORÍA DE SALDOS BANCARIOS (Phase 0.4)
+    GetPage(
+      name: AppRoutes.bankAccountsAudit,
+      page: () => const BankAccountsAuditScreen(),
+      // Reusa el mismo binding que ya provee BankAccountRemoteDataSource.
+      binding: BankAccountsBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+    ),
+
+    // 🧾 CAJA REGISTRADORA
+    // Middleware bloquea acceso si el tenant tiene el módulo desactivado
+    // (deep link, bookmark, botón residual). Redirige a /dashboard.
+    GetPage(
+      name: AppRoutes.cashRegister,
+      page: () => const CashRegisterScreen(),
+      binding: CashRegisterBinding(),
+      middlewares: [CashRegisterRouteMiddleware()],
+      transition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 300),
+    ),
+
+    // 🧾 HISTORIAL DE CAJAS
+    GetPage(
+      name: AppRoutes.cashRegisterHistory,
+      page: () => const CashRegisterHistoryScreen(),
+      binding: CashRegisterBinding(),
+      middlewares: [CashRegisterRouteMiddleware()],
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
     ),
 
     // ==================== CUSTOMER CREDITS PAGES ====================

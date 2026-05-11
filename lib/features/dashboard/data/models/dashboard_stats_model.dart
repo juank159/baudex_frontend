@@ -28,6 +28,9 @@ class DashboardStatsModel extends DashboardStats {
     ReceivablesStats? receivables,
     double totalCollected = 0,
     double totalBilled = 0,
+    double creditNotesTotal = 0,
+    int creditNotesCount = 0,
+    double netRevenue = 0,
     double grossMarginPercentage = 0,
     double netMarginPercentage = 0,
     List<TrendPoint> trend = const [],
@@ -48,6 +51,9 @@ class DashboardStatsModel extends DashboardStats {
          receivables: receivables,
          totalCollected: totalCollected,
          totalBilled: totalBilled,
+         creditNotesTotal: creditNotesTotal,
+         creditNotesCount: creditNotesCount,
+         netRevenue: netRevenue,
          grossMarginPercentage: grossMarginPercentage,
          netMarginPercentage: netMarginPercentage,
          trend: trend,
@@ -138,6 +144,14 @@ class DashboardStatsModel extends DashboardStats {
       receivables: _parseReceivables(json['receivables']),
       totalCollected: totalCollected,
       totalBilled: totalBilled,
+      // Phase 1B: net revenue + credit notes. Si el backend no los manda
+      // (compatibilidad con backends viejos), fallback a totalCollected
+      // como netRevenue (asume que no hubo devoluciones en el período).
+      creditNotesTotal: _toDouble(json['creditNotesTotal']),
+      creditNotesCount: (json['creditNotesCount'] as num?)?.toInt() ?? 0,
+      netRevenue: json['netRevenue'] != null
+          ? _toDouble(json['netRevenue'])
+          : totalCollected,
       grossMarginPercentage: _toDouble(json['grossMarginPercentage']),
       netMarginPercentage: _toDouble(json['netMarginPercentage']),
       trend: _parseTrend(json['trend']),

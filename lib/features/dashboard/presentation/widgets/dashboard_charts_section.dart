@@ -61,7 +61,12 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
     return Obx(() {
       final stats = dashboardController.dashboardStats;
 
-      if (dashboardController.isLoading) {
+      // Solo mostrar spinner si AÚN no hay stats. El getter `isLoading`
+      // combina 5 flags distintos (stats, profitability, activity,
+      // notifications, expenses por categoría); si uno solo está activo
+      // mientras el resto ya cargó, el chart se quedaba colgado en
+      // spinner aunque ya tenía data válida que mostrar. Bug clásico.
+      if (stats == null && dashboardController.isLoadingStats) {
         return Container(
           margin: const EdgeInsets.all(2),
           padding: const EdgeInsets.all(6),
@@ -91,10 +96,16 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
         );
       }
 
-      // El chart comparativo ahora usa el cobrado real (cash basis) en vez del
-      // total facturado, para no inflar la barra con ventas a crédito no cobradas.
-      final totalSales = dashboardController.totalCollected;
-      final totalExpenses = stats?.expenses.totalAmount ?? 0;
+      // El chart comparativo usa el ingreso NETO (cobrado − notas de crédito)
+      // para no inflar la barra con dinero que se devolvió. Si no hay NCs,
+      // netRevenue == totalCollected (sin cambio respecto al comportamiento
+      // previo). Si hay NCs, refleja el ingreso real del período.
+      final totalSales = dashboardController.netRevenue;
+      // `effectiveTotalAmount` garantiza consistencia con el pie chart:
+      // si por alguna razón `totalAmount` quedara menor que la suma del
+      // mapa de categorías, mostramos la suma del mapa (la fuente que
+      // el pie chart ya pinta). Así ambos gráficos NUNCA divergen.
+      final totalExpenses = stats?.expenses.effectiveTotalAmount ?? 0;
       final maxValue = math.max(totalSales, totalExpenses);
 
       if (maxValue <= 0) {
@@ -326,7 +337,7 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
               children: [
                 Expanded(
                   child: _buildCompactMetricCard(
-                    'Ingresos',
+                    'Ingresos Netos',
                     AppFormatters.formatCurrency(totalSales.toInt()),
                     AppColors.success,
                     Icons.trending_up,
@@ -519,14 +530,36 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
     final screenWidth = MediaQuery.of(Get.context!).size.width;
     final isMobile = screenWidth < 600;
 
-    // Altura máxima de las barras: debe dejar espacio para el label superior
-    // Container total: 160px (mobile) o 300px (desktop)
-    // Espacio para label + padding superior: ~50px
-    // Máxima altura de barra = Container - Espacio para label
-    final maxBarHeight = isMobile ? 100.0 : 230.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Altura adaptable según espacio disponible. En "wide-short"
+        // (pantallas anchas pero cortas verticalmente como ventanas
+        // ratio 16:9 reducidas), antes el chart tomaba 230px fijos para
+        // las barras y se desbordaba. Ahora:
+        //   - ideal: 230 (desktop) / 100 (mobile)
+        //   - en compact (<= 320 disponibles): reducimos espaciados+barra
+        final fullAvailable = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : double.infinity;
+        final compact = fullAvailable.isFinite && fullAvailable < 320;
+        final reservedForLabels =
+            compact ? 65.0 : (isMobile ? 75.0 : 95.0);
+        final ideal = isMobile ? 100.0 : 230.0;
+        final available = fullAvailable.isFinite
+            ? math.max(fullAvailable - reservedForLabels, 55.0)
+            : ideal;
+        final maxBarHeight = math.min(ideal, available);
 
-    final barHeight1 = maxBarHeight * percentage1;
-    final barHeight2 = maxBarHeight * percentage2;
+        // Espaciados también adaptables. Antes fijos en desktop:
+        // valor↔barra=8, barra↔label=6. En compact reducimos.
+        final gapValueBar = compact ? 4.0 : (isMobile ? 0.0 : 8.0);
+        final gapBarLabel = compact ? 4.0 : (isMobile ? 0.0 : 6.0);
+        final pad = compact
+            ? 8.0
+            : (isMobile ? 12.0 : 16.0); // ligero recorte vs el 20 antes
+
+        final barHeight1 = maxBarHeight * percentage1;
+        final barHeight2 = maxBarHeight * percentage2;
     final minHeight = 4.0;
     final finalHeight1 = math.max(barHeight1, totalSales > 0 ? minHeight : 0.0);
     final finalHeight2 = math.max(
@@ -535,12 +568,7 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
     );
 
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        isMobile ? 12 : 20,
-        4,
-        isMobile ? 12 : 20,
-        isMobile ? 12 : 20,
-      ), // Padding más compacto en móvil
+      padding: EdgeInsets.fromLTRB(pad, 2, pad, pad),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -582,9 +610,7 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  SizedBox(
-                    height: isMobile ? 0 : 8,
-                  ), // Espacio adicional en desktop entre valor y barra
+                  SizedBox(height: gapValueBar),
                   AnimatedBuilder(
                     animation: _animation,
                     builder: (context, child) {
@@ -596,13 +622,11 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
                         barIndex: 0,
                         totalValue: totalSales,
                         percentage: salesPercentage,
-                        label: 'Ingresos',
+                        label: 'Ingresos Netos',
                       );
                     },
                   ),
-                  SizedBox(
-                    height: isMobile ? 0 : 6,
-                  ), // Espacio adicional en desktop entre barra y etiqueta
+                  SizedBox(height: gapBarLabel),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -626,7 +650,7 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
                       ),
                     ),
                     child: Text(
-                      'Ingresos',
+                      'Ingresos Netos',
                       style: TextStyle(
                         color: AppColors.success,
                         fontWeight: FontWeight.w700,
@@ -677,9 +701,7 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  SizedBox(
-                    height: isMobile ? 0 : 8,
-                  ), // Espacio adicional en desktop entre valor y barra
+                  SizedBox(height: gapValueBar),
                   AnimatedBuilder(
                     animation: _animation,
                     builder: (context, child) {
@@ -695,9 +717,7 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
                       );
                     },
                   ),
-                  SizedBox(
-                    height: isMobile ? 0 : 6,
-                  ), // Espacio adicional en desktop entre barra y etiqueta
+                  SizedBox(height: gapBarLabel),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -736,6 +756,8 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
           ),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -1010,9 +1032,9 @@ class _DashboardChartsSectionState extends State<DashboardChartsSection>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Indicador de Ingresos
+        // Indicador de Ingresos Netos (post-devoluciones)
         _buildLegendItem(
-          'Ingresos',
+          'Ingresos Netos',
           AppFormatters.formatCurrency(totalSales.toInt()),
           '${salesPercentage.toStringAsFixed(1)}%',
           AppColors.success,

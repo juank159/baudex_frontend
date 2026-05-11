@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../app/shared/widgets/app_drawer.dart';
+import '../../../../app/shared/widgets/permission_gate.dart';
+import '../../../employees/domain/entities/module_permission.dart';
 import '../../../../app/shared/widgets/custom_text_field_safe.dart';
 import '../../../../app/core/utils/responsive_helper.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
@@ -194,7 +196,10 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           desktop: _buildDesktopLayout(context, controller),
         ),
       ),
-      floatingActionButton: _buildFloatingActionButton(context, controller),
+      floatingActionButton: PermissionGate.canEdit(
+        moduleCode: ModuleCode.invoices,
+        child: _buildFloatingActionButton(context, controller),
+      ),
     );
   }
 

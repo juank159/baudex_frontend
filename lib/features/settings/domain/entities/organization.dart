@@ -82,7 +82,14 @@ class Organization extends Equatable {
 
   // Multi-moneda
   final bool multiCurrencyEnabled;
-  
+
+  // Caja registradora — por default `true` (módulo activo). Cuando el
+  // admin lo apaga desde Settings, todo el flujo de caja desaparece:
+  // banners del dashboard, badge del AppBar, guard de facturas, opción
+  // "Caja del día" en gastos. Para clientes que no usan caja del día
+  // como concepto (servicios profesionales, software, etc.).
+  final bool cashRegisterEnabled;
+
   // Campos de suscripción
   final DateTime? subscriptionStartDate;
   final DateTime? subscriptionEndDate;
@@ -110,6 +117,7 @@ class Organization extends Equatable {
     required this.updatedAt,
     this.defaultProfitMarginPercentage,
     this.multiCurrencyEnabled = false,
+    this.cashRegisterEnabled = true,
     this.subscriptionStartDate,
     this.subscriptionEndDate,
     this.trialStartDate,
@@ -194,6 +202,7 @@ class Organization extends Equatable {
     DateTime? updatedAt,
     double? defaultProfitMarginPercentage,
     bool? multiCurrencyEnabled,
+    bool? cashRegisterEnabled,
     DateTime? subscriptionStartDate,
     DateTime? subscriptionEndDate,
     DateTime? trialStartDate,
@@ -220,6 +229,7 @@ class Organization extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       defaultProfitMarginPercentage: defaultProfitMarginPercentage ?? this.defaultProfitMarginPercentage,
       multiCurrencyEnabled: multiCurrencyEnabled ?? this.multiCurrencyEnabled,
+      cashRegisterEnabled: cashRegisterEnabled ?? this.cashRegisterEnabled,
       subscriptionStartDate: subscriptionStartDate ?? this.subscriptionStartDate,
       subscriptionEndDate: subscriptionEndDate ?? this.subscriptionEndDate,
       trialStartDate: trialStartDate ?? this.trialStartDate,
@@ -249,6 +259,7 @@ class Organization extends Equatable {
         updatedAt,
         defaultProfitMarginPercentage,
         multiCurrencyEnabled,
+        cashRegisterEnabled,
         subscriptionStartDate,
         subscriptionEndDate,
         trialStartDate,

@@ -37,109 +37,114 @@ const IsarBankAccountSchema = CollectionSchema(
       name: r'createdById',
       type: IsarType.string,
     ),
-    r'deletedAt': PropertySchema(
+    r'currentBalance': PropertySchema(
       id: 4,
+      name: r'currentBalance',
+      type: IsarType.double,
+    ),
+    r'deletedAt': PropertySchema(
+      id: 5,
       name: r'deletedAt',
       type: IsarType.dateTime,
     ),
     r'description': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'description',
       type: IsarType.string,
     ),
     r'holderName': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'holderName',
       type: IsarType.string,
     ),
     r'icon': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'icon',
       type: IsarType.string,
     ),
     r'isActive': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'isActive',
       type: IsarType.bool,
     ),
     r'isDefault': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'isDefault',
       type: IsarType.bool,
     ),
     r'isDeleted': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'isDeleted',
       type: IsarType.bool,
     ),
     r'isSynced': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'lastModifiedAt': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'lastModifiedAt',
       type: IsarType.dateTime,
     ),
     r'lastModifiedBy': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'lastModifiedBy',
       type: IsarType.string,
     ),
     r'lastSyncAt': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'lastSyncAt',
       type: IsarType.dateTime,
     ),
     r'metadataJson': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'metadataJson',
       type: IsarType.string,
     ),
     r'name': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'name',
       type: IsarType.string,
     ),
     r'needsSync': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'needsSync',
       type: IsarType.bool,
     ),
     r'organizationId': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'organizationId',
       type: IsarType.string,
     ),
     r'serverId': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'serverId',
       type: IsarType.string,
     ),
     r'sortOrder': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'sortOrder',
       type: IsarType.long,
     ),
     r'type': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'type',
       type: IsarType.string,
       enumMap: _IsarBankAccounttypeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'updatedById': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'updatedById',
       type: IsarType.string,
     ),
     r'version': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'version',
       type: IsarType.long,
     )
@@ -275,27 +280,28 @@ void _isarBankAccountSerialize(
   writer.writeString(offsets[1], object.bankName);
   writer.writeDateTime(offsets[2], object.createdAt);
   writer.writeString(offsets[3], object.createdById);
-  writer.writeDateTime(offsets[4], object.deletedAt);
-  writer.writeString(offsets[5], object.description);
-  writer.writeString(offsets[6], object.holderName);
-  writer.writeString(offsets[7], object.icon);
-  writer.writeBool(offsets[8], object.isActive);
-  writer.writeBool(offsets[9], object.isDefault);
-  writer.writeBool(offsets[10], object.isDeleted);
-  writer.writeBool(offsets[11], object.isSynced);
-  writer.writeDateTime(offsets[12], object.lastModifiedAt);
-  writer.writeString(offsets[13], object.lastModifiedBy);
-  writer.writeDateTime(offsets[14], object.lastSyncAt);
-  writer.writeString(offsets[15], object.metadataJson);
-  writer.writeString(offsets[16], object.name);
-  writer.writeBool(offsets[17], object.needsSync);
-  writer.writeString(offsets[18], object.organizationId);
-  writer.writeString(offsets[19], object.serverId);
-  writer.writeLong(offsets[20], object.sortOrder);
-  writer.writeString(offsets[21], object.type.name);
-  writer.writeDateTime(offsets[22], object.updatedAt);
-  writer.writeString(offsets[23], object.updatedById);
-  writer.writeLong(offsets[24], object.version);
+  writer.writeDouble(offsets[4], object.currentBalance);
+  writer.writeDateTime(offsets[5], object.deletedAt);
+  writer.writeString(offsets[6], object.description);
+  writer.writeString(offsets[7], object.holderName);
+  writer.writeString(offsets[8], object.icon);
+  writer.writeBool(offsets[9], object.isActive);
+  writer.writeBool(offsets[10], object.isDefault);
+  writer.writeBool(offsets[11], object.isDeleted);
+  writer.writeBool(offsets[12], object.isSynced);
+  writer.writeDateTime(offsets[13], object.lastModifiedAt);
+  writer.writeString(offsets[14], object.lastModifiedBy);
+  writer.writeDateTime(offsets[15], object.lastSyncAt);
+  writer.writeString(offsets[16], object.metadataJson);
+  writer.writeString(offsets[17], object.name);
+  writer.writeBool(offsets[18], object.needsSync);
+  writer.writeString(offsets[19], object.organizationId);
+  writer.writeString(offsets[20], object.serverId);
+  writer.writeLong(offsets[21], object.sortOrder);
+  writer.writeString(offsets[22], object.type.name);
+  writer.writeDateTime(offsets[23], object.updatedAt);
+  writer.writeString(offsets[24], object.updatedById);
+  writer.writeLong(offsets[25], object.version);
 }
 
 IsarBankAccount _isarBankAccountDeserialize(
@@ -309,28 +315,29 @@ IsarBankAccount _isarBankAccountDeserialize(
   object.bankName = reader.readStringOrNull(offsets[1]);
   object.createdAt = reader.readDateTime(offsets[2]);
   object.createdById = reader.readStringOrNull(offsets[3]);
-  object.deletedAt = reader.readDateTimeOrNull(offsets[4]);
-  object.description = reader.readStringOrNull(offsets[5]);
-  object.holderName = reader.readStringOrNull(offsets[6]);
-  object.icon = reader.readStringOrNull(offsets[7]);
+  object.currentBalance = reader.readDouble(offsets[4]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[5]);
+  object.description = reader.readStringOrNull(offsets[6]);
+  object.holderName = reader.readStringOrNull(offsets[7]);
+  object.icon = reader.readStringOrNull(offsets[8]);
   object.id = id;
-  object.isActive = reader.readBool(offsets[8]);
-  object.isDefault = reader.readBool(offsets[9]);
-  object.isSynced = reader.readBool(offsets[11]);
-  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[12]);
-  object.lastModifiedBy = reader.readStringOrNull(offsets[13]);
-  object.lastSyncAt = reader.readDateTimeOrNull(offsets[14]);
-  object.metadataJson = reader.readStringOrNull(offsets[15]);
-  object.name = reader.readString(offsets[16]);
-  object.organizationId = reader.readString(offsets[18]);
-  object.serverId = reader.readString(offsets[19]);
-  object.sortOrder = reader.readLong(offsets[20]);
+  object.isActive = reader.readBool(offsets[9]);
+  object.isDefault = reader.readBool(offsets[10]);
+  object.isSynced = reader.readBool(offsets[12]);
+  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[13]);
+  object.lastModifiedBy = reader.readStringOrNull(offsets[14]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[15]);
+  object.metadataJson = reader.readStringOrNull(offsets[16]);
+  object.name = reader.readString(offsets[17]);
+  object.organizationId = reader.readString(offsets[19]);
+  object.serverId = reader.readString(offsets[20]);
+  object.sortOrder = reader.readLong(offsets[21]);
   object.type =
-      _IsarBankAccounttypeValueEnumMap[reader.readStringOrNull(offsets[21])] ??
+      _IsarBankAccounttypeValueEnumMap[reader.readStringOrNull(offsets[22])] ??
           IsarBankAccountType.cash;
-  object.updatedAt = reader.readDateTime(offsets[22]);
-  object.updatedById = reader.readStringOrNull(offsets[23]);
-  object.version = reader.readLong(offsets[24]);
+  object.updatedAt = reader.readDateTime(offsets[23]);
+  object.updatedById = reader.readStringOrNull(offsets[24]);
+  object.version = reader.readLong(offsets[25]);
   return object;
 }
 
@@ -350,15 +357,15 @@ P _isarBankAccountDeserializeProp<P>(
     case 3:
       return (reader.readStringOrNull(offset)) as P;
     case 4:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 5:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 6:
       return (reader.readStringOrNull(offset)) as P;
     case 7:
       return (reader.readStringOrNull(offset)) as P;
     case 8:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 9:
       return (reader.readBool(offset)) as P;
     case 10:
@@ -366,32 +373,34 @@ P _isarBankAccountDeserializeProp<P>(
     case 11:
       return (reader.readBool(offset)) as P;
     case 12:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 13:
-      return (reader.readStringOrNull(offset)) as P;
-    case 14:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 15:
-      return (reader.readStringOrNull(offset)) as P;
-    case 16:
-      return (reader.readString(offset)) as P;
-    case 17:
       return (reader.readBool(offset)) as P;
-    case 18:
+    case 13:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 14:
+      return (reader.readStringOrNull(offset)) as P;
+    case 15:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 16:
+      return (reader.readStringOrNull(offset)) as P;
+    case 17:
       return (reader.readString(offset)) as P;
+    case 18:
+      return (reader.readBool(offset)) as P;
     case 19:
       return (reader.readString(offset)) as P;
     case 20:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 21:
+      return (reader.readLong(offset)) as P;
+    case 22:
       return (_IsarBankAccounttypeValueEnumMap[
               reader.readStringOrNull(offset)] ??
           IsarBankAccountType.cash) as P;
-    case 22:
-      return (reader.readDateTime(offset)) as P;
     case 23:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 24:
+      return (reader.readStringOrNull(offset)) as P;
+    case 25:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1216,6 +1225,72 @@ extension IsarBankAccountQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'createdById',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarBankAccount, IsarBankAccount, QAfterFilterCondition>
+      currentBalanceEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'currentBalance',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarBankAccount, IsarBankAccount, QAfterFilterCondition>
+      currentBalanceGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'currentBalance',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarBankAccount, IsarBankAccount, QAfterFilterCondition>
+      currentBalanceLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'currentBalance',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarBankAccount, IsarBankAccount, QAfterFilterCondition>
+      currentBalanceBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'currentBalance',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
       ));
     });
   }
@@ -3250,6 +3325,20 @@ extension IsarBankAccountQuerySortBy
   }
 
   QueryBuilder<IsarBankAccount, IsarBankAccount, QAfterSortBy>
+      sortByCurrentBalance() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'currentBalance', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarBankAccount, IsarBankAccount, QAfterSortBy>
+      sortByCurrentBalanceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'currentBalance', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarBankAccount, IsarBankAccount, QAfterSortBy>
       sortByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.asc);
@@ -3599,6 +3688,20 @@ extension IsarBankAccountQuerySortThenBy
   }
 
   QueryBuilder<IsarBankAccount, IsarBankAccount, QAfterSortBy>
+      thenByCurrentBalance() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'currentBalance', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarBankAccount, IsarBankAccount, QAfterSortBy>
+      thenByCurrentBalanceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'currentBalance', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarBankAccount, IsarBankAccount, QAfterSortBy>
       thenByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.asc);
@@ -3933,6 +4036,13 @@ extension IsarBankAccountQueryWhereDistinct
   }
 
   QueryBuilder<IsarBankAccount, IsarBankAccount, QDistinct>
+      distinctByCurrentBalance() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'currentBalance');
+    });
+  }
+
+  QueryBuilder<IsarBankAccount, IsarBankAccount, QDistinct>
       distinctByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deletedAt');
@@ -4114,6 +4224,13 @@ extension IsarBankAccountQueryProperty
       createdByIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdById');
+    });
+  }
+
+  QueryBuilder<IsarBankAccount, double, QQueryOperations>
+      currentBalanceProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'currentBalance');
     });
   }
 
