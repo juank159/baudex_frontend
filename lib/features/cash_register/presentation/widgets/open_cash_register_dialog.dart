@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/core/utils/number_input_formatter.dart';
 import '../controllers/cash_register_controller.dart';
 
 /// Dialog inline para abrir la caja desde cualquier parte de la app
@@ -136,11 +137,13 @@ class _OpenCashRegisterDialogState extends State<_OpenCashRegisterDialog> {
                 TextFormField(
                   controller: _amountCtrl,
                   autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-                  ],
+                  keyboardType: TextInputType.number,
+                  // Formateador con separador de miles, mismo patrón
+                  // que se usa en formularios de productos, gastos y
+                  // demás campos monetarios de la app. Reemplaza al
+                  // FilteringTextInputFormatter crudo que solo dejaba
+                  // pasar dígitos sin formato visual.
+                  inputFormatters: [PriceInputFormatter()],
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 17,

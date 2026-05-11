@@ -1,8 +1,11 @@
 // lib/features/products/presentation/screens/product_presentations_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../../../app/core/utils/app_logger.dart';
+import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/core/utils/number_input_formatter.dart';
 import '../../domain/entities/product_presentation.dart';
 import '../controllers/product_presentations_controller.dart';
 
@@ -30,14 +33,16 @@ class ProductPresentationsScreen
         }
         return _buildList(context);
       }),
-      floatingActionButton: FloatingActionButton.extended(
+      // FAB adaptativo: mobile = redondo con sólo ícono; tablet/desktop
+      // = extended con etiqueta (hay espacio de sobra). El patrón
+      // estándar de Material 3 — un FAB con texto en mobile se ve
+      // apretado y no respeta el tap target.
+      floatingActionButton: _buildResponsiveFab(
+        context,
+        icon: Icons.add,
+        label: 'Nueva Presentación',
+        tooltip: 'Nueva presentación',
         onPressed: () => _showPresentationForm(context),
-        backgroundColor: ElegantLightTheme.primaryBlue,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Nueva Presentación',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-        ),
       ),
     );
   }
@@ -214,6 +219,36 @@ class ProductPresentationsScreen
             );
           },
         ),
+      ),
+    );
+  }
+
+  // ==================== HELPERS ====================
+
+  Widget _buildResponsiveFab(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    if (isMobile) {
+      return FloatingActionButton(
+        onPressed: onPressed,
+        backgroundColor: ElegantLightTheme.primaryBlue,
+        tooltip: tooltip,
+        child: Icon(icon, color: Colors.white),
+      );
+    }
+    return FloatingActionButton.extended(
+      onPressed: onPressed,
+      backgroundColor: ElegantLightTheme.primaryBlue,
+      icon: Icon(icon, color: Colors.white),
+      label: Text(
+        label,
+        style: const TextStyle(
+            color: Colors.white, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -570,8 +605,11 @@ class _PresentationFormDialogState extends State<_PresentationFormDialog> {
     _nameController = TextEditingController(text: e?.name ?? '');
     _factorController =
         TextEditingController(text: e != null ? e.factor.toString() : '1');
-    _priceController =
-        TextEditingController(text: e != null ? e.price.toString() : '');
+    // Al editar, mostrar el precio ya formateado con separador de
+    // miles para que sea consistente con lo que el usuario escribe.
+    _priceController = TextEditingController(
+      text: e != null ? AppFormatters.formatNumber(e.price) : '',
+    );
     _barcodeController = TextEditingController(text: e?.barcode ?? '');
     _skuController = TextEditingController(text: e?.sku ?? '');
     _isDefault = e?.isDefault ?? false;
@@ -671,15 +709,18 @@ class _PresentationFormDialogState extends State<_PresentationFormDialog> {
                       child: _buildField(
                         controller: _priceController,
                         label: 'Precio *',
-                        hint: 'Ej: 18000',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
+                        hint: 'Ej: 18.000',
+                        keyboardType: TextInputType.number,
+                        // Formateador con separador de miles (mismo
+                        // patrón que el form de productos y la lista
+                        // de precios — coherencia visual con el resto
+                        // de la app).
+                        inputFormatters: [PriceInputFormatter()],
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
                             return 'Requerido';
                           }
-                          final n = double.tryParse(v.trim());
+                          final n = AppFormatters.parseNumber(v);
                           if (n == null || n < 0) {
                             return 'Debe ser >= 0';
                           }
@@ -755,11 +796,13 @@ class _PresentationFormDialogState extends State<_PresentationFormDialog> {
     required String label,
     String? hint,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -824,7 +867,10 @@ class _PresentationFormDialogState extends State<_PresentationFormDialog> {
       await widget.onSave({
         'name': _nameController.text.trim(),
         'factor': double.parse(_factorController.text.trim()),
-        'price': double.parse(_priceController.text.trim()),
+        // Usar `AppFormatters.parseNumber` porque el TextField muestra
+        // el precio con separadores de miles ("18.000") y `double.parse`
+        // los rompería.
+        'price': AppFormatters.parseNumber(_priceController.text) ?? 0,
         'barcode': _barcodeController.text.trim().isEmpty
             ? null
             : _barcodeController.text.trim(),
