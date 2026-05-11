@@ -664,10 +664,22 @@ class FullSyncService extends GetxService {
       ),
     );
 
-    // Obtener todos los productos ya sincronizados (con serverId real = UUID)
+    // Obtener todos los productos ya sincronizados (con serverId real = UUID).
+    //
+    // Excluimos:
+    //  - product_offline_*  → todavía no llegan al server, no tienen presentaciones
+    //  - cualquier serverId que NO sea UUID  → la colección isarProducts también
+    //    contiene un registro especial con serverId='STATS_CACHE' que guarda
+    //    metadata de estadísticas (ver product_local_datasource_isar.dart). El
+    //    backend rechaza con 400 "Validation failed (uuid is expected)" si le
+    //    pasamos ese ID al endpoint de presentaciones, contaminando los logs y
+    //    desperdiciando una request en cada pull periódico.
+    final uuidPattern = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
     final allProducts = await _isar.isarProducts.where().findAll();
     final syncedProducts = allProducts
-        .where((p) => !p.serverId.startsWith('product_offline_'))
+        .where((p) => uuidPattern.hasMatch(p.serverId))
         .toList();
 
     if (syncedProducts.isEmpty) return 0;
