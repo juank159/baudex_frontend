@@ -23,6 +23,20 @@ enum ExpenseStatus {
         return 'Pagado';
     }
   }
+
+  /// Estados que impactan financieramente al negocio.
+  /// FUENTE ÚNICA — todos los cálculos de gastos (dashboard, reportes,
+  /// pie/bar charts) deben usar esto para evitar inconsistencias.
+  /// Excluye draft, rejected y cancelled — esos aún no afectan caja.
+  bool get isCountable =>
+      this == ExpenseStatus.paid ||
+      this == ExpenseStatus.approved ||
+      this == ExpenseStatus.pending;
+
+  static bool isCountableString(String? raw) {
+    final s = raw?.toLowerCase();
+    return s == 'paid' || s == 'approved' || s == 'pending';
+  }
 }
 
 enum ExpenseType {
