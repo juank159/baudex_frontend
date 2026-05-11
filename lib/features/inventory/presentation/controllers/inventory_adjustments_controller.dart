@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/core/utils/formatters.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../../domain/usecases/create_stock_adjustment_usecase.dart';
 import '../../domain/usecases/get_inventory_balance_by_product_usecase.dart';
 import '../../domain/usecases/get_warehouses_usecase.dart';
@@ -213,6 +214,11 @@ class InventoryAdjustmentsController extends GetxController {
           print(
             '✅ Almacenes cargados para ajustes individuales: ${warehousesList.length}',
           );
+          // Auto-seleccionar si hay exactamente un almacén disponible
+          if (warehousesList.length == 1) {
+            final w = warehousesList.first;
+            setSelectedWarehouse(w.id, w.name);
+          }
         },
       );
     } catch (e) {
@@ -221,6 +227,11 @@ class InventoryAdjustmentsController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// Limpia el formulario manteniendo el almacén seleccionado (útil tras submit exitoso).
+  void clearForm() {
+    _clearForm();
   }
 
   void setSelectedWarehouse(String warehouseId, String warehouseName) {
@@ -289,21 +300,45 @@ class InventoryAdjustmentsController extends GetxController {
             'Error',
             failure.message,
             snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
+            margin: const EdgeInsets.all(12),
+            borderRadius: 12,
+            backgroundColor:
+                ElegantLightTheme.errorRed.withValues(alpha: 0.95),
+            colorText: Colors.white,
+            icon: const Icon(Icons.error_outline, color: Colors.white),
+            titleText: const Text(
+              'Error',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
           );
         },
         (adjustment) {
           Get.snackbar(
-            'Éxito',
-            'Ajuste de inventario creado correctamente',
+            'Ajuste aplicado',
+            'El ajuste de inventario se creó correctamente',
             snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
+            margin: const EdgeInsets.all(12),
+            borderRadius: 12,
+            backgroundColor:
+                ElegantLightTheme.successGreen.withValues(alpha: 0.95),
+            colorText: Colors.white,
+            icon: const Icon(Icons.check_circle, color: Colors.white),
+            titleText: const Text(
+              'Ajuste aplicado',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
           );
 
           _clearForm();
-          Get.back(); // Close form dialog/screen
+          Get.back();
         },
       );
     } catch (e) {
@@ -312,8 +347,12 @@ class InventoryAdjustmentsController extends GetxController {
         'Error',
         'Error inesperado: $e',
         snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
+        margin: const EdgeInsets.all(12),
+        borderRadius: 12,
+        backgroundColor:
+            ElegantLightTheme.errorRed.withValues(alpha: 0.95),
+        colorText: Colors.white,
+        icon: const Icon(Icons.error_outline, color: Colors.white),
       );
     } finally {
       isCreating.value = false;

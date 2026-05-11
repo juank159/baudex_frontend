@@ -4,14 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../../app/ui/layouts/main_layout.dart';
 import '../../../../app/shared/widgets/loading_widget.dart';
-import '../../../../app/shared/widgets/custom_button.dart';
-import '../../../../app/shared/widgets/custom_text_field.dart';
-import '../../../../app/config/themes/app_colors.dart';
-import '../../../../app/config/themes/app_dimensions.dart';
+import '../../../../app/core/theme/elegant_light_theme.dart';
 import '../controllers/inventory_adjustments_controller.dart';
 import '../widgets/product_search_widget.dart';
 
-class InventoryAdjustmentsScreen extends GetView<InventoryAdjustmentsController> {
+class InventoryAdjustmentsScreen
+    extends GetView<InventoryAdjustmentsController> {
   const InventoryAdjustmentsScreen({super.key});
 
   @override
@@ -20,685 +18,951 @@ class InventoryAdjustmentsScreen extends GetView<InventoryAdjustmentsController>
       title: 'Ajustar Inventario',
       showBackButton: true,
       showDrawer: false,
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return const Center(child: LoadingWidget());
-        }
+      body: SafeArea(
+        child: Obx(() {
+          if (controller.isLoading.value &&
+              controller.warehouses.isEmpty) {
+            return const Center(child: LoadingWidget());
+          }
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isWideScreen = constraints.maxWidth > 1200;
-            final isMediumScreen = constraints.maxWidth > 800;
-            
-            return SingleChildScrollView(
-              padding: EdgeInsets.all(
-                isMediumScreen ? AppDimensions.paddingLarge : AppDimensions.paddingMedium,
-              ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: isWideScreen ? 1000 : (isMediumScreen ? 800 : double.infinity),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildInstructions(),
-                      const SizedBox(height: AppDimensions.paddingLarge),
-                      _buildWarehouseSelector(),
-                      const SizedBox(height: AppDimensions.paddingMedium),
-                      _buildProductSelector(),
-                      const SizedBox(height: AppDimensions.paddingMedium),
-                      if (controller.hasCurrentBalance) ...[
-                        if (isWideScreen) 
-                          _buildWideScreenLayout()
-                        else 
-                          _buildNormalLayout(),
-                        const SizedBox(height: AppDimensions.paddingLarge),
-                        _buildSubmitButton(),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      }),
-    );
-  }
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth >= 1200;
+              final isTablet =
+                  constraints.maxWidth >= 600 && constraints.maxWidth < 1200;
+              final isMobile = constraints.maxWidth < 600;
 
-  Widget _buildInstructions() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: AppDimensions.paddingSmall),
-                Text(
-                  'Ajuste de Inventario',
-                  style: Get.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppDimensions.paddingSmall),
-            Text(
-              'Use esta función para corregir las cantidades de inventario cuando encuentre diferencias entre el stock del sistema y el conteo físico.',
-              style: Get.textTheme.bodyMedium?.copyWith(
-                color: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: AppDimensions.paddingSmall),
-            Text(
-              '• Seleccione el almacén donde aplicar el ajuste\n'
-              '• Seleccione el producto a ajustar\n'
-              '• Ingrese la cantidad real encontrada\n'
-              '• Especifique la razón del ajuste\n'
-              '• Confirme para aplicar los cambios',
-              style: Get.textTheme.bodySmall?.copyWith(
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProductSelector() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Seleccionar Producto',
-              style: Get.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: AppDimensions.paddingMedium),
-            ProductSearchWidget(
-              hintText: 'Buscar producto por nombre o SKU...',
-              onProductSelected: controller.selectProduct,
-              searchFunction: controller.searchProducts,
-            ),
-            if (controller.selectedProductName.value.isNotEmpty) ...[
-              const SizedBox(height: AppDimensions.paddingMedium),
-              Container(
-                padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.inventory_2,
-                      color: AppColors.primary,
-                      size: 20,
+              return SingleChildScrollView(
+                padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isDesktop
+                          ? 1100.0
+                          : isTablet
+                              ? 860.0
+                              : double.infinity,
                     ),
-                    const SizedBox(width: AppDimensions.paddingSmall),
-                    Expanded(
-                      child: Text(
-                        controller.selectedProductName.value,
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWarehouseSelector() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.warehouse,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: AppDimensions.paddingSmall),
-                Text(
-                  'Seleccionar Almacén',
-                  style: Get.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  ' *',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppDimensions.paddingSmall),
-            Text(
-              'Seleccione el almacén donde se aplicará el ajuste de inventario',
-              style: Get.textTheme.bodyMedium?.copyWith(
-                color: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: AppDimensions.paddingMedium),
-            Obx(() {
-              if (controller.warehouses.isEmpty) {
-                return Container(
-                  padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: AppDimensions.paddingMedium),
-                      Text(
-                        'Cargando almacenes...',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.warehouse, color: AppColors.primary),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                    borderSide: BorderSide(color: AppColors.primary, width: 2),
-                  ),
-                ),
-                hint: Text('Seleccione un almacén'),
-                value: controller.selectedWarehouseId.value.isNotEmpty 
-                    ? controller.selectedWarehouseId.value 
-                    : null,
-                items: controller.warehouses.map((warehouse) {
-                  return DropdownMenuItem<String>(
-                    value: warehouse.id,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.location_on,
-                          size: 16,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: AppDimensions.paddingSmall),
-                        Flexible(
-                          fit: FlexFit.loose,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
+                        _buildInstructionsCard(),
+                        const SizedBox(height: 16),
+                        _buildWarehouseCard(isMobile),
+                        const SizedBox(height: 16),
+                        _buildProductCard(),
+                        Obx(() {
+                          if (!controller.hasCurrentBalance) {
+                            return const SizedBox.shrink();
+                          }
+                          return Column(
                             children: [
-                              Text(
-                                warehouse.name,
-                                style: Get.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (warehouse.description?.isNotEmpty == true)
-                                Text(
-                                  warehouse.description!,
-                                  style: Get.textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                              const SizedBox(height: 16),
+                              if (isDesktop)
+                                _buildDesktopLayout()
+                              else if (isTablet)
+                                _buildTabletLayout()
+                              else
+                                _buildMobileLayout(),
+                              const SizedBox(height: 24),
+                              _buildSubmitButton(isMobile),
                             ],
-                          ),
-                        ),
+                          );
+                        }),
                       ],
                     ),
-                  );
-                }).toList(),
-                onChanged: (String? warehouseId) {
-                  if (warehouseId != null) {
-                    final warehouse = controller.warehouses.firstWhere(
-                      (w) => w.id == warehouseId,
-                    );
-                    controller.setSelectedWarehouse(warehouseId, warehouse.name);
-                  }
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Debe seleccionar un almacén';
-                  }
-                  return null;
-                },
+                  ),
+                ),
               );
-            }),
-            const SizedBox(height: AppDimensions.paddingSmall),
-            Obx(() {
-              if (controller.selectedWarehouseId.value.isEmpty) {
-                return Container(
-                  padding: const EdgeInsets.all(AppDimensions.paddingSmall),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning, color: Colors.orange, size: 16),
-                      const SizedBox(width: AppDimensions.paddingSmall),
-                      Expanded(
-                        child: Text(
-                          'Seleccione el almacén antes de continuar',
-                          style: TextStyle(
-                            color: Colors.orange.shade700,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              final selectedWarehouse = controller.warehouses.firstWhereOrNull(
-                (w) => w.id == controller.selectedWarehouseId.value,
-              );
-
-              if (selectedWarehouse != null) {
-                return Container(
-                  padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                    border: Border.all(
-                      color: AppColors.primary.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.warehouse,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: AppDimensions.paddingSmall),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Almacén seleccionado: ${selectedWarehouse.name}',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (selectedWarehouse.description?.isNotEmpty == true)
-                              Text(
-                                selectedWarehouse.description!,
-                                style: TextStyle(
-                                  color: AppColors.primary.withOpacity(0.8),
-                                  fontSize: 12,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return const SizedBox.shrink();
-            }),
-          ],
-        ),
+            },
+          );
+        }),
       ),
     );
   }
 
-  Widget _buildCurrentStockCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Obx(() => Text(
-              controller.selectedWarehouseName.value != 'Seleccionar almacén'
-                  ? 'Stock en ${controller.selectedWarehouseName.value}'
-                  : 'Stock Actual en Sistema',
-              style: Get.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            )),
-            const SizedBox(height: AppDimensions.paddingMedium),
-            Obx(() {
-              final balance = controller.currentBalance.value;
-              if (balance == null) return const SizedBox.shrink();
+  // ──────────────────────── INSTRUCCIONES ────────────────────────
 
-              return Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStockMetric(
-                          'Stock Total',
-                          '${balance.totalQuantity}',
-                          Icons.inventory,
-                          Colors.blue,
-                        ),
-                      ),
-                      Expanded(
-                        child: _buildStockMetric(
-                          'Stock Disponible',
-                          '${balance.availableQuantity}',
-                          Icons.check_circle,
-                          Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppDimensions.paddingMedium),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStockMetric(
-                          'Stock Reservado',
-                          '${balance.reservedQuantity}',
-                          Icons.lock,
-                          Colors.orange,
-                        ),
-                      ),
-                      Expanded(
-                        child: _buildStockMetric(
-                          'Valor Total',
-                          controller.formatCurrency(balance.totalValue),
-                          Icons.monetization_on,
-                          Colors.purple,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStockMetric(String label, String value, IconData icon, Color color) {
+  Widget _buildInstructionsCard() {
     return Container(
-      margin: const EdgeInsets.all(4),
-      padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-        border: Border.all(color: color.withOpacity(0.3)),
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.15),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: AppDimensions.paddingSmall),
-          Text(
-            value,
-            style: Get.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: color,
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.infoGradient,
+              borderRadius: BorderRadius.circular(8),
             ),
+            child: const Icon(Icons.info_outline, color: Colors.white, size: 18),
           ),
-          Text(
-            label,
-            style: Get.textTheme.bodySmall?.copyWith(
-              color: Colors.grey.shade600,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Ajuste de Inventario',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Corrija cantidades cuando encuentre diferencias entre el stock '
+                  'del sistema y el conteo físico.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: ElegantLightTheme.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAdjustmentForm() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ajuste de Cantidad',
-              style: Get.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: AppDimensions.paddingMedium),
-            
-            // New quantity input with responsive layout
-            LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth > 600) {
-                  // Wide layout
-                  return Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: CustomTextField(
-                          controller: controller.newQuantityController,
-                          label: 'Cantidad Final del Inventario',
-                          hint: 'Cantidad real encontrada en conteo físico',
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          prefixIcon: Icons.inventory_2,
-                        ),
-                      ),
-                      const SizedBox(width: AppDimensions.paddingMedium),
-                      Expanded(
-                        flex: 1,
-                        child: _buildQuantityActionButtons(),
-                      ),
-                    ],
-                  );
-                } else {
-                  // Narrow layout
-                  return Column(
-                    children: [
-                      CustomTextField(
-                        controller: controller.newQuantityController,
-                        label: 'Cantidad Final del Inventario',
-                        hint: 'Cantidad real encontrada en conteo físico',
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        prefixIcon: Icons.inventory_2,
-                      ),
-                      const SizedBox(height: AppDimensions.paddingSmall),
-                      _buildQuantityActionButtons(isHorizontal: true),
-                    ],
-                  );
-                }
-              },
-            ),
-            
-            const SizedBox(height: AppDimensions.paddingMedium),
-            
-            // Adjustment preview
-            Obx(() => _buildAdjustmentPreview()),
-            
-            const SizedBox(height: AppDimensions.paddingMedium),
-            
-            // Unit cost (if needed)
-            Obx(() {
-              if (!controller.showUnitCostField) return const SizedBox.shrink();
-              
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.monetization_on,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: AppDimensions.paddingSmall),
-                      Text(
-                        'Costo Unitario',
-                        style: Get.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppDimensions.paddingSmall),
-                  Text(
-                    controller.adjustmentDifference > 0 
-                        ? 'Ingrese el costo por unidad de las nuevas existencias'
-                        : 'Costo usado para calcular el impacto del ajuste',
-                    style: Get.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: AppDimensions.paddingSmall),
-                  CustomTextField(
-                    controller: controller.unitCostController,
-                    label: 'Costo por Unidad (COP)',
-                    hint: 'Ejemplo: 25000.00',
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-                    ],
-                    prefixIcon: Icons.attach_money,
-                  ),
-                  const SizedBox(height: AppDimensions.paddingMedium),
-                ],
-              );
-            }),
-            
-            // Reason selection
-            _buildReasonSection(),
-            
-            const SizedBox(height: AppDimensions.paddingMedium),
-            
-            // Notes
-            CustomTextField(
-              controller: controller.notesController,
-              label: 'Notas (Opcional)',
-              hint: 'Información adicional sobre el ajuste...',
-              maxLines: 3,
-            ),
-          ],
+  // ──────────────────────── ALMACÉN ────────────────────────
+
+  Widget _buildWarehouseCard(bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.15),
         ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ElegantLightTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.warehouse, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Almacén',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              ),
+              const Text(
+                ' *',
+                style: TextStyle(
+                  color: ElegantLightTheme.errorRed,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Obx(() => _buildWarehouseContent(isMobile)),
+        ],
       ),
     );
   }
 
-  Widget _buildAdjustmentPreview() {
-    final difference = controller.adjustmentDifference;
-    if (difference == 0) {
+  Widget _buildWarehouseContent(bool isMobile) {
+    // Cargando
+    if (controller.warehouses.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+          color: ElegantLightTheme.cardColor,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
-          children: [
-            Icon(Icons.remove, color: Colors.grey),
-            const SizedBox(width: AppDimensions.paddingSmall),
+          children: const [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  ElegantLightTheme.primaryBlue,
+                ),
+              ),
+            ),
+            SizedBox(width: 12),
             Text(
-              'Sin cambios en el inventario',
-              style: TextStyle(color: Colors.grey.shade600),
+              'Cargando almacenes...',
+              style: TextStyle(
+                color: ElegantLightTheme.textSecondary,
+                fontSize: 13,
+              ),
             ),
           ],
         ),
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-      decoration: BoxDecoration(
-        color: controller.getAdjustmentColor().withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-        border: Border.all(
-          color: controller.getAdjustmentColor().withOpacity(0.3),
+    // Auto-seleccionado (un único almacén)
+    if (controller.warehouses.length == 1 &&
+        controller.selectedWarehouseId.value.isNotEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: ElegantLightTheme.successGreen.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: ElegantLightTheme.successGreen.withOpacity(0.3),
+          ),
         ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.check_circle,
+              color: ElegantLightTheme.successGreen,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                controller.selectedWarehouseName.value,
+                style: const TextStyle(
+                  color: ElegantLightTheme.successGreen,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: ElegantLightTheme.successGreen.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Auto-seleccionado',
+                style: TextStyle(
+                  color: ElegantLightTheme.successGreen,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Dropdown para múltiples almacenes
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        prefixIcon: const Icon(
+          Icons.warehouse_outlined,
+          color: ElegantLightTheme.primaryBlue,
+          size: 20,
+        ),
+        hintText: 'Seleccione un almacén',
+        hintStyle: const TextStyle(
+          color: ElegantLightTheme.textTertiary,
+          fontSize: 14,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: ElegantLightTheme.textTertiary.withOpacity(0.3),
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: ElegantLightTheme.primaryBlue.withOpacity(0.25),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: ElegantLightTheme.primaryBlue,
+            width: 2,
+          ),
+        ),
+      ),
+      value: controller.selectedWarehouseId.value.isNotEmpty
+          ? controller.selectedWarehouseId.value
+          : null,
+      items: controller.warehouses.map((warehouse) {
+        return DropdownMenuItem<String>(
+          value: warehouse.id,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.location_on_outlined,
+                size: 16,
+                color: ElegantLightTheme.textSecondary,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  warehouse.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+      onChanged: (String? warehouseId) {
+        if (warehouseId != null) {
+          final warehouse = controller.warehouses.firstWhere(
+            (w) => w.id == warehouseId,
+          );
+          controller.setSelectedWarehouse(warehouseId, warehouse.name);
+        }
+      },
+    );
+  }
+
+  // ──────────────────────── BÚSQUEDA DE PRODUCTO ────────────────────────
+
+  Widget _buildProductCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.15),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.search,
+                color: ElegantLightTheme.primaryBlue,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Buscar producto',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: ElegantLightTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // ProductSearchWidget existente, sin reinventar
+          ProductSearchWidget(
+            hintText: 'Buscar producto por nombre o SKU...',
+            onProductSelected: controller.selectProduct,
+            searchFunction: controller.searchProducts,
+          ),
+          Obx(() {
+            if (controller.selectedProductName.value.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ElegantLightTheme.primaryBlue.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: ElegantLightTheme.primaryBlue.withOpacity(0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.inventory_2,
+                        color: ElegantLightTheme.primaryBlue,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          controller.selectedProductName.value,
+                          style: const TextStyle(
+                            color: ElegantLightTheme.primaryBlue,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ──────────────────────── LAYOUTS ADAPTATIVOS ────────────────────────
+
+  Widget _buildMobileLayout() {
+    return Column(
+      children: [
+        _buildStockCard(),
+        const SizedBox(height: 16),
+        _buildAdjustmentFormCard(),
+      ],
+    );
+  }
+
+  Widget _buildTabletLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 3,
+          child: Column(
+            children: [
+              _buildAdjustmentFormCard(),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 2,
+          child: Column(
+            children: [
+              _buildStockCard(),
+              const SizedBox(height: 16),
+              _buildSummaryCard(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 3,
+          child: Column(
+            children: [
+              _buildStockCard(),
+              const SizedBox(height: 16),
+              _buildAdjustmentFormCard(),
+            ],
+          ),
+        ),
+        const SizedBox(width: 24),
+        Expanded(
+          flex: 2,
+          child: _buildSummaryCard(),
+        ),
+      ],
+    );
+  }
+
+  // ──────────────────────── STOCK ACTUAL ────────────────────────
+
+  Widget _buildStockCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.15),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Obx(() => Text(
+                controller.selectedWarehouseName.value != 'Seleccionar almacén'
+                    ? 'Stock en ${controller.selectedWarehouseName.value}'
+                    : 'Stock Actual',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+              )),
+          const SizedBox(height: 14),
+          Obx(() {
+            final balance = controller.currentBalance.value;
+            if (balance == null) return const SizedBox.shrink();
+
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMetricCard(
+                        'Stock Total',
+                        '${balance.totalQuantity}',
+                        Icons.inventory,
+                        ElegantLightTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildMetricCard(
+                        'Disponible',
+                        '${balance.availableQuantity}',
+                        Icons.check_circle_outline,
+                        ElegantLightTheme.successGreen,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMetricCard(
+                        'Reservado',
+                        '${balance.reservedQuantity}',
+                        Icons.lock_outline,
+                        ElegantLightTheme.warningOrange,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildMetricCard(
+                        'Valor Total',
+                        controller.formatCurrency(balance.totalValue),
+                        Icons.monetization_on_outlined,
+                        ElegantLightTheme.primaryBlueDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: color,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: ElegantLightTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ──────────────────────── FORMULARIO DE AJUSTE ────────────────────────
+
+  Widget _buildAdjustmentFormCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.15),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Ajuste de Cantidad',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: ElegantLightTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Input cantidad con botones +/-
+          _buildQuantityRow(),
+
+          const SizedBox(height: 14),
+
+          // Preview del ajuste
+          Obx(() => _buildAdjustmentPreview()),
+
+          const SizedBox(height: 14),
+
+          // Costo unitario (condicional)
+          Obx(() {
+            if (!controller.showUnitCostField) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Costo Unitario',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: ElegantLightTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: controller.unitCostController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'^\d*\.?\d{0,2}'),
+                    ),
+                  ],
+                  decoration: _inputDecoration(
+                    label: 'Costo por Unidad',
+                    icon: Icons.attach_money,
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+            );
+          }),
+
+          // Razón del ajuste
+          _buildReasonSection(),
+
+          const SizedBox(height: 14),
+
+          // Notas
+          TextFormField(
+            controller: controller.notesController,
+            maxLines: 3,
+            decoration: _inputDecoration(
+              label: 'Notas (Opcional)',
+              hint: 'Información adicional sobre el ajuste...',
+              icon: Icons.notes,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String label,
+    String? hint,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      labelStyle: const TextStyle(
+        color: ElegantLightTheme.textSecondary,
+        fontSize: 13,
+      ),
+      hintStyle: TextStyle(
+        color: ElegantLightTheme.textTertiary.withOpacity(0.8),
+        fontSize: 13,
+      ),
+      prefixIcon: Icon(icon, color: ElegantLightTheme.primaryBlue, size: 20),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: ElegantLightTheme.textTertiary.withOpacity(0.3),
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.25),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: ElegantLightTheme.primaryBlue,
+          width: 2,
+        ),
+      ),
+    );
+  }
+
+  // ──────────────────────── INPUT CANTIDAD CON +/- ────────────────────────
+
+  Widget _buildQuantityRow() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Cantidad Final',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: ElegantLightTheme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            // Botón −
+            Obx(() => _buildStepperButton(
+                  icon: Icons.remove,
+                  enabled: controller.newQuantity.value > 0,
+                  onTap: controller.decreaseQuantity,
+                  onLongPress: () => _adjustBy(-10),
+                )),
+            const SizedBox(width: 12),
+
+            // TextField cantidad
+            Expanded(
+              child: TextFormField(
+                controller: controller.newQuantityController,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: ElegantLightTheme.textPrimary,
+                ),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: ElegantLightTheme.primaryBlue.withOpacity(0.3),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: ElegantLightTheme.primaryBlue,
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            // Botón +
+            _buildStepperButton(
+              icon: Icons.add,
+              enabled: true,
+              onTap: controller.increaseQuantity,
+              onLongPress: () => _adjustBy(10),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Mantener presionado +/− para ajustar de 10 en 10',
+          style: TextStyle(
+            fontSize: 11,
+            color: ElegantLightTheme.textTertiary.withOpacity(0.8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepperButton({
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback onTap,
+    required VoidCallback onLongPress,
+  }) {
+    return GestureDetector(
+      onLongPress: enabled ? onLongPress : null,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: enabled
+                  ? ElegantLightTheme.primaryGradient
+                  : null,
+              color: enabled ? null : ElegantLightTheme.cardColor,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: enabled ? ElegantLightTheme.elevatedShadow : null,
+            ),
+            child: Icon(
+              icon,
+              color: enabled ? Colors.white : ElegantLightTheme.textTertiary,
+              size: 22,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _adjustBy(int delta) {
+    final newVal = controller.newQuantity.value + delta;
+    final clamped = newVal < 0 ? 0 : newVal;
+    controller.newQuantity.value = clamped;
+    controller.newQuantityController.text = clamped.toString();
+  }
+
+  // ──────────────────────── PREVIEW AJUSTE ────────────────────────
+
+  Widget _buildAdjustmentPreview() {
+    final difference = controller.adjustmentDifference;
+    if (difference == 0) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: ElegantLightTheme.cardColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: const [
+            Icon(Icons.remove, color: ElegantLightTheme.textTertiary, size: 18),
+            SizedBox(width: 8),
+            Text(
+              'Sin cambios en el inventario',
+              style: TextStyle(
+                color: ElegantLightTheme.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final color = controller.getAdjustmentColor();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.25)),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(
-                controller.getAdjustmentIcon(),
-                color: controller.getAdjustmentColor(),
-              ),
-              const SizedBox(width: AppDimensions.paddingSmall),
+              Icon(controller.getAdjustmentIcon(), color: color, size: 20),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   controller.getAdjustmentText(),
                   style: TextStyle(
-                    color: controller.getAdjustmentColor(),
+                    color: color,
                     fontWeight: FontWeight.w600,
+                    fontSize: 13,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           if (controller.adjustmentValue != 0) ...[
-            const SizedBox(height: AppDimensions.paddingSmall),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Icon(
-                  Icons.monetization_on,
-                  color: controller.getAdjustmentColor(),
+                  Icons.monetization_on_outlined,
+                  color: color,
                   size: 16,
                 ),
-                const SizedBox(width: AppDimensions.paddingSmall),
-                Text(
-                  'Impacto: ${controller.adjustmentValueText}',
-                  style: TextStyle(
-                    color: controller.getAdjustmentColor(),
-                    fontSize: 12,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Impacto: ${controller.adjustmentValueText}',
+                    style: TextStyle(color: color, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -708,305 +972,252 @@ class InventoryAdjustmentsScreen extends GetView<InventoryAdjustmentsController>
       ),
     );
   }
+
+  // ──────────────────────── RAZÓN DEL AJUSTE ────────────────────────
 
   Widget _buildReasonSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          children: [
+          children: const [
             Icon(
-              Icons.description,
-              color: AppColors.primary,
-              size: 20,
+              Icons.description_outlined,
+              color: ElegantLightTheme.primaryBlue,
+              size: 18,
             ),
-            const SizedBox(width: AppDimensions.paddingSmall),
+            SizedBox(width: 8),
             Text(
               'Razón del Ajuste',
-              style: Get.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: ElegantLightTheme.textPrimary,
               ),
             ),
             Text(
               ' *',
               style: TextStyle(
-                color: Colors.red,
+                color: ElegantLightTheme.errorRed,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
-        const SizedBox(height: AppDimensions.paddingSmall),
-        Text(
-          'Seleccione la causa que motivó este ajuste de inventario',
-          style: Get.textTheme.bodySmall?.copyWith(
-            color: Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(height: AppDimensions.paddingMedium),
-        
-        // Predefined reasons with better layout
+        const SizedBox(height: 10),
+
+        // Chips de razones predefinidas
         LayoutBuilder(
           builder: (context, constraints) {
+            final chipWidth = constraints.maxWidth > 500
+                ? (constraints.maxWidth - 16) / 3
+                : (constraints.maxWidth - 8) / 2;
             return Wrap(
               spacing: 8,
               runSpacing: 8,
               children: controller.adjustmentReasons.map((reason) {
-                return Obx(() => SizedBox(
-                  width: constraints.maxWidth > 600 
-                      ? (constraints.maxWidth - 16) / 3 
-                      : (constraints.maxWidth - 8) / 2,
-                  child: FilterChip(
-                    label: SizedBox(
-                      width: double.infinity,
-                      child: Text(
-                        reason,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 2,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: controller.reason.value == reason 
-                              ? FontWeight.w600 
-                              : FontWeight.normal,
+                return Obx(() {
+                  final isSelected = controller.reason.value == reason;
+                  return SizedBox(
+                    width: chipWidth,
+                    child: GestureDetector(
+                      onTap: () => controller.setReasonFromPredefined(reason),
+                      child: AnimatedContainer(
+                        duration: ElegantLightTheme.fastAnimation,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: isSelected
+                              ? ElegantLightTheme.primaryGradient
+                              : null,
+                          color: isSelected ? null : Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSelected
+                                ? ElegantLightTheme.primaryBlue
+                                : ElegantLightTheme.textTertiary
+                                    .withOpacity(0.3),
+                          ),
+                          boxShadow: isSelected
+                              ? ElegantLightTheme.glowShadow
+                              : null,
+                        ),
+                        child: Text(
+                          reason,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                            color: isSelected
+                                ? Colors.white
+                                : ElegantLightTheme.textSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
-                    selected: controller.reason.value == reason,
-                    onSelected: (selected) {
-                      if (selected) {
-                        controller.setReasonFromPredefined(reason);
-                      }
-                    },
-                    selectedColor: AppColors.primary.withOpacity(0.2),
-                    checkmarkColor: AppColors.primary,
-                    side: BorderSide(
-                      color: controller.reason.value == reason 
-                          ? AppColors.primary 
-                          : Colors.grey.shade300,
-                    ),
-                  ),
-                ));
+                  );
+                });
               }).toList(),
             );
           },
         ),
-        
-        const SizedBox(height: AppDimensions.paddingMedium),
-        
-        // Custom reason input
-        CustomTextField(
+
+        const SizedBox(height: 12),
+
+        // Razón personalizada
+        TextFormField(
           controller: controller.reasonController,
-          label: 'Razón Personalizada (Opcional)',
-          hint: 'Si ninguna opción aplica, describa la razón específica...',
           maxLines: 2,
-          prefixIcon: Icons.edit_note,
+          decoration: _inputDecoration(
+            label: 'Razón Personalizada (Opcional)',
+            hint: 'Si ninguna opción aplica...',
+            icon: Icons.edit_note,
+          ),
         ),
-        
-        const SizedBox(height: AppDimensions.paddingSmall),
+
+        const SizedBox(height: 8),
+
+        // Advertencia si falta razón
         Obx(() {
-          final hasSelectedReason = controller.reason.value.isNotEmpty;
-          final hasCustomReason = controller.reasonController.text.trim().isNotEmpty;
-          
-          if (!hasSelectedReason && !hasCustomReason) {
-            return Container(
-              padding: const EdgeInsets.all(AppDimensions.paddingSmall),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+          final noReason = controller.reason.value.isEmpty &&
+              controller.reasonController.text.trim().isEmpty;
+          if (!noReason) return const SizedBox.shrink();
+          return Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.warningOrange.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: ElegantLightTheme.warningOrange.withOpacity(0.3),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.warning, color: Colors.orange, size: 16),
-                  const SizedBox(width: AppDimensions.paddingSmall),
-                  Expanded(
-                    child: Text(
-                      'Debe seleccionar una razón o escribir una personalizada',
-                      style: TextStyle(
-                        color: Colors.orange.shade700,
-                        fontSize: 12,
-                      ),
+            ),
+            child: Row(
+              children: const [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: ElegantLightTheme.warningOrange,
+                  size: 16,
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Seleccione una razón o escriba una personalizada',
+                    style: TextStyle(
+                      color: ElegantLightTheme.warningOrange,
+                      fontSize: 12,
                     ),
                   ),
-                ],
-              ),
-            );
-          }
-          
-          return const SizedBox.shrink();
+                ),
+              ],
+            ),
+          );
         }),
       ],
     );
   }
 
-  Widget _buildWideScreenLayout() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Column(
-            children: [
-              _buildCurrentStockCard(),
-              const SizedBox(height: AppDimensions.paddingMedium),
-              _buildAdjustmentForm(),
-            ],
-          ),
-        ),
-        const SizedBox(width: AppDimensions.paddingLarge),
-        Expanded(
-          flex: 1,
-          child: _buildAdjustmentSummaryCard(),
-        ),
-      ],
-    );
-  }
+  // ──────────────────────── RESUMEN (sidebar) ────────────────────────
 
-  Widget _buildNormalLayout() {
-    return Column(
-      children: [
-        _buildCurrentStockCard(),
-        const SizedBox(height: AppDimensions.paddingMedium),
-        _buildAdjustmentForm(),
-      ],
-    );
-  }
-
-  Widget _buildAdjustmentSummaryCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Resumen del Ajuste',
-              style: Get.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+  Widget _buildSummaryCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: ElegantLightTheme.cardGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ElegantLightTheme.primaryBlue.withOpacity(0.15),
+        ),
+        boxShadow: ElegantLightTheme.elevatedShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Resumen del Ajuste',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: ElegantLightTheme.textPrimary,
             ),
-            const SizedBox(height: AppDimensions.paddingMedium),
-            Obx(() => _buildAdjustmentPreview()),
-            const SizedBox(height: AppDimensions.paddingMedium),
-            Obx(() {
-              final balance = controller.currentBalance.value;
-              if (balance == null) return const SizedBox.shrink();
-
-              return Column(
-                children: [
-                  _buildSummaryRow(
-                    'Stock Actual',
-                    '${balance.totalQuantity}',
-                    Icons.inventory,
+          ),
+          const SizedBox(height: 14),
+          Obx(() => _buildAdjustmentPreview()),
+          const SizedBox(height: 14),
+          Obx(() {
+            final balance = controller.currentBalance.value;
+            if (balance == null) return const SizedBox.shrink();
+            return Column(
+              children: [
+                _buildSummaryRow(
+                  'Stock Actual',
+                  '${balance.totalQuantity}',
+                  Icons.inventory_outlined,
+                ),
+                _buildSummaryRow(
+                  'Nueva Cantidad',
+                  '${controller.newQuantity.value}',
+                  Icons.edit_outlined,
+                ),
+                Divider(color: ElegantLightTheme.textTertiary.withOpacity(0.3)),
+                _buildSummaryRow(
+                  'Diferencia',
+                  '${controller.adjustmentDifference}',
+                  controller.getAdjustmentIcon(),
+                  color: controller.getAdjustmentColor(),
+                ),
+                if (controller.unitCost.value > 0) ...[
+                  Divider(
+                    color: ElegantLightTheme.textTertiary.withOpacity(0.3),
                   ),
                   _buildSummaryRow(
-                    'Nueva Cantidad',
-                    '${controller.newQuantity.value}',
-                    Icons.edit,
-                  ),
-                  const Divider(),
-                  _buildSummaryRow(
-                    'Diferencia',
-                    '${controller.adjustmentDifference}',
-                    controller.getAdjustmentIcon(),
+                    'Impacto Monetario',
+                    controller.adjustmentValueText,
+                    Icons.monetization_on_outlined,
                     color: controller.getAdjustmentColor(),
                   ),
-                  if (controller.unitCost.value > 0) ...[
-                    const Divider(),
-                    _buildSummaryRow(
-                      'Impacto Monetario',
-                      controller.adjustmentValueText,
-                      Icons.monetization_on,
-                      color: controller.getAdjustmentColor(),
-                    ),
-                  ],
                 ],
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuantityActionButtons({bool isHorizontal = false}) {
-    final buttons = [
-      _buildActionButton(
-        icon: Icons.clear,
-        tooltip: 'Poner en cero',
-        color: Colors.red,
-        onPressed: controller.setQuantityToZero,
-      ),
-      _buildActionButton(
-        icon: Icons.refresh,
-        tooltip: 'Restaurar cantidad actual',
-        color: Colors.blue,
-        onPressed: controller.resetToCurrentStock,
-      ),
-    ];
-
-    if (isHorizontal) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: buttons,
-      );
-    } else {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          buttons[0],
-          const SizedBox(height: 4),
-          buttons[1],
+              ],
+            );
+          }),
         ],
-      );
-    }
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String tooltip,
-    required Color color,
-    required VoidCallback? onPressed,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        style: IconButton.styleFrom(
-          backgroundColor: color.withOpacity(0.1),
-          foregroundColor: color,
-          minimumSize: const Size(40, 40),
-        ),
       ),
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, IconData icon, {Color? color}) {
+  Widget _buildSummaryRow(
+    String label,
+    String value,
+    IconData icon, {
+    Color? color,
+  }) {
+    final c = color ?? ElegantLightTheme.textSecondary;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: color ?? Colors.grey.shade600,
-          ),
-          const SizedBox(width: AppDimensions.paddingSmall),
+          Icon(icon, size: 16, color: c),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               label,
-              style: Get.textTheme.bodySmall?.copyWith(
-                color: Colors.grey.shade600,
+              style: const TextStyle(
+                fontSize: 13,
+                color: ElegantLightTheme.textSecondary,
               ),
             ),
           ),
           Text(
             value,
-            style: Get.textTheme.bodyMedium?.copyWith(
+            style: TextStyle(
+              fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: color,
+              color: color ?? ElegantLightTheme.textPrimary,
             ),
           ),
         ],
@@ -1014,20 +1225,78 @@ class InventoryAdjustmentsScreen extends GetView<InventoryAdjustmentsController>
     );
   }
 
-  Widget _buildSubmitButton() {
-    return Obx(() => SizedBox(
-      width: double.infinity,
-      child: CustomButton(
-        text: controller.submitButtonText,
-        onPressed: controller.isFormValid ? controller.createAdjustment : null,
-        isLoading: controller.isCreating.value,
-        backgroundColor: controller.adjustmentDifference == 0 
-            ? Colors.grey 
-            : controller.getAdjustmentColor(),
-        icon: controller.adjustmentDifference == 0 
-            ? Icons.remove 
-            : controller.getAdjustmentIcon(),
-      ),
-    ));
+  // ──────────────────────── BOTÓN SUBMIT ────────────────────────
+
+  Widget _buildSubmitButton(bool isMobile) {
+    return Obx(() {
+      final valid = controller.isFormValid;
+      final submitting = controller.isCreating.value;
+
+      Widget button = Container(
+        height: 52,
+        decoration: BoxDecoration(
+          gradient: valid && !submitting
+              ? ElegantLightTheme.primaryGradient
+              : null,
+          color: valid && !submitting ? null : ElegantLightTheme.cardColor,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: valid && !submitting ? ElegantLightTheme.glowShadow : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: valid && !submitting ? controller.createAdjustment : null,
+            borderRadius: BorderRadius.circular(14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (submitting)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                else
+                  Icon(
+                    controller.adjustmentDifference == 0
+                        ? Icons.remove
+                        : controller.getAdjustmentIcon(),
+                    color: valid ? Colors.white : ElegantLightTheme.textTertiary,
+                    size: 20,
+                  ),
+                const SizedBox(width: 10),
+                Text(
+                  submitting
+                      ? 'Aplicando...'
+                      : controller.submitButtonText,
+                  style: TextStyle(
+                    color: valid ? Colors.white : ElegantLightTheme.textTertiary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Desktop: centrado con ancho máximo
+      if (!isMobile) {
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: SizedBox(width: double.infinity, child: button),
+          ),
+        );
+      }
+
+      // Mobile: full-width
+      return SizedBox(width: double.infinity, child: button);
+    });
   }
 }
