@@ -288,10 +288,17 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       int approvedExpenses = 0;
       final expensesByCategory = <String, double>{};
 
+      // Estados que impactan financieramente — espejo de
+      // ExpenseStatus.isCountable (paid + approved + pending).
+      // Mantener IDÉNTICO al criterio de ese helper para que pie y bar
+      // charts del dashboard hablen del mismo total.
+      bool isCountableIsar(IsarExpenseStatus s) =>
+          s == IsarExpenseStatus.paid ||
+          s == IsarExpenseStatus.approved ||
+          s == IsarExpenseStatus.pending;
+
       for (final exp in expenses) {
-        final isCountable = exp.status == IsarExpenseStatus.paid ||
-            exp.status == IsarExpenseStatus.approved;
-        if (isCountable) {
+        if (isCountableIsar(exp.status)) {
           totalExpensesAmount += exp.amount;
           if (exp.date.isAfter(monthStart)) monthlyExpensesAmount += exp.amount;
           if (exp.date.isAfter(todayStart)) todayExpensesAmount += exp.amount;
@@ -924,11 +931,18 @@ class DashboardLocalDataSourceIsar implements DashboardLocalDataSource {
       // ⚡ Usar query con filtro de fecha nativo ISAR
       final expenses = await _queryExpenses(startDate, endDate);
 
+      // Criterio IDÉNTICO al de getCachedDashboardStats:
+      // paid + approved + pending (espejo de ExpenseStatus.isCountable).
+      // Esto garantiza que el pie chart (expensesByCategory) y el bar
+      // chart (expenses.totalAmount) siempre coincidan.
       final result = <String, double>{};
       for (final expense in expenses) {
-        if (expense.status == IsarExpenseStatus.approved ||
-            expense.status == IsarExpenseStatus.paid) {
-          result[expense.categoryId] = (result[expense.categoryId] ?? 0.0) + expense.amount;
+        final s = expense.status;
+        if (s == IsarExpenseStatus.paid ||
+            s == IsarExpenseStatus.approved ||
+            s == IsarExpenseStatus.pending) {
+          result[expense.categoryId] =
+              (result[expense.categoryId] ?? 0.0) + expense.amount;
         }
       }
       return result;

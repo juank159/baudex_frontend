@@ -475,6 +475,22 @@ class ExpenseStats extends Equatable {
       expensesByCategory: expensesByCategory ?? this.expensesByCategory,
     );
   }
+
+  /// Total efectivo de gastos consistente con `expensesByCategory`.
+  ///
+  /// INVARIANTE: el bar chart "Ingresos vs Gastos" usa este getter en
+  /// vez de `totalAmount` crudo. Si por cualquier razón `totalAmount`
+  /// queda menor que la suma de categorías (sucedió cuando dos fuentes
+  /// con criterios distintos llenaban cada campo), devolvemos la suma
+  /// del mapa — es la fuente que el pie chart muestra al usuario.
+  ///
+  /// Esto convierte un bug visible (totales que no cuadran entre los
+  /// dos gráficos) en consistencia visual automática.
+  double get effectiveTotalAmount {
+    if (expensesByCategory.isEmpty) return totalAmount;
+    final catSum = expensesByCategory.values.fold<double>(0, (a, b) => a + b);
+    return catSum > totalAmount ? catSum : totalAmount;
+  }
 }
 
 // 🆕 NUEVA ENTIDAD: Métricas de Rentabilidad FIFO

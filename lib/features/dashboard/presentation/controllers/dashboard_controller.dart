@@ -6,8 +6,10 @@ import 'package:baudex_desktop/features/dashboard/domain/usecases/get_unread_not
 import 'package:baudex_desktop/features/dashboard/domain/usecases/mark_notification_as_read_usecase.dart';
 import 'package:baudex_desktop/features/dashboard/domain/usecases/get_profitability_stats_usecase.dart';
 import 'package:get/get.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import '../../../../app/data/local/sync_service.dart';
+import 'dart:async';
 import 'dart:convert';
 import '../../../../app/core/mixins/sync_auto_refresh_mixin.dart';
 import '../../../../app/core/services/tenant_datetime_service.dart';
@@ -280,56 +282,49 @@ class DashboardController extends GetxController
           }
         } catch (_) {}
 
+        // Patrón nuevo: `_withSoftTimeout` en vez de `.timeout(...)` —
+        // evita que el debugger de VSCode pause en TimeoutException
+        // cada vez que el usuario navega y los futures siguen volando.
         await Future.wait([
-          // Cada timeout también resetea su flag de loading. Sin esto, si el
-          // backend tarda más que el timeout, el flag interno queda en true
-          // hasta que la operación termine (puede ser nunca con red colgada),
-          // y el gráfico de barras se queda eternamente con spinner.
-          loadDashboardStats(startDate: startDate, endDate: endDate).timeout(
-            const Duration(seconds: 8),
-            onTimeout: () {
-              print('⏰ Timeout en estadísticas');
-              if (_isAlive) _isLoadingStats.value = false;
-            },
+          _withSoftTimeout(
+            () => loadDashboardStats(startDate: startDate, endDate: endDate),
+            timeout: const Duration(seconds: 8),
+            tag: 'estadísticas',
+            onTimeoutOrError: () => _isLoadingStats.value = false,
           ),
-          loadProfitabilityStats(startDate: startDate, endDate: endDate).timeout(
-            const Duration(seconds: 6),
-            onTimeout: () {
-              print('⏰ Timeout en rentabilidad');
-              if (_isAlive) _isLoadingProfitability.value = false;
-            },
+          _withSoftTimeout(
+            () => loadProfitabilityStats(startDate: startDate, endDate: endDate),
+            timeout: const Duration(seconds: 6),
+            tag: 'rentabilidad',
+            onTimeoutOrError: () => _isLoadingProfitability.value = false,
           ),
-          loadRecentActivity().timeout(
-            const Duration(seconds: 6),
-            onTimeout: () {
-              if (_isAlive) _isLoadingActivity.value = false;
-            },
-          ).catchError((e) {
-            print('⚠️ Error actividades: $e');
-            if (_isAlive) _isLoadingActivity.value = false;
-          }),
-          loadNotifications().timeout(
-            const Duration(seconds: 6),
-            onTimeout: () {
-              if (_isAlive) _isLoadingNotifications.value = false;
-            },
-          ).catchError((e) {
-            print('⚠️ Error notificaciones: $e');
-            if (_isAlive) _isLoadingNotifications.value = false;
-          }),
-          loadUnreadNotificationsCount().timeout(
-            const Duration(seconds: 4),
-            onTimeout: () {},
-          ).catchError((e) {}),
+          _withSoftTimeout(
+            () => loadRecentActivity(),
+            timeout: const Duration(seconds: 6),
+            tag: 'actividades',
+            onTimeoutOrError: () => _isLoadingActivity.value = false,
+          ),
+          _withSoftTimeout(
+            () => loadNotifications(),
+            timeout: const Duration(seconds: 6),
+            tag: 'notificaciones',
+            onTimeoutOrError: () => _isLoadingNotifications.value = false,
+          ),
+          _withSoftTimeout(
+            () => loadUnreadNotificationsCount(),
+            timeout: const Duration(seconds: 4),
+            tag: 'unread-count',
+          ),
         ]);
 
         if (!_isAlive || v != _dataVersion) return;
         _harmonizeFinancialData();
 
-        await _loadExpensesByCategory().timeout(
-          const Duration(seconds: 6),
-          onTimeout: () => print('⏰ Timeout gastos por categoría'),
-        ).catchError((e) => print('⚠️ Error gastos: $e'));
+        await _withSoftTimeout(
+          () => _loadExpensesByCategory(),
+          timeout: const Duration(seconds: 6),
+          tag: 'gastos por categoría',
+        );
 
         if (!_isAlive || v != _dataVersion) return;
         update();
@@ -549,14 +544,20 @@ class DashboardController extends GetxController
                 final ncTotal = offlineStats.creditNotesTotal;
                 final ncCount = offlineStats.creditNotesCount;
                 final netRevenue = stats.totalCollected - ncTotal;
-                final serverExpensesByCat = stats.expenses.expensesByCategory;
-                final localExpensesByCat = offlineStats.expenses.expensesByCategory;
-                final mergedExpenses = serverExpensesByCat.isEmpty &&
-                        localExpensesByCat.isNotEmpty
-                    ? stats.expenses.copyWith(
-                        expensesByCategory: localExpensesByCat,
-                      )
-                    : stats.expenses;
+
+                // EXPENSES: SIEMPRE desde ISAR (offlineStats.expenses).
+                //
+                // Fuente única de verdad. Antes mezclábamos `stats.expenses`
+                // del server con `expensesByCategory` cargado por separado y
+                // los criterios de filtro (status) no coincidían, dejando el
+                // bar chart con un total y el pie chart con otro.
+                //
+                // ISAR ya calcula `totalAmount` Y `expensesByCategory` en un
+                // solo paso usando el mismo filtro (paid+approved+pending,
+                // ver `getCachedDashboardStats`). Reemplazamos el bloque
+                // completo del server por el de ISAR → consistencia 100%
+                // entre TODOS los widgets que consumen `stats.expenses`.
+                final mergedExpenses = offlineStats.expenses;
 
                 finalStats = stats.copyWith(
                   creditNotesTotal: ncTotal,
@@ -567,6 +568,7 @@ class DashboardController extends GetxController
                 print(
                   '[DASHBOARD] Stats armonizadas: server collected=\$${stats.totalCollected}, '
                   'local NCs=\$$ncTotal ($ncCount), netRevenue=\$$netRevenue, '
+                  'expensesTotal=\$${mergedExpenses.totalAmount} (ISAR, server ignorado=\$${stats.expenses.totalAmount}), '
                   'expensesCat=${mergedExpenses.expensesByCategory.length} cats',
                 );
               }
@@ -1049,131 +1051,23 @@ class DashboardController extends GetxController
     }
   }
 
-  // Método para cargar gastos por categoría obteniendo gastos individuales con paginación
+  // Gastos por categoría — SIEMPRE desde ISAR.
+  //
+  // Antes esto consultaba el API `/expenses` y el filtro de status no
+  // coincidía con el del backend que genera `stats.expenses.totalAmount`
+  // ni con el del cálculo offline ISAR. Resultado: bar chart con un
+  // total y pie chart con otro.
+  //
+  // Ahora ambos vienen de la misma fuente (ISAR) con el mismo filtro
+  // (paid+approved+pending). Online u offline el resultado es idéntico
+  // porque ISAR siempre tiene los gastos sincronizados.
   Future<void> _loadExpensesByCategory() async {
     if (!_isAlive) return;
     _isLoadingExpenseChart.value = true;
     try {
-      final networkInfo = Get.find<NetworkInfo>();
-      if (!networkInfo.isServerReachable) {
-        await _loadExpensesByCategoryOffline();
-        return;
-      }
-
-      final dioClient = Get.find<DioClient>();
-
-      // PASO 1: Obtener las categorías para mapear IDs a nombres
-      final categoriesMap = await _loadCategoriesMap();
-
-      // Usar las mismas fechas del período seleccionado
-      final dateRange = _selectedDateRange.value;
-      final expensesByCategory = <String, double>{};
-      bool hadConnectionError = false;
-
-      int page = 1;
-      const int limit = 100;
-      bool hasMoreData = true;
-
-      while (hasMoreData) {
-        try {
-          // NOTA: NO filtramos por status en el endpoint para no excluir
-          // gastos `paid` (los pagados directamente, ej. los de caja del
-          // día). El filtro local más abajo descarta solo los que NO
-          // impactan al negocio (draft, rejected, cancelled). Antes
-          // estaba `status='approved'` y eso ocultaba gastos `paid`,
-          // lo que causaba que el pie chart apareciera vacío aunque sí
-          // había gastos del día.
-          final params = <String, dynamic>{
-            'page': page,
-            'limit': limit,
-          };
-
-          if (dateRange != null) {
-            params['startDate'] = dateRange.start.toIso8601String();
-            params['endDate'] = dateRange.end.toIso8601String();
-          }
-
-          final response = await dioClient.get(
-            '/expenses',
-            queryParameters: params,
-          );
-
-          if (response.statusCode == 200) {
-            final responseData = response.data;
-            final expenses = responseData['data'] as List<dynamic>? ?? [];
-            final meta = responseData['meta'] as Map<String, dynamic>? ?? {};
-            final totalPages = meta['totalPages'] as int? ?? 1;
-
-            print('📄 Página $page/$totalPages: ${expenses.length} gastos');
-
-            // Estados que SÍ impactan al negocio (cuentan como gasto real).
-            // Excluimos draft, rejected y cancelled — esos aún no afectan.
-            const countableStatuses = {'paid', 'approved', 'pending'};
-
-            for (int expenseIndex = 0; expenseIndex < expenses.length; expenseIndex++) {
-              final expenseJson = expenses[expenseIndex];
-              if (expenseJson is Map<String, dynamic>) {
-                try {
-                  final status =
-                      expenseJson['status']?.toString().toLowerCase() ?? '';
-                  if (!countableStatuses.contains(status)) continue;
-
-                  final amountStr = expenseJson['amount']?.toString() ?? '0';
-                  final amount = double.tryParse(amountStr) ?? 0.0;
-
-                  final category = expenseJson['category'];
-                  String categoryName = 'Sin categoría';
-
-                  if (category != null && category is Map<String, dynamic>) {
-                    categoryName = category['name']?.toString() ?? 'Sin categoría';
-                  } else {
-                    final categoryId = expenseJson['categoryId']?.toString();
-                    if (categoryId != null && categoryId.isNotEmpty) {
-                      categoryName = categoriesMap[categoryId] ?? 'Categoría desconocida';
-                    }
-                  }
-
-                  expensesByCategory[categoryName] = (expensesByCategory[categoryName] ?? 0) + amount;
-                } catch (expenseError) {
-                  print('⚠️ Error processing expense $expenseIndex: $expenseError');
-                }
-              }
-            }
-
-            hasMoreData = page < totalPages;
-            page++;
-
-            if (page > 50) {
-              print('⚠️ Límite de páginas alcanzado (50), deteniendo carga');
-              break;
-            }
-          } else {
-            break;
-          }
-        } catch (pageError) {
-          print('⚠️ Error cargando página $page: $pageError');
-          hadConnectionError = true;
-          break;
-        }
-      }
-
-      // Si hubo error de conexión y no se obtuvieron datos, fallback a ISAR
-      if (expensesByCategory.isEmpty && hadConnectionError) {
-        print('📴 Gastos online fallaron, usando fallback ISAR...');
-        await _loadExpensesByCategoryOffline();
-        return;
-      }
-
-      if (!_isAlive) return;
-      _updateExpensesByCategoryInStats(expensesByCategory);
-
-      print('✅ Gastos por categoría cargados: ${expensesByCategory.length} categorías');
-
+      await _loadExpensesByCategoryOffline();
     } catch (e) {
-      print('⚠️ Error cargando gastos por categoría: $e - Intentando offline...');
-      try {
-        if (_isAlive) await _loadExpensesByCategoryOffline();
-      } catch (_) {}
+      print('⚠️ Error cargando gastos por categoría desde ISAR: $e');
     } finally {
       if (_isAlive) _isLoadingExpenseChart.value = false;
     }
@@ -1237,70 +1131,6 @@ class DashboardController extends GetxController
   static const String _categoriesMapCacheKey = 'dashboard_expense_categories_map';
   static const String _profitabilityCachePrefix = 'dashboard_profitability_';
   static const String _profitabilityLatestKey = 'dashboard_profitability_latest';
-
-  // Método para cargar mapa de categorías (ID -> Nombre)
-  Future<Map<String, String>> _loadCategoriesMap() async {
-    try {
-      // ⚡ Check sync rápido
-      final networkInfo = Get.find<NetworkInfo>();
-      if (!networkInfo.isServerReachable) {
-        return _getCachedCategoriesMap();
-      }
-
-      final dioClient = Get.find<DioClient>();
-
-      final response = await dioClient.get(
-        '/expense-categories',
-        queryParameters: {'limit': 100},
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData is! Map<String, dynamic>) {
-          return _getCachedCategoriesMap();
-        }
-
-        List<dynamic>? categories;
-
-        if (responseData.containsKey('data')) {
-          final data = responseData['data'];
-          if (data is Map<String, dynamic> && data.containsKey('categories')) {
-            categories = data['categories'] as List<dynamic>?;
-          } else if (data is List<dynamic>) {
-            categories = data;
-          }
-        } else if (responseData.containsKey('categories')) {
-          categories = responseData['categories'] as List<dynamic>?;
-        }
-
-        if (categories == null || categories.isEmpty) {
-          return _getCachedCategoriesMap();
-        }
-
-        final categoriesMap = <String, String>{};
-        for (var categoryJson in categories) {
-          if (categoryJson is Map<String, dynamic>) {
-            final id = categoryJson['id']?.toString();
-            final name = categoryJson['name']?.toString() ?? 'Sin nombre';
-            if (id != null && id.isNotEmpty) {
-              categoriesMap[id] = name;
-            }
-          }
-        }
-
-        print('📋 Categorías cargadas: ${categoriesMap.length}');
-
-        // Cachear para uso offline
-        _cacheCategoriesMap(categoriesMap);
-
-        return categoriesMap;
-      }
-    } catch (e) {
-      print('⚠️ Error cargando categorías: $e - Usando cache...');
-    }
-
-    return _getCachedCategoriesMap();
-  }
 
   // Cachear mapa de categorías en SecureStorage
   Future<void> _cacheCategoriesMap(Map<String, String> categoriesMap) async {
@@ -1482,5 +1312,53 @@ class DashboardController extends GetxController
     _selectedActivityTypes.close();
     _selectedPeriod.close();
     super.onClose();
+  }
+
+  /// Ejecuta un Future con timeout SIN lanzar `TimeoutException`.
+  ///
+  /// El problema con `Future.timeout(..., onTimeout: ...)` es que
+  /// internamente la VM crea una `TimeoutException`, y aunque haya
+  /// `onTimeout` que la suprime, el debugger de VSCode con
+  /// "Uncaught Exceptions" o "All Exceptions" pausa en el throw —
+  /// el usuario tenía que apretar Play repetidas veces para destrabar
+  /// la sesión.
+  ///
+  /// Este helper usa `Future.any` con un Timer manual: si el timer se
+  /// dispara primero, completa con un valor "vacío", el future original
+  /// queda volando pero sin afectarnos. Si el future original termina
+  /// antes, cancelamos el timer. Nunca hay throw → el debugger no
+  /// pausa y el flujo es limpio.
+  Future<void> _withSoftTimeout(
+    Future<void> Function() task, {
+    required Duration timeout,
+    required String tag,
+    VoidCallback? onTimeoutOrError,
+  }) async {
+    final completer = Completer<void>();
+    Timer? timer;
+
+    timer = Timer(timeout, () {
+      if (!completer.isCompleted) {
+        if (kDebugMode) print('⏰ Timeout en $tag');
+        if (onTimeoutOrError != null && _isAlive) onTimeoutOrError();
+        completer.complete();
+      }
+    });
+
+    task().then((_) {
+      if (!completer.isCompleted) {
+        timer?.cancel();
+        completer.complete();
+      }
+    }).catchError((e) {
+      if (!completer.isCompleted) {
+        timer?.cancel();
+        if (kDebugMode) print('⚠️ Error en $tag: $e');
+        if (onTimeoutOrError != null && _isAlive) onTimeoutOrError();
+        completer.complete();
+      }
+    });
+
+    return completer.future;
   }
 }

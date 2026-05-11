@@ -163,38 +163,37 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   PreferredSizeWidget _buildFuturisticAppBar() {
+    // En mobile el AppBar tiene que pelear espacio entre 5 elementos:
+    // drawer hamburguesa + título + badge de caja (con valor) + sync +
+    // refresh. Para que quepan TODOS sin que el badge se trunque, en
+    // mobile:
+    //  - eliminamos el cuadrito con ícono de dashboard (estético, no
+    //    aporta info)
+    //  - título más chico (17 vs 20)
+    //  - badge en modo `compact` (oculta etiqueta interna, sólo valor)
+    final isMobile = MediaQuery.of(Get.context!).size.width < 700;
     return AppBar(
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              gradient: ElegantLightTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: ElegantLightTheme.glowShadow,
-            ),
-            child: const Icon(
-              Icons.dashboard,
-              color: Colors.white,
-              size: 24,
-            ),
+      // `centerTitle: false` fuerza el título a la izquierda — sin esto
+      // Flutter lo centra cuando hay actions en mobile, lo que dejaba
+      // "Dashboard" en el medio y le robaba ancho al badge de caja.
+      centerTitle: false,
+      titleSpacing: isMobile ? 0 : NavigationToolbar.kMiddleSpacing,
+      title: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Dashboard',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: isMobile ? 17 : 20,
+            shadows: const [
+              Shadow(
+                color: Colors.black26,
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Text(
-            'Dashboard',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 20,
-              shadows: [
-                Shadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
       automaticallyImplyLeading: false,
       leading: Builder(
@@ -205,17 +204,26 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
       ),
       actions: [
-        // Phase 2: Badge permanente con estado de caja registradora.
-        // Click → navega a la pantalla de caja (abrir/cerrar/ver detalle).
+        // Badge de caja: el valor REAL (no compacto). El usuario quiere
+        // ver $15.428.000, no $15M.
         const CashRegisterStatusBadge(),
+        // Separador para que el valor de la caja no quede pegado al
+        // icono de sincronización (se veían fundidos visualmente).
+        SizedBox(width: isMobile ? 6 : 10),
         // FASE 6: Indicador de estado de sincronización
         const SyncStatusIcon(),
         IconButton(
           icon: const Icon(Icons.refresh),
           onPressed: controller.refreshAll,
           tooltip: 'Actualizar datos',
+          padding: isMobile
+              ? const EdgeInsets.symmetric(horizontal: 6)
+              : null,
+          constraints: isMobile
+              ? const BoxConstraints(minWidth: 36, minHeight: 36)
+              : null,
         ),
-        const SizedBox(width: AppDimensions.paddingSmall),
+        SizedBox(width: isMobile ? 4 : AppDimensions.paddingSmall),
       ],
       flexibleSpace: Container(
         decoration: BoxDecoration(

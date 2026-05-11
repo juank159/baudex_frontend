@@ -35,68 +35,146 @@ class FinancialAnalysisWidget extends StatelessWidget {
 
     return DefaultTabController(
       length: 2,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: ElegantLightTheme.cardGradient,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: ElegantLightTheme.elevatedShadow,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ===== Header con KPI principal =====
-            _buildKpiHeader(
-              isMobile: isMobile,
-              netRevenue: netRevenue,
-              creditNotesTotal: stats.creditNotesTotal,
-              hasCreditNotes: hasCreditNotes,
-            ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // En desktop el card vive dentro de un Expanded(flex: ...) con
+          // altura limitada — si el contenido del tab es más alto que esa
+          // altura disponible, hay overflow. Detectamos eso con
+          // `hasBoundedHeight` y en ese caso envolvemos el contenido en un
+          // SingleChildScrollView para que pueda scrollear. En mobile/tablet
+          // el card crece con su contenido (`MainAxisSize.min`), así que no
+          // hay constraint y mostramos el contenido tal cual.
+          final bounded = constraints.hasBoundedHeight;
+          final tabbed = _TabbedContent(stats: stats);
 
-            // ===== TabBar =====
-            Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: ElegantLightTheme.textTertiary
-                        .withValues(alpha: 0.15),
+          final tabContent = bounded
+              ? Expanded(
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: tabbed,
                   ),
-                ),
-              ),
-              child: TabBar(
-                indicatorColor: ElegantLightTheme.primaryBlue,
-                indicatorWeight: 3,
-                labelColor: ElegantLightTheme.primaryBlue,
-                unselectedLabelColor: ElegantLightTheme.textSecondary,
-                labelStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-                tabs: const [
-                  Tab(
-                    icon: Icon(Icons.account_tree_rounded, size: 18),
-                    text: 'Por Operación',
-                    iconMargin: EdgeInsets.only(bottom: 2),
-                  ),
-                  Tab(
-                    icon: Icon(Icons.account_balance_wallet_rounded, size: 18),
-                    text: 'Por Canal',
-                    iconMargin: EdgeInsets.only(bottom: 2),
-                  ),
-                ],
-              ),
-            ),
+                )
+              : tabbed;
 
-            // ===== Contenido de cada tab =====
-            // Usamos altura intrínseca con AnimatedSize para que la altura
-            // se adapte al tab activo sin saltos visuales.
-            _TabbedContent(stats: stats),
-          ],
-        ),
+          return Container(
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.cardGradient,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: ElegantLightTheme.elevatedShadow,
+            ),
+            child: Column(
+              mainAxisSize: bounded ? MainAxisSize.max : MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ===== Header con KPI principal =====
+                _buildKpiHeader(
+                  isMobile: isMobile,
+                  netRevenue: netRevenue,
+                  creditNotesTotal: stats.creditNotesTotal,
+                  hasCreditNotes: hasCreditNotes,
+                ),
+
+                // ===== TabBar elegante con gradient en indicador =====
+                Container(
+                  decoration: BoxDecoration(
+                    color: ElegantLightTheme.textTertiary.withValues(alpha: 0.04),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: ElegantLightTheme.textTertiary
+                            .withValues(alpha: 0.15),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 6),
+                  child: TabBar(
+                    // Indicador "pill" con gradient en lugar de la línea de
+                    // 3px que se veía simple. Queda flotante encima del tab
+                    // activo.
+                    indicator: BoxDecoration(
+                      gradient: ElegantLightTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: ElegantLightTheme.primaryBlue
+                              .withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    indicatorPadding: const EdgeInsets.symmetric(vertical: 4),
+                    dividerColor: Colors.transparent,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: ElegantLightTheme.textSecondary,
+                    labelStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                    splashBorderRadius: BorderRadius.circular(12),
+                    tabs: const [
+                      // Los tabs se renderizan con width fijo (tab indicator
+                      // size = tab); cuando "Por Operación" más icono + gap
+                      // pasa por unos píxeles del ancho disponible, Flex
+                      // tira overflow. `Flexible` + `overflow.ellipsis` deja
+                      // que el texto se ajuste sin romper layout. Reducimos
+                      // gap 8→6 para dar más margen al texto.
+                      Tab(
+                        height: 42,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.account_tree_rounded, size: 16),
+                            SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Por Operación',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Tab(
+                        height: 42,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.account_balance_wallet_rounded,
+                                size: 16),
+                            SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Por Canal',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ===== Contenido del tab activo (scrolleable si hay altura
+                // constreñida) =====
+                tabContent,
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -107,185 +185,158 @@ class FinancialAnalysisWidget extends StatelessWidget {
     required double creditNotesTotal,
     required bool hasCreditNotes,
   }) {
+    // Header compacto en UNA fila: icono + (label + valor grande) + badge NCs.
+    // Gana ~50px verticales vs el layout anterior (que tenía 2 rows
+    // separados por SizedBox), dejando más espacio para el scroll del tab.
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        isMobile ? 16 : 20,
-        isMobile ? 16 : 20,
-        isMobile ? 16 : 20,
-        isMobile ? 12 : 16,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 14 : 16,
+        vertical: isMobile ? 10 : 12,
       ),
       decoration: BoxDecoration(
         gradient: ElegantLightTheme.successGradient,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.savings_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Análisis del Período',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Ingresos Netos',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                AppFormatters.formatCurrency(netRevenue),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: isMobile ? 26 : 32,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              if (hasCreditNotes) ...[
-                const SizedBox(width: 10),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '−${AppFormatters.formatCurrency(creditNotesTotal)} en NCs',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            hasCreditNotes
-                ? 'Dinero cobrado menos devoluciones'
-                : 'Dinero efectivamente cobrado en el período',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+          // Icono
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.savings_rounded,
+              color: Colors.white,
+              size: 20,
             ),
           ),
+          const SizedBox(width: 12),
+          // Label + valor grande en columna apretada (sin spacing extra)
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  hasCreditNotes
+                      ? 'Ingresos Netos (post-devoluciones)'
+                      : 'Ingresos Netos del Período',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  AppFormatters.formatCurrency(netRevenue),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isMobile ? 22 : 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    height: 1.1,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          // Badge de NCs (solo si hay)
+          if (hasCreditNotes) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'NCs',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Text(
+                    '−${AppFormatters.formatCurrency(creditNotesTotal)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-/// Contenedor de los 2 tabs. Lo separo a un widget aparte para poder usar
-/// `AnimatedSize` que ajusta la altura del card al contenido del tab
-/// activo (los 2 widgets son de altura distinta).
-class _TabbedContent extends StatefulWidget {
+/// Contenedor de los 2 tabs. Usa `AnimatedBuilder` sobre el TabController
+/// para reactivar cuando cambia el tab — más robusto que listener manual
+/// con setState (esto último causaba un `dependent._parent` assertion al
+/// reconstruir el árbol vía LayoutBuilder/responsive switches).
+class _TabbedContent extends StatelessWidget {
   final DashboardStats stats;
   const _TabbedContent({required this.stats});
 
   @override
-  State<_TabbedContent> createState() => _TabbedContentState();
-}
-
-class _TabbedContentState extends State<_TabbedContent> {
-  TabController? _tabController;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // El TabController vive en DefaultTabController (ancestor). NO se puede
-    // resolver en initState porque depende del context inherited; debe
-    // hacerse en didChangeDependencies. Adjuntamos el listener una sola vez.
-    final newController = DefaultTabController.of(context);
-    if (_tabController != newController) {
-      _tabController?.removeListener(_onTabChanged);
-      _tabController = newController;
-      _tabController!.addListener(_onTabChanged);
-    }
-  }
-
-  @override
-  void dispose() {
-    _tabController?.removeListener(_onTabChanged);
-    super.dispose();
-  }
-
-  void _onTabChanged() {
-    if (mounted) setState(() {});
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final index = _tabController?.index ?? 0;
-    // Renderizado LAZY del tab activo — evita el overflow de IndexedStack
-    // (que tomaba el alto del child más grande aunque solo se viera uno).
-    // AnimatedSize anima la transición de altura entre tabs.
-    final Widget child;
-    if (index == 0) {
-      child = KeyedSubtree(
-        key: const ValueKey('tab-operation'),
-        child: IncomeBreakdownWidget(stats: widget.stats),
-      );
-    } else {
-      child = KeyedSubtree(
-        key: const ValueKey('tab-channel'),
-        child: widget.stats.cashFlow.hasAny
-            ? CashFlowSummaryWidget(
-                cashFlow: widget.stats.cashFlow,
-                creditNotesTotal: widget.stats.creditNotesTotal,
-                creditNotesCount: widget.stats.creditNotesCount,
-              )
-            : const _EmptyChannelState(),
-      );
-    }
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: child,
+    final controller = DefaultTabController.of(context);
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        // Renderizado LAZY del tab activo. NO usamos AnimatedSize aquí
+        // porque dentro del path "bounded" el contenido está envuelto en
+        // Expanded(SingleChildScrollView) y AnimatedSize fuerza re-layout
+        // → `!_debugDoingThisLayout` assertion. La transición es
+        // instantánea pero AnimatedSwitcher da un crossfade suave.
+        final index = controller.index;
+        final Widget child;
+        if (index == 0) {
+          child = KeyedSubtree(
+            key: const ValueKey('tab-operation'),
+            child: IncomeBreakdownWidget(stats: stats),
+          );
+        } else {
+          child = KeyedSubtree(
+            key: const ValueKey('tab-channel'),
+            child: stats.cashFlow.hasAny
+                ? CashFlowSummaryWidget(
+                    cashFlow: stats.cashFlow,
+                    creditNotesTotal: stats.creditNotesTotal,
+                    creditNotesCount: stats.creditNotesCount,
+                  )
+                : const _EmptyChannelState(),
+          );
+        }
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          child: child,
+        );
+      },
     );
   }
 }
