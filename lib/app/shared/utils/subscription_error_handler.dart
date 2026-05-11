@@ -4,6 +4,9 @@ import 'package:get/get.dart';
 import '../../../app/core/errors/failures.dart';
 import '../widgets/subscription_error_dialog.dart';
 import '../services/subscription_info_service.dart';
+import '../services/subscription_alert_service.dart';
+import '../../../features/subscriptions/domain/entities/subscription.dart'
+    show SubscriptionAlertLevel;
 
 /// Utility class para manejar errores de suscripción de forma global
 class SubscriptionErrorHandler {
@@ -40,12 +43,15 @@ class SubscriptionErrorHandler {
         message = customMessage ?? SubscriptionInfoService.getContextualMessage(context);
       }
 
-      SubscriptionErrorDialog.showSubscriptionExpired(
-        customMessage: message,
-        onUpgradePressed: onUpgradePressed ?? () {
-          Get.toNamed('/settings/subscription');
-        },
-      );
+      // Throttling — consultamos al SubscriptionAlertService en
+      // fire-and-forget para no romper el contrato síncrono del
+      // método (10+ callers leen el bool retornado).
+      //
+      // Si el service permite, mostramos el dialog. Si no, lo
+      // suprimimos pero igual retornamos `true` para que el caller no
+      // muestre otro error genérico encima — el usuario ya sabe que
+      // está expirado, no necesita verlo de nuevo cada 5 minutos.
+      _maybeShowExpiredDialog(message, onUpgradePressed);
 
       return true; // Error manejado
     }
@@ -54,4 +60,32 @@ class SubscriptionErrorHandler {
     return false; // No es error de suscripción, usar manejo normal
   }
 
+  /// Pregunta al SubscriptionAlertService si puede mostrar el dialog
+  /// y lo dispara si está permitido. Es fire-and-forget para no
+  /// bloquear el caller.
+  static void _maybeShowExpiredDialog(
+    String message,
+    VoidCallback? onUpgradePressed,
+  ) {
+    () async {
+      if (Get.isRegistered<SubscriptionAlertService>()) {
+        final svc = Get.find<SubscriptionAlertService>();
+        final allowed = await svc.tryShow(
+          level: SubscriptionAlertLevel.expired,
+          daysUntilExpiration: 0,
+        );
+        if (!allowed) {
+          print('⏸️ Dialog de suscripción expirada suprimido por cooldown');
+          return;
+        }
+      }
+      SubscriptionErrorDialog.showSubscriptionExpired(
+        customMessage: message,
+        onUpgradePressed: onUpgradePressed ??
+            () {
+              Get.toNamed('/settings/subscription');
+            },
+      );
+    }();
+  }
 }

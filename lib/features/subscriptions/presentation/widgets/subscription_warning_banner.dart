@@ -45,6 +45,15 @@ class SubscriptionWarningBanner extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
+        // Política nueva (acordada con el cliente): banner solo se
+        // muestra cuando queda ≤1 día. Antes aparecía con 7 días y
+        // saturaba al usuario sin urgencia real.
+        // Los `expired` siguen mostrándose (es estado terminal).
+        if (!subscription.isExpired &&
+            subscription.daysUntilExpiration > 1) {
+          return const SizedBox.shrink();
+        }
+
         final config = _getBannerConfig(alertLevel, subscription);
 
         return AnimatedContainer(

@@ -19,6 +19,9 @@ import '../../core/services/idempotency_service.dart';
 import '../../core/services/conflict_resolution_service.dart';
 import '../../core/utils/app_logger.dart';
 import '../../shared/widgets/subscription_error_dialog.dart';
+import '../../shared/services/subscription_alert_service.dart';
+import '../../../features/subscriptions/domain/entities/subscription.dart'
+    show SubscriptionAlertLevel;
 
 // Products
 import '../../../features/products/data/datasources/product_remote_datasource.dart';
@@ -1381,11 +1384,30 @@ class SyncService extends GetxService {
 
   /// Muestra el diálogo de suscripción expirada de forma segura (post-frame).
   /// Llamado cuando el sync detecta un 403 por primera vez en la sesión.
+  ///
+  /// Pasa por el `SubscriptionAlertService` para no duplicar el aviso
+  /// si el usuario ya lo vio recientemente desde otro flujo (validation
+  /// service, error handler, dashboard onReady). Cooldown 2h en
+  /// memoria/storage centralizado.
   void _showSubscriptionExpiredDialog() {
     try {
-      // Diferimos con microtask para no chocar con el build actual.
-      Future.microtask(() {
+      Future.microtask(() async {
         try {
+          // Consulta central — si está en cooldown, no mostramos.
+          if (Get.isRegistered<SubscriptionAlertService>()) {
+            final svc = Get.find<SubscriptionAlertService>();
+            final allowed = await svc.tryShow(
+              level: SubscriptionAlertLevel.expired,
+              daysUntilExpiration: 0,
+            );
+            if (!allowed) {
+              AppLogger.d(
+                'Dialog de sync expirado suprimido por cooldown central',
+                tag: 'SYNC',
+              );
+              return;
+            }
+          }
           SubscriptionErrorDialog.showSubscriptionExpired(
             customMessage:
                 'Algunas operaciones creadas sin internet (productos, '

@@ -80,6 +80,7 @@ import '../features/settings/data/repositories/organization_offline_repository.d
 // Subscription services
 import '../features/subscriptions/presentation/bindings/subscription_binding.dart';
 import 'shared/services/subscription_offline_policy.dart';
+import 'shared/services/subscription_alert_service.dart';
 
 class InitialBinding implements Bindings {
   static bool _initialized = false;
@@ -179,6 +180,12 @@ class InitialBinding implements Bindings {
 
     // Security services
     Get.lazyPut<PasswordValidationService>(() => PasswordValidationService(Get.find<DioClient>()), fenix: true);
+
+    // Throttling central de avisos de suscripción — todos los puntos
+    // que muestren dialog/banner/snackbar de suscripción consultan
+    // este servicio antes (regla: solo cuando queda ≤1 día, cooldown
+    // 2h entre avisos, persistido entre sesiones).
+    Get.put<SubscriptionAlertService>(SubscriptionAlertService(), permanent: true);
 
     // UI Controllers
     Get.lazyPut<AppDrawerController>(() => AppDrawerController(), fenix: true);

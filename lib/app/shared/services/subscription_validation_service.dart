@@ -9,6 +9,9 @@ import '../../../features/subscriptions/presentation/controllers/subscription_co
 import '../../../app/core/network/network_info.dart';
 import '../../../app/data/local/isar_database.dart';
 import '../widgets/subscription_error_dialog.dart';
+import '../../../features/subscriptions/domain/entities/subscription.dart'
+    show SubscriptionAlertLevel;
+import 'subscription_alert_service.dart';
 
 /// Servicio para validar suscripciones ANTES de hacer operaciones críticas.
 ///
@@ -383,49 +386,70 @@ class SubscriptionValidationService {
     );
   }
 
-  /// Mostrar notificación del estado de la suscripción al iniciar
-  /// ✅ MEJORADO: Muestra diálogos profesionales que el usuario debe confirmar
-  /// Funciona tanto ONLINE como OFFLINE
-  static void _showExpirationWarningIfNeeded(SubscriptionData data) {
+  /// Mostrar notificación del estado de la suscripción al iniciar.
+  ///
+  /// Antes este método disparaba el dialog cada vez que se llamaba —
+  /// como se llama en CADA `canCreateInvoice/Product/Customer/Payment`,
+  /// el cliente veía 3 dialogs seguidos al crear 3 productos con
+  /// suscripción próxima a vencer.
+  ///
+  /// Ahora consulta `SubscriptionAlertService` antes de mostrar nada.
+  /// El servicio aplica la política: solo cuando `daysUntilExpiration
+  /// <= 1` (warning/critical) Y con cooldown 2h persistido entre
+  /// sesiones. Para `expired` es 1 vez por sesión.
+  static Future<void> _showExpirationWarningIfNeeded(
+      SubscriptionData data) async {
     print('🔔 SUBSCRIPTION DIALOG: Evaluando estado de suscripción...');
     print('   - Fuente: ${data.source}');
     print('   - Status: ${data.status}');
     print('   - End Date: ${data.endDate}');
     print('   - Is Expired (calculated): ${data.isExpired}');
 
-    // PASO 1: Verificar si ya está vencida por el getter isExpired
-    if (data.isExpired) {
+    // Calcular días restantes (si tenemos endDate) y nivel de alerta.
+    int daysUntilExpiration = 0;
+    if (data.endDate != null) {
+      daysUntilExpiration = data.endDate!.difference(DateTime.now()).inDays;
+    }
+
+    SubscriptionAlertLevel? level;
+    if (data.isExpired || daysUntilExpiration <= 0) {
+      level = SubscriptionAlertLevel.expired;
+    } else if (daysUntilExpiration <= 3) {
+      level = SubscriptionAlertLevel.critical;
+    } else if (daysUntilExpiration <= _warningDaysBeforeExpiration) {
+      level = SubscriptionAlertLevel.warning;
+    }
+
+    // Sin nivel relevante → silencio.
+    if (level == null) {
+      print(
+          '🟢 SUBSCRIPTION: Válida por $daysUntilExpiration días - No se muestra diálogo');
+      return;
+    }
+
+    // Throttling central — corta el spam.
+    if (Get.isRegistered<SubscriptionAlertService>()) {
+      final svc = Get.find<SubscriptionAlertService>();
+      final allowed = await svc.tryShow(
+        level: level,
+        daysUntilExpiration: daysUntilExpiration,
+      );
+      if (!allowed) {
+        print(
+            '⏸️ Aviso $level bloqueado por SubscriptionAlertService (>1 día o cooldown 2h)');
+        return;
+      }
+    }
+
+    // Disparar el dialog correspondiente.
+    if (level == SubscriptionAlertLevel.expired) {
       print('🔴 SUBSCRIPTION: VENCIDA - Mostrando diálogo de expirado');
       _showExpiredStatusDialog();
-      return;
-    }
-
-    // PASO 2: Verificar días hasta expiración
-    if (data.endDate == null) {
-      print('⚠️ SUBSCRIPTION: No hay fecha de expiración, no se muestra diálogo');
-      return;
-    }
-
-    final now = DateTime.now();
-    final daysUntilExpiration = data.endDate!.difference(now).inDays;
-    print('   - Días hasta expiración: $daysUntilExpiration');
-
-    // PASO 3: Si ya venció (días negativos o 0)
-    if (daysUntilExpiration <= 0) {
-      print('🔴 SUBSCRIPTION: VENCIDA (días <= 0) - Mostrando diálogo de expirado');
-      _showExpiredStatusDialog();
-      return;
-    }
-
-    // PASO 4: Si está por vencer (dentro de los próximos 7 días)
-    if (daysUntilExpiration <= _warningDaysBeforeExpiration) {
-      print('🟡 SUBSCRIPTION: POR VENCER en $daysUntilExpiration días - Mostrando diálogo de advertencia');
+    } else {
+      print(
+          '🟡 SUBSCRIPTION: POR VENCER en $daysUntilExpiration días - Mostrando diálogo');
       _showExpiringDialog(daysUntilExpiration);
-      return;
     }
-
-    // PASO 5: Si tiene más de 7 días, no mostrar nada
-    print('🟢 SUBSCRIPTION: Válida por $daysUntilExpiration días - No se muestra diálogo');
   }
 
   /// ✅ Widget reutilizable con información de contacto
