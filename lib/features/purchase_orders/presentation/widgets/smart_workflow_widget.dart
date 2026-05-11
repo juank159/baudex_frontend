@@ -647,6 +647,12 @@ class _SmartWorkflowWidgetState extends State<SmartWorkflowWidget>
     // Simular procesamiento
     await Future.delayed(const Duration(seconds: 2));
 
+    // El widget puede haber sido desmontado durante el await
+    // (navegación, cambio de estado del PO que oculta este action,
+    // etc.). Sin el guard, setState lanza
+    // "setState() called after dispose()".
+    if (!mounted) return;
+
     setState(() {
       _isProcessing = false;
     });
