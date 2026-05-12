@@ -24,7 +24,11 @@ android {
         applicationId = "com.example.baudex_desktop"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Forzado a 23 (Android 6.0+) porque `mobile_scanner` exige
+        // ese mínimo. `flutter.minSdkVersion` evalúa a 21 en Flutter
+        // 3.32, lo cual rompe el build con
+        // "plugin mobile_scanner requires a higher Android SDK version".
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
