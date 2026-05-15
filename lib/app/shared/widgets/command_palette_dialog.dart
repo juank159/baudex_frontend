@@ -89,6 +89,14 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
   late List<_PaletteEntry> _filtered;
   int _selectedIndex = 0;
 
+  // GlobalKey por item visible para que `Scrollable.ensureVisible`
+  // pueda llevarlo al viewport con precisión, sin depender de cálculos
+  // de altura constante (los items tienen padding + margin variables
+  // que un cálculo manual `index * itemHeight` aproximaba mal — bug
+  // reportado: al bajar/subir más allá de los items visibles, dejaba
+  // el cursor en el antepenúltimo en vez del último).
+  final Map<int, GlobalKey> _itemKeys = {};
+
   late final AnimationController _animController;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
@@ -100,13 +108,18 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
     _filtered = _allEntries;
     _searchController.addListener(_onSearchChanged);
 
+    // Animación más suave: curva estándar `easeOutCubic` (sin rebote)
+    // y duración un poco mayor para que la entrada se sienta tranquila.
     _animController = AnimationController(
       vsync: this,
-      duration: ElegantLightTheme.normalAnimation,
+      duration: const Duration(milliseconds: 220),
     );
-    _fade = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _fade = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    );
     _slide = Tween<Offset>(
-      begin: const Offset(0, -0.05),
+      begin: const Offset(0, -0.02),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animController,
@@ -166,6 +179,9 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
       } else {
         _filtered = _allEntries.where((e) => e.matches(q)).toList();
       }
+      // Cuando el filtro cambia, los índices ya no apuntan a los mismos
+      // items: los keys viejos quedarían huérfanos en memoria.
+      _itemKeys.clear();
       _selectedIndex =
           _filtered.isEmpty ? 0 : _selectedIndex.clamp(0, _filtered.length - 1);
     });
@@ -229,25 +245,63 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
     return KeyEventResult.ignored;
   }
 
+  /// Lleva el item seleccionado a estar visible dentro del viewport.
+  ///
+  /// Usa `Scrollable.ensureVisible` con el GlobalKey del item, que es
+  /// la API canónica de Flutter para esto. Ventajas sobre el cálculo
+  /// manual anterior (`index * itemHeight`):
+  ///   - Tolera paddings/margins/heights variables.
+  ///   - Sabe llevar items que aún no estaban renderizados (en lazy
+  ///     `ListView.builder` los items fuera del viewport no existen
+  ///     hasta acercarse). Si no existe el key, scrolleamos primero
+  ///     a la posición aproximada y dejamos que ListView lo construya
+  ///     en el siguiente frame, luego re-llamamos a ensureVisible.
+  ///   - El alignment 0.5 deja el item centrado en el viewport, lo
+  ///     que da una transición visual más natural al navegar.
   void _scrollToSelected() {
     if (!_scrollController.hasClients) return;
-    const itemHeight = 56.0;
-    final target = _selectedIndex * itemHeight;
-    final viewport = _scrollController.position.viewportDimension;
-    final offset = _scrollController.offset;
-    if (target < offset) {
-      _scrollController.animateTo(
-        target,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
+    if (_filtered.isEmpty) return;
+
+    final key = _itemKeys[_selectedIndex];
+    final ctx = key?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
+        // 0.5 → centrado. Para el último item el framework lo ajusta
+        // al borde inferior automáticamente; lo mismo para el primero.
+        alignment: 0.5,
+        alignmentPolicy:
+            ScrollPositionAlignmentPolicy.explicit,
       );
-    } else if (target + itemHeight > offset + viewport) {
-      _scrollController.animateTo(
-        target + itemHeight - viewport,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-      );
+      return;
     }
+
+    // Item aún no construido (lazy list). Scrolleamos a la posición
+    // estimada para forzar el build y reintentamos en el próximo frame.
+    // Altura aproximada por item (height del Container + margin
+    // vertical del AnimatedContainer): 52 + 2*2 = 56.
+    const estimatedItemHeight = 56.0;
+    final estimatedOffset = _selectedIndex * estimatedItemHeight;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    _scrollController.animateTo(
+      estimatedOffset.clamp(0.0, maxScroll),
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOutCubic,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final retryCtx = _itemKeys[_selectedIndex]?.currentContext;
+      if (retryCtx != null) {
+        Scrollable.ensureVisible(
+          retryCtx,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOutCubic,
+          alignment: 0.5,
+        );
+      }
+    });
   }
 
   @override
@@ -440,7 +494,11 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
       itemBuilder: (context, index) {
         final entry = _filtered[index];
         final isSelected = index == _selectedIndex;
+        // GlobalKey por índice para que `Scrollable.ensureVisible`
+        // pueda traer este item al viewport sin importar paddings.
+        final itemKey = _itemKeys.putIfAbsent(index, () => GlobalKey());
         return AnimatedContainer(
+          key: itemKey,
           duration: ElegantLightTheme.fastAnimation,
           curve: Curves.easeOut,
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

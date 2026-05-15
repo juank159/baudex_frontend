@@ -66,13 +66,24 @@ class _KeyboardShortcutsDialogState extends State<KeyboardShortcutsDialog>
   @override
   void initState() {
     super.initState();
+    // Animación más suave: curva `easeOutCubic` (sin rebote elástico)
+    // y duración un poco mayor para que la entrada se sienta tranquila
+    // y no agresiva. Antes usaba `easeOutBack` que hacía un pequeño
+    // sobre-shoot — molesto cuando el usuario está concentrado.
     _animController = AnimationController(
       vsync: this,
-      duration: ElegantLightTheme.normalAnimation,
+      duration: const Duration(milliseconds: 220),
     );
-    _fade = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _scale = Tween<double>(begin: 0.96, end: 1.0)
-        .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutBack));
+    _fade = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    );
+    _scale = Tween<double>(begin: 0.985, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
     _animController.forward();
   }
 
