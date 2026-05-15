@@ -108,22 +108,23 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
     _filtered = _allEntries;
     _searchController.addListener(_onSearchChanged);
 
-    // Animación más suave: curva estándar `easeOutCubic` (sin rebote)
-    // y duración un poco mayor para que la entrada se sienta tranquila.
+    // Animación cinematográfica: curva "expo out" (`Cubic(0.16, 1, 0.3,
+    // 1)`) — arranca rápida y se desacelera mucho al final, dando una
+    // sensación elegante y moderna (es la que usan Linear, Vercel y
+    // Raycast en sus aperturas de modales). Duración 360ms para que se
+    // perciba clara pero no agresiva.
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 360),
     );
-    _fade = CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOutCubic,
-    );
+    const elegantCurve = Cubic(0.16, 1, 0.3, 1);
+    _fade = CurvedAnimation(parent: _animController, curve: elegantCurve);
     _slide = Tween<Offset>(
-      begin: const Offset(0, -0.02),
+      begin: const Offset(0, -0.04),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animController,
-      curve: Curves.easeOutCubic,
+      curve: elegantCurve,
     ));
     _animController.forward();
   }
@@ -220,18 +221,40 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
 
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       if (_filtered.isEmpty) return KeyEventResult.handled;
-      setState(() {
-        _selectedIndex = (_selectedIndex + 1) % _filtered.length;
-      });
+      // CLAMP, no wrap-around. Antes el código hacía
+      // `(_selectedIndex + 1) % _filtered.length`, que al llegar al
+      // último brincaba al primero. Con el `Scrollable.ensureVisible`
+      // y `alignment: 0.5` ese salto generaba un scroll a media
+      // posición (el "tercer item" reportado), porque el item 0 no
+      // se puede "centrar" cuando no hay espacio arriba — la posición
+      // que toma es ambigua. Apps profesionales (Slack, Linear,
+      // Raycast) detienen el cursor en el extremo: si quieres ir al
+      // inicio usas Home, al final usas End. Es más predecible.
+      if (_selectedIndex >= _filtered.length - 1) {
+        return KeyEventResult.handled;
+      }
+      setState(() => _selectedIndex++);
       _scrollToSelected();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
       if (_filtered.isEmpty) return KeyEventResult.handled;
-      setState(() {
-        _selectedIndex =
-            (_selectedIndex - 1 + _filtered.length) % _filtered.length;
-      });
+      if (_selectedIndex <= 0) return KeyEventResult.handled;
+      setState(() => _selectedIndex--);
+      _scrollToSelected();
+      return KeyEventResult.handled;
+    }
+    // Home / End — atajos clásicos para saltar a los extremos sin
+    // mantener la flecha presionada en listas largas.
+    if (event.logicalKey == LogicalKeyboardKey.home) {
+      if (_filtered.isEmpty) return KeyEventResult.handled;
+      setState(() => _selectedIndex = 0);
+      _scrollToSelected();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.end) {
+      if (_filtered.isEmpty) return KeyEventResult.handled;
+      setState(() => _selectedIndex = _filtered.length - 1);
       _scrollToSelected();
       return KeyEventResult.handled;
     }
@@ -262,18 +285,20 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
     if (!_scrollController.hasClients) return;
     if (_filtered.isEmpty) return;
 
+    const elegantCurve = Cubic(0.16, 1, 0.3, 1);
+    const scrollDuration = Duration(milliseconds: 240);
+
     final key = _itemKeys[_selectedIndex];
     final ctx = key?.currentContext;
     if (ctx != null) {
       Scrollable.ensureVisible(
         ctx,
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOutCubic,
+        duration: scrollDuration,
+        curve: elegantCurve,
         // 0.5 → centrado. Para el último item el framework lo ajusta
         // al borde inferior automáticamente; lo mismo para el primero.
         alignment: 0.5,
-        alignmentPolicy:
-            ScrollPositionAlignmentPolicy.explicit,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
       );
       return;
     }
@@ -287,8 +312,8 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
     final maxScroll = _scrollController.position.maxScrollExtent;
     _scrollController.animateTo(
       estimatedOffset.clamp(0.0, maxScroll),
-      duration: const Duration(milliseconds: 120),
-      curve: Curves.easeOutCubic,
+      duration: scrollDuration,
+      curve: elegantCurve,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -296,8 +321,8 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
       if (retryCtx != null) {
         Scrollable.ensureVisible(
           retryCtx,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOutCubic,
+          duration: scrollDuration,
+          curve: elegantCurve,
           alignment: 0.5,
         );
       }
@@ -499,8 +524,11 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
         final itemKey = _itemKeys.putIfAbsent(index, () => GlobalKey());
         return AnimatedContainer(
           key: itemKey,
-          duration: ElegantLightTheme.fastAnimation,
-          curve: Curves.easeOut,
+          // Transición del fondo y borde al cambiar de selección.
+          // Curva expo-out + 220ms para que coincida con la estética
+          // suave del dialog entero.
+          duration: const Duration(milliseconds: 220),
+          curve: const Cubic(0.16, 1, 0.3, 1),
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             gradient: isSelected
@@ -547,7 +575,8 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog>
                 child: Row(
                   children: [
                     AnimatedContainer(
-                      duration: ElegantLightTheme.fastAnimation,
+                      duration: const Duration(milliseconds: 220),
+                      curve: const Cubic(0.16, 1, 0.3, 1),
                       width: 34,
                       height: 34,
                       decoration: BoxDecoration(
