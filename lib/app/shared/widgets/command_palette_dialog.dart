@@ -24,15 +24,54 @@ import '../utils/drawer_permission_filter.dart';
 class CommandPaletteDialog extends StatefulWidget {
   const CommandPaletteDialog({super.key});
 
-  static Future<void> show(BuildContext context) {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      // El palette aparece "anclado" en la parte superior del viewport
-      // para que la búsqueda quede cerca de las manos del usuario en
-      // pantallas verticales.
-      builder: (_) => const CommandPaletteDialog(),
-    );
+  /// Flag estático que indica si HAY una instancia del palette abierta.
+  /// Sirve para que el atajo `Ctrl + K` se comporte como un TOGGLE en
+  /// vez de apilar dialogs (bug reportado: presionar Cmd+K múltiples
+  /// veces abría varias instancias encima).
+  static bool _isOpen = false;
+
+  /// Acceso de solo-lectura para que callers externos (como el handler
+  /// global de shortcuts) puedan decidir si abrir o cerrar.
+  static bool get isOpen => _isOpen;
+
+  /// Abre el palette SOLO si no hay otra instancia abierta. Si ya hay
+  /// una, no hace nada (idempotente).
+  static Future<void> show(BuildContext context) async {
+    if (_isOpen) return;
+    _isOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        // El palette aparece "anclado" en la parte superior del viewport
+        // para que la búsqueda quede cerca de las manos del usuario en
+        // pantallas verticales.
+        builder: (_) => const CommandPaletteDialog(),
+      );
+    } finally {
+      // Se limpia el flag pase lo que pase: cerró por Esc, click fuera,
+      // selección de un resultado, o un pop manual. Sin este finally
+      // el palette quedaría "marcado como abierto" tras cerrarse y el
+      // siguiente Cmd+K no lo reabriría.
+      _isOpen = false;
+    }
+  }
+
+  /// Comportamiento toggle para el atajo `Ctrl + K`. Si está abierto,
+  /// lo cierra; si no, lo abre. Es el patrón estándar de Slack/Notion/
+  /// VSCode: la misma tecla que abre la busqueda también la oculta.
+  static Future<void> toggle(BuildContext context) async {
+    if (_isOpen) {
+      // Cerrar usando rootNavigator porque el dialog se monta ahí.
+      // `maybePop` no rompe si por alguna razón el dialog ya se cerró
+      // entre el check y este pop (race condition raro pero posible).
+      final navigator = Navigator.of(context, rootNavigator: true);
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+      return;
+    }
+    await show(context);
   }
 
   @override
@@ -130,6 +169,19 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+
+    // Cmd/Ctrl + K dentro del palette = cerrarlo (toggle local).
+    // Esta defensa garantiza que el "toggle con la misma tecla" funcione
+    // aun si por algún motivo el Shortcuts global no procesa el evento
+    // (puede pasar cuando el TextField está enfocado dentro del dialog
+    // y la jerarquía de focus consume el atajo localmente).
+    if (event.logicalKey == LogicalKeyboardKey.keyK &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
+      Navigator.of(context).pop();
+      return KeyEventResult.handled;
+    }
+
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       if (_filtered.isEmpty) return KeyEventResult.handled;
       setState(() {
@@ -494,6 +546,18 @@ class _PaletteEntry {
 class CommandPalette {
   CommandPalette._();
 
+  /// Comportamiento toggle (recomendado para atajos de teclado):
+  /// abre si está cerrado, cierra si está abierto. Es lo que esperan
+  /// los usuarios cuando presionan Cmd+K dos veces seguidas.
+  static Future<void> toggle() async {
+    final ctx = Get.context;
+    if (ctx == null) return;
+    await CommandPaletteDialog.toggle(ctx);
+  }
+
+  /// Sólo abre — usar cuando ya sabes que el palette está cerrado
+  /// (ej. desde un botón explícito, no desde un shortcut). Si ya estaba
+  /// abierto, es idempotente (no abre otra instancia).
   static Future<void> open() async {
     final ctx = Get.context;
     if (ctx == null) return;

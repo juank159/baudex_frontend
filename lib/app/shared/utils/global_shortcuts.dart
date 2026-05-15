@@ -78,7 +78,10 @@ class _GlobalShortcutsScope extends StatelessWidget {
 
   void _openPalette() {
     if (_shouldSkip()) return;
-    CommandPalette.open();
+    // Toggle, no `open`: si el palette ya está abierto, el mismo
+    // Cmd+K lo cierra (patrón Slack/Notion/VSCode). Antes este atajo
+    // apilaba dialogs al presionarse varias veces seguidas.
+    CommandPalette.toggle();
   }
 
   void _toggleDrawer() {
@@ -100,7 +103,8 @@ class _GlobalShortcutsScope extends StatelessWidget {
   void _openGuide() {
     final ctx = Get.context;
     if (ctx == null) return;
-    KeyboardShortcutsDialog.show(ctx);
+    // Toggle: Ctrl+/ cierra la guía si ya estaba visible.
+    KeyboardShortcutsDialog.toggle(ctx);
   }
 
   void _navigateTo(String route) {

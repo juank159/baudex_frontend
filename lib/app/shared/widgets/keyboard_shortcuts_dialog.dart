@@ -2,6 +2,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/elegant_light_theme.dart';
 import '../data/keyboard_shortcuts_registry.dart';
@@ -20,13 +21,35 @@ import '../models/keyboard_shortcut.dart';
 class KeyboardShortcutsDialog extends StatelessWidget {
   const KeyboardShortcutsDialog({super.key});
 
-  /// Helper para abrir el dialog desde cualquier parte de la app.
-  static Future<void> show(BuildContext context) {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => const KeyboardShortcutsDialog(),
-    );
+  /// Flag estático para que el atajo `Ctrl + /` se comporte como TOGGLE
+  /// y no apile múltiples instancias del dialog al presionarlo varias
+  /// veces.
+  static bool _isOpen = false;
+  static bool get isOpen => _isOpen;
+
+  /// Abre la guía SOLO si no está ya abierta (idempotente).
+  static Future<void> show(BuildContext context) async {
+    if (_isOpen) return;
+    _isOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => const KeyboardShortcutsDialog(),
+      );
+    } finally {
+      _isOpen = false;
+    }
+  }
+
+  /// Comportamiento toggle para el atajo `Ctrl + /`.
+  static Future<void> toggle(BuildContext context) async {
+    if (_isOpen) {
+      final navigator = Navigator.of(context, rootNavigator: true);
+      if (navigator.canPop()) navigator.pop();
+      return;
+    }
+    await show(context);
   }
 
   bool get _isMacOs {
@@ -38,12 +61,31 @@ class KeyboardShortcutsDialog extends StatelessWidget {
     }
   }
 
+  /// Listener interno: si el usuario presiona Ctrl/Cmd + / mientras la
+  /// guía está visible, se cierra. Defensa adicional al `toggle` global
+  /// para el caso en que el evento no suba al Shortcuts del MaterialApp.
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event, BuildContext ctx) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.slash &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
+      Navigator.of(ctx).pop();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 700;
     final groups = KeyboardShortcutsRegistry.grouped;
 
-    return Dialog(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => _handleKey(node, event, context),
+      child: Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: EdgeInsets.symmetric(
         horizontal: isMobile ? 12 : 40,
@@ -85,6 +127,7 @@ class KeyboardShortcutsDialog extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
