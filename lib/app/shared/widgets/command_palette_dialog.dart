@@ -78,7 +78,8 @@ class CommandPaletteDialog extends StatefulWidget {
   State<CommandPaletteDialog> createState() => _CommandPaletteDialogState();
 }
 
-class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
+class _CommandPaletteDialogState extends State<CommandPaletteDialog>
+    with SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   final _scrollController = ScrollController();
@@ -88,12 +89,30 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
   late List<_PaletteEntry> _filtered;
   int _selectedIndex = 0;
 
+  late final AnimationController _animController;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+
   @override
   void initState() {
     super.initState();
     _allEntries = _collectEntries();
     _filtered = _allEntries;
     _searchController.addListener(_onSearchChanged);
+
+    _animController = AnimationController(
+      vsync: this,
+      duration: ElegantLightTheme.normalAnimation,
+    );
+    _fade = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -0.05),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    ));
+    _animController.forward();
   }
 
   @override
@@ -102,6 +121,7 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
     _searchController.dispose();
     _searchFocusNode.dispose();
     _scrollController.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
@@ -233,7 +253,11 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    return Dialog(
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+      position: _slide,
+      child: Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: EdgeInsets.only(
         left: isMobile ? 12 : 80,
@@ -242,46 +266,91 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
         bottom: isMobile ? 24 : 24,
       ),
       alignment: Alignment.topCenter,
+      elevation: 0,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 600,
+          maxWidth: 620,
           maxHeight: MediaQuery.of(context).size.height * 0.72,
         ),
-        child: Container(
+        child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: ElegantLightTheme.elevatedShadow,
+            gradient: ElegantLightTheme.cardGradient,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: ElegantLightTheme.textTertiary.withValues(alpha: 0.18),
+            ),
+            boxShadow: [
+              ...ElegantLightTheme.elevatedShadow,
+              BoxShadow(
+                color: ElegantLightTheme.primaryBlue
+                    .withValues(alpha: 0.10),
+                blurRadius: 38,
+                offset: const Offset(0, 18),
+              ),
+            ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildSearchBar(),
-                const Divider(height: 1, thickness: 1),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: ElegantLightTheme.textTertiary
+                      .withValues(alpha: 0.15),
+                ),
                 Flexible(child: _buildResultsList()),
-                const Divider(height: 1, thickness: 1),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: ElegantLightTheme.textTertiary
+                      .withValues(alpha: 0.15),
+                ),
                 _buildHelpBar(),
               ],
             ),
           ),
         ),
       ),
+      ),
+      ),
     );
   }
 
   Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            ElegantLightTheme.primaryBlue.withValues(alpha: 0.03),
+          ],
+        ),
+      ),
       child: Row(
         children: [
-          Icon(
-            Icons.search,
-            color: ElegantLightTheme.textSecondary,
-            size: 20,
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: ElegantLightTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: ElegantLightTheme.primaryBlue
+                      .withValues(alpha: 0.25),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.search, color: Colors.white, size: 16),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Focus(
               onKeyEvent: _handleSearchKey,
@@ -289,26 +358,48 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
                 controller: _searchController,
                 focusNode: _searchFocusNode,
                 autofocus: true,
-                style: const TextStyle(fontSize: 15),
-                decoration: const InputDecoration(
+                style: TextStyle(
+                  fontSize: 15,
+                  color: ElegantLightTheme.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: InputDecoration(
                   hintText: 'Buscar pantallas, módulos, acciones...',
+                  hintStyle: TextStyle(
+                    color: ElegantLightTheme.textTertiary,
+                    fontWeight: FontWeight.w500,
+                  ),
                   border: InputBorder.none,
                   isCollapsed: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 8),
                 ),
               ),
             ),
           ),
           if (_searchController.text.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              splashRadius: 18,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              onPressed: () {
-                _searchController.clear();
-                _searchFocusNode.requestFocus();
-              },
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () {
+                  _searchController.clear();
+                  _searchFocusNode.requestFocus();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: ElegantLightTheme.textTertiary
+                        .withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close,
+                    size: 13,
+                    color: ElegantLightTheme.textSecondary,
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -344,88 +435,157 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
     return ListView.builder(
       controller: _scrollController,
       shrinkWrap: true,
+      padding: const EdgeInsets.symmetric(vertical: 6),
       itemCount: _filtered.length,
       itemBuilder: (context, index) {
         final entry = _filtered[index];
         final isSelected = index == _selectedIndex;
-        return Material(
-          color: isSelected
-              ? ElegantLightTheme.primaryBlue.withValues(alpha: 0.08)
-              : Colors.transparent,
-          child: InkWell(
-            // No tomar focus — el TextField del search debe mantenerlo
-            // para que el usuario siga tecleando sin perder posición.
-            canRequestFocus: false,
-            onTap: () {
-              setState(() => _selectedIndex = index);
-              _navigateToSelected();
-            },
-            onHover: (hover) {
-              if (hover && _selectedIndex != index) {
+        return AnimatedContainer(
+          duration: ElegantLightTheme.fastAnimation,
+          curve: Curves.easeOut,
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      ElegantLightTheme.primaryBlue
+                          .withValues(alpha: 0.10),
+                      ElegantLightTheme.primaryBlue
+                          .withValues(alpha: 0.04),
+                    ],
+                  )
+                : null,
+            borderRadius: BorderRadius.circular(10),
+            border: isSelected
+                ? Border.all(
+                    color: ElegantLightTheme.primaryBlue
+                        .withValues(alpha: 0.30),
+                    width: 1,
+                  )
+                : null,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              // No tomar focus — el TextField del search debe mantenerlo
+              // para que el usuario siga tecleando sin perder posición.
+              canRequestFocus: false,
+              onTap: () {
                 setState(() => _selectedIndex = index);
-              }
-            },
-            child: Container(
-              height: 56,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? ElegantLightTheme.primaryBlue
-                              .withValues(alpha: 0.15)
-                          : ElegantLightTheme.textTertiary
-                              .withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
+                _navigateToSelected();
+              },
+              onHover: (hover) {
+                if (hover && _selectedIndex != index) {
+                  setState(() => _selectedIndex = index);
+                }
+              },
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    AnimatedContainer(
+                      duration: ElegantLightTheme.fastAnimation,
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        gradient: isSelected
+                            ? ElegantLightTheme.primaryGradient
+                            : null,
+                        color: isSelected
+                            ? null
+                            : ElegantLightTheme.textTertiary
+                                .withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(9),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: ElegantLightTheme.primaryBlue
+                                      .withValues(alpha: 0.30),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Icon(
+                        entry.icon,
+                        size: 17,
+                        color: isSelected
+                            ? Colors.white
+                            : ElegantLightTheme.textSecondary,
+                      ),
                     ),
-                    child: Icon(
-                      entry.icon,
-                      size: 17,
-                      color: isSelected
-                          ? ElegantLightTheme.primaryBlue
-                          : ElegantLightTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          entry.title,
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: ElegantLightTheme.textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (entry.groupHint != null ||
-                            entry.subtitle != null)
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
                           Text(
-                            entry.groupHint ?? entry.subtitle!,
+                            entry.title,
                             style: TextStyle(
-                              fontSize: 11,
-                              color: ElegantLightTheme.textTertiary,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: isSelected
+                                  ? ElegantLightTheme.primaryBlueDark
+                                  : ElegantLightTheme.textPrimary,
+                              letterSpacing: 0.1,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                      ],
+                          if (entry.groupHint != null ||
+                              entry.subtitle != null)
+                            Text(
+                              entry.groupHint ?? entry.subtitle!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: ElegantLightTheme.textTertiary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (isSelected)
-                    Icon(
-                      Icons.subdirectory_arrow_left,
-                      size: 14,
-                      color: ElegantLightTheme.textTertiary,
-                    ),
-                ],
+                    if (isSelected)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: ElegantLightTheme.primaryBlue
+                              .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.keyboard_return,
+                              size: 11,
+                              color: ElegantLightTheme.primaryBlueDark,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Enter',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w800,
+                                color: ElegantLightTheme.primaryBlueDark,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -436,47 +596,68 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
 
   Widget _buildHelpBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      color: ElegantLightTheme.textTertiary.withValues(alpha: 0.05),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white,
+            ElegantLightTheme.textTertiary.withValues(alpha: 0.06),
+          ],
+        ),
+      ),
       child: Row(
         children: [
           _kbd('↑'),
+          const SizedBox(width: 3),
           _kbd('↓'),
-          const SizedBox(width: 4),
+          const SizedBox(width: 5),
           Text(
             'navegar',
             style: TextStyle(
               fontSize: 11,
               color: ElegantLightTheme.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           _kbd('Enter'),
-          const SizedBox(width: 4),
+          const SizedBox(width: 5),
           Text(
             'abrir',
             style: TextStyle(
               fontSize: 11,
               color: ElegantLightTheme.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           _kbd('Esc'),
-          const SizedBox(width: 4),
+          const SizedBox(width: 5),
           Text(
             'cerrar',
             style: TextStyle(
               fontSize: 11,
               color: ElegantLightTheme.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const Spacer(),
-          Text(
-            '${_filtered.length} resultado${_filtered.length == 1 ? '' : 's'}',
-            style: TextStyle(
-              fontSize: 11,
-              color: ElegantLightTheme.textTertiary,
-              fontWeight: FontWeight.w600,
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: ElegantLightTheme.primaryBlue.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '${_filtered.length} resultado${_filtered.length == 1 ? '' : 's'}',
+              style: TextStyle(
+                fontSize: 11,
+                color: ElegantLightTheme.primaryBlueDark,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -486,22 +667,31 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
 
   Widget _kbd(String label) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      constraints: const BoxConstraints(minWidth: 22),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(5),
         border: Border.all(
-          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.4),
+          color: ElegantLightTheme.textTertiary.withValues(alpha: 0.5),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: ElegantLightTheme.textTertiary.withValues(alpha: 0.4),
+            offset: const Offset(0, 1),
+            blurRadius: 0,
+          ),
+        ],
       ),
       child: Text(
         label,
+        textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 10,
           fontFamily: 'monospace',
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           color: ElegantLightTheme.textPrimary,
+          letterSpacing: 0.3,
         ),
       ),
     );

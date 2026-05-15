@@ -4,6 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../config/routes/app_routes.dart';
+import '../../core/services/permissions_service.dart';
+import '../../core/theme/elegant_light_theme.dart';
+import '../../../features/employees/domain/entities/module_permission.dart';
+import '../../../features/settings/presentation/controllers/organization_controller.dart';
 import '../widgets/command_palette_dialog.dart';
 import '../widgets/keyboard_shortcuts_dialog.dart';
 
@@ -110,11 +114,86 @@ class _GlobalShortcutsScope extends StatelessWidget {
   void _navigateTo(String route) {
     if (_shouldSkip()) return;
     if (Get.currentRoute == route) return;
+
+    // 🔒 SEGURIDAD MULTITENANT: cada usuario del tenant tiene permisos
+    // por módulo (`canView`). Antes los atajos Alt+1..9 navegaban sin
+    // chequear → un user sin acceso a Productos podía entrar a /products
+    // con Alt+6. La pantalla puede tener guardas internas pero no es
+    // garantía: a veces la pantalla solo guarda al guardar datos, no
+    // al entrar. Mejor cortarlo arriba para tener UX clara: snackbar
+    // explícito en lugar de pantalla en blanco / error confuso.
+    //
+    // Dashboard y rutas auxiliares no mapean a módulo → pasan siempre.
+    // Esta guarda solo aplica a rutas con permiso explícito.
+    final required = _moduleForRoute(route);
+    if (required != null) {
+      // Módulos opcionales del tenant (ej. cash register desactivada).
+      if (required == ModuleCode.cashRegister &&
+          Get.isRegistered<OrganizationController>() &&
+          !Get.find<OrganizationController>().isCashRegisterEnabled) {
+        _showAccessDenied(
+          'Caja registradora deshabilitada',
+          'El módulo está apagado en la configuración del tenant.',
+        );
+        return;
+      }
+      // Permiso de usuario.
+      if (Get.isRegistered<PermissionsService>()) {
+        final perms = Get.find<PermissionsService>();
+        if (!perms.canView(required)) {
+          _showAccessDenied(
+            'Sin permiso',
+            'No tienes acceso a este módulo. Pídele al admin del tenant que te lo habilite.',
+          );
+          return;
+        }
+      }
+    }
+
     if (route == AppRoutes.dashboard) {
       Get.offAllNamed(route);
     } else {
       Get.toNamed(route);
     }
+  }
+
+  /// Mapea cada ruta destino de los atajos `Alt+N` al `ModuleCode` que
+  /// debe estar permitido. Rutas sin entrada aquí no requieren permiso
+  /// (ej. Dashboard).
+  String? _moduleForRoute(String route) {
+    switch (route) {
+      case AppRoutes.invoicesWithTabs:
+      case AppRoutes.invoices:
+        return ModuleCode.invoices;
+      case AppRoutes.cashRegister:
+        return ModuleCode.cashRegister;
+      case AppRoutes.customers:
+        return ModuleCode.customers;
+      case AppRoutes.products:
+        return ModuleCode.products;
+      case AppRoutes.inventory:
+        return ModuleCode.inventory;
+      case AppRoutes.customerCredits:
+        return ModuleCode.customers;
+      case AppRoutes.expenses:
+        return ModuleCode.expenses;
+      default:
+        return null;
+    }
+  }
+
+  void _showAccessDenied(String title, String message) {
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: ElegantLightTheme.warningOrange.withValues(alpha: 0.95),
+      colorText: Colors.white,
+      icon: const Icon(Icons.lock_outline, color: Colors.white),
+      duration: const Duration(seconds: 3),
+      margin: const EdgeInsets.all(12),
+      borderRadius: 10,
+    );
   }
 
   @override

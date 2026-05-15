@@ -1,5 +1,9 @@
 // lib/app/shared/data/keyboard_shortcuts_registry.dart
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import '../../../features/employees/domain/entities/module_permission.dart';
+import '../../../features/settings/presentation/controllers/organization_controller.dart';
+import '../../core/services/permissions_service.dart';
 import '../models/keyboard_shortcut.dart';
 
 /// Registro central de TODOS los atajos de teclado de la app.
@@ -264,6 +268,58 @@ class KeyboardShortcutsRegistry {
         ShortcutScope.invoiceTabs: invoiceTabs,
         ShortcutScope.invoiceForm: invoiceForm,
       };
+
+  /// Variante de [grouped] que filtra los `Alt + N` por permisos del
+  /// usuario actual y por módulos opcionales del tenant (ej. caja
+  /// registradora apagada). Los atajos del invoice form / tabs y los
+  /// globales no-navegacionales (Ctrl+K, Ctrl+B, Ctrl+/) NO se filtran:
+  /// siempre están disponibles dentro de su contexto.
+  ///
+  /// Si no hay `PermissionsService` (caso pruebas / app aún inicializando)
+  /// se devuelve el grupo completo intacto para evitar guías vacías.
+  static Map<ShortcutScope, List<KeyboardShortcut>> groupedForUser() {
+    final isCashEnabled = _isCashRegisterEnabledForTenant();
+    final perms = Get.isRegistered<PermissionsService>()
+        ? Get.find<PermissionsService>()
+        : null;
+
+    bool isAllowed(KeyboardShortcut s) {
+      // Sólo filtramos los atajos de navegación (id que empieza con
+      // `nav_`); el resto se preserva siempre.
+      if (!s.id.startsWith('nav_')) return true;
+      final module = _navIdToModule[s.id];
+      if (module == null) return true; // ej. Dashboard
+      if (module == ModuleCode.cashRegister && !isCashEnabled) return false;
+      if (perms == null) return true;
+      return perms.canView(module);
+    }
+
+    return {
+      ShortcutScope.global: globals.where(isAllowed).toList(),
+      ShortcutScope.invoiceTabs: invoiceTabs,
+      ShortcutScope.invoiceForm: invoiceForm,
+    };
+  }
+
+  /// Mapeo de id de shortcut → ModuleCode que requiere. Mantener en
+  /// sync con `_moduleForRoute` de `global_shortcuts.dart`.
+  static const Map<String, String> _navIdToModule = {
+    'nav_invoices_create': ModuleCode.invoices,
+    'nav_invoices': ModuleCode.invoices,
+    'nav_cash_register': ModuleCode.cashRegister,
+    'nav_customers': ModuleCode.customers,
+    'nav_products': ModuleCode.products,
+    'nav_inventory': ModuleCode.inventory,
+    'nav_customer_credits': ModuleCode.customers,
+    'nav_expenses': ModuleCode.expenses,
+    // `nav_dashboard` intencionalmente NO está aquí: el dashboard es
+    // accesible para todos los usuarios autenticados.
+  };
+
+  static bool _isCashRegisterEnabledForTenant() {
+    if (!Get.isRegistered<OrganizationController>()) return true;
+    return Get.find<OrganizationController>().isCashRegisterEnabled;
+  }
 
   /// Etiqueta humana de cada scope para los headers de la guía.
   static String scopeLabel(ShortcutScope scope) {
