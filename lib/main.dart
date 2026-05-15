@@ -12,6 +12,7 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'app/config/routes/app_pages.dart';
 import 'app/config/routes/app_routes.dart';
 import 'app/config/themes/app_theme.dart';
+import 'app/shared/utils/global_shortcuts.dart';
 import 'app/config/constants/api_constants.dart';
 import 'app/core/navigation/app_route_observer.dart';
 
@@ -178,6 +179,13 @@ class _MyAppState extends State<MyApp> {
       // navigatorObservers: [appRouteObserver],
 
       initialBinding: InitialBinding(),
+
+      // Capa de atajos globales (Ctrl+K, Ctrl+B, Ctrl+/, Alt+1..9).
+      // Montada UNA sola vez encima del Navigator. Respeta el árbol de
+      // focus de Flutter: si una pantalla interna declara su propio
+      // `Shortcuts` (como el form de factura con Ctrl+1..9), el inner
+      // gana — estos atajos globales NO interceptan.
+      builder: GlobalShortcuts.builder,
     );
   }
 }

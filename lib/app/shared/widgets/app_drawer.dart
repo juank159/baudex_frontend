@@ -9,6 +9,7 @@ import '../controllers/app_drawer_controller.dart';
 import '../models/drawer_menu_item.dart';
 import '../utils/drawer_permission_filter.dart';
 import '../../core/services/permissions_service.dart';
+import 'keyboard_shortcuts_dialog.dart';
 import '../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../core/theme/elegant_light_theme.dart';
 import '../../presentation/widgets/sync_status_indicator.dart';
@@ -1402,6 +1403,30 @@ class AppDrawer extends GetWidget<AppDrawerController> {
                           ],
                         ),
                       ),
+                      // Acceso a la guía de atajos de teclado.
+                      // El usuario también puede invocarla con Ctrl + /
+                      // (ver `GlobalShortcuts`), pero exponerla aquí da
+                      // descubribilidad para quien nunca probó atajos.
+                      PopupMenuItem(
+                        value: 'keyboard_shortcuts',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.keyboard_alt_outlined,
+                              size: 18,
+                              color: ElegantLightTheme.textSecondary,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Atajos de teclado',
+                              style: TextStyle(
+                                color: ElegantLightTheme.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const PopupMenuDivider(),
                       PopupMenuItem(
                         value: 'logout',
@@ -1461,6 +1486,13 @@ class AppDrawer extends GetWidget<AppDrawerController> {
           backgroundColor: Colors.blue.shade100,
           colorText: Colors.blue.shade800,
         );
+        break;
+      case 'keyboard_shortcuts':
+        // Abre la guía de atajos. Mismo dialog que dispara Ctrl + /.
+        final ctx = Get.context;
+        if (ctx != null) {
+          KeyboardShortcutsDialog.show(ctx);
+        }
         break;
       case 'logout':
         _showLogoutDialog(authController);
